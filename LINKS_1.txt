@@ -1,0 +1,11 @@
+so here remove the how it works section also feature section
+
+instead there will be four sections
+
+the first sections is to cover ai multi agents and automation, humans and agents collaboration
+
+the second section cover  marketplace -> conve
+
+the third is project managements with ai intergation, collaborations, automations, etc. => here ephasize on platform capacities 
+
+

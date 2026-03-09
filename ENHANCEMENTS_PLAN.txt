@@ -1,0 +1,6 @@
+update home sidebar -> add more ... button at the end of the sidebar to keep it within the max screen 
+
+market place make them seperte card components and enhance ui 
+
+
+so the marketing landing page will be in different local port as later when deploying it will be using different domain/subdomain then when click signup or login redirect to frontend/main app port domain 

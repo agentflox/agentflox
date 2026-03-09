@@ -1,0 +1,43 @@
+
+// --- MULTI-AGENT COMPOSITION EXTENSIONS ---
+
+model AgentRelation {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  parentId    String   @map("parent_id") @db.Uuid
+  childId     String   @map("child_id") @db.Uuid
+  type        AgentRelationType @default(SUB_AGENT)
+  
+  // Logic for routing/orchestration between agents
+  routerConfig Json?   @map("router_config")
+  
+  // Shared memory/context config
+  shareMemory Boolean  @default(false) @map("share_memory")
+  permissions Json?
+
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  parent      AiAgent  @relation("ParentAgent", fields: [parentId], references: [id], onDelete: Cascade)
+  child       AiAgent  @relation("ChildAgent", fields: [childId], references: [id], onDelete: Cascade)
+
+  @@unique([parentId, childId])
+  @@index([parentId])
+  @@index([childId])
+  @@map("agent_relations")
+}
+
+enum AgentRelationType {
+  SUB_AGENT       // Child executes specific tasks for Parent
+  PEER            // Agents collaborate horizontally
+  SUPERVISOR      // Agent oversees/monitors another
+  CRITIC          // Agent critiques another's output
+}
+
+// Extension to AiAgent model (conceptual, to be merged)
+/*
+model AiAgent {
+  // ... existing fields ...
+  subAgents       AgentRelation[]      @relation("ParentAgent")
+  parentAgents    AgentRelation[]      @relation("ChildAgent")
+}
+*/

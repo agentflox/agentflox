@@ -1,0 +1,95 @@
+/* Custom styles for Tiptap editor inside Sticky Notes to override global document styles */
+
+.sticky-note-editor .ProseMirror {
+    padding: 0 !important;
+    outline: none !important;
+}
+
+/* Tighten vertical spacing between all elements */
+.sticky-note-editor .ProseMirror>*+* {
+    margin-top: 0.5em !important;
+}
+
+/* Remove the large horizontal margins from the global editor.css */
+.sticky-note-editor .ProseMirror>p,
+.sticky-note-editor .ProseMirror>h1,
+.sticky-note-editor .ProseMirror>h2,
+.sticky-note-editor .ProseMirror>h3,
+.sticky-note-editor .ProseMirror>ul,
+.sticky-note-editor .ProseMirror>ol,
+.sticky-note-editor .ProseMirror>pre,
+.sticky-note-editor .ProseMirror>blockquote {
+    margin-left: 0.2rem !important;
+    margin-right: 0.2rem !important;
+}
+
+/* Tighten list indentation for small notes */
+.sticky-note-editor .ProseMirror ul,
+.sticky-note-editor .ProseMirror ol {
+    padding-left: 1.25rem !important;
+    margin-top: 0.4rem !important;
+    margin-bottom: 0.4rem !important;
+}
+
+/* Ensure list markers are visible */
+.sticky-note-editor .ProseMirror ul {
+    list-style-type: disc !important;
+}
+
+.sticky-note-editor .ProseMirror ol {
+    list-style-type: decimal !important;
+}
+
+.sticky-note-editor .ProseMirror li {
+    margin-bottom: 0.2rem !important;
+}
+
+/* Scaling headings down slightly to fit the note better */
+.sticky-note-editor .ProseMirror h1 {
+    font-size: 1.4rem !important;
+    font-weight: 800 !important;
+    line-height: 1.2 !important;
+}
+
+.sticky-note-editor .ProseMirror h2 {
+    font-size: 1.2rem !important;
+    font-weight: 700 !important;
+    line-height: 1.2 !important;
+}
+
+.sticky-note-editor .ProseMirror h3 {
+    font-size: 1.1rem !important;
+    font-weight: 600 !important;
+    line-height: 1.2 !important;
+}
+
+/* Ensure paragraphs don't have bottom margins */
+.sticky-note-editor .ProseMirror p {
+    margin-bottom: 0 !important;
+}
+
+/* Marker color fix */
+.sticky-note-editor .ProseMirror li::marker {
+    color: currentColor;
+    opacity: 0.6;
+}
+
+/* Base formatting overrides to ensure visibility without document-level CSS */
+.sticky-note-editor .ProseMirror strong,
+.sticky-note-editor .ProseMirror b {
+    font-weight: 700 !important;
+}
+
+.sticky-note-editor .ProseMirror em,
+.sticky-note-editor .ProseMirror i {
+    font-style: italic !important;
+}
+
+.sticky-note-editor .ProseMirror u {
+    text-decoration: underline !important;
+}
+
+/* Ensure selection color is visible */
+.sticky-note-editor .ProseMirror *::selection {
+    background-color: rgba(0, 0, 0, 0.1);
+}

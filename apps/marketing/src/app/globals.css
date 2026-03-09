@@ -1,0 +1,200 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+/* Agentflox Design System */
+:root {
+  /* Brand Colors - Light Mode (Default but we mostly rely on dark mode for this brand) */
+  --background: 255 255 255;
+  --foreground: 15 23 42;
+  /* Slate 900 */
+
+  --primary: 99 102 241;
+  /* Indigo 500 */
+  --primary-foreground: 255 255 255;
+
+  --secondary: 168 85 247;
+  /* Purple 500 */
+  --secondary-foreground: 255 255 255;
+
+  --accent: 6 182 212;
+  /* Cyan 500 */
+  --accent-foreground: 255 255 255;
+
+  --muted: 241 245 249;
+  /* Slate 100 */
+  --muted-foreground: 100 116 139;
+  /* Slate 500 */
+
+  --border: 226 232 240;
+  /* Slate 200 */
+  --input: 226 232 240;
+  --ring: 99 102 241;
+
+  --radius: 0.75rem;
+}
+
+/* Dark Mode Variables (Primary Theme for Agentflox) */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: 2 6 23;
+    /* Slate 950 */
+    --foreground: 248 250 252;
+    /* Slate 50 */
+
+    --primary: 99 102 241;
+    /* Indigo 500 */
+    --primary-foreground: 255 255 255;
+
+    --secondary: 168 85 247;
+    /* Purple 500 */
+    --secondary-foreground: 255 255 255;
+
+    --accent: 34 211 238;
+    /* Cyan 400 */
+    --accent-foreground: 15 23 42;
+
+    --muted: 15 23 42;
+    /* Slate 900 */
+    --muted-foreground: 148 163 184;
+    /* Slate 400 */
+
+    --border: 30 41 59;
+    /* Slate 800 */
+    --input: 30 41 59;
+    --ring: 129 140 248;
+    /* Indigo 400 */
+  }
+}
+
+/* Base Styles */
+body {
+  @apply bg-slate-950 text-slate-50 antialiased;
+  font-feature-settings: "rlig" 1, "calt" 1;
+}
+
+/* Typography Utilities */
+.text-gradient {
+  @apply bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 via-purple-400 to-cyan-400;
+}
+
+.text-gradient-sub {
+  @apply bg-clip-text text-transparent bg-gradient-to-r from-slate-200 to-slate-400;
+}
+
+/* Glassmorphism Utilities */
+.glass-panel {
+  @apply bg-slate-950/50 backdrop-blur-xl border border-white/10;
+}
+
+.glass-card {
+  @apply bg-white/5 backdrop-blur-lg border border-white/5 hover:border-indigo-500/30 transition-colors duration-300;
+}
+
+.glass-button {
+  @apply bg-white/5 hover:bg-white/10 border border-white/10 backdrop-blur-sm transition-all duration-300;
+}
+
+/* Custom Animations */
+@keyframes float {
+  0% {
+    transform: translateY(0px);
+  }
+
+  50% {
+    transform: translateY(-20px);
+  }
+
+  100% {
+    transform: translateY(0px);
+  }
+}
+
+.animate-float {
+  animation: float 6s ease-in-out infinite;
+}
+
+.animate-float-delayed {
+  animation: float 6s ease-in-out infinite;
+  animation-delay: 2s;
+}
+
+@keyframes pulse-glow {
+
+  0%,
+  100% {
+    opacity: 0.5;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 0.8;
+    transform: scale(1.05);
+  }
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 3s ease-in-out infinite;
+}
+
+@keyframes grid-move {
+  0% {
+    transform: translateY(0);
+  }
+
+  100% {
+    transform: translateY(40px);
+  }
+}
+
+.bg-grid-animate {
+  background-size: 40px 40px;
+  background-image: linear-gradient(to right, rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+  animation: grid-move 20s linear infinite;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 10px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-slate-950;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-slate-800 rounded-full hover:bg-slate-700 transition-colors;
+}
+
+/* Utility Classes for Glow Effects */
+.glow-text {
+  text-shadow: 0 0 20px rgba(99, 102, 241, 0.5);
+}
+
+.glow-box {
+  box-shadow: 0 0 40px -10px rgba(99, 102, 241, 0.3);
+}
+
+/* Markdown Content Styling */
+.prose {
+  @apply text-slate-300;
+}
+
+.prose h1,
+.prose h2,
+.prose h3,
+.prose h4 {
+  @apply text-white font-bold;
+}
+
+.prose a {
+  @apply text-indigo-400 hover:text-indigo-300 no-underline transition-colors;
+}
+
+.prose code {
+  @apply bg-slate-900 px-1 py-0.5 rounded text-indigo-300 font-mono text-sm border border-indigo-500/20;
+}
+
+.prose pre {
+  @apply bg-slate-900/50 border border-white/5 p-4 rounded-lg overflow-x-auto;
+}

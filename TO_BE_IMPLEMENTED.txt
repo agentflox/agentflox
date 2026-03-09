@@ -1,0 +1,12 @@
+These 5 alone will satisfy most beta users:
+IntegrationWhy it's Tier 1Webhook (inbound + outbound)Universal — connects anything. Ship this day 1.HTTP RequestSame — if it has an API, users can connect it themselvesSlackEvery team uses it. Notifications + reading messages = two huge use casesGmail / Google WorkspaceEmail, Google Sheets, Airtable,Notion, Airtable, Jira, LinkedIn, Slack is still the #1 business actionOpenAI / AnthropicMeta — agents calling other AI models is extremely common
+
+
+
+
+
+
+✅ The 4 things together are the right bet
+What you're proposing vs. what will actually matter
+✅ The 4 things together are the right bet
+FeatureWhy it mattersBuild orderNative integrationsAgents can't do real work without them. This is your #1 adoption driver.1stTemplate libraryGets users to "aha moment" in minutes, not hours. Drives signups.2ndWorkforce chatbotDifferentiator — no competitor has edit-via-chat on a graph builder3rdCross-run memoryMakes agents feel alive vs. stateless functions4th

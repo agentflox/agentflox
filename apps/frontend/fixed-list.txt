@@ -1,0 +1,6 @@
+when update please invalidate the notification list and update list immidiately
+
+remove the mark as view in the notification item instead when user click on the notification item call mark view 
+
+
+in the proje

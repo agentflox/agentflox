@@ -1,0 +1,72 @@
+# =====================================================
+# AGENTFLOX Monorepo Git Ignore
+# Using pnpm + Turborepo + Docker
+# =====================================================
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+*.log
+
+# Build outputs
+dist/
+build/
+out/
+.next/
+.cache/
+turbo/
+.vite/
+coverage/
+
+.cursor
+
+# Turborepo cache
+.turbo/
+turbo.log
+
+# TypeScript
+*.tsbuildinfo
+
+# Env files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env.sentry-build-plugin
+
+# OS / Editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+
+# Docker
+docker-compose.override.yml
+.docker/
+*.pid
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.bak
+*.old
+
+# pnpm
+.pnpm-store
+.pnpm-debug.log
+
+# Misc
+*.log
+*.lock
+*.tgz
+
+# Ignore local scripts, drafts, or notes
+TO-DO*.txt
+SETUP.md
+GRANT-PERMISSION.txt

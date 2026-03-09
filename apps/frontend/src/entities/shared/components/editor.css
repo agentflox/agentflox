@@ -1,0 +1,453 @@
+:root {
+  /* Enterprise Palette - Refined Zinc/Purple Scale */
+  --menu-bg: rgba(255, 255, 255, 0.98);
+  --menu-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  --menu-border: #e4e4e7;
+  /* zinc-200 */
+  --item-hover: #f4f4f5;
+  /* zinc-100 */
+
+  --purple-primary: #7c3aed;
+  --purple-light: rgba(124, 58, 237, 0.06);
+  --purple-medium: rgba(124, 58, 237, 0.12);
+
+  --text-main: #27272a;
+  /* zinc-800 */
+  --text-muted: #71717a;
+  /* zinc-500 */
+
+  --gray-1: #f9fafb;
+  --gray-2: #f3f4f6;
+  --gray-3: #e5e7eb;
+
+  /* Layout Constants */
+  --editor-indent: 1.5rem;
+}
+
+/* Base Editor Polish */
+.ProseMirror {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 15px;
+  /* Slightly larger for readability */
+  line-height: 1.7;
+  color: var(--text-main);
+  padding: 2rem;
+  outline: none;
+}
+
+/* Consistent Vertical Rhythm */
+.ProseMirror>*+* {
+  margin-top: 1.25em !important;
+}
+
+/* Alignment logic: Headers and Paragraphs */
+.ProseMirror>p,
+.ProseMirror>h1,
+.ProseMirror>h2,
+.ProseMirror>h3,
+.ProseMirror>h4,
+.ProseMirror>pre,
+.ProseMirror>blockquote,
+.ProseMirror>.tableWrapper {
+  margin-left: var(--editor-indent);
+  margin-right: var(--editor-indent);
+}
+
+/* --- Headings --- */
+.tiptap h1,
+.tiptap h2,
+.tiptap h3 {
+  letter-spacing: -0.02em;
+  color: #111827;
+}
+
+.tiptap h1 {
+  font-size: 2rem;
+  font-weight: 800;
+}
+
+.tiptap h2 {
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.tiptap h3 {
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.tiptap h4 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #374151;
+}
+
+/* Extending Hover Anchor to h3 and h4 */
+.tiptap h1:hover::before,
+.tiptap h2:hover::before,
+.tiptap h3:hover::before,
+.tiptap h4:hover::before {
+  content: "#";
+  position: absolute;
+  left: -1.5rem;
+  color: var(--purple-primary);
+  font-weight: 400;
+  opacity: 0.5;
+}
+
+/* --- Blockquotes --- */
+.tiptap blockquote {
+  border-left: 4px solid var(--purple-primary);
+  background: var(--purple-light);
+  padding: 1rem 1.5rem;
+  border-radius: 0 0.75rem 0.75rem 0;
+  font-style: normal;
+  color: var(--text-main);
+}
+
+/* --- Lists (The tricky alignment part) --- */
+/* --- Optimized Lists for Enterprise Alignment --- */
+
+/* 1. Reset and Align the Container */
+.tiptap ul,
+.tiptap ol {
+  /* Match your --editor-indent of 2rem + extra for markers */
+  padding: 0 0 0 1.5rem;
+  margin: 1.25rem 0 1.25rem 2rem;
+  /* The 2rem matches your paragraph margin */
+}
+
+/* 2. Marker Styling */
+.tiptap ul {
+  list-style-type: disc;
+}
+
+.tiptap ol {
+  list-style-type: decimal;
+}
+
+/* Color the markers to match your purple theme */
+.tiptap ul li::marker,
+.tiptap ol li::marker {
+  color: var(--purple-primary);
+  font-weight: 600;
+}
+
+/* 3. Spacing between list items */
+.tiptap li {
+  padding-left: 0.5rem;
+  /* Space between bullet and text */
+  margin-bottom: 0.5rem;
+}
+
+/* Handle paragraphs inside lists (Tiptap often wraps li content in p) */
+.tiptap li>p {
+  margin: 0 !important;
+  display: inline;
+  /* Keeps text on the same line as marker */
+}
+
+/* 4. Nested List Logic */
+.tiptap ul ul,
+.tiptap ol ol,
+.tiptap ul ol,
+.tiptap ol ul {
+  margin: 0.5rem 0 0.5rem 0.5rem;
+}
+
+.tiptap ul ul {
+  list-style-type: circle;
+}
+
+/* --- Task Lists --- */
+.tiptap ul[data-type="taskList"] {
+  margin-left: var(--editor-indent);
+  list-style: none;
+}
+
+.tiptap ul[data-type="taskList"] li {
+  display: flex;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.tiptap ul[data-type="taskList"] input[type="checkbox"] {
+  flex-shrink: 0;
+  width: 1.2rem;
+  height: 1.2rem;
+  margin-top: 0.3rem;
+  border: 2px solid var(--gray-3);
+  border-radius: 4px;
+  cursor: pointer;
+  accent-color: var(--purple-primary);
+}
+
+/* --- Code Blocks --- */
+.tiptap pre {
+  background: #0f172a;
+  /* Slate 900 */
+  color: #f8fafc;
+  padding: 1.25rem;
+  border-radius: 0.75rem;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.9rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* --- Tables --- */
+/* --- Enterprise Table Styling --- */
+
+.tiptap .tableWrapper {
+  margin: 2rem 2rem 2rem 2rem;
+  /* Aligns with your .ProseMirror > * margin */
+  overflow-x: auto;
+  border: 1px solid var(--menu-border);
+  border-radius: 8px;
+  background-color: #fff;
+}
+
+.tiptap table {
+  border-collapse: collapse;
+  margin: 0;
+  table-layout: fixed;
+  width: 100%;
+  overflow: hidden;
+  font-variant-numeric: tabular-nums;
+}
+
+.tiptap table td,
+.tiptap table th {
+  border: 1px solid var(--gray-3);
+  box-sizing: border-box;
+  min-width: 1em;
+  padding: 10px 12px;
+  /* Increased padding for enterprise feel */
+  position: relative;
+  vertical-align: top;
+  text-align: left;
+}
+
+/* Ensure content inside cells doesn't add extra top margin */
+.tiptap table td>*,
+.tiptap table th>* {
+  margin-top: 0 !important;
+  margin-bottom: 0;
+}
+
+.tiptap table th {
+  background-color: var(--gray-1);
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+/* Selected Cell Overlay */
+.tiptap table .selectedCell::after {
+  background: var(--purple-light);
+  /* Using your purple theme instead of gray */
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+  border: 1px solid var(--purple-primary);
+}
+
+/* Column Resize Handle */
+/* Column resize handle - Fixed for consistency */
+.tiptap table .column-resize-handle {
+  position: absolute;
+  right: -2px;
+  /* Centers the handle over the border */
+  top: 0;
+  bottom: 0;
+  /* Use bottom: 0 instead of a negative value to prevent clipping */
+  width: 4px;
+  background-color: var(--purple-primary);
+  pointer-events: none;
+  z-index: 20;
+  /* Ensure it stays above cell content and borders */
+}
+
+/* Optional: Add a subtle 'glow' or wider hit-area feel */
+.tiptap table .column-resize-handle::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 1px;
+  background-color: rgba(255, 255, 255, 0.3);
+  /* Subtle inner line */
+}
+
+/* Ensure cells have relative positioning so the handle anchors correctly */
+.tiptap table td,
+.tiptap table th {
+  position: relative;
+  /* Crucial: the handle is absolute to this */
+}
+
+/* Table Resize Cursor */
+.tiptap.resize-cursor {
+  cursor: ew-resize;
+  cursor: col-resize;
+}
+
+/* Subtle Hover Effect on Rows */
+.tiptap table tr:hover td {
+  background-color: rgba(249, 250, 251, 0.5);
+  /* Very subtle gray-50 */
+}
+
+/* Highlight the entire selected column/row */
+.tiptap table .selectedCell::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-color: var(--purple-light);
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Add a bolder border to the "primary" selected cell */
+.tiptap table .selectedCell {
+  border: 1px solid var(--purple-primary) !important;
+}
+
+/* --- Tiptap Mentions (Enterprise Chips) --- */
+
+.tiptap .mention {
+  display: inline-flex;
+  align-items: center;
+
+  /* Use your purple palette */
+  background-color: var(--purple-light);
+  color: var(--purple-primary);
+
+  /* Chip Styling */
+  padding: 0 0.4rem;
+  border-radius: 0.375rem;
+  /* Rounded-md */
+  font-weight: 500;
+  font-size: 0.95em;
+
+  /* Prevent interaction issues */
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+  transition: all 0.15s ease-in-out;
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+
+/* Hover State */
+.tiptap .mention:hover {
+  background-color: var(--purple-medium);
+  border-color: var(--purple-primary);
+  box-shadow: 0 2px 4px rgba(124, 58, 237, 0.1);
+}
+
+/* Logic for the Suggestion List (The popup menu) */
+.mention-suggestion-list {
+  background: var(--menu-bg);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--menu-border);
+  border-radius: 0.75rem;
+  box-shadow: var(--menu-shadow);
+  padding: 0.25rem;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.mention-suggestion-item {
+  background: transparent;
+  border: none;
+  border-radius: 0.375rem;
+  color: var(--text-main);
+  display: flex;
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+  width: 100%;
+  font-size: 0.875rem;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.mention-suggestion-item.is-selected,
+.mention-suggestion-item:hover {
+  background-color: var(--item-hover);
+  color: var(--purple-primary);
+}
+
+/* --- Bubble Menu Glassmorphism --- */
+/* --- Enterprise Bubble Menu Fixes --- */
+
+/* Allow clicks to pass through Tippy.js wrapper */
+[data-tippy-root] {
+  pointer-events: none !important;
+}
+
+[data-tippy-root]>* {
+  pointer-events: auto;
+}
+
+.bubble-menu {
+  display: flex;
+  align-items: center;
+  padding: 0;
+  /* Let internal containers handle padding */
+  background: var(--menu-bg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--menu-border);
+  box-shadow: var(--menu-shadow);
+  border-radius: 0.25rem;
+  overflow: hidden;
+  min-width: 280px;
+  /* Prevents cramped icons */
+  animation: bubble-in 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  pointer-events: none;
+}
+
+.bubble-menu>* {
+  pointer-events: auto;
+}
+
+/* 1. Header Section (AI/Edit area) */
+.bubble-menu-header {
+  display: flex;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  gap: 0.5rem;
+  border-bottom: 1px solid var(--menu-border);
+}
+
+.bubble-menu-header span {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--purple-primary);
+}
+
+/* 2. Toolbar Section (Icons area) */
+.bubble-menu-toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: nowrap;
+  /* Keep icons in one row */
+  padding: 0.375rem;
+  gap: 0.125rem;
+}
+
+/* 4. Vertical Divider Fix */
+.bubble-menu .divider {
+  width: 1px;
+  height: 1.25rem;
+  background-color: var(--menu-border);
+  margin: 0 0.375rem;
+  flex-shrink: 0;
+}
+
+.tiptap .selection {
+  background-color: var(--purple-light);
+}

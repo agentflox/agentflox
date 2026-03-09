@@ -1,0 +1,28 @@
+{
+    "name": "@agentflox/logger",
+    "version": "1.0.0",
+    "private": true,
+    "type": "module",
+    "main": "dist/index.js",
+    "types": "dist/index.d.ts",
+    "exports": {
+        ".": {
+            "import": "./dist/index.js",
+            "types": "./dist/index.d.ts"
+        }
+    },
+    "scripts": {
+        "build": "tsc",
+        "dev": "tsc --watch",
+        "clean": "rm -rf dist",
+        "type-check": "tsc --noEmit"
+    },
+    "dependencies": {
+        "pino": "^10.1.0",
+        "pino-pretty": "^13.0.0"
+    },
+    "devDependencies": {
+        "typescript": "^5.3.3",
+        "@types/node": "^20.10.6"
+    }
+}

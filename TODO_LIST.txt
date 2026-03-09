@@ -1,0 +1,11 @@
+check main app ui 
+
+login, sign up page
+
+user interface main app
+
+
+check features, logic 
+
+
+@page.tsx#L235-294 AGENTS FOR EVERYTHING-> PM Agemts. Sa;e Agents, Coding Agents, Marketing Agents, Design Agents, Custom Agents each card should have appropriate mage -> use the second, third provided image for redesign the layout 

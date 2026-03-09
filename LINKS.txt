@@ -1,0 +1,15 @@
+https://clickup.com/
+https://www.usemotion.com/
+https://asana.com/
+https://www.notion.com
+https://www.taskade.com/
+https://monday.com/lang/en-ph/?utm_medium=cpc&utm_source=adwordsyoutube&utm_campaign=int5_6-en-prm-work_mgmt-desktop-employment-dg&utm_adgroup=EmployerLarge_EM-MultiAds&utm_banner=DL_sidekick_30s&gad_source=2&gad_campaignid=22721590514&gclid=CjwKCAiAmePKBhAfEiwAU3Ko3N-yvhRibBMn9LVtrs4WY6C6E74i-cuhtxDhElCD52moQLLwC7JloxoCBT4QAvD_BwE
+
+so i want you to update the projectoverview so it shows overview of project professionally enterprise grade an reflex platform features while fit within the overal theme refer to sidebar theme to update
+
+based on project view update the team viewcomponents 
+also please update the marketplace main page for me professionally deisng enterprise grade and make sure the code is written professionally following the best coding practice components should be modulized and add agents to market place page as well and adjust the layout to provide best ui ux exeperience 
+
+-- Enable pgvector extension
+CREATE EXTENSION IF NOT EXISTS vector;
+

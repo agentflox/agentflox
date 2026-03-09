@@ -1,0 +1,148 @@
+services:
+  - type: web
+    name: socketio-microservice
+    env: docker
+    dockerfilePath: apps/backend/socket-server/Dockerfile
+    dockerContext: ../../..
+    plan: starter
+    region: oregon
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3001
+      - key: REDIS_URL
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: CORS_ORIGIN
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: MATCHING_INTERVAL_DAYS
+        value: 3
+      - key: MATCHING_SCORE_THRESHOLD
+        value: 0.85
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        value: 587
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
+      - key: EMAIL_FROM
+        sync: false
+      - key: NEXT_PUBLIC_APP_URL
+        sync: false
+    healthCheckPath: /health
+
+  - type: web
+    name: service-server
+    env: node
+    buildCommand: npm install && npm run build --workspace=apps/backend/service-server
+    startCommand: npm run start --workspace=apps/backend/service-server
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 4001
+      - key: REDIS_URL
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: EMBEDDING_MODEL
+        value: text-embedding-3-large
+      - key: MATCHING_INTERVAL_DAYS
+        value: 3
+      - key: MATCHING_SCORE_THRESHOLD
+        value: 0.85
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        value: 587
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
+      - key: EMAIL_FROM
+        sync: false
+      - key: CORS_ORIGIN
+        sync: false
+    healthCheckPath: /health
+
+  - type: worker
+    name: service-worker
+    env: node
+    buildCommand: npm install && npm run build --workspace=apps/backend/service-server
+    startCommand: npm run start:worker --workspace=apps/backend/service-server
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: REDIS_URL
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: EMBEDDING_MODEL
+        value: text-embedding-3-large
+      - key: MATCHING_INTERVAL_DAYS
+        value: 3
+      - key: MATCHING_SCORE_THRESHOLD
+        value: 0.85
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        value: 587
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
+      - key: EMAIL_FROM
+        sync: false
+
+  - type: worker
+    name: matching-worker
+    env: docker
+    dockerfilePath: apps/backend/socket-server/Dockerfile
+    dockerContext: ../../..
+    plan: starter
+    region: oregon
+    buildCommand: npm install && npm run build
+    startCommand: npm run start:worker
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: REDIS_URL
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: EMBEDDING_MODEL
+        value: text-embedding-3-large
+      - key: MATCHING_INTERVAL_DAYS
+        value: 3
+      - key: MATCHING_SCORE_THRESHOLD
+        value: 0.85
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        value: 587
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
+      - key: EMAIL_FROM
+        sync: false
+      - key: NEXT_PUBLIC_APP_URL
+        sync: false

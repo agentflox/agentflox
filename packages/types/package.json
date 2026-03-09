@@ -1,0 +1,32 @@
+{
+  "name": "@agentflox/types",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": "./dist/index.js",
+    "./socket": "./dist/socket-events.js",
+    "./socket-events": "./dist/socket-events.js",
+    "./billing": "./dist/billing.js",
+    "./webhook": "./dist/webhook.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "clean": "rimraf dist",
+    "prepare": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "typescript": "^5.9.3",
+    "luxon": "^3.5.0",
+    "@agentflox/database": "workspace:*",
+    "@types/luxon": "^3.4.0"
+  },
+  "devDependencies": {
+    "rimraf": "^6.1.0"
+  }
+}
