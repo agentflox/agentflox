@@ -17,7 +17,7 @@ export const Footer = () => {
             { name: 'AI & SDK', href: '/product/api' },
         ],
         resources: [
-            { name: 'Documentation', href: '/learn/docs' },
+            { name: 'Documentation', href: 'https://docs.agentflox.com' },
             { name: 'Tutorials', href: '/learn/tutorials' },
             { name: 'Blog', href: '/learn/blog' },
             { name: 'Community', href: '/learn/community' },

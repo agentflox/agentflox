@@ -4,9 +4,11 @@
   "scripts": {
     "dev": "turbo run dev --parallel",
     "dev:web": "turbo run dev --filter=web",
+    "dev:docs": "turbo run dev --filter=docs",
     "dev:service": "turbo run dev --filter=backend",
     "build": "turbo run build",
     "build:web": "turbo run build --filter=web",
+    "build:docs": "turbo run build --filter=docs",
     "build:service": "turbo run build --filter=backend",
     "db:generate": "cd packages/database && pnpm prisma generate",
     "db:reset": "cd packages/database && pnpm prisma migrate reset",

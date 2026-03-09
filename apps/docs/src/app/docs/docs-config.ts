@@ -1,4 +1,3 @@
-
 export interface NavItem {
   title: string;
   href?: string;
@@ -79,3 +78,4 @@ export const DOCS_CONFIG: NavItem[] = [
     ],
   },
 ];
+

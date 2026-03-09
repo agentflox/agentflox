@@ -143,7 +143,7 @@ export const Navigation = () => {
                     {
                         title: 'Learn',
                         items: [
-                            { name: 'Documentation', href: '/docs', description: 'Comprehensive guides & API', icon: <BookOpen size={20} /> },
+                            { name: 'Documentation', href: 'https://docs.agentflox.com', description: 'Comprehensive guides & API', icon: <BookOpen size={20} /> },
                             { name: 'Tutorials', href: '/learn/tutorials', description: 'Step-by-step learning', icon: <GraduationCap size={20} /> },
                             { name: 'Demos', href: '/learn/demos', description: 'See it in action', icon: <Play size={20} /> },
                             { name: 'Blog', href: '/learn/blog', description: 'Latest insights & news', icon: <MessageSquare size={20} /> },
