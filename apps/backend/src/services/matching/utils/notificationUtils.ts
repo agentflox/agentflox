@@ -1,5 +1,4 @@
-import { prisma } from '@/lib/prisma';
-import { NotificationType } from '@agentflox/types';
+import { prisma, NotificationType } from '@agentflox/database';
 import { redisPub } from '@/lib/redis';
 import type { MatchNotification } from '@/services/matching/types';
 import { getEmailTransporter } from '@/utils/email/getEmailTransporter';
@@ -15,9 +14,17 @@ export async function sendMatchNotification(notification: MatchNotification): Pr
         userId: notification.userId,
         type: NotificationType.MATCH_FOUND,
         title: 'New Match Found!',
-        content: notification.reason,
-        relatedId: notification.matchId,
-        relatedType: notification.matchType.toUpperCase() as any,
+        message: notification.reason,
+        actorIds: [],
+        entityType: notification.matchType.toUpperCase(),
+        entityId: notification.matchId,
+        metadata: {
+          score: notification.score,
+          matchType: notification.matchType,
+          matchTitle: notification.matchTitle,
+        },
+        read: false,
+        aggregateKey: `MATCH_FOUND:${notification.userId}:${notification.matchId}`,
       },
     });
 
@@ -29,11 +36,11 @@ export async function sendMatchNotification(notification: MatchNotification): Pr
           userId: notification.userId,
           notification: {
             id: dbNotification.id,
-            type: NotificationType.MATCH_FOUND,
+            type: dbNotification.type,
             title: dbNotification.title,
-            content: dbNotification.content,
-            relatedId: dbNotification.relatedId,
-            relatedType: dbNotification.relatedType,
+            message: dbNotification.message,
+            entityId: dbNotification.entityId,
+            entityType: dbNotification.entityType,
             createdAt: dbNotification.createdAt,
           },
         })

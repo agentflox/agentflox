@@ -1,6 +1,6 @@
 import emailService from "@/utils/email/emailService";
 import { BillingEmailTemplates } from "./email.template";
-import { SubscriptionStatus, NotificationType } from "@agentflox/database/src/generated/prisma/client";
+import { SubscriptionStatus, NotificationType } from "@agentflox/database";
 import { EmailTemplate, BillingEmailData, EmailTheme } from "@/utils/email/types";
 import { EmailServiceError } from "@/utils/email/emailService";
 

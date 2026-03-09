@@ -1,4 +1,4 @@
-import { PromotionUnit } from '@agentflox/database/src/generated/prisma/client';
+import { PromotionUnit } from '@agentflox/database';
 import { EmailTemplate, EmailTheme, BillingEmailData } from '@/utils/email/types';
 
 interface BillingTemplateContent {

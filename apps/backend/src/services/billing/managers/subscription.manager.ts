@@ -1,4 +1,4 @@
-import { Prisma, SubscriptionStatus, PaymentStatus, BillingType, PaymentMethod, NotificationType } from '@agentflox/database/src/generated/prisma';
+import { Prisma, SubscriptionStatus, PaymentStatus, BillingType, PaymentMethod, NotificationType } from '@agentflox/database';
 import { prisma } from '@/lib/prisma';
 import { DateTime } from 'luxon';
 import { PlanManager } from './plan.manager';

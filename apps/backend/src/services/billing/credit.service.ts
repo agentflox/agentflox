@@ -1,7 +1,7 @@
 import { Injectable, Logger, HttpException, HttpStatus } from '@nestjs/common';
 import { CreditManager } from '@/services/billing/managers/credit.manager';
 import { PurchaseInput, ExpiredPackageFilters } from '@/services/billing/types';
-import { PaymentStatus } from '@agentflox/database/src/generated/prisma';
+import { PaymentStatus } from '@agentflox/database';
 
 @Injectable()
 export class CreditService {

@@ -1,5 +1,5 @@
 import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
-import { PrismaClient } from '@agentflox/database/src/generated/prisma';
+import { PrismaClient } from '@agentflox/database';
 import { ModelService } from '../ai/model.service';
 
 export interface CommandContext {
@@ -153,15 +153,15 @@ Respond ONLY with valid JSON in this exact format:
                 { temperature: 0.3, max_tokens: 300 }
             );
 
-            const parsed = JSON.parse(result.text.trim());
+            const parsed = JSON.parse(result.content.trim());
             return {
                 type: parsed.type || 'chat',
                 intent: parsed.intent || 'general_query',
                 entities: parsed.entities || {},
                 confidence: parsed.confidence || 0.7,
             };
-        } catch (error) {
-            this.logger.error(`Failed to parse natural language: ${error.message}`);
+        } catch (error: any) {
+            this.logger.error(`Failed to parse natural language: ${error?.message ?? error}`);
             // Fallback to simple chat
             return {
                 type: 'chat',
@@ -216,7 +216,7 @@ Respond ONLY with valid JSON in this exact format:
         // Validate required context
         if (parsed.requiresContext) {
             for (const required of parsed.requiresContext) {
-                if (!context[required]) {
+                if (!(context as any)[required]) {
                     throw new BadRequestException(`Missing required context: ${required}`);
                 }
             }

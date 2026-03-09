@@ -1,5 +1,5 @@
 import { DateTime } from 'luxon';
-import { PaymentGateway, PaymentMethod, PaymentStatus, PurchaseStatus, BillingType } from '@agentflox/database/src/generated/prisma';
+import { PaymentGateway, PaymentMethod, PaymentStatus, PurchaseStatus, BillingType } from '@agentflox/database';
 
 export enum PAYMENT_METHOD {
   CREDIT_CARD = "CREDIT_CARD",

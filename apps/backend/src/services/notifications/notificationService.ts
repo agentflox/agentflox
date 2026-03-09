@@ -3,30 +3,11 @@
  * Handles email and real-time socket notifications for invitations, transfers, etc.
  */
 
-import { prisma } from '@agentflox/database';
+import { prisma, NotificationType } from '@agentflox/database';
 import { Server } from 'socket.io';
-
-export enum NotificationType {
-    INVITATION_RECEIVED = 'invitation_received',
-    OWNERSHIP_TRANSFER = 'ownership_transfer',
-    PERMISSION_GRANTED = 'permission_granted',
-    PERMISSION_REVOKED = 'permission_revoked',
-    MEMBER_ADDED = 'member_added',
-    MEMBER_REMOVED = 'member_removed',
-    COMMENT_MENTION = 'comment_mention',
-    TASK_ASSIGNED = 'task_assigned',
-}
-
-export enum NotificationCategory {
-    INVITATION = 'invitation',
-    PERMISSION = 'permission',
-    ACTIVITY = 'activity',
-    MENTION = 'mention',
-}
 
 interface NotificationPayload {
     type: NotificationType;
-    category: NotificationCategory;
     title: string;
     message: string;
     actionUrl?: string;
@@ -74,7 +55,6 @@ export class NotificationService {
 
         const notification: NotificationPayload = {
             type: NotificationType.INVITATION_RECEIVED,
-            category: NotificationCategory.INVITATION,
             title: `Invitation to ${itemType}`,
             message: `${inviterName} (${inviterEmail}) invited you to join "${itemName}" as ${role}`,
             actionUrl: `/invitations/${invitationToken}`,
@@ -126,7 +106,6 @@ export class NotificationService {
 
         const notification: NotificationPayload = {
             type: NotificationType.OWNERSHIP_TRANSFER,
-            category: NotificationCategory.PERMISSION,
             title: 'Ownership Transfer',
             message: `${fromUserName} transferred ownership of "${itemName}" to you`,
             actionUrl: `/${itemType}s/${itemId}`,
@@ -180,7 +159,6 @@ export class NotificationService {
 
         const notification: NotificationPayload = {
             type: NotificationType.PERMISSION_GRANTED,
-            category: NotificationCategory.PERMISSION,
             title: 'Access Granted',
             message: `${grantedByName} shared "${itemName}" with you (${permission} access)`,
             actionUrl: `/${itemType}s/${itemId}`,
@@ -230,10 +208,16 @@ export class NotificationService {
                 userId,
                 type: notification.type,
                 title: notification.title,
-                content: notification.message,
-                actionUrl: notification.actionUrl,
-                metadata: notification.metadata as any,
-                isRead: false,
+                message: notification.message,
+                actorIds: [],
+                entityType: 'GENERIC',
+                entityId: userId,
+                metadata: {
+                    ...notification.metadata,
+                    actionUrl: notification.actionUrl,
+                },
+                read: false,
+                aggregateKey: `${notification.type}:${userId}`,
             },
         });
     }
@@ -269,7 +253,7 @@ export class NotificationService {
     static async markAsRead(notificationIds: string[]) {
         await prisma.notification.updateMany({
             where: { id: { in: notificationIds } },
-            data: { isRead: true, readAt: new Date() },
+            data: { read: true, readAt: new Date() },
         });
     }
 
@@ -290,8 +274,8 @@ export class NotificationService {
         return await prisma.notification.findMany({
             where: {
                 userId,
-                ...(unreadOnly && { isRead: false }),
-                ...(category && { type: { startsWith: category } }),
+                ...(unreadOnly && { read: false }),
+                // Category-based filtering removed; NotificationType is now an enum without prefixes
             },
             orderBy: { createdAt: 'desc' },
             take: limit,
@@ -306,7 +290,7 @@ export class NotificationService {
         return await prisma.notification.count({
             where: {
                 userId,
-                isRead: false,
+                read: false,
             },
         });
     }

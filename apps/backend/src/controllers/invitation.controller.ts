@@ -7,7 +7,7 @@ import { Controller, Get, Post, Body, Param, UseGuards, Request } from '@nestjs/
 import { prisma } from '@/lib/prisma';
 import { notificationService } from '../services/notification/notificationService';
 import { randomBytes } from 'crypto';
-import { PermissionLevel, WorkspaceRole } from '@agentflox/database/src/generated/prisma';
+import { PermissionLevel, WorkspaceRole } from '@agentflox/database';
 import { permissionResolver } from '../lib/permissions';
 import { JwtAuthGuard, AuthenticatedRequest } from '@/middleware/httpAuth';
 import emailService from '@/utils/email/emailService';

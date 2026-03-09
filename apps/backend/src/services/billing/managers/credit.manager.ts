@@ -12,7 +12,7 @@ import {
   Payment, 
   NotificationType,
   CreditPackage
-} from '@agentflox/database/src/generated/prisma';
+} from '@agentflox/database';
 import { DateTime } from 'luxon';
 import { prisma } from '@/lib/prisma';
 import { PurchaseDetails, ExpiredPackageFilters, PurchaseInput } from '../types';

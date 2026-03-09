@@ -11,10 +11,9 @@
  */
 
 import { prisma } from '@/lib/prisma';
-import { PermissionLevel, WorkspaceRole } from '@agentflox/database/src/generated/prisma';
+import { PermissionLevel, WorkspaceRole, Prisma } from '@agentflox/database';
 import type { ItemType, LocationType } from './types';
 import { permissionCache } from './cache';
-import { Prisma } from '@agentflox/database/src/generated/prisma';
 import { timingSafeEqual } from 'crypto';
 
 // Constants

@@ -16,9 +16,11 @@ interface MessageDeliveryJobData {
     priority?: number;
 }
 
+const DELIVERY_JOB_NAME = 'deliver' as const;
+
 // Create delivery queue
-export const messageDeliveryQueue = new Queue<MessageDeliveryJobData>('message-delivery', {
-    connection: redis,
+export const messageDeliveryQueue = new Queue<MessageDeliveryJobData, any, typeof DELIVERY_JOB_NAME>('message-delivery', {
+    connection: redis as any,
     defaultJobOptions: {
         attempts: 5, // Retry up to 5 times
         backoff: {
@@ -46,7 +48,7 @@ export async function enqueueMessageDelivery(
     priority: number = 1
 ): Promise<void> {
     await messageDeliveryQueue.add(
-        'deliver',
+        DELIVERY_JOB_NAME,
         {
             messageId,
             recipientId,
@@ -198,7 +200,7 @@ export function startMessageDeliveryWorker(io: any) {
             return { status: 'DELIVERED', messageId, recipientId };
         },
         {
-            connection: redis,
+            connection: redis as any,
             concurrency: 10, // Process 10 deliveries concurrently
             drainDelay: 10, // Wait 10s before polling again when queue is empty (reduces Redis requests)
             stalledInterval: 30000, // Check for stalled jobs every 30s

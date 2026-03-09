@@ -3,7 +3,7 @@
  * Redis-based caching for permission resolution with intelligent invalidation
  */
 
-import { PermissionLevel } from '@agentflox/database/src/generated/prisma';
+import { PermissionLevel } from '@agentflox/database';
 import type { ItemType } from './types';
 
 interface CachedPermission {

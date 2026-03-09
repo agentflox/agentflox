@@ -1,6 +1,7 @@
 "use client";
 import React from "react";
 import Link from "next/link";
+import Image from "next/image";
 
 export const AuthLayout = ({ children }: { children: React.ReactNode }) => {
     return (
@@ -21,7 +22,15 @@ export const AuthLayout = ({ children }: { children: React.ReactNode }) => {
                 <div className="relative z-10">
                     <div className="flex items-center gap-3 mb-12">
                         <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-lg">
-                            <span className="text-black font-extrabold text-xl">A</span>
+                            <span className="relative inline-block h-8 w-8">
+                                <Image
+                                    src="/images/logo.png"
+                                    alt="Agentflox logo"
+                                    fill
+                                    className="object-contain"
+                                    priority
+                                />
+                            </span>
                         </div>
                         <span className="text-2xl font-bold tracking-tight">Agentflox</span>
                     </div>

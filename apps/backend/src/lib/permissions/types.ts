@@ -3,7 +3,7 @@
  * Centralized type definitions for the ClickUp-style permission system
  */
 
-import { PermissionLevel, WorkspaceRole, GuestType } from '@agentflox/database/src/generated/prisma';
+import { PermissionLevel, WorkspaceRole, GuestType } from '@agentflox/database';
 
 export type LocationType = 'workspace' | 'space' | 'folder' | 'list' | 'project' | 'team';
 export type ItemType = LocationType | 'task';

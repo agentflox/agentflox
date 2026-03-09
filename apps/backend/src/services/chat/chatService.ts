@@ -168,7 +168,7 @@ export class ChatService {
         ]);
 
         // **ENHANCEMENT: Enrich context with workspace data and semantic understanding**
-        const conversationHistoryForContext = previousMessages.map(m => ({
+        const conversationHistoryForContext = previousMessages.map((m: { role: string; content: string }) => ({
             role: m.role.toLowerCase(),
             content: m.content,
         }));
@@ -326,16 +326,6 @@ export class ChatService {
                     // Ensure user message is saved before we start processing
                     await userMessagePromise;
 
-                    // Handle streaming response
-                    for await (const chunk of streamResult) {
-                        // ModelService streams encoded Uint8Array or we might need to verify.
-                        // The provider implementation returns ReadableStream of Strings mostly or Uint8Array?
-                        // OpenAIProvider returns encoded. Anthropic/Google encoded.
-                        // Wait, provider implementations I wrote return encoded Uint8Array.
-                        // But here I'm reading from it.
-                        // If streamResult is ReadableStream, I should pipe it or read from reader.
-                    }
-
                     // Correct approach for consuming ReadableStream from service
                     const reader = streamResult.getReader();
                     try {
@@ -442,7 +432,7 @@ export class ChatService {
                     finalizeResponse();
 
                     controller.close();
-                } catch (error) {
+                } catch (error: any) {
                     controller.error(error);
                 }
             },

@@ -1,5 +1,4 @@
 import {
-    PrismaClient,
     Prisma,
     SubscriptionStatus,
     PurchaseStatus,
@@ -8,8 +7,8 @@ import {
     PaymentStatus,
     PlanType,
     Subscription,
-    NotificationType
-} from '@agentflox/database/src/generated/prisma';
+    NotificationType,
+} from '@agentflox/database';
 import { PlanManager } from './plan.manager'
 import { prisma } from '@/lib/prisma';
 import { DateTime } from 'luxon';
@@ -129,7 +128,8 @@ export class UsageManager {
         [Service.PROJECT]: 10,
         [Service.PROPOSAL]: 5,
         [Service.TEAM]: 15,
-        [Service.REQUEST]: 1
+        [Service.REQUEST]: 1,
+        [Service.CHAT]: 1,
     };
 
     static readonly Errors = {
@@ -1064,7 +1064,23 @@ export class UsageManager {
         type: NotificationType;
         title: string;
         content: string;
+        entityType?: string;
+        entityId?: string;
+        metadata?: Record<string, any>;
     }): Promise<void> {
-        await prisma.notification.create({ data });
+        await prisma.notification.create({
+            data: {
+                userId: data.userId,
+                type: data.type,
+                title: data.title,
+                message: data.content,
+                actorIds: [],
+                entityType: data.entityType ?? 'USAGE',
+                entityId: data.entityId ?? data.userId,
+                metadata: data.metadata ?? {},
+                read: false,
+                aggregateKey: `${data.type}:${data.userId}`,
+            },
+        });
     }
 }

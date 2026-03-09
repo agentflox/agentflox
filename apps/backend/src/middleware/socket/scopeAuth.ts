@@ -2,7 +2,7 @@ import { Socket } from 'socket.io';
 import { prisma } from '@/lib/prisma';
 import { executeDbOperation } from '@/lib/circuitBreaker';
 import env from '@/config/env';
-import { WorkspaceRole } from '@agentflox/database/src/generated/prisma/index.js';
+import { WorkspaceRole } from '@agentflox/database';
 
 interface PermissionData {
     allowed: string[];

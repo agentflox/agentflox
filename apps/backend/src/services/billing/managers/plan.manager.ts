@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma';
-import { PlanType } from '@agentflox/database/src/generated/prisma';
+import { PlanType } from '@agentflox/database';
 
 export class PlanManager {
     private constructor() { }

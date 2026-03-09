@@ -60,7 +60,10 @@ Company (Project ID): ${projectId}
     async draftInvestorUpdate(projectId: string, userId: string) {
         // 1. Gather Context
         const recentTasks = await prisma.task.findMany({
-            where: { projectId, status: 'DONE', updatedAt: { gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) } },
+            where: {
+                projectId,
+                updatedAt: { gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) }
+            },
             take: 10
         });
 

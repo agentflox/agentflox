@@ -1,7 +1,7 @@
 import { Injectable, Logger, HttpException, HttpStatus } from '@nestjs/common';
 import { SubscriptionManager } from '@/services/billing/managers/subscription.manager';
 import { SubscribeInput, RenewInput } from '@/services/billing/types';
-import { PaymentStatus } from '@agentflox/database/src/generated/prisma';
+import { PaymentStatus } from '@agentflox/database';
 
 @Injectable()
 export class SubscriptionService {

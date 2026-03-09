@@ -384,41 +384,8 @@ export class FeedService {
         limit: number,
         cursor?: string
     ): Promise<FeedResult> {
-        // Query from materialized feed table
-        const feedItems = await prisma.userFeedCache.findMany({
-            where: { userId },
-            take: limit + 1,
-            skip: cursor ? 1 : 0,
-            cursor: cursor ? { id: cursor } : undefined,
-            orderBy: { score: 'desc' },
-            include: {
-                post: {
-                    include: {
-                        user: {
-                            select: {
-                                id: true,
-                                name: true,
-                                avatar: true,
-                                username: true
-                            }
-                        },
-                        _count: {
-                            select: { likes: true, comments: true }
-                        }
-                    }
-                }
-            }
-        });
-
-        const posts = feedItems.map(item => item.post) as Post[];
-
-        let nextCursor: string | undefined;
-        if (posts.length > limit) {
-            const nextItem = posts.pop();
-            nextCursor = nextItem?.id;
-        }
-
-        return { items: posts, nextCursor, fromCache: false };
+        // Fallback to fan-out-on-read feed if materialized cache is not available
+        return this.getFanOutOnReadFeed(userId, limit, cursor);
     }
 
     /**

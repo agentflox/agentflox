@@ -1,4 +1,4 @@
-import { Payment, PaymentStatus } from '@agentflox/database/src/generated/prisma';
+import { Payment, PaymentStatus } from '@agentflox/database';
 import { prisma } from '@/lib/prisma';
 import { DateTime } from 'luxon';
 import { stripe } from '@/lib/stripe/server';

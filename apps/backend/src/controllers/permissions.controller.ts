@@ -5,7 +5,7 @@
 
 import { Controller, Get, Post, Delete, Body, Param, Query, UseGuards, Request } from '@nestjs/common';
 import { permissionResolver, permissionCache } from '../lib/permissions';
-import { PermissionLevel } from '@agentflox/database/src/generated/prisma';
+import { PermissionLevel } from '@agentflox/database';
 import { prisma } from '@/lib/prisma';
 
 import { JwtAuthGuard, AuthenticatedRequest } from '@/middleware/httpAuth';

@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma';
-import { PaymentStatus, SubscriptionStatus } from '@agentflox/database/src/generated/prisma';
+import { PaymentStatus, SubscriptionStatus } from '@agentflox/database';
 import { SubscriptionManager } from '@/services/billing/managers/subscription.manager';
 import { CreditManager } from '@/services/billing/managers/credit.manager';
 import { PAYMENT_METHOD, PAYMENT_GATEWAY } from '@/services/billing/types';
