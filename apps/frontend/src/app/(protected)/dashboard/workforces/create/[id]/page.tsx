@@ -16,7 +16,7 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Switch } from "@/components/ui/switch";
-import { Copy, Download, History, HelpCircle, Store, Bug, Trash2 } from "lucide-react";
+import { Copy, Download, History, HelpCircle, Store, Bug, Trash2, Settings2 } from "lucide-react";
 import { DASHBOARD_ROUTES } from "@/constants/routes.config";
 import WorkforceSidebar from "@/features/dashboard/views/workforce/WorkforceSidebar";
 import WorkforceRunView from "@/features/dashboard/views/workforce/WorkforceRunView";
