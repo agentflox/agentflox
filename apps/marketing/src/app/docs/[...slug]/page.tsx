@@ -1,11 +1,19 @@
-"use client";
-
-import React from 'react';
 import Link from 'next/link';
-import { ChevronRight, ArrowLeft, ArrowRight, Github, Twitter, Info, AlertTriangle, Lightbulb, CheckCircle2, Copy, FileIcon, MessageSquare } from 'lucide-react';
+import {
+    AlertTriangle,
+    CheckCircle2,
+    ChevronRight,
+    Copy,
+    FileIcon,
+    Github,
+    Info,
+    Lightbulb,
+    MessageSquare,
+} from 'lucide-react';
 
-export default function DocsPage({ params }: { params: { slug: string[] } }) {
-    const slug = params.slug.join('/');
+export default async function DocsPage({ params }: { params: Promise<{ slug: string[] }> }) {
+    const { slug } = await params;
+    const slugPath = slug.join('/');
 
     // Mock content generation based on slug
     const getContent = (slug: string) => {
@@ -151,7 +159,7 @@ export default function DocsPage({ params }: { params: { slug: string[] } }) {
         }
     };
 
-    const data = getContent(slug);
+    const data = getContent(slugPath);
 
     return (
         <div className="flex flex-col lg:flex-row gap-12 relative">
@@ -160,7 +168,7 @@ export default function DocsPage({ params }: { params: { slug: string[] } }) {
                 <nav className="flex items-center gap-2 mb-10 text-xs font-medium text-slate-500">
                     <Link href="/learn/docs" className="hover:text-indigo-400 transition-colors uppercase tracking-wider">Docs</Link>
                     <ChevronRight size={12} />
-                    <span className="text-indigo-400/80 uppercase tracking-wider truncate max-w-[200px]">{slug.split('/').join(' / ')}</span>
+                    <span className="text-indigo-400/80 uppercase tracking-wider truncate max-w-[200px]">{slugPath.split('/').join(' / ')}</span>
                 </nav>
 
                 {/* Hero */}
