@@ -9,7 +9,7 @@ export interface InvitationEmailData {
     role?: string;
     permission?: string;
     invitationUrl: string;
-    expiresAt: Date;
+    expiresAt?: Date;
 }
 
 export class InvitationEmailTemplates {
@@ -115,7 +115,9 @@ If you didn't expect this invitation, you can safely ignore this email.
      * Invitation to specific item (Space, Project, Task, etc.)
      */
     static getItemGuestInvite(data: InvitationEmailData, theme: EmailTheme): EmailTemplate {
-        const expiryDays = Math.ceil((new Date(data.expiresAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+        const expiryDays = data.expiresAt
+            ? Math.ceil((new Date(data.expiresAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+            : 0;
         const itemTypeLabel = data.itemType?.charAt(0).toUpperCase() + data.itemType?.slice(1) || 'item';
 
         return {
