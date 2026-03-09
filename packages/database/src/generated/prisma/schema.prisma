@@ -92,6 +92,7 @@ model User {
   channelMessages                ChannelMessage[]
   channelsCreated                Channel[]
   checklistAssignments           ChecklistItem[]
+  compositeTools                 CompositeTool[]
   receivedConnections            Connection[]               @relation("ConnectionReceiver")
   connections                    Connection[]               @relation("ConnectionRequester")
   creditPurchases                CreditPurchase[]           @relation("userCreditPurchases")
@@ -277,6 +278,7 @@ model Workspace {
   aiConversations       AiConversation[]       @relation("WorkspaceConversations")
   automations           Automation[]
   channels              Channel[]
+  compositeTools        CompositeTool[]
   customFields          CustomField[]
   customRoles           CustomRole[]           @relation("WorkspaceCustomRoles")
   dashboards            Dashboard[]
@@ -382,6 +384,7 @@ model Space {
   aiAgents           AiAgent[]
   aiConversations    AiConversation[]       @relation("SpaceConversations")
   automations        Automation[]
+  compositeTools     CompositeTool[]
   customFields       CustomField[]
   folders            Folder[]
   lists              List[]
@@ -1462,6 +1465,7 @@ model Project {
   aiConversations    AiConversation[]
   attachments        Attachment[]               @relation("ProjectAttachments")
   automations        Automation[]
+  compositeTools     CompositeTool[]
   capTable           CapTableEntry[]
   customFields       CustomField[]
   folders            Folder[]
@@ -1748,6 +1752,7 @@ model Team {
   aiConversations     AiConversation[]
   attachments         Attachment[]           @relation("TeamAttachments")
   automations         Automation[]
+  compositeTools      CompositeTool[]
   customFields        CustomField[]
   folders             Folder[]
   invitations         Invitation[]
@@ -3844,13 +3849,14 @@ model AgentWorkflow {
 }
 
 model AgentWorkflowExecution {
-  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  workflowId String    @map("workflow_id") @db.Uuid
-  status     String    @default("RUNNING") // RUNNING, COMPLETED, FAILED, TIMED_OUT
-  context    Json? // Cumulative context of the workflow
-  startTime  DateTime  @default(now()) @map("start_time")
-  endTime    DateTime? @map("end_time")
-  error      String?
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workflowId       String    @map("workflow_id") @db.Uuid
+  status           String    @default("RUNNING") // RUNNING, COMPLETED, FAILED, TIMED_OUT
+  context          Json? // Cumulative context of the workflow
+  executionVersion Int       @default(0) @map("version")
+  startTime        DateTime  @default(now()) @map("start_time")
+  endTime          DateTime? @map("end_time")
+  error            String?
 
   workflow AgentWorkflow? @relation(fields: [workflowId], references: [id], onDelete: Cascade)
   tasks    AgentTask[]
@@ -4073,6 +4079,7 @@ model AiAgent {
 model SystemTool {
   id             String        @id
   name           String        @unique
+  displayName    String?       @map("display_name")
   description    String
   category       String
   functionSchema Json          @map("function_schema")
@@ -4096,6 +4103,35 @@ model SystemTool {
   @@index([isActive])
   @@index([isBuiltIn])
   @@map("system_tools")
+}
+
+model CompositeTool {
+  id             String     @id @default(cuid())
+  workspaceId    String?    @map("workspace_id")
+  spaceId        String?    @map("space_id")
+  projectId      String?    @map("project_id")
+  teamId         String?    @map("team_id")
+  ownerId        String     @map("owner_id")
+  name           String
+  description    String?
+  category       String?
+  functionSchema Json
+  steps          Json
+  isPublic       Boolean    @default(true) @map("is_public")
+  createdAt      DateTime   @default(now()) @map("created_at")
+  updatedAt      DateTime   @updatedAt @map("updated_at")
+  workspace      Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  owner          User       @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  space          Space?     @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  project        Project?   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  team           Team?      @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
+  @@index([spaceId])
+  @@index([projectId])
+  @@index([teamId])
+  @@index([ownerId])
+  @@map("composite_tools")
 }
 
 model AgentSkill {
@@ -5138,6 +5174,7 @@ enum ConversationType {
   AGENT_EXECUTOR
   AGENT_OPERATOR
   WAR_ROOM
+  WORKFORCE_EXECUTION
 }
 
 enum MessageRole {
@@ -5690,6 +5727,8 @@ model Workforce {
   createdBy   String          @map("created_by")
   createdAt   DateTime        @default(now()) @map("created_at")
   updatedAt   DateTime        @updatedAt @map("updated_at")
+  graph       Json?
+  data        Json?
 
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   creator   User      @relation(fields: [createdBy], references: [id])

@@ -1,4 +1,4 @@
-import { ConversationType, ModelName } from '@agentflox/database/src/generated/prisma_fixed/client';
+import { ConversationType, ModelName } from '@agentflox/database';
 import { z } from 'zod'
 import prisma from '@/lib/prisma'
 import { initializeOpenAI } from '@/lib/openai'

@@ -2600,6 +2600,7 @@ exports.Prisma.AgentWorkflowExecutionScalarFieldEnum = {
   workflowId: 'workflowId',
   status: 'status',
   context: 'context',
+  executionVersion: 'executionVersion',
   startTime: 'startTime',
   endTime: 'endTime',
   error: 'error'
@@ -2751,6 +2752,7 @@ exports.Prisma.AiAgentScalarFieldEnum = {
 exports.Prisma.SystemToolScalarFieldEnum = {
   id: 'id',
   name: 'name',
+  displayName: 'displayName',
   description: 'description',
   category: 'category',
   functionSchema: 'functionSchema',
@@ -2768,6 +2770,23 @@ exports.Prisma.SystemToolScalarFieldEnum = {
   createdAt: 'createdAt',
   updatedAt: 'updatedAt',
   lastUsedAt: 'lastUsedAt'
+};
+
+exports.Prisma.CompositeToolScalarFieldEnum = {
+  id: 'id',
+  workspaceId: 'workspaceId',
+  spaceId: 'spaceId',
+  projectId: 'projectId',
+  teamId: 'teamId',
+  ownerId: 'ownerId',
+  name: 'name',
+  description: 'description',
+  category: 'category',
+  functionSchema: 'functionSchema',
+  steps: 'steps',
+  isPublic: 'isPublic',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
 };
 
 exports.Prisma.AgentSkillScalarFieldEnum = {
@@ -3968,7 +3987,8 @@ exports.ConversationType = exports.$Enums.ConversationType = {
   AGENT_BUILDER: 'AGENT_BUILDER',
   AGENT_EXECUTOR: 'AGENT_EXECUTOR',
   AGENT_OPERATOR: 'AGENT_OPERATOR',
-  WAR_ROOM: 'WAR_ROOM'
+  WAR_ROOM: 'WAR_ROOM',
+  WORKFORCE_EXECUTION: 'WORKFORCE_EXECUTION'
 };
 
 exports.MessageRole = exports.$Enums.MessageRole = {
@@ -4450,6 +4470,7 @@ exports.Prisma.ModelName = {
   AgentAuditLog: 'AgentAuditLog',
   AiAgent: 'AiAgent',
   SystemTool: 'SystemTool',
+  CompositeTool: 'CompositeTool',
   AgentSkill: 'AgentSkill',
   AgentToSkill: 'AgentToSkill',
   SkillToTool: 'SkillToTool',

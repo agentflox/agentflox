@@ -1,4 +1,4 @@
-import { PrismaClient } from '@agentflox/database/src/generated/prisma_fixed/index.js';
+import { PrismaClient } from '@agentflox/database';
 
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
