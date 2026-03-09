@@ -47,6 +47,28 @@ export default function DashboardPage() {
       hoverGlow: "hover:shadow-indigo-500/50",
     },
     {
+      id: "agents",
+      title: t("sidebar.agents"),
+      icon: Sparkles,
+      href: DASHBOARD_ROUTES.AGENTS,
+      description: t("dashboard.empty.agents.desc") || "Manage and orchestrate your AI agents.",
+      gradient: "from-purple-500/20 via-violet-500/20 to-indigo-500/20",
+      iconColor: "text-purple-500",
+      borderColor: "border-purple-500/20",
+      hoverGlow: "hover:shadow-purple-500/50",
+    },
+    {
+      id: "workforces",
+      title: t("sidebar.workforces"),
+      icon: Users,
+      href: DASHBOARD_ROUTES.WORKFORCES,
+      description: t("dashboard.empty.workforces.desc") || "Group agents and people into workforces.",
+      gradient: "from-sky-500/20 via-cyan-500/20 to-emerald-500/20",
+      iconColor: "text-sky-500",
+      borderColor: "border-sky-500/20",
+      hoverGlow: "hover:shadow-sky-500/50",
+    },
+    {
       id: "teams",
       title: t("sidebar.teams"),
       icon: Users,
@@ -122,17 +144,6 @@ export default function DashboardPage() {
       iconColor: "text-cyan-500",
       borderColor: "border-cyan-500/20",
       hoverGlow: "hover:shadow-cyan-500/50",
-    },
-    {
-      id: "materials",
-      title: t("sidebar.materials"),
-      icon: Box,
-      href: DASHBOARD_ROUTES.MATERIALS,
-      description: "Manage resource materials.",
-      gradient: "from-pink-500/20 via-rose-500/20 to-red-500/20",
-      iconColor: "text-pink-500",
-      borderColor: "border-pink-500/20",
-      hoverGlow: "hover:shadow-pink-500/50",
     }
   ];
 

@@ -9,10 +9,25 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Agentflox Docs",
-  description:
-    "Agentflox documentation – guides, API reference, and architecture concepts.",
-};
+  twitter: {
+    card: 'summary_large_image',
+    title: "AgentFlow",
+    description: "The connected workspace where better, faster work happens.",
+    images: ['/images/logo.png'],
+  },
+  icons: {
+    icon: [
+      { url: "/favicon.ico", media: "(prefers-color-scheme: light)" },
+      { url: "/favicon.ico", media: "(prefers-color-scheme: dark)" },
+    ],
+    apple: "/images/logo.png",
+    shortcut: "/images/logo.png",
+  },
+  manifest: "/site.webmanifest",
+  alternates: {
+    canonical: "https://shopify-app.doc2product.com",
+  },
+}
 
 export default function RootLayout({
   children,

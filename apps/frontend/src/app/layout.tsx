@@ -22,14 +22,14 @@ export const metadata: Metadata = {
   openGraph: mergeOpenGraph(),
   twitter: {
     card: 'summary_large_image',
-    title: "NaisCorp",
+    title: "AgentFlow",
     description: "The connected workspace where better, faster work happens.",
     images: ['/images/logo.png'],
   },
   icons: {
     icon: [
-      { url: "/global/app_logos/favicon.ico", media: "(prefers-color-scheme: light)" },
-      { url: "/global/app_logos/favicon.ico", media: "(prefers-color-scheme: dark)" },
+      { url: "/favicon.ico", media: "(prefers-color-scheme: light)" },
+      { url: "/favicon.ico", media: "(prefers-color-scheme: dark)" },
     ],
     apple: "/images/logo.png",
     shortcut: "/images/logo.png",

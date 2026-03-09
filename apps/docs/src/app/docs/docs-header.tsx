@@ -2,7 +2,9 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { Search, Command, Github, Twitter, Menu, ArrowRight } from "lucide-react";
+import { APP_URL } from '@/lib/config';
 
 export const DocsHeader = () => {
   const [searchValue, setSearchValue] = useState("");
@@ -24,12 +26,18 @@ export const DocsHeader = () => {
       <div className="max-w-[1600px] mx-auto flex h-16 items-center justify-between px-6 lg:px-12">
         <div className="flex items-center gap-8">
           <Link href="/docs" className="flex items-center gap-2 group">
-            <div className="w-8 h-8 flex items-center justify-center bg-indigo-500 rounded-sm">
-              <span className="text-xl font-bold tracking-tighter text-white">A</span>
+            <div className="relative w-8 h-8">
+              <Image
+                src="/images/logo.png"
+                alt="Agentflox logo"
+                fill
+                className="object-contain"
+                priority
+              />
             </div>
             <div className="flex flex-col">
               <span className="text-lg font-bold tracking-tight text-white group-hover:text-indigo-400 transition-colors">
-                Agentflox
+                AgentFlox
               </span>
               <span className="text-[10px] font-medium uppercase tracking-[0.2em] text-indigo-400 -mt-1">
                 Documentation
@@ -95,7 +103,7 @@ export const DocsHeader = () => {
           </div>
 
           <Link
-            href="https://app.agentflox.com"
+            href={APP_URL}
             className="hidden sm:flex items-center gap-2 px-4 py-2 bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/20 rounded-lg text-sm font-medium text-indigo-400 transition-all group"
           >
             Go to Platform

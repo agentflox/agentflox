@@ -45,6 +45,8 @@ export default function MainSidebar({ mode = "inline", onClose }: { mode?: "inli
     { label: "Personal", href: DASHBOARD_ROUTES.PERSONAL, icon: User },
     { label: t("sidebar.workspaces"), href: DASHBOARD_ROUTES.WORKSPACES, icon: Box },
     { label: t("sidebar.spaces"), href: DASHBOARD_ROUTES.SPACES, icon: Layers },
+    { label: t("sidebar.agents"), href: DASHBOARD_ROUTES.AGENTS, icon: Sparkles },
+    { label: t("sidebar.workforces"), href: DASHBOARD_ROUTES.WORKFORCES, icon: Building2 },
     { label: t("sidebar.teams"), href: DASHBOARD_ROUTES.TEAMS, icon: Users },
     { label: t("sidebar.projects"), href: DASHBOARD_ROUTES.PROJECTS, icon: FolderOpen },
     { label: t("sidebar.tasks"), href: DASHBOARD_ROUTES.TASKS, icon: FileText },
@@ -52,8 +54,6 @@ export default function MainSidebar({ mode = "inline", onClose }: { mode?: "inli
     { label: t("sidebar.proposals"), href: DASHBOARD_ROUTES.PROPOSALS, icon: FileText },
     { label: t("sidebar.tools"), href: DASHBOARD_ROUTES.TOOLS, icon: Settings },
     { label: t("sidebar.integrations"), href: DASHBOARD_ROUTES.INTEGRATIONS, icon: Link2 },
-    { label: t("sidebar.materials"), href: DASHBOARD_ROUTES.MATERIALS, icon: Box },
-    { label: t("sidebar.resources"), href: DASHBOARD_ROUTES.RESOURCES, icon: Box },
   ];
 
   const [isMainCollapsed, setIsMainCollapsed] = useState(false);
@@ -76,8 +76,8 @@ export default function MainSidebar({ mode = "inline", onClose }: { mode?: "inli
     setIsMoreOpen(false);
   };
 
-  const visibleSecondary = secondaryNav.slice(0, 3);
-  const hiddenSecondary = secondaryNav.slice(3);
+  const visibleSecondary = secondaryNav.slice(0, 5);
+  const hiddenSecondary = secondaryNav.slice(5);
 
   const customHeader = (collapsed: boolean) => (
     <div className={cn("flex items-center gap-2 overflow-hidden transition-all", collapsed ? "w-0 opacity-0" : "w-auto opacity-100")}>

@@ -65,6 +65,8 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { BACKEND_URL } from "@/entities/agents/hooks/useAgentStream";
+import { fetchAuthToken } from "@/utils/backend-request";
 
 type StepType = "LLM" | "API" | "SYSTEM_TOOL";
 
@@ -716,6 +718,7 @@ type ToolCanvasNodeData = {
   onCopySnippet?: () => void;
   onDeleteBranch?: () => void;
   onUpdateBranchLabel?: (newLabel: string) => void;
+  onRunStep?: () => void;
   viewMode: "flow" | "notebook";
   branchLabel?: string;
 };
@@ -850,7 +853,6 @@ function StepNode({ data }: { data: ToolCanvasNodeData }) {
 }
 
 function BranchNode({ data }: { data: ToolCanvasNodeData }) {
-  const { toast } = useToast();
   return (
     <div className="relative w-[380px] cursor-pointer">
       <Handle
@@ -899,7 +901,15 @@ function BranchNode({ data }: { data: ToolCanvasNodeData }) {
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
-        <Button variant="outline" size="sm" className="h-7 text-xs shrink-0 nodrag nopan" onClick={() => toast({ title: "Run step", description: "Step runner isn't wired yet." })}>
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-7 text-xs shrink-0 nodrag nopan"
+          onClick={(e) => {
+            e.stopPropagation();
+            data.onRunStep?.();
+          }}
+        >
           <Play className="h-3 w-3 mr-1" /> Run
         </Button>
       </div>
@@ -1142,6 +1152,7 @@ export function ToolBuilderView({ workspaceId, initialTool }: ToolBuilderViewPro
   const [sidebarOpen, setSidebarOpen] = React.useState(true);
   const [sidebarWidth, setSidebarWidth] = React.useState(420);
   const [isResizingSidebar, setIsResizingSidebar] = React.useState(false);
+  const [isRunningTool, setIsRunningTool] = React.useState(false);
 
   const systemToolsQuery = trpc.tool.systemList.useQuery({
     query: systemToolsListOpen ? toolStepSidebarQuery || undefined : undefined,
@@ -1386,6 +1397,88 @@ export function ToolBuilderView({ workspaceId, initialTool }: ToolBuilderViewPro
     setOutputs((prev) => [...prev, { name: "", type: "string" }]);
   };
 
+  const runCompositeTool = React.useCallback(
+    async (options?: { startStepId?: string }) => {
+      if (!initialTool?.id) {
+        toast({
+          title: "Save tool first",
+          description: "Please save this tool before running it.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (isRunningTool) return;
+
+      setIsRunningTool(true);
+      try {
+        const token = await fetchAuthToken();
+        const resolvedInput: Record<string, unknown> = {};
+        for (const field of inputs) {
+          if (!field.name) continue;
+          if (field.defaultValue !== undefined) {
+            resolvedInput[field.name] = field.defaultValue;
+          }
+        }
+
+        const res = await fetch(
+          `${BACKEND_URL}/v1/agents/composite-tools/${encodeURIComponent(
+            initialTool.id,
+          )}/run`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            },
+            body: JSON.stringify({
+              input: resolvedInput,
+              startStepId: options?.startStepId,
+            }),
+          },
+        );
+
+        if (!res.ok) {
+          const text = await res.text();
+          let message = text;
+          try {
+            const parsed = JSON.parse(text);
+            message = parsed?.message || parsed?.error || text;
+          } catch {
+            // ignore
+          }
+          throw new Error(message || `HTTP ${res.status}`);
+        }
+
+        const data = (await res.json()) as {
+          executionId?: string;
+          status?: string;
+          summary?: string;
+        };
+
+        toast({
+          title: "Tool run started",
+          description:
+            data.summary ||
+            (data.executionId
+              ? `Execution ${data.status ?? "STARTED"} (ID: ${String(
+                  data.executionId,
+                ).slice(0, 8)}…)`
+              : "Backend accepted the run request."),
+        });
+      } catch (err: any) {
+        toast({
+          title: "Error running tool",
+          description: err?.message || "Failed to start tool run.",
+          variant: "destructive",
+        });
+      } finally {
+        setIsRunningTool(false);
+      }
+    },
+    [initialTool?.id, inputs, toast, isRunningTool],
+  );
+
   const doInsertStep = React.useCallback((created: BuilderStep) => {
     setSteps((prev) => {
       if (!pendingBranchStep) return [...prev, created];
@@ -1628,6 +1721,7 @@ export function ToolBuilderView({ workspaceId, initialTool }: ToolBuilderViewPro
               navigator.clipboard.writeText(`agent.run_step("${s.varName}")`);
               toast({ title: "Copied Python Snippet", description: "The snippet has been copied to your clipboard." });
             },
+            onRunStep: () => runCompositeTool({ startStepId: s.id }),
           },
         });
 
@@ -1698,6 +1792,7 @@ export function ToolBuilderView({ workspaceId, initialTool }: ToolBuilderViewPro
             viewMode,
             onOpen: () => { setSelectedNode("step"); setSelectedStepId(s.id); setActivePanelTab("configure"); },
             onAddStep: () => openToolStepSidebar({ insertIndex: idx + 1 }),
+            onRunStep: () => runCompositeTool({ startStepId: s.id }),
           },
         });
         currentY += stepAdvance;
@@ -2074,15 +2169,11 @@ export function ToolBuilderView({ workspaceId, initialTool }: ToolBuilderViewPro
           <Button
             variant="outline"
             className="h-8 px-3 text-xs"
-            onClick={() =>
-              toast({
-                title: "Run tool",
-                description: "Execution runner isn’t wired yet—UI parity first.",
-              })
-            }
+            disabled={isRunningTool}
+            onClick={() => runCompositeTool()}
           >
             <Play className="h-3 w-3 mr-1.5" />
-            Run tool
+            {isRunningTool ? "Running…" : "Run tool"}
           </Button>
 
           <Button
@@ -2913,14 +3004,6 @@ export function ToolBuilderView({ workspaceId, initialTool }: ToolBuilderViewPro
                                   <Button
                                     variant="outline"
                                     className="h-8 text-xs"
-                                    onClick={() => toast({ title: "Run step", description: "Step runner isn’t wired yet—next iteration." })}
-                                  >
-                                    <Plus className="h-3 w-3 mr-1.5" />
-                                    Add step
-                                  </Button>
-                                  <Button
-                                    variant="outline"
-                                    className="h-8 text-xs"
                                     onClick={() => openToolStepSidebar()}
                                   >
                                     <Plus className="h-3 w-3 mr-1.5" />
@@ -2929,10 +3012,11 @@ export function ToolBuilderView({ workspaceId, initialTool }: ToolBuilderViewPro
                                   <Button
                                     variant="outline"
                                     className="h-8 text-xs"
-                                    onClick={() => toast({ title: "Run step", description: "Step runner is not wired yet." })}
+                                    disabled={isRunningTool}
+                                    onClick={() => runCompositeTool({ startStepId: step.id })}
                                   >
                                     <Play className="h-3 w-3 mr-1.5" />
-                                    Run
+                                    {isRunningTool ? "Running…" : "Run from here"}
                                   </Button>
                                 </div>
                                 <div className="mt-2">

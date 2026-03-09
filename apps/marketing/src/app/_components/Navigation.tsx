@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Menu, X, ChevronRight, ChevronDown, Bot, Workflow, Users, Briefcase, Building2, Rocket, GraduationCap, BookOpen, MessageSquare, Play, LifeBuoy, Headphones, Sparkles, Zap, Globe, Shield, Code, LayoutGrid, ArrowRight, TrendingUp } from 'lucide-react';
 import { gsap } from 'gsap';
 import Link from 'next/link';
+import Image from 'next/image';
 import { ROUTES } from '../../lib/config';
 
 interface MegaMenuItem {
@@ -211,8 +212,14 @@ export const Navigation = () => {
                     <div className="flex items-center justify-between h-20">
                         {/* Logo */}
                         <Link href="/" className="flex items-center gap-2 group">
-                            <div className="w-8 h-8 flex items-center justify-center">
-                                <span className="text-2xl font-bold tracking-tighter text-white">A</span>
+                            <div className="relative w-8 h-8">
+                                <Image
+                                    src="/images/logo.png"
+                                    alt="Agentflox logo"
+                                    fill
+                                    className="object-contain"
+                                    priority
+                                />
                             </div>
                             <span className="text-xl font-bold tracking-tight text-white group-hover:text-indigo-400 transition-colors">
                                 Agentflox

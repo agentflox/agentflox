@@ -2,6 +2,7 @@
 import React from 'react';
 import { Twitter, Linkedin, Github, Mail, ArrowRight, Bot, Sparkles } from 'lucide-react';
 import Link from 'next/link';
+import Image from 'next/image';
 
 export const Footer = () => {
     const currentYear = new Date().getFullYear();
@@ -57,9 +58,19 @@ export const Footer = () => {
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-8 mb-16">
                     {/* Brand Column */}
                     <div className="col-span-2 md:col-span-1">
-                        <Link href="/" className="inline-block text-2xl font-bold tracking-tighter mb-6">
-                            Agentflox
-                            <span className="text-indigo-500">.</span>
+                        <Link href="/" className="inline-flex items-center gap-2 mb-6">
+                            <span className="relative inline-block h-8 w-8">
+                                <Image
+                                    src="/images/logo.png"
+                                    alt="Agentflox logo"
+                                    fill
+                                    className="object-contain"
+                                    priority
+                                />
+                            </span>
+                            <span className="text-2xl font-bold tracking-tighter">
+                                Agentflox<span className="text-indigo-500">.</span>
+                            </span>
                         </Link>
                         <p className="text-gray-500 mb-6 leading-relaxed font-light text-sm">
                             The operating system for modern ventures. Orchestrate agents, automate workflows, and scale your ambition.

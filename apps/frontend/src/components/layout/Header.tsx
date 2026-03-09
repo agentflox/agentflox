@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import Image from "next/image";
 import { CommandTrigger } from "@/entities/command/CommandInterface";
 import { useInterfaceSettings } from "@/hooks/useInterfaceSettings";
 import Button from "@/components/ui/button";
@@ -29,9 +30,18 @@ export default function Header() {
       <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
         <Link
           href="/"
-          className="text-lg font-semibold tracking-tight text-zinc-900 transition-colors hover:text-zinc-700"
+          className="flex items-center gap-2 text-zinc-900 transition-colors hover:text-zinc-700"
         >
-          agentflox
+          <span className="relative inline-block h-7 w-7">
+            <Image
+              src="/images/logo.png"
+              alt="Agentflox logo"
+              fill
+              className="object-contain"
+              priority
+            />
+          </span>
+          <span className="text-lg font-semibold tracking-tight">agentflox</span>
         </Link>
         <nav className="flex items-center gap-4">
           {session?.user ? (
