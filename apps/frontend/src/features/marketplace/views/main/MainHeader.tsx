@@ -2,7 +2,6 @@
 import { cn } from "@/lib/utils";
 import { Sparkles, Plus, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { SearchBar } from "../../components/SearchBar";
 import { Protect } from "@/features/permissions/components/Protect";
 import { Capability } from "@/features/permissions/capabilities";
 import { Input } from "@/components/ui/input";
