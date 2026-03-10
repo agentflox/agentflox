@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
+import { mergeOpenGraph } from '@/utils/utilities//mergeOpenGraph';
+import { getServerSideURL } from '@/utils/utilities/getURL';
 import "./globals.css";
 
 const inter = Inter({
@@ -9,6 +11,8 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(getServerSideURL()),
+  openGraph: mergeOpenGraph(),
   twitter: {
     card: 'summary_large_image',
     title: "AgentFlow",
@@ -25,7 +29,7 @@ export const metadata: Metadata = {
   },
   manifest: "/site.webmanifest",
   alternates: {
-    canonical: "https://shopify-app.doc2product.com",
+    canonical: "https://docs.agentflox.com",
   },
 }
 

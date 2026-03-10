@@ -1,7 +1,6 @@
 import React from "react";
 import type { Metadata } from "next";
 import { Inter } from 'next/font/google';
-
 import Providers from "@/components/providers/Providers";
 import { mergeOpenGraph } from '@/utils/utilities//mergeOpenGraph';
 import { getServerSideURL } from '@/utils/utilities/getURL';
@@ -36,7 +35,7 @@ export const metadata: Metadata = {
   },
   manifest: "/site.webmanifest",
   alternates: {
-    canonical: "https://shopify-app.doc2product.com",
+    canonical: "https://app.agentflox.com",
   },
 }
 
