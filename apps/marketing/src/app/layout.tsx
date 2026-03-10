@@ -11,11 +11,13 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
+    title: "AgentFlox – The connected workspace where better, faster work happens.",
+    description: "The connected workspace where better, faster work happens.",
     metadataBase: new URL(getServerSideURL()),
     openGraph: mergeOpenGraph(),
     twitter: {
       card: 'summary_large_image',
-      title: "AgentFlow",
+      title: "AgentFlox",
       description: "The connected workspace where better, faster work happens.",
       images: ['/images/logo.png'],
     },
