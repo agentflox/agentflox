@@ -400,6 +400,7 @@ model Space {
   teams              Team[]
   tools              Tool[]
   views              View[]
+  workforces          Workforce[]
 
   @@index([workspaceId])
   @@index([isActive])
@@ -455,6 +456,8 @@ model Task {
   taskTypeId          String?            @map("task_type_id")
   startDate           DateTime?          @map("start_date")
   dueDate             DateTime?          @map("due_date")
+  noStartTime         Boolean            @default(false) @map("no_start_time")
+  noEndTime           Boolean            @default(false) @map("no_end_time")
   timeEstimate        Int?               @map("time_estimate")
   isStarred           Boolean            @default(false) @map("is_starred")
   tags                String[]           @default([])
@@ -1463,6 +1466,7 @@ model Project {
   activityLogs       ActivityLog[]
   aiAgents           AiAgent[]
   aiConversations    AiConversation[]
+  workforces         Workforce[]
   attachments        Attachment[]               @relation("ProjectAttachments")
   automations        Automation[]
   compositeTools     CompositeTool[]
@@ -1750,6 +1754,7 @@ model Team {
   activityLogs        ActivityLog[]
   aiAgents            AiAgent[]
   aiConversations     AiConversation[]
+  workforces          Workforce[]
   attachments         Attachment[]           @relation("TeamAttachments")
   automations         Automation[]
   compositeTools      CompositeTool[]
@@ -3167,6 +3172,8 @@ model AiConversation {
   projectId        String?                  @map("project_id")
   proposalId       String?                  @map("proposal_id")
   teamId           String?                  @map("team_id")
+  workforceId      String?                  @map("workforce_id")
+  compositeToolId  String?                  @map("composite_tool_id")
   systemPrompt     String?                  @map("system_prompt")
   modelId          String?                  @map("model_id")
   messageCount     Int                      @default(0) @map("message_count")
@@ -3200,6 +3207,8 @@ model AiConversation {
   team             Team?                    @relation(fields: [teamId], references: [id])
   user             User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
   workspace        Workspace?               @relation("WorkspaceConversations", fields: [workspaceId], references: [id])
+  workforce        Workforce?               @relation(fields: [workforceId], references: [id], onDelete: Cascade)
+  compositeTool    CompositeTool?           @relation(fields: [compositeToolId], references: [id], onDelete: Cascade)
   messages         AiMessage[]
 
   @@index([userId, createdAt(sort: Desc)])
@@ -3213,6 +3222,8 @@ model AiConversation {
   @@index([listId])
   @@index([folderId])
   @@index([agentId])
+  @@index([workforceId])
+  @@index([compositeToolId])
   @@index([conversationType])
   @@map("ai_conversations")
 }
@@ -3810,9 +3821,16 @@ model AgentTask {
   dependsOn           String[]                @map("depends_on")
   blockedBy           String[]                @map("blocked_by")
   executionId         String?                 @unique @map("execution_id")
+  version             Int                     @default(0) @map("version")
   attempts            Int                     @default(0)
   maxAttempts         Int                     @default(3) @map("max_attempts")
   lastAttemptAt       DateTime?               @map("last_attempt_at")
+  lastHeartbeatAt     DateTime?               @map("last_heartbeat_at")
+  depth               Int                     @default(0)
+  parentTaskId        String?                 @map("parent_task_id") @db.Uuid
+  availableAt         DateTime?               @map("available_at")
+  claimToken          String?                 @map("claim_token")
+  claimExpiresAt      DateTime?               @map("claim_expires_at")
   metadata            Json?
   tags                String[]                @default([])
   createdAt           DateTime                @default(now()) @map("created_at")
@@ -3856,6 +3874,10 @@ model AgentWorkflowExecution {
   executionVersion Int @default(0) @map("version")
   startTime  DateTime  @default(now()) @map("start_time")
   endTime    DateTime? @map("end_time")
+  totalCostUsd Float     @default(0) @map("total_cost_usd")
+  maxCostUsd   Float?    @map("max_cost_usd")
+  totalTasks   Int       @default(0) @map("total_tasks")
+  maxTasks     Int?      @map("max_tasks")
   error      String?
 
   workflow AgentWorkflow? @relation(fields: [workflowId], references: [id], onDelete: Cascade)
@@ -4114,6 +4136,7 @@ model CompositeTool {
   ownerId        String     @map("owner_id")
   name           String
   description    String?
+  systemPrompt   String?    @map("system_prompt")
   category       String?
   functionSchema Json
   steps          Json
@@ -4125,6 +4148,7 @@ model CompositeTool {
   space          Space?     @relation(fields: [spaceId], references: [id], onDelete: Cascade)
   project        Project?   @relation(fields: [projectId], references: [id], onDelete: Cascade)
   team           Team?      @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  aiConversations AiConversation[]
 
   @@index([workspaceId])
   @@index([spaceId])
@@ -5175,6 +5199,11 @@ enum ConversationType {
   AGENT_OPERATOR
   WAR_ROOM
   WORKFORCE_EXECUTION
+  WORKFORCE_WORKFLOW_EXECUTION
+  WORKFORCE_SWARM_EXECUTION
+  WORKFORCE_BUILDER
+  TOOL_BUILDER
+  SWARM_SESSION
 }
 
 enum MessageRole {
@@ -5399,6 +5428,7 @@ enum IntegrationProvider {
   TRELLO
   GOOGLE_CALENDAR
   GOOGLE_DRIVE
+  GOOGLE_MAIL
   DROPBOX
   ZAPIER
   FIGMA
@@ -5577,6 +5607,9 @@ enum AgentTaskStatus {
   CANCELLED
   PAUSED
   BLOCKED
+  BACKOFF
+  PENDING_APPROVAL
+  FAILED_PERMANENTLY
 }
 
 enum AgentTaskType {
@@ -5723,17 +5756,27 @@ model Workforce {
   description String?
   mode        WorkforceMode
   status      WorkforceStatus @default(DRAFT)
-  workspaceId String          @map("workspace_id")
+  workspaceId String?          @map("workspace_id")
+  spaceId     String?          @map("space_id")
+  projectId   String?          @map("project_id")
+  teamId      String?          @map("team_id")
   createdBy   String          @map("created_by")
   createdAt   DateTime        @default(now()) @map("created_at")
   updatedAt   DateTime        @updatedAt @map("updated_at")
   graph       Json?
   data        Json?
 
-  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  creator   User      @relation(fields: [createdBy], references: [id])
+  workspace Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  space     Space?     @relation(fields: [spaceId], references: [id])
+  project   Project?   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  team      Team?      @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  creator   User       @relation(fields: [createdBy], references: [id])
+  aiConversations AiConversation[]
 
   @@index([workspaceId])
+  @@index([spaceId])
+  @@index([projectId])
+  @@index([teamId])
   @@index([createdBy])
   @@index([status])
   @@map("workforces")

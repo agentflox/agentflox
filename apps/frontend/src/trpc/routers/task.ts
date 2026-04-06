@@ -302,6 +302,8 @@ export const taskRouter = router({
             taskType: { select: { id: true, name: true, icon: true, color: true } },
             project: { select: { id: true, name: true } },
             team: { select: { id: true, name: true } },
+            workspace: { select: { id: true, name: true } },
+            space: { select: { id: true, name: true, color: true } },
             channel: { select: { id: true, name: true } },
             attachments: { include: { uploader: { select: { id: true, name: true, image: true } } } },
             list: {
@@ -482,6 +484,8 @@ export const taskRouter = router({
       priority: z.enum(["URGENT", "HIGH", "NORMAL", "LOW"]).optional(),
       dueDate: z.date().optional().nullable(),
       startDate: z.date().optional().nullable(),
+      noStartTime: z.boolean().optional(),
+      noEndTime: z.boolean().optional(),
       visibility: z.enum(["PRIVATE", "TEAM", "WORKSPACE", "PUBLIC"]).default("PRIVATE"),
       isPublic: z.boolean().default(false),
       position: z.string().optional(),
@@ -524,6 +528,8 @@ export const taskRouter = router({
       if (input.priority !== undefined) data.priority = input.priority;
       if (input.dueDate !== undefined) data.dueDate = input.dueDate ?? undefined;
       if (input.startDate !== undefined) data.startDate = input.startDate ?? undefined;
+      if (input.noStartTime !== undefined) data.noStartTime = input.noStartTime;
+      if (input.noEndTime !== undefined) data.noEndTime = input.noEndTime;
 
       // Handle TaskType (Prioritize taskTypeId, fallback to looking up taskType enum name)
       if (input.taskTypeId) {
@@ -676,6 +682,8 @@ export const taskRouter = router({
       priority: z.enum(["URGENT", "HIGH", "NORMAL", "LOW"]).optional(),
       dueDate: z.string().optional().nullable(),
       startDate: z.string().optional().nullable(),
+      noStartTime: z.boolean().optional(),
+      noEndTime: z.boolean().optional(),
       timeEstimate: z.number().optional().nullable(),
       tags: z.array(z.string()).optional(),
       listId: z.string().optional().nullable(),
@@ -712,6 +720,8 @@ export const taskRouter = router({
       if (updateData.priority !== undefined) data.priority = updateData.priority;
       if (updateData.dueDate !== undefined) data.dueDate = updateData.dueDate ? new Date(updateData.dueDate) : null;
       if (updateData.startDate !== undefined) data.startDate = updateData.startDate ? new Date(updateData.startDate) : null;
+      if (updateData.noStartTime !== undefined) data.noStartTime = updateData.noStartTime;
+      if (updateData.noEndTime !== undefined) data.noEndTime = updateData.noEndTime;
       if (updateData.timeEstimate !== undefined) data.timeEstimate = updateData.timeEstimate ?? undefined;
       if (updateData.tags !== undefined) data.tags = updateData.tags;
       if (updateData.listId !== undefined) data.listId = updateData.listId ?? undefined;
