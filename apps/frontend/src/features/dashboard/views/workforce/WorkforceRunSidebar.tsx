@@ -1,32 +1,29 @@
 "use client";
 
 import React, { useState } from "react";
-import { Search, Filter, Pencil, Loader2 } from "lucide-react";
+import { Search, Filter, Plus, Pencil } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export interface WorkforceConversation {
+export interface RunExecution {
   id: string;
-  title: string | null;
-  createdAt: Date;
-  lastMessageAt: Date | null;
-  messageCount: number;
+  title: string;
+  timestamp: string;
+  triggerLabel?: string;
 }
 
 interface WorkforceRunSidebarProps {
   workforceName: string;
-  conversations: WorkforceConversation[];
-  pendingConversation?: WorkforceConversation | null;
-  selectedConversationId?: string | null;
-  onSelectConversation?: (id: string) => void;
+  executions?: RunExecution[];
+  selectedExecutionId?: string | null;
+  onSelectExecution?: (id: string) => void;
   onNewTask?: () => void;
 }
 
 export default function WorkforceRunSidebar({
   workforceName,
-  conversations = [],
-  pendingConversation,
-  selectedConversationId,
-  onSelectConversation,
+  executions = [],
+  selectedExecutionId,
+  onSelectExecution,
   onNewTask,
 }: WorkforceRunSidebarProps) {
   const [filterTab, setFilterTab] = useState<"all" | "to_review">("all");
@@ -34,14 +31,7 @@ export default function WorkforceRunSidebar({
   const activeCount = 0;
   const queueCount = 0;
 
-  const formatDate = (d: Date) => {
-    const date = typeof d === "string" ? new Date(d) : d;
-    const now = new Date();
-    const isToday = date.toDateString() === now.toDateString();
-    return isToday
-      ? date.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })
-      : date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
-  };
+  const runs = executions;
 
   return (
     <div className="w-[280px] flex-shrink-0 border-r border-zinc-200 bg-white flex flex-col overflow-hidden">
@@ -105,46 +95,24 @@ export default function WorkforceRunSidebar({
           Today
         </div>
         <div className="px-2 pb-4 space-y-0.5">
-          {pendingConversation && (
-            <div
-              className={cn(
-                "w-full text-left px-3 py-2.5 rounded-lg flex items-center gap-2",
-                selectedConversationId === "pending"
-                  ? "bg-indigo-50 text-indigo-900"
-                  : "bg-zinc-50 text-zinc-600"
-              )}
-            >
-              <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" />
-              <div className="min-w-0 flex-1">
-                <div className="text-sm font-medium truncate">
-                  {pendingConversation.title || "New run"}
-                </div>
-                <div className="text-[11px] text-zinc-500 mt-0.5">Creating…</div>
-              </div>
-            </div>
-          )}
-          {conversations.length === 0 && !pendingConversation ? (
+          {runs.length === 0 ? (
             <div className="text-xs text-zinc-500 px-1 py-2">
               No runs yet. Run a task to see history here.
             </div>
           ) : (
-            conversations.map((conv) => (
+            runs.map((run) => (
               <button
-                key={conv.id}
-                onClick={() => onSelectConversation?.(conv.id)}
+                key={run.id}
+                onClick={() => onSelectExecution?.(run.id)}
                 className={cn(
                   "w-full text-left px-3 py-2.5 rounded-lg transition-colors cursor-pointer",
-                  selectedConversationId === conv.id
+                  selectedExecutionId === run.id
                     ? "bg-indigo-50 text-indigo-900"
                     : "hover:bg-zinc-50 text-zinc-800"
                 )}
               >
-                <div className="text-sm font-medium truncate">
-                  {conv.title || `Run (${conv.messageCount} msgs)`}
-                </div>
-                <div className="text-[11px] text-zinc-500 mt-0.5">
-                  {formatDate(conv.lastMessageAt ?? conv.createdAt)}
-                </div>
+                <div className="text-sm font-medium truncate">{run.title}</div>
+                <div className="text-[11px] text-zinc-500 mt-0.5">{run.timestamp}</div>
               </button>
             ))
           )}

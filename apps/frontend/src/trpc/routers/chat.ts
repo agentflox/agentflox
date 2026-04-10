@@ -1,4 +1,4 @@
-import { ConversationType, ModelName } from '@agentflox/database';
+import { ConversationType, ModelName } from '@agentflox/database/src/generated/prisma/client';
 import { z } from 'zod'
 import prisma from '@/lib/prisma'
 import { initializeOpenAI } from '@/lib/openai'
@@ -604,7 +604,7 @@ export const chatRouter = router({
         conversationId: z.string(),
         userMessage: z.string(),
         assistantContent: z.string(),  // e.g. "Execution started (ID: …)"
-        metadata: z.record(z.string(), z.any()).optional(), // e.g. { executionId, workflowId, status }
+        metadata: z.record(z.unknown()).optional(), // e.g. { executionId, workflowId, status }
       })
     )
     .mutation(async ({ ctx, input }) => {

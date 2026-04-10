@@ -104,6 +104,7 @@ import type { FilterGroup } from "./listViewTypes";
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
 import { ViewToolbarSaveDropdown } from "@/features/dashboard/components/shared/ViewToolbarSaveDropdown";
 import { ViewToolbarClosedPopover } from "@/features/dashboard/components/shared/ViewToolbarClosedPopover";
+import { SidePanel } from "@/features/dashboard/components/shared/SidePanel";
 
 interface CalendarViewProps {
     spaceId?: string;
@@ -126,6 +127,7 @@ export function CalendarView({ spaceId, projectId, teamId, listId, viewId, initi
     const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [selectedDateForNewTask, setSelectedDateForNewTask] = useState<Date | null>(null);
+    const [expandedMonthCells, setExpandedMonthCells] = useState<Record<string, boolean>>({});
 
     const [isRightSidebarExpanded, setIsRightSidebarExpanded] = useState(false);
     const [isRightSidebarSearchOpen, setIsRightSidebarSearchOpen] = useState(false);
@@ -355,6 +357,9 @@ export function CalendarView({ spaceId, projectId, teamId, listId, viewId, initi
     const [filterAssignee, setFilterAssignee] = useState<string[]>([]);
 
     const [searchQuery, setSearchQuery] = useState("");
+    const [isToolbarSearchOpen, setIsToolbarSearchOpen] = useState(false);
+    const toolbarSearchContainerRef = useRef<HTMLDivElement | null>(null);
+    const toolbarSearchInputRef = useRef<HTMLInputElement | null>(null);
 
     // Autosave & Config Tracking States
     const [isViewDirty, setIsViewDirty] = useState(false);
@@ -385,6 +390,24 @@ export function CalendarView({ spaceId, projectId, teamId, listId, viewId, initi
     const [defaultViewSettingsApplyTo, setDefaultViewSettingsApplyTo] = useState<"NEW" | "REQUIRED" | "ALL">("NEW");
     /** @type {Partial<any>} */
     const [defaultViewSettingsDraft, setDefaultViewSettingsDraft] = useState({});
+
+    useEffect(() => {
+        if (!isToolbarSearchOpen) return;
+
+        toolbarSearchInputRef.current?.focus();
+
+        const handleClickOutside = (event: MouseEvent) => {
+            const target = event.target as Node;
+            if (!toolbarSearchContainerRef.current?.contains(target)) {
+                setIsToolbarSearchOpen(false);
+            }
+        };
+
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => {
+            document.removeEventListener("mousedown", handleClickOutside);
+        };
+    }, [isToolbarSearchOpen]);
 
     // Initial config initialization effect
     useEffect(() => {
@@ -1118,11 +1141,12 @@ export function CalendarView({ spaceId, projectId, teamId, listId, viewId, initi
                             </PopoverTrigger>
                             <PopoverContent align="end" className="w-80 p-0 overflow-hidden shadow-2xl">
                                 <div className="p-3 border-b border-zinc-100 bg-zinc-50/50">
-                                    <div className="relative">
-                                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-400" />
+                                    <div className="flex items-center h-8 rounded-md border border-zinc-200 bg-white px-2">
+                                        <Search className="h-3.5 w-3.5 text-zinc-400 shrink-0" />
                                         <Input
+                                            variant="ghost"
                                             placeholder="Search..."
-                                            className="pl-8 h-8 text-xs border-zinc-200"
+                                            className="h-full px-2 text-xs border-0 bg-transparent shadow-none focus:outline-none focus:ring-0 focus-visible:ring-0"
                                             value={savedFiltersSearch}
                                             onChange={e => setSavedFiltersSearch(e.target.value)}
                                         />
@@ -1192,7 +1216,7 @@ export function CalendarView({ spaceId, projectId, teamId, listId, viewId, initi
                         </Button>
                     </div>
                 ) : (
-                    <ScrollArea className="p-5 text-sm h-[500px]">
+                    <ScrollArea className="p-5 text-sm h-[350px]">
                         <div className="space-y-4">
                             <div className="space-y-4">
                                 {/* Render each top-level group */}
@@ -1351,7 +1375,13 @@ export function CalendarView({ spaceId, projectId, teamId, listId, viewId, initi
                                                                                         <ChevronDown className="h-3 w-3 opacity-30 shrink-0" />
                                                                                     </Button>
                                                                                 </DropdownMenuTrigger>
-                                                                                <DropdownMenuContent className="w-64 max-h-[400px] overflow-auto">
+                                                                                <DropdownMenuContent
+                                                                                    side="bottom"
+                                                                                    align="start"
+                                                                                    avoidCollisions={false}
+                                                                                    sideOffset={6}
+                                                                                    className="w-64 max-h-[400px] overflow-auto p-0"
+                                                                                >
                                                                                     <div className="p-2 border-b border-zinc-100 sticky top-0 bg-white z-10">
                                                                                         <Input placeholder="Search fields..." className="h-8 text-xs border-zinc-100" value={filterSearch} onChange={e => setFilterSearch(e.target.value)} />
                                                                                     </div>
@@ -1456,9 +1486,9 @@ export function CalendarView({ spaceId, projectId, teamId, listId, viewId, initi
                                                                                                         </PopoverTrigger>
                                                                                                         <PopoverContent align="start" className="w-64 p-2">
                                                                                                             <div className="p-2 border-b border-zinc-100 mb-1">
-                                                                                                                <div className="relative">
-                                                                                                                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-400" />
-                                                                                                                    <Input placeholder="Search people..." className="pl-8 h-8 text-[10px]" value={assigneesSearch} onChange={e => setAssigneesSearch(e.target.value)} />
+                                                                                                                <div className="flex items-center h-8 rounded-md border border-zinc-200 bg-white px-2">
+                                                                                                                    <Search className="h-3.5 w-3.5 text-zinc-400 shrink-0" />
+                                                                                                                    <Input variant="ghost" placeholder="Search people..." className="h-full px-2 text-[10px] border-0 bg-transparent shadow-none focus:outline-none focus:ring-0 focus-visible:ring-0" value={assigneesSearch} onChange={e => setAssigneesSearch(e.target.value)} />
                                                                                                                 </div>
                                                                                                             </div>
                                                                                                             <ScrollArea className="h-[240px]">
@@ -1736,6 +1766,7 @@ export function CalendarView({ spaceId, projectId, teamId, listId, viewId, initi
     };
 
 
+
     if (isLoading) {
         console.log("DEBUG: CalendarView is loading tasks...");
         return (
@@ -1753,7 +1784,7 @@ export function CalendarView({ spaceId, projectId, teamId, listId, viewId, initi
     const renderInlineCreateForm = (isAbsolute: boolean, colIndex?: number, totalCols?: number, isAllDay?: boolean) => {
         if (isAllDay) {
             return (
-                <div className="z-[50] bg-white border border-zinc-300 shadow-[0_4px_16px_rgba(0,0,0,0.1)] flex items-center flex-row p-1 cursor-default rounded-md w-full h-[36px] shrink-0" onClick={e => e.stopPropagation()}>
+                <div className="z-[50] bg-white border border-zinc-300 shadow-[0_4px_16px_rgba(0,0,0,0.1)] flex items-center flex-row p-1 cursor-default rounded-none w-full h-[36px] shrink-0" onClick={e => e.stopPropagation()}>
                     <div className="flex-1 w-full min-w-0 h-full flex items-center justify-between gap-2 px-1">
                         <button
                             onClick={() => setInlineCreateState(null)}
@@ -1891,10 +1922,10 @@ export function CalendarView({ spaceId, projectId, teamId, listId, viewId, initi
 
         return (
             <div className={cn(
-                "z-[100] bg-white border border-zinc-300 shadow-[0_20px_50px_rgba(0,0,0,0.15)] flex flex-col p-2.5 cursor-default overflow-visible rounded-lg group/form",
-                isAbsolute ? "absolute top-[0px] h-[95px]" : "relative min-h-[95px] shrink-0 mt-1 mb-1 z-[100] w-full",
-                isAbsolute && (viewMode === "week" || viewMode === "4days") ? "w-[380px] sm:w-[480px]" : isAbsolute ? "left-[-1px] right-[0px]" : "",
-                isAbsolute && (viewMode === "week" || viewMode === "4days") && colIndex !== undefined && totalCols !== undefined && (colIndex >= totalCols - 2) ? "right-0" : isAbsolute ? "left-[-1px]" : ""
+                "z-[100] bg-white border border-zinc-300 shadow-[0_20px_50px_rgba(0,0,0,0.15)] flex flex-col p-2.5 cursor-default overflow-visible rounded-none group/form",
+                isAbsolute ? (viewMode === "month" ? "absolute top-full mt-1 h-[95px]" : "absolute top-[0px] h-[95px]") : "relative min-h-[95px] shrink-0 mt-1 mb-1 z-[100] w-full",
+                isAbsolute && (viewMode === "week" || viewMode === "4days" || viewMode === "month") ? "w-[340px] sm:w-[420px]" : isAbsolute ? "left-[-1px] right-[0px]" : "",
+                isAbsolute && (viewMode === "week" || viewMode === "4days" || viewMode === "month") && colIndex !== undefined && totalCols !== undefined && (colIndex >= totalCols - 2) ? "right-[-1px]" : isAbsolute ? (viewMode === "month" ? "left-[calc(100%_-_32px)]" : "left-[-1px]") : ""
             )} onClick={e => e.stopPropagation()}>
                 <div className="flex-1 min-w-0 flex flex-col justify-between h-full">
                     {/* Row 1: Status Icon + Input + Assignee */}
@@ -2257,9 +2288,37 @@ export function CalendarView({ spaceId, projectId, teamId, listId, viewId, initi
                         <TooltipContent side="bottom">Filter by assignee</TooltipContent>
                     </Tooltip>
 
-                    <div className="relative w-40 hidden sm:block">
-                        <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
-                        <Input className="pl-8 h-8 bg-zinc-50/50 border-zinc-200 text-sm rounded-lg" placeholder="Search..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
+                    <div ref={toolbarSearchContainerRef} className="hidden sm:block">
+                        {isToolbarSearchOpen ? (
+                            <div className="w-56 min-w-[12rem]">
+                                <div className="flex items-center h-8 rounded-lg border border-zinc-200 bg-zinc-50/50 px-2">
+                                    <Search className="h-4 w-4 text-zinc-400 shrink-0" />
+                                    <Input
+                                        ref={toolbarSearchInputRef}
+                                        variant="ghost"
+                                        className="h-full px-2 text-sm border-0 bg-transparent shadow-none focus:outline-none focus:ring-0 focus-visible:ring-0"
+                                        placeholder="Search..."
+                                        value={searchQuery}
+                                        onChange={e => setSearchQuery(e.target.value)}
+                                        onKeyDown={(e) => {
+                                            if (e.key === "Escape") {
+                                                setIsToolbarSearchOpen(false);
+                                            }
+                                        }}
+                                    />
+                                </div>
+                            </div>
+                        ) : (
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-8 w-8 p-0 text-zinc-700 border-zinc-200"
+                                onClick={() => setIsToolbarSearchOpen(true)}
+                                title="Search"
+                            >
+                                <Search className="h-4 w-4" />
+                            </Button>
+                        )}
                     </div>
 
                     <Tooltip>
@@ -2303,15 +2362,50 @@ export function CalendarView({ spaceId, projectId, teamId, listId, viewId, initi
                                 {viewMode !== "day" && (
                                     <div className="flex border-b border-zinc-200 shrink-0 bg-white">
                                         <div className="w-16 border-r border-zinc-200 shrink-0" />
-                                        <div className="flex-1 flex">
-                                            {calendarDays.map((day, i) => (
-                                                <div key={i} className="flex-1 border-r border-zinc-200 last:border-r-0 px-4 py-2 flex flex-col justify-center bg-white">
-                                                    <span className="text-[12px] font-bold text-zinc-700">{format(day, 'EEEE')}</span>
-                                                    <span className={cn("text-[11px] font-medium block mt-0.5", isTodayFns(day) ? "text-red-500" : "text-zinc-500")}>
-                                                        {format(day, 'd MMM')}
-                                                    </span>
-                                                </div>
-                                            ))}
+                                        <div className="flex-1 flex" style={{ paddingRight: viewMode === 'day' ? '124px' : viewMode === '4days' ? '40px' : viewMode === 'week' ? '20px' : '0px' }}>
+                                            {calendarDays.map((day, i) => {
+                                                const dateKey = format(day, 'yyyy-MM-dd');
+                                                const isInlineAllDay = inlineCreateState?.dayKey === dateKey && inlineCreateState?.hour === -1;
+                                                return (
+                                                    <div key={i} className="group/dayheader relative flex-1 border-r border-zinc-200 last:border-r-0 px-4 py-2 flex flex-col justify-center bg-white hover:bg-zinc-50/50 transition-colors">
+                                                        <span className="text-[12px] font-bold text-zinc-700">{format(day, 'EEEE')}</span>
+                                                        <span className={cn("text-[11px] font-medium block mt-0.5", isTodayFns(day) ? "text-red-500" : "text-zinc-500")}>
+                                                            {format(day, 'd MMM')}
+                                                        </span>
+
+                                                        {!isInlineAllDay && (
+                                                            <div className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover/dayheader:opacity-100 transition-opacity z-[45]">
+                                                                <TooltipProvider>
+                                                                    <Tooltip delayDuration={0}>
+                                                                        <TooltipTrigger asChild>
+                                                                            <button
+                                                                                onClick={(e) => {
+                                                                                    e.stopPropagation();
+                                                                                    setInlineCreateState({ dayKey: dateKey, hour: -1, half: 0 });
+                                                                                    setInlineCreateText("");
+                                                                                    setInlineAddTags([]);
+                                                                                    setInlineAddAssigneeIds([]);
+                                                                                    setInlineAddPriority(null);
+                                                                                    setInlineAddDueDate(null);
+                                                                                    setInlineAddStartDate(null);
+                                                                                    setInlineNoStartTime(true);
+                                                                                    setInlineNoEndTime(true);
+                                                                                }}
+                                                                                className="flex items-center justify-center text-zinc-500 hover:text-zinc-900 w-6 h-6 rounded cursor-pointer hover:bg-zinc-100/80 transition-colors"
+                                                                            >
+                                                                                <Plus className="h-4 w-4" />
+                                                                            </button>
+                                                                        </TooltipTrigger>
+                                                                        <TooltipContent className="bg-zinc-900 text-white border-0 text-xs font-bold py-1 px-2.5 rounded-lg shadow-xl shadow-black/20" side="bottom" sideOffset={8}>
+                                                                            Create task
+                                                                        </TooltipContent>
+                                                                    </Tooltip>
+                                                                </TooltipProvider>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                );
+                                            })}
                                         </div>
                                     </div>
                                 )}
@@ -2344,7 +2438,7 @@ export function CalendarView({ spaceId, projectId, teamId, listId, viewId, initi
                                     >
                                         All day
                                     </div>
-                                    <div className="flex-1 flex" onClick={(e) => e.stopPropagation()}>
+                                    <div className="flex-1 flex" onClick={(e) => e.stopPropagation()} style={{ paddingRight: viewMode === 'day' ? '124px' : viewMode === '4days' ? '40px' : viewMode === 'week' ? '20px' : '0px' }}>
                                         {calendarDays.map((day, i) => {
                                             const dateKey = format(day, 'yyyy-MM-dd');
                                             // All Day: explicitly only tasks with noStartTime && noEndTime
@@ -2378,7 +2472,9 @@ export function CalendarView({ spaceId, projectId, teamId, listId, viewId, initi
                                                     }}
                                                 >
                                                     {/* All Day Inline Task Creation — rendered first so it appears at top */}
-                                                    {isInlineAllDay && renderInlineCreateForm(true, i, calendarDays.length, true)}
+                                                    {isInlineAllDay && renderInlineCreateForm(true, i, calendarDays.length, viewMode === 'day')}
+
+
 
                                                     {dayTasks.map(task => {
                                                         const statusColor = task.status?.color || "#a1a1aa";
@@ -2386,26 +2482,67 @@ export function CalendarView({ spaceId, projectId, teamId, listId, viewId, initi
                                                             <div
                                                                 key={task.id}
                                                                 className={cn(
-                                                                    "px-2 py-1.5 rounded text-[11px] font-medium transition-all cursor-pointer flex items-center justify-between gap-2 truncate",
+                                                                    "px-2 py-1.5 rounded text-[11px] font-medium transition-all cursor-pointer flex items-center justify-between gap-2 group/task relative",
                                                                     "hover:opacity-80 border shadow-[0_1px_2px_rgba(0,0,0,0.05)] text-zinc-700"
                                                                 )}
                                                                 style={{
                                                                     backgroundColor: `${statusColor}15`,
                                                                     borderColor: `${statusColor}30`,
-                                                                    borderLeft: `3px solid ${statusColor}`
                                                                 }}
                                                                 onClick={(e) => {
                                                                     e.stopPropagation();
                                                                     onTaskSelect ? onTaskSelect(task.id) : setSelectedDetailTaskId(task.id);
                                                                 }}
                                                             >
-                                                                <div className="flex items-center gap-1.5 truncate">
-                                                                    <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: task.status?.color || "#a1a1aa" }} />
-                                                                    {(() => {
-                                                                        const typeId = task.taskTypeId || task.taskType?.id || task.taskType;
-                                                                        const tt = availableTaskTypes?.find((t: any) => t.id === typeId || t.name === typeId);
-                                                                        return <TaskTypeIcon type={tt || typeId} className="h-3.5 w-3.5 shrink-0" />;
-                                                                    })()}
+                                                                <Popover>
+                                                                    <TooltipProvider delayDuration={300}>
+                                                                        <Tooltip>
+                                                                            <PopoverTrigger asChild>
+                                                                                <TooltipTrigger asChild>
+                                                                                    <div
+                                                                                        onClick={(e) => e.stopPropagation()}
+                                                                                        className="absolute top-0 bottom-0 left-0 w-[3px] group-hover/task:-left-[13px] group-hover/task:w-[16px] transition-all duration-200 flex items-center justify-center cursor-pointer hover:brightness-95 z-10 shadow-sm rounded-l-[2px]"
+                                                                                        style={{ backgroundColor: statusColor }}
+                                                                                    >
+                                                                                        <div className="w-[6px] h-[6px] border-[1.5px] border-black/20 rounded-[2px] opacity-0 group-hover/task:opacity-100 transition-opacity" />
+                                                                                    </div>
+                                                                                </TooltipTrigger>
+                                                                            </PopoverTrigger>
+                                                                            <TooltipContent side="left" className="bg-zinc-800 text-white border-zinc-700 text-[11px] font-medium px-2 py-1 z-50">
+                                                                                Change status
+                                                                            </TooltipContent>
+                                                                        </Tooltip>
+                                                                    </TooltipProvider>
+                                                                    <PopoverContent side="left" align="start" className="w-[200px] p-2 shadow-xl border-zinc-200 rounded-lg z-[100]" onClick={(e) => e.stopPropagation()}>
+                                                                        <Input placeholder="Search..." className="h-8 text-xs mb-2 bg-zinc-50 border-zinc-200" />
+                                                                        <div className="max-h-[250px] overflow-y-auto pr-1 space-y-3">
+                                                                            {Object.entries(groupedStatuses).map(([groupName, statuses]) => {
+                                                                                if (statuses.length === 0) return null;
+                                                                                return (
+                                                                                    <div key={groupName}>
+                                                                                        <div className="px-2 py-1 text-[10px] font-semibold text-zinc-400 uppercase tracking-wider">{groupName}</div>
+                                                                                        <div className="space-y-0.5">
+                                                                                            {statuses.map((s: any) => (
+                                                                                                <button
+                                                                                                    key={s.id}
+                                                                                                    onClick={(e) => { e.stopPropagation(); handleUpdateTaskStatus(task.id, s.id); }}
+                                                                                                    className="flex items-center justify-between w-full px-2 py-1.5 text-[11px] hover:bg-zinc-100 rounded transition-colors text-zinc-700 font-medium"
+                                                                                                >
+                                                                                                    <div className="flex items-center gap-2">
+                                                                                                        <div className="w-2.5 h-2.5 rounded-[3px]" style={{ backgroundColor: s.color }} />
+                                                                                                        <span>{s.name}</span>
+                                                                                                    </div>
+                                                                                                    {s.id === task.status?.id && <Check className="h-3 w-3 text-zinc-500" />}
+                                                                                                </button>
+                                                                                            ))}
+                                                                                        </div>
+                                                                                    </div>
+                                                                                );
+                                                                            })}
+                                                                        </div>
+                                                                    </PopoverContent>
+                                                                </Popover>
+                                                                <div className="flex items-center gap-1.5 truncate relative z-0 ml-[4px]">
                                                                     <span className="truncate">{task.title || task.name}</span>
                                                                 </div>
                                                                 <ActionButtons task={task} />
@@ -2425,22 +2562,15 @@ export function CalendarView({ spaceId, projectId, teamId, listId, viewId, initi
                             {/* NOTE: Tasks are rendered per-hour-cell below (timedTasksByDateHour),
                                 not via an absolute overlay, to avoid z-index conflicts and duplicate renders. */}
                             <div className="flex-1 flex flex-col relative pb-10">
-                                {/* Current Time Indicator */}
-                                <div
-                                    className="absolute left-0 -right-4 border-t-2 border-red-500 z-30 pointer-events-none"
-                                    style={{
-                                        top: `${(currentTime.getHours() * 80) + (currentTime.getMinutes() / 60 * 80)}px`
-                                    }}
-                                />
                                 {Array.from({ length: 24 }).map((_, hour) => {
                                     const label = hour === 0 ? '12am' : hour < 12 ? `${hour}am` : hour === 12 ? '12pm' : `${hour - 12}pm`;
                                     return (
                                         <div key={hour} className="flex h-[80px] group transition-colors relative">
-                                            <div className={cn("w-16 px-2 py-2 text-[10px] font-medium text-zinc-500 border-r border-zinc-200 shrink-0 flex items-start justify-end relative", hour === 0 ? "top-1" : "top-[-10px]")}>
+                                            <div className={cn("w-16 px-2 py-2 text-[10px] font-medium text-zinc-500 border-r border-zinc-300 shrink-0 flex items-start justify-end relative", hour === 0 ? "top-1" : "top-[-10px]")}>
                                                 <span className={cn("bg-white px-1 leading-none absolute right-2", hour === 0 ? "top-0" : "-top-1")}>{label}</span>
                                             </div>
                                             <div
-                                                className="flex-1 flex border-b border-zinc-200"
+                                                className="flex-1 flex border-b border-zinc-300"
                                                 style={{
                                                     paddingRight: viewMode === 'day' ? '124px' : viewMode === '4days' ? '40px' : viewMode === 'week' ? '20px' : '0px'
                                                 }}
@@ -2450,8 +2580,14 @@ export function CalendarView({ spaceId, projectId, teamId, listId, viewId, initi
                                                     return (
                                                         <div
                                                             key={i}
-                                                            className="flex-1 border-r border-zinc-100 last:border-r-0 relative flex flex-col"
+                                                            className="flex-1 border-r border-zinc-200 last:border-r-0 relative flex flex-col"
                                                         >
+                                                            {isTodayFns(day) && hour === currentTime.getHours() && (
+                                                                <div
+                                                                    className="absolute left-0 right-[-1px] border-t-[1.5px] border-red-500 z-30 pointer-events-none"
+                                                                    style={{ top: `${(currentTime.getMinutes() / 60) * 100}%` }}
+                                                                />
+                                                            )}
                                                             {[0, 30].map(half => {
                                                                 const isInline = inlineCreateState?.dayKey === dateKey && inlineCreateState?.hour === hour && inlineCreateState?.half === half;
                                                                 return (
@@ -2459,7 +2595,7 @@ export function CalendarView({ spaceId, projectId, teamId, listId, viewId, initi
                                                                         key={half}
                                                                         className={cn(
                                                                             "flex-1 relative cursor-pointer hover:bg-zinc-50/50 group/cell transition-colors",
-                                                                            half === 0 && "border-b border-zinc-100/50"
+                                                                            half === 0 && "border-b border-dashed border-zinc-200/80"
                                                                         )}
                                                                         onClick={(e) => {
                                                                             if (isInline) return;
@@ -2598,93 +2734,191 @@ export function CalendarView({ spaceId, projectId, teamId, listId, viewId, initi
                             </div>
                         </div>
                     ) : (
-                        <>
+                        <div className="flex-1 overflow-auto bg-white flex flex-col relative" style={{ overflowAnchor: 'none' }}>
                             {/* Weekday Headers */}
-                            <div className="grid grid-cols-7 border-b border-zinc-200 bg-white">
+                            <div className="sticky top-0 z-40 grid grid-cols-7 border-b border-zinc-200 bg-white shadow-sm shrink-0">
                                 {['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'].map((day) => (
-                                    <div key={day} className="px-3 py-2 text-[11px] font-black text-zinc-900 border-r border-zinc-100 last:border-r-0">
+                                    <div key={day} className="px-3 py-2 text-[11px] font-black text-zinc-900 border-r border-zinc-200 last:border-r-0">
                                         {day}
                                     </div>
                                 ))}
                             </div>
-
-                            <div className="flex-1 overflow-auto">
-                                <div className="grid grid-cols-7 auto-rows-[minmax(140px,1fr)]">
+                                <div className="grid grid-cols-7 auto-rows-[minmax(185px,1fr)]">
                                     {calendarDays.map((date, i) => {
                                         const dateKey = format(date, 'yyyy-MM-dd');
                                         const dayTasks = tasksByDate.get(dateKey) || [];
                                         const isCurrent = isTodayFns(date);
                                         const isSelectedMonth = date.getMonth() === currentDate.getMonth();
+                                        const isExpanded = expandedMonthCells[dateKey];
+                                        const visibleTasks = isExpanded ? dayTasks : dayTasks.slice(0, 5);
+                                        const hiddenCount = dayTasks.length - 5;
+                                        const isInlineCreate = inlineCreateState?.dayKey === dateKey && inlineCreateState?.hour === -1;
 
                                         return (
                                             <div
                                                 key={i}
                                                 className={cn(
-                                                    "border-r border-b border-zinc-100 p-2 group transition-all flex flex-col gap-1 relative min-h-[140px]",
+                                                    "border-r border-b border-zinc-200 group transition-all relative min-h-[185px]",
                                                     !isSelectedMonth && "bg-zinc-50/30",
-                                                    isCurrent && "ring-inset ring-2 ring-zinc-900 z-10"
+                                                    isCurrent && "ring-inset ring-[1px] ring-zinc-900 z-10",
+                                                    isInlineCreate && "z-[60]"
                                                 )}
                                                 onClick={() => {
                                                     setSelectedDateForNewTask(date);
                                                     setIsCreateModalOpen(true);
                                                 }}
                                             >
-                                                <div className="flex-1 space-y-1 overflow-hidden pb-6">
-                                                    {dayTasks.map((task) => {
-                                                        const statusColor = task.status?.color || "#a1a1aa";
-                                                        return (
-                                                            <div
-                                                                key={task.id}
-                                                                className={cn(
-                                                                    "px-2 py-1 rounded text-[11px] font-medium transition-all cursor-pointer flex items-center justify-between gap-1 truncate text-zinc-700 group/task",
-                                                                    "hover:opacity-80 border"
-                                                                )}
-                                                                style={{
-                                                                    backgroundColor: `${statusColor}15`,
-                                                                    borderColor: `${statusColor}30`,
-                                                                    borderLeft: `3px solid ${statusColor}`
-                                                                }}
+                                                {isInlineCreate && renderInlineCreateForm(true, i % 7, 7, false)}
+
+                                                <div className={cn(
+                                                    "absolute flex flex-col z-0 cursor-default",
+                                                    isExpanded
+                                                        ? "top-[-4px] left-[-4px] right-[-4px] bg-white border border-zinc-200 shadow-[0_12px_45px_rgba(0,0,0,0.18)] rounded-lg p-1.5 z-[70] h-max min-h-[calc(100%+8px)]"
+                                                        : "left-2 right-2 top-1.5 bottom-1.5"
+                                                )} onClick={(e) => { if (isExpanded) e.stopPropagation(); }}>
+                                                    <div className={cn("flex-1 space-y-1 mb-1", !isExpanded && "overflow-hidden")}>
+                                                        {visibleTasks.map((task) => {
+                                                            const statusColor = task.status?.color || "#a1a1aa";
+                                                            return (
+                                                                <div
+                                                                    key={task.id}
+                                                                    className={cn(
+                                                                        "px-2 py-1 rounded text-[11px] font-medium transition-all cursor-pointer flex items-center justify-between gap-1 text-zinc-700 group/task relative",
+                                                                        "hover:opacity-80 border"
+                                                                    )}
+                                                                    style={{
+                                                                        backgroundColor: `${statusColor}15`,
+                                                                        borderColor: `${statusColor}30`,
+                                                                    }}
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        onTaskSelect ? onTaskSelect(task.id) : setSelectedDetailTaskId(task.id);
+                                                                    }}
+                                                                >
+                                                                    <Popover>
+                                                                        <TooltipProvider delayDuration={300}>
+                                                                            <Tooltip>
+                                                                                <PopoverTrigger asChild>
+                                                                                    <TooltipTrigger asChild>
+                                                                                        <div
+                                                                                            onClick={(e) => e.stopPropagation()}
+                                                                                            className="absolute top-0 bottom-0 left-0 w-[3px] group-hover/task:-left-[13px] group-hover/task:w-[16px] transition-all duration-200 flex items-center justify-center cursor-pointer hover:brightness-95 z-10 shadow-sm rounded-l-[2px]"
+                                                                                            style={{ backgroundColor: statusColor }}
+                                                                                        >
+                                                                                            <div className="w-[6px] h-[6px] border-[1.5px] border-black/20 rounded-[2px] opacity-0 group-hover/task:opacity-100 transition-opacity" />
+                                                                                        </div>
+                                                                                    </TooltipTrigger>
+                                                                                </PopoverTrigger>
+                                                                                <TooltipContent side="left" className="bg-zinc-800 text-white border-zinc-700 text-[11px] font-medium px-2 py-1 z-50">
+                                                                                    Change status
+                                                                                </TooltipContent>
+                                                                            </Tooltip>
+                                                                        </TooltipProvider>
+                                                                        <PopoverContent side="left" align="start" className="w-[200px] p-2 shadow-xl border-zinc-200 rounded-lg z-[100]" onClick={(e) => e.stopPropagation()}>
+                                                                            <Input placeholder="Search..." className="h-8 text-xs mb-2 bg-zinc-50 border-zinc-200" />
+                                                                            <div className="max-h-[250px] overflow-y-auto pr-1 space-y-3">
+                                                                                {Object.entries(groupedStatuses).map(([groupName, statuses]) => {
+                                                                                    if (statuses.length === 0) return null;
+                                                                                    return (
+                                                                                        <div key={groupName}>
+                                                                                            <div className="px-2 py-1 text-[10px] font-semibold text-zinc-400 uppercase tracking-wider">{groupName}</div>
+                                                                                            <div className="space-y-0.5">
+                                                                                                {statuses.map((s: any) => (
+                                                                                                    <button
+                                                                                                        key={s.id}
+                                                                                                        onClick={(e) => { e.stopPropagation(); handleUpdateTaskStatus(task.id, s.id); }}
+                                                                                                        className="flex items-center justify-between w-full px-2 py-1.5 text-[11px] hover:bg-zinc-100 rounded transition-colors text-zinc-700 font-medium"
+                                                                                                    >
+                                                                                                        <div className="flex items-center gap-2">
+                                                                                                            <div className="w-2.5 h-2.5 rounded-[3px]" style={{ backgroundColor: s.color }} />
+                                                                                                            <span>{s.name}</span>
+                                                                                                        </div>
+                                                                                                        {s.id === task.status?.id && <Check className="h-3 w-3 text-zinc-500" />}
+                                                                                                    </button>
+                                                                                                ))}
+                                                                                            </div>
+                                                                                        </div>
+                                                                                    );
+                                                                                })}
+                                                                            </div>
+                                                                        </PopoverContent>
+                                                                    </Popover>
+                                                                    <div className="flex items-center gap-1.5 truncate relative z-0 ml-[4px]">
+                                                                        <span className="truncate">{task.title || task.name}</span>
+                                                                    </div>
+                                                                    {task.dueDate && !(task.noStartTime && task.noEndTime) && (
+                                                                        <span className="text-[9px] opacity-60 flex items-center shrink-0">
+                                                                            <Clock className="w-2.5 h-2.5 mr-0.5" />
+                                                                            {format(new Date(task.dueDate), 'h:mm a')}
+                                                                        </span>
+                                                                    )}
+                                                                    <ActionButtons task={task} />
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
+
+                                                    {/* Unified Footer */}
+                                                    <div className="flex items-center justify-between mt-auto shrink-0 pointer-events-none pb-[1px]">
+                                                        <div className="flex items-center pointer-events-auto">
+                                                            {!isExpanded && hiddenCount > 0 && (
+                                                                <div
+                                                                    className="text-[10px] font-bold text-zinc-500 hover:text-zinc-800 cursor-pointer transition-colors"
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        e.preventDefault();
+                                                                        setExpandedMonthCells(prev => ({ ...prev, [dateKey]: true }));
+                                                                    }}
+                                                                >
+                                                                    + {hiddenCount} MORE
+                                                                </div>
+                                                            )}
+                                                            {isExpanded && hiddenCount > 0 && (
+                                                                <div
+                                                                    className="text-[10px] font-bold text-zinc-500 hover:text-zinc-800 cursor-pointer transition-colors"
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        e.preventDefault();
+                                                                        setExpandedMonthCells(prev => ({ ...prev, [dateKey]: false }));
+                                                                    }}
+                                                                >
+                                                                    {hiddenCount} LESS
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                        <div className="flex items-center gap-1.5 pointer-events-auto">
+                                                            <button
+                                                                className="opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer shadow-sm flex items-center justify-center h-4 w-4 bg-zinc-600 hover:bg-zinc-800 text-white rounded-[3px]"
                                                                 onClick={(e) => {
                                                                     e.stopPropagation();
-                                                                    onTaskSelect ? onTaskSelect(task.id) : setSelectedDetailTaskId(task.id);
+                                                                    setInlineCreateState({ dayKey: dateKey, hour: -1, half: 0 });
+                                                                    setInlineCreateText("");
+                                                                    setInlineAddTags([]);
+                                                                    setInlineAddAssigneeIds([]);
+                                                                    setInlineAddPriority(null);
+                                                                    setInlineAddDueDate(null);
+                                                                    setInlineAddStartDate(null);
+                                                                    setInlineNoStartTime(true);
+                                                                    setInlineNoEndTime(true);
                                                                 }}
                                                             >
-                                                                <div className="flex items-center gap-1.5 truncate">
-                                                                    <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: task.status?.color || "#a1a1aa" }} />
-                                                                    {(() => {
-                                                                        const typeId = task.taskTypeId || task.taskType?.id || task.taskType;
-                                                                        const tt = availableTaskTypes?.find((t: any) => t.id === typeId || t.name === typeId);
-                                                                        return <TaskTypeIcon type={tt || typeId} className="h-3.5 w-3.5 shrink-0" />;
-                                                                    })()}
-                                                                    <span className="truncate">{task.title || task.name}</span>
-                                                                </div>
-                                                                {task.dueDate && !(task.noStartTime && task.noEndTime) && (
-                                                                    <span className="text-[9px] opacity-60 flex items-center shrink-0">
-                                                                        <Clock className="w-2.5 h-2.5 mr-0.5" />
-                                                                        {format(new Date(task.dueDate), 'h:mm a')}
-                                                                    </span>
-                                                                )}
-                                                                <ActionButtons task={task} />
-                                                            </div>
-                                                        );
-                                                    })}
-                                                </div>
-
-                                                <div className="absolute bottom-1 right-2 pointer-events-none">
-                                                    <span className={cn(
-                                                        "text-[12px] font-medium transition-all",
-                                                        isCurrent ? "font-black text-zinc-900" :
-                                                            isSelectedMonth ? "text-zinc-500" : "text-zinc-300"
-                                                    )}>
-                                                        {format(date, 'd')}
-                                                    </span>
+                                                                <Plus className="h-3 w-3" />
+                                                            </button>
+                                                            <span className={cn(
+                                                                "text-[12px] font-medium transition-all pointer-events-none select-none tabular-nums tracking-tight",
+                                                                isCurrent ? "font-black text-zinc-900" :
+                                                                    isSelectedMonth ? "text-zinc-500" : "text-zinc-400"
+                                                            )}>
+                                                                {format(date, 'd')}
+                                                            </span>
+                                                        </div>
+                                                    </div>
                                                 </div>
                                             </div>
                                         );
                                     })}
                                 </div>
-                            </div>
-                        </>
+                        </div>
                     )}
                 </div>
 
@@ -3061,9 +3295,11 @@ export function CalendarView({ spaceId, projectId, teamId, listId, viewId, initi
             </Dialog>
             {/* Layout Options Panel */}
             {layoutOptionsOpen && (
-                <>
-                    <div className="absolute inset-0 bg-black/20 z-40" onClick={() => setLayoutOptionsOpen(false)} aria-hidden />
-                    <div className="absolute bottom-0 right-0 h-full w-[380px] max-w-[90vw] bg-white border-l border-zinc-200 shadow-xl z-50 flex flex-col">
+                <SidePanel
+                    open={layoutOptionsOpen}
+                    onClose={() => { setLayoutOptionsOpen(false); setCustomizePanelOpen(false); }}
+                    className="absolute bottom-0 right-0 h-full w-[380px] max-w-[90vw] bg-white border-l border-zinc-200 shadow-xl z-50 flex flex-col"
+                >
                         <div className="flex items-center justify-between p-4 border-b border-zinc-100">
                             <Button variant="ghost" size="icon" className="h-8 w-8 -ml-1 cursor-pointer" onClick={() => { setLayoutOptionsOpen(false); setCustomizePanelOpen(true); }}>
                                 <ChevronLeft className="h-4 w-4" />
@@ -3171,15 +3407,16 @@ export function CalendarView({ spaceId, projectId, teamId, listId, viewId, initi
 
                             </div>
                         </ScrollArea>
-                    </div>
-                </>
+                </SidePanel>
             )}
 
             {/* Customize View Panel */}
             {customizePanelOpen && !layoutOptionsOpen && (
-                <>
-                    <div className="absolute inset-0 bg-black/20 z-40 transition-opacity" onClick={() => setCustomizePanelOpen(false)} aria-hidden />
-                    <div className="absolute bottom-0 right-0 h-full w-[380px] max-w-[90vw] bg-white border-l border-zinc-200 shadow-2xl z-50 flex flex-col animate-in slide-in-from-right duration-200 ease-out">
+                <SidePanel
+                    open={customizePanelOpen && !layoutOptionsOpen}
+                    onClose={() => setCustomizePanelOpen(false)}
+                    className="absolute bottom-0 right-0 h-full w-[380px] max-w-[90vw] bg-white border-l border-zinc-200 shadow-2xl z-50 flex flex-col animate-in slide-in-from-right duration-200 ease-out"
+                >
                         <div className="flex items-center justify-between p-4 border-b border-zinc-100 shrink-0">
                             <h3 className="font-semibold text-zinc-900 text-sm tracking-tight">Customize view</h3>
                             <Button variant="ghost" size="icon" className="h-8 w-8 text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 transition-colors" onClick={() => setCustomizePanelOpen(false)}><X className="h-4 w-4" /></Button>
@@ -3365,8 +3602,7 @@ export function CalendarView({ spaceId, projectId, teamId, listId, viewId, initi
                                 </div>
                             </div>
                         </ScrollArea>
-                    </div>
-                </>
+                </SidePanel>
             )}
         </div>
     );

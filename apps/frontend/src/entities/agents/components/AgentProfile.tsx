@@ -354,25 +354,40 @@ export function AgentProfile({
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
-        <div className="overflow-x-auto">
-          <TabsList className="inline-flex w-full min-w-max">
-            <TabsTrigger value="instructions" className="flex items-center gap-2 whitespace-nowrap">
+        <div className="overflow-x-auto pb-4 scrollbar-hide">
+          <TabsList className="inline-flex w-full min-w-max border-b border-zinc-100/0 rounded-none bg-transparent h-auto p-0 justify-start gap-1.5">
+            <TabsTrigger 
+              value="instructions" 
+              className="px-3.5 py-2.5 rounded-xl cursor-pointer outline-none data-[state=active]:bg-indigo-50/80 data-[state=active]:text-indigo-600 hover:bg-zinc-50 hover:text-zinc-700 font-semibold text-zinc-500 transition-colors flex items-center gap-2 whitespace-nowrap"
+            >
               <FileText className="w-4 h-4" />
               Instructions
             </TabsTrigger>
-            <TabsTrigger value="skills" className="flex items-center gap-2 whitespace-nowrap">
+            <TabsTrigger 
+              value="skills" 
+              className="px-3.5 py-2.5 rounded-xl cursor-pointer outline-none data-[state=active]:bg-indigo-50/80 data-[state=active]:text-indigo-600 hover:bg-zinc-50 hover:text-zinc-700 font-semibold text-zinc-500 transition-colors flex items-center gap-2 whitespace-nowrap"
+            >
               <Sparkles className="w-4 h-4" />
               Skills
             </TabsTrigger>
-            <TabsTrigger value="triggers" className="flex items-center gap-2 whitespace-nowrap">
+            <TabsTrigger 
+              value="triggers" 
+              className="px-3.5 py-2.5 rounded-xl cursor-pointer outline-none data-[state=active]:bg-indigo-50/80 data-[state=active]:text-indigo-600 hover:bg-zinc-50 hover:text-zinc-700 font-semibold text-zinc-500 transition-colors flex items-center gap-2 whitespace-nowrap"
+            >
               <Zap className="w-4 h-4" />
               Triggers
             </TabsTrigger>
-            <TabsTrigger value="tools" className="flex items-center gap-2 whitespace-nowrap">
+            <TabsTrigger 
+              value="tools" 
+              className="px-3.5 py-2.5 rounded-xl cursor-pointer outline-none data-[state=active]:bg-indigo-50/80 data-[state=active]:text-indigo-600 hover:bg-zinc-50 hover:text-zinc-700 font-semibold text-zinc-500 transition-colors flex items-center gap-2 whitespace-nowrap"
+            >
               <Wrench className="w-4 h-4" />
               Tools
             </TabsTrigger>
-            <TabsTrigger value="knowledge" className="flex items-center gap-2 whitespace-nowrap">
+            <TabsTrigger 
+              value="knowledge" 
+              className="px-3.5 py-2.5 rounded-xl cursor-pointer outline-none data-[state=active]:bg-indigo-50/80 data-[state=active]:text-indigo-600 hover:bg-zinc-50 hover:text-zinc-700 font-semibold text-zinc-500 transition-colors flex items-center gap-2 whitespace-nowrap"
+            >
               <Brain className="w-4 h-4" />
               Knowledge
             </TabsTrigger>

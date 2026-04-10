@@ -17,11 +17,14 @@ const engineFiles = [
   "libquery_engine-debian-openssl-3.0.x.so.node"
 ];
 
-// The source directories we'll search in (new unified Prisma output: src/generated/prisma)
+// The source directories we'll search in
 const sourceDirs = [
-  // Generated client output
+  // Generated clients (both legacy and _fixed output)
+  path.join(rootDir, "packages/database/src/generated/prisma_fixed"),
   path.join(rootDir, "packages/database/src/generated/prisma"),
+  path.join(rootDir, "apps/frontend/node_modules/@agentflox/database/src/generated/prisma_fixed"),
   path.join(rootDir, "apps/frontend/node_modules/@agentflox/database/src/generated/prisma"),
+  path.join(rootDir, "node_modules/.pnpm/node_modules/@agentflox/database/src/generated/prisma_fixed"),
   path.join(rootDir, "node_modules/.pnpm/node_modules/@agentflox/database/src/generated/prisma"),
 
   // Prisma package locations
@@ -33,15 +36,17 @@ const sourceDirs = [
   path.join(rootDir, "node_modules/.pnpm/node_modules/prisma"),
 ];
 
-// Where we want to copy it to (based on Vercel's search paths and unified client output)
+// Where we want to copy it to (based on Vercel's search paths and our custom client output)
 const targetDirs = [
   // Standard Prisma client locations
   path.join(rootDir, "apps/frontend/node_modules/.prisma/client"),
   path.join(rootDir, "apps/frontend/node_modules/@prisma/client"),
   path.join(rootDir, "apps/frontend/.next/server/chunks"),
 
-  // Our generated client outputs
+  // Our custom generated client outputs (both in app and shared package)
+  path.join(rootDir, "apps/frontend/src/generated/prisma_fixed"),
   path.join(rootDir, "apps/frontend/src/generated/prisma"),
+  path.join(rootDir, "packages/database/src/generated/prisma_fixed"),
   path.join(rootDir, "packages/database/src/generated/prisma"),
   path.join(rootDir, "packages/database/src/.prisma/client"),
 ];

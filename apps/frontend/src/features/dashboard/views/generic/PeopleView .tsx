@@ -668,7 +668,7 @@ function PeopleCard({
                             <span className="text-sm font-semibold text-zinc-900 truncate">{person.name ?? person.email ?? "Unknown"}</span>
                             {isAgent && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-purple-50 text-purple-600 border border-purple-100">Agent</span>}
                         </div>
-                        <p className="text-[11px] text-zinc-400 mt-0.5 truncate">{person.email ?? " E}</p>
+                        <p className="text-[11px] text-zinc-400 mt-0.5 truncate">{person.email ?? ""}</p>
                     </div>
                     <div className="shrink-0 pt-0.5 pr-8">
                         <CompletionRing pct={pct} size={56} />
@@ -1141,7 +1141,7 @@ function stableStringify(obj: any) {
     return JSON.stringify(sortObject(obj));
 }
 
-export function PeopleView({ spaceId, projectId, folderId, teamId, listId, viewId, initialConfig, selectedTaskIdFromParent, onTaskSelect }: PeopleViewProps) {
+export function PeopleView({ spaceId, projectId, teamId, listId, viewId, initialConfig, selectedTaskIdFromParent, onTaskSelect }: PeopleViewProps) {
     const router = useRouter();
     const searchParams = useSearchParams();
     const [searchQuery, setSearchQuery] = useState("");
@@ -2378,7 +2378,7 @@ export function PeopleView({ spaceId, projectId, folderId, teamId, listId, viewI
     };
 
     const formatCustomFieldValue = (value: any, customField: any): string => {
-        if (value === null || value === undefined) return " E;
+        if (value === null || value === undefined) return "";
         const fieldType = customField?.type || customField?.config?.fieldType;
         switch (fieldType) {
             case "TEXT":
@@ -3222,11 +3222,12 @@ export function PeopleView({ spaceId, projectId, folderId, teamId, listId, viewI
                             </PopoverTrigger>
                             <PopoverContent align="end" className="w-80 p-0 overflow-hidden shadow-2xl">
                                 <div className="p-3 border-b border-zinc-100 bg-zinc-50/50">
-                                    <div className="relative">
-                                        <Search className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-400" />
+                                    <div className="flex items-center h-8 rounded-md border border-zinc-200 bg-white px-2">
+                                        <Search className="h-3.5 w-3.5 text-zinc-400 shrink-0" />
                                         <Input
+                                            variant="ghost"
                                             placeholder="Search..."
-                                            className="pr-8 h-8 text-xs border-zinc-200"
+                                            className="h-full px-2 text-xs border-0 bg-transparent shadow-none focus:outline-none focus:ring-0 focus-visible:ring-0"
                                             value={savedFiltersSearch}
                                             onChange={e => setSavedFiltersSearch(e.target.value)}
                                         />
@@ -3460,8 +3461,7 @@ export function PeopleView({ spaceId, projectId, folderId, teamId, listId, viewI
                                                                                     align="start"
                                                                                     avoidCollisions={false}
                                                                                     sideOffset={6}
-                                                                                    collisionPadding={12}
-                                                                                    className="w-64 max-h-[65vh] overflow-auto p-0"
+                                                                                    className="w-64 max-h-[400px] overflow-auto p-0"
                                                                                 >
                                                                                     <div className="p-2 border-b border-zinc-100 sticky top-0 bg-white z-10">
                                                                                         <Input placeholder="Search fields..." className="h-8 text-xs border-zinc-100" value={filterSearch} onChange={e => setFilterSearch(e.target.value)} />
@@ -3549,7 +3549,7 @@ export function PeopleView({ spaceId, projectId, folderId, teamId, listId, viewI
                                                                                                                                 updateFilterCondition(cond!.id, { value: next });
                                                                                                                             }}
                                                                                                                         />
-                                                                                                                        <Flag className={cn("h-3.5 w-3.5 fill-current", getPriorityStyles(p).icon)} />
+                                                                                                                        <Flag className={cn("h-3.5 w-3.5", getPriorityStyles(p).icon)} />
                                                                                                                         <span className="text-xs font-medium text-zinc-700 truncate capitalize">{p.toLowerCase()}</span>
                                                                                                                     </label>
                                                                                                                 ))}
@@ -3565,16 +3565,11 @@ export function PeopleView({ spaceId, projectId, folderId, teamId, listId, viewI
                                                                                                                     : "Select option"}
                                                                                                             </Button>
                                                                                                         </PopoverTrigger>
-                                                                                                        <PopoverContent
-                                                                                                            align="start"
-                                                                                                            sideOffset={8}
-                                                                                                            collisionPadding={12}
-                                                                                                            className="w-64 p-0 overflow-hidden"
-                                                                                                        >
+                                                                                                        <PopoverContent align="start" className="w-64 p-2">
                                                                                                             <div className="p-2 border-b border-zinc-100 mb-1">
-                                                                                                                <div className="relative">
-                                                                                                                    <Search className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-400" />
-                                                                                                                    <Input placeholder="Search people..." className="pr-8 h-8 text-[10px]" value={assigneesSearch} onChange={e => setAssigneesSearch(e.target.value)} />
+                                                                                                                <div className="flex items-center h-8 rounded-md border border-zinc-200 bg-white px-2">
+                                                                                                                    <Search className="h-3.5 w-3.5 text-zinc-400 shrink-0" />
+                                                                                                                    <Input variant="ghost" placeholder="Search people..." className="h-full px-2 text-[10px] border-0 bg-transparent shadow-none focus:outline-none focus:ring-0 focus-visible:ring-0" value={assigneesSearch} onChange={e => setAssigneesSearch(e.target.value)} />
                                                                                                                 </div>
                                                                                                             </div>
                                                                                                             <ScrollArea className="h-[240px]">
@@ -3631,6 +3626,7 @@ export function PeopleView({ spaceId, projectId, folderId, teamId, listId, viewI
                                                                                                                         );
                                                                                                                     })}
                                                                                                                 </div>
+                                                                                                            )}
                                                                                                         </PopoverContent>
                                                                                                     </Popover>
                                                                                                 ) : cond!.field === "dependency" ? (
@@ -3722,9 +3718,12 @@ export function PeopleView({ spaceId, projectId, folderId, teamId, listId, viewI
                                                                                                         />
                                                                                                         <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3 w-3 text-zinc-300 pointer-events-none" />
                                                                                                     </div>
+                                                                                                )}
                                                                                             </>
                                                                                         )}
                                                                                     </div>
+                                                                                </>
+                                                                            )}
                                                                         </div>
                                                                     </div>
 
@@ -3739,8 +3738,8 @@ export function PeopleView({ spaceId, projectId, folderId, teamId, listId, viewI
                                                                     }}>
                                                                         <Trash2 className="h-3.5 w-3.5" />
                                                                     </Button>
-                                                                    </div>
-                                                                );
+                                                                </div>
+                                                            );
                                                         });
                                                     })()}
 
@@ -3806,8 +3805,8 @@ export function PeopleView({ spaceId, projectId, folderId, teamId, listId, viewI
                                                                         Clear group
                                                                     </button>
                                                                 )}
-                                                                            </div>
-                                                    );
+                                                            </div>
+                                                        );
                                                     })()}
                                                 </div>
                                             </div>
@@ -3849,25 +3848,25 @@ export function PeopleView({ spaceId, projectId, folderId, teamId, listId, viewI
 
     return (
         <div className="h-full w-full flex flex-col bg-white border border-zinc-200/60 shadow-sm overflow-hidden font-sans relative min-w-0">
-            {/* Toolbar — ClickUp layout */}
+            {/* Toolbar  EClickUp layout */}
             <div className="border-b border-zinc-100 bg-white px-3 py-2 shrink-0">
                 <>
                     <div className="flex items-center justify-between gap-3 overflow-x-auto toolbar-scroll-x">
                         <div className="flex items-center gap-1.5 shrink-0">
                             <DropdownMenu>
-                                        <DropdownMenuTrigger asChild>
-                                            <Button
-                                                variant="outline"
-                                                size="sm"
+                                <DropdownMenuTrigger asChild>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
                                         className="h-8 text-xs font-medium text-zinc-700 border-zinc-200"
                                     >
                                         <Link2 className="h-3.5 w-3.5 mr-1.5" />
                                         Subtasks
-                                            </Button>
-                                        </DropdownMenuTrigger>
+                                    </Button>
+                                </DropdownMenuTrigger>
                                 <DropdownMenuContent align="start" className="w-52">
                                     <DropdownMenuLabel className="text-xs text-zinc-500 font-normal">Show subtasks</DropdownMenuLabel>
-                                            <DropdownMenuItem
+                                    <DropdownMenuItem
                                         className="text-sm cursor-pointer"
                                         onClick={() => {
                                             setExpandedSubtaskMode("collapsed");
@@ -3876,8 +3875,8 @@ export function PeopleView({ spaceId, projectId, folderId, teamId, listId, viewI
                                     >
                                         <span className="flex-1">Collapsed</span>
                                         {expandedSubtaskMode === "collapsed" && <CheckCheck className="h-4 w-4" />}
-                                            </DropdownMenuItem>
-                                                        <DropdownMenuItem
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
                                         className="text-sm cursor-pointer"
                                         onClick={() => {
                                             setExpandedSubtaskMode("separate");
@@ -3886,20 +3885,20 @@ export function PeopleView({ spaceId, projectId, folderId, teamId, listId, viewI
                                     >
                                         <span className="flex-1">Separate</span>
                                         {expandedSubtaskMode === "separate" && <CheckCheck className="h-4 w-4" />}
-                                                        </DropdownMenuItem>
+                                    </DropdownMenuItem>
                                 </DropdownMenuContent>
                             </DropdownMenu>
 
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
-                            <Button
-                                variant="outline"
-                                size="sm"
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
                                         className="h-8 text-xs font-medium text-zinc-700 border-zinc-200"
                                     >
                                         <SortAsc className="h-3.5 w-3.5 mr-1.5" />
                                         Sort by
-                            </Button>
+                                    </Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="start" className="w-56">
                                     <DropdownMenuLabel className="text-xs">Sort By</DropdownMenuLabel>
@@ -3975,6 +3974,7 @@ export function PeopleView({ spaceId, projectId, folderId, teamId, listId, viewI
                                             >
                                                 <X className="h-3.5 w-3.5" />
                                             </div>
+                                        )}
                                     </div>
                                 </PopoverTrigger>
                                 <PopoverContent align="end" className="w-[600px] max-w-[95vw] p-0 overflow-hidden shadow-2xl rounded-2xl border border-zinc-200/80" sideOffset={8}>
@@ -4143,27 +4143,27 @@ export function PeopleView({ spaceId, projectId, folderId, teamId, listId, viewI
                             onMouseDown={startWorkloadSidebarResize}
                         >
                             <div className="mx-auto mt-6 h-12 w-1 rounded-full bg-zinc-300" />
-                                                        </div>
+                        </div>
 
                         <div className="h-full overflow-y-auto peopleview-scrollbar">
                             <div className="p-3">
                                 <div className="sticky top-0 left-0 z-20 mb-2 rounded-md bg-white/95 backdrop-blur px-1 py-1">
                                     <h3 className="text-2xl font-bold text-zinc-900 mb-2">Workload</h3>
-                                                                        <DropdownMenu>
-                                                                            <DropdownMenuTrigger asChild>
+                                    <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
                                             <Button variant="outline" size="sm" className="h-8 text-xs border-zinc-200 bg-white">
                                                 {workloadViewMode === "total" ? "Total" : workloadViewMode === "people" ? "People" : workloadViewMode === "teams" ? "Teams" : "Agents"}
                                                 <ChevronDown className="h-3.5 w-3.5 ml-1" />
-                                                                                </Button>
-                                                                            </DropdownMenuTrigger>
+                                            </Button>
+                                        </DropdownMenuTrigger>
                                         <DropdownMenuContent align="start" className="w-36">
                                             <DropdownMenuItem onClick={() => setWorkloadViewMode("total")}>Total</DropdownMenuItem>
                                             <DropdownMenuItem onClick={() => setWorkloadViewMode("people")}>People</DropdownMenuItem>
                                             <DropdownMenuItem onClick={() => setWorkloadViewMode("teams")}>Teams</DropdownMenuItem>
                                             <DropdownMenuItem onClick={() => setWorkloadViewMode("agents")}>Agents</DropdownMenuItem>
-                                                                            </DropdownMenuContent>
-                                                                        </DropdownMenu>
-                                                                        </div>
+                                        </DropdownMenuContent>
+                                    </DropdownMenu>
+                                </div>
                                 <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4 min-h-[460px]">
                                     <div className="h-[360px]">
                                         {workloadSidebarItems.length > 0 ? (
@@ -4171,7 +4171,7 @@ export function PeopleView({ spaceId, projectId, folderId, teamId, listId, viewI
                                                 {workloadSidebarItems.map((item: any) => {
                                                     const barHeight = Math.min(220, Math.max(18, item.incomplete * 11));
                                                     const label = item.name ?? "Item";
-                            return (
+                                                    return (
                                                         <div key={item.id} className="w-[64px] min-w-[64px] flex flex-col items-center justify-end">
                                                             <Tooltip>
                                                                 <TooltipTrigger asChild>
@@ -4193,824 +4193,1015 @@ export function PeopleView({ spaceId, projectId, folderId, teamId, listId, viewI
                                                             </Tooltip>
                                                             <div className="mt-1 w-full overflow-hidden text-ellipsis whitespace-nowrap text-[10px] text-zinc-500 text-center">{label}</div>
                                                         </div>
-                                                );
+                                                    );
                                                 })}
                                             </div>
                                         ) : (
                                             <p className="text-xs text-zinc-400 mt-4">No assigned workload in current filter.</p>
                                         )}
-                                        </div>
-                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
+                )}
             </div>
 
-            {/* Fields panel — columns / show-hide */}
+            {/* Fields panel (Columns click or + in last column)  Etoggle show/hide columns */}
             <SidePanel open={fieldsPanelOpen && !createFieldModalOpen} onClose={() => setFieldsPanelOpen(false)} className="absolute right-0 bottom-0 top-0 w-[360px] max-w-[90vw] bg-white border-l border-zinc-200 shadow-xl z-50 flex flex-col">
-                        <div className="flex items-center justify-between p-4 border-b border-zinc-100">
-                            <h3 className="font-semibold text-zinc-900">Fields</h3>
-                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setFieldsPanelOpen(false)}><X className="h-4 w-4" /></Button>
-                        </div>
-                        <div className="p-3 border-b border-zinc-100">
-                            <div className="relative">
-                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
-                                <Input className="pl-9 h-9 text-sm" placeholder="Search for new or existing fields" value={fieldsSearch} onChange={e => setFieldsSearch(e.target.value)} />
-                            </div>
-                        </div>
-                        <ScrollArea className="flex-1 p-3 pb-20 h-full">
-                            <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-2">Shown</p>
-                            <div className="space-y-1 mb-4">
-                                {FIELD_CONFIG.filter(f => visibleColumns.has(f.id) && (!fieldsSearch.trim() || f.label.toLowerCase().includes(fieldsSearch.toLowerCase()))).map(f => {
-                                    const iconAny = (f as any).icon;
-                                    const IconEl = typeof iconAny === "function"
-                                        ? React.createElement(iconAny, { className: "h-4 w-4 text-zinc-400 shrink-0" })
-                                        : null;
-                                    return (
-                                        <div key={f.id} className="flex items-center gap-2 py-2 px-2 rounded hover:bg-zinc-50">
-                                            <GripVertical className="h-4 w-4 text-zinc-300 shrink-0 cursor-grab" />
-                                            {IconEl}
-                                            <span className="text-sm text-zinc-800 flex-1">{f.label}</span>
-                                            <Switch checked onCheckedChange={() => toggleColumn(f.id)} />
-                                        </div>
-                                    );
-                                })}
-                                {FIELD_CONFIG.filter(f => visibleColumns.has(f.id)).length > 0 && (
-                                    <button type="button" className="text-xs text-violet-600 hover:underline" onClick={() => setVisibleColumns(new Set())}>Hide all</button>
-                                )}
-                            </div>
-                            <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-2">Popular</p>
-                            <div className="space-y-1">
-                                {FIELD_CONFIG.filter(f => !visibleColumns.has(f.id) && (!fieldsSearch.trim() || f.label.toLowerCase().includes(fieldsSearch.toLowerCase()))).map(f => {
-                                    const iconAny = (f as any).icon;
-                                    const IconEl = typeof iconAny === "function"
-                                        ? React.createElement(iconAny, { className: "h-4 w-4 text-zinc-400 shrink-0" })
-                                        : null;
-                                    return (
-                                        <div key={f.id} className="flex items-center justify-between py-2 px-2 rounded hover:bg-zinc-50">
-                                            <div className="flex items-center gap-2">
-                                                {IconEl}
-                                                <span className="text-sm text-zinc-800">{f.label}</span>
-                                            </div>
-                                            <Switch checked={false} onCheckedChange={() => toggleColumn(f.id)} />
-                                </div>;
-                                })}
-                            </div>
-                        </ScrollArea>
-                        <div className="p-3 sticky bottom-0 left-0 right-0 border-t bg-white border-zinc-100">
-                            <Button
-                                className="w-full bg-zinc-900 hover:bg-zinc-800 text-white"
-                                onClick={() => {
-                                    setFieldsPanelOpen(false);
-                                    setCreateFieldModalOpen(true);
-                                }}
-                            >
-                                <Plus className="h-4 w-4 mr-2" />Create field
-                            </Button>
-                        </div>
-                    </SidePanel>
+                <div className="flex items-center justify-between p-4 border-b border-zinc-100">
+                    <h3 className="font-semibold text-zinc-900">Fields</h3>
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setFieldsPanelOpen(false)}><X className="h-4 w-4" /></Button>
+                </div>
+                <div className="p-3 border-b border-zinc-100">
+                    <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
+                        <Input className="pl-9 h-9 text-sm" placeholder="Search for new or existing fields" value={fieldsSearch} onChange={e => setFieldsSearch(e.target.value)} />
+                    </div>
+                </div>
+                <ScrollArea className="flex-1 p-3 pb-20 h-full">
+                    <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-2">Shown</p>
+                    <div className="space-y-1 mb-4">
+                        {FIELD_CONFIG.filter(f => visibleColumns.has(f.id) && (!fieldsSearch.trim() || f.label.toLowerCase().includes(fieldsSearch.toLowerCase()))).map(f => {
+                            const iconAny = (f as any).icon;
+                            const IconEl = typeof iconAny === "function"
+                                ? React.createElement(iconAny, { className: "h-4 w-4 text-zinc-400 shrink-0" })
+                                : null;
+                            return (
+                                <div key={f.id} className="flex items-center gap-2 py-2 px-2 rounded hover:bg-zinc-50">
+                                    <GripVertical className="h-4 w-4 text-zinc-300 shrink-0 cursor-grab" />
+                                    {IconEl}
+                                    <span className="text-sm text-zinc-800 flex-1">{f.label}</span>
+                                    <Switch checked onCheckedChange={() => toggleColumn(f.id)} />
+                                </div>
+                            );
+                        })}
+                        {FIELD_CONFIG.filter(f => visibleColumns.has(f.id)).length > 0 && (
+                            <button type="button" className="text-xs text-violet-600 hover:underline" onClick={() => setVisibleColumns(new Set())}>Hide all</button>
+                        )}
+                    </div>
+                    <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-2">Popular</p>
+                    <div className="space-y-1">
+                        {FIELD_CONFIG.filter(f => !visibleColumns.has(f.id) && (!fieldsSearch.trim() || f.label.toLowerCase().includes(fieldsSearch.toLowerCase()))).map(f => {
+                            const iconAny = (f as any).icon;
+                            const IconEl = typeof iconAny === "function"
+                                ? React.createElement(iconAny, { className: "h-4 w-4 text-zinc-400 shrink-0" })
+                                : null;
+                            return (
+                                <div key={f.id} className="flex items-center justify-between py-2 px-2 rounded hover:bg-zinc-50">
+                                    <div className="flex items-center gap-2">
+                                        {IconEl}
+                                        <span className="text-sm text-zinc-800">{f.label}</span>
+                                    </div>
+                                    <Switch checked={false} onCheckedChange={() => toggleColumn(f.id)} />
+                                </div>
+                            );
+                        })}
+                    </div>
+                </ScrollArea>
+                <div className="p-3 sticky bottom-0 left-0 right-0 border-t bg-white border-zinc-100">
+                    <Button
+                        className="w-full bg-zinc-900 hover:bg-zinc-800 text-white"
+                        onClick={() => {
+                            setFieldsPanelOpen(false);
+                            setCreateFieldModalOpen(true);
+                        }}
+                    >
+                        <Plus className="h-4 w-4 mr-2" />Create field
+                    </Button>
+                </div>
+        </SidePanel>
 
                                         {/* Customize view panel (ClickUp-style) */ }
                                         <SidePanel open={customizePanelOpen && !layoutOptionsOpen} onClose={() => setCustomizePanelOpen(false)} className="absolute bottom-0 right-0 h-full w-[380px] max-w-[90vw] bg-white border-l border-zinc-200 shadow-xl z-50 flex flex-col">
-                        <div className="flex items-center justify-between p-4 border-b border-zinc-100">
-                            <h3 className="font-semibold text-zinc-900">Customize view</h3>
-                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setCustomizePanelOpen(false)}><X className="h-4 w-4" /></Button>
-                        </div>
-                        <ScrollArea className="flex-1 min-h-0">
-                            <div className="p-3 space-y-2 pb-24">
-                                <div className="flex items-center gap-2 mb-4">
-                                    <div className="flex items-center justify-center h-10 w-10 rounded-lg border border-zinc-200 bg-zinc-50 shrink-0">
-                                        <LayoutList className="h-5 w-5 text-zinc-600" />
-                                    </div>
-                                    <Input
-                                        value={viewNameDraft}
-                                        onChange={(e) => setViewNameDraft(e.target.value)}
-                                        onBlur={() => updateViewName(viewNameDraft)}
-                                        onKeyDown={(e) => {
-                                            if (e.key === "Enter") {
-                                                updateViewName(viewNameDraft);
-                                                (e.target as HTMLInputElement).blur();
-                                            }
-                                        }}
-                                        className="h-10 text-sm font-medium border-zinc-200"
-                                        placeholder="View name"
-                                    />
-                                </div>
-
-                                <div className="space-y-1">
-                                    {groupBy === "status" ? (
-                                        <div className="flex items-center justify-between py-1 px-2">
-                                            <span className="text-sm text-zinc-800">Show empty statuses</span>
-                                            <Switch
-                                                checked={showEmptyStatuses}
-                                                onCheckedChange={setShowEmptyStatuses}
-                                            />
-                                        </div>
-                                    ) : (
-                                        <TooltipProvider delayDuration={0}>
-                                            <Tooltip>
-                                                <TooltipTrigger asChild>
-                                                    <div className="flex items-center justify-between py-1 cursor-not-allowed opacity-50 px-2">
-                                                        <span className="text-sm text-zinc-800">Show empty statuses</span>
-                                                        <Switch
-                                                            checked={showEmptyStatuses}
-                                                            onCheckedChange={setShowEmptyStatuses}
-                                                            disabled
+                                            <div className="flex items-center justify-between p-4 border-b border-zinc-100">
+                                                <h3 className="font-semibold text-zinc-900">Customize view</h3>
+                                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setCustomizePanelOpen(false)}><X className="h-4 w-4" /></Button>
+                                            </div>
+                                            <ScrollArea className="flex-1 min-h-0">
+                                                <div className="p-3 space-y-2 pb-24">
+                                                    <div className="flex items-center gap-2 mb-4">
+                                                        <div className="flex items-center justify-center h-10 w-10 rounded-lg border border-zinc-200 bg-zinc-50 shrink-0">
+                                                            <LayoutList className="h-5 w-5 text-zinc-600" />
+                                                        </div>
+                                                        <Input
+                                                            value={viewNameDraft}
+                                                            onChange={(e) => setViewNameDraft(e.target.value)}
+                                                            onBlur={() => updateViewName(viewNameDraft)}
+                                                            onKeyDown={(e) => {
+                                                                if (e.key === "Enter") {
+                                                                    updateViewName(viewNameDraft);
+                                                                    (e.target as HTMLInputElement).blur();
+                                                                }
+                                                            }}
+                                                            className="h-10 text-sm font-medium border-zinc-200"
+                                                            placeholder="View name"
                                                         />
                                                     </div>
-                                                </TooltipTrigger>
-                                                <TooltipContent side="left" className="bg-zinc-900 text-white border-none text-[11px] py-1.5 px-2.5">
-                                                    Grouping by status is required to enable this
-                                                </TooltipContent>
-                                            </Tooltip>
-                                        </TooltipProvider>
-                                    )}
-                                    <div className="flex items-center justify-between py-1 px-2 cursor-pointer" onClick={() => setWrapText(!wrapText)}>
-                                        <span className="text-sm text-zinc-800">Wrap text</span>
-                                        <Switch checked={wrapText} onCheckedChange={setWrapText} />
-                                    </div>
-                                    <div className="flex items-center justify-between py-1 px-2 cursor-pointer" onClick={() => setShowTaskLocations(!showTaskLocations)}>
-                                        <span className="text-sm text-zinc-800">Show task locations</span>
-                                        <Switch checked={showTaskLocations} onCheckedChange={setShowTaskLocations} />
-                                    </div>
-                                    <div className="flex items-center justify-between py-1 px-2 cursor-pointer" onClick={() => setShowSubtaskParentNames(!showSubtaskParentNames)}>
-                                        <span className="text-sm text-zinc-800">Show subtask parent names</span>
-                                        <Switch checked={showSubtaskParentNames} onCheckedChange={setShowSubtaskParentNames} />
-                                    </div>
-                                    <div className="flex items-center justify-between py-1 px-2 cursor-pointer" onClick={() => setShowCompleted(!showCompleted)}>
-                                        <span className="text-sm text-zinc-800">Show closed tasks</span>
-                                        <Switch checked={showCompleted} onCheckedChange={setShowCompleted} />
-                                    </div>
-                                    <button
-                                        type="button"
-                                        className="w-full flex items-center justify-between py-2.5 text-sm text-zinc-800 hover:bg-zinc-50 rounded-md px-2 cursor-pointer"
-                                        onClick={() => { setLayoutOptionsOpen(true); }}
-                                    >
-                                        <span className="flex items-center gap-2">More options</span>
-                                        <ChevronRight className="inline h-3 w-3 ml-1 text-zinc-400" />
-                                    </button>
-                                </div>
-                                <div className="h-px bg-zinc-100 my-2" />
-                                <div className="space-y-1">
-                                    <button type="button" className="w-full flex items-center justify-between py-2.5 text-sm text-zinc-800 hover:bg-zinc-50 rounded-md px-2 cursor-pointer" onClick={() => { setFieldsPanelOpen(true); setCustomizePanelOpen(false); }}>
-                                        <span className="flex items-center gap-2"><SlidersHorizontal className="h-4 w-4 text-zinc-400" />Fields</span>
-                                        <span className="text-xs text-zinc-500">{Array.from(visibleColumns).length} shown</span>
-                                    </button>
-                                    <Popover open={customizeViewFilterOpen} onOpenChange={setCustomizeViewFilterOpen}>
-                                        <PopoverTrigger asChild>
-                                            <button
-                                                type="button"
-                                                className="w-full flex items-center justify-between py-2.5 text-sm text-zinc-800 hover:bg-zinc-50 rounded-md px-2 cursor-pointer"
-                                                onClick={() => { if (filterGroups.conditions.length === 0) { addFilterGroup(); } }}
-                                            >
-                                                <span className="flex items-center gap-2"><Filter className="h-4 w-4 text-zinc-400" />Filter</span>
-                                                <span className="text-xs text-zinc-500">{appliedFilterCount > 0 ? `${appliedFilterCount} applied` : "None"} <ChevronRight className="inline h-3 w-3 ml-1" /></span>
-                                            </button>
-                                        </PopoverTrigger>
-                                        <PopoverContent side="left" align="start" className="w-[600px] max-w-[90vw] p-0 overflow-hidden shadow-2xl rounded-2xl border border-zinc-200/80" sideOffset={16}>
-                                            {renderFilterContent({ onClose: () => setCustomizeViewFilterOpen(false) })}
-                                        </PopoverContent>
-                                    </Popover>
-                                    <Popover open={customizeViewGroupOpen} onOpenChange={setCustomizeViewGroupOpen}>
-                                        <PopoverTrigger asChild>
-                                            <button
-                                                type="button"
-                                                className="w-full flex items-center justify-between py-2.5 text-sm text-zinc-800 hover:bg-zinc-50 rounded-md px-2 cursor-pointer"
-                                            >
-                                                <span className="flex items-center gap-2"><LayoutList className="h-4 w-4 text-zinc-400" />Group</span>
-                                                <span className="text-xs text-zinc-500">{groupLabel} <ChevronRight className="inline h-3 w-3 ml-1" /></span>
-                                            </button>
-                                        </PopoverTrigger>
-                                        <PopoverContent side="left" align="start" className="w-[240px] p-1.5 rounded-xl shadow-xl border-zinc-200/60" sideOffset={16}>
-                                            <div className="px-2 py-1.5 mb-1">
-                                                <span className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">Group by</span>
-                                            </div>
-                                            <div className="space-y-0.5">
-                                                {[
-                                                    { id: "status", label: "Status", icon: Circle },
-                                                    { id: "assignee", label: "Assignee", icon: Users },
-                                                    { id: "priority", label: "Priority", icon: Flag },
-                                                    { id: "tags", label: "Tags", icon: Tag },
-                                                    { id: "dueDate", label: "Due date", icon: Calendar },
-                                                    { id: "taskType", label: "Task type", icon: Box },
-                                                ].map((opt) => (
-                                                    <div
-                                                        key={opt.id}
-                                                        className={cn(
-                                                            "flex items-center gap-2.5 px-2 py-1.5 text-sm rounded-md cursor-pointer transition-colors",
-                                                            groupBy === opt.id ? "bg-violet-50 text-violet-700" : "text-zinc-600 hover:bg-zinc-100"
+
+                                                    <div className="space-y-1">
+                                                        {groupBy === "status" ? (
+                                                            <div className="flex items-center justify-between py-1 px-2">
+                                                                <span className="text-sm text-zinc-800">Show empty statuses</span>
+                                                                <Switch
+                                                                    checked={showEmptyStatuses}
+                                                                    onCheckedChange={setShowEmptyStatuses}
+                                                                />
+                                                            </div>
+                                                        ) : (
+                                                            <TooltipProvider delayDuration={0}>
+                                                                <Tooltip>
+                                                                    <TooltipTrigger asChild>
+                                                                        <div className="flex items-center justify-between py-1 cursor-not-allowed opacity-50 px-2">
+                                                                            <span className="text-sm text-zinc-800">Show empty statuses</span>
+                                                                            <Switch
+                                                                                checked={showEmptyStatuses}
+                                                                                onCheckedChange={setShowEmptyStatuses}
+                                                                                disabled
+                                                                            />
+                                                                        </div>
+                                                                    </TooltipTrigger>
+                                                                    <TooltipContent side="left" className="bg-zinc-900 text-white border-none text-[11px] py-1.5 px-2.5">
+                                                                        Grouping by status is required to enable this
+                                                                    </TooltipContent>
+                                                                </Tooltip>
+                                                            </TooltipProvider>
                                                         )}
-                                                        onClick={() => { setGroupBy(opt.id as any); setCustomizeViewGroupOpen(false); }}
-                                                    >
-                                                        <opt.icon className={cn("h-4 w-4", groupBy === opt.id ? "text-violet-500" : "text-zinc-400")} />
-                                                        <span className="flex-1">{opt.label}</span>
-                                                        {groupBy === opt.id && <div className="h-1.5 w-1.5 rounded-full bg-violet-600" />}
-                                                    </div>
-                                                ))}
-                                                {FIELD_CONFIG.filter(f => f.isCustom).length > 0 && (
-                                                    <>
-                                                        <div className="h-px bg-zinc-100 my-1.5" />
-                                                        <div className="px-2 py-1.5 mb-0.5">
-                                                            <span className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">Custom Fields</span>
+                                                        <div className="flex items-center justify-between py-1 px-2 cursor-pointer" onClick={() => setWrapText(!wrapText)}>
+                                                            <span className="text-sm text-zinc-800">Wrap text</span>
+                                                            <Switch checked={wrapText} onCheckedChange={setWrapText} />
                                                         </div>
-                                                        {FIELD_CONFIG.filter(f => f.isCustom).map((f) => {
-                                                            const Icon = f.icon as any;
-                                                            return (
-                                                                <div
-                                                                    key={f.id}
-                                                                    className={cn(
-                                                                        "flex items-center gap-2.5 px-2 py-1.5 text-sm rounded-md cursor-pointer transition-colors",
-                                                                        groupBy === f.id ? "bg-violet-50 text-violet-700" : "text-zinc-600 hover:bg-zinc-100"
-                                                                    )}
-                                                                    onClick={() => { setGroupBy(f.id); setCustomizeViewGroupOpen(false); }}
+                                                        <div className="flex items-center justify-between py-1 px-2 cursor-pointer" onClick={() => setShowTaskLocations(!showTaskLocations)}>
+                                                            <span className="text-sm text-zinc-800">Show task locations</span>
+                                                            <Switch checked={showTaskLocations} onCheckedChange={setShowTaskLocations} />
+                                                        </div>
+                                                        <div className="flex items-center justify-between py-1 px-2 cursor-pointer" onClick={() => setShowSubtaskParentNames(!showSubtaskParentNames)}>
+                                                            <span className="text-sm text-zinc-800">Show subtask parent names</span>
+                                                            <Switch checked={showSubtaskParentNames} onCheckedChange={setShowSubtaskParentNames} />
+                                                        </div>
+                                                        <div className="flex items-center justify-between py-1 px-2 cursor-pointer" onClick={() => setShowCompleted(!showCompleted)}>
+                                                            <span className="text-sm text-zinc-800">Show closed tasks</span>
+                                                            <Switch checked={showCompleted} onCheckedChange={setShowCompleted} />
+                                                        </div>
+                                                        <button
+                                                            type="button"
+                                                            className="w-full flex items-center justify-between py-2.5 text-sm text-zinc-800 hover:bg-zinc-50 rounded-md px-2 cursor-pointer"
+                                                            onClick={() => { setLayoutOptionsOpen(true); }}
+                                                        >
+                                                            <span className="flex items-center gap-2">More options</span>
+                                                            <ChevronRight className="inline h-3 w-3 ml-1 text-zinc-400" />
+                                                        </button>
+                                                    </div>
+                                                    <div className="h-px bg-zinc-100 my-2" />
+                                                    <div className="space-y-1">
+                                                        <button type="button" className="w-full flex items-center justify-between py-2.5 text-sm text-zinc-800 hover:bg-zinc-50 rounded-md px-2 cursor-pointer" onClick={() => { setFieldsPanelOpen(true); setCustomizePanelOpen(false); }}>
+                                                            <span className="flex items-center gap-2"><SlidersHorizontal className="h-4 w-4 text-zinc-400" />Fields</span>
+                                                            <span className="text-xs text-zinc-500">{Array.from(visibleColumns).length} shown</span>
+                                                        </button>
+                                                        <Popover open={customizeViewFilterOpen} onOpenChange={setCustomizeViewFilterOpen}>
+                                                            <PopoverTrigger asChild>
+                                                                <button
+                                                                    type="button"
+                                                                    className="w-full flex items-center justify-between py-2.5 text-sm text-zinc-800 hover:bg-zinc-50 rounded-md px-2 cursor-pointer"
+                                                                    onClick={() => { if (filterGroups.conditions.length === 0) { addFilterGroup(); } }}
                                                                 >
-                                                                    <Icon className={cn("h-4 w-4", groupBy === f.id ? "text-violet-500" : "text-zinc-400")} />
-                                                                    <span className="flex-1 truncate">{f.label}</span>
-                                                                    {groupBy === f.id && <div className="h-1.5 w-1.5 rounded-full bg-violet-600" />}
+                                                                    <span className="flex items-center gap-2"><Filter className="h-4 w-4 text-zinc-400" />Filter</span>
+                                                                    <span className="text-xs text-zinc-500">{appliedFilterCount > 0 ? `${appliedFilterCount} applied` : "None"} <ChevronRight className="inline h-3 w-3 ml-1" /></span>
+                                                                </button>
+                                                            </PopoverTrigger>
+                                                            <PopoverContent side="left" align="start" className="w-[600px] max-w-[90vw] p-0 overflow-hidden shadow-2xl rounded-2xl border border-zinc-200/80" sideOffset={16}>
+                                                                {renderFilterContent({ onClose: () => setCustomizeViewFilterOpen(false) })}
+                                                            </PopoverContent>
+                                                        </Popover>
+                                                        <Popover open={customizeViewGroupOpen} onOpenChange={setCustomizeViewGroupOpen}>
+                                                            <PopoverTrigger asChild>
+                                                                <button
+                                                                    type="button"
+                                                                    className="w-full flex items-center justify-between py-2.5 text-sm text-zinc-800 hover:bg-zinc-50 rounded-md px-2 cursor-pointer"
+                                                                >
+                                                                    <span className="flex items-center gap-2"><LayoutList className="h-4 w-4 text-zinc-400" />Group</span>
+                                                                    <span className="text-xs text-zinc-500">{groupLabel} <ChevronRight className="inline h-3 w-3 ml-1" /></span>
+                                                                </button>
+                                                            </PopoverTrigger>
+                                                            <PopoverContent side="left" align="start" className="w-[240px] p-1.5 rounded-xl shadow-xl border-zinc-200/60" sideOffset={16}>
+                                                                <div className="px-2 py-1.5 mb-1">
+                                                                    <span className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">Group by</span>
                                                                 </div>
-                                                            );
-                                                        })}
-                                                    </>
-                                                )}
-                                                {groupBy !== "none" && (
-                                                    <>
-                                                        <div className="h-px bg-zinc-100 my-1.5" />
-                                                        <div className="flex items-center gap-1 p-1">
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="sm"
-                                                                className={cn("flex-1 h-7 text-[10px] uppercase tracking-wider font-bold", groupDirection === "asc" ? "bg-white shadow-sm border border-zinc-200 text-zinc-900" : "text-zinc-500")}
-                                                                onClick={() => setGroupDirection("asc")}
-                                                            >
-                                                                Ascending
-                                                            </Button>
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="sm"
-                                                                className={cn("flex-1 h-7 text-[10px] uppercase tracking-wider font-bold", groupDirection === "desc" ? "bg-white shadow-sm border border-zinc-200 text-zinc-900" : "text-zinc-500")}
-                                                                onClick={() => setGroupDirection("desc")}
-                                                            >
-                                                                Descending
-                                                            </Button>
-                                                        </div>
-                                                <div className="h-px bg-zinc-100 my-1.5" />
-                                                <div
-                                                    className={cn(
-                                                        "flex items-center gap-2.5 px-2 py-1.5 text-sm rounded-md cursor-pointer transition-colors text-red-600 hover:bg-red-50 hover:text-red-700",
-                                                        groupBy === "none" && "bg-zinc-100"
-                                                    )}
-                                                    onClick={() => { setGroupBy("none"); setCustomizeViewGroupOpen(false); }}
-                                                >
-                                                    <Trash2 className="h-4 w-4" />
-                                                    <span className="flex-1">Remove grouping</span>
-                                                </div>
-                                                    </>
-                                                )}
-                                            </div>
-                                        </PopoverContent>
-                                    </Popover>
-                                    <Popover open={customizeViewSubtasksOpen} onOpenChange={setCustomizeViewSubtasksOpen}>
-                                        <PopoverTrigger asChild>
-                                            <button
-                                                type="button"
-                                                className="w-full flex items-center justify-between py-2.5 text-sm text-zinc-800 hover:bg-zinc-50 rounded-md px-2 cursor-pointer"
-                                            >
-                                                <span className="flex items-center gap-2"><Link2 className="h-4 w-4 text-zinc-400" />Subtasks</span>
-                                                <span className="text-xs text-zinc-500">{expandedSubtaskMode === "collapsed" ? "Collapsed" : expandedSubtaskMode === "expanded" ? "Expanded" : "Separate"} <ChevronRight className="inline h-3 w-3 ml-1" /></span>
-                                            </button>
-                                        </PopoverTrigger>
-                                        <PopoverContent side="left" align="start" className="w-56" sideOffset={16}>
-                                            <div className="text-xs px-2 pb-2 font-semibold text-zinc-900">Show subtasks</div>
-                                            <div className="space-y-1">
-                                                <button
-                                                    type="button"
-                                                    className={cn(
-                                                        "w-full text-left text-xs px-2 py-1 rounded",
-                                                        expandedSubtaskMode === "collapsed" ? "bg-zinc-100 text-zinc-900" : "text-zinc-700 hover:bg-zinc-50"
-                                                    )}
-                                                    onClick={() => {
-                                                        setExpandedSubtaskMode("collapsed");
-                                                        setExpandedParents(new Set());
-                                                        setCustomizeViewSubtasksOpen(false);
-                                                    }}
-                                                >
-                                                    Collapsed (default)
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    className={cn(
-                                                        "w-full text-left text-xs px-2 py-1 rounded",
-                                                        expandedSubtaskMode === "expanded" ? "bg-zinc-100 text-zinc-900" : "text-zinc-700 hover:bg-zinc-50"
-                                                    )}
-                                                    onClick={() => {
-                                                        setExpandedSubtaskMode("expanded");
-                                                        const next = new Set<string>();
-                                                        filteredTasks.forEach((t: Task) => {
-                                                            if (hasSubtasks(t, filteredTasks as Task[])) next.add(t.id);
-                                                        });
-                                                        setExpandedParents(next);
-                                                        setCustomizeViewSubtasksOpen(false);
-                                                    }}
-                                                >
-                                                    Expanded
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    className={cn(
-                                                        "w-full text-left text-xs px-2 py-1 rounded",
-                                                        expandedSubtaskMode === "separate" ? "bg-zinc-100 text-zinc-900" : "text-zinc-700 hover:bg-zinc-50"
-                                                    )}
-                                                    onClick={() => {
-                                                        setExpandedSubtaskMode("separate");
-                                                        setExpandedParents(new Set());
-                                                        setCustomizeViewSubtasksOpen(false);
-                                                    }}
-                                                >
-                                                    As separate items
-                                                </button>
-                                            </div>
-                                        </PopoverContent>
-                                    </Popover>
-                                </div>
-                                <div className="h-px bg-zinc-100 my-2" />
-                                <div className="space-y-1">
-                                    <div className="flex items-center justify-between py-2.5 px-2 hover:bg-zinc-50 rounded-md transition-colors cursor-pointer" onClick={() => handleToggleAutosave()}>
-                                        <div className="flex items-center gap-2">
-                                            <Save className="h-4 w-4 text-zinc-400" />
-                                            <span className="text-sm text-zinc-800">Autosave for me</span>
-                                        </div>
-                                        <Switch checked={viewAutosave} onCheckedChange={handleToggleAutosave} />
-                                    </div>
-                                    <div className="flex items-center justify-between py-2.5 px-2 hover:bg-zinc-50 rounded-md transition-colors cursor-pointer" onClick={() => { setPinView(!pinView); updateViewProperty('isPinned', !pinView); }}>
-                                        <div className="flex items-center gap-2">
-                                            <Pin className="h-4 w-4 text-zinc-400" />
-                                            <span className="text-sm text-zinc-800">Pin view</span>
-                                        </div>
-                                        <Switch checked={pinView} onCheckedChange={(val) => { setPinView(val); updateViewProperty('isPinned', val); }} />
-                                    </div>
-                                    <div className="flex items-center justify-between py-2.5 px-2 hover:bg-zinc-50 rounded-md transition-colors cursor-pointer" onClick={() => { setPrivateView(!privateView); updateViewProperty('isPrivate', !privateView); }}>
-                                        <div className="flex items-center gap-2">
-                                            <Lock className="h-4 w-4 text-zinc-400" />
-                                            <span className="text-sm text-zinc-800">Private view</span>
-                                        </div>
-                                        <Switch checked={privateView} onCheckedChange={(val) => { setPrivateView(val); updateViewProperty('isPrivate', val); }} />
-                                    </div>
-                                    <div className="flex items-center justify-between py-2.5 px-2 hover:bg-zinc-50 rounded-md transition-colors cursor-pointer" onClick={() => { setProtectView(!protectView); updateViewProperty('isLocked', !protectView); }}>
-                                        <div className="flex items-center gap-2">
-                                            <ShieldCheck className="h-4 w-4 text-zinc-400" />
-                                            <span className="text-sm text-zinc-800">Protect view</span>
-                                        </div>
-                                        <Switch checked={protectView} onCheckedChange={(val) => { setProtectView(val); updateViewProperty('isLocked', val); }} />
-                                    </div>
-                                    <div className="flex items-center justify-between py-2.5 px-2 hover:bg-zinc-50 rounded-md transition-colors cursor-pointer" onClick={() => { setDefaultView(!defaultView); updateViewProperty('isDefault', !defaultView); }}>
-                                        <div className="flex items-center gap-2">
-                                            <Home className="h-4 w-4 text-zinc-400" />
-                                            <span className="text-sm text-zinc-800">Set as default view</span>
-                                        </div>
-                                        <Switch checked={defaultView} onCheckedChange={(val) => { setDefaultView(val); updateViewProperty('isDefault', val); }} />
-                                    </div>
-                                </div>
-                                <div className="h-px bg-zinc-100 my-2" />
-                                <div className="space-y-1">
-                                    <button type="button" className="w-full flex items-center justify-between py-2.5 text-sm text-zinc-800 hover:bg-zinc-50 rounded-md px-2 cursor-pointer" onClick={() => {
-                                        const url = `${window.location.origin}${window.location.pathname}?v=${viewId}`;
-                                        navigator.clipboard?.writeText(url);
-                                        toast.success("Link copied to clipboard");
-                                    }}>
-                                        <span className="flex items-center gap-2"><Link className="h-4 w-4 text-zinc-400" />Copy link to view</span>
-                                    </button>
-                                    <button
-                                        type="button"
-                                        className="w-full flex items-center justify-between py-2.5 text-sm text-zinc-800 hover:bg-zinc-50 rounded-md px-2 cursor-pointer"
-                                        onClick={() => setIsShareModalOpen(true)}
-                                    >
-                                        <span className="flex items-center gap-2"><Users className="h-4 w-4 text-zinc-400" />Sharing & Permissions</span>
-                                        <ChevronRight className="inline h-3 w-3 ml-1 text-zinc-400" />
-                                    </button>
-                                </div>
-                            </div>
-                        </ScrollArea>
-                    </SidePanel>
-                    <SidePanel open={layoutOptionsOpen} onClose={() => setLayoutOptionsOpen(false)} className="absolute bottom-0 right-0 h-full w-[380px] max-w-[90vw] bg-white border-l border-zinc-200 shadow-xl z-50 flex flex-col">
-                        <div className="flex items-center justify-between p-4 border-b border-zinc-100">
-                            <Button variant="ghost" size="icon" className="h-8 w-8 -ml-1 cursor-pointer" onClick={() => { setLayoutOptionsOpen(false); setCustomizePanelOpen(true); }}>
-                                <ArrowRight className="h-4 w-4 rotate-180" />
-                            </Button>
-                            <h3 className="font-semibold text-zinc-900">Layout options</h3>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 cursor-pointer" onClick={() => { setLayoutOptionsOpen(false); setCustomizePanelOpen(false); }}><X className="h-4 w-4" /></Button>
-                        </div>
-                        <ScrollArea className="flex-1 min-h-0">
-                            <div className="p-3 space-y-4 pb-24">
-                                <div className="space-y-2">
-                                    <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-2">Page layout</p>
-                                    {groupBy === "status" ? (
-                                        <div className="flex items-center justify-between py-1 px-2">
-                                            <span className="text-sm text-zinc-800">Show empty statuses</span>
-                                            <Switch
-                                                checked={showEmptyStatuses}
-                                                onCheckedChange={setShowEmptyStatuses}
-                                            />
-                                        </div>
-                                    ) : (
-                                        <TooltipProvider delayDuration={0}>
-                                            <Tooltip>
-                                                <TooltipTrigger asChild>
-                                                    <div className="flex items-center justify-between py-1 cursor-not-allowed opacity-50 px-2">
-                                                        <span className="text-sm text-zinc-800">Show empty statuses</span>
-                                                        <Switch
-                                                            checked={showEmptyStatuses}
-                                                            onCheckedChange={setShowEmptyStatuses}
-                                                            disabled
-                                                        />
+                                                                <div className="space-y-0.5">
+                                                                    {[
+                                                                        { id: "status", label: "Status", icon: Circle },
+                                                                        { id: "assignee", label: "Assignee", icon: Users },
+                                                                        { id: "priority", label: "Priority", icon: Flag },
+                                                                        { id: "tags", label: "Tags", icon: Tag },
+                                                                        { id: "dueDate", label: "Due date", icon: Calendar },
+                                                                        { id: "taskType", label: "Task type", icon: Box },
+                                                                    ].map((opt) => (
+                                                                        <div
+                                                                            key={opt.id}
+                                                                            className={cn(
+                                                                                "flex items-center gap-2.5 px-2 py-1.5 text-sm rounded-md cursor-pointer transition-colors",
+                                                                                groupBy === opt.id ? "bg-violet-50 text-violet-700" : "text-zinc-600 hover:bg-zinc-100"
+                                                                            )}
+                                                                            onClick={() => { setGroupBy(opt.id as any); setCustomizeViewGroupOpen(false); }}
+                                                                        >
+                                                                            <opt.icon className={cn("h-4 w-4", groupBy === opt.id ? "text-violet-500" : "text-zinc-400")} />
+                                                                            <span className="flex-1">{opt.label}</span>
+                                                                            {groupBy === opt.id && <div className="h-1.5 w-1.5 rounded-full bg-violet-600" />}
+                                                                        </div>
+                                                                    ))}
+                                                                    {FIELD_CONFIG.filter(f => f.isCustom).length > 0 && (
+                                                                        <>
+                                                                            <div className="h-px bg-zinc-100 my-1.5" />
+                                                                            <div className="px-2 py-1.5 mb-0.5">
+                                                                                <span className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">Custom Fields</span>
+                                                                            </div>
+                                                                            {FIELD_CONFIG.filter(f => f.isCustom).map((f) => {
+                                                                                const Icon = f.icon as any;
+                                                                                return (
+                                                                                    <div
+                                                                                        key={f.id}
+                                                                                        className={cn(
+                                                                                            "flex items-center gap-2.5 px-2 py-1.5 text-sm rounded-md cursor-pointer transition-colors",
+                                                                                            groupBy === f.id ? "bg-violet-50 text-violet-700" : "text-zinc-600 hover:bg-zinc-100"
+                                                                                        )}
+                                                                                        onClick={() => { setGroupBy(f.id); setCustomizeViewGroupOpen(false); }}
+                                                                                    >
+                                                                                        <Icon className={cn("h-4 w-4", groupBy === f.id ? "text-violet-500" : "text-zinc-400")} />
+                                                                                        <span className="flex-1 truncate">{f.label}</span>
+                                                                                        {groupBy === f.id && <div className="h-1.5 w-1.5 rounded-full bg-violet-600" />}
+                                                                                    </div>
+                                                                                );
+                                                                            })}
+                                                                        </>
+                                                                    )}
+                                                                    {groupBy !== "none" && (
+                                                                        <>
+                                                                            <div className="h-px bg-zinc-100 my-1.5" />
+                                                                            <div className="flex items-center gap-1 p-1">
+                                                                                <Button
+                                                                                    variant="ghost"
+                                                                                    size="sm"
+                                                                                    className={cn("flex-1 h-7 text-[10px] uppercase tracking-wider font-bold", groupDirection === "asc" ? "bg-white shadow-sm border border-zinc-200 text-zinc-900" : "text-zinc-500")}
+                                                                                    onClick={() => setGroupDirection("asc")}
+                                                                                >
+                                                                                    Ascending
+                                                                                </Button>
+                                                                                <Button
+                                                                                    variant="ghost"
+                                                                                    size="sm"
+                                                                                    className={cn("flex-1 h-7 text-[10px] uppercase tracking-wider font-bold", groupDirection === "desc" ? "bg-white shadow-sm border border-zinc-200 text-zinc-900" : "text-zinc-500")}
+                                                                                    onClick={() => setGroupDirection("desc")}
+                                                                                >
+                                                                                    Descending
+                                                                                </Button>
+                                                                            </div>
+                                                                            <div className="h-px bg-zinc-100 my-1.5" />
+                                                                            <div
+                                                                                className={cn(
+                                                                                    "flex items-center gap-2.5 px-2 py-1.5 text-sm rounded-md cursor-pointer transition-colors text-red-600 hover:bg-red-50 hover:text-red-700",
+                                                                                    groupBy === "none" && "bg-zinc-100"
+                                                                                )}
+                                                                                onClick={() => { setGroupBy("none"); setCustomizeViewGroupOpen(false); }}
+                                                                            >
+                                                                                <Trash2 className="h-4 w-4" />
+                                                                                <span className="flex-1">Remove grouping</span>
+                                                                            </div>
+                                                                        </>
+                                                                    )}
+                                                                </div>
+                                                            </PopoverContent>
+                                                        </Popover>
+                                                        <Popover open={customizeViewSubtasksOpen} onOpenChange={setCustomizeViewSubtasksOpen}>
+                                                            <PopoverTrigger asChild>
+                                                                <button
+                                                                    type="button"
+                                                                    className="w-full flex items-center justify-between py-2.5 text-sm text-zinc-800 hover:bg-zinc-50 rounded-md px-2 cursor-pointer"
+                                                                >
+                                                                    <span className="flex items-center gap-2"><Link2 className="h-4 w-4 text-zinc-400" />Subtasks</span>
+                                                                    <span className="text-xs text-zinc-500">{expandedSubtaskMode === "collapsed" ? "Collapsed" : expandedSubtaskMode === "expanded" ? "Expanded" : "Separate"} <ChevronRight className="inline h-3 w-3 ml-1" /></span>
+                                                                </button>
+                                                            </PopoverTrigger>
+                                                            <PopoverContent side="left" align="start" className="w-56" sideOffset={16}>
+                                                                <div className="text-xs px-2 pb-2 font-semibold text-zinc-900">Show subtasks</div>
+                                                                <div className="space-y-1">
+                                                                    <button
+                                                                        type="button"
+                                                                        className={cn(
+                                                                            "w-full text-left text-xs px-2 py-1 rounded",
+                                                                            expandedSubtaskMode === "collapsed" ? "bg-zinc-100 text-zinc-900" : "text-zinc-700 hover:bg-zinc-50"
+                                                                        )}
+                                                                        onClick={() => {
+                                                                            setExpandedSubtaskMode("collapsed");
+                                                                            setExpandedParents(new Set());
+                                                                            setCustomizeViewSubtasksOpen(false);
+                                                                        }}
+                                                                    >
+                                                                        Collapsed (default)
+                                                                    </button>
+                                                                    <button
+                                                                        type="button"
+                                                                        className={cn(
+                                                                            "w-full text-left text-xs px-2 py-1 rounded",
+                                                                            expandedSubtaskMode === "expanded" ? "bg-zinc-100 text-zinc-900" : "text-zinc-700 hover:bg-zinc-50"
+                                                                        )}
+                                                                        onClick={() => {
+                                                                            setExpandedSubtaskMode("expanded");
+                                                                            const next = new Set<string>();
+                                                                            filteredTasks.forEach((t: Task) => {
+                                                                                if (hasSubtasks(t, filteredTasks as Task[])) next.add(t.id);
+                                                                            });
+                                                                            setExpandedParents(next);
+                                                                            setCustomizeViewSubtasksOpen(false);
+                                                                        }}
+                                                                    >
+                                                                        Expanded
+                                                                    </button>
+                                                                    <button
+                                                                        type="button"
+                                                                        className={cn(
+                                                                            "w-full text-left text-xs px-2 py-1 rounded",
+                                                                            expandedSubtaskMode === "separate" ? "bg-zinc-100 text-zinc-900" : "text-zinc-700 hover:bg-zinc-50"
+                                                                        )}
+                                                                        onClick={() => {
+                                                                            setExpandedSubtaskMode("separate");
+                                                                            setExpandedParents(new Set());
+                                                                            setCustomizeViewSubtasksOpen(false);
+                                                                        }}
+                                                                    >
+                                                                        As separate items
+                                                                    </button>
+                                                                </div>
+                                                            </PopoverContent>
+                                                        </Popover>
                                                     </div>
-                                                </TooltipTrigger>
-                                                <TooltipContent side="left" className="bg-zinc-900 text-white border-none text-[11px] py-1.5 px-2.5">
-                                                    Grouping by status is required to enable this
-                                                </TooltipContent>
-                                            </Tooltip>
-                                        </TooltipProvider>
-                                    )}
-                                    <div className="flex items-center justify-between py-1 px-2">
-                                        <span className="text-sm text-zinc-800">Pin description</span>
-                                        <Switch
-                                            checked={pinDescription}
-                                            onCheckedChange={setPinDescription}
-                                            disabled={!currentList}
-                                        />
-                                    </div>
-                                    <div className="flex items-center justify-between py-1 px-2">
-                                        <span className="text-sm text-zinc-800">Wrap text</span>
-                                        <Switch checked={wrapText} onCheckedChange={setWrapText} />
-                                    </div>
-                                </div>
-                                <div className="space-y-2">
-                                    <div className="flex items-center justify-between py-1 px-2">
-                                        <span className="text-sm text-zinc-800">Show task locations</span>
-                                        <Switch checked={showTaskLocations} onCheckedChange={setShowTaskLocations} />
-                                    </div>
-                                    <div className="flex items-center justify-between py-1 px-2">
-                                        <span className="text-sm text-zinc-800">Show task properties</span>
-                                        <Switch checked={showTaskProperties} onCheckedChange={setShowTaskProperties} />
-                                    </div>
-                                    <div className="flex items-center justify-between py-1 px-2">
-                                        <span className="text-sm text-zinc-800">Show subtask parent names</span>
-                                        <Switch checked={showSubtaskParentNames} onCheckedChange={setShowSubtaskParentNames} />
-                                    </div>
-                                </div>
+                                                    <div className="h-px bg-zinc-100 my-2" />
+                                                    <div className="space-y-1">
+                                                        <div className="flex items-center justify-between py-2.5 px-2 hover:bg-zinc-50 rounded-md transition-colors cursor-pointer" onClick={() => handleToggleAutosave()}>
+                                                            <div className="flex items-center gap-2">
+                                                                <Save className="h-4 w-4 text-zinc-400" />
+                                                                <span className="text-sm text-zinc-800">Autosave for me</span>
+                                                            </div>
+                                                            <Switch checked={viewAutosave} onCheckedChange={handleToggleAutosave} />
+                                                        </div>
+                                                        <div className="flex items-center justify-between py-2.5 px-2 hover:bg-zinc-50 rounded-md transition-colors cursor-pointer" onClick={() => { setPinView(!pinView); updateViewProperty('isPinned', !pinView); }}>
+                                                            <div className="flex items-center gap-2">
+                                                                <Pin className="h-4 w-4 text-zinc-400" />
+                                                                <span className="text-sm text-zinc-800">Pin view</span>
+                                                            </div>
+                                                            <Switch checked={pinView} onCheckedChange={(val) => { setPinView(val); updateViewProperty('isPinned', val); }} />
+                                                        </div>
+                                                        <div className="flex items-center justify-between py-2.5 px-2 hover:bg-zinc-50 rounded-md transition-colors cursor-pointer" onClick={() => { setPrivateView(!privateView); updateViewProperty('isPrivate', !privateView); }}>
+                                                            <div className="flex items-center gap-2">
+                                                                <Lock className="h-4 w-4 text-zinc-400" />
+                                                                <span className="text-sm text-zinc-800">Private view</span>
+                                                            </div>
+                                                            <Switch checked={privateView} onCheckedChange={(val) => { setPrivateView(val); updateViewProperty('isPrivate', val); }} />
+                                                        </div>
+                                                        <div className="flex items-center justify-between py-2.5 px-2 hover:bg-zinc-50 rounded-md transition-colors cursor-pointer" onClick={() => { setProtectView(!protectView); updateViewProperty('isLocked', !protectView); }}>
+                                                            <div className="flex items-center gap-2">
+                                                                <ShieldCheck className="h-4 w-4 text-zinc-400" />
+                                                                <span className="text-sm text-zinc-800">Protect view</span>
+                                                            </div>
+                                                            <Switch checked={protectView} onCheckedChange={(val) => { setProtectView(val); updateViewProperty('isLocked', val); }} />
+                                                        </div>
+                                                        <div className="flex items-center justify-between py-2.5 px-2 hover:bg-zinc-50 rounded-md transition-colors cursor-pointer" onClick={() => { setDefaultView(!defaultView); updateViewProperty('isDefault', !defaultView); }}>
+                                                            <div className="flex items-center gap-2">
+                                                                <Home className="h-4 w-4 text-zinc-400" />
+                                                                <span className="text-sm text-zinc-800">Set as default view</span>
+                                                            </div>
+                                                            <Switch checked={defaultView} onCheckedChange={(val) => { setDefaultView(val); updateViewProperty('isDefault', val); }} />
+                                                        </div>
+                                                    </div>
+                                                    <div className="h-px bg-zinc-100 my-2" />
+                                                    <div className="space-y-1">
+                                                        <button type="button" className="w-full flex items-center justify-between py-2.5 text-sm text-zinc-800 hover:bg-zinc-50 rounded-md px-2 cursor-pointer" onClick={() => {
+                                                            const url = `${window.location.origin}${window.location.pathname}?v=${viewId}`;
+                                                            navigator.clipboard?.writeText(url);
+                                                            toast.success("Link copied to clipboard");
+                                                        }}>
+                                                            <span className="flex items-center gap-2"><Link className="h-4 w-4 text-zinc-400" />Copy link to view</span>
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            className="w-full flex items-center justify-between py-2.5 text-sm text-zinc-800 hover:bg-zinc-50 rounded-md px-2 cursor-pointer"
+                                                            onClick={() => setIsShareModalOpen(true)}
+                                                        >
+                                                            <span className="flex items-center gap-2"><Users className="h-4 w-4 text-zinc-400" />Sharing & Permissions</span>
+                                                            <ChevronRight className="inline h-3 w-3 ml-1 text-zinc-400" />
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </ScrollArea>
+                                        </SidePanel>
+                                        <SidePanel open={layoutOptionsOpen} onClose={() => setLayoutOptionsOpen(false)} className="absolute bottom-0 right-0 h-full w-[380px] max-w-[90vw] bg-white border-l border-zinc-200 shadow-xl z-50 flex flex-col">
+                                            <div className="flex items-center justify-between p-4 border-b border-zinc-100">
+                                                <Button variant="ghost" size="icon" className="h-8 w-8 -ml-1 cursor-pointer" onClick={() => { setLayoutOptionsOpen(false); setCustomizePanelOpen(true); }}>
+                                                    <ArrowRight className="h-4 w-4 rotate-180" />
+                                                </Button>
+                                                <h3 className="font-semibold text-zinc-900">Layout options</h3>
+                                                <Button variant="ghost" size="icon" className="h-8 w-8 cursor-pointer" onClick={() => { setLayoutOptionsOpen(false); setCustomizePanelOpen(false); }}><X className="h-4 w-4" /></Button>
+                                            </div>
+                                            <ScrollArea className="flex-1 min-h-0">
+                                                <div className="p-3 space-y-4 pb-24">
+                                                    <div className="space-y-2">
+                                                        <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-2">Page layout</p>
+                                                        {groupBy === "status" ? (
+                                                            <div className="flex items-center justify-between py-1 px-2">
+                                                                <span className="text-sm text-zinc-800">Show empty statuses</span>
+                                                                <Switch
+                                                                    checked={showEmptyStatuses}
+                                                                    onCheckedChange={setShowEmptyStatuses}
+                                                                />
+                                                            </div>
+                                                        ) : (
+                                                            <TooltipProvider delayDuration={0}>
+                                                                <Tooltip>
+                                                                    <TooltipTrigger asChild>
+                                                                        <div className="flex items-center justify-between py-1 cursor-not-allowed opacity-50 px-2">
+                                                                            <span className="text-sm text-zinc-800">Show empty statuses</span>
+                                                                            <Switch
+                                                                                checked={showEmptyStatuses}
+                                                                                onCheckedChange={setShowEmptyStatuses}
+                                                                                disabled
+                                                                            />
+                                                                        </div>
+                                                                    </TooltipTrigger>
+                                                                    <TooltipContent side="left" className="bg-zinc-900 text-white border-none text-[11px] py-1.5 px-2.5">
+                                                                        Grouping by status is required to enable this
+                                                                    </TooltipContent>
+                                                                </Tooltip>
+                                                            </TooltipProvider>
+                                                        )}
+                                                        <div className="flex items-center justify-between py-1 px-2">
+                                                            <span className="text-sm text-zinc-800">Pin description</span>
+                                                            <Switch
+                                                                checked={pinDescription}
+                                                                onCheckedChange={setPinDescription}
+                                                                disabled={!currentList}
+                                                            />
+                                                        </div>
+                                                        <div className="flex items-center justify-between py-1 px-2">
+                                                            <span className="text-sm text-zinc-800">Wrap text</span>
+                                                            <Switch checked={wrapText} onCheckedChange={setWrapText} />
+                                                        </div>
+                                                    </div>
+                                                    <div className="space-y-2">
+                                                        <div className="flex items-center justify-between py-1 px-2">
+                                                            <span className="text-sm text-zinc-800">Show task locations</span>
+                                                            <Switch checked={showTaskLocations} onCheckedChange={setShowTaskLocations} />
+                                                        </div>
+                                                        <div className="flex items-center justify-between py-1 px-2">
+                                                            <span className="text-sm text-zinc-800">Show task properties</span>
+                                                            <Switch checked={showTaskProperties} onCheckedChange={setShowTaskProperties} />
+                                                        </div>
+                                                        <div className="flex items-center justify-between py-1 px-2">
+                                                            <span className="text-sm text-zinc-800">Show subtask parent names</span>
+                                                            <Switch checked={showSubtaskParentNames} onCheckedChange={setShowSubtaskParentNames} />
+                                                        </div>
+                                                    </div>
 
-                                <div className="h-px bg-zinc-100" />
+                                                    <div className="h-px bg-zinc-100" />
 
-                                <div className="space-y-2">
-                                    <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-2">Task visibility</p>
-                                    <div className="flex items-center justify-between py-1 px-2">
-                                        <span className="text-sm text-zinc-800">Show closed tasks</span>
-                                        <Switch checked={showCompleted} onCheckedChange={setShowCompleted} />
-                                    </div>
-                                    <div className="flex items-center justify-between py-1 px-2">
-                                        <span className="text-sm text-zinc-800">Show closed subtasks</span>
-                                        <Switch checked={showCompletedSubtasks} onCheckedChange={setShowCompletedSubtasks} />
-                                    </div>
-                                    <div className="flex items-center justify-between py-1 px-2">
-                                        <span className="text-sm text-zinc-800">Show tasks from other Lists</span>
-                                        <Switch checked={showTasksFromOtherLists} onCheckedChange={setShowTasksFromOtherLists} />
-                                    </div>
-                                    <div className="flex items-center justify-between py-1 px-2">
-                                        <span className="text-sm text-zinc-800">Show subtasks from other Lists</span>
-                                        <Switch checked={showSubtasksFromOtherLists} onCheckedChange={setShowSubtasksFromOtherLists} />
-                                    </div>
+                                                    <div className="space-y-2">
+                                                        <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-2">Task visibility</p>
+                                                        <div className="flex items-center justify-between py-1 px-2">
+                                                            <span className="text-sm text-zinc-800">Show closed tasks</span>
+                                                            <Switch checked={showCompleted} onCheckedChange={setShowCompleted} />
+                                                        </div>
+                                                        <div className="flex items-center justify-between py-1 px-2">
+                                                            <span className="text-sm text-zinc-800">Show closed subtasks</span>
+                                                            <Switch checked={showCompletedSubtasks} onCheckedChange={setShowCompletedSubtasks} />
+                                                        </div>
+                                                        <div className="flex items-center justify-between py-1 px-2">
+                                                            <span className="text-sm text-zinc-800">Show tasks from other Lists</span>
+                                                            <Switch checked={showTasksFromOtherLists} onCheckedChange={setShowTasksFromOtherLists} />
+                                                        </div>
+                                                        <div className="flex items-center justify-between py-1 px-2">
+                                                            <span className="text-sm text-zinc-800">Show subtasks from other Lists</span>
+                                                            <Switch checked={showSubtasksFromOtherLists} onCheckedChange={setShowSubtasksFromOtherLists} />
+                                                        </div>
 
-                                </div>
+                                                    </div>
 
-                                <div className="h-px bg-zinc-100" />
+                                                    <div className="h-px bg-zinc-100" />
 
-                                <div className="space-y-2">
-                                    <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-2">View settings</p>
-                                    <div className="flex items-center justify-between py-1 px-2">
-                                        <span className="text-sm flex items-center gap-2"><UserRound className="h-4 w-4 text-zinc-400" />Default to Me Mode</span>
-                                        <Switch checked={defaultToMeMode} onCheckedChange={setDefaultToMeMode} />
-                                    </div>
-                                    <div
-                                        className="flex items-center justify-between py-1 px-2 hover:bg-zinc-50 rounded cursor-pointer"
-                                        onClick={resetViewToDefaults}
-                                    >
-                                        <span className="text-sm flex items-center gap-2"><RefreshCcw className="h-4 w-4 text-zinc-400" />Reset view to defaults</span>
-                                    </div>
-                                    <div
-                                        className="flex items-center justify-between py-1 px-2 hover:bg-zinc-50 rounded cursor-pointer"
-                                        onClick={() => {
-                                            setDefaultViewSettingsDraft(spaceDefaultViewConfig);
-                                            setIsDefaultViewSettingsModalOpen(true);
-                                        }}
-                                    >
-                                        <span className="text-sm flex items-center gap-2"><Settings className="h-4 w-4 text-zinc-400" />Default view settings</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </ScrollArea>
-                    </SidePanel>
+                                                    <div className="space-y-2">
+                                                        <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-2">View settings</p>
+                                                        <div className="flex items-center justify-between py-1 px-2">
+                                                            <span className="text-sm flex items-center gap-2"><UserRound className="h-4 w-4 text-zinc-400" />Default to Me Mode</span>
+                                                            <Switch checked={defaultToMeMode} onCheckedChange={setDefaultToMeMode} />
+                                                        </div>
+                                                        <div
+                                                            className="flex items-center justify-between py-1 px-2 hover:bg-zinc-50 rounded cursor-pointer"
+                                                            onClick={resetViewToDefaults}
+                                                        >
+                                                            <span className="text-sm flex items-center gap-2"><RefreshCcw className="h-4 w-4 text-zinc-400" />Reset view to defaults</span>
+                                                        </div>
+                                                        <div
+                                                            className="flex items-center justify-between py-1 px-2 hover:bg-zinc-50 rounded cursor-pointer"
+                                                            onClick={() => {
+                                                                setDefaultViewSettingsDraft(spaceDefaultViewConfig);
+                                                                setIsDefaultViewSettingsModalOpen(true);
+                                                            }}
+                                                        >
+                                                            <span className="text-sm flex items-center gap-2"><Settings className="h-4 w-4 text-zinc-400" />Default view settings</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </ScrollArea>
+                                        </SidePanel>
 
-    {/* Create field modal — field types and Add existing fields */}
+    {/* Create field modal  Efield types and Add existing fields */ }
     <SidePanel open={createFieldModalOpen} onClose={() => { setCreateFieldModalOpen(false); setCreateFieldSearch(''); }} className="absolute right-0 bottom-0 top-0 w-[380px] max-w-[90vw] bg-white border-l border-zinc-200 shadow-xl z-[70] flex flex-col">
-                            <div className="flex items-center justify-between p-4 border-b border-zinc-100">
-                                <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-8 w-8 -ml-1"
-                                    onClick={() => {
-                                        setCreateFieldModalOpen(false);
-                                        setCreateFieldSearch("");
-                                        setFieldsPanelOpen(true);
-                                    }}
-                                >
-                                    <ArrowRight className="h-4 w-4 rotate-180" />
-                                </Button>
-                                <h3 className="font-semibold text-zinc-900">Create field</h3>
-                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setCreateFieldModalOpen(false); setCreateFieldSearch(""); }}><X className="h-4 w-4" /></Button>
-                            </div>
-                            <div className="p-3 border-b border-zinc-100">
-                                <div className="relative">
-                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
-                                    <Input className="pl-9 h-9 text-sm" placeholder="Search for new or existing fields" value={createFieldSearch} onChange={e => setCreateFieldSearch(e.target.value)} />
-                                </div>
-                            </div>
-                            <ScrollArea className="flex-1 p-3 pb-20 h-full">
-                                <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-2">All</p>
-                                <div className="space-y-0.5">
-                                    {CREATE_FIELD_TYPES.filter(f => !createFieldSearch.trim() || f.label.toLowerCase().includes(createFieldSearch.toLowerCase())).map(f => {
-                                        const IconComponent = f.icon as any;
-                                        return (
-                                            <button key={f.id} type="button" className="w-full flex items-center gap-2 py-2.5 px-2 rounded-md hover:bg-zinc-50 text-left text-sm text-zinc-800" onClick={() => {
-                                                // TODO: Open field creation modal/form with field type pre-selected
-                                                console.log("Create field type:", f.type, f.label);
-                                                setCreateFieldModalOpen(false);
-                                            }}>
-                                                {typeof IconComponent === "function"
-                                                    ? React.createElement(IconComponent, { className: "h-4 w-4 text-zinc-400 shrink-0" })
-                                                    : null}
-                                                {f.label}
-                                            </button>
-                                        );
-                                    })}
-                                </div>
-                            </ScrollArea>
-                            <div className="p-3 sticky bottom-0 left-0 right-0 border-t border-zinc-100 bg-white">
-                                <Button
-                                    variant="outline"
-                                    className="w-full justify-center text-zinc-900 border-zinc-200 hover:bg-zinc-50 font-medium h-10"
-                                    onClick={() => { setCreateFieldModalOpen(false); setFieldsPanelOpen(true); }}
-                                >
-                                    <div className="h-4 w-4 rounded-full bg-zinc-900 text-white flex items-center justify-center mr-2">
-                                        <Plus className="h-3 w-3" />
-                                    </div>
-                                    Add existing fields
-                                </Button>
-                            </div>
-                    </SidePanel>
+        <div className="flex items-center justify-between p-4 border-b border-zinc-100">
+            <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 -ml-1"
+                onClick={() => {
+                    setCreateFieldModalOpen(false);
+                    setCreateFieldSearch("");
+                    setFieldsPanelOpen(true);
+                }}
+            >
+                <ArrowRight className="h-4 w-4 rotate-180" />
+            </Button>
+            <h3 className="font-semibold text-zinc-900">Create field</h3>
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setCreateFieldModalOpen(false); setCreateFieldSearch(""); }}><X className="h-4 w-4" /></Button>
+        </div>
+        <div className="p-3 border-b border-zinc-100">
+            <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
+                <Input className="pl-9 h-9 text-sm" placeholder="Search for new or existing fields" value={createFieldSearch} onChange={e => setCreateFieldSearch(e.target.value)} />
+            </div>
+        </div>
+        <ScrollArea className="flex-1 p-3 pb-20 h-full">
+            <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-2">All</p>
+            <div className="space-y-0.5">
+                {CREATE_FIELD_TYPES.filter(f => !createFieldSearch.trim() || f.label.toLowerCase().includes(createFieldSearch.toLowerCase())).map(f => {
+                    const IconComponent = f.icon as any;
+                    return (
+                        <button key={f.id} type="button" className="w-full flex items-center gap-2 py-2.5 px-2 rounded-md hover:bg-zinc-50 text-left text-sm text-zinc-800" onClick={() => {
+                            // TODO: Open field creation modal/form with field type pre-selected
+                            console.log("Create field type:", f.type, f.label);
+                            setCreateFieldModalOpen(false);
+                        }}>
+                            {typeof IconComponent === "function"
+                                ? React.createElement(IconComponent, { className: "h-4 w-4 text-zinc-400 shrink-0" })
+                                : null}
+                            {f.label}
+                        </button>
+                    );
+                })}
+            </div>
+        </ScrollArea>
+        <div className="p-3 sticky bottom-0 left-0 right-0 border-t border-zinc-100 bg-white">
+            <Button
+                variant="outline"
+                className="w-full justify-center text-zinc-900 border-zinc-200 hover:bg-zinc-50 font-medium h-10"
+                onClick={() => { setCreateFieldModalOpen(false); setFieldsPanelOpen(true); }}
+            >
+                <div className="h-4 w-4 rounded-full bg-zinc-900 text-white flex items-center justify-center mr-2">
+                    <Plus className="h-3 w-3" />
+                </div>
+                Add existing fields
+            </Button>
+        </div>
+    </SidePanel>
 
-    {/* Advanced Filters panel moved to Popover */}
+    {/* Advanced Filters panel moved to Popover */ }
 
-    {/* Assignees panel */}
+    {/* Assignees panel  Eimage 8 */ }
     <SidePanel open={assigneesPanelOpen} onClose={() => setAssigneesPanelOpen(false)} className="absolute top-0 right-0 h-full w-[320px] max-w-[90vw] bg-white border-l border-zinc-200 shadow-xl z-50 flex flex-col">
-                            <div className="flex items-center justify-between p-4 border-b border-zinc-100">
-                                <h3 className="font-semibold text-zinc-900">Assignees</h3>
-                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setAssigneesPanelOpen(false)}><X className="h-4 w-4" /></Button>
-                            </div>
-                            <div className="p-3 border-b border-zinc-100">
-                                <div className="relative">
-                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
-                                    <Input className="pl-9 h-9 text-sm" placeholder="Search by user or team" value={assigneesSearch} onChange={e => setAssigneesSearch(e.target.value)} />
-                                </div>
-                            </div>
-                            <ScrollArea className="flex-1 p-3">
-                                <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-2">People {users.length}</p>
-                                <div className="space-y-1 mb-4">
-                                    <label className="flex items-center gap-2 py-2 px-2 rounded hover:bg-zinc-50 cursor-pointer">
-                                        <Checkbox
-                                            checked={filterAssignee.includes("__unassigned__")}
-                                            onCheckedChange={(checked) => {
-                                                setFilterAssignee(prev =>
-                                                    checked
-                                                        ? [...prev, "__unassigned__"]
-                                                        : prev.filter(id => id !== "__unassigned__")
-                                                );
-                                            }}
-                                        />
-                                        <span className="text-sm text-zinc-700">Unassigned</span>
-                                    </label>
-                                    {users
-                                        .filter(u => !assigneesSearch.trim() || (u.name || "").toLowerCase().includes(assigneesSearch.toLowerCase()))
-                                        .map(u => (
-                                            <label key={u.id} className="flex items-center gap-2 py-2 px-2 rounded hover:bg-zinc-50 cursor-pointer">
-                                                <Checkbox
-                                                    checked={filterAssignee.includes(u.id)}
-                                                    onCheckedChange={(checked) => {
-                                                        setFilterAssignee(prev =>
-                                                            checked
-                                                                ? [...prev, u.id]
-                                                                : prev.filter(id => id !== u.id)
-                                                        );
-                                                    }}
-                                                />
-                                                <Avatar className="h-6 w-6">
-                                                    <AvatarImage src={u.image || undefined} />
-                                                    <AvatarFallback className="text-[9px]">
-                                                        {u.name?.slice(0, 2).toUpperCase()}
-                                                    </AvatarFallback>
-                                                </Avatar>
-                                                <span className="text-sm text-zinc-700 truncate">{u.name}</span>
-                                            </label>
-                                        ))}
-                                </div>
-                                <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-2">Teams 0</p>
-                                <div className="py-2 text-sm text-zinc-500">No teams</div>
-                            </ScrollArea>
-                            <div className="p-3 border-t border-zinc-100 flex items-center justify-between">
-                                <span className="text-sm text-zinc-700 flex items-center gap-1.5"><MessageSquare className="h-4 w-4 text-zinc-400" /> Assigned comments</span>
-                                <Switch />
-                            </div>
-                    </SidePanel>
+        <div className="flex items-center justify-between p-4 border-b border-zinc-100">
+            <h3 className="font-semibold text-zinc-900">Assignees</h3>
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setAssigneesPanelOpen(false)}><X className="h-4 w-4" /></Button>
+        </div>
+        <div className="p-3 border-b border-zinc-100">
+            <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
+                <Input className="pl-9 h-9 text-sm" placeholder="Search by user or team" value={assigneesSearch} onChange={e => setAssigneesSearch(e.target.value)} />
+            </div>
+        </div>
+        <ScrollArea className="flex-1 p-3">
+            <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-2">People {users.length}</p>
+            <div className="space-y-1 mb-4">
+                <label className="flex items-center gap-2 py-2 px-2 rounded hover:bg-zinc-50 cursor-pointer">
+                    <Checkbox
+                        checked={filterAssignee.includes("__unassigned__")}
+                        onCheckedChange={(checked) => {
+                            setFilterAssignee(prev =>
+                                checked
+                                    ? [...prev, "__unassigned__"]
+                                    : prev.filter(id => id !== "__unassigned__")
+                            );
+                        }}
+                    />
+                    <span className="text-sm text-zinc-700">Unassigned</span>
+                </label>
+                {users
+                    .filter(u => !assigneesSearch.trim() || (u.name || "").toLowerCase().includes(assigneesSearch.toLowerCase()))
+                    .map(u => (
+                        <label key={u.id} className="flex items-center gap-2 py-2 px-2 rounded hover:bg-zinc-50 cursor-pointer">
+                            <Checkbox
+                                checked={filterAssignee.includes(u.id)}
+                                onCheckedChange={(checked) => {
+                                    setFilterAssignee(prev =>
+                                        checked
+                                            ? [...prev, u.id]
+                                            : prev.filter(id => id !== u.id)
+                                    );
+                                }}
+                            />
+                            <Avatar className="h-6 w-6">
+                                <AvatarImage src={u.image || undefined} />
+                                <AvatarFallback className="text-[9px]">
+                                    {u.name?.slice(0, 2).toUpperCase()}
+                                </AvatarFallback>
+                            </Avatar>
+                            <span className="text-sm text-zinc-700 truncate">{u.name}</span>
+                        </label>
+                    ))}
+            </div>
+            <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-2">Teams 0</p>
+            <div className="py-2 text-sm text-zinc-500">No teams</div>
+        </ScrollArea>
+        <div className="p-3 border-t border-zinc-100 flex items-center justify-between">
+            <span className="text-sm text-zinc-700 flex items-center gap-1.5"><MessageSquare className="h-4 w-4 text-zinc-400" /> Assigned comments</span>
+            <Switch />
+        </div>
+    </SidePanel>
 
     {/* Bulk edit bar when tasks selected */ }
-            {
-                selectedTasks.length > 0 && (
-                    <div
-                        className="absolute bottom-10 left-1/2 -translate-x-1/2 z-50 flex items-center gap-1.5 px-4 py-2.5 bg-[#111111] text-white rounded-[24px] shadow-[0_25px_60px_rgba(0,0,0,0.4)] border border-white/10 w-max max-w-[98%] animate-in fade-in slide-in-from-bottom-6 duration-400 backdrop-blur-xl"
-                    >
-                        <div
-                            className="group/select flex items-center gap-2.5 px-3 py-1.5 rounded-xl border border-transparent hover:border-white/20 hover:bg-white/5 cursor-pointer transition-all"
-                            onClick={() => setSelectedTasks([])}
-                        >
-                            <span className="text-[15px] font-bold text-white whitespace-nowrap">{selectedTasks.length} Tasks selected</span>
-                            <X className="h-4 w-4 text-zinc-400 group-hover/select:text-white transition-colors" />
+    {
+        selectedTasks.length > 0 && (
+            <div
+                className="absolute bottom-10 left-1/2 -translate-x-1/2 z-50 flex items-center gap-1.5 px-4 py-2.5 bg-[#111111] text-white rounded-[24px] shadow-[0_25px_60px_rgba(0,0,0,0.4)] border border-white/10 w-max max-w-[98%] animate-in fade-in slide-in-from-bottom-6 duration-400 backdrop-blur-xl"
+            >
+                <div
+                    className="group/select flex items-center gap-2.5 px-3 py-1.5 rounded-xl border border-transparent hover:border-white/20 hover:bg-white/5 cursor-pointer transition-all"
+                    onClick={() => setSelectedTasks([])}
+                >
+                    <span className="text-[15px] font-bold text-white whitespace-nowrap">{selectedTasks.length} Tasks selected</span>
+                    <X className="h-4 w-4 text-zinc-400 group-hover/select:text-white transition-colors" />
+                </div>
+
+                <div className="h-4 w-px bg-white/10 mx-1.5" />
+
+                <Popover open={bulkModal === "status"} onOpenChange={(open) => setBulkModal(open ? "status" : null)}>
+                    <PopoverTrigger asChild>
+                        <Button variant="ghost" size="sm" className="text-zinc-300 hover:text-white hover:bg-white/10 h-10 gap-2 px-3.5 rounded-xl transition-all cursor-pointer border border-transparent hover:border-white/10 shadow-none">
+                            <Circle className="h-[18px] w-[18px]" />
+                            <span className="text-[14px] font-bold">Status</span>
+                        </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-80 p-0 shadow-2xl rounded-2xl border-zinc-200 overflow-hidden" align="center" side="top" sideOffset={16}>
+                        <div className="p-2 border-b border-zinc-100">
+                            <Input placeholder="Search..." className="h-8 text-sm" value={bulkStatusSearch} onChange={e => setBulkStatusSearch(e.target.value)} />
                         </div>
-
-                        <div className="h-4 w-px bg-white/10 mx-1.5" />
-
-                        <Popover open={bulkModal === "status"} onOpenChange={(open) => setBulkModal(open ? "status" : null)}>
-                            <PopoverTrigger asChild>
-                                <Button variant="ghost" size="sm" className="text-zinc-300 hover:text-white hover:bg-white/10 h-10 gap-2 px-3.5 rounded-xl transition-all cursor-pointer border border-transparent hover:border-white/10 shadow-none">
-                                    <Circle className="h-[18px] w-[18px]" />
-                                    <span className="text-[14px] font-bold">Status</span>
-                                </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-80 p-0 shadow-2xl rounded-2xl border-zinc-200 overflow-hidden" align="center" side="top" sideOffset={16}>
-                                <div className="p-2 border-b border-zinc-100">
-                                    <Input placeholder="Search..." className="h-8 text-sm" value={bulkStatusSearch} onChange={e => setBulkStatusSearch(e.target.value)} />
-                                </div>
-                                <div className="p-2 max-h-64 overflow-auto">
-                                    <p className="text-xs text-amber-600 bg-amber-50 p-2 rounded flex items-center gap-1.5 mb-2">
-                                        <AlertTriangle className="h-4 w-4 shrink-0" />
-                                        Only showing statuses shared between all selected tasks.
-                                    </p>
-                                    {allAvailableStatuses.length === 0 ? (
-                                        <p className="text-sm text-zinc-500 py-2">No statuses</p>
+                        <div className="p-2 max-h-64 overflow-auto">
+                            <p className="text-xs text-amber-600 bg-amber-50 p-2 rounded flex items-center gap-1.5 mb-2">
+                                <AlertTriangle className="h-4 w-4 shrink-0" />
+                                Only showing statuses shared between all selected tasks.
+                            </p>
+                            {allAvailableStatuses.length === 0 ? (
+                                <p className="text-sm text-zinc-500 py-2">No statuses</p>
+                            ) : (
+                                <div className="space-y-1">
+                                    {allAvailableStatuses.filter((s: any) => !bulkStatusSearch.trim() || (s.name || "").toLowerCase().includes(bulkStatusSearch.toLowerCase())).length === 0 ? (
+                                        <p className="text-sm text-zinc-500 py-2">No matching statuses</p>
                                     ) : (
-                                        <div className="space-y-1">
-                                            {allAvailableStatuses.filter((s: any) => !bulkStatusSearch.trim() || (s.name || "").toLowerCase().includes(bulkStatusSearch.toLowerCase())).length === 0 ? (
-                                                <p className="text-sm text-zinc-500 py-2">No matching statuses</p>
-                                            ) : (
+                                        <>
+                                            <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider">Not started</p>
+                                            {allAvailableStatuses.filter((s: any) => ((s.name?.toLowerCase().includes("todo") || s.name?.toLowerCase().includes("not")) && (!bulkStatusSearch.trim() || (s.name || "").toLowerCase().includes(bulkStatusSearch.toLowerCase())))).map((s: any) => (
+                                                <button key={s.id} type="button" className="w-full flex items-center gap-2 py-2 px-2 rounded hover:bg-zinc-100 text-left text-sm" onClick={async () => { for (const id of selectedTasks) { await updateTask.mutateAsync({ id, statusId: s.id }); } setBulkModal(null); }}>
+                                                    <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: s.color || "#9CA3AF" }} />
+                                                    {s.name}
+                                                </button>
+                                            ))}
+                                            <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider mt-2">Active</p>
+                                            {allAvailableStatuses.filter((s: any) => ((s.name?.toLowerCase().includes("progress") || s.name?.toLowerCase().includes("doing")) && (!bulkStatusSearch.trim() || (s.name || "").toLowerCase().includes(bulkStatusSearch.toLowerCase())))).map((s: any) => (
+                                                <button key={s.id} type="button" className="w-full flex items-center gap-2 py-2 px-2 rounded hover:bg-zinc-100 text-left text-sm" onClick={async () => { for (const id of selectedTasks) { await updateTask.mutateAsync({ id, statusId: s.id }); } setBulkModal(null); }}>
+                                                    <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: s.color || "#9CA3AF" }} />
+                                                    {s.name}
+                                                </button>
+                                            ))}
+                                            <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider mt-2">Closed</p>
+                                            {allAvailableStatuses.filter((s: any) => ((s.name?.toLowerCase().includes("complete") || s.name?.toLowerCase().includes("done")) && (!bulkStatusSearch.trim() || (s.name || "").toLowerCase().includes(bulkStatusSearch.toLowerCase())))).map((s: any) => (
+                                                <button key={s.id} type="button" className="w-full flex items-center gap-2 py-2 px-2 rounded hover:bg-zinc-100 text-left text-sm" onClick={async () => { for (const id of selectedTasks) { await updateTask.mutateAsync({ id, statusId: s.id }); } setBulkModal(null); }}>
+                                                    <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: s.color || "#9CA3AF" }} />
+                                                    {s.name}
+                                                </button>
+                                            ))}
+                                            {allAvailableStatuses.filter((s: any) => !["todo", "not", "progress", "doing", "complete", "done"].some(k => (s.name || "").toLowerCase().includes(k)) && (!bulkStatusSearch.trim() || (s.name || "").toLowerCase().includes(bulkStatusSearch.toLowerCase()))).length > 0 && (
                                                 <>
-                                                    <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider">Not started</p>
-                                                    {allAvailableStatuses.filter((s: any) => ((s.name?.toLowerCase().includes("todo") || s.name?.toLowerCase().includes("not")) && (!bulkStatusSearch.trim() || (s.name || "").toLowerCase().includes(bulkStatusSearch.toLowerCase())))).map((s: any) => (
+                                                    <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider mt-2">Other</p>
+                                                    {allAvailableStatuses.filter((s: any) => !["todo", "not", "progress", "doing", "complete", "done"].some(k => (s.name || "").toLowerCase().includes(k)) && (!bulkStatusSearch.trim() || (s.name || "").toLowerCase().includes(bulkStatusSearch.toLowerCase()))).map((s: any) => (
                                                         <button key={s.id} type="button" className="w-full flex items-center gap-2 py-2 px-2 rounded hover:bg-zinc-100 text-left text-sm" onClick={async () => { for (const id of selectedTasks) { await updateTask.mutateAsync({ id, statusId: s.id }); } setBulkModal(null); }}>
                                                             <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: s.color || "#9CA3AF" }} />
                                                             {s.name}
                                                         </button>
                                                     ))}
-                                                    <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider mt-2">Active</p>
-                                                    {allAvailableStatuses.filter((s: any) => ((s.name?.toLowerCase().includes("progress") || s.name?.toLowerCase().includes("doing")) && (!bulkStatusSearch.trim() || (s.name || "").toLowerCase().includes(bulkStatusSearch.toLowerCase())))).map((s: any) => (
-                                                        <button key={s.id} type="button" className="w-full flex items-center gap-2 py-2 px-2 rounded hover:bg-zinc-100 text-left text-sm" onClick={async () => { for (const id of selectedTasks) { await updateTask.mutateAsync({ id, statusId: s.id }); } setBulkModal(null); }}>
-                                                            <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: s.color || "#9CA3AF" }} />
-                                                            {s.name}
-                                                        </button>
-                                                    ))}
-                                                    <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider mt-2">Closed</p>
-                                                    {allAvailableStatuses.filter((s: any) => ((s.name?.toLowerCase().includes("complete") || s.name?.toLowerCase().includes("done")) && (!bulkStatusSearch.trim() || (s.name || "").toLowerCase().includes(bulkStatusSearch.toLowerCase())))).map((s: any) => (
-                                                        <button key={s.id} type="button" className="w-full flex items-center gap-2 py-2 px-2 rounded hover:bg-zinc-100 text-left text-sm" onClick={async () => { for (const id of selectedTasks) { await updateTask.mutateAsync({ id, statusId: s.id }); } setBulkModal(null); }}>
-                                                            <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: s.color || "#9CA3AF" }} />
-                                                            {s.name}
-                                                        </button>
-                                                    ))}
-                                                    {allAvailableStatuses.filter((s: any) => !["todo", "not", "progress", "doing", "complete", "done"].some(k => (s.name || "").toLowerCase().includes(k)) && (!bulkStatusSearch.trim() || (s.name || "").toLowerCase().includes(bulkStatusSearch.toLowerCase()))).length > 0 && (
-                                                        <>
-                                                            <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider mt-2">Other</p>
-                                                            {allAvailableStatuses.filter((s: any) => !["todo", "not", "progress", "doing", "complete", "done"].some(k => (s.name || "").toLowerCase().includes(k)) && (!bulkStatusSearch.trim() || (s.name || "").toLowerCase().includes(bulkStatusSearch.toLowerCase()))).map((s: any) => (
-                                                                <button key={s.id} type="button" className="w-full flex items-center gap-2 py-2 px-2 rounded hover:bg-zinc-100 text-left text-sm" onClick={async () => { for (const id of selectedTasks) { await updateTask.mutateAsync({ id, statusId: s.id }); } setBulkModal(null); }}>
-                                                                    <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: s.color || "#9CA3AF" }} />
-                                                                    {s.name}
-                                                                </button>
-                                                            ))}
-                                                        </>
-                                                    )}
                                                 </>
                                             )}
-                                        </div>
+                                        </>
+                                    )}
                                 </div>
-                                <div className="p-3 border-t border-zinc-100 space-y-2">
-                                    <label className="flex items-center justify-between text-sm">
-                                        <span>Send notifications</span>
-                                        <Switch checked={bulkSendNotifications} onCheckedChange={setBulkSendNotifications} />
-                                    </label>
-                                    <label className="flex items-center justify-between text-sm text-zinc-500">
-                                        <span>Move and keep in current List</span>
-                                        <Switch checked={bulkMoveKeepInList} onCheckedChange={setBulkMoveKeepInList} disabled />
-                                    </label>
+                            )}
+                        </div>
+                        <div className="p-3 border-t border-zinc-100 space-y-2">
+                            <label className="flex items-center justify-between text-sm">
+                                <span>Send notifications</span>
+                                <Switch checked={bulkSendNotifications} onCheckedChange={setBulkSendNotifications} />
+                            </label>
+                            <label className="flex items-center justify-between text-sm text-zinc-500">
+                                <span>Move and keep in current List</span>
+                                <Switch checked={bulkMoveKeepInList} onCheckedChange={setBulkMoveKeepInList} disabled />
+                            </label>
+                        </div>
+                    </PopoverContent>
+                </Popover>
+                <AssigneeSelector
+                    users={users as any}
+                    agents={agents}
+                    workspaceId={resolvedWorkspaceId}
+                    variant="compact"
+                    value={bulkAssigneeIds}
+                    align="center"
+                    sideOffset={16}
+                    open={bulkModal === "assignees"}
+                    onOpenChange={(open) => setBulkModal(open ? "assignees" : null)}
+                    onChange={async (newIds) => {
+                        setBulkAssigneeIds(newIds);
+                        const cleanIds = newIds;
+                        try {
+                            await Promise.all(selectedTasks.map(id => updateTask.mutateAsync({ id, assigneeIds: cleanIds })));
+                        } catch (e) {
+                            console.error("Bulk assignee update failed", e);
+                        }
+                    }}
+                    trigger={
+                        <Button variant="ghost" size="sm" className="text-zinc-300 hover:text-white hover:bg-white/10 h-10 gap-2 px-3.5 rounded-xl transition-all cursor-pointer border border-transparent hover:border-white/10 shadow-none">
+                            <Users className="h-[18px] w-[18px]" />
+                            <span className="text-[14px] font-bold">Assignees</span>
+                        </Button>
+                    }
+                />
+                <Popover open={bulkModal === "customFields"} onOpenChange={(open) => { setBulkModal(open ? "customFields" : null); if (!open) setBulkCustomFieldId(null); }}>
+                    <PopoverTrigger asChild>
+                        <Button variant="ghost" size="sm" className="text-zinc-300 hover:text-white hover:bg-white/10 h-10 gap-2 px-3.5 rounded-xl transition-all cursor-pointer border border-transparent hover:border-white/10 shadow-none">
+                            <LayoutList className="h-[18px] w-[18px]" />
+                            <span className="text-[14px] font-bold">Fields</span>
+                        </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-64 p-0 shadow-2xl rounded-2xl border-zinc-200 overflow-hidden" align="center" side="top" sideOffset={16}>
+                        <div className="p-2 border-b border-zinc-100">
+                            <Input placeholder="Search..." className="h-8 text-sm" value={bulkCustomFieldSearch} onChange={e => setBulkCustomFieldSearch(e.target.value)} />
+                        </div>
+                        <ScrollArea className="max-h-64">
+                            {((customFields as any[]) ?? []).filter((cf: any) => !bulkCustomFieldSearch.trim() || (cf.name || "").toLowerCase().includes(bulkCustomFieldSearch.toLowerCase())).map((cf: any) => {
+                                const IconComp = getCustomFieldIcon(cf.type || cf.config?.fieldType);
+                                return (
+                                    <button key={cf.id} type="button" className="w-full flex items-center gap-2 py-2 px-3 hover:bg-zinc-50 text-left text-sm" onClick={() => setBulkCustomFieldId(cf.id)}>
+                                        {IconComp ? <IconComp className="h-4 w-4 text-zinc-500" /> : <Type className="h-4 w-4 text-zinc-500" />}
+                                        {cf.name}
+                                    </button>
+                                );
+                            })}
+                            {((customFields as any[]) ?? []).length === 0 && <p className="text-sm text-zinc-500 py-4 px-3">No custom fields</p>}
+                        </ScrollArea>
+                    </PopoverContent>
+                </Popover>
+                <Popover open={bulkModal === "tags"} onOpenChange={(open) => { setBulkModal(open ? "tags" : null); if (open) setBulkTags(Array.from(new Set(filteredTasks.filter(t => selectedTasks.includes(t.id)).flatMap(t => (t.tags ?? []))))); if (!open) setBulkTagInput(""); }}>
+                    <PopoverTrigger asChild>
+                        <Button variant="ghost" size="sm" className="text-zinc-300 hover:text-white hover:bg-white/10 h-10 gap-2 px-3.5 rounded-xl transition-all cursor-pointer border border-transparent hover:border-white/10 shadow-none">
+                            <Tag className="h-[18px] w-[18px]" />
+                            <span className="text-[14px] font-bold">Tags</span>
+                        </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-80 p-4 shadow-2xl rounded-2xl border-zinc-200 overflow-hidden" align="center" side="top" sideOffset={16}>
+                        <div className="flex gap-2 mb-3">
+                            <Input placeholder="Search or add tags..." className="h-8 text-sm flex-1" value={bulkTagInput} onChange={e => setBulkTagInput(e.target.value)} onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); const t = bulkTagInput.trim(); if (t && !bulkTags.includes(t)) { setBulkTags([...bulkTags, t]); setBulkTagInput(""); } } }} />
+                        </div>
+                        <div className="flex flex-wrap gap-1.5 mb-3 min-h-[32px]">
+                            {bulkTags.map(tag => (
+                                <Badge key={tag} variant="secondary" className="text-xs gap-1 pr-1">
+                                    {tag}
+                                    <button type="button" className="hover:text-red-600 rounded p-0.5" onClick={() => setBulkTags(bulkTags.filter(t => t !== tag))} aria-label="Remove"><X className="h-3 w-3" /></button>
+                                </Badge>
+                            ))}
+                        </div>
+                        <label className="flex items-center justify-between text-sm mb-2">
+                            <span>Send notifications</span>
+                            <Switch checked={bulkSendNotifications} onCheckedChange={setBulkSendNotifications} />
+                        </label>
+                        <label className="flex items-center justify-between text-sm text-zinc-500 mb-3">
+                            <span>Move and keep in current List</span>
+                            <Switch checked={bulkMoveKeepInList} onCheckedChange={setBulkMoveKeepInList} disabled />
+                        </label>
+                        <Button size="sm" className="w-full" onClick={async () => { for (const id of selectedTasks) { await updateTask.mutateAsync({ id, tags: bulkTags }); } setBulkModal(null); }}>Apply</Button>
+                    </PopoverContent>
+                </Popover>
+                <Popover open={bulkModal === "moveAdd"} onOpenChange={(open) => setBulkModal(open ? "moveAdd" : null)}>
+                    <PopoverTrigger asChild>
+                        <Button variant="ghost" size="sm" className="text-zinc-300 hover:text-white hover:bg-white/10 h-10 gap-2 px-3.5 rounded-xl transition-all cursor-pointer border border-transparent hover:border-white/10 shadow-none">
+                            <ArrowRight className="h-[18px] w-[18px]" />
+                            <span className="text-[14px] font-bold">Move</span>
+                        </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-80 p-0 shadow-2xl rounded-sm border-zinc-200 overflow-hidden" align="center" side="top" sideOffset={16}>
+                        <Tabs defaultValue="move">
+                            <TabsList className="w-full grid grid-cols-2 rounded-none border-b">
+                                <TabsTrigger value="move">Move tasks</TabsTrigger>
+                                <TabsTrigger value="add">Add to</TabsTrigger>
+                            </TabsList>
+                            <TabsContent value="move" className="mt-0 h-[300px]">
+                                <DestinationPicker
+                                    workspaceId={resolvedWorkspaceId as string}
+                                    onSelect={async (listId) => {
+                                        for (const id of selectedTasks) {
+                                            await updateTask.mutateAsync({ id, listId });
+                                        }
+                                        setBulkModal(null);
+                                    }}
+                                />
+                            </TabsContent>
+                            <TabsContent value="add" className="mt-0 h-[300px]">
+                                <DestinationPicker
+                                    workspaceId={resolvedWorkspaceId as string}
+                                    onSelect={async (listId) => {
+                                        await bulkDuplicateTask.mutateAsync({
+                                            taskIds: selectedTasks,
+                                            targetListId: listId,
+                                            options: {
+                                                includeSubtasks: true,
+                                                includeAttachments: true,
+                                                includeAssignees: true,
+                                                includeDependencies: true
+                                            }
+                                        });
+                                        setBulkModal(null);
+                                    }}
+                                />
+                            </TabsContent>
+                            <div className="p-3 border-t border-zinc-100 flex items-center justify-between text-sm">
+                                <span>Send notifications</span>
+                                <Switch checked={bulkSendNotifications} onCheckedChange={setBulkSendNotifications} />
+                            </div>
+                            <div className="p-3 border-t border-zinc-100 flex items-center justify-between text-sm text-zinc-500">
+                                <span>Move and keep in current List</span>
+                                <Switch checked={bulkMoveKeepInList} onCheckedChange={setBulkMoveKeepInList} />
+                            </div>
+                        </Tabs>
+                    </PopoverContent>
+                </Popover>
+                <Button variant="ghost" size="sm" className="text-zinc-300 hover:text-white hover:bg-white/10 h-10 gap-2 px-3.5 rounded-xl transition-all cursor-pointer border border-transparent hover:border-white/10 shadow-none" onClick={() => setBulkDuplicateModalOpen(true)}>
+                    <CopyPlus className="h-[18px] w-[18px]" />
+                </Button>
+                <DropdownMenu open={bulkModal === "more"} onOpenChange={(open) => { if (open) setBulkModal("more"); else if (bulkModal === "more") setBulkModal(null); }}>
+                    <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="sm" className="text-zinc-300 hover:text-white hover:bg-white/10 h-10 gap-2 px-3.5 rounded-xl transition-all cursor-pointer border border-transparent hover:border-white/10 shadow-none">
+                            <MoreHorizontal className="h-[18px] w-[18px]" />
+                            <span className="text-[14px] font-bold">More</span>
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="center" side="top" sideOffset={16} className="w-72 shadow-2xl rounded-2xl border-zinc-200 overflow-hidden outline-none">
+                        <DropdownMenuLabel className="text-[11px] uppercase font-bold text-zinc-400 px-3 py-2">Set or change</DropdownMenuLabel>
+
+                        <DropdownMenuSub>
+                            <DropdownMenuSubTrigger className="px-3 py-2 cursor-pointer transition-colors">
+                                <Target className="h-4 w-4 mr-2 text-zinc-400" />
+                                <span>Status</span>
+                            </DropdownMenuSubTrigger>
+                            <DropdownMenuSubContent className="w-64 p-2 shadow-xl rounded-xl border-zinc-200">
+                                <div className="space-y-1">
+                                    {allAvailableStatuses.length === 0 ? (
+                                        <p className="text-xs text-zinc-500 py-2 px-1">No shared statuses</p>
+                                    ) : (
+                                        allAvailableStatuses.map((s: any) => (
+                                            <DropdownMenuItem
+                                                key={s.id}
+                                                className="flex items-center gap-2 px-2 py-1.5 rounded-lg cursor-pointer"
+                                                onSelect={async () => {
+                                                    for (const id of selectedTasks) {
+                                                        await updateTask.mutateAsync({ id, statusId: s.id });
+                                                    }
+                                                    setBulkModal(null);
+                                                }}
+                                            >
+                                                <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: s.color || "#9CA3AF" }} />
+                                                <span className="text-sm font-medium">{s.name}</span>
+                                            </DropdownMenuItem>
+                                        ))
+                                    )}
                                 </div>
-                            </PopoverContent>
-                        </Popover>
-                        <AssigneeSelector
-                            users={users as any}
-                            agents={agents}
-                            workspaceId={resolvedWorkspaceId}
-                            variant="compact"
-                            value={bulkAssigneeIds}
-                            align="center"
-                            sideOffset={16}
-                            open={bulkModal === "assignees"}
-                            onOpenChange={(open) => setBulkModal(open ? "assignees" : null)}
-                            onChange={async (newIds) => {
-                                setBulkAssigneeIds(newIds);
-                                const cleanIds = newIds;
-                                try {
-                                    await Promise.all(selectedTasks.map(id => updateTask.mutateAsync({ id, assigneeIds: cleanIds })));
-                                } catch (e) {
-                                    console.error("Bulk assignee update failed", e);
-                                }
-                            }}
-                            trigger={
-                                <Button variant="ghost" size="sm" className="text-zinc-300 hover:text-white hover:bg-white/10 h-10 gap-2 px-3.5 rounded-xl transition-all cursor-pointer border border-transparent hover:border-white/10 shadow-none">
-                                    <Users className="h-[18px] w-[18px]" />
-                                    <span className="text-[14px] font-bold">Assignees</span>
-                                </Button>
-                            }
-                        />
-                        <Popover open={bulkModal === "customFields"} onOpenChange={(open) => { setBulkModal(open ? "customFields" : null); if (!open) setBulkCustomFieldId(null); }}>
-                            <PopoverTrigger asChild>
-                                <Button variant="ghost" size="sm" className="text-zinc-300 hover:text-white hover:bg-white/10 h-10 gap-2 px-3.5 rounded-xl transition-all cursor-pointer border border-transparent hover:border-white/10 shadow-none">
-                                    <LayoutList className="h-[18px] w-[18px]" />
-                                    <span className="text-[14px] font-bold">Fields</span>
-                                </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-64 p-0 shadow-2xl rounded-2xl border-zinc-200 overflow-hidden" align="center" side="top" sideOffset={16}>
-                                <div className="p-2 border-b border-zinc-100">
-                                    <Input placeholder="Search..." className="h-8 text-sm" value={bulkCustomFieldSearch} onChange={e => setBulkCustomFieldSearch(e.target.value)} />
+                            </DropdownMenuSubContent>
+                        </DropdownMenuSub>
+
+                        <DropdownMenuSub>
+                            <DropdownMenuSubTrigger className="px-3 py-2 cursor-pointer transition-colors">
+                                <Users className="h-4 w-4 mr-2 text-zinc-400" />
+                                <span>Assignees</span>
+                            </DropdownMenuSubTrigger>
+                            <DropdownMenuSubContent className="w-72 p-0 shadow-xl rounded-xl border-zinc-200 overflow-hidden outline-none">
+                                <AssigneeSelector
+                                    users={users as any}
+                                    agents={agents}
+                                    workspaceId={resolvedWorkspaceId}
+                                    variant="compact"
+                                    value={bulkAssigneeIds}
+                                    hidePopover
+                                    onChange={async (newIds) => {
+                                        setBulkAssigneeIds(newIds);
+                                        const cleanIds = newIds;
+                                        try {
+                                            await Promise.all(selectedTasks.map(id => updateTask.mutateAsync({ id, assigneeIds: cleanIds })));
+                                        } catch (e) {
+                                            console.error("Bulk assignee update failed", e);
+                                        }
+                                    }}
+                                />
+                            </DropdownMenuSubContent>
+                        </DropdownMenuSub>
+
+                        <DropdownMenuSub>
+                            <DropdownMenuSubTrigger className="px-3 py-2 cursor-pointer transition-colors">
+                                <Tag className="h-4 w-4 mr-2 text-zinc-400" />
+                                <span>Tags</span>
+                            </DropdownMenuSubTrigger>
+                            <DropdownMenuSubContent className="w-64 p-3 shadow-xl rounded-xl border-zinc-200">
+                                <div className="flex flex-col gap-3">
+                                    <Input
+                                        placeholder="Add tag..."
+                                        className="h-8 text-xs"
+                                        value={bulkTagInput}
+                                        onChange={e => setBulkTagInput(e.target.value)}
+                                        onKeyDown={async (e) => {
+                                            if (e.key === "Enter") {
+                                                e.preventDefault();
+                                                const t = bulkTagInput.trim();
+                                                if (t && !bulkTags.includes(t)) {
+                                                    const next = [...bulkTags, t];
+                                                    setBulkTags(next);
+                                                    setBulkTagInput("");
+                                                }
+                                            }
+                                        }}
+                                    />
+                                    <div className="flex flex-wrap gap-1 min-h-[20px]">
+                                        {bulkTags.map(tag => (
+                                            <Badge key={tag} variant="secondary" className="text-[10px] px-1.5 py-0 gap-1">
+                                                {tag}
+                                                <X className="h-2.5 w-2.5 cursor-pointer hover:text-red-500" onClick={() => setBulkTags(bulkTags.filter(t => t !== tag))} />
+                                            </Badge>
+                                        ))}
+                                    </div>
+                                    <Button size="sm" className="h-8 text-xs font-bold" onClick={async () => {
+                                        for (const id of selectedTasks) {
+                                            await updateTask.mutateAsync({ id, tags: bulkTags });
+                                        }
+                                        setBulkModal(null);
+                                    }}>Apply Tags</Button>
                                 </div>
-                                <ScrollArea className="max-h-64">
+                            </DropdownMenuSubContent>
+                        </DropdownMenuSub>
+
+                        <DropdownMenuSub>
+                            <DropdownMenuSubTrigger className="px-3 py-2 cursor-pointer transition-colors">
+                                <LayoutList className="h-4 w-4 mr-2 text-zinc-400" />
+                                <span>Custom Fields</span>
+                            </DropdownMenuSubTrigger>
+                            <DropdownMenuSubContent className="w-64 p-1 shadow-xl rounded-xl border-zinc-200">
+                                <div className="p-2 border-b border-zinc-50 mb-1">
+                                    <Input placeholder="Search fields..." className="h-7 text-xs" value={bulkCustomFieldSearch} onChange={e => setBulkCustomFieldSearch(e.target.value)} />
+                                </div>
+                                <div className="max-h-64 overflow-auto px-1 pb-1">
                                     {((customFields as any[]) ?? []).filter((cf: any) => !bulkCustomFieldSearch.trim() || (cf.name || "").toLowerCase().includes(bulkCustomFieldSearch.toLowerCase())).map((cf: any) => {
                                         const IconComp = getCustomFieldIcon(cf.type || cf.config?.fieldType);
                                         return (
-                                            <button key={cf.id} type="button" className="w-full flex items-center gap-2 py-2 px-3 hover:bg-zinc-50 text-left text-sm" onClick={() => setBulkCustomFieldId(cf.id)}>
-                                                {IconComp ? <IconComp className="h-4 w-4 text-zinc-500" /> : <Type className="h-4 w-4 text-zinc-500" />}
-                                                {cf.name}
-                                            </button>
+                                            <DropdownMenuItem key={cf.id} className="flex items-center gap-2 px-2 py-1.5 rounded-lg cursor-pointer" onSelect={() => setBulkCustomFieldId(cf.id)}>
+                                                {IconComp ? <IconComp className="h-4 w-4 text-zinc-400" /> : <Type className="h-4 w-4 text-zinc-400" />}
+                                                <span className="text-sm">{cf.name}</span>
+                                            </DropdownMenuItem>
                                         );
                                     })}
-                                    {((customFields as any[]) ?? []).length === 0 && <p className="text-sm text-zinc-500 py-4 px-3">No custom fields</p>}
-                                </ScrollArea>
-                            </PopoverContent>
-                        </Popover>
-                        <Popover open={bulkModal === "tags"} onOpenChange={(open) => { setBulkModal(open ? "tags" : null); if (open) setBulkTags(Array.from(new Set(filteredTasks.filter(t => selectedTasks.includes(t.id)).flatMap(t => (t.tags ?? []))))); if (!open) setBulkTagInput(""); }}>
-                            <PopoverTrigger asChild>
-                                <Button variant="ghost" size="sm" className="text-zinc-300 hover:text-white hover:bg-white/10 h-10 gap-2 px-3.5 rounded-xl transition-all cursor-pointer border border-transparent hover:border-white/10 shadow-none">
-                                    <Tag className="h-[18px] w-[18px]" />
-                                    <span className="text-[14px] font-bold">Tags</span>
-                                </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-80 p-4 shadow-2xl rounded-2xl border-zinc-200 overflow-hidden" align="center" side="top" sideOffset={16}>
-                                <div className="flex gap-2 mb-3">
-                                    <Input placeholder="Search or add tags..." className="h-8 text-sm flex-1" value={bulkTagInput} onChange={e => setBulkTagInput(e.target.value)} onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); const t = bulkTagInput.trim(); if (t && !bulkTags.includes(t)) { setBulkTags([...bulkTags, t]); setBulkTagInput(""); } } }} />
                                 </div>
-                                <div className="flex flex-wrap gap-1.5 mb-3 min-h-[32px]">
-                                    {bulkTags.map(tag => (
-                                        <Badge key={tag} variant="secondary" className="text-xs gap-1 pr-1">
-                                            {tag}
-                                            <button type="button" className="hover:text-red-600 rounded p-0.5" onClick={() => setBulkTags(bulkTags.filter(t => t !== tag))} aria-label="Remove"><X className="h-3 w-3" /></button>
-                                        </Badge>
-                                    ))}
-                                </div>
-                                <label className="flex items-center justify-between text-sm mb-2">
-                                    <span>Send notifications</span>
-                                    <Switch checked={bulkSendNotifications} onCheckedChange={setBulkSendNotifications} />
-                                </label>
-                                <label className="flex items-center justify-between text-sm text-zinc-500 mb-3">
-                                    <span>Move and keep in current List</span>
-                                    <Switch checked={bulkMoveKeepInList} onCheckedChange={setBulkMoveKeepInList} disabled />
-                                </label>
-                                <Button size="sm" className="w-full" onClick={async () => { for (const id of selectedTasks) { await updateTask.mutateAsync({ id, tags: bulkTags }); } setBulkModal(null); }}>Apply</Button>
-                            </PopoverContent>
-                        </Popover>
-                        <Popover open={bulkModal === "moveAdd"} onOpenChange={(open) => setBulkModal(open ? "moveAdd" : null)}>
-                            <PopoverTrigger asChild>
-                                <Button variant="ghost" size="sm" className="text-zinc-300 hover:text-white hover:bg-white/10 h-10 gap-2 px-3.5 rounded-xl transition-all cursor-pointer border border-transparent hover:border-white/10 shadow-none">
-                                    <ArrowRight className="h-[18px] w-[18px]" />
-                                    <span className="text-[14px] font-bold">Move</span>
-                                </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-80 p-0 shadow-2xl rounded-sm border-zinc-200 overflow-hidden" align="center" side="top" sideOffset={16}>
+                            </DropdownMenuSubContent>
+                        </DropdownMenuSub>
+
+                        <DropdownMenuSeparator className="bg-zinc-100" />
+                        <DropdownMenuLabel className="text-[11px] uppercase font-bold text-zinc-400 px-3 py-2">Apply an action</DropdownMenuLabel>
+
+                        <DropdownMenuSub>
+                            <DropdownMenuSubTrigger className="px-3 py-2 cursor-pointer transition-colors">
+                                <ArrowRight className="h-4 w-4 mr-2 text-zinc-400" />
+                                <span>Move/Add to</span>
+                            </DropdownMenuSubTrigger>
+                            <DropdownMenuSubContent className="w-80 p-0 shadow-xl rounded-xl border-zinc-200 overflow-hidden">
                                 <Tabs defaultValue="move">
-                                    <TabsList className="w-full grid grid-cols-2 rounded-none border-b">
-                                        <TabsTrigger value="move">Move tasks</TabsTrigger>
-                                        <TabsTrigger value="add">Add to</TabsTrigger>
+                                    <TabsList className="w-full grid grid-cols-2 rounded-none border-b border-zinc-100 h-10 bg-zinc-50/50">
+                                        <TabsTrigger value="move" className="text-xs data-[state=active]:bg-white">Move</TabsTrigger>
+                                        <TabsTrigger value="add" className="text-xs data-[state=active]:bg-white">Add to</TabsTrigger>
                                     </TabsList>
                                     <TabsContent value="move" className="mt-0 h-[300px]">
                                         <DestinationPicker
@@ -5041,512 +5232,327 @@ export function PeopleView({ spaceId, projectId, folderId, teamId, listId, viewI
                                             }}
                                         />
                                     </TabsContent>
-                                    <div className="p-3 border-t border-zinc-100 flex items-center justify-between text-sm">
-                                        <span>Send notifications</span>
-                                        <Switch checked={bulkSendNotifications} onCheckedChange={setBulkSendNotifications} />
-                                    </div>
-                                    <div className="p-3 border-t border-zinc-100 flex items-center justify-between text-sm text-zinc-500">
-                                        <span>Move and keep in current List</span>
-                                        <Switch checked={bulkMoveKeepInList} onCheckedChange={setBulkMoveKeepInList} />
-                                    </div>
                                 </Tabs>
-                            </PopoverContent>
-                        </Popover>
-                        <Button variant="ghost" size="sm" className="text-zinc-300 hover:text-white hover:bg-white/10 h-10 gap-2 px-3.5 rounded-xl transition-all cursor-pointer border border-transparent hover:border-white/10 shadow-none" onClick={() => setBulkDuplicateModalOpen(true)}>
-                            <CopyPlus className="h-[18px] w-[18px]" />
-                        </Button>
-                        <DropdownMenu open={bulkModal === "more"} onOpenChange={(open) => { if (open) setBulkModal("more"); else if (bulkModal === "more") setBulkModal(null); }}>
-                            <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="sm" className="text-zinc-300 hover:text-white hover:bg-white/10 h-10 gap-2 px-3.5 rounded-xl transition-all cursor-pointer border border-transparent hover:border-white/10 shadow-none">
-                                    <MoreHorizontal className="h-[18px] w-[18px]" />
-                                    <span className="text-[14px] font-bold">More</span>
-                                </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="center" side="top" sideOffset={16} className="w-72 shadow-2xl rounded-2xl border-zinc-200 overflow-hidden outline-none">
-                                <DropdownMenuLabel className="text-[11px] uppercase font-bold text-zinc-400 px-3 py-2">Set or change</DropdownMenuLabel>
+                            </DropdownMenuSubContent>
+                        </DropdownMenuSub>
 
-                                <DropdownMenuSub>
-                                    <DropdownMenuSubTrigger className="px-3 py-2 cursor-pointer transition-colors">
-                                        <Target className="h-4 w-4 mr-2 text-zinc-400" />
-                                        <span>Status</span>
-                                    </DropdownMenuSubTrigger>
-                                    <DropdownMenuSubContent className="w-64 p-2 shadow-xl rounded-xl border-zinc-200">
-                                        <div className="space-y-1">
-                                            {allAvailableStatuses.length === 0 ? (
-                                                <p className="text-xs text-zinc-500 py-2 px-1">No shared statuses</p>
-                                            ) : (
-                                                allAvailableStatuses.map((s: any) => (
-                                                    <DropdownMenuItem
-                                                        key={s.id}
-                                                        className="flex items-center gap-2 px-2 py-1.5 rounded-lg cursor-pointer"
-                                                        onSelect={async () => {
-                                                            for (const id of selectedTasks) {
-                                                                await updateTask.mutateAsync({ id, statusId: s.id });
-                                                            }
-                                                            setBulkModal(null);
-                                                        }}
-                                                    >
-                                                        <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: s.color || "#9CA3AF" }} />
-                                                        <span className="text-sm font-medium">{s.name}</span>
-                                                    </DropdownMenuItem>
-                                                ))
-                                            )}
-                                        </div>
-                                    </DropdownMenuSubContent>
-                                </DropdownMenuSub>
+                        <DropdownMenuItem
+                            className="px-3 py-2 cursor-pointer"
+                            onSelect={() => setBulkDuplicateModalOpen(true)}
+                        >
+                            <CopyPlus className="h-4 w-4 mr-2 text-zinc-400" />
+                            <span>Duplicate</span>
+                        </DropdownMenuItem>
 
-                                <DropdownMenuSub>
-                                    <DropdownMenuSubTrigger className="px-3 py-2 cursor-pointer transition-colors">
-                                        <Users className="h-4 w-4 mr-2 text-zinc-400" />
-                                        <span>Assignees</span>
-                                    </DropdownMenuSubTrigger>
-                                    <DropdownMenuSubContent className="w-72 p-0 shadow-xl rounded-xl border-zinc-200 overflow-hidden outline-none">
-                                        <AssigneeSelector
-                                            users={users as any}
-                                            agents={agents}
-                                            workspaceId={resolvedWorkspaceId}
-                                            variant="compact"
-                                            value={bulkAssigneeIds}
-                                            hidePopover
-                                            onChange={async (newIds) => {
-                                                setBulkAssigneeIds(newIds);
-                                                const cleanIds = newIds;
-                                                try {
-                                                    await Promise.all(selectedTasks.map(id => updateTask.mutateAsync({ id, assigneeIds: cleanIds })));
-                                                } catch (e) {
-                                                    console.error("Bulk assignee update failed", e);
-                                                }
-                                            }}
-                                        />
-                                    </DropdownMenuSubContent>
-                                </DropdownMenuSub>
-
-                                <DropdownMenuSub>
-                                    <DropdownMenuSubTrigger className="px-3 py-2 cursor-pointer transition-colors">
-                                        <Tag className="h-4 w-4 mr-2 text-zinc-400" />
-                                        <span>Tags</span>
-                                    </DropdownMenuSubTrigger>
-                                    <DropdownMenuSubContent className="w-64 p-3 shadow-xl rounded-xl border-zinc-200">
-                                        <div className="flex flex-col gap-3">
-                                            <Input
-                                                placeholder="Add tag..."
-                                                className="h-8 text-xs"
-                                                value={bulkTagInput}
-                                                onChange={e => setBulkTagInput(e.target.value)}
-                                                onKeyDown={async (e) => {
-                                                    if (e.key === "Enter") {
-                                                        e.preventDefault();
-                                                        const t = bulkTagInput.trim();
-                                                        if (t && !bulkTags.includes(t)) {
-                                                            const next = [...bulkTags, t];
-                                                            setBulkTags(next);
-                                                            setBulkTagInput("");
-                                                        }
-                                                    }
-                                                }}
-                                            />
-                                            <div className="flex flex-wrap gap-1 min-h-[20px]">
-                                                {bulkTags.map(tag => (
-                                                    <Badge key={tag} variant="secondary" className="text-[10px] px-1.5 py-0 gap-1">
-                                                        {tag}
-                                                        <X className="h-2.5 w-2.5 cursor-pointer hover:text-red-500" onClick={() => setBulkTags(bulkTags.filter(t => t !== tag))} />
-                                                    </Badge>
-                                                ))}
-                                            </div>
-                                            <Button size="sm" className="h-8 text-xs font-bold" onClick={async () => {
-                                                for (const id of selectedTasks) {
-                                                    await updateTask.mutateAsync({ id, tags: bulkTags });
-                                                }
-                                                setBulkModal(null);
-                                            }}>Apply Tags</Button>
-                                        </div>
-                                    </DropdownMenuSubContent>
-                                </DropdownMenuSub>
-
-                                <DropdownMenuSub>
-                                    <DropdownMenuSubTrigger className="px-3 py-2 cursor-pointer transition-colors">
-                                        <LayoutList className="h-4 w-4 mr-2 text-zinc-400" />
-                                        <span>Custom Fields</span>
-                                    </DropdownMenuSubTrigger>
-                                    <DropdownMenuSubContent className="w-64 p-1 shadow-xl rounded-xl border-zinc-200">
-                                        <div className="p-2 border-b border-zinc-50 mb-1">
-                                            <Input placeholder="Search fields..." className="h-7 text-xs" value={bulkCustomFieldSearch} onChange={e => setBulkCustomFieldSearch(e.target.value)} />
-                                        </div>
-                                        <div className="max-h-64 overflow-auto px-1 pb-1">
-                                            {((customFields as any[]) ?? []).filter((cf: any) => !bulkCustomFieldSearch.trim() || (cf.name || "").toLowerCase().includes(bulkCustomFieldSearch.toLowerCase())).map((cf: any) => {
-                                                const IconComp = getCustomFieldIcon(cf.type || cf.config?.fieldType);
-                                                return (
-                                                    <DropdownMenuItem key={cf.id} className="flex items-center gap-2 px-2 py-1.5 rounded-lg cursor-pointer" onSelect={() => setBulkCustomFieldId(cf.id)}>
-                                                        {IconComp ? <IconComp className="h-4 w-4 text-zinc-400" /> : <Type className="h-4 w-4 text-zinc-400" />}
-                                                        <span className="text-sm">{cf.name}</span>
-                                                    </DropdownMenuItem>
-                                                );
-                                            })}
-                                        </div>
-                                    </DropdownMenuSubContent>
-                                </DropdownMenuSub>
-
-                                <DropdownMenuSeparator className="bg-zinc-100" />
-                                <DropdownMenuLabel className="text-[11px] uppercase font-bold text-zinc-400 px-3 py-2">Apply an action</DropdownMenuLabel>
-
-                                <DropdownMenuSub>
-                                    <DropdownMenuSubTrigger className="px-3 py-2 cursor-pointer transition-colors">
-                                        <ArrowRight className="h-4 w-4 mr-2 text-zinc-400" />
-                                        <span>Move/Add to</span>
-                                    </DropdownMenuSubTrigger>
-                                    <DropdownMenuSubContent className="w-80 p-0 shadow-xl rounded-xl border-zinc-200 overflow-hidden">
-                                        <Tabs defaultValue="move">
-                                            <TabsList className="w-full grid grid-cols-2 rounded-none border-b border-zinc-100 h-10 bg-zinc-50/50">
-                                                <TabsTrigger value="move" className="text-xs data-[state=active]:bg-white">Move</TabsTrigger>
-                                                <TabsTrigger value="add" className="text-xs data-[state=active]:bg-white">Add to</TabsTrigger>
-                                            </TabsList>
-                                            <TabsContent value="move" className="mt-0 h-[300px]">
-                                                <DestinationPicker
-                                                    workspaceId={resolvedWorkspaceId as string}
-                                                    onSelect={async (listId) => {
-                                                        for (const id of selectedTasks) {
-                                                            await updateTask.mutateAsync({ id, listId });
-                                                        }
-                                                        setBulkModal(null);
-                                                    }}
-                                                />
-                                            </TabsContent>
-                                            <TabsContent value="add" className="mt-0 h-[300px]">
-                                                <DestinationPicker
-                                                    workspaceId={resolvedWorkspaceId as string}
-                                                    onSelect={async (listId) => {
-                                                        await bulkDuplicateTask.mutateAsync({
-                                                            taskIds: selectedTasks,
-                                                            targetListId: listId,
-                                                            options: {
-                                                                includeSubtasks: true,
-                                                                includeAttachments: true,
-                                                                includeAssignees: true,
-                                                                includeDependencies: true
-                                                            }
-                                                        });
-                                                        setBulkModal(null);
-                                                    }}
-                                                />
-                                            </TabsContent>
-                                        </Tabs>
-                                    </DropdownMenuSubContent>
-                                </DropdownMenuSub>
-
-                                <DropdownMenuItem
-                                    className="px-3 py-2 cursor-pointer"
-                                    onSelect={() => setBulkDuplicateModalOpen(true)}
-                                >
-                                    <CopyPlus className="h-4 w-4 mr-2 text-zinc-400" />
-                                    <span>Duplicate</span>
-                                </DropdownMenuItem>
-
-                                <DropdownMenuItem
-                                    className="px-3 py-2 cursor-pointer"
-                                    onSelect={() => {
-                                        const sel = filteredTasks.filter(t => selectedTasks.includes(t.id));
-                                        const text = sel.map(t => (t.title || t.name) || "").join("\n");
-                                        void navigator.clipboard.writeText(text);
-                                        setBulkModal(null);
-                                    }}
-                                >
-                                    <Copy className="h-4 w-4 mr-2 text-zinc-400" />
-                                    <span>Copy names to clipboard</span>
-                                </DropdownMenuItem>
-                            </DropdownMenuContent>
-                        </DropdownMenu>
-                    </div>
+                        <DropdownMenuItem
+                            className="px-3 py-2 cursor-pointer"
+                            onSelect={() => {
+                                const sel = filteredTasks.filter(t => selectedTasks.includes(t.id));
+                                const text = sel.map(t => (t.title || t.name) || "").join("\n");
+                                void navigator.clipboard.writeText(text);
+                                setBulkModal(null);
+                            }}
+                        >
+                            <Copy className="h-4 w-4 mr-2 text-zinc-400" />
+                            <span>Copy names to clipboard</span>
+                        </DropdownMenuItem>
+                    </DropdownMenuContent>
+                </DropdownMenu>
+            </div>
+        )}
 
             {/* Custom field value modal (image 4) - when a custom field is clicked from bulk Custom Fields list */ }
-            <Dialog open={!!bulkCustomFieldId} onOpenChange={(open) => { if (!open) { setBulkCustomFieldId(null); setBulkCustomFieldDraftValue(null); } }}>
-                <DialogContent className="sm:max-w-md">
-                    <DialogHeader>
-                        <DialogTitle>{FIELD_CONFIG.find(f => f.id === bulkCustomFieldId)?.label ?? "Custom field"}</DialogTitle>
-                    </DialogHeader>
-                    <div className="py-4">
-                        <p className="text-sm text-zinc-500 mb-2">Update value for {selectedTasks.length} selected task(s).</p>
-                        {bulkCustomFieldId && (() => {
-                            const fieldConfig = FIELD_CONFIG.find(f => f.id === bulkCustomFieldId) as any;
-                            const field = fieldConfig?.customField ?? { id: bulkCustomFieldId, name: fieldConfig?.label, type: "TEXT", config: {} };
-                            return (
-                                <CustomFieldRenderer
-                                    field={field}
-                                    value={bulkCustomFieldDraftValue}
-                                    onChange={setBulkCustomFieldDraftValue}
-                                    disabled={updateCustomField.isPending}
-                                />
-                            );
-                        })()}
-                    </div>
-                    <DialogFooter>
-                        <Button variant="outline" onClick={() => { setBulkCustomFieldId(null); setBulkCustomFieldDraftValue(null); }}>Cancel</Button>
-                        <Button onClick={async () => { if (!bulkCustomFieldId) return; for (const taskId of selectedTasks) { await updateCustomField.mutateAsync({ taskId, customFieldId: bulkCustomFieldId, value: bulkCustomFieldDraftValue }); } setBulkCustomFieldId(null); setBulkCustomFieldDraftValue(null); setBulkModal(null); }}>Save</Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
+        <Dialog open={!!bulkCustomFieldId} onOpenChange={(open) => { if (!open) { setBulkCustomFieldId(null); setBulkCustomFieldDraftValue(null); } }}>
+            <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                    <DialogTitle>{FIELD_CONFIG.find(f => f.id === bulkCustomFieldId)?.label ?? "Custom field"}</DialogTitle>
+                </DialogHeader>
+                <div className="py-4">
+                    <p className="text-sm text-zinc-500 mb-2">Update value for {selectedTasks.length} selected task(s).</p>
+                    {bulkCustomFieldId && (() => {
+                        const fieldConfig = FIELD_CONFIG.find(f => f.id === bulkCustomFieldId) as any;
+                        const field = fieldConfig?.customField ?? { id: bulkCustomFieldId, name: fieldConfig?.label, type: "TEXT", config: {} };
+                        return (
+                            <CustomFieldRenderer
+                                field={field}
+                                value={bulkCustomFieldDraftValue}
+                                onChange={setBulkCustomFieldDraftValue}
+                                disabled={updateCustomField.isPending}
+                            />
+                        );
+                    })()}
+                </div>
+                <DialogFooter>
+                    <Button variant="outline" onClick={() => { setBulkCustomFieldId(null); setBulkCustomFieldDraftValue(null); }}>Cancel</Button>
+                    <Button onClick={async () => { if (!bulkCustomFieldId) return; for (const taskId of selectedTasks) { await updateCustomField.mutateAsync({ taskId, customFieldId: bulkCustomFieldId, value: bulkCustomFieldDraftValue }); } setBulkCustomFieldId(null); setBulkCustomFieldDraftValue(null); setBulkModal(null); }}>Save</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
 
         {/* Task detail modal when used standalone (no onTaskSelect from parent) */ }
-            {
-                !onTaskSelect && effectiveSelectedTaskId && (
-                    <TaskDetailModal
-                        taskId={effectiveSelectedTaskId}
-                        open={true}
-                        onOpenChange={(open) => !open && closeTaskDetail()}
-                        onLayoutModeChange={() => { }}
-                    />
-                )
-            }
+        {
+            !onTaskSelect && effectiveSelectedTaskId && (
+                <TaskDetailModal
+                    taskId={effectiveSelectedTaskId}
+                    open={true}
+                    onOpenChange={(open) => !open && closeTaskDetail()}
+                    onLayoutModeChange={() => { }}
+                />
+            )
+        }
 
         {/* Dependencies modal */ }
-            {
-                dependenciesTask && (
-                    <TaskDependenciesModal
-                        open={!!dependenciesTask}
-                        onOpenChange={(open) => {
-                            if (!open) setDependenciesTask(null);
-                        }}
-                        task={dependenciesTask}
-                    />
-                )
-            }
+        {
+            dependenciesTask && (
+                <TaskDependenciesModal
+                    open={!!dependenciesTask}
+                    onOpenChange={(open) => {
+                        if (!open) setDependenciesTask(null);
+                    }}
+                    task={dependenciesTask}
+                />
+            )
+        }
 
         {/* Tag editor modal (name + color) */ }
-            <Dialog
-                open={tagEditorOpen}
-                onOpenChange={async (open) => {
-                    // Auto-save on close (encode label + color into stored string)
-                    if (!open && tagEditorOpen && tagEditorTaskId && tagEditorOriginalTag) {
-                        const parsed = parseEncodedTag(tagEditorOriginalTag);
-                        const newName = tagEditorName.trim() || parsed.label;
-                        const encoded = formatEncodedTag(newName, tagEditorColor || undefined);
-                        const nextTags = tagEditorTags.map((t) =>
-                            t === tagEditorOriginalTag ? encoded : t
-                        );
-                        await updateTask.mutateAsync({ id: tagEditorTaskId, tags: nextTags } as any);
-                    }
+                                        <Dialog
+                                            open={tagEditorOpen}
+                                            onOpenChange={async (open) => {
+                                                // Auto-save on close (encode label + color into stored string)
+                                                if (!open && tagEditorOpen && tagEditorTaskId && tagEditorOriginalTag) {
+                                                    const parsed = parseEncodedTag(tagEditorOriginalTag);
+                                                    const newName = tagEditorName.trim() || parsed.label;
+                                                    const encoded = formatEncodedTag(newName, tagEditorColor || undefined);
+                                                    const nextTags = tagEditorTags.map((t) =>
+                                                        t === tagEditorOriginalTag ? encoded : t
+                                                    );
+                                                    await updateTask.mutateAsync({ id: tagEditorTaskId, tags: nextTags } as any);
+                                                }
 
-                    setTagEditorOpen(open);
-                    if (!open) {
-                        setTagEditorTaskId(null);
-                        setTagEditorOriginalTag(null);
-                        setTagEditorTags([]);
-                    }
-                }}
-            >
-                <DialogContent className="sm:max-w-[200px] p-3 [&>button]:hidden">
-                    <DialogTitle className="sr-only">Tag Editor</DialogTitle>
-                    <div className="space-y-3">
-                        <Input
-                            value={tagEditorName}
-                            onChange={(e) => setTagEditorName(e.target.value)}
-                            placeholder="Name"
-                            className="h-8 text-sm"
-                            autoFocus
-                        />
-                        <div className="grid grid-cols-6 gap-1.5">
-                            {TAG_COLOR_PALETTE.map((color) => (
-                                <button
-                                    key={color}
-                                    type="button"
-                                    className={cn(
-                                        "h-6 w-6 rounded-full border border-transparent flex items-center justify-center cursor-pointer",
-                                        tagEditorColor === color ? "ring-2 ring-violet-500 ring-offset-1" : ""
-                                    )}
-                                    style={{ backgroundColor: color }}
-                                    onClick={() => setTagEditorColor(color)}
-                                >
-                                    {tagEditorColor === color && (
-                                        <span className="h-2 w-2 rounded-full bg-white" />
-                                    )}
-                                </button>
-                            ))}
-                            {/* Optional: "no color" and "custom" slots to visually match the last row */}
-                            <button
-                                type="button"
-                                className="h-6 w-6 rounded-full border border-dashed border-zinc-300 flex items-center justify-center bg-zinc-100 text-zinc-400 text-xs cursor-pointer"
-                                onClick={() => setTagEditorColor("")}
-                                title="No color"
-                            >
-                                <Slash className="h-3 w-3" />
-                            </button>
-                            <button
-                                type="button"
-                                className="h-6 w-6 rounded-full border border-dashed border-zinc-300 flex items-center justify-center bg-white text-zinc-400 text-xs cursor-pointer"
-                                onClick={() => setTagEditorColor("#f3e8ff")}
-                                title="Default color"
-                            >
-                                <Plus className="h-3 w-3" />
-                            </button>
-                        </div>
-                        <Separator className="my-4" />
-                        <button
-                            type="button"
-                            className="flex items-center gap-2 text-xs text-zinc-500 hover:text-red-600 hover:bg-red-50 rounded-md px-1.5 py-2 w-full cursor-pointer"
-                            onClick={async () => {
-                                if (!tagEditorTaskId || !tagEditorOriginalTag) return;
-                                const nextTags = tagEditorTags.filter((t) => t !== tagEditorOriginalTag);
-                                await updateTask.mutateAsync({ id: tagEditorTaskId, tags: nextTags } as any);
-                                setTagEditorOpen(false);
-                                setTagEditorTaskId(null);
-                                setTagEditorOriginalTag(null);
-                                setTagEditorTags([]);
-                            }}
-                        >
-                            <Trash2 className="h-3.5 w-3.5" />
-                            <span>Delete</span>
-                        </button>
-                    </div>
-                </DialogContent>
-            </Dialog>
-            <DuplicateTaskModal
-                open={bulkDuplicateModalOpen}
-                onOpenChange={setBulkDuplicateModalOpen}
-                taskIds={selectedTasks}
-                workspaceId={resolvedWorkspaceId as string}
-            />
-            <ShareViewPermissionModal
-                open={isShareModalOpen}
-                onOpenChange={setIsShareModalOpen}
-                viewId={viewId as string}
-                workspaceId={resolvedWorkspaceId as string}
-            />
+                                                setTagEditorOpen(open);
+                                                if (!open) {
+                                                    setTagEditorTaskId(null);
+                                                    setTagEditorOriginalTag(null);
+                                                    setTagEditorTags([]);
+                                                }
+                                            }}
+                                        >
+                                            <DialogContent className="sm:max-w-[200px] p-3 [&>button]:hidden">
+                                                <DialogTitle className="sr-only">Tag Editor</DialogTitle>
+                                                <div className="space-y-3">
+                                                    <Input
+                                                        value={tagEditorName}
+                                                        onChange={(e) => setTagEditorName(e.target.value)}
+                                                        placeholder="Name"
+                                                        className="h-8 text-sm"
+                                                        autoFocus
+                                                    />
+                                                    <div className="grid grid-cols-6 gap-1.5">
+                                                        {TAG_COLOR_PALETTE.map((color) => (
+                                                            <button
+                                                                key={color}
+                                                                type="button"
+                                                                className={cn(
+                                                                    "h-6 w-6 rounded-full border border-transparent flex items-center justify-center cursor-pointer",
+                                                                    tagEditorColor === color ? "ring-2 ring-violet-500 ring-offset-1" : ""
+                                                                )}
+                                                                style={{ backgroundColor: color }}
+                                                                onClick={() => setTagEditorColor(color)}
+                                                            >
+                                                                {tagEditorColor === color && (
+                                                                    <span className="h-2 w-2 rounded-full bg-white" />
+                                                                )}
+                                                            </button>
+                                                        ))}
+                                                        {/* Optional: "no color" and "custom" slots to visually match the last row */}
+                                                        <button
+                                                            type="button"
+                                                            className="h-6 w-6 rounded-full border border-dashed border-zinc-300 flex items-center justify-center bg-zinc-100 text-zinc-400 text-xs cursor-pointer"
+                                                            onClick={() => setTagEditorColor("")}
+                                                            title="No color"
+                                                        >
+                                                            <Slash className="h-3 w-3" />
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            className="h-6 w-6 rounded-full border border-dashed border-zinc-300 flex items-center justify-center bg-white text-zinc-400 text-xs cursor-pointer"
+                                                            onClick={() => setTagEditorColor("#f3e8ff")}
+                                                            title="Default color"
+                                                        >
+                                                            <Plus className="h-3 w-3" />
+                                                        </button>
+                                                    </div>
+                                                    <Separator className="my-4" />
+                                                    <button
+                                                        type="button"
+                                                        className="flex items-center gap-2 text-xs text-zinc-500 hover:text-red-600 hover:bg-red-50 rounded-md px-1.5 py-2 w-full cursor-pointer"
+                                                        onClick={async () => {
+                                                            if (!tagEditorTaskId || !tagEditorOriginalTag) return;
+                                                            const nextTags = tagEditorTags.filter((t) => t !== tagEditorOriginalTag);
+                                                            await updateTask.mutateAsync({ id: tagEditorTaskId, tags: nextTags } as any);
+                                                            setTagEditorOpen(false);
+                                                            setTagEditorTaskId(null);
+                                                            setTagEditorOriginalTag(null);
+                                                            setTagEditorTags([]);
+                                                        }}
+                                                    >
+                                                        <Trash2 className="h-3.5 w-3.5" />
+                                                        <span>Delete</span>
+                                                    </button>
+                                                </div>
+                                            </DialogContent>
+                                        </Dialog>
+                                        <DuplicateTaskModal
+                                            open={bulkDuplicateModalOpen}
+                                            onOpenChange={setBulkDuplicateModalOpen}
+                                            taskIds={selectedTasks}
+                                            workspaceId={resolvedWorkspaceId as string}
+                                        />
+                                        <ShareViewPermissionModal
+                                            open={isShareModalOpen}
+                                            onOpenChange={setIsShareModalOpen}
+                                            viewId={viewId as string}
+                                            workspaceId={resolvedWorkspaceId as string}
+                                        />
         {/* Description Edit Modal */ }
-            <Dialog open={isDescriptionModalOpen} onOpenChange={setIsDescriptionModalOpen}>
-                <DialogContent className="sm:max-w-[500px]">
-                    <DialogHeader>
-                        <DialogTitle>Edit Description</DialogTitle>
-                    </DialogHeader>
-                    <div className="py-4 border border-zinc-200 rounded-md">
-                        <DescriptionEditor
-                            content={descriptionDraft}
-                            onChange={setDescriptionDraft}
-                            editable={true}
-                            spaceId={spaceId}
-                            projectId={projectId}
-                            workspaceId={resolvedWorkspaceId}
-                            className="min-h-[120px] p-2"
-                            collaboration={{
-                                enabled: true,
-                                documentId: currentList?.id || listId || '',
-                                documentType: 'doc',
-                                user: {
-                                    id: session?.id || 'anonymous',
-                                    name: session?.name || session?.email || 'User',
-                                    color: session?.color
-                                }
-                            }}
-                        />
-                    </div>
-                    <DialogFooter>
-                        <Button variant="ghost" onClick={() => setIsDescriptionModalOpen(false)}>Cancel</Button>
-                        <Button
-                            onClick={async () => {
-                                if (currentList) {
-                                    await updateList.mutateAsync({
-                                        id: currentList.id,
-                                        description: descriptionDraft
-                                    } as any);
-                                    setIsDescriptionModalOpen(false);
-                                }
-                            }}
-                            disabled={updateList.isPending}
-                        >
-                            Save
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
+        <Dialog open={isDescriptionModalOpen} onOpenChange={setIsDescriptionModalOpen}>
+            <DialogContent className="sm:max-w-[500px]">
+                <DialogHeader>
+                    <DialogTitle>Edit Description</DialogTitle>
+                </DialogHeader>
+                <div className="py-4 border border-zinc-200 rounded-md">
+                    <DescriptionEditor
+                        content={descriptionDraft}
+                        onChange={setDescriptionDraft}
+                        editable={true}
+                        spaceId={spaceId}
+                        projectId={projectId}
+                        workspaceId={resolvedWorkspaceId}
+                        className="min-h-[120px] p-2"
+                        collaboration={{
+                            enabled: true,
+                            documentId: currentList?.id || listId || '',
+                            documentType: 'doc',
+                            user: {
+                                id: session?.id || 'anonymous',
+                                name: session?.name || session?.email || 'User',
+                                color: session?.color
+                            }
+                        }}
+                    />
+                </div>
+                <DialogFooter>
+                    <Button variant="ghost" onClick={() => setIsDescriptionModalOpen(false)}>Cancel</Button>
+                    <Button
+                        onClick={async () => {
+                            if (currentList) {
+                                await updateList.mutateAsync({
+                                    id: currentList.id,
+                                    description: descriptionDraft
+                                } as any);
+                                setIsDescriptionModalOpen(false);
+                            }
+                        }}
+                        disabled={updateList.isPending}
+                    >
+                        Save
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
 
         {/* Default View Settings Modal */ }
-            <Dialog open={isDefaultViewSettingsModalOpen} onOpenChange={setIsDefaultViewSettingsModalOpen}>
-                <DialogContent className="sm:max-w-[450px] p-0 overflow-hidden bg-white">
-                    <DialogHeader className="p-6 pb-2">
-                        <DialogTitle className="text-xl font-bold text-zinc-900">Default view settings</DialogTitle>
-                        <p className="text-sm text-zinc-500 mt-1">
-                            You can set default settings for views in this Space. When new views are created, they'll also inherit these default settings.
-                        </p>
-                    </DialogHeader>
+                                        <Dialog open={isDefaultViewSettingsModalOpen} onOpenChange={setIsDefaultViewSettingsModalOpen}>
+                                            <DialogContent className="sm:max-w-[450px] p-0 overflow-hidden bg-white">
+                                                <DialogHeader className="p-6 pb-2">
+                                                    <DialogTitle className="text-xl font-bold text-zinc-900">Default view settings</DialogTitle>
+                                                    <p className="text-sm text-zinc-500 mt-1">
+                                                        You can set default settings for views in this Space. When new views are created, they'll also inherit these default settings.
+                                                    </p>
+                                                </DialogHeader>
 
-                    <div className="px-6 py-2 space-y-6 max-h-[70vh] overflow-y-auto">
-                        <div className="space-y-4">
-                            <h4 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider flex items-center justify-between">
-                                Page layout
-                                <ChevronDown className="h-4 w-4" />
-                            </h4>
-                            <div className="space-y-3">
-                                {[
-                                    { label: 'Show empty statuses', key: 'showEmptyStatuses' },
-                                    { label: 'Pin description', key: 'pinDescription' },
-                                    { label: 'Auto wrap text', key: 'wrapText' },
-                                    { label: 'Show task locations', key: 'showTaskLocations' },
-                                    { label: 'Show task properties', key: 'showTaskProperties' },
-                                    { label: 'Show subtask parent names', key: 'showSubtaskParentNames' },
-                                ].map((item) => (
-                                    <div key={item.key} className="flex items-center justify-between">
-                                        <span className="text-sm text-zinc-700">{item.label}</span>
-                                        <Switch
-                                            checked={!!(defaultViewSettingsDraft as any)[item.key]}
-                                            onCheckedChange={(val) => setDefaultViewSettingsDraft({ ...defaultViewSettingsDraft, [item.key]: val })}
-                                        />
-                                                                </div>)}
-                            </div>
-                        </div>
+                                                <div className="px-6 py-2 space-y-6 max-h-[70vh] overflow-y-auto">
+                                                    <div className="space-y-4">
+                                                        <h4 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider flex items-center justify-between">
+                                                            Page layout
+                                                            <ChevronDown className="h-4 w-4" />
+                                                        </h4>
+                                                        <div className="space-y-3">
+                                                            {[
+                                                                { label: 'Show empty statuses', key: 'showEmptyStatuses' },
+                                                                { label: 'Pin description', key: 'pinDescription' },
+                                                                { label: 'Auto wrap text', key: 'wrapText' },
+                                                                { label: 'Show task locations', key: 'showTaskLocations' },
+                                                                { label: 'Show task properties', key: 'showTaskProperties' },
+                                                                { label: 'Show subtask parent names', key: 'showSubtaskParentNames' },
+                                                            ].map((item) => (
+                                                                <div key={item.key} className="flex items-center justify-between">
+                                                                    <span className="text-sm text-zinc-700">{item.label}</span>
+                                                                    <Switch
+                                                                        checked={!!(defaultViewSettingsDraft as any)[item.key]}
+                                                                        onCheckedChange={(val) => setDefaultViewSettingsDraft({ ...defaultViewSettingsDraft, [item.key]: val })}
+                                                                    />
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    </div>
 
-                        <div className="space-y-4">
-                            <h4 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider flex items-center justify-between">
-                                Task visibility
-                                <ChevronDown className="h-4 w-4" />
-                            </h4>
-                            <div className="space-y-3">
-                                {[
-                                    { label: 'Show closed tasks', key: 'showCompleted' },
-                                    { label: 'Show closed subtasks', key: 'showCompletedSubtasks' },
-                                    { label: 'Show tasks from other Lists', key: 'showTasksFromOtherLists' },
-                                    { label: 'Show subtasks from other Lists', key: 'showSubtasksFromOtherLists' },
-                                ].map((item) => (
-                                    <div key={item.key} className="flex items-center justify-between">
-                                        <span className="text-sm text-zinc-700">{item.label}</span>
-                                        <Switch
-                                            checked={!!(defaultViewSettingsDraft as any)[item.key]}
-                                            onCheckedChange={(val) => setDefaultViewSettingsDraft({ ...defaultViewSettingsDraft, [item.key]: val })}
-                                        />
-                                                                </div>)}
-                            </div>
-                        </div>
+                                                    <div className="space-y-4">
+                                                        <h4 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider flex items-center justify-between">
+                                                            Task visibility
+                                                            <ChevronDown className="h-4 w-4" />
+                                                        </h4>
+                                                        <div className="space-y-3">
+                                                            {[
+                                                                { label: 'Show closed tasks', key: 'showCompleted' },
+                                                                { label: 'Show closed subtasks', key: 'showCompletedSubtasks' },
+                                                                { label: 'Show tasks from other Lists', key: 'showTasksFromOtherLists' },
+                                                                { label: 'Show subtasks from other Lists', key: 'showSubtasksFromOtherLists' },
+                                                            ].map((item) => (
+                                                                <div key={item.key} className="flex items-center justify-between">
+                                                                    <span className="text-sm text-zinc-700">{item.label}</span>
+                                                                    <Switch
+                                                                        checked={!!(defaultViewSettingsDraft as any)[item.key]}
+                                                                        onCheckedChange={(val) => setDefaultViewSettingsDraft({ ...defaultViewSettingsDraft, [item.key]: val })}
+                                                                    />
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    </div>
 
-                        <div className="pt-2 border-t border-zinc-100 flex items-center justify-between">
-                            <span className="text-sm text-zinc-600">Adjust settings for:</span>
-                            <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                    <Button variant="outline" size="sm" className="h-8 border-zinc-200 text-xs font-normal gap-2 pr-2">
-                                        {defaultViewSettingsApplyTo === "NEW" ? "New views only" :
-                                            defaultViewSettingsApplyTo === "REQUIRED" ? "Required views (and new views created)" :
-                                                "All existing views (and new views created)"}
-                                        <ChevronDown className="h-3 w-3 text-zinc-400" />
-                                    </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end" className="w-80">
-                                    <DropdownMenuItem className="text-sm py-2 px-3" onClick={() => setDefaultViewSettingsApplyTo("NEW")}>
-                                        New views only {defaultViewSettingsApplyTo === "NEW" && <CheckCheck className="ml-auto h-4 w-4 text-emerald-500" />}
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem className="text-sm py-2 px-3" onClick={() => setDefaultViewSettingsApplyTo("REQUIRED")}>
-                                        Required views (and new views created) {defaultViewSettingsApplyTo === "REQUIRED" && <CheckCheck className="ml-auto h-4 w-4 text-emerald-500" />}
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem className="text-sm py-2 px-3" onClick={() => setDefaultViewSettingsApplyTo("ALL")}>
-                                        All existing views (and new views created) {defaultViewSettingsApplyTo === "ALL" && <CheckCheck className="ml-auto h-4 w-4 text-emerald-500" />}
-                                    </DropdownMenuItem>
-                                </DropdownMenuContent>
-                            </DropdownMenu>
-                        </div>
-                    </div>
+                                                    <div className="pt-2 border-t border-zinc-100 flex items-center justify-between">
+                                                        <span className="text-sm text-zinc-600">Adjust settings for:</span>
+                                                        <DropdownMenu>
+                                                            <DropdownMenuTrigger asChild>
+                                                                <Button variant="outline" size="sm" className="h-8 border-zinc-200 text-xs font-normal gap-2 pr-2">
+                                                                    {defaultViewSettingsApplyTo === "NEW" ? "New views only" :
+                                                                        defaultViewSettingsApplyTo === "REQUIRED" ? "Required views (and new views created)" :
+                                                                            "All existing views (and new views created)"}
+                                                                    <ChevronDown className="h-3 w-3 text-zinc-400" />
+                                                                </Button>
+                                                            </DropdownMenuTrigger>
+                                                            <DropdownMenuContent align="end" className="w-80">
+                                                                <DropdownMenuItem className="text-sm py-2 px-3" onClick={() => setDefaultViewSettingsApplyTo("NEW")}>
+                                                                    New views only {defaultViewSettingsApplyTo === "NEW" && <CheckCheck className="ml-auto h-4 w-4 text-emerald-500" />}
+                                                                </DropdownMenuItem>
+                                                                <DropdownMenuItem className="text-sm py-2 px-3" onClick={() => setDefaultViewSettingsApplyTo("REQUIRED")}>
+                                                                    Required views (and new views created) {defaultViewSettingsApplyTo === "REQUIRED" && <CheckCheck className="ml-auto h-4 w-4 text-emerald-500" />}
+                                                                </DropdownMenuItem>
+                                                                <DropdownMenuItem className="text-sm py-2 px-3" onClick={() => setDefaultViewSettingsApplyTo("ALL")}>
+                                                                    All existing views (and new views created) {defaultViewSettingsApplyTo === "ALL" && <CheckCheck className="ml-auto h-4 w-4 text-emerald-500" />}
+                                                                </DropdownMenuItem>
+                                                            </DropdownMenuContent>
+                                                        </DropdownMenu>
+                                                    </div>
+                                                </div>
 
-                    <DialogFooter className="p-6 pt-2">
-                        <Button className="w-full bg-zinc-900 hover:bg-zinc-800 text-white font-bold h-11 rounded-md" onClick={saveDefaultViewSettings}>
-                            Save
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
+                                                <DialogFooter className="p-6 pt-2">
+                                                    <Button className="w-full bg-zinc-900 hover:bg-zinc-800 text-white font-bold h-11 rounded-md" onClick={saveDefaultViewSettings}>
+                                                        Save
+                                                    </Button>
+                                                </DialogFooter>
+                                            </DialogContent>
+                                        </Dialog>
                                         <style jsx global>{`
                 .peopleview-scrollbar {
                     scrollbar-width: thin;
@@ -5567,6 +5573,6 @@ export function PeopleView({ spaceId, projectId, folderId, teamId, listId, viewI
                     background: #c4c4cb;
                 }
             `}</style>
-        </div >
+        </div>
     );
 }

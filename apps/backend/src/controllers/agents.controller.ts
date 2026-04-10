@@ -20,11 +20,41 @@ import { agentHiringService } from '@/services/agents/orchestration/agentHiringS
 import { AgentDepartment } from '@/services/agents/types/types';
 import { agentSimulationService } from '@/services/agents/simulation/agentSimulationService';
 import { runWorkforce } from '@/services/agents/orchestration/workforceExecutionService';
+import { runEditorAssistantMessage } from '@/services/agents/arch/editorAssistantService';
 
 @Controller('v1/agents')
 @UseGuards(JwtAuthGuard)
 export class AgentsController {
   private agentUpdateService = new AgentUpdateService();
+
+  private buildEditorFollowups(
+    mode: 'tool' | 'workforce',
+  ): Array<{ id: string; label: string }> {
+    if (mode === 'tool') {
+      return [
+        { id: 'explain-tool', label: 'Explain this tool step by step' },
+        { id: 'optimize-tool', label: 'Optimize this tool for performance and reliability' },
+        { id: 'add-validation', label: 'Add input validation and error handling' },
+      ];
+    }
+    return [
+      { id: 'explain-workflow', label: 'Explain this workforce graph and its paths' },
+      { id: 'optimize-branches', label: 'Optimize branching logic and error paths' },
+      { id: 'simplify-flow', label: 'Simplify this workflow while keeping behavior' },
+    ];
+  }
+
+  private buildEditorActions(
+    mode: 'tool' | 'workforce',
+  ): Array<{ id: string; label: string; variant: 'primary' | 'secondary' | 'ghost' }> {
+    return [
+      {
+        id: 'apply-proposed-ops',
+        label: mode === 'tool' ? 'Apply these tool changes' : 'Apply these workflow changes',
+        variant: 'primary',
+      },
+    ];
+  }
 
   @Post('simulations/start')
   async startSimulation(@Req() req: AuthenticatedRequest, @Res() res: ExpressResponse) {
@@ -125,6 +155,219 @@ export class AgentsController {
         return res.status(400).json({ error: 'Invalid request', details: error.errors });
       }
       return res.status(500).json({ error: 'Internal server error', message: error instanceof Error ? error.message : 'Unknown' });
+    }
+  }
+
+  /**
+   * POST /v1/agents/tools/editor-assistant/message-stream
+   * POST /v1/agents/workforces/editor-assistant/message-stream
+   *
+   * SSE endpoints that mirror the Agent Builder stream format for the editor
+   * assistant (Tool / Workforce). We currently stream progress steps and the
+   * final payload (assistantText + proposedOps); response text is not streamed
+   * token-by-token yet.
+   */
+  @Post('tools/editor-assistant/message-stream')
+  async toolEditorAssistantStream(
+    @Req() req: AuthenticatedRequest,
+    @Res() res: ExpressResponse,
+  ) {
+    return this.editorAssistantStreamInternal('tool', req, res);
+  }
+
+  @Post('workforces/editor-assistant/message-stream')
+  async workforceEditorAssistantStream(
+    @Req() req: AuthenticatedRequest,
+    @Res() res: ExpressResponse,
+  ) {
+    return this.editorAssistantStreamInternal('workforce', req, res);
+  }
+
+  private async editorAssistantStreamInternal(
+    mode: 'tool' | 'workforce',
+    req: AuthenticatedRequest,
+    res: ExpressResponse,
+  ) {
+    const emitter = new BuilderProgressEmitter(res);
+    emitter.init();
+
+    try {
+      const schema = z.object({
+        conversationId: z.string().min(1),
+        message: z.string().min(1),
+        context: z.unknown(),
+      });
+
+      const body = schema.parse(req.body ?? {});
+      const userId = req.userId!;
+
+      emitter.thinking(
+        mode === 'tool'
+          ? 'Analyzing current tool configuration…'
+          : 'Analyzing current workforce graph…',
+        mode === 'tool' ? 'TOOL_EDITOR' : 'WORKFORCE_EDITOR',
+      );
+
+      const conversation = await prisma.aiConversation.findFirst({
+        where: {
+          id: body.conversationId,
+          userId,
+          conversationType:
+            mode === 'tool'
+              ? 'TOOL_BUILDER'
+              : 'WORKFORCE_BUILDER',
+        },
+        select: { id: true },
+      });
+
+      if (!conversation) {
+        emitter.error('Conversation not found or access denied');
+        return;
+      }
+
+      emitter.thinking(
+        'Drafting proposed changes…',
+        mode === 'tool' ? 'TOOL_EDITOR' : 'WORKFORCE_EDITOR',
+      );
+
+      const result = await runEditorAssistantMessage({
+        mode,
+        userId,
+        conversationId: body.conversationId,
+        message: body.message,
+        context: body.context,
+      });
+
+      const followups = this.buildEditorFollowups(mode);
+      const actions = this.buildEditorActions(mode);
+
+      await prisma.aiMessage.create({
+        data: {
+          conversationId: body.conversationId,
+          role: 'ASSISTANT',
+          content: result.assistantText,
+          metadata: { proposedOps: result.proposedOps, followups, editorMode: mode },
+        },
+      });
+
+      await prisma.aiConversation.update({
+        where: { id: body.conversationId },
+        data: {
+          messageCount: { increment: 2 }, // user + assistant
+          lastMessageAt: new Date(),
+        },
+      });
+
+      emitter.complete({
+        assistantText: result.assistantText,
+        proposedOps: result.proposedOps,
+        followups,
+        actions,
+      });
+    } catch (error: any) {
+      console.error('Error in editor assistant stream:', error);
+      if (error instanceof z.ZodError) {
+        emitter.error('Invalid editor assistant request.');
+      } else {
+        emitter.error(error?.message || 'Internal server error');
+      }
+    }
+  }
+
+  /**
+   * POST /v1/agents/tools/editor-assistant/message
+   * POST /v1/agents/workforces/editor-assistant/message
+   *
+   * Shared editor assistant for Tool & Workforce builders.
+   * Returns strict JSON { assistantText, proposedOps } where proposedOps
+   * are validated ToolOp / WorkforceOp objects.
+   */
+  @Post('tools/editor-assistant/message')
+  async toolEditorAssistantMessage(
+    @Req() req: AuthenticatedRequest,
+    @Res() res: ExpressResponse,
+  ) {
+    return this.editorAssistantMessageInternal('tool', req, res);
+  }
+
+  @Post('workforces/editor-assistant/message')
+  async workforceEditorAssistantMessage(
+    @Req() req: AuthenticatedRequest,
+    @Res() res: ExpressResponse,
+  ) {
+    return this.editorAssistantMessageInternal('workforce', req, res);
+  }
+
+  private async editorAssistantMessageInternal(
+    mode: 'tool' | 'workforce',
+    req: AuthenticatedRequest,
+    res: ExpressResponse,
+  ) {
+    try {
+      const schema = z.object({
+        conversationId: z.string().min(1),
+        message: z.string().min(1),
+        context: z.unknown(),
+      });
+
+      const body = schema.parse(req.body ?? {});
+      const userId = req.userId!;
+
+      // Ensure the conversation belongs to this user and matches the editor mode.
+      const conversation = await prisma.aiConversation.findFirst({
+        where: {
+          id: body.conversationId,
+          userId,
+          conversationType:
+            mode === 'tool'
+              ? 'TOOL_BUILDER'
+              : 'WORKFORCE_BUILDER',
+        },
+        select: { id: true },
+      });
+
+      if (!conversation) {
+        return res.status(404).json({ error: 'Conversation not found or access denied' });
+      }
+
+      const result = await runEditorAssistantMessage({
+        mode,
+        userId,
+        conversationId: body.conversationId,
+        message: body.message,
+        context: body.context,
+      });
+
+      const followups = this.buildEditorFollowups(mode);
+
+      // Persist assistant message with proposedOps metadata for frontend to consume.
+      await prisma.aiMessage.create({
+        data: {
+          conversationId: body.conversationId,
+          role: 'ASSISTANT',
+          content: result.assistantText,
+          metadata: { proposedOps: result.proposedOps, followups, editorMode: mode },
+        },
+      });
+
+      await prisma.aiConversation.update({
+        where: { id: body.conversationId },
+        data: {
+          messageCount: { increment: 2 }, // user + assistant
+          lastMessageAt: new Date(),
+        },
+      });
+
+      return res.json(result);
+    } catch (error) {
+      console.error('Error in editor assistant message:', error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: 'Invalid request', details: error.errors });
+      }
+      return res.status(500).json({
+        error: 'Internal server error',
+        message: error instanceof Error ? error.message : 'Unknown',
+      });
     }
   }
 

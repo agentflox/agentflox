@@ -37,9 +37,20 @@ import {
     Zap,
     GitBranch,
     Files,
-    StickyNote
+    StickyNote,
+    MessageCircle,
+    ExternalLink,
+    X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { EditorAssistantPanel } from '@/components/assistant/EditorAssistantPanel';
+import type { WorkforceOp } from '@/components/assistant/editorOps';
+import { AgentSettingsModal } from '@/entities/agents/components/AgentSettingsModal';
+import { ToolBuilderView } from '../tools/ToolBuilderView';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { trpc } from '@/lib/trpc';
+import { Button } from '@/components/ui/button';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 const nodeTypes: NodeTypes = {
     eventNode: EventNode as any,
@@ -54,7 +65,7 @@ const edgeTypes: EdgeTypes = {
     flowEdge: FlowEdge,
 };
 
-function WorkforceFlow() {
+function WorkforceFlow({ workforceId, workforceName, workspaceId }: { workforceId: string; workforceName?: string; workspaceId?: string }) {
     const {
         nodes,
         edges,
@@ -62,12 +73,121 @@ function WorkforceFlow() {
         onEdgesChange,
         onConnect,
         addNode,
+        setNodes,
+        setEdges,
         setSidebarOpen,
         setActiveNodeId,
-        setActiveEdgeId
+        setActiveEdgeId,
+        editNodeModal,
+        setEditNodeModal,
     } = useWorkforceStore();
     const { screenToFlowPosition } = useReactFlow();
     const { theme } = useTheme();
+    const [assistantOpen, setAssistantOpen] = React.useState(false);
+
+    // Derive the active node data for the edit modal
+    const editModalNode = React.useMemo(
+        () => editNodeModal ? nodes.find(n => n.id === editNodeModal.nodeId) : null,
+        [editNodeModal, nodes]
+    );
+
+    // Load agent details for AgentSettingsModal
+    const { data: editAgentData, refetch: refetchAgent } = trpc.agent.get.useQuery(
+        { id: editModalNode?.data?.agentId || '' },
+        { enabled: editNodeModal?.type === 'agent' && !!editModalNode?.data?.agentId }
+    );
+
+    // Load tool details for ToolBuilderView
+    const { data: compositeToolsData } = trpc.compositeTool.list.useQuery(
+        workspaceId ? { workspaceId } : undefined,
+        { enabled: !!workspaceId && editNodeModal?.type === 'tool' }
+    );
+    const editTool = React.useMemo(() => {
+        if (!editModalNode?.data?.toolId || !compositeToolsData) return null;
+        return (compositeToolsData as any[]).find(t => t.id === editModalNode.data.toolId) || null;
+    }, [compositeToolsData, editModalNode]);
+
+    // Load task details for task modal
+    const { data: editTaskData } = trpc.task.get.useQuery(
+        { id: editModalNode?.data?.taskId || '' },
+        { enabled: editNodeModal?.type === 'task' && !!editModalNode?.data?.taskId }
+    );
+
+    const applyWorkforceOps = React.useCallback((ops: WorkforceOp[]) => {
+        for (const op of ops) {
+            const state = useWorkforceStore.getState();
+            const curNodes = state.nodes;
+            const curEdges = state.edges;
+            try {
+                if (op.op === "addNode") {
+                    const id = op.node.id ?? `${op.node.type}-${Date.now()}`;
+                    const position = op.node.position ?? { x: Math.random() * 200 + 100, y: Math.random() * 200 + 100 };
+                    addNode({ id, type: op.node.type as any, position, data: op.node.data as any } as any);
+                    continue;
+                }
+                if (op.op === "deleteNode") {
+                    setNodes(curNodes.filter(n => n.id !== op.nodeId));
+                    setEdges(curEdges.filter(e => e.source !== op.nodeId && e.target !== op.nodeId));
+                    continue;
+                }
+                if (op.op === "updateNodeData") {
+                    useWorkforceStore.getState().updateNodeData(op.nodeId, op.patch as any);
+                    continue;
+                }
+                if (op.op === "addEdge") {
+                    const id = op.edge.id ?? `e-${Date.now()}`;
+                    setEdges([
+                        ...curEdges,
+                        {
+                            id,
+                            source: op.edge.source,
+                            target: op.edge.target,
+                            sourceHandle: op.edge.sourceHandle,
+                            targetHandle: op.edge.targetHandle,
+                            type: (op.edge.type ?? "flowEdge") as any,
+                            data: op.edge.data as any,
+                            animated: true,
+                        } as any,
+                    ]);
+                    continue;
+                }
+                if (op.op === "deleteEdge") {
+                    setEdges(curEdges.filter(e => e.id !== op.edgeId));
+                    continue;
+                }
+                if (op.op === "updateEdgeData") {
+                    useWorkforceStore.getState().updateEdgeData(op.edgeId, op.patch as any);
+                    continue;
+                }
+                if (op.op === "replaceNode") {
+                    const node = curNodes.find(n => n.id === op.nodeId);
+                    if (!node) continue;
+                    const newId = `${op.replacement.type}-${Date.now()}`;
+                    const newNode = {
+                        id: newId,
+                        type: op.replacement.type as any,
+                        position: node.position,
+                        data: { ...(op.replacement.data as any) },
+                    };
+                    setNodes([...curNodes.filter(n => n.id !== op.nodeId), newNode as any]);
+                    setEdges(curEdges.map(e => ({
+                        ...e,
+                        source: e.source === op.nodeId ? newId : e.source,
+                        target: e.target === op.nodeId ? newId : e.target,
+                    })) as any);
+                    setActiveNodeId(newId);
+                    if (newNode.type === 'agentNode') setSidebarOpen(true, 'AGENT');
+                    if (newNode.type === 'toolNode') setSidebarOpen(true, 'TOOL');
+                    if (newNode.type === 'eventNode') setSidebarOpen(true, 'TRIGGER');
+                    if (newNode.type === 'conditionNode') setSidebarOpen(true, 'CONDITION');
+                    if (newNode.type === 'taskNode') setSidebarOpen(true, 'TASK');
+                    continue;
+                }
+            } catch {
+                // ignore
+            }
+        }
+    }, [addNode, setActiveNodeId, setEdges, setNodes, setSidebarOpen]);
 
     const onNodeClick = (event: React.MouseEvent, node: any) => {
         if (node.type === 'stickyNoteNode') {
@@ -166,6 +286,7 @@ function WorkforceFlow() {
     );
 
     return (
+        <div className="relative h-full w-full">
         <ReactFlow
             nodes={nodes}
             edges={edges}
@@ -192,6 +313,17 @@ function WorkforceFlow() {
                 className="!bg-white !border-zinc-200 !shadow-sm !rounded-xl !m-4"
                 maskColor="rgba(0, 0, 0, 0.05)"
             />
+
+            <Panel position="top-right" className="m-4">
+                <button
+                    type="button"
+                    onClick={() => setAssistantOpen((v) => !v)}
+                    className="rounded-lg border border-zinc-200 bg-white px-3 py-2 text-xs font-medium text-zinc-700 hover:bg-zinc-50 shadow-sm flex items-center gap-2"
+                >
+                    <MessageCircle className="h-4 w-4" />
+                    Assistant
+                </button>
+            </Panel>
 
             {/* Floating Sidebar Controls */}
             <Panel position="bottom-left" className="m-4">
@@ -270,13 +402,142 @@ function WorkforceFlow() {
                 </div>
             </Panel>
         </ReactFlow>
+
+        {/* Left assistant sidebar */}
+        {assistantOpen ? (
+            <div className="absolute top-0 left-0 h-full w-[420px] border-r border-zinc-200 bg-white shadow-xl z-50">
+                <div className="h-full flex flex-col">
+                    <div className="px-4 py-3 border-b border-zinc-200 flex items-center justify-between">
+                        <div className="text-sm font-semibold text-zinc-900">Assistant</div>
+                        <button
+                            type="button"
+                            onClick={() => setAssistantOpen(false)}
+                            className="h-8 w-8 rounded-md hover:bg-zinc-50 text-zinc-500"
+                            aria-label="Close assistant"
+                        >
+                            ×
+                        </button>
+                    </div>
+                    <div className="flex-1 min-h-0">
+                        <EditorAssistantPanel
+                            mode="workforce"
+                            title="Workforce Assistant"
+                            entityId={workforceId}
+                            entityName={workforceName || "Workforce"}
+                            context={{
+                                nodes,
+                                edges,
+                                activeNodeId: useWorkforceStore.getState().activeNodeId,
+                                activeEdgeId: useWorkforceStore.getState().activeEdgeId,
+                            }}
+                            onApplyOps={(ops) => applyWorkforceOps(ops as any)}
+                            className="h-full"
+                        />
+                    </div>
+                </div>
+            </div>
+        ) : null}
+
+        {/* ── Agent Settings Modal ─────────────────────────────────── */}
+        {editNodeModal?.type === 'agent' && editAgentData && (
+            <AgentSettingsModal
+                open={true}
+                onOpenChange={(open) => !open && setEditNodeModal(null)}
+                agent={editAgentData}
+                onUpdate={() => refetchAgent()}
+            />
+        )}
+
+        {/* ── Tool Builder Dialog ───────────────────────────────────── */}
+        <Dialog open={editNodeModal?.type === 'tool' && !!editTool} onOpenChange={(val) => !val && setEditNodeModal(null)}>
+            <DialogContent className="sm:max-w-[1400px] sm:w-[95vw] w-[95vw] h-[95vh] p-0 flex flex-col overflow-hidden bg-zinc-50 border-0 rounded-2xl shadow-2xl [&>button]:hidden">
+                {editTool && (
+                    <ToolBuilderView
+                        workspaceId={workspaceId!}
+                        initialTool={editTool}
+                        onClose={() => setEditNodeModal(null)}
+                    />
+                )}
+            </DialogContent>
+        </Dialog>
+
+        {/* ── Task Detail Dialog ────────────────────────────────────── */}
+        <Dialog open={editNodeModal?.type === 'task' && !!editTaskData} onOpenChange={(val) => !val && setEditNodeModal(null)}>
+            <DialogContent className="sm:max-w-[720px] w-[95vw] max-h-[85vh] p-0 overflow-hidden rounded-2xl shadow-2xl border-zinc-200">
+                {editTaskData && (
+                    <div className="flex flex-col h-full">
+                        <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-100 bg-white">
+                            <div className="flex items-center gap-3">
+                                <div className="h-9 w-9 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-600 border border-indigo-100">
+                                    <Files className="h-5 w-5" />
+                                </div>
+                                <div>
+                                    <h2 className="text-base font-bold text-zinc-900 leading-tight">{(editTaskData as any).title}</h2>
+                                    <p className="text-[11px] text-indigo-500 font-bold uppercase tracking-widest mt-0.5">Task</p>
+                                </div>
+                            </div>
+                            <Button variant="ghost" size="sm" className="gap-1.5 text-zinc-500 text-xs" asChild>
+                                <a href={`/dashboard/tasks/${(editTaskData as any).id}`} target="_blank" rel="noopener noreferrer">
+                                    <ExternalLink className="h-3.5 w-3.5" />
+                                    Open full view
+                                </a>
+                            </Button>
+                        </div>
+                        <ScrollArea className="flex-1 p-6">
+                            <div className="space-y-5">
+                                {(editTaskData as any).description && (
+                                    <div>
+                                        <p className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest mb-1.5">Description</p>
+                                        <p className="text-sm text-zinc-700 leading-relaxed">{(editTaskData as any).description}</p>
+                                    </div>
+                                )}
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <p className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest mb-1.5">Status</p>
+                                        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-zinc-100 text-zinc-700 text-xs font-semibold">
+                                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                                            {(editTaskData as any).status?.name || (editTaskData as any).status || 'No status'}
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <p className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest mb-1.5">Priority</p>
+                                        <div className="text-sm font-semibold text-zinc-700 capitalize">
+                                            {(editTaskData as any).priority?.name || (editTaskData as any).priority || '—'}
+                                        </div>
+                                    </div>
+                                    {(editTaskData as any).dueDate && (
+                                        <div>
+                                            <p className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest mb-1.5">Due Date</p>
+                                            <div className="text-sm font-semibold text-zinc-700">
+                                                {new Date((editTaskData as any).dueDate).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
+                                            </div>
+                                        </div>
+                                    )}
+                                    {(editTaskData as any).assignees?.length > 0 && (
+                                        <div>
+                                            <p className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest mb-1.5">Assignees</p>
+                                            <div className="flex flex-wrap gap-1">
+                                                {(editTaskData as any).assignees.map((a: any) => (
+                                                    <span key={a.id} className="text-xs bg-zinc-100 text-zinc-700 px-2 py-0.5 rounded-full font-medium">{a.name || a.email}</span>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </ScrollArea>
+                    </div>
+                )}
+            </DialogContent>
+        </Dialog>
+        </div>
     );
 }
 
-export default function WorkforceCanvas() {
+export default function WorkforceCanvas({ workforceId, workforceName, workspaceId }: { workforceId: string; workforceName?: string; workspaceId?: string }) {
     return (
         <ReactFlowProvider>
-            <WorkforceFlow />
+            <WorkforceFlow workforceId={workforceId} workforceName={workforceName} workspaceId={workspaceId} />
         </ReactFlowProvider>
     );
 }

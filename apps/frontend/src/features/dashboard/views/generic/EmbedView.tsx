@@ -269,17 +269,17 @@ export function EmbedView({
         const trimmed = newName.trim();
         const oldName = viewData?.name || "";
         setViewNameDraft(trimmed);
-        
+
         // Optimistically patch all parent caches so the tab bar updates immediately
         const patchViews = (views: any[]) => views.map((v: any) => v.id === viewId ? { ...v, name: trimmed } : v);
-        
+
         // Update generic caches
         if (spaceId) utils.space?.get?.setData({ id: spaceId }, (old: any) => old ? { ...old, views: patchViews(old.views ?? []) } : old);
         if (projectId) utils.project?.get?.setData({ id: projectId }, (old: any) => old ? { ...old, views: patchViews(old.views ?? []) } : old);
         if (teamId) utils.team?.get?.setData({ id: teamId }, (old: any) => old ? { ...old, views: patchViews(old.views ?? []) } : old);
         if (folderId) utils.folder?.get?.setData({ id: folderId }, (old: any) => old ? { ...old, views: patchViews(old.views ?? []) } : old);
         if (listId) utils.list?.get?.setData({ id: listId }, (old: any) => old ? { ...old, views: patchViews(old.views ?? []) } : old);
-        
+
         // Use a generic approach to update list.byContext
         const updateListByContext = () => {
             try {
@@ -294,7 +294,7 @@ export function EmbedView({
                         };
                     });
                 }
-            } catch (e) {}
+            } catch (e) { }
         };
         updateListByContext();
 
@@ -308,11 +308,11 @@ export function EmbedView({
             if (folderId && utils.folder?.get) void utils.folder.get.invalidate({ id: folderId });
             if (listId && utils.list?.get) void utils.list.get.invalidate({ id: listId });
             if (listId && utils.list?.byContext) void utils.list.byContext.invalidate();
-            
+
             if (typeof refetchViewData === 'function') void refetchViewData();
         } catch (e) {
             setViewNameDraft(oldName);
-            
+
             // Revert optimistic updates
             const revertViews = (views: any[]) => views.map((v: any) => v.id === viewId ? { ...v, name: oldName } : v);
             if (spaceId) utils.space?.get?.setData({ id: spaceId }, (old: any) => old ? { ...old, views: revertViews(old.views ?? []) } : old);
@@ -588,7 +588,7 @@ export function EmbedView({
                                     <Button
                                         variant="ghost"
                                         size="icon"
-                                         className="h-8 w-8 -ml-2 cursor-pointer"
+                                        className="h-8 w-8 -ml-2 cursor-pointer"
                                         onClick={() => {
                                             setEditSourcePanelOpen(false);
                                             if (isEmbedded) setCustomizePanelOpen(true);
@@ -714,21 +714,21 @@ export function EmbedView({
                                     <div className="h-px bg-zinc-100 my-2" />
 
                                     <div className="space-y-1">
-                                         <div className="flex items-center justify-between py-2.5 px-2 hover:bg-zinc-50 rounded-md transition-colors cursor-pointer" onClick={() => { setPinView(!pinView); updateViewProperty('isPinned', !pinView); }}>
+                                        <div className="flex items-center justify-between py-2.5 px-2 hover:bg-zinc-50 rounded-md transition-colors cursor-pointer" onClick={() => { setPinView(!pinView); updateViewProperty('isPinned', !pinView); }}>
                                             <div className="flex items-center gap-2">
                                                 <Pin className="h-4 w-4 text-zinc-400" />
                                                 <span className="text-sm text-zinc-800">Pin view</span>
                                             </div>
                                             <Switch checked={pinView} onCheckedChange={(val) => { setPinView(val); updateViewProperty('isPinned', val); }} />
                                         </div>
-                                         <div className="flex items-center justify-between py-2.5 px-2 hover:bg-zinc-50 rounded-md transition-colors cursor-pointer" onClick={() => { setPrivateView(!privateView); updateViewProperty('isPrivate', !privateView); }}>
+                                        <div className="flex items-center justify-between py-2.5 px-2 hover:bg-zinc-50 rounded-md transition-colors cursor-pointer" onClick={() => { setPrivateView(!privateView); updateViewProperty('isPrivate', !privateView); }}>
                                             <div className="flex items-center gap-2">
                                                 <Lock className="h-4 w-4 text-zinc-400" />
                                                 <span className="text-sm text-zinc-800">Private view</span>
                                             </div>
                                             <Switch checked={privateView} onCheckedChange={(val) => { setPrivateView(val); updateViewProperty('isPrivate', val); }} />
                                         </div>
-                                         <div className="flex items-center justify-between py-2.5 px-2 hover:bg-zinc-50 rounded-md transition-colors cursor-pointer" onClick={() => { setDefaultView(!defaultView); updateViewProperty('isDefault', !defaultView); }}>
+                                        <div className="flex items-center justify-between py-2.5 px-2 hover:bg-zinc-50 rounded-md transition-colors cursor-pointer" onClick={() => { setDefaultView(!defaultView); updateViewProperty('isDefault', !defaultView); }}>
                                             <div className="flex items-center gap-2">
                                                 <Home className="h-4 w-4 text-zinc-400" />
                                                 <span className="text-sm text-zinc-800">Set as default view</span>

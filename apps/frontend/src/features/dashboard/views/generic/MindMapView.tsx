@@ -1616,6 +1616,28 @@ function MindMapHeader({
         return custom?.label || "None";
     }, [groupBy, FIELD_CONFIG]);
 
+    const [isToolbarSearchOpen, setIsToolbarSearchOpen] = useState(false);
+    const toolbarSearchContainerRef = useRef<HTMLDivElement | null>(null);
+    const toolbarSearchInputRef = useRef<HTMLInputElement | null>(null);
+
+    useEffect(() => {
+        if (!isToolbarSearchOpen) return;
+
+        toolbarSearchInputRef.current?.focus();
+
+        const handleClickOutside = (event: MouseEvent) => {
+            const target = event.target as Node;
+            if (!toolbarSearchContainerRef.current?.contains(target)) {
+                setIsToolbarSearchOpen(false);
+            }
+        };
+
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => {
+            document.removeEventListener("mousedown", handleClickOutside);
+        };
+    }, [isToolbarSearchOpen]);
+
     return (
         <div className="border-b border-zinc-100 bg-white px-3 py-2 shrink-0">
             <div className="flex items-center justify-between gap-3 overflow-x-auto">
@@ -1681,9 +1703,37 @@ function MindMapHeader({
                         </PopoverContent>
                     </Popover>
 
-                    <div className="relative w-40 hidden sm:block">
-                        <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
-                        <Input className="pl-8 h-8 bg-zinc-50/50 border-zinc-200 text-sm rounded-lg" placeholder="Search..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
+                    <div ref={toolbarSearchContainerRef} className="hidden sm:block">
+                        {isToolbarSearchOpen ? (
+                            <div className="w-56 min-w-[12rem]">
+                                <div className="flex items-center h-8 rounded-lg border border-zinc-200 bg-zinc-50/50 px-2">
+                                    <Search className="h-4 w-4 text-zinc-400 shrink-0" />
+                                    <Input
+                                        ref={toolbarSearchInputRef}
+                                        variant="ghost"
+                                        className="h-full px-2 text-sm border-0 bg-transparent shadow-none focus:outline-none focus:ring-0 focus-visible:ring-0"
+                                        placeholder="Search..."
+                                        value={searchQuery}
+                                        onChange={e => setSearchQuery(e.target.value)}
+                                        onKeyDown={(e) => {
+                                            if (e.key === "Escape") {
+                                                setIsToolbarSearchOpen(false);
+                                            }
+                                        }}
+                                    />
+                                </div>
+                            </div>
+                        ) : (
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-8 w-8 p-0 text-zinc-700 border-zinc-200"
+                                onClick={() => setIsToolbarSearchOpen(true)}
+                                title="Search"
+                            >
+                                <Search className="h-4 w-4" />
+                            </Button>
+                        )}
                     </div>
 
                     <Tooltip>
@@ -3449,6 +3499,9 @@ export function MindMapView(props: MindMapViewProps) {
     const [savedFiltersSearch, setSavedFiltersSearch] = useState("");
     const [savedFilterName, setSavedFilterName] = useState("");
     const [searchQuery, setSearchQuery] = useState("");
+    const [isToolbarSearchOpen, setIsToolbarSearchOpen] = useState(false);
+    const toolbarSearchContainerRef = useRef<HTMLDivElement | null>(null);
+    const toolbarSearchInputRef = useRef<HTMLInputElement | null>(null);
     const [fieldsPanelOpen, setFieldsPanelOpen] = useState(false);
     const [assigneesPanelOpen, setAssigneesPanelOpen] = useState(false);
     const [customizePanelOpen, setCustomizePanelOpen] = useState(false);
@@ -3495,6 +3548,24 @@ export function MindMapView(props: MindMapViewProps) {
     const [showSubtasksFromOtherLists, setShowSubtasksFromOtherLists] = useState(false);
     const [defaultToMeMode, setDefaultToMeMode] = useState(false);
     const [showMinimap, setShowMinimap] = useState(true);
+    useEffect(() => {
+        if (!isToolbarSearchOpen) return;
+
+        toolbarSearchInputRef.current?.focus();
+
+        const handleClickOutside = (event: MouseEvent) => {
+            const target = event.target as Node;
+            if (!toolbarSearchContainerRef.current?.contains(target)) {
+                setIsToolbarSearchOpen(false);
+            }
+        };
+
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => {
+            document.removeEventListener("mousedown", handleClickOutside);
+        };
+    }, [isToolbarSearchOpen]);
+
     const [fieldsSearch, setFieldsSearch] = useState("");
     const [visibleColumns, setVisibleColumns] = useState<Set<string>>(new Set(["status", "assignee", "priority"]));
     const [customizeViewFilterOpen, setCustomizeViewFilterOpen] = useState(false);

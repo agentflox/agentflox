@@ -46,7 +46,55 @@ interface Message {
   role: "user" | "assistant";
   content: string;
   executionId?: string;
+  metadata?: any;
 }
+
+
+const renderNestedAgentResults = (rawResponse: any) => {
+  if (!rawResponse) return null;
+  const response = typeof rawResponse === "string" ? { output: rawResponse } : rawResponse;
+
+  const agentName = response.agent || response.agentName || response.node || "Agent";
+  let output = response.summary || response.message || response.output?.text || response.output?.summary || response.output || rawResponse;
+
+  if (typeof output !== 'string') {
+    try {
+      output = JSON.stringify(output, null, 2);
+    } catch (e) {
+      output = "Un-parseable output";
+    }
+  }
+
+  return (
+    <div className="relative">
+      <div className="absolute -left-[13px] -top-3 bg-[#fafafa] py-1 flex items-center gap-2 w-max pr-1 z-10">
+        <div className="relative">
+          <div className="h-6 w-6 rounded-full bg-indigo-100 flex items-center justify-center shrink-0 shadow-sm border border-indigo-200">
+            <span className="text-[10px] font-bold text-indigo-700">{agentName.slice(0, 1).toUpperCase()}</span>
+          </div>
+          <div className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 bg-emerald-500 border-2 border-[#fafafa] rounded-full"></div>
+        </div>
+        <span className="text-xs font-semibold text-indigo-600 truncate max-w-[150px]">{agentName}</span>
+      </div>
+
+      <div className="pt-6 pb-2">
+        <div className="bg-white border border-zinc-200 rounded-xl shadow-sm overflow-hidden w-full">
+          <div className="bg-zinc-50 border-b border-zinc-100 px-3 py-2 flex items-center gap-2">
+            <div className="h-5 w-5 rounded-full bg-indigo-100 flex items-center justify-center shrink-0">
+              <span className="text-[9px] font-bold text-indigo-700">{agentName.slice(0, 1).toUpperCase()}</span>
+            </div>
+            <span className="text-xs font-semibold text-zinc-800 truncate max-w-[150px]">{agentName}</span>
+            <span className="text-xs text-zinc-500 shrink-0">provided an update</span>
+          </div>
+
+          <div className="p-4 text-sm text-zinc-700 whitespace-pre-wrap font-sans">
+            {output}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 interface WorkforceRunViewProps {
   workforceId: string;
@@ -112,6 +160,7 @@ export default function WorkforceRunView({
       const conv = await createConversation.mutateAsync({
         workforceId,
         workforceName,
+        mode: 'FLOW',
       });
       const newConv = {
         id: conv.id,
@@ -121,7 +170,7 @@ export default function WorkforceRunView({
         messageCount: 0,
       };
       utils.chat.listWorkforceConversations.setData(
-        { workforceId },
+        { workforceId, mode: 'FLOW' },
         (old) => (old ? [newConv, ...old] : [newConv])
       );
       setConversationId(conv.id);
@@ -183,8 +232,8 @@ export default function WorkforceRunView({
         status === "COMPLETED"
           ? "completed"
           : status
-          ? status.toLowerCase()
-          : "started";
+            ? status.toLowerCase()
+            : "started";
 
       const reason = response?.reason as string | undefined;
       const skipped = response?.skipped === true;
@@ -238,7 +287,7 @@ export default function WorkforceRunView({
           });
 
           await refetchMessages();
-          utils.chat.listWorkforceConversations.invalidate({ workforceId });
+          utils.chat.listWorkforceConversations.invalidate({ workforceId, mode: 'FLOW' });
         }
       } catch (err) {
         console.error("[WorkforceRunView] Failed to persist/refetch", err);
@@ -257,6 +306,7 @@ export default function WorkforceRunView({
       role: m.role === "ASSISTANT" ? "assistant" : "user",
       content: m.content as string,
       executionId: (m.metadata as any)?.executionId as string | undefined,
+      metadata: m.metadata as any,
     }));
     setMessages(mapped);
   }, [messagesData, isSending, isPolling, optimisticPending]);
@@ -363,11 +413,34 @@ export default function WorkforceRunView({
                   )}
                 </>
               ) : (
-                <div className="rounded-2xl bg-zinc-900 text-zinc-50 px-4 py-3 text-sm whitespace-pre-wrap max-w-[90%]">
-                  {msg.executionId ? (
-                    <span className="text-emerald-400">{msg.content}</span>
-                  ) : (
-                    msg.content
+                <div className="w-full max-w-[90%] flex flex-col font-sans group/assistant">
+                  {/* Outer Main Box representing the Trigger / Entry Execution text */}
+                  <div className="rounded-xl bg-white border border-zinc-200 p-4 shadow-sm relative z-10 w-full mb-1">
+                    <div className="flex items-start gap-3">
+                      <div className="h-8 w-8 shrink-0 rounded border flex items-center justify-center mt-0.5 text-zinc-600 font-bold border-zinc-200 bg-white shadow-sm">
+                        {workforceName?.charAt(0)?.toUpperCase()}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-[10px] text-zinc-500 font-semibold tracking-wide uppercase mb-0.5">
+                          {triggerLabel ? `Triggered by ${triggerLabel}` : "Workforce Execution"}
+                        </div>
+                        <div className="text-sm font-bold text-zinc-900 leading-snug">
+                          {msg.content}
+                        </div>
+                        {msg.executionId && (
+                          <div className="text-xs text-zinc-400 mt-1.5 font-mono">
+                            ID: {msg.executionId.split('-')[0]}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Connected Agent Flow Responses */}
+                  {msg.metadata?.response && (
+                    <div className="pl-4 ml-[31px] border-l-[1.5px] border-solid border-zinc-300 relative pt-3 pb-0">
+                      {renderNestedAgentResults(msg.metadata.response)}
+                    </div>
                   )}
                 </div>
               )}

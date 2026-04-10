@@ -37,6 +37,7 @@ interface AssigneeSelectorProps {
     agents?: SelectOption[];
     workspaceId?: string;
     className?: string;
+    contentClassName?: string;
     variant?: "default" | "compact";
     value?: string[];
     onChange?: (value: string[]) => void;
@@ -45,7 +46,10 @@ interface AssigneeSelectorProps {
     task?: Task;
     showMarketplaceActions?: boolean;
     align?: "start" | "center" | "end";
+    side?: "top" | "right" | "bottom" | "left";
     sideOffset?: number;
+    collisionPadding?: number;
+    avoidCollisions?: boolean;
     open?: boolean;
     onOpenChange?: (open: boolean) => void;
     hidePopover?: boolean;
@@ -56,6 +60,7 @@ export function AssigneeSelector({
     teams = [],
     agents = [],
     className,
+    contentClassName,
     variant = "default",
     value,
     onChange,
@@ -65,7 +70,10 @@ export function AssigneeSelector({
     workspaceId,
     showMarketplaceActions = false,
     align = "start",
+    side = "bottom",
     sideOffset = 4,
+    collisionPadding = 8,
+    avoidCollisions = true,
     open: controlledOpen,
     onOpenChange: setControlledOpen,
     hidePopover = false
@@ -74,7 +82,11 @@ export function AssigneeSelector({
     const [internalOpen, setInternalOpen] = React.useState(false);
 
     const open = controlledOpen !== undefined ? controlledOpen : internalOpen;
-    const setOpen = setControlledOpen !== undefined ? setControlledOpen : setInternalOpen;
+    const setOpen = (v: boolean) => {
+        if (setControlledOpen) setControlledOpen(v);
+        // Only update internal state if we aren't fully controlled
+        if (controlledOpen === undefined) setInternalOpen(v);
+    };
     const [showPublishModal, setShowPublishModal] = React.useState(false);
     const [showInviteModal, setShowInviteModal] = React.useState(false);
 
@@ -381,7 +393,7 @@ export function AssigneeSelector({
                             variant="outline"
                             size="sm"
                             className={cn(
-                                "h-7 border-zinc-200 bg-white hover:bg-zinc-50 focus:ring-0 px-2.5 rounded-md text-xs font-medium shadow-sm transition-all text-zinc-700",
+                                "h-7 border-zinc-200 bg-white hover:bg-zinc-50 focus:ring-0 px-2.5 rounded-md text-xs font-medium shadow-sm transition-all text-zinc-700 cursor-pointer",
                                 assigneeIds.length === 0 && "text-zinc-500 dashed border-zinc-300",
                                 className
                             )}
@@ -442,7 +454,14 @@ export function AssigneeSelector({
                         </Button>
                     )}
                 </PopoverTrigger>
-                <PopoverContent align={align} sideOffset={sideOffset} className="w-[280px] p-0 shadow-2xl border-zinc-200 overflow-hidden rounded-2xl">
+                <PopoverContent
+                    align={align}
+                    side={side}
+                    sideOffset={sideOffset}
+                    collisionPadding={collisionPadding}
+                    avoidCollisions={avoidCollisions}
+                    className={cn("w-[280px] p-0 shadow-2xl border-zinc-200 overflow-hidden rounded-2xl", contentClassName)}
+                >
                     {content}
                 </PopoverContent>
             </Popover>

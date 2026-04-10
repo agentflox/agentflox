@@ -1,65 +1,92 @@
 import React, { memo } from 'react';
 import { Handle, Position, NodeProps } from '@xyflow/react';
-import { Wrench } from 'lucide-react';
+import { Wrench, Plus, Pencil } from 'lucide-react';
 import { WorkforceNode } from '../store/useWorkforceStore';
+import { useWorkforceStore } from '../store/useWorkforceStore';
 import { NodeContextMenu } from './NodeContextMenu';
 import { AttachedStickyNote } from './AttachedStickyNote';
 import { GlowHandle } from './AgentNode';
 import { cn } from '@/lib/utils';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 export const ToolNode = memo(({ id, data, isConnectable }: NodeProps<WorkforceNode>) => {
+    const isEmpty = !data?.toolId;
+
     return (
-        <div className="flex flex-col relative min-w-[220px]">
+        <div className="flex flex-col relative" style={{ width: 260 }}>
             <AttachedStickyNote nodeId={id} data={data} />
+
             <div className={cn(
-                "bg-white rounded-2xl w-full overflow-hidden group transition-all duration-500 cursor-pointer pointer-events-auto",
-                "border border-zinc-200/80 shadow-[0_1px_3px_rgba(0,0,0,0.02),0_12px_36px_-12px_rgba(0,0,0,0.08)]",
-                "hover:border-emerald-400/50 hover:shadow-[0_20px_60px_-15px_rgba(16,185,129,0.15)] hover:-translate-y-1",
-                "ring-1 ring-zinc-200/50 hover:ring-emerald-500/10",
+                "relative bg-white rounded-2xl w-full flex flex-col cursor-pointer pointer-events-auto transition-all duration-200 group",
+                isEmpty
+                    ? "border border-emerald-400 shadow-[0_2px_12px_rgba(0,0,0,0.04)]"
+                    : "border border-zinc-200 shadow-[0_2px_12px_rgba(0,0,0,0.08)] hover:border-emerald-300 hover:shadow-[0_4px_24px_rgba(16,185,129,0.14)] hover:-translate-y-0.5",
                 data?.skipped && "opacity-40 grayscale pointer-events-none"
-            )}>
-                <div className="bg-gradient-to-br from-zinc-50/80 to-white px-4 py-3 border-b border-zinc-100 flex items-center justify-between group-hover:from-emerald-50/40 group-hover:to-white transition-all duration-500">
-                    <div className="flex items-center gap-2.5">
-                        <div className="h-7 w-7 rounded-lg bg-emerald-50 flex items-center justify-center group-hover:bg-white transition-colors">
-                            <Wrench size={14} className="text-emerald-600" />
+            )} style={{ height: isEmpty ? 88 : 140 }}>
+
+                {isEmpty ? (
+                    <>
+                        <div className="flex items-center justify-between px-3 pt-3">
+                            <div className="flex items-center gap-2.5">
+                                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-600">
+                                    <Wrench size={12} /> Tool
+                                </div>
+                                <div className="h-5 w-24 bg-zinc-100 rounded-md" />
+                            </div>
+                            <NodeContextMenu nodeId={id} />
                         </div>
-                        <span className="text-[12px] font-bold text-zinc-900 uppercase tracking-wider">Tool Node</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <NodeContextMenu nodeId={id} />
-                    </div>
-                </div>
-                <div className="p-4 bg-white pointer-events-auto">
-                    <div className="space-y-3">
-                        <div>
-                            <div className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-1">Target Tool</div>
-                            <div className="flex items-center gap-2">
-                                <div className="h-5 w-5 rounded-md bg-zinc-100 flex items-center justify-center">
-                                    <Wrench size={10} className="text-zinc-400" />
-                                </div>
-                                <div className="text-[13px] font-semibold text-zinc-700 truncate">
-                                    {data?.label || 'Select a tool...'}
-                                </div>
+                        <div className="px-4 mt-auto mb-3 flex items-center gap-2 text-zinc-600">
+                            <Plus size={16} className="text-zinc-500" />
+                            <span className="text-[15px] text-zinc-600 font-medium">Add tool</span>
+                        </div>
+                    </>
+                ) : (
+                    <>
+                        {/* Top row: badge + menu */}
+                        <div className="flex items-center justify-between px-3 pt-3 pb-2">
+                            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-600">
+                                <Wrench size={12} />
+                                Tool
+                            </div>
+                            <div className="flex items-center gap-1">
+                                {data?.toolId && (
+                                    <TooltipProvider delayDuration={200}>
+                                        <Tooltip>
+                                            <TooltipTrigger asChild>
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); useWorkforceStore.getState().setEditNodeModal({ nodeId: id, type: 'tool' }); }}
+                                                    className="h-6 w-6 flex items-center justify-center rounded-md hover:bg-zinc-200 text-zinc-400 hover:text-zinc-600 transition-all opacity-0 group-hover:opacity-100 cursor-pointer"
+                                                >
+                                                    <Pencil size={12} />
+                                                </button>
+                                            </TooltipTrigger>
+                                            <TooltipContent side="top" className="text-xs">Edit tool</TooltipContent>
+                                        </Tooltip>
+                                    </TooltipProvider>
+                                )}
+                                <NodeContextMenu nodeId={id} />
                             </div>
                         </div>
 
-                        <div className="pt-3 border-t border-zinc-50">
-                            <div className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-1 text-right">Status</div>
-                            <div className="text-[12px] font-medium text-zinc-600 text-right leading-relaxed flex items-center justify-end gap-1.5">
-                                <div className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                                Ready
+                        {/* Content */}
+                        <div className="px-3 pb-3 flex-1 min-h-0 flex flex-col">
+                            <div className="flex-1 min-h-0 pr-1">
+                                <div className="text-[14px] font-bold text-zinc-900 leading-snug truncate">
+                                    {data?.label || 'Select a tool...'}
+                                </div>
+                                {data?.description && (
+                                    <div className="text-[11.5px] text-zinc-500 mt-1 leading-relaxed line-clamp-2">
+                                        {data.description}
+                                    </div>
+                                )}
                             </div>
                         </div>
-                    </div>
-                </div>
+                    </>
+                )}
+
+                <Handle type="target" position={Position.Top} isConnectable={isConnectable} className="!opacity-0 !w-5 !h-5 pointer-events-auto" />
+                <GlowHandle isConnectable={isConnectable} />
             </div>
-            <Handle
-                type="target"
-                position={Position.Top}
-                isConnectable={isConnectable}
-                className="!opacity-0 !w-5 !h-5 pointer-events-auto"
-            />
-            <GlowHandle isConnectable={isConnectable} />
         </div>
     );
 });

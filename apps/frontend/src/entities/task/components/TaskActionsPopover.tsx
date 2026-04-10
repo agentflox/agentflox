@@ -45,6 +45,7 @@ export interface TaskActionsProps {
 
 interface TaskActionsPopoverProps extends TaskActionsProps {
     children: React.ReactNode;
+    openOnContextMenu?: boolean;
 }
 
 export function TaskActionsPopover({
@@ -61,7 +62,8 @@ export function TaskActionsPopover({
     onAction,
     getTaskUrl,
     children,
-    tooltip
+    tooltip,
+    openOnContextMenu = false,
 }: TaskActionsPopoverProps) {
     const [isOpen, setIsOpen] = useState(false);
     const [permissionsModalOpen, setPermissionsModalOpen] = useState(false);
@@ -71,6 +73,27 @@ export function TaskActionsPopover({
     const [dependenciesModalOpen, setDependenciesModalOpen] = useState(false);
     const [moveModalOpen, setMoveModalOpen] = useState(false);
     const [mergeModalOpen, setMergeModalOpen] = useState(false);
+
+    const contextMenuHandler = (e: React.MouseEvent) => {
+        if (!openOnContextMenu) return;
+        e.preventDefault();
+        e.stopPropagation();
+        setIsOpen(true);
+    };
+
+    const triggerNode = React.isValidElement(children)
+        ? React.cloneElement(children as React.ReactElement<any>, {
+            onContextMenu: (e: React.MouseEvent) => {
+                const original = (children as any)?.props?.onContextMenu;
+                if (typeof original === "function") original(e);
+                if (!e.defaultPrevented) contextMenuHandler(e);
+            },
+        })
+        : (
+            <span onContextMenu={contextMenuHandler}>
+                {children}
+            </span>
+        );
 
     const taskUrl = getTaskUrl
         ? getTaskUrl(task)
@@ -140,22 +163,40 @@ export function TaskActionsPopover({
 
     return (
         <Popover open={isOpen} onOpenChange={setIsOpen}>
-            {tooltip ? (
-                <TooltipProvider>
-                    <Tooltip>
-                        <TooltipTrigger asChild>
-                            <PopoverTrigger asChild>
-                                {children}
-                            </PopoverTrigger>
-                        </TooltipTrigger>
-                        <TooltipContent>{tooltip}</TooltipContent>
-                    </Tooltip>
-                </TooltipProvider>
-            ) : (
-                <PopoverTrigger asChild>
-                    {children}
-                </PopoverTrigger>
-            )}
+            {openOnContextMenu ? (
+                // Context-menu-only mode: children are NOT a PopoverTrigger.
+                // Clicks flow through normally to child's own onClick handler.
+                // The popover opens only on right-click via onContextMenu.
+                React.isValidElement(children)
+                    ? React.cloneElement(children as React.ReactElement<any>, {
+                        onContextMenu: (e: React.MouseEvent) => {
+                            const original = (children as any)?.props?.onContextMenu;
+                            if (typeof original === "function") original(e);
+                            if (!e.defaultPrevented) contextMenuHandler(e);
+                        },
+                    })
+                    : <span onContextMenu={contextMenuHandler}>{children}</span>
+            ) : (() => {
+                if (tooltip) {
+                    return (
+                        <TooltipProvider>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <PopoverTrigger asChild>
+                                        {triggerNode}
+                                    </PopoverTrigger>
+                                </TooltipTrigger>
+                                <TooltipContent>{tooltip}</TooltipContent>
+                            </Tooltip>
+                        </TooltipProvider>
+                    );
+                }
+                return (
+                    <PopoverTrigger asChild>
+                        {triggerNode}
+                    </PopoverTrigger>
+                );
+            })()}
             <PopoverContent align="start" side="right" className="w-64 p-1 animate-in fade-in-0 zoom-in-95 duration-100">
                 <div className="max-h-[80vh] overflow-y-auto overflow-x-hidden">
                     <ActionItem

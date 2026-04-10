@@ -1,7 +1,6 @@
 
 import { inngest } from '@/lib/inngest';
 import { prisma } from '@/lib/prisma';
-import logger from '@/lib/logger';
 import { workflowOrchestrationService } from '../../services/agents/orchestration/workflowOrchestrator';
 
 /**
@@ -75,24 +74,11 @@ export const executeWorkflowStep = inngest.createFunction(
             return workflowOrchestrationService.dispatchWorkflowStep(executionId, stepId, input, userId);
         });
 
-        logger.info({
-            traceId: executionId,
-            executionId,
-            workflowId,
-            stepId,
-            event: 'STEP_DISPATCHED',
-            status: 'pending',
-            depth,
-            messageId: dispatch.messageId,
-        });
-
-        // 3. Wait for the agent response event (Durable wait) with explicit timeout.
-        // Use `if` (not `match`) so we correlate against the dispatched messageId that
-        // is only known after dispatch-step runs, not from the triggering event.
+        // 3. Wait for the agent response event (Durable wait) with explicit timeout
         const responseEvent = await step.waitForEvent('wait-for-agent-response', {
             event: 'agent/message.processed',
             timeout: STEP_TIMEOUT,
-            if: `async.data.messageId == "${dispatch.messageId}"`,
+            match: 'data.messageId'
         });
 
         if (!responseEvent) {
@@ -106,16 +92,6 @@ export const executeWorkflowStep = inngest.createFunction(
                     }
                 });
             });
-            logger.warn({
-                traceId: executionId,
-                executionId,
-                workflowId,
-                stepId,
-                event: 'STEP_TIMEOUT',
-                status: 'timeout',
-                depth,
-                messageId: dispatch.messageId,
-            });
             return { stepId, status: 'TIMEOUT', messageId: dispatch.messageId };
         }
 
@@ -124,15 +100,6 @@ export const executeWorkflowStep = inngest.createFunction(
         // 4. Finalize the step (update context)
         await step.run('finalize-step-logic', async () => {
             return workflowOrchestrationService.finalizeStepExecution(executionId, stepId, result);
-        });
-        logger.info({
-            traceId: executionId,
-            executionId,
-            workflowId,
-            stepId,
-            event: 'STEP_FINALIZED',
-            status: 'success',
-            depth,
         });
 
         // 5. Find next steps based on definition
@@ -175,16 +142,6 @@ export const executeWorkflowStep = inngest.createFunction(
             }));
 
             await step.sendEvent('trigger-next-steps', events);
-            logger.info({
-                traceId: executionId,
-                executionId,
-                workflowId,
-                stepId,
-                event: 'STEP_FANOUT',
-                status: 'success',
-                depth,
-                nextSteps: nextSteps.map((e: any) => e.to),
-            });
         } else {
             // Workflow complete or reached leaf node
             await step.run('finalize-execution', async () => {

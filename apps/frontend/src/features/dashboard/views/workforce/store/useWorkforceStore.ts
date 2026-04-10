@@ -98,6 +98,10 @@ export interface WorkforceState {
     setActiveEdgeId: (id: string | null) => void;
     updateNodeData: (id: string, data: Partial<WorkforceNodeData>) => void;
     updateEdgeData: (id: string, data: Partial<WorkforceEdgeData>) => void;
+    // Edit node modals
+    editNodeModal: { nodeId: string; type: 'agent' | 'tool' | 'task' } | null;
+    setEditNodeModal: (modal: { nodeId: string; type: 'agent' | 'tool' | 'task' } | null) => void;
+    sidebarKey: number;
 }
 
 const initialNodes: WorkforceNode[] = [
@@ -120,6 +124,8 @@ export const useWorkforceStore = create<WorkforceState>((set, get) => ({
     activeNodeId: null,
     activeEdgeId: null,
     hasChanges: false,
+    editNodeModal: null,
+    sidebarKey: 0,
 
     setMode: (mode) => set({ mode }),
     setHasChanges: (val) => set({ hasChanges: val }),
@@ -175,7 +181,8 @@ export const useWorkforceStore = create<WorkforceState>((set, get) => ({
     setSidebarOpen: (isSidebarOpen: boolean, sidebarType: SidebarType = null) => {
         set({
             isSidebarOpen,
-            sidebarType: isSidebarOpen ? (sidebarType || get().sidebarType) : null
+            sidebarType: isSidebarOpen ? (sidebarType || get().sidebarType) : null,
+            ...(isSidebarOpen && { sidebarKey: (get().sidebarKey || 0) + 1 })
         });
     },
     setTestSidebarOpen: (isTestSidebarOpen: boolean) => set({ isTestSidebarOpen }),
@@ -207,4 +214,5 @@ export const useWorkforceStore = create<WorkforceState>((set, get) => ({
             hasChanges: true
         });
     },
+    setEditNodeModal: (modal) => set({ editNodeModal: modal }),
 }));

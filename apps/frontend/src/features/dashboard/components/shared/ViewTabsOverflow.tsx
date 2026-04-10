@@ -261,10 +261,17 @@ export function ViewTabsOverflow({
     let finalVisible = visibleViews;
     let finalHidden = hiddenViews;
     if (activeIsHidden && activeTab) {
-        const activeViewItem = hiddenViews.find((v) => v.id === activeTab)!;
-        const lastVisible = visibleViews[visibleViews.length - 1];
-        finalVisible = [...visibleViews.slice(0, -1), activeViewItem];
-        finalHidden = [lastVisible, ...hiddenViews.filter((v) => v.id !== activeTab)];
+        const activeViewItem = hiddenViews.find((v) => v.id === activeTab);
+        if (activeViewItem) {
+            if (visibleViews.length > 0) {
+                const lastVisible = visibleViews[visibleViews.length - 1];
+                finalVisible = [...visibleViews.slice(0, -1), activeViewItem];
+                finalHidden = [lastVisible, ...hiddenViews.filter((v) => v.id !== activeTab)];
+            } else {
+                finalVisible = [activeViewItem];
+                finalHidden = hiddenViews.filter((v) => v.id !== activeTab);
+            }
+        }
     }
     const hiddenCount = finalHidden.length;
     const moreLabel = hiddenCount > 100 ? "N more..." : `${hiddenCount} more...`;
@@ -386,9 +393,13 @@ export function ViewTabsOverflow({
 
     // Dropdown filtered list
     const filteredHiddenViews = finalHidden.filter(
-        (v) =>
-            v.name.toLowerCase().includes(search.toLowerCase()) ||
-            v.type.toLowerCase().includes(search.toLowerCase())
+        (v) => {
+            if (!v) return false;
+            const searchLower = (search || "").toLowerCase();
+            const nameLower = (v.name || "").toLowerCase();
+            const typeLower = (v.type || "").toLowerCase();
+            return nameLower.includes(searchLower) || typeLower.includes(searchLower);
+        }
     );
     const pinnedViews = filteredHiddenViews.filter((v) => v.isPinned);
     const unpinnedViews = filteredHiddenViews.filter((v) => !v.isPinned);

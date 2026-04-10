@@ -58,7 +58,7 @@ export function AppSidebar({
         if (expandedWidth === "w-72") widthStr = "18rem";
         if (expandedWidth === "w-80") widthStr = "20rem";
 
-        const width = isCollapsed ? "4rem" : widthStr;
+        const width = isCollapsed ? "5rem" : widthStr;
         if (typeof document !== "undefined" && cssVarName) {
             document.documentElement.style.setProperty(cssVarName, width);
         }
@@ -81,11 +81,11 @@ export function AppSidebar({
                 }
 
                 const commonClasses = cn(
-                    "group flex w-full items-center gap-3 rounded-md px-2 py-2 text-sm font-medium transition-all duration-200 outline-none",
+                    "group flex w-full items-center gap-3 rounded-md px-2 py-2 text-sm font-medium transition-all duration-200 outline-none cursor-pointer",
                     isActive
                         ? "bg-primary/10 text-primary"
                         : "text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900",
-                    isCollapsed && "justify-center px-2"
+                    isCollapsed && "flex-col justify-center gap-1.5 px-1 py-2.5 text-[10px] leading-tight"
                 );
 
                 const handleClick = () => {
@@ -96,7 +96,9 @@ export function AppSidebar({
                     }
                 };
 
-                const Label = !isCollapsed && <span>{item.label}</span>;
+                const Label = isCollapsed
+                    ? <span className="text-center max-w-[52px] truncate">{item.label}</span>
+                    : <span>{item.label}</span>;
 
                 if (item.href) {
                     return (
@@ -132,7 +134,7 @@ export function AppSidebar({
         <aside
             className={cn(
                 "flex h-screen flex-col border-r border-zinc-200 bg-white transition-all duration-300 ease-in-out",
-                isCollapsed ? "w-16" : expandedWidth,
+                isCollapsed ? "w-20" : expandedWidth,
                 mode === "overlay" && "fixed inset-y-0 left-0 z-40 shadow-xl",
                 className
             )}
@@ -153,13 +155,13 @@ export function AppSidebar({
 
                 <div className="flex items-center gap-2 ml-auto">
                     {mode === 'overlay' && onClose && (
-                        <button onClick={onClose} className="text-zinc-500 hover:text-zinc-900">
+                        <button onClick={onClose} className="cursor-pointer text-zinc-500 hover:text-zinc-900">
                             <Menu size={16} />
                         </button>
                     )}
                     <button
                         onClick={toggleCollapse}
-                        className="flex h-8 w-8 items-center justify-center rounded-md text-zinc-400 hover:bg-zinc-100 hover:text-zinc-900 transition-colors"
+                        className="cursor-pointer flex h-8 w-8 items-center justify-center rounded-md text-zinc-400 hover:bg-zinc-100 hover:text-zinc-900 transition-colors"
                     >
                         {isCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
                     </button>

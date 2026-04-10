@@ -62,7 +62,7 @@ export default function MainSidebar({ mode = "inline", onClose }: { mode?: "inli
 
   const handleCollapseChange = (collapsed: boolean) => {
     setIsMainCollapsed(collapsed);
-    const width = collapsed ? '4rem' : '16rem';
+    const width = collapsed ? '5rem' : '16rem';
     // AppSidebar sets the CSS variable. We just need to dispatch event if needed.
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('sidebar:main-collapsed', { detail: { collapsed, width } }));
@@ -113,16 +113,20 @@ export default function MainSidebar({ mode = "inline", onClose }: { mode?: "inli
               href={item.href}
               onClick={handleItemClick}
               className={cn(
-                "group flex w-full items-center gap-3 rounded-md px-2 py-2 text-sm font-medium transition-all duration-200 outline-none",
+                "group flex w-full items-center gap-3 rounded-md px-2 py-2 text-sm font-medium transition-all duration-200 outline-none cursor-pointer",
                 isActive
                   ? "bg-primary/10 text-primary"
                   : "text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900",
-                isMainCollapsed && "justify-center px-2"
+                isMainCollapsed && "flex-col justify-center gap-1.5 px-1 py-2.5 text-[10px] leading-tight"
               )}
               title={isMainCollapsed ? item.label : undefined}
             >
               <Icon size={18} className={cn("shrink-0", isActive ? "text-primary" : "text-zinc-400 group-hover:text-zinc-900")} />
-              {!isMainCollapsed && <span>{item.label}</span>}
+              {isMainCollapsed ? (
+                <span className="text-center max-w-[68px] break-words leading-tight">{item.label}</span>
+              ) : (
+                <span>{item.label}</span>
+              )}
             </Link>
           )
         })}
@@ -132,13 +136,17 @@ export default function MainSidebar({ mode = "inline", onClose }: { mode?: "inli
           <DialogTrigger asChild>
             <button
               className={cn(
-                "group flex w-full items-center gap-3 rounded-md px-2 py-2 text-sm font-medium transition-all duration-200 outline-none mt-2",
-                isMainCollapsed ? "justify-center" : "text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900"
+                "group flex w-full items-center gap-3 rounded-md px-2 py-2 text-sm font-medium transition-all duration-200 outline-none mt-2 cursor-pointer",
+                isMainCollapsed ? "flex-col justify-center gap-1.5 px-1 py-2.5 text-[10px] leading-tight" : "text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900"
               )}
               title={t("sidebar.more")}
             >
               <MoreHorizontal size={18} className="shrink-0 text-zinc-400 group-hover:text-zinc-900" />
-              {!isMainCollapsed && <span>{t("sidebar.more")}</span>}
+              {isMainCollapsed ? (
+                <span className="text-center max-w-[68px] break-words leading-tight">{t("sidebar.more")}</span>
+              ) : (
+                <span>{t("sidebar.more")}</span>
+              )}
             </button>
           </DialogTrigger>
           <DialogContent className="max-w-2xl bg-white border-zinc-200 text-zinc-900 p-0 overflow-hidden gap-0">

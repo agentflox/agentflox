@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState, useEffect, useCallback } from "react";
+import React, { useMemo, useState, useEffect, useCallback, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -10,7 +10,7 @@ import {
     LayoutList, SlidersHorizontal, ArrowUp, ArrowDown, Circle, Spline, Link2, Target, Info, Play, ListChecks, AlignLeft, RefreshCcw, Type, Hash, CheckSquare, Tag,
     DollarSign, Globe, FunctionSquare, FileText, Phone, Mail, MapPin, TrendingUp, Heart, PenTool, MousePointer, ListTodo, AlertTriangle, CircleMinus, Link, Slash, Box,
     List as ListIcon, Archive, UserPlus, CalendarCheck, CalendarClock, CalendarRange, Hourglass, UserCheck, RefreshCw, Timer, Undo, ToggleLeft, Edit3, Trash2, Check, ChevronsUpDown,
-    ChevronDown, UserRound, ShieldCheck, Home, ChevronUp, ArrowRight, GripVertical
+    ChevronDown, UserRound, ShieldCheck, Home, ChevronUp, ArrowRight, GripVertical, Minus 
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { cn } from "@/lib/utils";
@@ -58,6 +58,7 @@ import { TaskCreationModal } from "@/entities/task/components/TaskCreationModal"
 import { ListCreationModal } from "@/entities/task/components/ListCreationModal";
 import { AssigneeSelector } from "@/entities/task/components/AssigneeSelector";
 import { TaskDetailModal } from "@/entities/task/components/TaskDetailModal";
+import { TaskActionsPopover } from "@/entities/task/components/TaskActionsPopover";
 import { ViewToolbarSaveDropdown } from "@/features/dashboard/components/shared/ViewToolbarSaveDropdown";
 import { ViewToolbarClosedPopover } from "@/features/dashboard/components/shared/ViewToolbarClosedPopover";
 import { TaskTypeIcon } from "@/entities/task/components/TaskTypeIcon";
@@ -69,6 +70,7 @@ import { DestinationPicker } from "@/entities/task/components/DestinationPicker"
 import { ShareViewPermissionModal } from "@/features/dashboard/components/shared/ShareViewPermissionModal";
 import { DuplicateTaskModal } from "@/entities/task/components/DuplicateTaskModal";
 import { parseEncodedTag } from "@/entities/task/utils/tags";
+import { SidePanel } from "@/features/dashboard/components/shared/SidePanel";
 
 interface GanttViewProps {
     spaceId?: string;
@@ -79,6 +81,8 @@ interface GanttViewProps {
     initialConfig?: any;
     selectedTaskIdFromParent?: string | null;
     onTaskSelect?: (taskId: string | null) => void;
+    context?: "space" | "project" | "team" | "folder" | "list";
+
 }
 
 // Task type is imported or defined once.
@@ -187,6 +191,26 @@ const isValidDate = (d: any) => {
 };
 
 type TimeScale = 'Day' | 'Week' | 'Month' | 'Quarter' | 'Year' | 'Flexible';
+type BaseTimeScale = Exclude<TimeScale, "Flexible">;
+const GANTT_HEADER_ROW_CLASS = "h-16 shrink-0 border-b border-zinc-200 bg-white";
+type TimelineUnit = {
+    date: Date;
+    label: string;
+    dayKey?: string;
+    dayLabel?: string;
+    weekKey?: string;
+    weekLabel?: string;
+    weekNumber?: string;
+    monthKey?: string;
+    monthLabel?: string;
+    quarterKey?: string;
+    quarterLabel?: string;
+    quarterYear?: number;
+    quarterNumber?: number;
+    yearKey?: string;
+    yearLabel?: string;
+    isWeekend?: boolean;
+};
 
 function stableStringify(obj: any) {
     const sortObject = (v: any): any => {
@@ -227,6 +251,14 @@ export function GanttView({ spaceId, projectId, teamId, listId, viewId, initialC
     const searchParams = useSearchParams();
     const utils = trpc.useUtils();
     const [timeScale, setTimeScale] = useState<TimeScale>('Month');
+    const [flexibleInternalScale, setFlexibleInternalScale] = useState<BaseTimeScale>("Week");
+    const [columnWidthByScale, setColumnWidthByScale] = useState<Record<BaseTimeScale, number>>({
+        Day: 120,
+        Week: 140,
+        Month: 200,
+        Quarter: 240,
+        Year: 280,
+    });
     const [searchQuery, setSearchQuery] = useState("");
     const [showWeekends, setShowWeekends] = useState(true);
     const [showCriticalPath, setShowCriticalPath] = useState(false);
@@ -234,11 +266,40 @@ export function GanttView({ spaceId, projectId, teamId, listId, viewId, initialC
     const [fullScreenMode, setFullScreenMode] = useState(false);
     const [rescheduleDependencies, setRescheduleDependencies] = useState(true);
     const [showClosed, setShowClosed] = useState(false);
+    const [leftPanelOpen, setLeftPanelOpen] = useState(true);
+    const [leftPanelWidth, setLeftPanelWidth] = useState(480);
+    const isResizingLeftPanelRef = useRef(false);
+    const leftPanelResizeRafRef = useRef<number | null>(null);
+    const ganttContainerRef = useRef<HTMLDivElement | null>(null);
+    const [subtaskPopoverTaskId, setSubtaskPopoverTaskId] = useState<string | null>(null);
+    const [subtaskTitleDraft, setSubtaskTitleDraft] = useState("");
+    const [renamePopoverTaskId, setRenamePopoverTaskId] = useState<string | null>(null);
+    const [renameTitleDraft, setRenameTitleDraft] = useState("");
+    const leftScrollAreaRef = useRef<HTMLDivElement | null>(null);
+    const rightScrollAreaRef = useRef<HTMLDivElement | null>(null);
+    const isSyncingScrollRef = useRef(false);
+    const hasInitialNowCenterRef = useRef(false);
+    const [scheduleHover, setScheduleHover] = useState<{ taskId: string; leftPx: number } | null>(null);
+    const LEFT_PANEL_MIN_WIDTH = 320;
+    const LEFT_PANEL_MAX_WIDTH = 820;
+    const startLeftPanelResize = useCallback((e: React.PointerEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const target = e.currentTarget;
+        if ('setPointerCapture' in target) {
+            target.setPointerCapture(e.pointerId);
+        }
+        isResizingLeftPanelRef.current = true;
+        document.body.style.cursor = "col-resize";
+        document.body.style.userSelect = "none";
+        document.body.style.pointerEvents = "none";
+    }, []);
 
     const { data: viewData } = trpc.view.get.useQuery({ id: viewId as string }, { enabled: !!viewId });
     const { data: space } = trpc.space.get.useQuery({ id: spaceId as string }, { enabled: !!spaceId });
     const [savedSnapshot, setSavedSnapshot] = useState<string | null>(null);
     const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+    const [currentTime, setCurrentTime] = useState(new Date());
     const effectiveSelectedTaskId = selectedTaskIdFromParent || selectedTaskId;
     const [selectedTasks, setSelectedTasks] = useState<string[]>([]);
     const [bulkDuplicateModalOpen, setBulkDuplicateModalOpen] = useState(false);
@@ -247,6 +308,10 @@ export function GanttView({ spaceId, projectId, teamId, listId, viewId, initialC
     const closeTaskDetail = () => {
         if (onTaskSelect) onTaskSelect(null);
         else setSelectedTaskId(null);
+    };
+    const openTaskDetail = (taskId: string) => {
+        if (onTaskSelect) onTaskSelect(taskId);
+        else setSelectedTaskId(taskId);
     };
 
     const updateSpaceMutation = trpc.space.update.useMutation();
@@ -357,13 +422,60 @@ export function GanttView({ spaceId, projectId, teamId, listId, viewId, initialC
 
     const updateViewName = async (newName: string) => {
         if (!viewId || !newName.trim()) return;
+        const trimmed = newName.trim();
         const oldName = viewData?.name || "";
-        setViewNameDraft(newName); // Local optimistic update
+        setViewNameDraft(trimmed);
+        
+        // Optimistically patch all parent caches so the tab bar updates immediately
+        const patchViews = (views: any[]) => views.map((v: any) => v.id === viewId ? { ...v, name: trimmed } : v);
+        
+        // Update generic caches
+        if (spaceId) utils.space?.get?.setData({ id: spaceId }, (old: any) => old ? { ...old, views: patchViews(old.views ?? []) } : old);
+        if (projectId) utils.project?.get?.setData({ id: projectId }, (old: any) => old ? { ...old, views: patchViews(old.views ?? []) } : old);
+        if (teamId) utils.team?.get?.setData({ id: teamId }, (old: any) => old ? { ...old, views: patchViews(old.views ?? []) } : old);
+        if (folderId) utils.folder?.get?.setData({ id: folderId }, (old: any) => old ? { ...old, views: patchViews(old.views ?? []) } : old);
+        if (listId) utils.list?.get?.setData({ id: listId }, (old: any) => old ? { ...old, views: patchViews(old.views ?? []) } : old);
+        
+        // Use a generic approach to update list.byContext
+        const updateListByContext = () => {
+            try {
+                // @ts-ignore
+                if (utils.list?.byContext?.setData) {
+                    // @ts-ignore
+                    utils.list.byContext.setData(undefined, (old: any) => {
+                        if (!old || !old.items) return old;
+                        return {
+                            ...old,
+                            items: old.items.map((l: any) => l.id === listId ? { ...l, views: patchViews(l.views ?? []) } : l)
+                        };
+                    });
+                }
+            } catch (e) {}
+        };
+        updateListByContext();
+
         try {
-            await updateViewMutation.mutateAsync({ id: viewId, name: newName.trim() });
-            void utils.view.get.invalidate({ id: viewId });
+            await updateViewMutation.mutateAsync({ id: viewId, name: trimmed });
+            if (utils.view?.get) await utils.view.get.invalidate({ id: viewId });
+            if (utils.view?.list) await utils.view.list.invalidate();
+            if (spaceId && utils.space?.get) void utils.space.get.invalidate({ id: spaceId });
+            if (projectId && utils.project?.get) void utils.project.get.invalidate({ id: projectId });
+            if (teamId && utils.team?.get) void utils.team.get.invalidate({ id: teamId });
+            if (folderId && utils.folder?.get) void utils.folder.get.invalidate({ id: folderId });
+            if (listId && utils.list?.get) void utils.list.get.invalidate({ id: listId });
+            if (listId && utils.list?.byContext) void utils.list.byContext.invalidate();
+            
+            if (typeof refetchViewData === 'function') void refetchViewData();
         } catch (e) {
             setViewNameDraft(oldName);
+            
+            // Revert optimistic updates
+            const revertViews = (views: any[]) => views.map((v: any) => v.id === viewId ? { ...v, name: oldName } : v);
+            if (spaceId) utils.space?.get?.setData({ id: spaceId }, (old: any) => old ? { ...old, views: revertViews(old.views ?? []) } : old);
+            if (projectId) utils.project?.get?.setData({ id: projectId }, (old: any) => old ? { ...old, views: revertViews(old.views ?? []) } : old);
+            if (teamId) utils.team?.get?.setData({ id: teamId }, (old: any) => old ? { ...old, views: revertViews(old.views ?? []) } : old);
+            if (folderId) utils.folder?.get?.setData({ id: folderId }, (old: any) => old ? { ...old, views: revertViews(old.views ?? []) } : old);
+            if (listId) utils.list?.get?.setData({ id: listId }, (old: any) => old ? { ...old, views: revertViews(old.views ?? []) } : old);
         }
     };
 
@@ -509,7 +621,15 @@ export function GanttView({ spaceId, projectId, teamId, listId, viewId, initialC
     const { data: teamParticipants } = trpc.team.getParticipants.useQuery({ teamId: teamId as string }, { enabled: !!teamId });
     const { data: currentList } = trpc.list.get.useQuery({ id: listId as string }, { enabled: !!listId });
 
-    const taskListInput = useMemo(() => ({ spaceId, projectId, teamId, listId, includeRelations: true, page: 1, pageSize: 500 }), [spaceId, projectId, teamId, listId]);
+    const taskListInput = useMemo(() => ({
+        spaceId: spaceId && !projectId && !listId ? spaceId : undefined,
+        projectId: projectId && !listId ? projectId : undefined,
+        teamId,
+        listId,
+        includeRelations: true,
+        page: 1,
+        pageSize: 500,
+    }), [spaceId, projectId, teamId, listId]);
     const { data: tasksData, isLoading } = trpc.task.list.useQuery(taskListInput, { enabled: !!(spaceId || projectId || teamId || listId) });
     const tasks = useMemo<Task[]>(() => ((tasksData?.items as Task[]) ?? []), [tasksData]);
 
@@ -969,6 +1089,20 @@ export function GanttView({ spaceId, projectId, teamId, listId, viewId, initialC
         return result;
     }, [tasks, searchQuery, filterStatus, filterPriority, filterAssignee, showCompleted, showCompletedSubtasks, sortBy, sortDirection, filterGroups]);
 
+    const DAY_MS = 1000 * 60 * 60 * 24;
+    const BAR_LABEL_GAP_PX = 12;
+    const BAR_LABEL_RIGHT_PAD_PX = 260;
+    const ZOOM_WIDTH_LIMITS: Record<BaseTimeScale, { min: number; max: number }> = {
+        Day: { min: 26, max: 80 },
+        Week: { min: 36, max: 120 },
+        Month: { min: 96, max: 320 },
+        Quarter: { min: 72, max: 220 },
+        Year: { min: 140, max: 420 },
+    };
+    const SCALE_ORDER: BaseTimeScale[] = ["Day", "Week", "Month", "Quarter", "Year"];
+    const effectiveTimeScale: BaseTimeScale = timeScale === "Flexible" ? flexibleInternalScale : timeScale;
+    const activeColumnWidth = columnWidthByScale[effectiveTimeScale];
+
 
     const saveDefaultViewSettings = async () => {
         if (!spaceId) return;
@@ -1118,14 +1252,32 @@ export function GanttView({ spaceId, projectId, teamId, listId, viewId, initialC
     }, [viewAutosave, isViewDirty, viewId, currentViewConfig]);
 
 
-    // Calculate date range
-    const dateRange = useMemo(() => {
+    // Calculate base date range
+    const getBaseDateRange = useCallback(() => {
         const tasksWithAnyDate = tasks.filter(t => isValidDate(t.startDate) || isValidDate(t.dueDate));
 
         if (tasksWithAnyDate.length === 0) {
             const today = new Date();
-            const start = new Date(today.getFullYear(), today.getMonth(), 1);
-            const end = new Date(today.getFullYear(), today.getMonth() + 3, 0);
+            const start = new Date(today);
+            const end = new Date(today);
+            if (effectiveTimeScale === "Day") {
+                start.setDate(start.getDate() - 7);
+                end.setDate(end.getDate() + 21);
+            } else if (effectiveTimeScale === "Week") {
+                start.setDate(start.getDate() - 28);
+                end.setDate(end.getDate() + 56);
+            } else if (effectiveTimeScale === "Month") {
+                start.setMonth(start.getMonth() - 3, 1);
+                end.setMonth(end.getMonth() + 5, 0);
+            } else if (effectiveTimeScale === "Quarter") {
+                start.setMonth(start.getMonth() - 6, 1);
+                end.setMonth(end.getMonth() + 9, 0);
+            } else {
+                start.setFullYear(start.getFullYear() - 2, 0, 1);
+                end.setFullYear(end.getFullYear() + 3, 11, 31);
+            }
+            start.setHours(0, 0, 0, 0);
+            end.setHours(23, 59, 59, 999);
             return { start, end };
         }
 
@@ -1142,34 +1294,371 @@ export function GanttView({ spaceId, projectId, teamId, listId, viewId, initialC
         end.setMonth(end.getMonth() + 1, 0);
         end.setHours(23, 59, 59, 999);
 
-        return { start, end };
-    }, [tasks, timeScale]);
-
-    // Generate months for timeline
-    const months = useMemo(() => {
-        const result = [];
-        const current = new Date(dateRange.start);
-
-        while (current <= dateRange.end) {
-            result.push({
-                date: new Date(current),
-                label: current.toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
-            });
-            current.setMonth(current.getMonth() + 1);
+        if (effectiveTimeScale === "Day") {
+            start.setDate(start.getDate() - 7);
+            end.setDate(end.getDate() + 21);
+        } else if (effectiveTimeScale === "Week") {
+            start.setDate(start.getDate() - 28);
+            end.setDate(end.getDate() + 56);
+        } else if (effectiveTimeScale === "Month") {
+            start.setMonth(start.getMonth() - 2, 1);
+            end.setMonth(end.getMonth() + 3, 0);
+        } else if (effectiveTimeScale === "Quarter") {
+            start.setMonth(start.getMonth() - 4, 1);
+            end.setMonth(end.getMonth() + 6, 0);
+        } else {
+            start.setFullYear(start.getFullYear() - 1, 0, 1);
+            end.setFullYear(end.getFullYear() + 2, 11, 31);
         }
 
-        return result;
-    }, [dateRange]);
+        return { start, end };
+    }, [tasks, effectiveTimeScale]);
+    const [dateRange, setDateRange] = useState<{ start: Date; end: Date }>(() => getBaseDateRange());
+    useEffect(() => {
+        setDateRange(getBaseDateRange());
+    }, [getBaseDateRange]);
+
+    const timelineUnits = useMemo(() => {
+        const units: TimelineUnit[] = [];
+        const start = new Date(dateRange.start);
+        const end = new Date(dateRange.end);
+        const current = new Date(start);
+
+        if (effectiveTimeScale === "Day") {
+            current.setHours(0, 0, 0, 0);
+            end.setHours(23, 0, 0, 0);
+            while (current <= end) {
+                const hour = current.getHours();
+                const normalizedHour = hour % 12 === 0 ? 12 : hour % 12;
+                const suffix = hour < 12 ? "a" : "p";
+                units.push({
+                    date: new Date(current),
+                    label: `${normalizedHour}${suffix}`,
+                    dayKey: format(current, "yyyy-MM-dd"),
+                    dayLabel: format(current, "EEE, MMM d"),
+                });
+                current.setHours(current.getHours() + 1);
+            }
+        } else if (effectiveTimeScale === "Week") {
+            const currentIsoDay = (current.getDay() + 6) % 7; // Mon=0 ... Sun=6
+            current.setDate(current.getDate() - currentIsoDay);
+            current.setHours(0, 0, 0, 0);
+            const weekAlignedEnd = new Date(end);
+            const endIsoDay = (weekAlignedEnd.getDay() + 6) % 7; // Mon=0 ... Sun=6
+            weekAlignedEnd.setDate(weekAlignedEnd.getDate() + (6 - endIsoDay));
+            weekAlignedEnd.setHours(23, 59, 59, 999);
+            while (current <= weekAlignedEnd) {
+                const weekStart = new Date(current);
+                const weekStartIsoDay = (weekStart.getDay() + 6) % 7; // Mon=0 ... Sun=6
+                weekStart.setDate(weekStart.getDate() - weekStartIsoDay);
+                weekStart.setHours(0, 0, 0, 0);
+                const weekEnd = new Date(weekStart);
+                weekEnd.setDate(weekEnd.getDate() + 6);
+                const weekKey = format(weekStart, "yyyy-MM-dd");
+                const weekLabel = `${format(weekStart, "MMM d")} - ${format(weekEnd, "d")}`;
+                const weekNumber = `W${format(weekStart, "II")}`;
+                units.push({
+                    date: new Date(current),
+                    label: `${format(current, "EEE")} ${current.getDate()}`,
+                    dayKey: format(current, "yyyy-MM-dd"),
+                    dayLabel: format(current, "EEE d"),
+                    weekKey,
+                    weekLabel,
+                    weekNumber,
+                    isWeekend: current.getDay() === 0 || current.getDay() === 6,
+                });
+                current.setDate(current.getDate() + 1);
+            }
+        } else if (effectiveTimeScale === "Month") {
+            current.setDate(1);
+            current.setHours(0, 0, 0, 0);
+            const currentIsoDay = (current.getDay() + 6) % 7; // Mon=0 ... Sun=6
+            current.setDate(current.getDate() - currentIsoDay);
+            const monthAlignedEnd = new Date(end);
+            const endIsoDay = (monthAlignedEnd.getDay() + 6) % 7; // Mon=0 ... Sun=6
+            monthAlignedEnd.setDate(monthAlignedEnd.getDate() + (6 - endIsoDay));
+            monthAlignedEnd.setHours(23, 59, 59, 999);
+            while (current <= monthAlignedEnd) {
+                const weekStart = new Date(current);
+                const weekEnd = new Date(current);
+                weekEnd.setDate(weekEnd.getDate() + 6);
+                units.push({
+                    date: new Date(current),
+                    label: `${format(weekStart, "d")}-${format(weekEnd, "d")}`,
+                    weekKey: format(weekStart, "yyyy-MM-dd"),
+                    weekLabel: `${format(weekStart, "d")}-${format(weekEnd, "d")}`,
+                    weekNumber: `W${format(weekStart, "II")}`,
+                    monthKey: format(weekStart, "yyyy-MM"),
+                    monthLabel: `${format(weekStart, "yyyy")} ${format(weekStart, "MMM")}`,
+                });
+                current.setDate(current.getDate() + 7);
+            }
+        } else if (effectiveTimeScale === "Quarter") {
+            const quarterStartMonth = Math.floor(current.getMonth() / 3) * 3;
+            current.setMonth(quarterStartMonth, 1);
+            current.setHours(0, 0, 0, 0);
+            while (current <= end) {
+                const q = Math.floor(current.getMonth() / 3) + 1;
+                units.push({
+                    date: new Date(current),
+                    label: format(current, "MMM"),
+                    monthKey: format(current, "yyyy-MM"),
+                    monthLabel: format(current, "MMM"),
+                    quarterKey: `${current.getFullYear()}-Q${q}`,
+                    quarterLabel: `Q${q}`,
+                    quarterYear: current.getFullYear(),
+                    quarterNumber: q,
+                });
+                current.setMonth(current.getMonth() + 1);
+            }
+        } else {
+            current.setMonth(0, 1);
+            current.setHours(0, 0, 0, 0);
+            while (current <= end) {
+                const q = Math.floor(current.getMonth() / 3) + 1;
+                units.push({
+                    date: new Date(current),
+                    label: `Q${q}`,
+                    quarterKey: `${current.getFullYear()}-Q${q}`,
+                    quarterLabel: `Q${q}`,
+                    quarterYear: current.getFullYear(),
+                    quarterNumber: q,
+                    yearKey: `${current.getFullYear()}`,
+                    yearLabel: `${current.getFullYear()}`,
+                });
+                current.setMonth(current.getMonth() + 3);
+            }
+        }
+        return units;
+    }, [dateRange.end, dateRange.start, effectiveTimeScale]);
+
+    const dayHeaderSegments = useMemo(() => {
+        if (effectiveTimeScale !== "Day" || timelineUnits.length === 0) return [] as { dayKey: string; dayLabel: string; span: number }[];
+        const segments: { dayKey: string; dayLabel: string; span: number }[] = [];
+        for (const unit of timelineUnits) {
+            if (!unit.dayKey || !unit.dayLabel) continue;
+            const last = segments[segments.length - 1];
+            if (!last || last.dayKey !== unit.dayKey) {
+                segments.push({ dayKey: unit.dayKey, dayLabel: unit.dayLabel, span: 1 });
+            } else {
+                last.span += 1;
+            }
+        }
+        return segments;
+    }, [effectiveTimeScale, timelineUnits]);
+
+    const weekHeaderSegments = useMemo(() => {
+        if (effectiveTimeScale !== "Week" || timelineUnits.length === 0) return [] as { weekKey: string; weekLabel: string; weekNumber: string; span: number }[];
+        const segments: { weekKey: string; weekLabel: string; weekNumber: string; span: number }[] = [];
+        for (const unit of timelineUnits) {
+            if (!unit.weekKey || !unit.weekLabel || !unit.weekNumber) continue;
+            const last = segments[segments.length - 1];
+            if (!last || last.weekKey !== unit.weekKey) {
+                segments.push({ weekKey: unit.weekKey, weekLabel: unit.weekLabel, weekNumber: unit.weekNumber, span: 1 });
+            } else {
+                last.span += 1;
+            }
+        }
+        return segments;
+    }, [effectiveTimeScale, timelineUnits]);
+
+    const monthHeaderSegments = useMemo(() => {
+        if (effectiveTimeScale !== "Month" || timelineUnits.length === 0) return [] as { monthKey: string; monthLabel: string; span: number }[];
+        const segments: { monthKey: string; monthLabel: string; span: number }[] = [];
+        for (const unit of timelineUnits) {
+            if (!unit.monthKey || !unit.monthLabel) continue;
+            const last = segments[segments.length - 1];
+            if (!last || last.monthKey !== unit.monthKey) {
+                segments.push({ monthKey: unit.monthKey, monthLabel: unit.monthLabel, span: 1 });
+            } else {
+                last.span += 1;
+            }
+        }
+        return segments;
+    }, [effectiveTimeScale, timelineUnits]);
+
+    const quarterHeaderSegments = useMemo(() => {
+        if (effectiveTimeScale !== "Quarter" || timelineUnits.length === 0) {
+            return [] as { quarterKey: string; quarterLabel: string; quarterYear: number; span: number }[];
+        }
+        const segments: { quarterKey: string; quarterLabel: string; quarterYear: number; span: number }[] = [];
+        for (const unit of timelineUnits) {
+            if (!unit.quarterKey || !unit.quarterLabel || !unit.quarterYear) continue;
+            const last = segments[segments.length - 1];
+            if (!last || last.quarterKey !== unit.quarterKey) {
+                segments.push({
+                    quarterKey: unit.quarterKey,
+                    quarterLabel: unit.quarterLabel,
+                    quarterYear: unit.quarterYear,
+                    span: 1,
+                });
+            } else {
+                last.span += 1;
+            }
+        }
+        return segments;
+    }, [effectiveTimeScale, timelineUnits]);
+
+    const yearHeaderSegments = useMemo(() => {
+        if (effectiveTimeScale !== "Year" || timelineUnits.length === 0) {
+            return [] as { yearKey: string; yearLabel: string; span: number }[];
+        }
+        const segments: { yearKey: string; yearLabel: string; span: number }[] = [];
+        for (const unit of timelineUnits) {
+            if (!unit.yearKey || !unit.yearLabel) continue;
+            const last = segments[segments.length - 1];
+            if (!last || last.yearKey !== unit.yearKey) {
+                segments.push({ yearKey: unit.yearKey, yearLabel: unit.yearLabel, span: 1 });
+            } else {
+                last.span += 1;
+            }
+        }
+        return segments;
+    }, [effectiveTimeScale, timelineUnits]);
+
+    const totalTimelineWidthPx = useMemo(() => Math.max(1, timelineUnits.length * activeColumnWidth), [timelineUnits.length, activeColumnWidth]);
+    const totalTimelineCanvasWidthPx = useMemo(
+        () => totalTimelineWidthPx + BAR_LABEL_RIGHT_PAD_PX,
+        [totalTimelineWidthPx]
+    );
+
+    const scrollTimelineToNow = useCallback((behavior: ScrollBehavior = "auto") => {
+        const viewport = rightScrollAreaRef.current?.querySelector("[data-radix-scroll-area-viewport]") as HTMLElement | null;
+        if (!viewport) return;
+
+        const now = Date.now();
+        const startTs = dateRange.start.getTime();
+        const endTs = dateRange.end.getTime();
+        const totalMs = endTs - startTs;
+        if (totalMs <= 0 || totalTimelineWidthPx <= 0) return;
+
+        const ratio = (now - startTs) / totalMs;
+        const nowPx = Math.max(0, Math.min(totalTimelineWidthPx, ratio * totalTimelineWidthPx));
+        const targetLeft = Math.max(0, nowPx - viewport.clientWidth / 2);
+
+        viewport.scrollTo({ left: targetLeft, behavior });
+    }, [dateRange.end, dateRange.start, totalTimelineWidthPx]);
+
+    const ensureNowInRange = useCallback(() => {
+        const now = Date.now();
+        const startTs = dateRange.start.getTime();
+        const endTs = dateRange.end.getTime();
+        if (now >= startTs && now <= endTs) return false;
+
+        const spanMs = Math.max(DAY_MS, endTs - startTs);
+        const nextStart = new Date(now - spanMs / 2);
+        const nextEnd = new Date(now + spanMs / 2);
+        nextStart.setHours(0, 0, 0, 0);
+        nextEnd.setHours(23, 59, 59, 999);
+
+        setDateRange({ start: nextStart, end: nextEnd });
+        return true;
+    }, [dateRange.end, dateRange.start]);
+
+    const setScaleColumnWidth = useCallback((scale: BaseTimeScale, width: number) => {
+        const lim = ZOOM_WIDTH_LIMITS[scale];
+        const clamped = Math.max(lim.min, Math.min(lim.max, width));
+        setColumnWidthByScale(prev => ({ ...prev, [scale]: clamped }));
+    }, []);
+
+    const canZoomIn = columnWidthByScale[effectiveTimeScale] < ZOOM_WIDTH_LIMITS[effectiveTimeScale].max || (timeScale === "Flexible" && SCALE_ORDER.indexOf(effectiveTimeScale) > 0);
+    const canZoomOut = columnWidthByScale[effectiveTimeScale] > ZOOM_WIDTH_LIMITS[effectiveTimeScale].min || (timeScale === "Flexible" && SCALE_ORDER.indexOf(effectiveTimeScale) < SCALE_ORDER.length - 1);
+
+    const handleZoomIn = useCallback(() => {
+        const step = 24;
+        const currentScale = effectiveTimeScale;
+        const nextWidth = columnWidthByScale[currentScale] + step;
+        if (nextWidth <= ZOOM_WIDTH_LIMITS[currentScale].max) {
+            setScaleColumnWidth(currentScale, nextWidth);
+            return;
+        }
+        if (timeScale === "Flexible") {
+            const idx = SCALE_ORDER.indexOf(currentScale);
+            if (idx > 0) {
+                const nextScale = SCALE_ORDER[idx - 1];
+                setFlexibleInternalScale(nextScale);
+                setScaleColumnWidth(nextScale, ZOOM_WIDTH_LIMITS[nextScale].min + step);
+            }
+        }
+    }, [effectiveTimeScale, columnWidthByScale, setScaleColumnWidth, timeScale]);
+
+    const handleZoomOut = useCallback(() => {
+        const step = 24;
+        const currentScale = effectiveTimeScale;
+        const nextWidth = columnWidthByScale[currentScale] - step;
+        if (nextWidth >= ZOOM_WIDTH_LIMITS[currentScale].min) {
+            setScaleColumnWidth(currentScale, nextWidth);
+            return;
+        }
+        if (timeScale === "Flexible") {
+            const idx = SCALE_ORDER.indexOf(currentScale);
+            if (idx < SCALE_ORDER.length - 1) {
+                const nextScale = SCALE_ORDER[idx + 1];
+                setFlexibleInternalScale(nextScale);
+                setScaleColumnWidth(nextScale, ZOOM_WIDTH_LIMITS[nextScale].max - step);
+            }
+        }
+    }, [effectiveTimeScale, columnWidthByScale, setScaleColumnWidth, timeScale]);
+
+    const getUnitCountForScale = useCallback((scale: BaseTimeScale) => {
+        const start = new Date(dateRange.start);
+        const end = new Date(dateRange.end);
+        if (scale === "Day") {
+            return Math.max(1, Math.ceil((end.getTime() - start.getTime()) / DAY_MS) + 1);
+        }
+        if (scale === "Week") {
+            return Math.max(1, Math.ceil((end.getTime() - start.getTime()) / (DAY_MS * 7)) + 1);
+        }
+        if (scale === "Month") {
+            return Math.max(1, (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth()) + 1);
+        }
+        if (scale === "Quarter") {
+            const startQ = start.getFullYear() * 4 + Math.floor(start.getMonth() / 3);
+            const endQ = end.getFullYear() * 4 + Math.floor(end.getMonth() / 3);
+            return Math.max(1, endQ - startQ + 1);
+        }
+        return Math.max(1, end.getFullYear() - start.getFullYear() + 1);
+    }, [dateRange.end, dateRange.start]);
+
+    const handleAutoFit = useCallback(() => {
+        const viewport = rightScrollAreaRef.current?.querySelector("[data-radix-scroll-area-viewport]") as HTMLElement | null;
+        if (!viewport) return;
+        const availableWidth = Math.max(240, viewport.clientWidth - BAR_LABEL_RIGHT_PAD_PX - 16);
+        let chosenScale: BaseTimeScale = "Year";
+        for (const s of SCALE_ORDER) {
+            const unitCount = getUnitCountForScale(s);
+            if (unitCount * ZOOM_WIDTH_LIMITS[s].min <= availableWidth) {
+                chosenScale = s;
+                break;
+            }
+        }
+        const units = getUnitCountForScale(chosenScale);
+        const idealWidth = availableWidth / Math.max(1, units);
+        setScaleColumnWidth(chosenScale, idealWidth);
+        if (timeScale === "Flexible") setFlexibleInternalScale(chosenScale);
+        else setTimeScale(chosenScale);
+    }, [getUnitCountForScale, setScaleColumnWidth, timeScale]);
+
+    // Local date overrides used during drag so the bar doesn't "snap back" while mutation is in-flight.
+    const [localTaskDates, setLocalTaskDates] = useState<Record<string, { startDate?: Date | null; dueDate?: Date | null; committed: boolean }>>({});
+
+    const getEffectiveTaskDates = useCallback((task: Task) => {
+        const override = localTaskDates[task.id];
+        const start = (override && "startDate" in override) ? override.startDate : task.startDate;
+        const due = (override && "dueDate" in override) ? override.dueDate : task.dueDate;
+        return { startDate: start, dueDate: due };
+    }, [localTaskDates]);
 
     // Calculate task bar position and width
     const getTaskBarStyle = (task: Task) => {
-        const hasStart = isValidDate(task.startDate);
-        const hasEnd = isValidDate(task.dueDate);
+        const { startDate, dueDate } = getEffectiveTaskDates(task);
+        const hasStart = isValidDate(startDate);
+        const hasEnd = isValidDate(dueDate);
 
         if (!hasStart && !hasEnd) return null;
 
-        const start = hasStart ? new Date(task.startDate!) : new Date(task.dueDate!);
-        const end = hasEnd ? new Date(task.dueDate!) : new Date(task.startDate!);
+        const start = hasStart ? new Date(startDate!) : new Date(dueDate!);
+        const end = hasEnd ? new Date(dueDate!) : new Date(startDate!);
 
         const totalMs = dateRange.end.getTime() - dateRange.start.getTime();
         if (totalMs <= 0) return null;
@@ -1177,14 +1666,186 @@ export function GanttView({ spaceId, projectId, teamId, listId, viewId, initialC
         const startOffsetMs = start.getTime() - dateRange.start.getTime();
         const durationMs = Math.max(1000 * 60 * 60 * 24, end.getTime() - start.getTime()); // Minimum 1 day
 
-        const leftPercent = (startOffsetMs / totalMs) * 100;
-        const widthPercent = (durationMs / totalMs) * 100;
+        const leftPxRaw = (startOffsetMs / totalMs) * totalTimelineWidthPx;
+        const widthPxRaw = (durationMs / totalMs) * totalTimelineWidthPx;
+        const minWidthPx = Math.max(6, (DAY_MS / totalMs) * totalTimelineWidthPx); // at least ~1 day visually
 
         return {
-            left: `${Math.max(0, Math.min(100, leftPercent))}%`,
-            width: `${Math.max(0.5, Math.min(100 - leftPercent, widthPercent))}%`,
+            left: Math.max(0, Math.min(totalTimelineWidthPx, leftPxRaw)),
+            width: Math.max(minWidthPx, Math.min(totalTimelineWidthPx - Math.max(0, leftPxRaw), widthPxRaw)),
         };
     };
+
+    const dateFromTimelinePx = useCallback((px: number) => {
+        const totalMs = dateRange.end.getTime() - dateRange.start.getTime();
+        if (totalMs <= 0 || totalTimelineWidthPx <= 0) return null;
+        const clamped = Math.max(0, Math.min(totalTimelineWidthPx, px));
+        const ratio = clamped / totalTimelineWidthPx;
+        const ts = dateRange.start.getTime() + ratio * totalMs;
+        const d = new Date(ts);
+        d.setHours(0, 0, 0, 0);
+        return d;
+    }, [dateRange.end, dateRange.start, totalTimelineWidthPx]);
+
+    // Drag-resize state (TimelineView parity)
+    const isDraggingRef = useRef(false);
+    const dragStateRef = useRef<{
+        taskId: string;
+        handle: "left" | "right";
+        startX: number;
+        originalStartDate: Date | null;
+        originalDueDate: Date | null;
+        baseBarLeft: number;
+        baseBarWidth: number;
+        currentBarLeft: number;
+        currentBarWidth: number;
+    } | null>(null);
+    const [draggedBarStyle, setDraggedBarStyle] = useState<{ taskId: string; barLeft: number; barWidth: number } | null>(null);
+
+    const handleResizeStart = useCallback((e: React.MouseEvent, task: Task, handle: "left" | "right") => {
+        e.preventDefault();
+        e.stopPropagation();
+        const cached = getTaskBarStyle(task);
+        if (!cached) return;
+
+        const { startDate, dueDate } = getEffectiveTaskDates(task);
+        isDraggingRef.current = true;
+        dragStateRef.current = {
+            taskId: task.id,
+            handle,
+            startX: e.clientX,
+            originalStartDate: isValidDate(startDate) ? new Date(startDate as any) : null,
+            originalDueDate: isValidDate(dueDate) ? new Date(dueDate as any) : null,
+            baseBarLeft: cached.left,
+            baseBarWidth: cached.width,
+            currentBarLeft: cached.left,
+            currentBarWidth: cached.width,
+        };
+        setDraggedBarStyle({ taskId: task.id, barLeft: cached.left, barWidth: cached.width });
+    }, [getEffectiveTaskDates, getTaskBarStyle]);
+
+    useEffect(() => {
+        if (!draggedBarStyle) return;
+
+        const totalMs = dateRange.end.getTime() - dateRange.start.getTime();
+        const daysSpan = Math.max(1, Math.round(totalMs / DAY_MS));
+        const pxPerDay = totalTimelineWidthPx / daysSpan;
+        const snapPx = (px: number) => Math.round(px / pxPerDay) * pxPerDay;
+
+        const onMouseMove = (e: MouseEvent) => {
+            const drag = dragStateRef.current;
+            if (!drag) return;
+            const deltaX = e.clientX - drag.startX;
+            let newWidth = drag.baseBarWidth;
+            let newLeft = drag.baseBarLeft;
+
+            if (drag.handle === "right") {
+                const snapped = snapPx(drag.baseBarWidth + deltaX);
+                newWidth = Math.max(pxPerDay, snapped);
+            } else {
+                const rightEdge = drag.baseBarLeft + drag.baseBarWidth;
+                const rawLeft = drag.baseBarLeft + deltaX;
+                const snappedLeft = snapPx(rawLeft);
+                newLeft = Math.max(0, snappedLeft);
+                newWidth = Math.max(pxPerDay, rightEdge - newLeft);
+            }
+
+            drag.currentBarLeft = newLeft;
+            drag.currentBarWidth = newWidth;
+            setDraggedBarStyle({ taskId: drag.taskId, barLeft: newLeft, barWidth: newWidth });
+        };
+
+        const onMouseUp = async (e: MouseEvent) => {
+            const snap = dragStateRef.current;
+            dragStateRef.current = null;
+            setDraggedBarStyle(null);
+            setTimeout(() => { isDraggingRef.current = false; }, 50);
+            if (!snap) return;
+
+            const deltaX = e.clientX - snap.startX;
+            const deltaDays = Math.round(deltaX / pxPerDay);
+            if (deltaDays === 0) return;
+
+            const applyDeltaDays = (d: Date, days: number) => new Date(d.getTime() + days * DAY_MS);
+
+            let newStartDate = snap.originalStartDate ? new Date(snap.originalStartDate) : null;
+            let newDueDate = snap.originalDueDate ? new Date(snap.originalDueDate) : null;
+
+            if (snap.handle === "right") {
+                if (!newDueDate && newStartDate) newDueDate = new Date(newStartDate);
+                if (!newDueDate && !newStartDate) newDueDate = new Date();
+                if (newDueDate) newDueDate = applyDeltaDays(newDueDate, deltaDays);
+            } else {
+                if (!newStartDate && newDueDate) newStartDate = new Date(newDueDate);
+                if (!newStartDate && !newDueDate) newStartDate = new Date();
+                if (newStartDate) newStartDate = applyDeltaDays(newStartDate, deltaDays);
+            }
+
+            const dateOverride: { startDate?: Date | null; dueDate?: Date | null; committed: boolean } = { committed: false };
+            if (snap.handle === "right") {
+                dateOverride.dueDate = newDueDate;
+                if (!snap.originalDueDate && snap.originalStartDate) dateOverride.startDate = newStartDate;
+            } else {
+                dateOverride.startDate = newStartDate;
+                if (!snap.originalStartDate && snap.originalDueDate) dateOverride.dueDate = newDueDate;
+            }
+            setLocalTaskDates(prev => ({ ...prev, [snap.taskId]: dateOverride }));
+
+            try {
+                await updateTask.mutateAsync({
+                    id: snap.taskId,
+                    ...(snap.handle === "right"
+                        ? {
+                            dueDate: newDueDate ? newDueDate.toISOString() : null,
+                            ...(!snap.originalDueDate ? { startDate: newStartDate ? newStartDate.toISOString() : null } : {}),
+                        }
+                        : {
+                            startDate: newStartDate ? newStartDate.toISOString() : null,
+                            ...(!snap.originalStartDate ? { dueDate: newDueDate ? newDueDate.toISOString() : null } : {}),
+                        }),
+                } as any);
+                setLocalTaskDates(prev => prev[snap.taskId]
+                    ? { ...prev, [snap.taskId]: { ...prev[snap.taskId], committed: true } }
+                    : prev
+                );
+                void utils.task.list.invalidate(taskListInput);
+            } catch (err) {
+                console.error(err);
+                toast.error("Failed to update task dates");
+                setLocalTaskDates(prev => {
+                    const next = { ...prev };
+                    delete next[snap.taskId];
+                    return next;
+                });
+            }
+        };
+
+        window.addEventListener("mousemove", onMouseMove);
+        window.addEventListener("mouseup", onMouseUp);
+        return () => {
+            window.removeEventListener("mousemove", onMouseMove);
+            window.removeEventListener("mouseup", onMouseUp);
+        };
+    }, [draggedBarStyle, dateRange.end, dateRange.start, totalTimelineWidthPx, updateTask, utils.task.list, taskListInput]);
+
+    // Clear committed overrides once the server data catches up.
+    useEffect(() => {
+        if (Object.keys(localTaskDates).length === 0) return;
+        setLocalTaskDates(prev => {
+            const next = { ...prev };
+            let changed = false;
+            for (const [taskId, override] of Object.entries(prev)) {
+                if (!override.committed) continue;
+                const serverTask = tasks.find(t => t.id === taskId);
+                if (!serverTask) { delete next[taskId]; changed = true; continue; }
+                const toTime = (d: any) => isValidDate(d) ? new Date(d).getTime() : null;
+                const startMatches = !("startDate" in override) || toTime(override.startDate) === toTime(serverTask.startDate);
+                const dueMatches = !("dueDate" in override) || toTime(override.dueDate) === toTime(serverTask.dueDate);
+                if (startMatches && dueMatches) { delete next[taskId]; changed = true; }
+            }
+            return changed ? next : prev;
+        });
+    }, [tasks, localTaskDates]);
 
     const getPriorityColor = (priority: string | null) => {
         switch (priority) {
@@ -1209,9 +1870,121 @@ export function GanttView({ spaceId, projectId, teamId, listId, viewId, initialC
         }
     };
 
-    const tasksWithDates = useMemo(() => {
-        return filteredTasks.filter(t => isValidDate(t.startDate) || isValidDate(t.dueDate));
+    const displayedTasks = useMemo(() => {
+        // Separate mode: keep flat order
+        if (expandedSubtaskMode === "separate") return filteredTasks;
+
+        // Nested mode: parent followed by its descendants
+        const idSet = new Set(filteredTasks.map(t => t.id));
+        const childrenByParent = new Map<string, Task[]>();
+        filteredTasks.forEach((t) => {
+            if (!t.parentId || !idSet.has(t.parentId)) return;
+            if (!childrenByParent.has(t.parentId)) childrenByParent.set(t.parentId, []);
+            childrenByParent.get(t.parentId)!.push(t);
+        });
+
+        const roots = filteredTasks.filter(t => !t.parentId || !idSet.has(t.parentId));
+        const ordered: Task[] = [];
+        const visit = (task: Task) => {
+            ordered.push(task);
+            const children = childrenByParent.get(task.id) ?? [];
+            children.forEach(visit);
+        };
+        roots.forEach(visit);
+        return ordered;
+    }, [filteredTasks, expandedSubtaskMode]);
+
+    const hasAnyTaskWithDates = useMemo(() => {
+        return filteredTasks.some(t => {
+            const override = localTaskDates[t.id];
+            const start = override && "startDate" in override ? override.startDate : t.startDate;
+            const due = override && "dueDate" in override ? override.dueDate : t.dueDate;
+            return isValidDate(start) || isValidDate(due);
+        });
+    }, [filteredTasks, localTaskDates]);
+
+    const nestedDepthByTaskId = useMemo(() => {
+        const depthMap = new Map<string, number>();
+        if (expandedSubtaskMode === "separate") return depthMap;
+
+        const byId = new Map(displayedTasks.map(t => [t.id, t] as const));
+        displayedTasks.forEach((task) => {
+            let depth = 0;
+            let currentParent = task.parentId;
+            let guard = 0;
+            while (currentParent && byId.has(currentParent) && guard < 20) {
+                depth += 1;
+                currentParent = byId.get(currentParent)?.parentId ?? null;
+                guard += 1;
+            }
+            depthMap.set(task.id, depth);
+        });
+        return depthMap;
+    }, [displayedTasks, expandedSubtaskMode]);
+
+    const childCountByTaskId = useMemo(() => {
+        const m = new Map<string, number>();
+        filteredTasks.forEach((t) => {
+            if (!t.parentId) return;
+            m.set(t.parentId, (m.get(t.parentId) ?? 0) + 1);
+        });
+        return m;
     }, [filteredTasks]);
+
+    useEffect(() => {
+        const leftViewport = leftScrollAreaRef.current?.querySelector("[data-radix-scroll-area-viewport]") as HTMLElement | null;
+        const rightViewport = rightScrollAreaRef.current?.querySelector("[data-radix-scroll-area-viewport]") as HTMLElement | null;
+        if (!leftViewport || !rightViewport) return;
+
+        const syncTop = (source: HTMLElement, target: HTMLElement) => {
+            if (isSyncingScrollRef.current) return;
+            isSyncingScrollRef.current = true;
+            target.scrollTop = source.scrollTop;
+            requestAnimationFrame(() => {
+                isSyncingScrollRef.current = false;
+            });
+        };
+
+        const onRightScroll = () => syncTop(rightViewport, leftViewport);
+        const onLeftWheel = (e: WheelEvent) => {
+            // Disable independent left-panel scrolling; route wheel to timeline viewport.
+            e.preventDefault();
+            rightViewport.scrollTop += e.deltaY;
+        };
+
+        rightViewport.addEventListener("scroll", onRightScroll, { passive: true });
+        leftViewport.addEventListener("wheel", onLeftWheel, { passive: false });
+
+        return () => {
+            rightViewport.removeEventListener("scroll", onRightScroll);
+            leftViewport.removeEventListener("wheel", onLeftWheel);
+        };
+    }, [leftPanelOpen, displayedTasks.length]);
+    useEffect(() => {
+        const MIN = 240;
+        const MAX = 820;
+        const onPointerMove = (e: PointerEvent) => {
+            if (!isResizingLeftPanelRef.current) return;
+            const containerLeft = ganttContainerRef.current?.getBoundingClientRect().left ?? 0;
+            const nextWidth = Math.max(MIN, Math.min(MAX, e.clientX - containerLeft));
+            setLeftPanelWidth(nextWidth);
+        };
+        const stopResize = () => {
+            isResizingLeftPanelRef.current = false;
+            document.body.style.cursor = "";
+            document.body.style.userSelect = "";
+            document.body.style.pointerEvents = "";
+        };
+
+        window.addEventListener("pointermove", onPointerMove);
+        window.addEventListener("pointerup", stopResize);
+        window.addEventListener("pointercancel", stopResize);
+        return () => {
+            window.removeEventListener("pointermove", onPointerMove);
+            window.removeEventListener("pointerup", stopResize);
+            window.removeEventListener("pointercancel", stopResize);
+        };
+    }, []);
 
 
     const renderFilterContent = (props?: { onClose?: () => void }) => {
@@ -1238,11 +2011,12 @@ export function GanttView({ spaceId, projectId, teamId, listId, viewId, initialC
                             </PopoverTrigger>
                             <PopoverContent align="end" className="w-80 p-0 overflow-hidden shadow-2xl">
                                 <div className="p-3 border-b border-zinc-100 bg-zinc-50/50">
-                                    <div className="relative">
-                                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-400" />
+                                    <div className="flex items-center h-8 rounded-md border border-zinc-200 bg-white px-2">
+                                        <Search className="h-3.5 w-3.5 text-zinc-400 shrink-0" />
                                         <Input
+                                            variant="ghost"
                                             placeholder="Search..."
-                                            className="pl-8 h-8 text-xs border-zinc-200"
+                                            className="h-full px-2 text-xs border-0 bg-transparent shadow-none focus:outline-none focus:ring-0 focus-visible:ring-0"
                                             value={savedFiltersSearch}
                                             onChange={e => setSavedFiltersSearch(e.target.value)}
                                         />
@@ -1312,7 +2086,7 @@ export function GanttView({ spaceId, projectId, teamId, listId, viewId, initialC
                         </Button>
                     </div>
                 ) : (
-                    <ScrollArea className="p-5 text-sm h-[500px]">
+                    <ScrollArea className="p-5 text-sm h-[350px]">
                         <div className="space-y-4">
                             <div className="space-y-4">
                                 {/* Render each top-level group */}
@@ -1471,7 +2245,13 @@ export function GanttView({ spaceId, projectId, teamId, listId, viewId, initialC
                                                                                         <ChevronDown className="h-3 w-3 opacity-30 shrink-0" />
                                                                                     </Button>
                                                                                 </DropdownMenuTrigger>
-                                                                                <DropdownMenuContent className="w-64 max-h-[400px] overflow-auto">
+                                                                                <DropdownMenuContent
+                                                                                    side="bottom"
+                                                                                    align="start"
+                                                                                    avoidCollisions={false}
+                                                                                    sideOffset={6}
+                                                                                    className="w-64 max-h-[400px] overflow-auto p-0"
+                                                                                >
                                                                                     <div className="p-2 border-b border-zinc-100 sticky top-0 bg-white z-10">
                                                                                         <Input placeholder="Search fields..." className="h-8 text-xs border-zinc-100" value={filterSearch} onChange={e => setFilterSearch(e.target.value)} />
                                                                                     </div>
@@ -1576,9 +2356,9 @@ export function GanttView({ spaceId, projectId, teamId, listId, viewId, initialC
                                                                                                         </PopoverTrigger>
                                                                                                         <PopoverContent align="start" className="w-64 p-2">
                                                                                                             <div className="p-2 border-b border-zinc-100 mb-1">
-                                                                                                                <div className="relative">
-                                                                                                                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-400" />
-                                                                                                                    <Input placeholder="Search people..." className="pl-8 h-8 text-[10px]" value={assigneesSearch} onChange={e => setAssigneesSearch(e.target.value)} />
+                                                                                                                <div className="flex items-center h-8 rounded-md border border-zinc-200 bg-white px-2">
+                                                                                                                    <Search className="h-3.5 w-3.5 text-zinc-400 shrink-0" />
+                                                                                                                    <Input variant="ghost" placeholder="Search people..." className="h-full px-2 text-[10px] border-0 bg-transparent shadow-none focus:outline-none focus:ring-0 focus-visible:ring-0" value={assigneesSearch} onChange={e => setAssigneesSearch(e.target.value)} />
                                                                                                                 </div>
                                                                                                             </div>
                                                                                                             <ScrollArea className="h-[240px]">
@@ -1855,6 +2635,7 @@ export function GanttView({ spaceId, projectId, teamId, listId, viewId, initialC
         );
     };
 
+
     if (isLoading) {
         return (
             <div className="h-full flex items-center justify-center">
@@ -1867,22 +2648,56 @@ export function GanttView({ spaceId, projectId, teamId, listId, viewId, initialC
     }
 
     return (
-        <div className="h-full flex flex-col bg-white rounded-lg border border-zinc-200 shadow-sm overflow-hidden text-sm">
+        <div ref={ganttContainerRef} className="h-full flex flex-col bg-white rounded-lg border border-zinc-200 shadow-sm overflow-hidden text-sm">
             {/* Toolbar */}
             <div className="flex items-center justify-between px-4 py-2 border-b border-zinc-200 bg-white gap-4 overflow-x-auto">
                 {/* Left Side */}
                 <div className="flex items-center gap-2.5 shrink-0">
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-zinc-500 hover:bg-zinc-100 rounded-lg">
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className={cn(
+                            "h-8 w-8 rounded-lg",
+                            leftPanelOpen ? "text-zinc-900 bg-zinc-100 hover:bg-zinc-200" : "text-zinc-500 hover:bg-zinc-100"
+                        )}
+                        onClick={() => setLeftPanelOpen(v => !v)}
+                    >
                         <PanelLeft className="h-4 w-4" />
                     </Button>
 
-                    <Button variant="outline" size="sm" className="h-8 text-[13px] font-bold text-zinc-600 border-zinc-200 shadow-none hover:bg-zinc-50 px-3.5 rounded-lg transition-colors">
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8 text-xs font-medium text-zinc-700 bg-zinc-50 border-zinc-200 hover:bg-zinc-100 px-3 rounded-lg shadow-none"
+                        onClick={() => {
+                            const now = Date.now();
+                            const startTs = dateRange.start.getTime();
+                            const endTs = dateRange.end.getTime();
+                            const changed = now < startTs || now > endTs;
+
+                            if (changed) {
+                                const spanMs = Math.max(DAY_MS, endTs - startTs);
+                                const nextStart = new Date(now - spanMs / 2);
+                                const nextEnd = new Date(now + spanMs / 2);
+                                nextStart.setHours(0, 0, 0, 0);
+                                nextEnd.setHours(23, 59, 59, 999);
+                                setDateRange({ start: nextStart, end: nextEnd });
+                            }
+                            if (changed) {
+                                requestAnimationFrame(() => {
+                                    requestAnimationFrame(() => scrollTimelineToNow("smooth"));
+                                });
+                            } else {
+                                scrollTimelineToNow("smooth");
+                            }
+                        }}
+                    >
                         Today
                     </Button>
 
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                            <Button variant="outline" size="sm" className="h-8 text-[13px] font-bold text-zinc-600 border-zinc-200 shadow-none hover:bg-zinc-50 gap-1.5 px-3 rounded-lg transition-colors">
+                            <Button variant="outline" size="sm" className="h-8 text-xs font-medium text-zinc-700 bg-zinc-50 border-zinc-200 hover:bg-zinc-100 gap-1.5 px-3 rounded-lg shadow-none">
                                 {timeScale}
                                 <ChevronDown className="h-4 w-4 opacity-40 ml-0.5" />
                             </Button>
@@ -1894,10 +2709,14 @@ export function GanttView({ spaceId, projectId, teamId, listId, viewId, initialC
                             {['Day', 'Week', 'Month', 'Quarter', 'Year', 'Flexible'].map((scale) => (
                                 <DropdownMenuItem
                                     key={scale}
-                                    onClick={() => setTimeScale(scale as TimeScale)}
+                                    onClick={() => {
+                                        const next = scale as TimeScale;
+                                        setTimeScale(next);
+                                        if (next !== "Flexible") setFlexibleInternalScale(next);
+                                    }}
                                     className="flex items-center justify-between rounded-lg h-9 px-2 hover:bg-zinc-50 cursor-pointer"
                                 >
-                                    <span className="text-sm font-medium text-zinc-700">{scale}</span>
+                                    <span className="text-sm font-normal text-zinc-700">{scale}</span>
                                     {timeScale === scale && <Check className="h-4 w-4 text-zinc-900" />}
                                 </DropdownMenuItem>
                             ))}
@@ -1907,11 +2726,16 @@ export function GanttView({ spaceId, projectId, teamId, listId, viewId, initialC
 
                 {/* Right Side */}
                 <div className="flex items-center gap-2 flex-1 justify-end">
-                    <Button variant="outline" size="sm" className="h-8 text-[13px] font-bold text-zinc-600 border-zinc-200 shadow-none hover:bg-zinc-50 px-3.5 rounded-lg transition-colors">
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8 text-xs font-medium text-zinc-700 bg-zinc-50 border-zinc-200 hover:bg-zinc-100 px-3 rounded-lg shadow-none"
+                        onClick={handleAutoFit}
+                    >
                         Auto fit
                     </Button>
 
-                    <Button variant="outline" size="sm" className="h-8 text-[13px] font-bold text-zinc-600 border-zinc-200 shadow-none hover:bg-zinc-50 gap-2 px-3.5 rounded-lg transition-colors mr-2">
+                    <Button variant="outline" size="sm" className="h-8 text-xs font-medium text-zinc-700 bg-zinc-50 border-zinc-200 hover:bg-zinc-100 gap-1.5 px-3 rounded-lg shadow-none mr-2">
                         <Download className="h-3.5 w-3.5" />
                         Export
                     </Button>
@@ -1933,8 +2757,8 @@ export function GanttView({ spaceId, projectId, teamId, listId, viewId, initialC
                                 variant="outline"
                                 size="sm"
                                 className={cn(
-                                    "h-8 gap-2 px-3.5 text-[13px] font-bold border-zinc-200 transition-colors cursor-pointer rounded-lg shadow-none",
-                                    expandedSubtaskMode === 'separate' ? "bg-violet-50 text-violet-700 border-violet-200" : "text-zinc-600 hover:bg-zinc-50"
+                                    "h-8 gap-1.5 px-2.5 text-xs font-medium border-zinc-200 transition-colors cursor-pointer rounded-lg shadow-none",
+                                    expandedSubtaskMode === 'separate' ? "bg-violet-50 text-violet-700 border-violet-200" : "bg-zinc-50 text-zinc-700 hover:bg-zinc-100"
                                 )}
                             >
                                 <Spline className="h-3.5 w-3.5" />
@@ -1985,8 +2809,8 @@ export function GanttView({ spaceId, projectId, teamId, listId, viewId, initialC
                                 variant="outline"
                                 size="sm"
                                 className={cn(
-                                    "h-8 gap-2 px-3.5 text-[13px] font-bold border-zinc-200 transition-colors cursor-pointer rounded-lg shadow-none",
-                                    sort.length > 0 ? "bg-violet-50 text-violet-700 border-violet-200" : "text-zinc-600 hover:bg-zinc-50"
+                                    "h-8 gap-1.5 px-2.5 text-xs font-medium border-zinc-200 transition-colors cursor-pointer rounded-lg shadow-none",
+                                    sort.length > 0 ? "bg-violet-50 text-violet-700 border-violet-200" : "bg-zinc-50 text-zinc-700 hover:bg-zinc-100"
                                 )}
                             >
                                 <ArrowUpDown className="h-3.5 w-3.5" />
@@ -2088,7 +2912,7 @@ export function GanttView({ spaceId, projectId, teamId, listId, viewId, initialC
                                     variant="outline"
                                     size="sm"
                                     className={cn(
-                                        "h-8 text-[13px] font-bold pr-7 border-zinc-200 transition-colors cursor-pointer rounded-lg shadow-none",
+                                        "h-8 text-xs font-medium pr-7 border-zinc-200 transition-colors cursor-pointer rounded-lg shadow-none",
                                         filtersPanelOpen ? "bg-violet-50 text-violet-700 border-violet-200" : "text-zinc-600 hover:bg-zinc-50",
                                         appliedFilterCount > 0 && "bg-violet-50 text-violet-700 border-violet-200"
                                     )}
@@ -2137,8 +2961,8 @@ export function GanttView({ spaceId, projectId, teamId, listId, viewId, initialC
                                 variant="outline"
                                 size="sm"
                                 className={cn(
-                                    "h-8 gap-2 px-3.5 text-[13px] font-bold border-zinc-200 transition-colors cursor-pointer rounded-lg shadow-none",
-                                    assigneesPanelOpen ? "bg-violet-50 text-violet-700 border-violet-200" : "text-zinc-600 hover:bg-zinc-50"
+                                    "h-8 gap-1.5 px-2.5 text-xs font-medium border-zinc-200 transition-colors cursor-pointer rounded-lg shadow-none",
+                                    assigneesPanelOpen ? "bg-violet-50 text-violet-700 border-violet-200" : "bg-zinc-50 text-zinc-700 hover:bg-zinc-100"
                                 )}
                                 onClick={() => { setAssigneesPanelOpen(!assigneesPanelOpen); setFieldsPanelOpen(false); setFiltersPanelOpen(false); }}
                             >
@@ -2176,9 +3000,9 @@ export function GanttView({ spaceId, projectId, teamId, listId, viewId, initialC
                     )}
 
                     <Button
-                        variant="ghost"
+                        variant="outline"
                         size="sm"
-                        className="h-8 gap-2 text-[13px] font-bold text-zinc-600 hover:bg-zinc-50 px-3 rounded-lg flex-shrink-0"
+                        className="h-8 gap-1.5 px-2.5 text-xs font-medium text-zinc-700 bg-zinc-50 border-zinc-200 hover:bg-zinc-100 rounded-lg flex-shrink-0"
                         onClick={() => setCustomizePanelOpen(true)}
                     >
                         <Settings className="h-3.5 w-3.5" />
@@ -2187,7 +3011,7 @@ export function GanttView({ spaceId, projectId, teamId, listId, viewId, initialC
 
                     <div className="flex items-center gap-0 ml-1 flex-shrink-0">
                         <Button
-                            className="h-8 bg-zinc-900 border-zinc-900 text-white hover:bg-black text-[13px] font-bold gap-1 px-3 rounded-lg shadow-sm"
+                            className="h-8 bg-zinc-900 border-zinc-900 text-white hover:bg-zinc-800 text-xs font-medium gap-1.5 px-3 rounded-lg shadow-sm"
                             onClick={() => setAddTaskModalOpen(true)}
                         >
                             <span>Add Task</span>
@@ -2197,7 +3021,7 @@ export function GanttView({ spaceId, projectId, teamId, listId, viewId, initialC
                 </div>
             </div>
 
-            {tasksWithDates.length === 0 ? (
+            {hasAnyTaskWithDates === false ? (
                 <div className="flex-1 flex items-center justify-center p-8 bg-zinc-50/30">
                     <div className="text-center">
                         <div className="h-16 w-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -2210,100 +3034,618 @@ export function GanttView({ spaceId, projectId, teamId, listId, viewId, initialC
                     </div>
                 </div>
             ) : (
-                <div className="flex-1 flex overflow-hidden">
+                <div className="flex-1 flex overflow-hidden relative">
                     {/* Task Names Column */}
-                    <div className="w-[480px] border-r border-zinc-200 bg-zinc-50/50 flex flex-col shrink-0">
-                        <div className="h-10 border-b border-zinc-200 flex items-center px-4 font-bold text-[10px] text-zinc-500 uppercase tracking-widest bg-white">
-                            <div className="flex-1">Name</div>
-                            <div className="w-px h-10 bg-zinc-100 mx-4" />
-                            <div className="w-[184px] px-4 flex items-center justify-between">
-                                <span>Due date</span>
-                                <Button variant="ghost" size="icon" className="h-5 w-5 text-zinc-300 hover:text-zinc-600 rounded-full border border-dashed border-zinc-300 flex-shrink-0">
-                                    <Plus className="h-3 w-3" />
-                                </Button>
+                    {leftPanelOpen && (
+                        <div
+                            className="bg-zinc-50/50 flex flex-col relative border-r border-zinc-200 group/left-sidebar absolute left-0 top-0 bottom-0 z-20"
+                            style={{ width: leftPanelWidth }}
+                        >
+                            <div className={cn(GANTT_HEADER_ROW_CLASS, "flex items-center font-bold text-[10px] text-zinc-500 uppercase tracking-widest")}>
+                                <div className="flex-1 px-4">Name</div>
+                                <div className="w-[184px] px-4 flex items-center justify-between">
+                                    <span>Due date</span>
+                                    <Button variant="ghost" size="icon" className="h-5 w-5 text-zinc-300 hover:text-zinc-600 rounded-full border border-dashed border-zinc-300 flex-shrink-0">
+                                        <Plus className="h-3 w-3" />
+                                    </Button>
+                                </div>
+                            </div>
+                            <ScrollArea ref={leftScrollAreaRef} className="flex-1 [&_[data-radix-scroll-area-scrollbar]]:hidden">
+                                <div>
+                                    {displayedTasks.map((task) => (
+                                        <TaskActionsPopover
+                                            key={task.id}
+                                            task={task}
+                                            context={spaceId ? "SPACE" : projectId ? "PROJECT" : "GENERAL"}
+                                            contextId={(spaceId || projectId) as any}
+                                            workspaceId={resolvedWorkspaceId as string}
+                                            users={users as any}
+                                            lists={[]}
+                                            defaultListId={listId}
+                                            availableStatuses={allAvailableStatuses}
+                                            openOnContextMenu
+                                            onDelete={async (id) => {
+                                                try { await deleteTask.mutateAsync({ id }); } catch (e) { }
+                                            }}
+                                            onUpdate={async (id, data) => {
+                                                try { await updateTask.mutateAsync({ id, ...(data as any) }); } catch (e) { }
+                                            }}
+                                            onAction={() => { }}
+                                        >
+                                            <div
+                                                className="h-12 px-0 flex items-center hover:bg-zinc-100/50 transition-colors cursor-pointer bg-white group"
+                                                onClick={() => { if (isDraggingRef.current) return; openTaskDetail(task.id); }}
+                                            >
+                                            <div
+                                                className="flex-1 flex items-center gap-2 px-4 truncate relative pr-16"
+                                                style={{
+                                                    paddingLeft:
+                                                        expandedSubtaskMode === "separate"
+                                                            ? 16
+                                                            : 16 + (nestedDepthByTaskId.get(task.id) ?? 0) * 20,
+                                                }}
+                                            >
+                                                {expandedSubtaskMode !== "separate" && (
+                                                    <>
+                                                        {(childCountByTaskId.get(task.id) ?? 0) > 0 ? (
+                                                            <ChevronDown className="h-3.5 w-3.5 text-zinc-500 shrink-0" />
+                                                        ) : (nestedDepthByTaskId.get(task.id) ?? 0) > 0 ? (
+                                                            <GitCommit className="h-3.5 w-3.5 text-zinc-400 shrink-0" />
+                                                        ) : (
+                                                            <span className="h-3.5 w-3.5 shrink-0" />
+                                                        )}
+                                                    </>
+                                                )}
+                                                <div className={cn("h-2 w-2 rounded-full flex-shrink-0", getPriorityColor(task.priority))} />
+                                                <span className="text-sm text-zinc-900 truncate font-medium">{task.title || task.name}</span>
+
+                                                <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                    <Popover
+                                                        open={subtaskPopoverTaskId === task.id}
+                                                        onOpenChange={(open) => {
+                                                            setSubtaskPopoverTaskId(open ? task.id : null);
+                                                            if (open) setSubtaskTitleDraft("");
+                                                        }}
+                                                    >
+                                                        <PopoverTrigger asChild>
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                className="h-7 w-7 text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100"
+                                                                onClick={(e) => { e.stopPropagation(); }}
+                                                            >
+                                                                <Plus className="h-4 w-4" />
+                                                            </Button>
+                                                        </PopoverTrigger>
+                                                        <PopoverContent
+                                                            align="end"
+                                                            className="w-[360px] p-4 rounded-2xl shadow-2xl border border-zinc-200"
+                                                            onOpenAutoFocus={(e) => e.preventDefault()}
+                                                            onClick={(e) => e.stopPropagation()}
+                                                        >
+                                                            <div className="space-y-3">
+                                                                <div className="text-sm font-semibold text-zinc-800">Create subtask</div>
+                                                                <div className="flex gap-2">
+                                                                    <Input
+                                                                        placeholder="Enter name"
+                                                                        value={subtaskTitleDraft}
+                                                                        onChange={(e) => setSubtaskTitleDraft(e.target.value)}
+                                                                        onKeyDown={async (e) => {
+                                                                            if (e.key !== "Enter") return;
+                                                                            e.preventDefault();
+                                                                            const title = subtaskTitleDraft.trim();
+                                                                            if (!title) return;
+                                                                            try {
+                                                                                await createTask.mutateAsync({
+                                                                                    title,
+                                                                                    parentId: task.id,
+                                                                                    listId: (task as any).listId ?? listId ?? undefined,
+                                                                                    workspaceId: resolvedWorkspaceId,
+                                                                                } as any);
+                                                                                setSubtaskPopoverTaskId(null);
+                                                                                setSubtaskTitleDraft("");
+                                                                            } catch (err) {
+                                                                                toast.error("Failed to create subtask");
+                                                                            }
+                                                                        }}
+                                                                    />
+                                                                    <Button
+                                                                        className="font-semibold"
+                                                                        disabled={!subtaskTitleDraft.trim() || createTask.isPending}
+                                                                        onClick={async (e) => {
+                                                                            e.stopPropagation();
+                                                                            const title = subtaskTitleDraft.trim();
+                                                                            if (!title) return;
+                                                                            try {
+                                                                                await createTask.mutateAsync({
+                                                                                    title,
+                                                                                    parentId: task.id,
+                                                                                    listId: (task as any).listId ?? listId ?? undefined,
+                                                                                    workspaceId: resolvedWorkspaceId,
+                                                                                } as any);
+                                                                                setSubtaskPopoverTaskId(null);
+                                                                                setSubtaskTitleDraft("");
+                                                                            } catch (err) {
+                                                                                toast.error("Failed to create subtask");
+                                                                            }
+                                                                        }}
+                                                                    >
+                                                                        Create
+                                                                    </Button>
+                                                                </div>
+                                                            </div>
+                                                        </PopoverContent>
+                                                    </Popover>
+
+                                                    <Popover
+                                                        open={renamePopoverTaskId === task.id}
+                                                        onOpenChange={(open) => {
+                                                            setRenamePopoverTaskId(open ? task.id : null);
+                                                            if (open) setRenameTitleDraft((task.title || task.name || "").toString());
+                                                        }}
+                                                    >
+                                                        <PopoverTrigger asChild>
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                className="h-7 w-7 text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100"
+                                                                onClick={(e) => { e.stopPropagation(); }}
+                                                            >
+                                                                <Edit3 className="h-4 w-4" />
+                                                            </Button>
+                                                        </PopoverTrigger>
+                                                        <PopoverContent
+                                                            align="end"
+                                                            className="w-[360px] p-4 rounded-2xl shadow-2xl border border-zinc-200"
+                                                            onOpenAutoFocus={(e) => e.preventDefault()}
+                                                            onClick={(e) => e.stopPropagation()}
+                                                        >
+                                                            <div className="space-y-2">
+                                                                <div className="text-xs font-bold text-zinc-600 uppercase tracking-wider">Rename task:</div>
+                                                                <div className="flex gap-2">
+                                                                    <Input
+                                                                        value={renameTitleDraft}
+                                                                        onChange={(e) => setRenameTitleDraft(e.target.value)}
+                                                                        onKeyDown={async (e) => {
+                                                                            if (e.key !== "Enter") return;
+                                                                            e.preventDefault();
+                                                                            const nextTitle = renameTitleDraft.trim();
+                                                                            const current = (task.title || task.name || "").toString().trim();
+                                                                            if (!nextTitle || nextTitle === current) return;
+                                                                            try {
+                                                                                await updateTask.mutateAsync({ id: task.id, title: nextTitle } as any);
+                                                                                setRenamePopoverTaskId(null);
+                                                                            } catch (err) {
+                                                                                toast.error("Failed to rename task");
+                                                                            }
+                                                                        }}
+                                                                    />
+                                                                    <Button
+                                                                        className="font-semibold"
+                                                                        disabled={(() => {
+                                                                            const nextTitle = renameTitleDraft.trim();
+                                                                            const current = (task.title || task.name || "").toString().trim();
+                                                                            return !nextTitle || nextTitle === current || updateTask.isPending;
+                                                                        })()}
+                                                                        onClick={async (e) => {
+                                                                            e.stopPropagation();
+                                                                            const nextTitle = renameTitleDraft.trim();
+                                                                            const current = (task.title || task.name || "").toString().trim();
+                                                                            if (!nextTitle || nextTitle === current) return;
+                                                                            try {
+                                                                                await updateTask.mutateAsync({ id: task.id, title: nextTitle } as any);
+                                                                                setRenamePopoverTaskId(null);
+                                                                            } catch (err) {
+                                                                                toast.error("Failed to rename task");
+                                                                            }
+                                                                        }}
+                                                                    >
+                                                                        Save
+                                                                    </Button>
+                                                                </div>
+                                                                {(() => {
+                                                                    const nextTitle = renameTitleDraft.trim();
+                                                                    const current = (task.title || task.name || "").toString().trim();
+                                                                    if (!nextTitle) return <div className="text-xs text-red-500">Name is required</div>;
+                                                                    if (nextTitle === current) return <div className="text-xs text-red-500">Name must be different</div>;
+                                                                    return null;
+                                                                })()}
+                                                            </div>
+                                                        </PopoverContent>
+                                                    </Popover>
+                                                </div>
+                                            </div>
+                                            <div className="w-[184px] px-4 flex items-center justify-between">
+                                                <span className="text-xs text-zinc-500 font-medium">
+                                                    {task.dueDate ? new Date(task.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : "-"}
+                                                </span>
+                                                <TooltipProvider delayDuration={0}>
+                                                    <Tooltip>
+                                                        <TooltipTrigger asChild>
+                                                            <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100 text-zinc-300 hover:text-zinc-600">
+                                                                <Plus className="h-3.5 w-3.5" />
+                                                            </Button>
+                                                        </TooltipTrigger>
+                                                        <TooltipContent side="right">Edit dates</TooltipContent>
+                                                    </Tooltip>
+                                                </TooltipProvider>
+                                            </div>
+                                            </div>
+                                        </TaskActionsPopover>
+                                    ))}
+                                </div>
+                            </ScrollArea>
+                            <div
+                                className="absolute top-0 bottom-0 right-0 w-[6px] translate-x-[3px] cursor-col-resize z-30 flex items-center justify-center group/resize select-none"
+                                onPointerDown={startLeftPanelResize}
+                                title="Drag to resize sidebar"
+                            >
+                                <div className="w-[2px] h-full bg-transparent group-hover/resize:bg-violet-400 group-hover/left-sidebar:bg-zinc-300 transition-colors duration-150" />
                             </div>
                         </div>
-                        <ScrollArea className="flex-1">
-                            <div className="divide-y divide-zinc-100">
-                                {tasksWithDates.map((task) => (
-                                    <div key={task.id} className="h-12 px-0 flex items-center hover:bg-zinc-100/50 transition-colors cursor-pointer bg-white group" onClick={() => onTaskSelect?.(task.id)}>
-                                        <div className="flex-1 flex items-center gap-2 px-4 truncate">
-                                            <div className={cn("h-2 w-2 rounded-full flex-shrink-0", getPriorityColor(task.priority))} />
-                                            <span className="text-sm text-zinc-900 truncate font-medium">{task.title || task.name}</span>
-                                        </div>
-                                        <div className="w-px h-12 bg-zinc-100" />
-                                        <div className="w-[184px] px-4 flex items-center justify-between">
-                                            <span className="text-xs text-zinc-500 font-medium">
-                                                {task.dueDate ? new Date(task.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : "-"}
-                                            </span>
-                                            <TooltipProvider delayDuration={0}>
-                                                <Tooltip>
-                                                    <TooltipTrigger asChild>
-                                                        <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100 text-zinc-300 hover:text-zinc-600">
-                                                            <Plus className="h-3.5 w-3.5" />
-                                                        </Button>
-                                                    </TooltipTrigger>
-                                                    <TooltipContent side="right">Edit dates</TooltipContent>
-                                                </Tooltip>
-                                            </TooltipProvider>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </ScrollArea>
-                    </div>
+                    )}
 
                     {/* Timeline Column */}
-                    <div className="flex-1 flex flex-col overflow-hidden min-w-0">
-                        <ScrollArea className="flex-1 w-full">
-                            <div className="min-w-fit w-full">
+                    <div className="flex flex-col overflow-hidden min-w-0 relative">
+                        <div className="absolute right-2 top-[68px] z-40 w-6 rounded-md border border-zinc-200 bg-white/95 shadow-sm backdrop-blur-sm overflow-hidden">
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6 rounded-none text-zinc-700 hover:bg-zinc-100 disabled:opacity-40"
+                                onClick={handleZoomIn}
+                                disabled={!canZoomIn}
+                                title="Zoom in"
+                            >
+                                <Plus className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6 rounded-none border-t border-zinc-200 text-zinc-700 hover:bg-zinc-100 disabled:opacity-40"
+                                onClick={handleZoomOut}
+                                disabled={!canZoomOut}
+                                title="Zoom out"
+                            >
+                                <Minus className="h-3.5 w-3.5" />
+                            </Button>
+                        </div>
+                        <ScrollArea ref={rightScrollAreaRef} className="flex-1 w-full">
+                            <div className="min-w-fit w-full" style={{ width: totalTimelineCanvasWidthPx }}>
                                 {/* Month Headers */}
-                                <div className="h-10 border-b border-zinc-200 bg-white flex sticky top-0 z-10 shadow-sm">
-                                    {months.map((month, i) => (
-                                        <div
-                                            key={i}
-                                            className="flex-1 min-w-[200px] px-4 flex items-center justify-center border-r border-zinc-100 text-xs font-semibold text-zinc-600"
-                                        >
-                                            {month.label}
+                                <div className={cn(GANTT_HEADER_ROW_CLASS, "sticky top-0 z-30")}>
+                                    {effectiveTimeScale === "Day" ? (
+                                        <div className="h-full flex flex-col">
+                                            <div className="h-8 flex border-b border-zinc-200/70">
+                                                {dayHeaderSegments.map((seg) => (
+                                                    <div
+                                                        key={seg.dayKey}
+                                                        className="px-3 flex items-center text-[11px] font-semibold text-zinc-600 border-r border-zinc-200/60 whitespace-nowrap"
+                                                        style={{ width: seg.span * activeColumnWidth }}
+                                                    >
+                                                        {seg.dayLabel}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                            <div className="h-8 flex">
+                                                {timelineUnits.map((unit, i) => (
+                                                    <div
+                                                        key={i}
+                                                        className="flex items-center justify-center text-[10px] font-medium text-zinc-500 border-r border-zinc-200/60"
+                                                        style={{ width: activeColumnWidth }}
+                                                    >
+                                                        {unit.label}
+                                                    </div>
+                                                ))}
+                                            </div>
                                         </div>
-                                    ))}
+                                    ) : effectiveTimeScale === "Week" ? (
+                                        <div className="h-full flex flex-col">
+                                            <div className="h-8 flex border-b border-zinc-200/70">
+                                                {weekHeaderSegments.map((seg) => (
+                                                    <div
+                                                        key={seg.weekKey}
+                                                        className="px-2 flex items-center justify-between text-[11px] font-semibold text-zinc-600 border-r border-zinc-200/60"
+                                                        style={{ width: seg.span * activeColumnWidth }}
+                                                    >
+                                                        <span>{seg.weekLabel}</span>
+                                                        <span className="text-zinc-500">{seg.weekNumber}</span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                            <div className="h-8 flex">
+                                                {timelineUnits.map((unit, i) => (
+                                                    <div
+                                                        key={i}
+                                                        className={cn(
+                                                            "flex items-center justify-center text-[10px] font-medium border-r border-zinc-200/60",
+                                                            unit.isWeekend ? "text-zinc-400 bg-zinc-50" : "text-zinc-600"
+                                                        )}
+                                                        style={{ width: activeColumnWidth }}
+                                                    >
+                                                        {unit.label}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    ) : effectiveTimeScale === "Month" ? (
+                                        <div className="h-full flex flex-col">
+                                            <div className="h-8 flex border-b border-zinc-200/70 relative">
+                                                {monthHeaderSegments.map((seg) => (
+                                                    <div
+                                                        key={seg.monthKey}
+                                                        className="px-2 flex items-center justify-between text-[11px] font-semibold text-zinc-600 border-r border-zinc-200/60"
+                                                        style={{ width: seg.span * activeColumnWidth }}
+                                                    >
+                                                        <span>{seg.monthLabel}</span>
+                                                        <span className="text-zinc-700">{seg.monthKey.slice(0, 4)}</span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                            <div className="h-8 flex relative">
+                                                {timelineUnits.map((unit, i) => (
+                                                    <div
+                                                        key={i}
+                                                        className="px-2 flex items-center justify-between text-[11px] font-medium text-zinc-600 border-r border-zinc-200/60"
+                                                        style={{ width: activeColumnWidth }}
+                                                    >
+                                                        <span className="text-zinc-500">{unit.weekNumber}</span>
+                                                        <span>{unit.weekLabel}</span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    ) : effectiveTimeScale === "Quarter" ? (
+                                        <div className="h-full flex flex-col">
+                                            <div className="h-8 flex border-b border-zinc-200/70">
+                                                {timelineUnits
+                                                    .reduce((acc: { quarterKey: string; quarterLabel: string; quarterYear: number; span: number }[], unit) => {
+                                                        if (!unit.quarterKey || !unit.quarterLabel || !unit.quarterYear) return acc;
+                                                        const last = acc[acc.length - 1];
+                                                        if (!last || last.quarterKey !== unit.quarterKey) {
+                                                            acc.push({
+                                                                quarterKey: unit.quarterKey,
+                                                                quarterLabel: unit.quarterLabel,
+                                                                quarterYear: unit.quarterYear,
+                                                                span: 1,
+                                                            });
+                                                        } else {
+                                                            last.span += 1;
+                                                        }
+                                                        return acc;
+                                                    }, [])
+                                                    .map((seg) => (
+                                                    <div
+                                                        key={seg.quarterKey}
+                                                        className="px-2 flex items-center justify-between text-[11px] font-semibold text-zinc-600 border-r border-zinc-200/60"
+                                                        style={{ width: seg.span * activeColumnWidth }}
+                                                    >
+                                                        <span>{seg.quarterLabel}</span>
+                                                        <span className="text-zinc-700">{seg.quarterYear}</span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                            <div className="h-8 flex">
+                                                {timelineUnits.map((unit, i) => (
+                                                    <div
+                                                        key={i}
+                                                        className="px-2 flex items-center justify-center text-[11px] font-medium text-zinc-600 border-r border-zinc-200/60"
+                                                        style={{ width: activeColumnWidth }}
+                                                    >
+                                                        {unit.monthLabel || unit.label}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    ) : effectiveTimeScale === "Year" ? (
+                                        <div className="h-full flex flex-col">
+                                            <div className="h-8 flex border-b border-zinc-200/70">
+                                                {timelineUnits
+                                                    .reduce((acc: { yearKey: string; yearLabel: string; span: number }[], unit) => {
+                                                        if (!unit.yearKey || !unit.yearLabel) return acc;
+                                                        const last = acc[acc.length - 1];
+                                                        if (!last || last.yearKey !== unit.yearKey) {
+                                                            acc.push({ yearKey: unit.yearKey, yearLabel: unit.yearLabel, span: 1 });
+                                                        } else {
+                                                            last.span += 1;
+                                                        }
+                                                        return acc;
+                                                    }, [])
+                                                    .map((seg) => (
+                                                    <div
+                                                        key={seg.yearKey}
+                                                        className="px-2 flex items-center justify-center text-[12px] font-semibold text-zinc-700 border-r border-zinc-200/60"
+                                                        style={{ width: seg.span * activeColumnWidth }}
+                                                    >
+                                                        {seg.yearLabel}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                            <div className="h-8 flex">
+                                                {timelineUnits.map((unit, i) => (
+                                                    <div
+                                                        key={i}
+                                                        className="px-2 flex items-center justify-center text-[11px] font-medium text-zinc-600 border-r border-zinc-200/60"
+                                                        style={{ width: activeColumnWidth }}
+                                                    >
+                                                        {unit.quarterLabel || unit.label}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="h-full flex">
+                                            {timelineUnits.map((month, i) => (
+                                                <div
+                                                    key={i}
+                                                    className="px-4 flex items-center justify-center text-xs font-semibold text-zinc-600 border-r border-zinc-200/60"
+                                                    style={{ width: activeColumnWidth }}
+                                                >
+                                                    {month.label}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
                                 </div>
 
                                 {/* Timeline Bars Grid */}
                                 <div className="relative">
-                                    {/* Vertical Day Grid Lines (Visual) */}
                                     <div className="absolute inset-0 flex pointer-events-none">
-                                        {months.map((_, i) => (
-                                            <div key={i} className="flex-1 min-w-[200px] border-r border-zinc-100/50 h-full" />
+                                        {timelineUnits.map((unit, i) => (
+                                            <div
+                                                key={i}
+                                                className={cn(
+                                                    "border-r border-zinc-200/60 h-full",
+                                                    effectiveTimeScale === "Week" && unit.isWeekend && "bg-[repeating-linear-gradient(135deg,rgba(113,113,122,0.08)_0px,rgba(113,113,122,0.08)_2px,transparent_2px,transparent_6px)]"
+                                                )}
+                                                style={{ width: activeColumnWidth }}
+                                            />
                                         ))}
                                     </div>
-
-                                    {tasksWithDates.map((task, idx) => {
+                                    {displayedTasks.map((task, idx) => {
                                         const barStyle = getTaskBarStyle(task);
-                                        if (!barStyle) return null;
+                                        const isDraggingThis = draggedBarStyle?.taskId === task.id;
+                                        const barLeft = barStyle ? (isDraggingThis ? draggedBarStyle!.barLeft : barStyle.left) : 0;
+                                        const barWidth = barStyle ? (isDraggingThis ? draggedBarStyle!.barWidth : barStyle.width) : 0;
+                                        const labelLeft = barLeft + barWidth + BAR_LABEL_GAP_PX;
+                                        const { startDate, dueDate } = getEffectiveTaskDates(task);
 
                                         return (
                                             <div
                                                 key={task.id}
-                                                className="h-12 border-b border-zinc-100 relative hover:bg-zinc-50/50 transition-colors group"
-                                                onClick={() => onTaskSelect?.(task.id)}
+                                                className="h-12 relative hover:bg-zinc-50/50 transition-colors group"
+                                                onMouseMove={(e) => {
+                                                    if (barStyle) return;
+                                                    const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect();
+                                                    const x = e.clientX - rect.left;
+                                                    setScheduleHover({
+                                                        taskId: task.id,
+                                                        leftPx: Math.max(0, Math.min(totalTimelineWidthPx, x)),
+                                                    });
+                                                }}
+                                                onMouseLeave={() => {
+                                                    setScheduleHover((prev) => (prev?.taskId === task.id ? null : prev));
+                                                }}
+                                                onClick={async (e) => {
+                                                    if (isDraggingRef.current) return;
+                                                    if (barStyle) {
+                                                        openTaskDetail(task.id);
+                                                        return;
+                                                    }
+                                                    const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect();
+                                                    const clickX = e.clientX - rect.left;
+                                                    const pickedDate = dateFromTimelinePx(clickX);
+                                                    if (!pickedDate) return;
+
+                                                    const optimistic = { startDate: pickedDate, dueDate: pickedDate, committed: false as const };
+                                                    setLocalTaskDates(prev => ({ ...prev, [task.id]: optimistic }));
+                                                    try {
+                                                        await updateTask.mutateAsync({
+                                                            id: task.id,
+                                                            startDate: pickedDate.toISOString(),
+                                                            dueDate: pickedDate.toISOString(),
+                                                        } as any);
+                                                        setLocalTaskDates(prev => prev[task.id]
+                                                            ? { ...prev, [task.id]: { ...prev[task.id], committed: true } }
+                                                            : prev
+                                                        );
+                                                        void utils.task.list.invalidate(taskListInput);
+                                                    } catch (err) {
+                                                        toast.error("Failed to schedule task");
+                                                        setLocalTaskDates(prev => {
+                                                            const next = { ...prev };
+                                                            delete next[task.id];
+                                                            return next;
+                                                        });
+                                                    }
+                                                }}
                                             >
-                                                <div
-                                                    className={cn(
-                                                        "absolute top-2 h-8 rounded-md px-2 flex items-center text-xs text-white font-medium shadow-sm transition-all hover:scale-[1.02] cursor-pointer z-10",
-                                                        getStatusColor(task.status?.name)
-                                                    )}
-                                                    style={barStyle}
-                                                    title={`${task.title || task.name} (${task.startDate ? new Date(task.startDate).toLocaleDateString() : ''} - ${task.dueDate ? new Date(task.dueDate).toLocaleDateString() : ''})`}
-                                                >
-                                                    {showTaskNames && <span className="truncate">{task.title || task.name}</span>}
-                                                    {showAssignees && task.assignee && (
-                                                        <Avatar className="h-5 w-5 ml-2 border-white ring-1 ring-white/20">
-                                                            <AvatarImage src={task.assignee.image} />
-                                                            <AvatarFallback className="text-[8px] bg-white/20 text-white">{task.assignee.name?.slice(0, 1)}</AvatarFallback>
-                                                        </Avatar>
-                                                    )}
-                                                </div>
+                                                {barStyle && (
+                                                    <TaskActionsPopover
+                                                        task={task}
+                                                        context={spaceId ? "SPACE" : projectId ? "PROJECT" : "GENERAL"}
+                                                        contextId={(spaceId || projectId) as any}
+                                                        workspaceId={resolvedWorkspaceId as string}
+                                                        users={users as any}
+                                                        lists={[]}
+                                                        defaultListId={listId}
+                                                        availableStatuses={allAvailableStatuses}
+                                                        openOnContextMenu
+                                                        onDelete={async (id) => {
+                                                            try { await deleteTask.mutateAsync({ id }); } catch (e) { }
+                                                        }}
+                                                        onUpdate={async (id, data) => {
+                                                            try { await updateTask.mutateAsync({ id, ...(data as any) }); } catch (e) { }
+                                                        }}
+                                                        onAction={() => { }}
+                                                    >
+                                                        <div
+                                                            className={cn(
+                                                                "absolute top-2 h-8 rounded-sm px-2 flex items-center text-xs text-white font-medium shadow-sm transition-all hover:scale-[1.02] cursor-pointer z-[2] group/bar overflow-visible border",
+                                                                getStatusColor(task.status?.name),
+                                                                !isDraggingThis && "group-hover/bar:ring-2 group-hover/bar:ring-violet-400/50"
+                                                            )}
+                                                            style={{ left: barLeft, width: barWidth }}
+                                                            title={`${task.title || task.name} (${startDate ? new Date(startDate).toLocaleDateString() : ''} - ${dueDate ? new Date(dueDate).toLocaleDateString() : ''})`}
+                                                        onClick={(e) => {
+                                                            if (isDraggingRef.current) return;
+                                                            e.stopPropagation();
+                                                            openTaskDetail(task.id);
+                                                        }}
+                                                        >
+                                                        {showAssignees && task.assignee && (
+                                                            <Avatar className="h-5 w-5 ml-2 border-white ring-1 ring-white/20">
+                                                                <AvatarImage src={task.assignee.image} />
+                                                                <AvatarFallback className="text-[8px] bg-white/20 text-white">{task.assignee.name?.slice(0, 1)}</AvatarFallback>
+                                                            </Avatar>
+                                                        )}
+
+                                                        {/* Left resize handle + "drag line" */}
+                                                        <div
+                                                            className="absolute left-0 top-0 bottom-0 w-3 flex items-center justify-center opacity-0 group-hover/bar:opacity-100 transition-opacity cursor-col-resize z-20"
+                                                            onMouseDown={(e) => handleResizeStart(e, task, "left")}
+                                                        >
+                                                            <div className="w-[2.5px] h-4 rounded-full bg-white/90 shadow-sm" />
+                                                        </div>
+
+                                                        {/* Right resize handle */}
+                                                        <div
+                                                            className="absolute right-0 top-0 bottom-0 w-3 flex items-center justify-center opacity-0 group-hover/bar:opacity-100 transition-opacity cursor-col-resize z-20"
+                                                            onMouseDown={(e) => handleResizeStart(e, task, "right")}
+                                                        >
+                                                            <div className="w-[2.5px] h-4 rounded-full bg-white/90 shadow-sm" />
+                                                        </div>
+                                                        </div>
+                                                    </TaskActionsPopover>
+                                                )}
+
+                                                {/* Always-visible task name label beside the bar */}
+                                                {barStyle && (
+                                                    <div
+                                                        className="absolute top-2 h-8 flex items-center z-[2] pointer-events-none"
+                                                        style={{ left: labelLeft }}
+                                                    >
+                                                        <span className="text-xs font-medium text-zinc-700 whitespace-nowrap">
+                                                            {task.title || task.name}
+                                                        </span>
+                                                    </div>
+                                                )}
+
+                                                {!barStyle && scheduleHover?.taskId === task.id && (
+                                                    <>
+                                                        <div
+                                                            className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 h-7 w-7 rounded-full border border-zinc-500 bg-zinc-200/90 z-[2] pointer-events-none"
+                                                            style={{ left: scheduleHover.leftPx }}
+                                                        />
+                                                        <div
+                                                            className="absolute -top-0.5 -translate-x-1/2 -translate-y-full z-[3] pointer-events-none"
+                                                            style={{ left: scheduleHover.leftPx }}
+                                                        >
+                                                            <div className="bg-zinc-900 text-white text-xs px-2 py-1 rounded-md whitespace-nowrap shadow">
+                                                                Click to Schedule Task
+                                                            </div>
+                                                        </div>
+                                                    </>
+                                                )}
                                             </div>
                                         );
                                     })}
@@ -2318,9 +3660,11 @@ export function GanttView({ spaceId, projectId, teamId, listId, viewId, initialC
             }
             {
                 customizePanelOpen && !layoutOptionsOpen && (
-                    <>
-                        <div className="absolute inset-0 bg-black/20 z-40" onClick={() => setCustomizePanelOpen(false)} aria-hidden />
-                        <div className="absolute bottom-0 right-0 h-full w-[380px] max-w-[90vw] bg-white border-l border-zinc-200 shadow-xl z-50 flex flex-col">
+                    <SidePanel
+                        open={customizePanelOpen && !layoutOptionsOpen}
+                        onClose={() => setCustomizePanelOpen(false)}
+                        className="absolute bottom-0 right-0 h-full w-[380px] max-w-[90vw] bg-white border-l border-zinc-200 shadow-xl z-50 flex flex-col"
+                    >
                             <div className="flex items-center justify-between p-4 border-b border-zinc-100">
                                 <h3 className="font-semibold text-zinc-900">Customize view</h3>
                                 <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setCustomizePanelOpen(false)}><X className="h-4 w-4" /></Button>
@@ -2347,7 +3691,7 @@ export function GanttView({ spaceId, projectId, teamId, listId, viewId, initialC
                                     </div>
 
                                     <div className="space-y-1">
-                                        <div className="flex items-center justify-between py-1 px-2">
+                                         <div className="flex items-center justify-between py-1 px-2 cursor-pointer" onClick={() => setShowWeekends(!showWeekends)}>
                                             <span className="text-sm text-zinc-800">Show weekends</span>
                                             <Switch
                                                 checked={showWeekends}
@@ -2460,15 +3804,16 @@ export function GanttView({ spaceId, projectId, teamId, listId, viewId, initialC
                                     </div>
                                 </div>
                             </ScrollArea>
-                        </div>
-                    </>
+                    </SidePanel>
                 )
             }
             {
                 layoutOptionsOpen && (
-                    <>
-                        <div className="absolute inset-0 bg-black/20 z-40" onClick={() => setCustomizePanelOpen(false)} aria-hidden />
-                        <div className="absolute bottom-0 right-0 h-full w-[380px] max-w-[90vw] bg-white border-l border-zinc-200 shadow-xl z-50 flex flex-col">
+                    <SidePanel
+                        open={layoutOptionsOpen}
+                        onClose={() => { setLayoutOptionsOpen(false); setCustomizePanelOpen(false); }}
+                        className="absolute bottom-0 right-0 h-full w-[380px] max-w-[90vw] bg-white border-l border-zinc-200 shadow-xl z-50 flex flex-col"
+                    >
                             <div className="flex items-center justify-between p-4 border-b border-zinc-100">
                                 <Button variant="ghost" size="icon" className="h-8 w-8 -ml-1 cursor-pointer" onClick={() => { setLayoutOptionsOpen(false); setCustomizePanelOpen(true); }}>
                                     <ArrowRight className="h-4 w-4 rotate-180" />
@@ -2579,8 +3924,7 @@ export function GanttView({ spaceId, projectId, teamId, listId, viewId, initialC
                                     </div>
                                 </div>
                             </ScrollArea>
-                        </div>
-                    </>
+                    </SidePanel>
                 )}
 
             {assigneesPanelOpen && (
@@ -2781,8 +4125,8 @@ export function GanttView({ spaceId, projectId, teamId, listId, viewId, initialC
                 )
             }
 
-            {/* Task detail modal when used standalone (no onTaskSelect from parent) */}
-            {!onTaskSelect && effectiveSelectedTaskId && (
+            {/* Always show task detail modal when a task is selected */}
+            {effectiveSelectedTaskId && (
                 <TaskDetailModal
                     taskId={effectiveSelectedTaskId}
                     open={true}

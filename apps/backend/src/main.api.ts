@@ -135,18 +135,6 @@ async function bootstrapApiServer() {
         res.end(await getMetrics());
     });
 
-    // Sync system tools (for populating system_tools when empty)
-    expressApp.post('/api/sync-tools', async (_req: any, res: any) => {
-        try {
-            const { syncSkillsAndTools } = await import('./services/agents/registry/sync');
-            await syncSkillsAndTools();
-            res.status(200).json({ ok: true, message: 'Tools synced successfully' });
-        } catch (err: any) {
-            console.error('[api-server] Sync tools error:', err);
-            res.status(500).json({ ok: false, error: err?.message || 'Sync failed' });
-        }
-    });
-
     // Matching service health checks
     // Matching service health checks and db pool optimization
     const matchingDbPool = new Pool({

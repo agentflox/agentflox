@@ -56,12 +56,19 @@ export function AgentSettingsModal({
                     {/* Sidebar */}
                     <div className="w-80 border-r border-zinc-100 dark:border-zinc-900 flex flex-col bg-zinc-50/30 dark:bg-zinc-900/30 shrink-0">
                         <div className="h-20 flex items-center px-6 border-b border-zinc-100 dark:border-zinc-900">
-                            <button
-                                onClick={() => onOpenChange(false)}
-                                className="p-2 -ml-2 text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg transition-all"
-                            >
-                                <X className="h-5 w-5" />
-                            </button>
+                            <div className="flex items-center gap-3 min-w-0">
+                                <div className="h-10 w-10 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 flex items-center justify-center text-lg flex-shrink-0 shadow-sm">
+                                    {agent.avatar || <Bot className="h-5 w-5 text-zinc-400" />}
+                                </div>
+                                <div className="min-w-0">
+                                    <h2 className="text-sm font-extrabold text-zinc-900 dark:text-zinc-50 truncate leading-tight">
+                                        {agent.name}
+                                    </h2>
+                                    <p className="text-[10px] font-bold text-indigo-500 uppercase tracking-widest truncate mt-0.5">
+                                        Agent Settings
+                                    </p>
+                                </div>
+                            </div>
                         </div>
 
                         <ScrollArea className="flex-1 px-4 py-6">
@@ -73,7 +80,7 @@ export function AgentSettingsModal({
                                             key={item.id}
                                             onClick={() => setActiveSection(item.id)}
                                             className={cn(
-                                                "w-full flex items-start gap-3.5 p-3.5 rounded-xl transition-all text-left relative",
+                                                "w-full flex items-start gap-3.5 p-3.5 rounded-xl transition-all text-left relative cursor-pointer",
                                                 isActive
                                                     ? "bg-indigo-50 text-indigo-700 dark:bg-indigo-950/50 dark:text-indigo-300 shadow-sm ring-1 ring-indigo-200/50 dark:ring-indigo-800/50"
                                                     : "text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100/80 dark:hover:bg-zinc-800/80",
@@ -99,7 +106,7 @@ export function AgentSettingsModal({
                                     key={item.id}
                                     onClick={() => setActiveSection(item.id)}
                                     className={cn(
-                                        "w-full flex items-center gap-3.5 p-3.5 rounded-xl transition-all text-left text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100/80 dark:hover:bg-zinc-800/80",
+                                        "w-full flex items-center gap-3.5 p-3.5 rounded-xl transition-all text-left text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100/80 dark:hover:bg-zinc-800/80 cursor-pointer",
                                         activeSection === item.id && "bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-zinc-100 shadow-sm"
                                     )}
                                 >
@@ -116,32 +123,22 @@ export function AgentSettingsModal({
                         {/* Header */}
                         <div className="h-20 px-8 border-b border-zinc-100 dark:border-zinc-900 flex items-center justify-between flex-shrink-0 bg-white/50 backdrop-blur-md dark:bg-zinc-950/50">
                             <div className="flex items-center gap-4 min-w-0">
-                                <div className="h-12 w-12 rounded-xl bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 flex items-center justify-center text-2xl flex-shrink-0 shadow-sm">
-                                    {agent.avatar || <Bot className="h-6 w-6 text-zinc-400" />}
-                                </div>
-                                <div className="min-w-0">
-                                    <h2 className="text-lg font-extrabold text-zinc-900 dark:text-zinc-50 truncate leading-tight">
-                                        {agent.name}
-                                    </h2>
-                                    <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400 truncate max-w-[500px]">
-                                        {agent.description || 'Expert AI agent ready to assist'}
-                                    </p>
-                                </div>
+                                <h1 className="text-lg font-bold text-zinc-900 dark:text-white capitalize">
+                                    {sidebarItems.find(i => i.id === activeSection)?.label}
+                                </h1>
                             </div>
 
                             <div className="flex items-center gap-3">
-                                <Button variant="ghost" className="gap-2 text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800 font-bold rounded-xl h-11 px-5">
+                                <Button variant="ghost" className="gap-2 text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800 font-bold rounded-xl h-10 px-4">
                                     <ExternalLink className="h-4 w-4" />
-                                    View in agent builder
+                                    View in builder
                                 </Button>
-                                <div className="flex items-center">
-                                    <Button className="bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-50 dark:text-zinc-900 dark:hover:bg-zinc-200 text-white font-bold rounded-l-xl h-11 px-6 border-r border-white/10 dark:border-black/10 shadow-lg">
-                                        Save changes
-                                    </Button>
-                                    <Button className="bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-50 dark:text-zinc-900 dark:hover:bg-zinc-200 text-white rounded-r-xl h-11 px-2 shadow-lg">
-                                        <ChevronDown className="h-4 w-4" />
-                                    </Button>
-                                </div>
+                                <button
+                                    onClick={() => onOpenChange(false)}
+                                    className="p-2 -mr-2 text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg transition-all cursor-pointer"
+                                >
+                                    <X className="h-5 w-5" />
+                                </button>
                             </div>
                         </div>
 

@@ -1,37 +1,95 @@
 import React, { memo } from 'react';
-import { Handle, Position, NodeProps } from '@xyflow/react';
-import { MessageCircle } from 'lucide-react';
+import { NodeProps } from '@xyflow/react';
+import { MessageSquare, Zap, Globe, Slack, Mail, Calendar, Hash, Clock, Plus } from 'lucide-react';
 import { WorkforceNode } from '../store/useWorkforceStore';
 import { NodeContextMenu } from './NodeContextMenu';
 import { AttachedStickyNote } from './AttachedStickyNote';
 import { GlowHandle } from './AgentNode';
 import { cn } from '@/lib/utils';
 
+const TRIGGER_ICONS: Record<string, React.ElementType> = {
+    slack: Slack,
+    outlook: Mail,
+    gmail: Mail,
+    calendar: Calendar,
+    teams: Calendar,
+    salesforce: Globe,
+    hubspot: Hash,
+    webhook: Globe,
+    schedule: Clock,
+};
+
 export const EventNode = memo(({ id, data, isConnectable }: NodeProps<WorkforceNode>) => {
+    const isDefaultTrigger = id === 'trigger-1' || data?.label === 'User message received';
+    const hasIntegration = !!data?.triggerType && data?.triggerType !== 'user_message';
+    const isNewTrigger = !isDefaultTrigger && !hasIntegration;
+
+    const triggerType = data?.triggerType as string | undefined;
+    const Icon = triggerType && TRIGGER_ICONS[triggerType] ? TRIGGER_ICONS[triggerType] : Zap;
+
     return (
-        <div className="flex flex-col relative min-w-[220px]">
+        <div className="flex flex-col relative" style={{ width: 260 }}>
             <AttachedStickyNote nodeId={id} data={data} />
-            <div className={cn("relative", data?.skipped && "opacity-40 grayscale pointer-events-none")}>
-                {/* Main Content */}
-                <div className={cn(
-                    "bg-white rounded-[20px] px-6 py-6 flex items-center gap-4 group transition-all duration-500 cursor-pointer pointer-events-auto",
-                    "border border-zinc-200/80 shadow-[0_1px_3px_rgba(0,0,0,0.02),0_12px_36px_-12px_rgba(0,0,0,0.08)]",
-                    "hover:border-zinc-400 hover:shadow-[0_20px_60px_-15px_rgba(0,0,0,0.1)] hover:-translate-y-1",
-                    "ring-1 ring-zinc-200/50"
-                )}>
-                    <div className="h-10 w-10 rounded-xl bg-orange-50 flex items-center justify-center text-orange-500 group-hover:bg-orange-100 transition-colors">
-                        <MessageCircle size={20} />
-                    </div>
-                    <div className="flex-1">
-                        <div className="text-[10px] font-bold text-orange-500 uppercase tracking-widest mb-0.5">Trigger Event</div>
-                        <div className="text-[15px] font-bold text-zinc-900 leading-tight">{data?.label || 'User message received'}</div>
-                    </div>
-                    <NodeContextMenu nodeId={id} />
-                </div>
+
+            {/* Floating Top Badge */}
+            <div className="absolute -top-7 left-1/2 -translate-x-1/2 flex items-center justify-center gap-1.5 px-4 h-8 bg-[#fffcf5] text-amber-600 text-[11px] font-semibold border-t border-l border-r border-amber-100/60 rounded-t-[12px] z-0" style={{ paddingBottom: '4px' }}>
+                <Zap size={11.5} className="text-amber-500" />
+                <span>Trigger</span>
             </div>
 
-            {/* Glowing source handle at bottom */}
-            <GlowHandle isConnectable={isConnectable} />
+            {isNewTrigger ? (
+                // Add Trigger Variant
+                <div className={cn(
+                    "relative z-10 w-full flex items-center gap-2.5 px-4 h-[44px] bg-white rounded-xl cursor-pointer pointer-events-auto transition-all duration-200 group",
+                    "border border-indigo-400 shadow-sm",
+                    "hover:border-indigo-500 hover:shadow-md hover:-translate-y-0.5",
+                    data?.skipped && "opacity-40 grayscale pointer-events-none"
+                )}>
+                    <Plus size={15} className="text-zinc-500" />
+                    <span className="text-[13.5px] font-medium text-zinc-600">Add trigger</span>
+                    <div className="absolute top-1/2 -translate-y-1/2 right-2 z-20"><NodeContextMenu nodeId={id} /></div>
+                    <GlowHandle isConnectable={isConnectable} />
+                </div>
+            ) : isDefaultTrigger ? (
+                // User Message Received Variant
+                <div className={cn(
+                    "relative z-10 w-full flex items-center gap-3 px-3.5 h-[52px] bg-white rounded-xl cursor-pointer pointer-events-auto transition-all duration-200 group",
+                    "border border-zinc-200 shadow-sm",
+                    "hover:border-orange-300 hover:shadow-[0_4px_16px_rgba(249,115,22,0.12)] hover:-translate-y-0.5",
+                    data?.skipped && "opacity-40 grayscale pointer-events-none"
+                )}>
+                    <div className="flex items-center justify-center text-slate-600">
+                        <MessageSquare size={18} strokeWidth={2} />
+                    </div>
+                    <div className="flex flex-col flex-1 min-w-0">
+                        <div className="text-[13.5px] font-semibold text-slate-900 leading-tight truncate">
+                            {data?.label || 'User message received'}
+                        </div>
+                        <div className="text-[11px] text-slate-500 leading-tight truncate mt-0.5">From the Run tab or from Chat</div>
+                    </div>
+                    <GlowHandle isConnectable={isConnectable} />
+                </div>
+            ) : (
+                // Integration Variant
+                <div className={cn(
+                    "relative z-10 w-full flex items-center gap-3 px-3.5 h-[52px] bg-white rounded-xl cursor-pointer pointer-events-auto transition-all duration-200 group",
+                    "border border-emerald-200 shadow-sm",
+                    "hover:border-emerald-300 hover:shadow-[0_4px_16px_rgba(16,185,129,0.12)] hover:-translate-y-0.5",
+                    data?.skipped && "opacity-40 grayscale pointer-events-none"
+                )}>
+                    <div className="flex items-center justify-center h-8 w-8 text-orange-600 bg-orange-50 rounded-lg">
+                        <Icon size={16} />
+                    </div>
+                    <div className="flex flex-col flex-1 min-w-0">
+                        <div className="text-[13.5px] font-semibold text-slate-900 leading-tight truncate">
+                            {data?.label || 'Integration Trigger'}
+                        </div>
+                        <div className="text-[11px] text-slate-500 leading-tight truncate mt-0.5">Event received</div>
+                    </div>
+                    <div className="absolute top-1/2 -translate-y-1/2 right-2 z-20"><NodeContextMenu nodeId={id} /></div>
+                    <GlowHandle isConnectable={isConnectable} />
+                </div>
+            )}
         </div>
     );
 });

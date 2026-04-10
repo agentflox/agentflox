@@ -444,7 +444,8 @@ function TaskSelector({
 
 // ──── Main Sidebar ─────────────────────────────────────────────────────────────
 export default function SwarmConfigSidebar() {
-    const { nodes, setNodes, updateNodeData, swarmActiveTab: activeTab, setSwarmActiveTab: setActiveTab } = useWorkforceStore();
+    const { nodes, setNodes, updateNodeData } = useWorkforceStore();
+    const [activeTab, setActiveTab] = useState<'tasks' | 'agents'>('tasks');
 
     const [agentPopoverOpen, setAgentPopoverOpen] = useState(false);
     const [taskPopoverOpen, setTaskPopoverOpen] = useState(false);

@@ -116,6 +116,29 @@
   }
 }
 
+/* Thin, modern horizontal scrollbar (toolbars) */
+.toolbar-scroll-x {
+  scrollbar-width: thin; /* Firefox */
+  scrollbar-color: rgba(113, 113, 122, 0.35) transparent;
+}
+
+.toolbar-scroll-x::-webkit-scrollbar {
+  height: 4px;
+}
+
+.toolbar-scroll-x::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.toolbar-scroll-x::-webkit-scrollbar-thumb {
+  background: rgba(113, 113, 122, 0.22);
+  border-radius: 999px;
+}
+
+.toolbar-scroll-x::-webkit-scrollbar-thumb:hover {
+  background: rgba(113, 113, 122, 0.38);
+}
+
 
 @custom-variant dark (&:is(.dark *));
 
@@ -189,12 +212,25 @@
   background-color: #f9fafb
 }
 
+/* Re-enable text selection within your panels */
+.Panel.selectable-content {
+  user-select: text !important;
+  -webkit-user-select: text !important;
+  /* For compatibility */
+}
+
 .input {
   display: block;
   width: 100%;
   border: 1px solid #e5e7eb;
   border-radius: .5rem;
-  padding: .625rem .75rem
+  padding: .625rem .75rem;
+  outline: none;
+}
+
+.input:focus,
+.input:focus-visible {
+  outline: none;
 }
 
 .label {
@@ -305,20 +341,5 @@
   /* Smooth scrolling */
   html {
     scroll-behavior: smooth;
-  }
-
-  /* Fix for text selection and cursor placement */
-  ::selection {
-    background-color: oklch(0.488 0.243 264.376 / 0.3) !important;
-    color: inherit !important;
-  }
-
-  input,
-  textarea,
-  [contenteditable="true"] {
-    cursor: text !important;
-    user-select: text !important;
-    -webkit-user-select: text !important;
-    pointer-events: auto !important;
   }
 }

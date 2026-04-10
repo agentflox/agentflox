@@ -8,7 +8,6 @@ import {
   MessageAction,
 } from '@/entities/chats/components/MessageList';
 import { ChatComposer } from '@/entities/chats/components/ChatComposer';
-
 import { trpc } from '@/lib/trpc';
 import { toast } from 'sonner';
 import { MessageRole } from '@agentflox/database/src/generated/prisma/client';

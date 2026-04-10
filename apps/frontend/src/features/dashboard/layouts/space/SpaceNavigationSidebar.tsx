@@ -66,7 +66,7 @@ export default function SpaceNavigationSidebar({
                         <button
                             aria-label="Close sidebar"
                             onClick={onClose}
-                            className="rounded-md p-1.5 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900"
+                            className="cursor-pointer rounded-md p-1.5 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900"
                         >
                             <Menu size={16} />
                         </button>
@@ -75,7 +75,7 @@ export default function SpaceNavigationSidebar({
                         <button
                             aria-label="Toggle sidebar"
                             onClick={onToggleCollapse}
-                            className="flex h-8 w-8 items-center justify-center rounded-md text-zinc-400 hover:bg-zinc-100 hover:text-zinc-900 transition-colors"
+                            className="cursor-pointer flex h-8 w-8 items-center justify-center rounded-md text-zinc-400 hover:bg-zinc-100 hover:text-zinc-900 transition-colors"
                         >
                             {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
                         </button>
@@ -91,11 +91,11 @@ export default function SpaceNavigationSidebar({
                         const isActive = activeView === item.id;
 
                         const commonClassName = cn(
-                            "group flex w-full items-center gap-3 rounded-md px-2 py-2 text-sm font-medium transition-all duration-200 outline-none",
+                            "group flex w-full items-center gap-3 rounded-md px-2 py-2 text-sm font-medium transition-all duration-200 outline-none cursor-pointer",
                             isActive
                                 ? "bg-primary/10 text-primary"
                                 : "text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900",
-                            collapsed && "justify-center px-2"
+                            collapsed && "flex-col justify-center gap-1.5 px-1 py-2.5 text-[10px] leading-tight"
                         );
 
                         if (item.href) {
@@ -107,7 +107,11 @@ export default function SpaceNavigationSidebar({
                                     title={collapsed ? item.label : undefined}
                                 >
                                     <Icon size={18} className={cn("shrink-0", isActive ? "text-primary" : "text-zinc-400 group-hover:text-zinc-900")} />
-                                    {!collapsed && <span>{item.label}</span>}
+                                    {collapsed ? (
+                                        <span className="text-center max-w-[52px] truncate">{item.label}</span>
+                                    ) : (
+                                        <span>{item.label}</span>
+                                    )}
                                 </Link>
                             );
                         }
@@ -120,7 +124,11 @@ export default function SpaceNavigationSidebar({
                                 title={collapsed ? item.label : undefined}
                             >
                                 <Icon size={18} className={cn("shrink-0", isActive ? "text-primary" : "text-zinc-400 group-hover:text-zinc-900")} />
-                                {!collapsed && <span>{item.label}</span>}
+                                {collapsed ? (
+                                    <span className="text-center max-w-[52px] truncate">{item.label}</span>
+                                ) : (
+                                    <span>{item.label}</span>
+                                )}
                             </button>
                         );
                     })}

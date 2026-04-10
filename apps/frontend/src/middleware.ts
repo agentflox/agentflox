@@ -7,6 +7,8 @@ import { API_AUTH_PREFIX, AUTH_ROUTES, PROTECTED_ROUTES } from "./constants/rout
 export async function middleware(request: NextRequest) {
   const url = request.nextUrl;
   const pathname = url.pathname;
+  const host = (request.headers.get("host") || "").split(":")[0].toLowerCase();
+  const formsHost = (process.env.NEXT_PUBLIC_FORMS_HOST || "").toLowerCase();
 
   // Skip middleware for static files and API routes
   const isStatic = pathname.startsWith("/_next") || /\.(?:svg|png|jpg|jpeg|gif|webp|ico)$/.test(pathname);
@@ -15,6 +17,15 @@ export async function middleware(request: NextRequest) {
 
   if (isAccessingApiAuthRoute || isStatic || isApiRoute) {
     return NextResponse.next();
+  }
+
+  // Forms subdomain rewrite: forms host serves public forms at /:viewId via app/f/[viewId]
+  if (formsHost && host === formsHost) {
+    if (pathname.startsWith("/f")) {
+      return NextResponse.next();
+    }
+    const targetPath = pathname === "/" ? "/f" : `/f${pathname}`;
+    return NextResponse.rewrite(new URL(targetPath, request.url));
   }
 
   const isAccessingAuthRoute = AUTH_ROUTES.some(route => pathname.startsWith(route));

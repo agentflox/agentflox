@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
     DropdownMenu,
@@ -25,6 +26,7 @@ import {
     Copy,
     ExternalLink,
     ChevronDown,
+    SquareArrowOutUpRight as SquareArrowRightExit,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -45,7 +47,7 @@ export interface HeaderAction {
     /** Optional tooltip text */
     tooltip?: string;
     /** Visual variant */
-    variant?: "default" | "outline" | "ghost" | "primary";
+    variant?: "outline" | "ghost" | "primary" | "google" | "destructive" | "secondary";
     /** Whether the action is disabled */
     disabled?: boolean;
     /** Optional badge content (e.g., "New", count) */
@@ -112,6 +114,7 @@ export interface DashboardHeaderProps {
     showAgent?: boolean;
     showAskAI?: boolean;
     showShare?: boolean;
+    showExit?: boolean;
 
     // Popover Contents (Optional): If provided, the action will trigger a popover instead of just onClick
     // However, onClick can still be used for state management (like setting open state)
@@ -176,6 +179,7 @@ export function DashboardHeader({
     showAgent = true,
     showAskAI = true,
     showShare = true,
+    showExit = false,
     agentPopoverContent,
     agentOpen,
     onAgentOpenChange,
@@ -189,6 +193,7 @@ export function DashboardHeader({
     askAIOpen,
     onAskAIOpenChange,
 }: DashboardHeaderProps) {
+    const router = useRouter();
 
     const handleCopyLink = () => {
         const url = shareUrl || window.location.href;
@@ -515,7 +520,7 @@ export function DashboardHeader({
                         <Popover open={shareOpen} onOpenChange={onShareOpenChange}>
                             <PopoverTrigger asChild>
                                 <Button
-                                    variant="outline"
+                                    variant="ghost"
                                     size="sm"
                                     onClick={onShareClick}
                                     className="h-8 relative group transition-all duration-200 ease-in-out w-8 hover:w-auto px-0 hover:px-3 justify-center hover:justify-start"
@@ -536,7 +541,7 @@ export function DashboardHeader({
                                 <Tooltip>
                                     <TooltipTrigger asChild>
                                         <Button
-                                            variant="outline"
+                                            variant="ghost"
                                             size="sm"
                                             onClick={onShareClick}
                                             className="h-8 relative group transition-all duration-200 ease-in-out w-8 hover:w-auto px-0 hover:px-3 justify-center hover:justify-start"
@@ -554,6 +559,33 @@ export function DashboardHeader({
                             </TooltipProvider>
                         )
                     )
+                )}
+
+                {/* Exit */}
+                {showExit && (
+                    <>
+                        <div className="mx-1 h-5 w-px bg-slate-200" aria-hidden="true" />
+                        <TooltipProvider>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => router.push("/home")}
+                                        className="h-8 relative group transition-all duration-200 ease-in-out w-8 hover:w-auto px-0 hover:px-3 justify-center hover:justify-start"
+                                    >
+                                        <div className="flex items-center justify-center w-8 h-8 shrink-0">
+                                            <SquareArrowRightExit className="h-4 w-4" />
+                                        </div>
+                                        <span className="hidden group-hover:inline overflow-hidden whitespace-nowrap">Exit</span>
+                                    </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                    <p>Exit to home</p>
+                                </TooltipContent>
+                            </Tooltip>
+                        </TooltipProvider>
+                    </>
                 )}
             </div>
         </header>
@@ -573,6 +605,7 @@ export const DashboardHeaderPresets = {
         showAgent: false,
         showAskAI: false,
         showShare: false,
+        showExit: false,
     },
 
     /**
@@ -584,6 +617,7 @@ export const DashboardHeaderPresets = {
         showAgent: true,
         showAskAI: true,
         showShare: true,
+        showExit: false,
     },
 
     /**
@@ -595,5 +629,6 @@ export const DashboardHeaderPresets = {
         showAgent: false,
         showAskAI: true,
         showShare: false,
+        showExit: false,
     },
 };

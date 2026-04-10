@@ -76,7 +76,7 @@ import { cn } from "@/lib/utils";
 import { TaskCreationModal } from "@/entities/task/components/TaskCreationModal";
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
 import { ListCreationModal } from "@/entities/task/components/ListCreationModal";
-import { AssigneeSelector } from "@/entities/task/components/AssigneeSelector";
+import { AssigneeSelector, formatAssigneeIdsForSelector } from "@/entities/task/components/AssigneeSelector";
 import { TaskActionsDropdown } from "@/entities/task/components/TaskActionsDropdown";
 import { TaskDetailModal } from "@/entities/task/components/TaskDetailModal";
 import { TaskDependenciesModal } from "@/entities/task/components/TaskDependenciesModal";
@@ -87,6 +87,7 @@ import { DestinationPicker } from "@/entities/task/components/DestinationPicker"
 import { ShareViewPermissionModal } from "@/features/dashboard/components/shared/ShareViewPermissionModal";
 import { ViewToolbarSaveDropdown } from "@/features/dashboard/components/shared/ViewToolbarSaveDropdown";
 import { ViewToolbarClosedPopover } from "@/features/dashboard/components/shared/ViewToolbarClosedPopover";
+import { SidePanel } from "@/features/dashboard/components/shared/SidePanel";
 import { parseEncodedTag, formatEncodedTag } from "@/entities/task/utils/tags";
 import { TaskCalendar } from "@/entities/task/components/TaskCalendar";
 import { TaskTypeIcon } from "@/entities/task/components/TaskTypeIcon";
@@ -325,6 +326,9 @@ export function TableView({ spaceId, projectId, teamId, listId, viewId, initialC
     const router = useRouter();
     const searchParams = useSearchParams();
     const [searchQuery, setSearchQuery] = useState("");
+    const [isToolbarSearchOpen, setIsToolbarSearchOpen] = useState(false);
+    const toolbarSearchContainerRef = useRef<HTMLDivElement | null>(null);
+    const toolbarSearchInputRef = useRef<HTMLInputElement | null>(null);
     const [selectedDetailTaskId, setSelectedDetailTaskId] = useState<string | null>(null);
     const effectiveSelectedTaskId = onTaskSelect ? (selectedTaskIdFromParent ?? null) : selectedDetailTaskId;
 
@@ -609,6 +613,24 @@ export function TableView({ spaceId, projectId, teamId, listId, viewId, initialC
     const [pinDescription, setPinDescription] = useState(false);
     const [isDescriptionModalOpen, setIsDescriptionModalOpen] = useState(false);
     const [descriptionDraft, setDescriptionDraft] = useState("");
+
+    useEffect(() => {
+        if (!isToolbarSearchOpen) return;
+
+        toolbarSearchInputRef.current?.focus();
+
+        const handleClickOutside = (event: MouseEvent) => {
+            const target = event.target as Node;
+            if (!toolbarSearchContainerRef.current?.contains(target)) {
+                setIsToolbarSearchOpen(false);
+            }
+        };
+
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => {
+            document.removeEventListener("mousedown", handleClickOutside);
+        };
+    }, [isToolbarSearchOpen]);
 
     const sensors = useSensors(
         useSensor(MouseSensor, { activationConstraint: { distance: 8 } }),
@@ -1789,11 +1811,15 @@ export function TableView({ spaceId, projectId, teamId, listId, viewId, initialC
                             </TableCell>
                             {visibleColumns.has("assignee") && (
                                 <TableCell className="py-2 overflow-hidden" style={{ width: colWidths.assignee, minWidth: 80 }}>
-                                    <AssigneeSelector
+                                     <AssigneeSelector
                                         users={users as any}
                                         agents={agents}
                                         workspaceId={resolvedWorkspaceId}
                                         variant="compact"
+                                        side="right"
+                                        avoidCollisions={false}
+                                        collisionPadding={12}
+                                        sideOffset={8}
                                         value={formatAssigneeIdsForSelector(task.assignees)}
                                         onChange={(newIds) => {
                                             const cleanIds = newIds;
@@ -1810,12 +1836,10 @@ export function TableView({ spaceId, projectId, teamId, listId, viewId, initialC
                                                 onClick={(e) => { e.stopPropagation(); }}
                                                 title="Edit assignees"
                                             >
-                                                {task.assignees && task.assignees.length > 0 ? task.assignees.slice(0, 4).map((a: any, i: number) => (
-                                                    <Avatar key={a.id || a.user?.id || a.agent?.id || i} className="h-6 w-6 border-2 border-white ring-1 ring-zinc-100">
+                                                {assignees.length > 0 ? assignees.slice(0, 4).map((a: any, i: number) => (
+                                                    <Avatar key={a.user?.id || a.agent?.id || i} className="h-6 w-6 border-2 border-white ring-1 ring-zinc-100">
                                                         <AvatarImage src={a.user?.image || a.agent?.avatar || undefined} />
-                                                        <AvatarFallback className={cn("text-[9px]", a.agent ? "bg-purple-100 text-purple-700" : "bg-indigo-50 text-indigo-600")}>
-                                                            {a.agent ? <Bot className="h-3 w-3" /> : (a.user?.name?.slice(0, 2)?.toUpperCase() || "??")}
-                                                        </AvatarFallback>
+                                                        <AvatarFallback className="text-[9px] bg-indigo-50 text-indigo-600">{a.user?.name?.slice(0, 2)?.toUpperCase() || a.agent?.name?.slice(0, 2) || "??"}</AvatarFallback>
                                                     </Avatar>
                                                 )) : (
                                                     <div className="h-6 w-6 rounded-full border border-dashed border-zinc-300 flex items-center justify-center"><Users className="h-3 w-3 text-zinc-400" /></div>
@@ -2754,11 +2778,12 @@ export function TableView({ spaceId, projectId, teamId, listId, viewId, initialC
                             </PopoverTrigger>
                             <PopoverContent align="end" className="w-80 p-0 overflow-hidden shadow-2xl">
                                 <div className="p-3 border-b border-zinc-100 bg-zinc-50/50">
-                                    <div className="relative">
-                                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-400" />
+                                    <div className="flex items-center h-8 rounded-md border border-zinc-200 bg-white px-2">
+                                        <Search className="h-3.5 w-3.5 text-zinc-400 shrink-0" />
                                         <Input
+                                            variant="ghost"
                                             placeholder="Search..."
-                                            className="pl-8 h-8 text-xs border-zinc-200"
+                                            className="h-full px-2 text-xs border-0 bg-transparent shadow-none focus:outline-none focus:ring-0 focus-visible:ring-0"
                                             value={savedFiltersSearch}
                                             onChange={e => setSavedFiltersSearch(e.target.value)}
                                         />
@@ -2828,7 +2853,7 @@ export function TableView({ spaceId, projectId, teamId, listId, viewId, initialC
                         </Button>
                     </div>
                 ) : (
-                    <ScrollArea className="p-5 text-sm h-[500px]">
+                    <ScrollArea className="p-5 text-sm h-[350px]">
                         <div className="space-y-4">
                             <div className="space-y-4">
                                 {/* Render each top-level group */}
@@ -2987,7 +3012,13 @@ export function TableView({ spaceId, projectId, teamId, listId, viewId, initialC
                                                                                         <ChevronDown className="h-3 w-3 opacity-30 shrink-0" />
                                                                                     </Button>
                                                                                 </DropdownMenuTrigger>
-                                                                                <DropdownMenuContent className="w-64 max-h-[400px] overflow-auto">
+                                                                                <DropdownMenuContent
+                                                                                    side="bottom"
+                                                                                    align="start"
+                                                                                    avoidCollisions={false}
+                                                                                    sideOffset={6}
+                                                                                    className="w-64 max-h-[400px] overflow-auto p-0"
+                                                                                >
                                                                                     <div className="p-2 border-b border-zinc-100 sticky top-0 bg-white z-10">
                                                                                         <Input placeholder="Search fields..." className="h-8 text-xs border-zinc-100" value={filterSearch} onChange={e => setFilterSearch(e.target.value)} />
                                                                                     </div>
@@ -3092,9 +3123,9 @@ export function TableView({ spaceId, projectId, teamId, listId, viewId, initialC
                                                                                                         </PopoverTrigger>
                                                                                                         <PopoverContent align="start" className="w-64 p-2">
                                                                                                             <div className="p-2 border-b border-zinc-100 mb-1">
-                                                                                                                <div className="relative">
-                                                                                                                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-400" />
-                                                                                                                    <Input placeholder="Search people..." className="pl-8 h-8 text-[10px]" value={assigneesSearch} onChange={e => setAssigneesSearch(e.target.value)} />
+                                                                                                                <div className="flex items-center h-8 rounded-md border border-zinc-200 bg-white px-2">
+                                                                                                                    <Search className="h-3.5 w-3.5 text-zinc-400 shrink-0" />
+                                                                                                                    <Input variant="ghost" placeholder="Search people..." className="h-full px-2 text-[10px] border-0 bg-transparent shadow-none focus:outline-none focus:ring-0 focus-visible:ring-0" value={assigneesSearch} onChange={e => setAssigneesSearch(e.target.value)} />
                                                                                                                 </div>
                                                                                                             </div>
                                                                                                             <ScrollArea className="h-[240px]">
@@ -3371,6 +3402,7 @@ export function TableView({ spaceId, projectId, teamId, listId, viewId, initialC
         );
     };
 
+
     return (
         <div className="h-full w-full flex flex-col bg-white border border-zinc-200/60 shadow-sm overflow-hidden font-sans relative min-w-0">
             {/* Toolbar – ClickUp layout */}
@@ -3618,9 +3650,37 @@ export function TableView({ spaceId, projectId, teamId, listId, viewId, initialC
                                 <TooltipContent side="bottom">Filter by assignee</TooltipContent>
                             </Tooltip>
 
-                            <div className="relative w-40 hidden sm:block">
-                                <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
-                                <Input className="pl-8 h-8 bg-zinc-50/50 border-zinc-200 text-sm rounded-lg" placeholder="Search..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
+                            <div ref={toolbarSearchContainerRef} className="hidden sm:block">
+                                {isToolbarSearchOpen ? (
+                                    <div className="w-56 min-w-[12rem]">
+                                        <div className="flex items-center h-8 rounded-lg border border-zinc-200 bg-zinc-50/50 px-2">
+                                            <Search className="h-4 w-4 text-zinc-400 shrink-0" />
+                                            <Input
+                                                ref={toolbarSearchInputRef}
+                                                variant="ghost"
+                                                className="h-full px-2 text-sm border-0 bg-transparent shadow-none focus:outline-none focus:ring-0 focus-visible:ring-0"
+                                                placeholder="Search..."
+                                                value={searchQuery}
+                                                onChange={e => setSearchQuery(e.target.value)}
+                                                onKeyDown={(e) => {
+                                                    if (e.key === "Escape") {
+                                                        setIsToolbarSearchOpen(false);
+                                                    }
+                                                }}
+                                            />
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="h-8 w-8 p-0 text-zinc-700 border-zinc-200"
+                                        onClick={() => setIsToolbarSearchOpen(true)}
+                                        title="Search"
+                                    >
+                                        <Search className="h-4 w-4" />
+                                    </Button>
+                                )}
                             </div>
 
                             <Tooltip>
@@ -4381,9 +4441,11 @@ export function TableView({ spaceId, projectId, teamId, listId, viewId, initialC
 
             {/* Customize view panel (ClickUp-style) */}
             {customizePanelOpen && !layoutOptionsOpen && (
-                <>
-                    <div className="absolute inset-0 bg-black/20 z-40" onClick={() => setCustomizePanelOpen(false)} aria-hidden />
-                    <div className="absolute bottom-0 right-0 h-full w-[380px] max-w-[90vw] bg-white border-l border-zinc-200 shadow-xl z-50 flex flex-col">
+                <SidePanel
+                    open={customizePanelOpen && !layoutOptionsOpen}
+                    onClose={() => setCustomizePanelOpen(false)}
+                    className="absolute bottom-0 right-0 h-full w-[380px] max-w-[90vw] bg-white border-l border-zinc-200 shadow-xl z-50 flex flex-col"
+                >
                         <div className="flex items-center justify-between p-4 border-b border-zinc-100">
                             <h3 className="font-semibold text-zinc-900">Customize view</h3>
                             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setCustomizePanelOpen(false)}><X className="h-4 w-4" /></Button>
@@ -4702,13 +4764,14 @@ export function TableView({ spaceId, projectId, teamId, listId, viewId, initialC
                                 </div>
                             </div>
                         </ScrollArea>
-                    </div>
-                </>
+                </SidePanel>
             )}
             {layoutOptionsOpen && (
-                <>
-                    <div className="absolute inset-0 bg-black/20 z-40" onClick={() => setCustomizePanelOpen(false)} aria-hidden />
-                    <div className="absolute bottom-0 right-0 h-full w-[380px] max-w-[90vw] bg-white border-l border-zinc-200 shadow-xl z-50 flex flex-col">
+                <SidePanel
+                    open={layoutOptionsOpen}
+                    onClose={() => { setLayoutOptionsOpen(false); setCustomizePanelOpen(false); }}
+                    className="absolute bottom-0 right-0 h-full w-[380px] max-w-[90vw] bg-white border-l border-zinc-200 shadow-xl z-50 flex flex-col"
+                >
                         <div className="flex items-center justify-between p-4 border-b border-zinc-100">
                             <Button variant="ghost" size="icon" className="h-8 w-8 -ml-1 cursor-pointer" onClick={() => { setLayoutOptionsOpen(false); setCustomizePanelOpen(true); }}>
                                 <ArrowRight className="h-4 w-4 rotate-180" />
@@ -4824,8 +4887,7 @@ export function TableView({ spaceId, projectId, teamId, listId, viewId, initialC
                                 </div>
                             </div>
                         </ScrollArea>
-                    </div>
-                </>
+                </SidePanel>
             )
             }
 

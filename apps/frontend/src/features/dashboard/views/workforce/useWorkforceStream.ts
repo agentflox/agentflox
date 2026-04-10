@@ -4,12 +4,7 @@ import { useCallback } from "react";
 import { useAgentStream, BACKEND_URL, type AgentStreamCallbacks, type UseAgentStreamReturn } from "@/entities/agents/hooks/useAgentStream";
 
 export interface UseWorkforceStreamReturn extends Omit<UseAgentStreamReturn, "sendMessage"> {
-  sendMessage: (params: {
-    workforceId: string;
-    task: string;
-    conversationId?: string;
-    messages?: Array<{ role: string; content: string }>;
-  }) => Promise<void>;
+  sendMessage: (params: { workforceId: string; task: string }) => Promise<void>;
 }
 
 /**
@@ -20,20 +15,10 @@ export function useWorkforceStream(callbacks: AgentStreamCallbacks = {}): UseWor
   const { sendMessage: genericSend, ...rest } = useAgentStream(callbacks);
 
   const sendMessage = useCallback(
-    async ({
-      workforceId,
-      task,
-      conversationId,
-      messages,
-    }: {
-      workforceId: string;
-      task: string;
-      conversationId?: string;
-      messages?: Array<{ role: string; content: string }>;
-    }) => {
+    async ({ workforceId, task }: { workforceId: string; task: string }) => {
       await genericSend({
         url: `${BACKEND_URL}/v1/agents/workforces/${workforceId}/run-stream`,
-        body: { task, conversationId, messages },
+        body: { task },
       });
     },
     [genericSend]

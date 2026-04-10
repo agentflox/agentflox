@@ -1,6 +1,6 @@
-import React, { memo, useState } from 'react';
+import React, { memo } from 'react';
 import { Handle, Position, NodeProps } from '@xyflow/react';
-import { GitBranch } from 'lucide-react';
+import { GitBranch, Plus } from 'lucide-react';
 import { WorkforceNode } from '../store/useWorkforceStore';
 import { NodeContextMenu } from './NodeContextMenu';
 import { AttachedStickyNote } from './AttachedStickyNote';
@@ -13,52 +13,66 @@ export const ConditionNode = memo(({ id, data, isConnectable }: NodeProps<Workfo
     const preview = firstRule
         ? `${firstRule.leftLabel || firstRule.leftVariable} ${firstRule.operator} "${firstRule.rightValue}"`
         : data?.expression || 'Define a rule...';
-
     const mode = data?.conditionMode || 'rule';
+    const isEmpty = !data?.conditionGroups?.length && !data?.expression && !data?.conditionCode;
 
     return (
-        <div className="flex flex-col relative min-w-[220px]">
+        <div className="flex flex-col relative" style={{ width: 260 }}>
             <AttachedStickyNote nodeId={id} data={data} />
+
             <div className={cn(
-                "bg-white rounded-2xl w-full overflow-hidden group transition-all duration-500 cursor-pointer pointer-events-auto",
-                "border border-purple-200/80 shadow-[0_1px_3px_rgba(0,0,0,0.02),0_12px_36px_-12px_rgba(147,51,234,0.1)]",
-                "hover:border-purple-400 hover:shadow-[0_20px_60px_-15px_rgba(147,51,234,0.2)] hover:-translate-y-1",
-                "ring-1 ring-purple-100",
+                "relative bg-white rounded-2xl w-full flex flex-col cursor-pointer pointer-events-auto transition-all duration-200 group",
+                isEmpty
+                    ? "border border-violet-400 shadow-[0_2px_12px_rgba(0,0,0,0.04)]"
+                    : "border border-violet-200 shadow-[0_2px_12px_rgba(139,92,246,0.10)] hover:border-violet-400 hover:shadow-[0_4px_24px_rgba(139,92,246,0.18)] hover:-translate-y-0.5",
                 data?.skipped && "opacity-40 grayscale pointer-events-none"
-            )}>
-                {/* Header */}
-                <div className="bg-gradient-to-br from-purple-50/50 to-white px-4 py-3 border-b border-purple-100 flex items-center justify-between group-hover:from-purple-50 group-hover:to-white transition-all duration-500 pointer-events-auto">
-                    <div className="flex items-center gap-2.5">
-                        <div className="h-7 w-7 rounded-lg bg-purple-100 flex items-center justify-center">
-                            <GitBranch size={14} className="text-purple-600" />
-                        </div>
-                        <div>
-                            <div className="text-[10px] font-bold text-purple-500 uppercase tracking-widest">Condition</div>
-                            <div className="text-xs font-semibold text-zinc-700 truncate max-w-[130px]">{data?.label || 'Untitled condition'}</div>
-                        </div>
-                    </div>
-                    <NodeContextMenu nodeId={id} />
-                </div>
+            )} style={{ height: isEmpty ? 88 : 120 }}>
 
-                {/* Rule preview */}
-                <div className="px-4 py-3 bg-white pointer-events-auto">
-                    <div className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-1.5">
-                        {mode === 'rule' ? 'Rule-based' : 'Code'}
-                    </div>
-                    <div className="text-[11px] text-zinc-600 truncate italic opacity-80">{preview}</div>
-                </div>
+                {isEmpty ? (
+                    <>
+                        <div className="flex items-center justify-between px-3 pt-3">
+                            <div className="flex items-center gap-2.5">
+                                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-violet-50 text-violet-600">
+                                    <GitBranch size={12} /> Condition
+                                </div>
+                                <div className="h-5 w-24 bg-zinc-100 rounded-md" />
+                            </div>
+                            <NodeContextMenu nodeId={id} />
+                        </div>
+                        <div className="px-4 mt-auto mb-3 flex items-center gap-2 text-zinc-600">
+                            <Plus size={16} className="text-zinc-500" />
+                            <span className="text-[15px] text-zinc-600 font-medium">Add condition</span>
+                        </div>
+                    </>
+                ) : (
+                    <>
+                        {/* Top row: badge + menu */}
+                        <div className="flex items-center justify-between px-3 pt-3 pb-2">
+                            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-violet-50 text-violet-600">
+                                <GitBranch size={12} />
+                                Condition
+                            </div>
+                            <NodeContextMenu nodeId={id} />
+                        </div>
+
+                        {/* Content */}
+                        <div className="px-3 pb-3 flex-1 min-h-0 flex flex-col">
+                            <div className="flex-1 min-h-0 pr-1">
+                                <div className="text-[14px] font-bold text-zinc-900 leading-snug truncate">
+                                    {data?.label || 'Untitled condition'}
+                                </div>
+                                <div className="text-[11px] text-zinc-400 mt-1 italic break-words line-clamp-2">{preview}</div>
+                            </div>
+                            <div className="text-[10px] font-semibold text-violet-400 uppercase tracking-widest mt-2 pt-1 border-t border-violet-50 shrink-0">
+                                {mode === 'rule' ? 'Rule-based' : 'Code'}
+                            </div>
+                        </div>
+                    </>
+                )}
+
+                <Handle type="target" position={Position.Top} isConnectable={isConnectable} className="!opacity-0 !w-5 !h-5 pointer-events-auto" />
+                <GlowHandle isConnectable={isConnectable} />
             </div>
-
-            {/* Top target handle */}
-            <Handle
-                type="target"
-                position={Position.Top}
-                isConnectable={isConnectable}
-                className="!opacity-0 !w-5 !h-5 pointer-events-auto"
-            />
-
-            {/* Single centered source handle — same glow as other nodes */}
-            <GlowHandle isConnectable={isConnectable} />
         </div>
     );
 });

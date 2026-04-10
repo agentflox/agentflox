@@ -90,7 +90,7 @@ export function NodeContextMenu({ nodeId }: { nodeId: string }) {
             <DropdownMenuTrigger asChild>
                 <button
                     onClick={(e) => e.stopPropagation()}
-                    className="h-6 w-6 flex items-center justify-center rounded-md hover:bg-zinc-200 text-zinc-400 hover:text-zinc-600 transition-all opacity-0 group-hover:opacity-100"
+                    className="h-6 w-6 flex items-center justify-center rounded-md hover:bg-zinc-200 text-zinc-400 hover:text-zinc-600 transition-all opacity-0 group-hover:opacity-100 cursor-pointer"
                 >
                     <MoreVertical size={14} />
                 </button>

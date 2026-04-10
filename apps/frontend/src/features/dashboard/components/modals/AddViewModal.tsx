@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { Search, Check, List, Kanban, Calendar, FileText, Activity, LayoutDashboard, BarChart3, Map, Table, Clock, Network, PenTool, Layout, Monitor, Sheet, Video, Image, Link, Box, Sparkles } from "lucide-react";
+import { Search, Check, List, Kanban, Calendar, FileText, Activity, LayoutDashboard, BarChart3, Map, Table, Clock, Network, PenTool, Layout, Sheet, Video, Image, Link, Sparkles, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -22,9 +22,9 @@ export type ViewType =
 	// Popular
 	| "LIST" | "BOARD" | "CALENDAR" | "GANTT" | "DOC" | "FORM"
 	// Advanced
-	| "TABLE" | "TIMELINE" | "WORKLOAD" | "WHITEBOARD" | "MIND_MAP" | "MAP" | "ACTIVITY" | "DASHBOARD"
+	| "TABLE" | "TIMELINE" | "WORKLOAD" | "WHITEBOARD" | "MIND_MAP" | "MAP" | "DASHBOARD" | "PEOPLE" | "ACTIVITY"
 	// Embeds
-	| "EMBED" | "SPREADSHEET" | "FILE" | "VIDEO" | "DESIGN"
+	| "EMBED" | "SPREADSHEET" | "FILE" | "VIDEO" | "DESIGN" | "GOOGLE_CALENDAR" | "GOOGLE_DOCS" | "GOOGLE_MAPS" | "GOOGLE_SLIDES" | "GOOGLE_FORMS" | "GOOGLE_DRIVE"
 	// Legacy / Specific
 	| "OVERVIEW" | "VIEWS" | "PROJECTS" | "TEAMS" | "TASKS" | "CHANNELS" | "PROPOSALS" | "TOOLS" | "MATERIALS" | "POSTS" | "DISCUSSIONS" | "LOGS" | "APPEAL" | "GOVERNANCE" | "ANALYTICS" | "WAR_ROOM" | "MARKETPLACE" | "MEMBERS" | "DOCS";
 
@@ -50,20 +50,47 @@ const availableViews: ViewOption[] = [
 	// Advanced
 	{ id: "TABLE", label: "Table", description: "Structured table format", icon: Table, category: "Advanced", color: "text-emerald-600 bg-emerald-100" },
 	{ id: "TIMELINE", label: "Timeline", description: "See tasks by start & due date", icon: Clock, category: "Advanced", color: "text-amber-700 bg-amber-100" },
-	{ id: "WORKLOAD", label: "Workload", description: "Visualize team capacity", icon: BarChart3, category: "Advanced", color: "text-teal-600 bg-teal-100" },
 	{ id: "WHITEBOARD", label: "Whiteboard", description: "Visualize & brainstorm ideas", icon: PenTool, category: "Advanced", color: "text-yellow-500 bg-yellow-100" },
 	{ id: "MIND_MAP", label: "Mind Map", description: "Visual brainstorming of ideas", icon: Network, category: "Advanced", color: "text-pink-500 bg-pink-100" },
 	{ id: "MAP", label: "Map", description: "Tasks visualized by address", icon: Map, category: "Advanced", color: "text-orange-500 bg-orange-100" },
 	{ id: "DASHBOARD", label: "Dashboard", description: "Track metrics & insights", icon: LayoutDashboard, category: "Advanced", color: "text-violet-600 bg-violet-100" },
+	{ id: "PEOPLE", label: "People", description: "Organize and browse people records", icon: Users, category: "Advanced", color: "text-sky-600 bg-sky-100" },
 	{ id: "ACTIVITY", label: "Activity", description: "Real-time activity feed", icon: Activity, category: "Advanced", color: "text-blue-400 bg-blue-50" },
 
 	// Embeds
 	{ id: "EMBED", label: "Any website", description: "Embed any web content", icon: Link, category: "Embeds", color: "text-slate-500 bg-slate-100" },
 	{ id: "SPREADSHEET", label: "Google Sheets", description: "Sync your spreadsheets", icon: Sheet, category: "Embeds", color: "text-green-600 bg-green-100" },
 	{ id: "FILE", label: "Google Docs", description: "Sync your documents", icon: FileText, category: "Embeds", color: "text-blue-500 bg-blue-100" },
+	{ id: "GOOGLE_CALENDAR", label: "Google Calendar", description: "Sync events and schedules", icon: Calendar, category: "Embeds", color: "text-orange-600 bg-orange-100" },
+	{ id: "GOOGLE_DOCS", label: "Google Docs", description: "Connect collaborative docs", icon: FileText, category: "Embeds", color: "text-blue-500 bg-blue-100" },
+	{ id: "GOOGLE_MAPS", label: "Google Maps", description: "Embed maps and locations", icon: Map, category: "Embeds", color: "text-emerald-600 bg-emerald-100" },
+	{ id: "GOOGLE_SLIDES", label: "Google Slides", description: "Present and share slide decks", icon: LayoutDashboard, category: "Embeds", color: "text-amber-600 bg-amber-100" },
+	{ id: "GOOGLE_FORMS", label: "Google Forms", description: "Collect responses with forms", icon: Layout, category: "Embeds", color: "text-violet-600 bg-violet-100" },
+	{ id: "GOOGLE_DRIVE", label: "Google Drive", description: "Browse and link drive files", icon: Sheet, category: "Embeds", color: "text-green-600 bg-green-100" },
 	{ id: "VIDEO", label: "YouTube", description: "Share your favorite videos", icon: Video, category: "Embeds", color: "text-red-600 bg-red-100" },
 	{ id: "DESIGN", label: "Figma", description: "View your amazing designs", icon: Image, category: "Embeds", color: "text-purple-600 bg-purple-100" },
 ];
+
+// Backend `view.create` only accepts a strict enum of types.
+// Normalize frontend-only aliases before submitting.
+const normalizeViewType = (type: ViewType): ViewType => {
+	switch (type) {
+		case "GOOGLE_CALENDAR":
+			return "CALENDAR";
+		case "GOOGLE_DOCS":
+			return "DOC";
+		case "GOOGLE_MAPS":
+			return "MAP";
+		case "GOOGLE_SLIDES":
+			return "EMBED";
+		case "GOOGLE_FORMS":
+			return "FORM";
+		case "GOOGLE_DRIVE":
+			return "EMBED";
+		default:
+			return type;
+	}
+};
 
 interface AddViewModalProps {
 	open: boolean;
@@ -126,7 +153,9 @@ export function AddViewModal({ open, onOpenChange, existingViews, onAddViews, on
 	};
 
 	const handleAdd = () => {
-		const normalSelected = selectedViews.filter(id => availableViews.some(v => v.id === id));
+		const normalSelected = selectedViews
+			.filter(id => availableViews.some(v => v.id === id))
+			.map(normalizeViewType);
 		const templateSelected = selectedViews.filter(id => combinedViews.some(v => v.id === id && v.isTemplate));
 
 		if (normalSelected.length > 0) {
@@ -152,74 +181,79 @@ export function AddViewModal({ open, onOpenChange, existingViews, onAddViews, on
 
 	return (
 		<Dialog open={open} onOpenChange={handleClose}>
-			<DialogContent className="sm:max-w-[800px] h-[600px] flex flex-col p-0 gap-0 overflow-y-auto">
+			<DialogContent className="sm:max-w-[800px] w-[95vw] h-[90vh] sm:h-[600px] flex flex-col p-0 gap-0 overflow-hidden [&>button]:cursor-pointer">
 				<DialogHeader className="px-6 py-4 border-b shrink-0">
 					<DialogTitle>Add View</DialogTitle>
 					<DialogDescription>
 						Choose from a variety of views to visualize your work.
 					</DialogDescription>
-					<div className="pt-4 relative">
-						<Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-						<Input
-							placeholder="Search views..."
-							value={searchQuery}
-							onChange={(e) => setSearchQuery(e.target.value)}
-							className="pl-9"
-						/>
+					<div className="pt-4">
+						<div className="flex h-10 items-center rounded-md border border-input bg-background px-3">
+							<Search className="h-4 w-4 shrink-0 text-muted-foreground" />
+							<Input
+								variant="ghost"
+								placeholder="Search views..."
+								value={searchQuery}
+								onChange={(e) => setSearchQuery(e.target.value)}
+								className="h-full border-0 bg-transparent pl-2 pr-0 shadow-none focus:outline-none focus:ring-0 focus-visible:ring-0"
+							/>
+						</div>
 					</div>
 				</DialogHeader>
 
-				<ScrollArea className="flex-1 p-6 bg-slate-50/50">
-					<div className="space-y-8">
-						{Object.entries(groupedViews).map(([category, views]) => (
-							views.length > 0 && (
-								<div key={category} className="space-y-3">
-									<h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider px-1">{category}</h3>
-									<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-										{views.map((view) => {
-											const isSelected = selectedViews.includes(view.id);
-											const Icon = view.icon;
-											return (
-												<button
-													key={view.id}
-													onClick={() => toggleView(view.id)}
-													className={cn(
-														"relative flex items-center p-3 rounded-xl border bg-white transition-all duration-200 text-left hover:shadow-md hover:border-primary/20 hover:scale-[1.02]",
-														isSelected ? "ring-2 ring-primary border-primary/50 shadow-sm" : "border-slate-200"
-													)}
-												>
-													<div className={cn("h-10 w-10 shrink-0 rounded-lg flex items-center justify-center mr-3", view.color || "bg-slate-100 text-slate-600")}>
-														<Icon size={20} />
-													</div>
-													<div className="flex-1 min-w-0">
-														<div className="font-medium text-sm text-slate-900">{view.label}</div>
-														<div className="text-xs text-slate-500 truncate">{view.description}</div>
-													</div>
-													{isSelected && (
-														<div className="absolute top-2 right-2 h-5 w-5 bg-primary text-primary-foreground rounded-full flex items-center justify-center shadow-sm">
-															<Check size={12} strokeWidth={3} />
+				<div className="flex-1 min-h-0 overflow-hidden bg-slate-50/50">
+					<ScrollArea className="h-full">
+						<div className="space-y-8 p-6">
+							{Object.entries(groupedViews).map(([category, views]) => (
+								views.length > 0 && (
+									<div key={category} className="space-y-3">
+										<h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider px-1">{category}</h3>
+										<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+											{views.map((view) => {
+												const isSelected = selectedViews.includes(view.id);
+												const Icon = view.icon;
+												return (
+													<button
+														key={view.id}
+														onClick={() => toggleView(view.id)}
+														className={cn(
+															"relative flex items-center p-3 rounded-xl border bg-white transition-all duration-200 text-left hover:shadow-md hover:border-primary/20 hover:scale-[1.02] cursor-pointer",
+															isSelected ? "ring-2 ring-primary border-primary/50 shadow-sm" : "border-slate-200"
+														)}
+													>
+														<div className={cn("h-10 w-10 shrink-0 rounded-lg flex items-center justify-center mr-3", view.color || "bg-slate-100 text-slate-600")}>
+															<Icon size={20} />
 														</div>
-													)}
-												</button>
-											);
-										})}
+														<div className="flex-1 min-w-0">
+															<div className="font-medium text-sm text-slate-900">{view.label}</div>
+															<div className="text-xs text-slate-500 truncate">{view.description}</div>
+														</div>
+														{isSelected && (
+															<div className="absolute top-2 right-2 h-5 w-5 bg-primary text-primary-foreground rounded-full flex items-center justify-center shadow-sm">
+																<Check size={12} strokeWidth={3} />
+															</div>
+														)}
+													</button>
+												);
+											})}
+										</div>
 									</div>
+								)
+							))}
+							{filteredViews.length === 0 && (
+								<div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
+									<p>No views found matching "{searchQuery}"</p>
 								</div>
-							)
-						))}
-						{filteredViews.length === 0 && (
-							<div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
-								<p>No views found matching "{searchQuery}"</p>
-							</div>
-						)}
-					</div>
-				</ScrollArea>
+							)}
+						</div>
+					</ScrollArea>
+				</div>
 
-				<DialogFooter className="px-6 py-4 border-t bg-white shrink-0">
-					<Button type="button" variant="ghost" onClick={handleClose}>
+				<DialogFooter className="px-6 py-4 border-t bg-white shrink-0 sticky bottom-0">
+					<Button type="button" variant="ghost" onClick={handleClose} className="cursor-pointer">
 						Cancel
 					</Button>
-					<Button onClick={handleAdd} disabled={selectedViews.length === 0}>
+					<Button onClick={handleAdd} disabled={selectedViews.length === 0} className="cursor-pointer disabled:cursor-not-allowed">
 						Add {selectedViews.length > 0 ? `${selectedViews.length} ` : ""}View
 						{selectedViews.length !== 1 ? "s" : ""}
 					</Button>

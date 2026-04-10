@@ -1,71 +1,96 @@
 import React, { memo } from 'react';
 import { Handle, Position, NodeProps } from '@xyflow/react';
-import { Files } from 'lucide-react';
+import { Files, Plus, Pencil } from 'lucide-react';
 import { WorkforceNode } from '../store/useWorkforceStore';
+import { useWorkforceStore } from '../store/useWorkforceStore';
 import { NodeContextMenu } from './NodeContextMenu';
 import { AttachedStickyNote } from './AttachedStickyNote';
 import { GlowHandle } from './AgentNode';
 import { cn } from '@/lib/utils';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 export const TaskNode = memo(({ id, data, isConnectable }: NodeProps<WorkforceNode>) => {
+    const isEmpty = !data?.taskId;
+
     return (
-        <div className="flex flex-col relative min-w-[220px]">
+        <div className="flex flex-col relative" style={{ width: 260 }}>
             <AttachedStickyNote nodeId={id} data={data} />
+
             <div className={cn(
-                "bg-white rounded-2xl w-full overflow-hidden group transition-all duration-500 cursor-pointer pointer-events-auto",
-                "border border-zinc-200/80 shadow-[0_1px_3px_rgba(0,0,0,0.02),0_12px_36px_-12px_rgba(0,0,0,0.08)]",
-                "hover:border-indigo-400/50 hover:shadow-[0_20px_60px_-15px_rgba(79,70,229,0.15)] hover:-translate-y-1",
-                "ring-1 ring-zinc-200/50 hover:ring-indigo-500/10",
+                "relative bg-white rounded-2xl w-full flex flex-col cursor-pointer pointer-events-auto transition-all duration-200 group",
+                isEmpty
+                    ? "border border-indigo-400 shadow-[0_2px_12px_rgba(0,0,0,0.04)]"
+                    : "border border-zinc-200 shadow-[0_2px_12px_rgba(0,0,0,0.08)] hover:border-indigo-300 hover:shadow-[0_4px_24px_rgba(79,70,229,0.14)] hover:-translate-y-0.5",
                 data?.skipped && "opacity-40 grayscale pointer-events-none"
-            )}>
-                <div className="relative z-20 bg-gradient-to-br from-zinc-50/80 to-white px-4 py-3 border-b border-zinc-100 flex items-center justify-between group-hover:from-indigo-50/40 group-hover:to-white transition-all duration-500">
-                    <div className="flex items-center gap-2.5">
-                        <div className="h-7 w-7 rounded-lg bg-indigo-50 flex items-center justify-center group-hover:bg-white transition-colors">
-                            <Files size={14} className="text-indigo-600" />
-                        </div>
-                        <span className="text-[12px] font-bold text-zinc-900 uppercase tracking-wider">Task Node</span>
-                    </div>
-                    <div className="relative z-30 flex items-center gap-2">
-                        <NodeContextMenu nodeId={id} />
-                    </div>
-                </div>
-                <div className="p-4 bg-white pointer-events-auto">
-                    <div className="space-y-3">
-                        <div>
-                            <div className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-1">Target Task</div>
-                            <div className="flex items-center gap-2">
-                                <div className="h-5 w-5 rounded-md bg-zinc-100 flex items-center justify-center">
-                                    <Files size={10} className="text-zinc-400" />
+            )} style={{ height: isEmpty ? 88 : 140 }}>
+
+                {isEmpty ? (
+                    <>
+                        <div className="flex items-center justify-between px-3 pt-3">
+                            <div className="flex items-center gap-2.5">
+                                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-indigo-50 text-indigo-600">
+                                    <Files size={12} /> Task
                                 </div>
-                                <div className="text-[13px] font-semibold text-zinc-700 truncate">
+                                <div className="h-5 w-24 bg-zinc-100 rounded-md" />
+                            </div>
+                            <NodeContextMenu nodeId={id} />
+                        </div>
+                        <div className="px-4 mt-auto mb-3 flex items-center gap-2 text-zinc-600">
+                            <Plus size={16} className="text-zinc-500" />
+                            <span className="text-[15px] text-zinc-600 font-medium">Add task</span>
+                        </div>
+                    </>
+                ) : (
+                    <>
+                        {/* Top row: badge + menu */}
+                        <div className="flex items-center justify-between px-3 pt-3 pb-2">
+                            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-indigo-50 text-indigo-600">
+                                <Files size={12} />
+                                Task
+                            </div>
+                            <div className="flex items-center gap-1">
+                                {data?.taskId && (
+                                    <TooltipProvider delayDuration={200}>
+                                        <Tooltip>
+                                            <TooltipTrigger asChild>
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); useWorkforceStore.getState().setEditNodeModal({ nodeId: id, type: 'task' }); }}
+                                                    className="h-6 w-6 flex items-center justify-center rounded-md hover:bg-zinc-200 text-zinc-400 hover:text-zinc-600 transition-all opacity-0 group-hover:opacity-100 cursor-pointer"
+                                                >
+                                                    <Pencil size={12} />
+                                                </button>
+                                            </TooltipTrigger>
+                                            <TooltipContent side="top" className="text-xs">Edit task</TooltipContent>
+                                        </Tooltip>
+                                    </TooltipProvider>
+                                )}
+                                <NodeContextMenu nodeId={id} />
+                            </div>
+                        </div>
+
+                        {/* Content */}
+                        <div className="px-3 pb-3 flex-1 min-h-0 flex flex-col z-10">
+                            <div className="flex-1 min-h-0 pr-1">
+                                <div className="text-[14px] font-bold text-zinc-900 leading-snug truncate">
                                     {data?.label || 'Select a task...'}
                                 </div>
+                                {data?.description && (
+                                    <div className="text-[11.5px] text-zinc-500 mt-1 leading-relaxed line-clamp-2">
+                                        {data.description}
+                                    </div>
+                                )}
                             </div>
-                        </div>
-
-                        <div className="pt-3 border-t border-zinc-50">
-                            <div className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-1 text-right">Task Status</div>
-                            <div className="text-[12px] font-medium text-zinc-600 text-right leading-relaxed flex items-center gap-1 justify-end">
+                            <div className="flex items-center gap-1 mt-2 pt-1 border-t border-zinc-50 shrink-0">
                                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                                {data?.status || 'Active'}
+                                <span className="text-[10px] text-zinc-400 font-medium">{data?.status || 'Active'}</span>
                             </div>
                         </div>
-                    </div>
-                </div>
+                    </>
+                )}
 
-                {/* Visual Fold Effect for Task - z-0 so menu stays on top */}
-                <div className="absolute top-0 right-0 z-0 w-8 h-8 pointer-events-none overflow-hidden group-hover:w-10 group-hover:h-10 transition-all duration-300">
-                    <div className="absolute top-0 right-0 w-full h-full bg-[#fcfcfc] border-l border-b border-zinc-200/80 rounded-bl-xl shadow-[-2px_2px_8px_rgba(0,0,0,0.05)] z-10" />
-                    <div className="absolute top-0 right-0 w-0 h-0 border-[16px] group-hover:border-[20px] transition-all duration-300 border-transparent border-t-white border-r-white z-20" />
-                </div>
+                <Handle type="target" position={Position.Top} isConnectable={isConnectable} className="!opacity-0 !w-[150%] !h-[150%] !top-[-25%] !left-[-25%] !border-none !bg-transparent pointer-events-auto rounded-none" />
+                <GlowHandle isConnectable={isConnectable} />
             </div>
-            <Handle
-                type="target"
-                position={Position.Top}
-                isConnectable={isConnectable}
-                className="!opacity-0 !w-5 !h-5 pointer-events-auto"
-            />
-            <GlowHandle isConnectable={isConnectable} />
         </div>
     );
 });

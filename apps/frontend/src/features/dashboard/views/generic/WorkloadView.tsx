@@ -12,7 +12,7 @@ import {
     Maximize2, PlusCircle, LayoutList, Pin, Trash2, Info, MapPin, CalendarRange, Star, Lock, EyeOff, Save, Tag,
     Circle, Flag, Box, Calendar, GripVertical, SlidersHorizontal, ArrowRight,
     Type, Hash, CheckSquare, AlignLeft, Target, Mail, Phone, Globe, DollarSign, FunctionSquare,
-    Paperclip, Link2, ListTodo, TrendingUp, FileText, MessageSquare, Heart
+    Paperclip, Link2, ListTodo, TrendingUp, FileText, MessageSquare, Heart, PanelRightClose 
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { cn } from "@/lib/utils";
@@ -121,6 +121,7 @@ export function WorkloadView({ spaceId, projectId, teamId, listId, viewId, onTas
     const [currentDate, setCurrentDate] = useState(new Date());
     const [timeframe, setTimeframe] = useState<Timeframe>("14");
     const [workloadMetric, setWorkloadMetric] = useState<WorkloadMetric>("time_estimate");
+    const [capacityMode, setCapacityMode] = useState<"weekly_capacity" | "daily_scheduled">("weekly_capacity");
     const [groupBy, setGroupBy] = useState("assignee");
     const [groupDirection, setGroupDirection] = useState<"asc" | "desc">("asc");
     const [isBacklogOpen, setIsBacklogOpen] = useState(false);
@@ -156,6 +157,7 @@ export function WorkloadView({ spaceId, projectId, teamId, listId, viewId, onTas
     const [visibleColumns, setVisibleColumns] = useState<Set<string>>(
         new Set(["name", "status", "assignee", "priority", "dueDate", "tags"])
     );
+    const [showEmptyStatuses, setShowEmptyStatuses] = useState(false);
     const [wrapText, setWrapText] = useState(false);
     const [showSubtaskParentNames, setShowSubtaskParentNames] = useState(false);
     const [showTaskProperties, setShowTaskProperties] = useState(true);
@@ -176,6 +178,7 @@ export function WorkloadView({ spaceId, projectId, teamId, listId, viewId, onTas
         setGroupBy("status");
         setGroupDirection("asc");
         setShowCompleted(false);
+        setShowEmptyStatuses(false);
         setWrapText(false);
     };
 
@@ -231,10 +234,61 @@ export function WorkloadView({ spaceId, projectId, teamId, listId, viewId, onTas
 
     const updateViewName = async (newName: string) => {
         if (!viewId || !newName.trim()) return;
+        const trimmed = newName.trim();
+        const oldName = viewData?.name || "";
+        setViewNameDraft(trimmed);
+        
+        // Optimistically patch all parent caches so the tab bar updates immediately
+        const patchViews = (views: any[]) => views.map((v: any) => v.id === viewId ? { ...v, name: trimmed } : v);
+        
+        // Update generic caches
+        if (spaceId) utils.space?.get?.setData({ id: spaceId }, (old: any) => old ? { ...old, views: patchViews(old.views ?? []) } : old);
+        if (projectId) utils.project?.get?.setData({ id: projectId }, (old: any) => old ? { ...old, views: patchViews(old.views ?? []) } : old);
+        if (teamId) utils.team?.get?.setData({ id: teamId }, (old: any) => old ? { ...old, views: patchViews(old.views ?? []) } : old);
+        if (folderId) utils.folder?.get?.setData({ id: folderId }, (old: any) => old ? { ...old, views: patchViews(old.views ?? []) } : old);
+        if (listId) utils.list?.get?.setData({ id: listId }, (old: any) => old ? { ...old, views: patchViews(old.views ?? []) } : old);
+        
+        // Use a generic approach to update list.byContext
+        const updateListByContext = () => {
+            try {
+                // @ts-ignore
+                if (utils.list?.byContext?.setData) {
+                    // @ts-ignore
+                    utils.list.byContext.setData(undefined, (old: any) => {
+                        if (!old || !old.items) return old;
+                        return {
+                            ...old,
+                            items: old.items.map((l: any) => l.id === listId ? { ...l, views: patchViews(l.views ?? []) } : l)
+                        };
+                    });
+                }
+            } catch (e) {}
+        };
+        updateListByContext();
+
         try {
-            await updateViewMutation.mutateAsync({ id: viewId, name: newName.trim() });
-            void utils.view.get.invalidate({ id: viewId });
-        } catch (e) { }
+            await updateViewMutation.mutateAsync({ id: viewId, name: trimmed });
+            if (utils.view?.get) await utils.view.get.invalidate({ id: viewId });
+            if (utils.view?.list) await utils.view.list.invalidate();
+            if (spaceId && utils.space?.get) void utils.space.get.invalidate({ id: spaceId });
+            if (projectId && utils.project?.get) void utils.project.get.invalidate({ id: projectId });
+            if (teamId && utils.team?.get) void utils.team.get.invalidate({ id: teamId });
+            if (folderId && utils.folder?.get) void utils.folder.get.invalidate({ id: folderId });
+            if (listId && utils.list?.get) void utils.list.get.invalidate({ id: listId });
+            if (listId && utils.list?.byContext) void utils.list.byContext.invalidate();
+            
+            if (typeof refetchViewData === 'function') void refetchViewData();
+        } catch (e) {
+            setViewNameDraft(oldName);
+            
+            // Revert optimistic updates
+            const revertViews = (views: any[]) => views.map((v: any) => v.id === viewId ? { ...v, name: oldName } : v);
+            if (spaceId) utils.space?.get?.setData({ id: spaceId }, (old: any) => old ? { ...old, views: revertViews(old.views ?? []) } : old);
+            if (projectId) utils.project?.get?.setData({ id: projectId }, (old: any) => old ? { ...old, views: revertViews(old.views ?? []) } : old);
+            if (teamId) utils.team?.get?.setData({ id: teamId }, (old: any) => old ? { ...old, views: revertViews(old.views ?? []) } : old);
+            if (folderId) utils.folder?.get?.setData({ id: folderId }, (old: any) => old ? { ...old, views: revertViews(old.views ?? []) } : old);
+            if (listId) utils.list?.get?.setData({ id: listId }, (old: any) => old ? { ...old, views: revertViews(old.views ?? []) } : old);
+        }
     };
 
     const isViewDirty = useMemo(() => {
@@ -309,7 +363,7 @@ export function WorkloadView({ spaceId, projectId, teamId, listId, viewId, onTas
         spaceId, projectId, teamId, listId,
         includeRelations: true,
         page: 1,
-        pageSize: 1000,
+        pageSize: 500,
     }, { enabled: !!(spaceId || projectId || teamId || listId) });
 
     const tasks = useMemo(() => (tasksData?.items || []) as any[], [tasksData]);
@@ -569,11 +623,12 @@ export function WorkloadView({ spaceId, projectId, teamId, listId, viewId, onTas
                             </PopoverTrigger>
                             <PopoverContent align="end" className="w-80 p-0 overflow-hidden shadow-2xl">
                                 <div className="p-3 border-b border-zinc-100 bg-zinc-50/50">
-                                    <div className="relative">
-                                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-400" />
+                                    <div className="flex items-center h-8 rounded-md border border-zinc-200 bg-white px-2">
+                                        <Search className="h-3.5 w-3.5 text-zinc-400 shrink-0" />
                                         <Input
+                                            variant="ghost"
                                             placeholder="Search..."
-                                            className="pl-8 h-8 text-xs border-zinc-200"
+                                            className="h-full px-2 text-xs border-0 bg-transparent shadow-none focus:outline-none focus:ring-0 focus-visible:ring-0"
                                             value={savedFiltersSearch}
                                             onChange={e => setSavedFiltersSearch(e.target.value)}
                                         />
@@ -643,7 +698,7 @@ export function WorkloadView({ spaceId, projectId, teamId, listId, viewId, onTas
                         </Button>
                     </div>
                 ) : (
-                    <ScrollArea className="p-5 text-sm h-[500px]">
+                    <ScrollArea className="p-5 text-sm h-[350px]">
                         <div className="space-y-4">
                             <div className="space-y-4">
                                 {/* Render each top-level group */}
@@ -802,7 +857,13 @@ export function WorkloadView({ spaceId, projectId, teamId, listId, viewId, onTas
                                                                                         <ChevronDown className="h-3 w-3 opacity-30 shrink-0" />
                                                                                     </Button>
                                                                                 </DropdownMenuTrigger>
-                                                                                <DropdownMenuContent className="w-64 max-h-[400px] overflow-auto">
+                                                                                <DropdownMenuContent
+                                                                                    side="bottom"
+                                                                                    align="start"
+                                                                                    avoidCollisions={false}
+                                                                                    sideOffset={6}
+                                                                                    className="w-64 max-h-[400px] overflow-auto p-0"
+                                                                                >
                                                                                     <div className="p-2 border-b border-zinc-100 sticky top-0 bg-white z-10">
                                                                                         <Input placeholder="Search fields..." className="h-8 text-xs border-zinc-100" value={filterSearch} onChange={e => setFilterSearch(e.target.value)} />
                                                                                     </div>
@@ -907,9 +968,9 @@ export function WorkloadView({ spaceId, projectId, teamId, listId, viewId, onTas
                                                                                                         </PopoverTrigger>
                                                                                                         <PopoverContent align="start" className="w-64 p-2">
                                                                                                             <div className="p-2 border-b border-zinc-100 mb-1">
-                                                                                                                <div className="relative">
-                                                                                                                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-400" />
-                                                                                                                    <Input placeholder="Search people..." className="pl-8 h-8 text-[10px]" value={assigneesSearch} onChange={e => setAssigneesSearch(e.target.value)} />
+                                                                                                                <div className="flex items-center h-8 rounded-md border border-zinc-200 bg-white px-2">
+                                                                                                                    <Search className="h-3.5 w-3.5 text-zinc-400 shrink-0" />
+                                                                                                                    <Input variant="ghost" placeholder="Search people..." className="h-full px-2 text-[10px] border-0 bg-transparent shadow-none focus:outline-none focus:ring-0 focus-visible:ring-0" value={assigneesSearch} onChange={e => setAssigneesSearch(e.target.value)} />
                                                                                                                 </div>
                                                                                                             </div>
                                                                                                             <ScrollArea className="h-[240px]">
@@ -1186,6 +1247,7 @@ export function WorkloadView({ spaceId, projectId, teamId, listId, viewId, onTas
         );
     };
 
+
     if (isLoading) {
         return (
             <div className="h-full flex items-center justify-center bg-white rounded-xl border border-zinc-200 p-20">
@@ -1198,37 +1260,75 @@ export function WorkloadView({ spaceId, projectId, teamId, listId, viewId, onTas
     }
 
     return (
-        <div className="h-full flex flex-col bg-white rounded-xl border border-zinc-200 shadow-sm overflow-hidden text-[13px] relative font-sans">
+        <div className="h-full flex flex-col bg-white border border-zinc-200 shadow-sm overflow-hidden text-[13px] relative font-sans">
             {/* Primary Toolbar */}
-            <div className="flex items-center justify-between px-4 py-2 border-b border-zinc-200 bg-white min-h-[52px] gap-4 z-50">
-                <div className="flex items-center gap-2.5">
-                    <Button variant="outline" size="sm" className="h-8 font-black text-zinc-600 border-zinc-200 shadow-none hover:bg-zinc-50 px-3.5 rounded-lg" onClick={() => setCurrentDate(new Date())}>Today</Button>
-
-                    <div className="h-6 w-[1px] bg-zinc-200 mx-1" />
+            <div className="border-b border-zinc-200 bg-white min-h-[52px] z-50 overflow-x-auto toolbar-scroll-x">
+                <div className="flex items-center gap-4 px-4 py-2 min-w-max whitespace-nowrap">
+                    <div className="flex items-center gap-2.5 shrink-0">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 text-xs text-zinc-600 border-zinc-200 shadow-none px-3.5 rounded-lg hover:bg-zinc-50 transition-all active:scale-95"
+                            onClick={() => setCurrentDate(new Date())}
+                        >
+                            Today
+                        </Button>
 
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                            <Button variant="outline" size="sm" className="h-8 font-black text-zinc-600 border-zinc-200 shadow-none hover:bg-zinc-50 gap-2 px-3 rounded-lg capitalize">
-                                {workloadMetric === 'time_estimate' ? 'Time Estimates' : 'Task Count'}
-                                <ChevronDown className="h-3.5 w-3.5 opacity-50" />
+                            <Button variant="outline" size="sm" className="h-8 gap-2 text-xs text-zinc-600 border-zinc-200 shadow-none px-3 rounded-lg hover:bg-zinc-50 transition-all active:scale-95">
+                                {workloadMetric === "tasks" ? "Tasks" : workloadMetric === "sprint_points" ? "Sprint points" : "Time estimate"}
+                                <ChevronDown className="h-3 w-3 opacity-40 shrink-0" />
                             </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="start" className="w-48">
-                            <DropdownMenuItem onClick={() => setWorkloadMetric('tasks')}>Task Count</DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => setWorkloadMetric('time_estimate')}>Time Estimates</DropdownMenuItem>
+                        <DropdownMenuContent align="start" className="w-40 p-1.5 rounded-xl shadow-xl border-zinc-200/60 z-50">
+                            <DropdownMenuItem onClick={() => setWorkloadMetric("tasks")} className="rounded-lg">Tasks</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setWorkloadMetric("time_estimate")} className="rounded-lg">Time estimate</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setWorkloadMetric("sprint_points")} className="rounded-lg">Sprint points</DropdownMenuItem>
                         </DropdownMenuContent>
                     </DropdownMenu>
 
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                            <Button variant="outline" size="sm" className="h-8 font-black text-zinc-600 border-zinc-200 shadow-none hover:bg-zinc-50 gap-2 px-3 rounded-lg">
-                                {timeframe} days <ChevronDown className="h-3.5 w-3.5 opacity-50" />
+                            <Button variant="outline" size="sm" className="h-8 gap-2 text-xs text-zinc-600 border-zinc-200 shadow-none px-3 rounded-lg hover:bg-zinc-50 transition-all active:scale-95">
+                                {timeframe === "7" ? "1 week" : timeframe === "14" ? "2 weeks" : "4 weeks"}
+                                <ChevronDown className="h-3 w-3 opacity-40 shrink-0" />
                             </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="start" className="w-32">
-                            {["7", "14", "30"].map(t => <DropdownMenuItem key={t} onClick={() => setTimeframe(t as Timeframe)}>{t} days</DropdownMenuItem>)}
+                        <DropdownMenuContent align="start" className="w-32 p-1.5 rounded-xl shadow-xl border-zinc-200/60 z-50">
+                            <DropdownMenuItem onClick={() => setTimeframe("7")} className="rounded-lg">1 week</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setTimeframe("14")} className="rounded-lg">2 weeks</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setTimeframe("30")} className="rounded-lg">4 weeks</DropdownMenuItem>
                         </DropdownMenuContent>
                     </DropdownMenu>
+
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="outline" size="sm" className="h-8 gap-2 text-xs text-zinc-600 border-zinc-200 shadow-none px-3 rounded-lg hover:bg-zinc-50 transition-all active:scale-95">
+                                {capacityMode === "weekly_capacity" ? "Weekly Capacity" : "Daily Scheduled"}
+                                <ChevronDown className="h-3 w-3 opacity-40 shrink-0" />
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="start" className="w-44 p-1.5 rounded-xl shadow-xl border-zinc-200/60 z-50">
+                            <DropdownMenuItem onClick={() => setCapacityMode("weekly_capacity")} className="rounded-lg">Weekly Capacity</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setCapacityMode("daily_scheduled")} className="rounded-lg">Daily Scheduled</DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+
+                    </div>
+
+                    <div className="flex items-center gap-2 ml-auto">
+                        <ViewToolbarSaveDropdown
+                            show={isViewDirty && !viewAutosave}
+                            isViewDirty={isViewDirty}
+                            viewAutosave={viewAutosave}
+                            isPending={updateViewMutation.isPending}
+                            onSave={() => void saveViewConfig()}
+                            onToggleAutosave={handleToggleAutosave}
+                            onSaveAsNewView={saveAsNewView}
+                            onRevertChanges={revertViewChanges}
+                            isSaveAsNewPending={createViewMutation.isPending}
+                        />
 
                     <DropdownMenu>
                         <Tooltip>
@@ -1238,22 +1338,22 @@ export function WorkloadView({ spaceId, projectId, teamId, listId, viewId, onTas
                                         variant="outline"
                                         size="sm"
                                         className={cn(
-                                            "h-8 gap-1.5 px-2.5 text-xs font-black border-zinc-200 transition-colors cursor-pointer rounded-lg",
-                                            groupBy !== "none" ? "bg-violet-50 text-violet-700 border-violet-200" : "text-zinc-700 bg-zinc-50 hover:bg-zinc-100"
+                                            "h-8 gap-1.5 px-2.5 text-xs font-medium border-zinc-200 transition-colors cursor-pointer rounded-lg",
+                                            groupBy !== "none" ? "bg-violet-50 text-violet-700 border-violet-200" : "text-zinc-700 bg-white hover:bg-zinc-50"
                                         )}
                                     >
                                         <LayoutList className="h-3.5 w-3.5" />
                                         <span className="hidden sm:inline">
-                                            {groupBy === "none" ? "Group: None" : `Group: ${groupLabel}`}
+                                            {groupBy === "none" ? "Group" : `Group: ${groupLabel}`}
                                         </span>
                                     </Button>
                                 </DropdownMenuTrigger>
                             </TooltipTrigger>
                             <TooltipContent side="bottom">Group by: {groupBy === "none" ? "None" : groupLabel}</TooltipContent>
                         </Tooltip>
-                        <DropdownMenuContent align="start" className="w-[240px] p-1.5 rounded-xl shadow-xl border-zinc-200/60 z-50">
+                        <DropdownMenuContent align="end" className="w-[240px] p-1.5 rounded-xl shadow-xl border-zinc-200/60 z-50">
                             <div className="px-2 py-1.5 mb-1">
-                                <span className="text-[11px] font-black text-zinc-400 uppercase tracking-wider">Group by</span>
+                                <span className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">Group by</span>
                             </div>
                             <div className="space-y-0.5">
                                 {[
@@ -1274,91 +1374,22 @@ export function WorkloadView({ spaceId, projectId, teamId, listId, viewId, onTas
                                         onSelect={(e) => e.preventDefault()}
                                     >
                                         <opt.icon className={cn("h-4 w-4", groupBy === opt.id ? "text-violet-500" : "text-zinc-400")} />
-                                        <span className="flex-1 font-bold">{opt.label}</span>
+                                        <span className="flex-1">{opt.label}</span>
                                         {groupBy === opt.id && <div className="h-1.5 w-1.5 rounded-full bg-violet-600" />}
                                     </DropdownMenuItem>
                                 ))}
-
-                                {FIELD_CONFIG.filter(f => f.isCustom).length > 0 && (
-                                    <>
-                                        <DropdownMenuSeparator className="my-1.5 bg-zinc-100" />
-                                        <div className="px-2 py-1.5 mb-0.5">
-                                            <span className="text-[11px] font-black text-zinc-400 uppercase tracking-wider">Custom Fields</span>
-                                        </div>
-                                        {FIELD_CONFIG.filter(f => f.isCustom).map((f) => {
-                                            const Icon = f.icon as any;
-                                            return (
-                                                <DropdownMenuItem
-                                                    key={f.id}
-                                                    className={cn(
-                                                        "flex items-center gap-2.5 px-2 py-1.5 text-sm rounded-md cursor-pointer transition-colors",
-                                                        groupBy === f.id ? "bg-violet-50 text-violet-700" : "text-zinc-600 hover:bg-zinc-100"
-                                                    )}
-                                                    onClick={() => setGroupBy(f.id)}
-                                                    onSelect={(e) => e.preventDefault()}
-                                                >
-                                                    <Icon className={cn("h-4 w-4", groupBy === f.id ? "text-violet-500" : "text-zinc-400")} />
-                                                    <span className="flex-1 truncate font-bold">{f.label}</span>
-                                                    {groupBy === f.id && <div className="h-1.5 w-1.5 rounded-full bg-violet-600" />}
-                                                </DropdownMenuItem>
-                                            );
-                                        })}
-                                    </>
-                                )}
-
-                                {groupBy !== "none" && (
-                                    <>
-                                        <DropdownMenuSeparator className="my-1.5 bg-zinc-100" />
-                                        <div className="flex items-center gap-1 p-1">
-                                            <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                className={cn("flex-1 h-7 text-[10px] uppercase tracking-wider font-black", groupDirection === "asc" ? "bg-white shadow-sm border border-zinc-200 text-zinc-900" : "text-zinc-500")}
-                                                onClick={() => setGroupDirection("asc")}
-                                            >
-                                                Ascending
-                                            </Button>
-                                            <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                className={cn("flex-1 h-7 text-[10px] uppercase tracking-wider font-black", groupDirection === "desc" ? "bg-white shadow-sm border border-zinc-200 text-zinc-900" : "text-zinc-500")}
-                                                onClick={() => setGroupDirection("desc")}
-                                            >
-                                                Descending
-                                            </Button>
-                                        </div>
-                                    </>
-                                )}
-
                                 <DropdownMenuSeparator className="my-1.5 bg-zinc-100" />
                                 <DropdownMenuItem
-                                    className={cn(
-                                        "flex items-center gap-2.5 px-2 py-1.5 text-sm rounded-md cursor-pointer transition-colors text-red-600 hover:bg-red-50 hover:text-red-700",
-                                        groupBy === "none" && "bg-zinc-100"
-                                    )}
+                                    className="flex items-center gap-2.5 px-2 py-1.5 text-sm rounded-md cursor-pointer transition-colors text-red-600 hover:bg-red-50 hover:text-red-700"
                                     onClick={() => setGroupBy("none")}
                                     onSelect={(e) => e.preventDefault()}
                                 >
                                     <Trash2 className="h-4 w-4" />
-                                    <span className="flex-1 font-bold">Remove grouping</span>
+                                    <span className="flex-1">Remove grouping</span>
                                 </DropdownMenuItem>
                             </div>
                         </DropdownMenuContent>
                     </DropdownMenu>
-                </div>
-
-                <div className="flex items-center gap-2">
-                    <ViewToolbarSaveDropdown
-                        show={isViewDirty && !viewAutosave}
-                        isViewDirty={isViewDirty}
-                        viewAutosave={viewAutosave}
-                        isPending={updateViewMutation.isPending}
-                        onSave={() => void saveViewConfig()}
-                        onToggleAutosave={handleToggleAutosave}
-                        onSaveAsNewView={saveAsNewView}
-                        onRevertChanges={revertViewChanges}
-                        isSaveAsNewPending={createViewMutation.isPending}
-                    />
 
                     <Popover open={filtersPanelOpen} onOpenChange={setFiltersPanelOpen}>
                         <PopoverTrigger asChild>
@@ -1367,26 +1398,33 @@ export function WorkloadView({ spaceId, projectId, teamId, listId, viewId, onTas
                                     variant="outline"
                                     size="sm"
                                     className={cn(
-                                        "h-8 gap-2 px-3.5 font-black border-zinc-200 shadow-none rounded-lg",
-                                        appliedFilterCount > 0 && "bg-violet-50 text-violet-700 border-violet-200"
+                                        "h-8 text-xs font-medium pr-7",
+                                        filtersPanelOpen ? "bg-violet-50 text-violet-700 border-violet-200" : "text-zinc-700 border-zinc-200",
+                                        appliedFilterCount > 0 && "border-violet-200 bg-violet-50/50 text-violet-700"
                                     )}
+                                    onClick={() => { if (!filtersPanelOpen && filterGroups.conditions.length === 0) { addFilterGroup(); } }}
                                 >
-                                    <Filter className="h-3.5 w-3.5" /> Filter
-                                    {appliedFilterCount > 0 && (
-                                        <Badge variant="secondary" className="ml-1 h-5 px-1.5 bg-violet-100 text-violet-700 border-none">
-                                            {appliedFilterCount}
-                                        </Badge>
-                                    )}
+                                    <Filter className="h-3.5 w-3.5" />
+                                    <span className="hidden sm:inline ml-1">
+                                        {appliedFilterCount > 0 ? `${appliedFilterCount} Filter${appliedFilterCount !== 1 ? "s" : ""}` : "Filter"}
+                                    </span>
                                 </Button>
-                                {appliedFilterCount > 0 && (
+                                {(appliedFilterCount > 0 || filtersPanelOpen) && (
                                     <div
-                                        className="absolute -right-1 -top-1 h-4 w-4 bg-violet-600 text-white rounded-full flex items-center justify-center text-[10px] cursor-pointer shadow-lg border-2 border-white"
+                                        className={cn(
+                                            "absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6 flex items-center justify-center rounded-md hover:bg-violet-100 cursor-pointer z-10",
+                                            filtersPanelOpen ? "text-violet-700" : "text-zinc-400"
+                                        )}
                                         onClick={(e) => {
                                             e.stopPropagation();
-                                            setFilterGroups({ id: "root", operator: "AND", conditions: [] });
+                                            if (appliedFilterCount > 0) {
+                                                setFilterGroups({ id: "root", operator: "AND", conditions: [] });
+                                            } else {
+                                                setFiltersPanelOpen(false);
+                                            }
                                         }}
                                     >
-                                        <X className="h-2.5 w-2.5" />
+                                        <X className="h-3.5 w-3.5" />
                                     </div>
                                 )}
                             </div>
@@ -1403,55 +1441,13 @@ export function WorkloadView({ spaceId, projectId, teamId, listId, viewId, onTas
                         onShowCompletedSubtasksChange={setShowCompletedSubtasks}
                     />
 
-                    <div className="flex items-center gap-2 pl-2 border-l border-zinc-200">
-                        <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                                <Button variant="outline" size="sm" className="h-8 gap-2 px-3 font-medium text-xs">
-                                    {workloadMetric === 'time_estimate' ? 'Time Estimates' : workloadMetric === 'sprint_points' ? 'Sprint Points' : 'Tasks'}
-                                    <ChevronDown className="h-3 w-3 opacity-50" />
-                                </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent>
-                                <DropdownMenuItem onClick={() => setWorkloadMetric('time_estimate')}>Time Estimates</DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => setWorkloadMetric('tasks')}>Tasks</DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => setWorkloadMetric('sprint_points')}>Sprint Points</DropdownMenuItem>
-                            </DropdownMenuContent>
-                        </DropdownMenu>
-
-                        <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                                <Button variant="outline" size="sm" className="h-8 gap-2 px-3 font-medium text-xs">
-                                    {timeframe} days
-                                    <ChevronDown className="h-3 w-3 opacity-50" />
-                                </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent>
-                                <DropdownMenuItem onClick={() => setTimeframe("7")}>7 days</DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => setTimeframe("14")}>14 days</DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => setTimeframe("30")}>30 days</DropdownMenuItem>
-                            </DropdownMenuContent>
-                        </DropdownMenu>
-
-                        <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                                <Button variant="outline" size="sm" className="h-8 gap-2 px-3 font-medium text-xs">
-                                    Daily Scheduled
-                                    <ChevronDown className="h-3 w-3 opacity-50" />
-                                </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent>
-                                <DropdownMenuItem>Daily Scheduled</DropdownMenuItem>
-                            </DropdownMenuContent>
-                        </DropdownMenu>
-                    </div>
-
-                    <div className="h-6 w-[1px] bg-zinc-200 mx-1" />
+                    {/* Removed right-side metric/timeframe/capacity dropdown group (per design). */}
 
                     <div className="relative group/search">
                         <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-400 group-focus-within/search:text-zinc-600" />
                         <Input
                             placeholder="Search..."
-                            className="h-8 w-40 pl-8 text-xs bg-zinc-50/50 border-zinc-200 focus:bg-white focus:w-60 transition-all rounded-lg font-black"
+                            className="h-8 w-40 pl-8 text-xs bg-zinc-50/50 border-zinc-200 focus:bg-white focus:w-60 transition-all rounded-lg font-medium"
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                         />
@@ -1506,120 +1502,40 @@ export function WorkloadView({ spaceId, projectId, teamId, listId, viewId, onTas
                         <Button size="icon" className="h-8 w-8 bg-zinc-900 text-white hover:bg-black rounded-none transition-colors"><ChevronDown className="h-3.5 w-3.5" /></Button>
                     </div>
 
-                    <Button variant={isBacklogOpen ? "default" : "outline"} size="sm" className={cn("h-8 gap-2 px-3 font-black rounded-lg ml-2 transition-all", isBacklogOpen ? "bg-zinc-900 text-white shadow-md" : "text-zinc-600 border-zinc-200")} onClick={() => setIsBacklogOpen(!isBacklogOpen)}>
-                        <LayoutList className="h-4 w-4" /> Backlog
-                    </Button>
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <Button
+                                variant="outline"
+                                className={cn(
+                                    "h-8 gap-1.5 px-3 text-xs font-medium border-zinc-200 rounded-lg shadow-sm transition-all ml-1",
+                                    isBacklogOpen ? "bg-violet-50 text-violet-700 border-violet-200 ring-1 ring-violet-200/50" : "text-zinc-700 bg-white hover:bg-zinc-50"
+                                )}
+                                onClick={() => setIsBacklogOpen(!isBacklogOpen)}
+                            >
+                                <PanelRightClose className="h-3.5 w-3.5" />
+                                <span className="hidden sm:inline">Backlog</span>
+                            </Button>
+                        </TooltipTrigger>
+                        <TooltipContent side="bottom">Toggle backlog sidebar</TooltipContent>
+                    </Tooltip>
                 </div>
             </div>
-
-            {/* Sub-Header Navigation */}
-            <div className="flex items-center px-4 py-2 border-b border-zinc-100 bg-white min-h-[44px]">
-                <div className="flex items-center gap-4">
-                    <span className="text-[12px] font-black text-zinc-500 tabular-nums">
-                        {format(timelineDays[0], 'MMM d')} - {format(timelineDays[timelineDays.length - 1], 'MMM d')}
-                    </span>
-                    <div className="flex items-center gap-1.5 ml-2">
-                        <Button variant="ghost" size="icon" className="h-7 w-7 text-zinc-400 hover:text-zinc-900 rounded-md" onClick={() => navigate(-1)}><ChevronLeft className="h-4 w-4" /></Button>
-                        <Button variant="ghost" size="icon" className="h-7 w-7 text-zinc-400 hover:text-zinc-900 rounded-md" onClick={() => navigate(1)}><ChevronRight className="h-4 w-4" /></Button>
-                    </div>
-                    <div className="h-4 w-[1px] bg-zinc-200" />
-                    <h3 className="text-[14px] font-black text-zinc-800 tracking-tight">{format(currentDate, 'MMMM yyyy')}</h3>
-                </div>
-                <div className="ml-auto flex items-center gap-2">
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-zinc-400 rounded-lg hover:bg-zinc-50"><PlusCircle className="h-4 w-4" /></Button>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-zinc-400 rounded-lg hover:bg-zinc-50"><Maximize2 className="h-4 w-4" /></Button>
-                </div>
             </div>
 
             <div className="flex-1 flex overflow-hidden">
-                <ScrollArea className="flex-1" orientation="both">
-                    <div className="flex flex-col min-w-max h-full">
-                        {/* Header Grid */}
-                        <div className="sticky top-0 z-30 flex border-b border-zinc-100 bg-white shadow-sm">
-                            <div className="w-[240px] shrink-0 border-r border-zinc-100 bg-zinc-50/20" />
-                            <div className="flex flex-1">
-                                {timelineDays.map((date, i) => {
-                                    const isCurrent = isTodayFns(date);
-                                    const isWeekend = date.getDay() === 0 || date.getDay() === 6;
-                                    return (
-                                        <div key={i} className={cn("flex flex-col items-center justify-center py-2 min-w-[80px] border-r border-zinc-100 relative", isWeekend && "bg-zinc-50/50")}>
-                                            <span className={cn("text-[9px] font-black uppercase tracking-[0.2em] mb-0.5", isCurrent ? "text-violet-600" : "text-zinc-400")}>{format(date, 'eee').charAt(0)}</span>
-                                            <span className={cn("text-[14px] font-black h-8 w-8 flex items-center justify-center rounded-xl transition-all", isCurrent ? "bg-violet-600 text-white shadow-lg ring-2 ring-violet-200" : "text-zinc-700")}>{format(date, 'd')}</span>
-                                        </div>
-                                    )
-                                })}
-                            </div>
+                <div className="flex-1 flex items-center justify-center bg-white">
+                    <div className="w-full max-w-md mx-auto px-6 py-10 text-center">
+                        <div className="mx-auto h-12 w-12 rounded-2xl border border-zinc-200 bg-zinc-50 flex items-center justify-center shadow-sm">
+                            <Ban className="h-5 w-5 text-zinc-500" />
                         </div>
-
-
-
-                        {/* Generic Groups Section */}
-                        {allGroups.map((group) => (
-                            <div key={group.id} className="flex flex-col">
-                                <div className="flex items-center h-12 border-b border-zinc-100 bg-white group cursor-pointer hover:bg-zinc-50/30 transition-colors" onClick={() => toggleGroup(group.id)}>
-                                    <div className="w-[240px] shrink-0 border-r border-zinc-100 px-4 flex items-center justify-between">
-                                        <div className="flex items-center gap-3">
-                                            {group.image ? (
-                                                <Avatar className="h-8 w-8 border border-zinc-100 shadow-md">
-                                                    <AvatarImage src={group.image} />
-                                                    <AvatarFallback className="text-[11px] font-black bg-zinc-100 text-zinc-500">{group.name?.slice(0, 2).toUpperCase()}</AvatarFallback>
-                                                </Avatar>
-                                            ) : (
-                                                <div className={cn("h-8 w-8 rounded-lg flex items-center justify-center bg-zinc-100 text-zinc-500 font-bold text-xs uppercase", group.color ? `bg-[${group.color}] text-white` : "")}>
-                                                    {group.type === 'tag' ? <Tag className="h-4 w-4" /> : group.name?.slice(0, 1)}
-                                                </div>
-                                            )}
-                                            <h4 className="font-black text-zinc-900 tracking-tight truncate max-w-[120px]">{group.name}</h4>
-                                        </div>
-                                        <ChevronUp className={cn("h-4 w-4 text-zinc-400 transition-transform", collapsedGroups.has(group.id) && "rotate-180")} />
-                                    </div>
-                                    <div className="flex flex-1" />
-                                </div>
-
-                                {!collapsedGroups.has(group.id) && (
-                                    <div className="flex border-b border-zinc-100 min-h-[92px]">
-                                        <div className="w-[240px] shrink-0 border-r border-zinc-100 bg-zinc-50/10 flex items-center justify-end px-4">
-                                            <div className="h-8 px-2 rounded-md bg-zinc-200/50 flex items-center justify-center text-xs font-bold text-zinc-500 tabular-nums">
-                                                {/* Optional: Show row total here */}
-                                                --
-                                            </div>
-                                        </div>
-                                        <div className="flex flex-1">
-                                            {timelineDays.map((date, i) => {
-                                                const { value, count } = calculateWorkload(group.id, date);
-                                                const isWeekend = date.getDay() === 0 || date.getDay() === 6;
-                                                const isOverloaded = value > 8; // Capacity check
-                                                return (
-                                                    <div key={i} className={cn("min-w-[80px] border-r border-zinc-100 flex items-center justify-center relative", isWeekend && "bg-zinc-50/50")}>
-                                                        {value > 0 || count > 0 ? (
-                                                            <div className={cn("h-10 w-16 rounded-md border flex items-center justify-center font-bold text-[13px] transition-all relative group/cell",
-                                                                isOverloaded ? "bg-red-50 border-red-200 text-red-600" : "bg-zinc-100 border-zinc-200 text-zinc-700 hover:border-zinc-300"
-                                                            )}>
-                                                                {workloadMetric === 'time_estimate' ? `${Math.round(value)}h` : value}
-
-                                                                {/* Task Count Badge */}
-                                                                {count > 0 && (
-                                                                    <div className="absolute -top-2 -right-2 h-4 w-4 rounded-full bg-yellow-400 text-yellow-900 flex items-center justify-center text-[9px] font-black shadow-sm z-10">
-                                                                        {count}
-                                                                    </div>
-                                                                )}
-                                                            </div>
-                                                        ) : (
-                                                            <div className="h-10 w-16 rounded-md border border-zinc-100/50 bg-transparent flex items-center justify-center text-[13px] font-bold text-zinc-200">
-                                                                0h
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                )
-                                            })}
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-                        ))}
+                        <h3 className="mt-4 text-sm font-semibold text-zinc-900">
+                            This view isn’t available yet
+                        </h3>
+                        <p className="mt-1 text-xs text-zinc-500 leading-relaxed">
+                            We’re still building the Workload experience. For now, use List, Board, Timeline, or Gantt to manage and schedule work.
+                        </p>
                     </div>
-                    <ScrollBar orientation="horizontal" className="z-40" />
-                </ScrollArea>
+                </div>
             </div>
 
             {/* Fields panel (Columns click or + in last column) toggle show/hide columns */}
@@ -1724,7 +1640,7 @@ export function WorkloadView({ spaceId, projectId, teamId, listId, viewId, onTas
 
                                 <div className="space-y-1">
                                     {groupBy === "status" ? (
-                                        <div className="flex items-center justify-between py-1 px-2">
+                                        <div className="flex items-center justify-between py-1 px-2 cursor-pointer" onClick={() => setShowEmptyStatuses(!showEmptyStatuses)}>
                                             <span className="text-sm text-zinc-800">Show empty statuses</span>
                                             <Switch
                                                 checked={showEmptyStatuses}
@@ -1750,19 +1666,19 @@ export function WorkloadView({ spaceId, projectId, teamId, listId, viewId, onTas
                                             </Tooltip>
                                         </TooltipProvider>
                                     )}
-                                    <div className="flex items-center justify-between py-1 px-2">
+                                    <div className="flex items-center justify-between py-1 px-2 cursor-pointer" onClick={() => setWrapText(!wrapText)}>
                                         <span className="text-sm text-zinc-800">Wrap text</span>
                                         <Switch checked={wrapText} onCheckedChange={setWrapText} />
                                     </div>
-                                    <div className="flex items-center justify-between py-1 px-2">
+                                    <div className="flex items-center justify-between py-1 px-2 cursor-pointer" onClick={() => setShowTaskLocations(!showTaskLocations)}>
                                         <span className="text-sm text-zinc-800">Show task locations</span>
                                         <Switch checked={showTaskLocations} onCheckedChange={setShowTaskLocations} />
                                     </div>
-                                    <div className="flex items-center justify-between py-1 px-2">
+                                    <div className="flex items-center justify-between py-1 px-2 cursor-pointer" onClick={() => setShowSubtaskParentNames(!showSubtaskParentNames)}>
                                         <span className="text-sm text-zinc-800">Show subtask parent names</span>
                                         <Switch checked={showSubtaskParentNames} onCheckedChange={setShowSubtaskParentNames} />
                                     </div>
-                                    <div className="flex items-center justify-between py-1 px-2">
+                                    <div className="flex items-center justify-between py-1 px-2 cursor-pointer" onClick={() => setShowCompleted(!showCompleted)}>
                                         <span className="text-sm text-zinc-800">Show closed tasks</span>
                                         <Switch checked={showCompleted} onCheckedChange={setShowCompleted} />
                                     </div>
@@ -1898,7 +1814,17 @@ export function WorkloadView({ spaceId, projectId, teamId, listId, viewId, onTas
             )}
 
             <TaskDetailModal taskId={selectedTaskId || ""} open={!!selectedTaskId} onOpenChange={(open) => !open && (onTaskSelect ? onTaskSelect(null) : setSelectedTaskId(null))} />
-            <TaskCreationModal open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen} spaceId={spaceId} projectId={projectId} listId={listId} />
+            <TaskCreationModal
+                context={spaceId ? "SPACE" : projectId ? "PROJECT" : "GENERAL"}
+                contextId={spaceId || projectId}
+                workspaceId={resolvedWorkspaceId as any}
+                users={users as any}
+                defaultListId={listId as any}
+                availableStatuses={[] as any}
+                open={isCreateModalOpen}
+                onOpenChange={setIsCreateModalOpen}
+                trigger={<span className="sr-only" />}
+            />
             <ShareViewPermissionModal open={isShareModalOpen} onOpenChange={setIsShareModalOpen} viewId={viewId as string} workspaceId={resolvedWorkspaceId as string} />
 
             {/* Create field modal – field types and Add existing fields */}

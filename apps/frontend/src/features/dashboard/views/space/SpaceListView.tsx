@@ -194,7 +194,7 @@ export default function SpaceListView({ spaceId, workspaceId, selectedListId, on
 
     // List View
     return (
-        <div className="flex h-full gap-0 bg-background transition-all">
+        <div className="flex h-full gap-0 bg-background transition-all relative">
             {/* Lists Sidebar */}
             <aside className={cn(
                 "shrink-0 bg-white transition-all duration-300 ease-in-out flex flex-col h-full overflow-hidden",
@@ -521,7 +521,7 @@ export default function SpaceListView({ spaceId, workspaceId, selectedListId, on
             {/* Main Content */}
             <div className="flex-1 overflow-hidden relative flex flex-col">
                 {isSidebarCollapsed && (
-                    <div className="absolute left-0 top-3 z-30">
+                    <div className="absolute left-0 top-2 z-40">
                         <Button
                             variant="outline"
                             size="icon"
@@ -536,7 +536,7 @@ export default function SpaceListView({ spaceId, workspaceId, selectedListId, on
                 <div className="flex-1 overflow-hidden">
                     {
                         activeListId ? (
-                            <div className="flex-1 overflow-hidden bg-zinc-50 h-full">
+                            <div className={cn("flex-1 overflow-hidden bg-zinc-50 h-full", isSidebarCollapsed && "[&_.dashboard-tabs-container]:pl-12")}>
                                 <ListDashboardView
                                     listId={activeListId}
                                     spaceId={spaceId}
@@ -546,7 +546,7 @@ export default function SpaceListView({ spaceId, workspaceId, selectedListId, on
                                 />
                             </div>
                         ) : activeFolderId ? (
-                            <div className="flex-1 overflow-hidden bg-zinc-50 h-full">
+                            <div className={cn("flex-1 overflow-hidden bg-zinc-50 h-full", isSidebarCollapsed && "[&_.dashboard-tabs-container]:pl-12")}>
                                 <FolderDashboardView
                                     folderId={activeFolderId}
                                     spaceId={spaceId}

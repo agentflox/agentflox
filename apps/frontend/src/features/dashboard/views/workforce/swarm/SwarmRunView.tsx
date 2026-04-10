@@ -412,28 +412,12 @@ export default function SwarmRunView({
   // ── derive logs from swarm events ─────────────────────────────────────────
   // Note: log view state and derivations are moved inside SwarmLogView.
 
-  const historicalEvents = React.useMemo(() => {
-    return messages
-      .filter((m) => m.swarmEvent)
-      .map((m) => m.swarmEvent as SwarmEvent);
-  }, [messages]);
-
-  const combinedSwarmEvents = React.useMemo(() => {
-    const all = [...swarmEvents, ...historicalEvents];
-    const seen = new Set<string>();
-    return all.filter((e) => {
-      const key = `${e.timestamp}-${e.type}`;
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    }).sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-  }, [swarmEvents, historicalEvents]);
-
   // Metrics derived from events + tasks
-  const cycleCount = combinedSwarmEvents.filter(e => e.type === "CYCLE_COMPLETED").length;
-  const errorCount = combinedSwarmEvents.filter(e => e.type === "CYCLE_ERROR").length;
+  const cycleCount = swarmEvents.filter(e => e.type === "CYCLE_COMPLETED").length;
+  const errorCount = swarmEvents.filter(e => e.type === "CYCLE_ERROR").length;
   const tasksDone = tasks.filter(t => t.status === "COMPLETED").length;
   const tasksFailed = tasks.filter(t => t.status.includes("FAIL")).length;
+
 
   // ── skeleton while no conversation ───────────────────────────────────────
   if (!conversationId) {
@@ -477,14 +461,14 @@ export default function SwarmRunView({
 
     // Coordinator cycle ticks — passive inline dividers, never full cards
     // Render only CYCLE_INSPECT + errors from raw SSE (not persisted messages)
-    ;[...combinedSwarmEvents].reverse().forEach((e, i) => {
+    ;[...swarmEvents].reverse().forEach((e, i) => {
       if (e.type === "CYCLE_INSPECT" || e.type.includes("ERROR")) {
         feed.push({ _type: 'tick', ts: new Date(e.timestamp).getTime(), evt: e, id: `tick-${e.timestamp}-${i}` });
       }
     });
 
     return feed.sort((a, b) => a.ts - b.ts);
-  }, [messages, pendingApprovals, combinedSwarmEvents]);
+  }, [messages, pendingApprovals, swarmEvents]);
 
   const TABS: { id: ViewType; label: string; Icon: any }[] = [
     { id: "chat", label: "Chat", Icon: MessageSquare },
@@ -569,7 +553,7 @@ export default function SwarmRunView({
                     selectedMentions={selectedMentions}
                   />
                   <div className="flex items-center justify-between mt-1.5 px-1">
-                    <ActiveProcessingWidget events={combinedSwarmEvents} status={sessionStatus} />
+                    <ActiveProcessingWidget events={swarmEvents} status={sessionStatus} />
                   </div>
                 </div>
               </div>
@@ -604,11 +588,11 @@ export default function SwarmRunView({
           </div>
         )}
 
-        {activeView === "log" && <SwarmLogView swarmEvents={combinedSwarmEvents} />}
+        {activeView === "log" && <SwarmLogView swarmEvents={swarmEvents} />}
         {activeView === "task" && <SwarmTaskView tasks={tasks} onApprove={handleApprove} />}
         {activeView === "graph" && (
           <SwarmGraphView
-            swarmEvents={combinedSwarmEvents}
+            swarmEvents={swarmEvents}
             swarmSessionId={swarmSessionId}
             sessionStatus={sessionStatus}
             tasks={tasks}
@@ -622,7 +606,7 @@ export default function SwarmRunView({
             tasksDone={tasksDone}
             tasksFailed={tasksFailed}
             pendingApprovals={pendingApprovals}
-            swarmEvents={combinedSwarmEvents}
+            swarmEvents={swarmEvents}
           />
         )}
         {activeView === "timeline" && <SwarmTimelineView tasks={tasks} />}
