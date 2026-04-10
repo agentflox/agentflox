@@ -1,0 +1,26 @@
+design ui for form home page 
+
+
+
+Deployment instructions (Vercel + Hostinger DNS)
+1) In Vercel project settings
+Go to Project -> Settings -> Domains
+Add domain: agentflox.forms.com
+Vercel will show required DNS record value.
+2) In Hostinger DNS zone (for forms.com)
+Create a DNS record:
+Type: CNAME
+Name/Host: agentflox
+Target/Value: cname.vercel-dns.com
+TTL: default/auto
+(If Vercel gives a different target, use Vercel’s exact value.)
+3) Add environment variable in Vercel
+In Project -> Settings -> Environment Variables:
+Key: NEXT_PUBLIC_FORMS_HOST
+Value: agentflox.forms.com
+Apply for Production (and Preview if needed)
+Then redeploy.
+4) Verify
+https://agentflox.forms.com/<yourViewId> should load the public form.
+Publish/copy link in builder should now generate subdomain links.
+If you want, I can also add support for a second env var (e.g. FORMS_HOST) for server-only host matching and keep NEXT_PUBLIC_FORMS_HOST purely for frontend URL generation.

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import {
     LayoutDashboard,
@@ -14,7 +14,6 @@ import {
     BarChart3,
     Move,
     Settings,
-    Download,
     RefreshCw,
     Filter,
     TrendingUp,
@@ -27,16 +26,18 @@ import {
     Timer,
     List,
     Grid,
-    Mail,
-    MessageSquare,
     ChevronDown,
-    Eye,
     EyeOff,
     Trash2,
     Copy,
-    Share2,
     Lock,
-    Globe
+    Globe,
+    X,
+    ChevronRight,
+    LayoutList,
+    Pin,
+    ShieldCheck,
+    Home
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { cn } from "@/lib/utils";
@@ -71,14 +72,11 @@ import {
     DropdownMenuItem,
     DropdownMenuSeparator,
     DropdownMenuTrigger,
-    DropdownMenuCheckboxItem,
-    DropdownMenuLabel
 } from "@/components/ui/dropdown-menu";
 import {
     Dialog,
     DialogContent,
     DialogDescription,
-    DialogFooter,
     DialogHeader,
     DialogTitle,
     DialogTrigger,
@@ -95,6 +93,9 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Switch } from "@/components/ui/switch";
 
 interface DashboardViewProps {
     spaceId?: string;
@@ -338,9 +339,18 @@ export function DashboardView({
     const [autoRefresh, setAutoRefresh] = useState(false);
     const [refreshInterval, setRefreshInterval] = useState(30); // minutes
     const [isAddWidgetOpen, setIsAddWidgetOpen] = useState(false);
-    const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+    const [customizePanelOpen, setCustomizePanelOpen] = useState(false);
+    const [filtersPanelOpen, setFiltersPanelOpen] = useState(false);
+    const [layoutOptionsOpen, setLayoutOptionsOpen] = useState(false);
+    const [showCompactCards, setShowCompactCards] = useState(false);
+    const [showWidgetBorders, setShowWidgetBorders] = useState(true);
+    const [showCardFooters, setShowCardFooters] = useState(true);
+    const [pinDashboard, setPinDashboard] = useState(false);
+    const [privateDashboard, setPrivateDashboard] = useState(false);
+    const [protectDashboard, setProtectDashboard] = useState(false);
+    const [defaultDashboard, setDefaultDashboard] = useState(false);
+    const [lastToolbarRefresh, setLastToolbarRefresh] = useState(new Date());
     const [dashboardName, setDashboardName] = useState("Dashboard");
-    const [sharePermission, setSharePermission] = useState<'private' | 'view' | 'edit'>('private');
 
     const sensors = useSensors(
         useSensor(MouseSensor, { activationConstraint: { distance: 10 } }),
@@ -377,10 +387,11 @@ export function DashboardView({
     const { data: activities = [] } = trpc.activity.list.useQuery({ spaceId, projectId });
 
     // Auto-refresh logic
-    useMemo(() => {
+    useEffect(() => {
         if (autoRefresh) {
             const interval = setInterval(() => {
                 refetchTasks();
+                setLastToolbarRefresh(new Date());
             }, refreshInterval * 60 * 1000);
             return () => clearInterval(interval);
         }
@@ -462,6 +473,76 @@ export function DashboardView({
     const refreshWidget = (id: string) => {
         refetchTasks();
     };
+
+    const handleToolbarRefresh = () => {
+        refetchTasks();
+        setLastToolbarRefresh(new Date());
+    };
+
+    const refreshedAgo = useMemo(() => {
+        const diffMins = Math.max(0, Math.floor((Date.now() - lastToolbarRefresh.getTime()) / 60000));
+        if (diffMins < 1) return "just now";
+        if (diffMins === 1) return "1 min ago";
+        return `${diffMins} mins ago`;
+    }, [lastToolbarRefresh]);
+    const appliedFilterCount = Object.keys(dashboardFilters).filter((k) => {
+        const v = (dashboardFilters as any)[k];
+        return Array.isArray(v) ? v.length > 0 : Boolean(v);
+    }).length;
+    const toggleQuickFilter = (key: keyof DashboardFilter) => {
+        setDashboardFilters((prev) => {
+            const next: any = { ...prev };
+            if (Array.isArray(next[key]) && next[key].length > 0) delete next[key];
+            else next[key] = ["enabled"];
+            return next;
+        });
+    };
+
+    const renderFilterContent = ({ onClose }: { onClose: () => void }) => (
+        <div className="w-[600px] max-w-[95vw] bg-white">
+            <div className="h-12 px-4 border-b border-zinc-100 flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-zinc-800">Filter</h3>
+                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg hover:bg-zinc-100" onClick={onClose}>
+                    <X className="h-4 w-4" />
+                </Button>
+            </div>
+            <ScrollArea className="p-5 text-sm h-[350px]">
+                <div className="space-y-2">
+                    {[
+                        { id: "status", label: "Status" },
+                        { id: "priority", label: "Priority" },
+                        { id: "assignee", label: "Assignee" },
+                        { id: "tags", label: "Tags" },
+                    ].map((item) => {
+                        const checked = Array.isArray((dashboardFilters as any)[item.id]) && (dashboardFilters as any)[item.id].length > 0;
+                        return (
+                            <label key={item.id} className="flex items-center gap-2 rounded-lg px-2 py-2 hover:bg-zinc-50 cursor-pointer">
+                                <input
+                                    type="checkbox"
+                                    checked={checked}
+                                    onChange={() => toggleQuickFilter(item.id as keyof DashboardFilter)}
+                                    className="h-3.5 w-3.5 rounded border-zinc-300"
+                                />
+                                <span className="text-sm text-zinc-700">{item.label}</span>
+                            </label>
+                        );
+                    })}
+                </div>
+            </ScrollArea>
+            <div className="w-full p-4 border-t border-zinc-100 bg-white flex items-center justify-between z-10">
+                <Button
+                    variant="outline"
+                    className="h-9 px-3 text-sm font-medium text-zinc-600 hover:text-zinc-900 hover:bg-zinc-50 border border-zinc-200 rounded-xl cursor-pointer"
+                    onClick={() => setDashboardFilters({})}
+                >
+                    Clear all
+                </Button>
+                <Button size="sm" className="h-9 px-3 text-sm font-medium rounded-xl" onClick={onClose}>
+                    Apply
+                </Button>
+            </div>
+        </div>
+    );
 
     const exportDashboard = () => {
         // Export dashboard as PDF/CSV
@@ -773,163 +854,104 @@ export function DashboardView({
         }
     };
 
+    const customizeOverlayOpen = customizePanelOpen || layoutOptionsOpen;
+
     return (
-        <div className="h-full flex flex-col bg-gradient-to-br from-slate-50 to-zinc-50 overflow-y-auto">
+        <div className="h-full flex flex-col bg-gradient-to-br from-slate-50 to-zinc-50 overflow-y-auto relative">
             {/* Header */}
             <div className="sticky top-0 z-10 bg-white border-b border-zinc-200 shadow-sm">
                 <div className="px-6 py-4">
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                            <div>
-                                <h2 className="text-2xl font-bold text-zinc-900 flex items-center gap-2">
-                                    <LayoutDashboard className="h-6 w-6 text-indigo-600" />
-                                    {dashboardName}
-                                </h2>
-                                <p className="text-sm text-zinc-500 mt-0.5">
-                                    Real-time insights and analytics
-                                </p>
-                            </div>
-                        </div>
-
-                        <div className="flex items-center gap-2">
-                            {/* Filters */}
-                            <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                    <Button variant="outline" size="sm">
-                                        <Filter className="h-4 w-4 mr-2" />
-                                        Filters
-                                        {Object.keys(dashboardFilters).length > 0 && (
-                                            <Badge className="ml-2" variant="secondary">
-                                                {Object.keys(dashboardFilters).length}
-                                            </Badge>
-                                        )}
-                                    </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end" className="w-56">
-                                    <DropdownMenuLabel>Filter Dashboard</DropdownMenuLabel>
-                                    <DropdownMenuSeparator />
-                                    <DropdownMenuCheckboxItem>Status</DropdownMenuCheckboxItem>
-                                    <DropdownMenuCheckboxItem>Priority</DropdownMenuCheckboxItem>
-                                    <DropdownMenuCheckboxItem>Assignee</DropdownMenuCheckboxItem>
-                                    <DropdownMenuCheckboxItem>Due Date</DropdownMenuCheckboxItem>
-                                </DropdownMenuContent>
-                            </DropdownMenu>
-
-                            {/* Export */}
-                            <Button variant="outline" size="sm" onClick={exportDashboard}>
-                                <Download className="h-4 w-4 mr-2" />
-                                Export
-                            </Button>
-
-                            {/* Share */}
-                            <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                    <Button variant="outline" size="sm">
-                                        <Share2 className="h-4 w-4 mr-2" />
-                                        Share
-                                    </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end" className="w-56">
-                                    <DropdownMenuLabel>Dashboard Sharing</DropdownMenuLabel>
-                                    <DropdownMenuSeparator />
-                                    <DropdownMenuCheckboxItem
-                                        checked={sharePermission === 'private'}
-                                        onCheckedChange={() => setSharePermission('private')}
-                                    >
-                                        <Lock className="h-4 w-4 mr-2" />
-                                        Private
-                                    </DropdownMenuCheckboxItem>
-                                    <DropdownMenuCheckboxItem
-                                        checked={sharePermission === 'view'}
-                                        onCheckedChange={() => setSharePermission('view')}
-                                    >
-                                        <Eye className="h-4 w-4 mr-2" />
-                                        View Only
-                                    </DropdownMenuCheckboxItem>
-                                    <DropdownMenuCheckboxItem
-                                        checked={sharePermission === 'edit'}
-                                        onCheckedChange={() => setSharePermission('edit')}
-                                    >
-                                        <Globe className="h-4 w-4 mr-2" />
-                                        Can Edit
-                                    </DropdownMenuCheckboxItem>
-                                </DropdownMenuContent>
-                            </DropdownMenu>
-
-                            {/* Settings */}
-                            <Dialog open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
-                                <DialogTrigger asChild>
-                                    <Button variant="outline" size="sm">
-                                        <Settings className="h-4 w-4" />
-                                    </Button>
-                                </DialogTrigger>
-                                <DialogContent className="max-w-md">
-                                    <DialogHeader>
-                                        <DialogTitle>Dashboard Settings</DialogTitle>
-                                        <DialogDescription>
-                                            Customize your dashboard preferences
-                                        </DialogDescription>
-                                    </DialogHeader>
-                                    <div className="space-y-4 py-4">
-                                        <div className="space-y-2">
-                                            <Label>Dashboard Name</Label>
-                                            <Input
-                                                value={dashboardName}
-                                                onChange={(e) => setDashboardName(e.target.value)}
-                                            />
-                                        </div>
-                                        <div className="flex items-center justify-between">
-                                            <div className="space-y-0.5">
-                                                <Label>Auto Refresh</Label>
-                                                <p className="text-xs text-zinc-500">
-                                                    Automatically update dashboard data
-                                                </p>
-                                            </div>
-                                            <Button
-                                                variant={autoRefresh ? "default" : "outline"}
-                                                size="sm"
-                                                onClick={() => setAutoRefresh(!autoRefresh)}
+                    <div className="flex items-center justify-between gap-3 overflow-x-auto">
+                        <div className="flex items-center gap-2 shrink-0">
+                            <Popover open={filtersPanelOpen} onOpenChange={setFiltersPanelOpen}>
+                                <PopoverTrigger asChild>
+                                    <div className="relative group/filter inline-flex">
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            className={cn(
+                                                "h-8 text-xs font-medium pr-7",
+                                                filtersPanelOpen ? "bg-violet-50 text-violet-700 border-violet-200" : "text-zinc-700 border-zinc-200",
+                                                appliedFilterCount > 0 && "border-violet-200 bg-violet-50/50 text-violet-700"
+                                            )}
+                                        >
+                                            <Filter className="h-3.5 w-3.5" />
+                                            <span className="ml-1">
+                                                {appliedFilterCount > 0 ? `${appliedFilterCount} Filter${appliedFilterCount !== 1 ? "s" : ""}` : "Filter"}
+                                            </span>
+                                        </Button>
+                                        {(appliedFilterCount > 0 || filtersPanelOpen) && (
+                                            <div
+                                                className={cn(
+                                                    "absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6 flex items-center justify-center rounded-md hover:bg-violet-100 cursor-pointer z-10",
+                                                    filtersPanelOpen ? "text-violet-700" : "text-zinc-400"
+                                                )}
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    if (appliedFilterCount > 0) {
+                                                        setDashboardFilters({});
+                                                    } else {
+                                                        setFiltersPanelOpen(false);
+                                                    }
+                                                }}
                                             >
-                                                {autoRefresh ? "On" : "Off"}
-                                            </Button>
-                                        </div>
-                                        {autoRefresh && (
-                                            <div className="space-y-2">
-                                                <Label>Refresh Interval (minutes)</Label>
-                                                <Select
-                                                    value={refreshInterval.toString()}
-                                                    onValueChange={(v) => setRefreshInterval(Number(v))}
-                                                >
-                                                    <SelectTrigger>
-                                                        <SelectValue />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        <SelectItem value="5">5 minutes</SelectItem>
-                                                        <SelectItem value="15">15 minutes</SelectItem>
-                                                        <SelectItem value="30">30 minutes</SelectItem>
-                                                        <SelectItem value="60">1 hour</SelectItem>
-                                                    </SelectContent>
-                                                </Select>
+                                                <X className="h-3.5 w-3.5" />
                                             </div>
                                         )}
                                     </div>
-                                    <DialogFooter>
-                                        <Button variant="outline" onClick={() => setIsSettingsOpen(false)}>
-                                            Cancel
-                                        </Button>
-                                        <Button onClick={() => setIsSettingsOpen(false)}>
-                                            Save Changes
-                                        </Button>
-                                    </DialogFooter>
-                                </DialogContent>
-                            </Dialog>
+                                </PopoverTrigger>
+                                <PopoverContent align="start" className="p-0 overflow-hidden rounded-2xl border border-zinc-200/80 shadow-2xl" sideOffset={8}>
+                                    {renderFilterContent({ onClose: () => setFiltersPanelOpen(false) })}
+                                </PopoverContent>
+                            </Popover>
+                        </div>
+
+                        <div className="flex items-center gap-2 shrink-0">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-8 gap-1.5 px-2.5 text-xs font-medium text-zinc-700 bg-zinc-50 border-zinc-200 hover:bg-zinc-100"
+                                onClick={handleToolbarRefresh}
+                            >
+                                <RefreshCw className="h-3.5 w-3.5" />
+                                Refreshed: {refreshedAgo}
+                            </Button>
+
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-8 gap-1.5 px-2.5 text-xs font-medium text-zinc-700 bg-zinc-50 border-zinc-200 hover:bg-zinc-100"
+                                onClick={() => setAutoRefresh((v) => !v)}
+                            >
+                                <Clock className="h-3.5 w-3.5" />
+                                Auto refresh: {autoRefresh ? "On" : "Off"}
+                            </Button>
+
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-8 gap-1.5 px-2.5 text-xs font-medium text-zinc-700 bg-zinc-50 border-zinc-200 hover:bg-zinc-100"
+                            >
+                                <Zap className="h-3.5 w-3.5" />
+                                Schedule report
+                            </Button>
+
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-8 text-xs font-medium text-zinc-700 border-zinc-200"
+                                onClick={() => setCustomizePanelOpen(true)}
+                            >
+                                <Settings className="h-3.5 w-3.5" />
+                                <span className="hidden sm:inline ml-1">Customize</span>
+                            </Button>
 
                             {/* Add Widget */}
                             <Dialog open={isAddWidgetOpen} onOpenChange={setIsAddWidgetOpen}>
                                 <DialogTrigger asChild>
-                                    <Button className="bg-indigo-600 hover:bg-indigo-700">
-                                        <Plus className="h-4 w-4 mr-2" />
-                                        Add Card
+                                    <Button className="h-8 gap-1.5 px-3 text-xs font-medium bg-zinc-900 hover:bg-zinc-800 text-white border-0 shadow-sm">
+                                        <Plus className="h-3.5 w-3.5" />
+                                        Add card
                                     </Button>
                                 </DialogTrigger>
                                 <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
@@ -1118,8 +1140,13 @@ export function DashboardView({
                 </div>
             </div>
 
-            {/* Dashboard Grid */}
-            <div className="flex-1 p-6">
+            {/* Dashboard content: single scroll region; lock scroll when customize overlay is open */}
+            <div
+                className={cn(
+                    "flex-1 min-h-0 overflow-y-auto p-6 relative",
+                    customizeOverlayOpen && "overflow-hidden"
+                )}
+            >
                 <DndContext
                     sensors={sensors}
                     collisionDetection={closestCenter}
@@ -1163,6 +1190,119 @@ export function DashboardView({
                             Add Your First Card
                         </Button>
                     </div>
+                )}
+                {customizePanelOpen && !layoutOptionsOpen && (
+                    <>
+                        <div className="absolute inset-0 bg-black/20 z-40" onClick={() => setCustomizePanelOpen(false)} aria-hidden />
+                        <div className="absolute top-0 right-0 h-full w-[380px] max-w-[90vw] bg-white border-l border-zinc-200 shadow-xl z-50 flex flex-col min-h-0">
+                            <div className="flex items-center justify-between p-4 border-b border-zinc-100">
+                                <h3 className="font-semibold text-zinc-900">Customize view</h3>
+                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setCustomizePanelOpen(false)}><X className="h-4 w-4" /></Button>
+                            </div>
+                            <div className="flex-1 min-h-0 overflow-y-auto">
+                                <div className="p-3 space-y-2 pb-24">
+                                    <div className="flex items-center gap-2 mb-4">
+                                        <div className="flex items-center justify-center h-10 w-10 rounded-lg border border-zinc-200 bg-zinc-50 shrink-0">
+                                            <LayoutList className="h-5 w-5 text-zinc-600" />
+                                        </div>
+                                        <Input
+                                            value={dashboardName}
+                                            onChange={(e) => setDashboardName(e.target.value)}
+                                            className="h-10 text-sm font-medium border-zinc-200"
+                                            placeholder="View name"
+                                        />
+                                    </div>
+
+                                    <div className="space-y-1">
+                                        <div className="flex items-center justify-between py-1 px-2 cursor-pointer">
+                                            <span className="text-sm text-zinc-800">Compact cards</span>
+                                            <Switch checked={showCompactCards} onCheckedChange={setShowCompactCards} />
+                                        </div>
+                                        <div className="flex items-center justify-between py-1 px-2 cursor-pointer">
+                                            <span className="text-sm text-zinc-800">Show widget borders</span>
+                                            <Switch checked={showWidgetBorders} onCheckedChange={setShowWidgetBorders} />
+                                        </div>
+                                        <div className="flex items-center justify-between py-1 px-2 cursor-pointer">
+                                            <span className="text-sm text-zinc-800">Show card footers</span>
+                                            <Switch checked={showCardFooters} onCheckedChange={setShowCardFooters} />
+                                        </div>
+                                        <button
+                                            type="button"
+                                            className="w-full flex items-center justify-between py-2.5 text-sm text-zinc-800 hover:bg-zinc-50 rounded-md px-2 cursor-pointer"
+                                            onClick={() => { setLayoutOptionsOpen(true); }}
+                                        >
+                                            <span className="flex items-center gap-2">More options</span>
+                                            <ChevronRight className="inline h-3 w-3 ml-1 text-zinc-400" />
+                                        </button>
+                                    </div>
+
+                                    <div className="h-px bg-zinc-100 my-2" />
+
+                                    <div className="space-y-1">
+                                        <div className="flex items-center justify-between py-2.5 px-2 hover:bg-zinc-50 rounded-md transition-colors cursor-pointer">
+                                            <div className="flex items-center gap-2">
+                                                <Pin className="h-4 w-4 text-zinc-400" />
+                                                <span className="text-sm text-zinc-800">Pin view</span>
+                                            </div>
+                                            <Switch checked={pinDashboard} onCheckedChange={setPinDashboard} />
+                                        </div>
+                                        <div className="flex items-center justify-between py-2.5 px-2 hover:bg-zinc-50 rounded-md transition-colors cursor-pointer">
+                                            <div className="flex items-center gap-2">
+                                                <Lock className="h-4 w-4 text-zinc-400" />
+                                                <span className="text-sm text-zinc-800">Private view</span>
+                                            </div>
+                                            <Switch checked={privateDashboard} onCheckedChange={setPrivateDashboard} />
+                                        </div>
+                                        <div className="flex items-center justify-between py-2.5 px-2 hover:bg-zinc-50 rounded-md transition-colors cursor-pointer">
+                                            <div className="flex items-center gap-2">
+                                                <ShieldCheck className="h-4 w-4 text-zinc-400" />
+                                                <span className="text-sm text-zinc-800">Protect view</span>
+                                            </div>
+                                            <Switch checked={protectDashboard} onCheckedChange={setProtectDashboard} />
+                                        </div>
+                                        <div className="flex items-center justify-between py-2.5 px-2 hover:bg-zinc-50 rounded-md transition-colors cursor-pointer">
+                                            <div className="flex items-center gap-2">
+                                                <Home className="h-4 w-4 text-zinc-400" />
+                                                <span className="text-sm text-zinc-800">Set as default view</span>
+                                            </div>
+                                            <Switch checked={defaultDashboard} onCheckedChange={setDefaultDashboard} />
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </>
+                )}
+
+                {layoutOptionsOpen && (
+                    <>
+                        <div className="absolute inset-0 bg-black/20 z-40" onClick={() => setLayoutOptionsOpen(false)} aria-hidden />
+                        <div className="absolute inset-y-0 right-0 w-[380px] max-w-[90vw] bg-white border-l border-zinc-200 shadow-xl z-50 flex flex-col min-h-0 overflow-y-auto">
+                            <div className="flex items-center justify-between p-4 border-b border-zinc-100 shrink-0">
+                                <h3 className="font-semibold text-zinc-900">More options</h3>
+                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setLayoutOptionsOpen(false)}><X className="h-4 w-4" /></Button>
+                            </div>
+                            <div className="p-4 space-y-3">
+                                <div className="space-y-2">
+                                    <Label className="text-xs uppercase tracking-wide text-zinc-500">Refresh interval</Label>
+                                    <Select value={refreshInterval.toString()} onValueChange={(v) => setRefreshInterval(Number(v))}>
+                                        <SelectTrigger>
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="5">5 minutes</SelectItem>
+                                            <SelectItem value="15">15 minutes</SelectItem>
+                                            <SelectItem value="30">30 minutes</SelectItem>
+                                            <SelectItem value="60">1 hour</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <Button variant="outline" className="h-9 w-full rounded-lg border-zinc-200" onClick={() => { setLayoutOptionsOpen(false); setCustomizePanelOpen(true); }}>
+                                    Back to customize
+                                </Button>
+                            </div>
+                        </div>
+                    </>
                 )}
             </div>
         </div>

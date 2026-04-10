@@ -53,7 +53,8 @@ import {
     Home,
     PanelRightClose,
     ArrowRightToLine,
-    Globe
+    Globe,
+    CircleSlash
 } from "lucide-react";
 import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
@@ -93,6 +94,7 @@ import { TaskDetailModal } from "@/entities/task/components/TaskDetailModal";
 import { TagsModal } from "@/entities/task/components/TagsModal";
 import { AssigneeSelector } from "@/entities/task/components/AssigneeSelector";
 import { TaskTypeIcon } from "@/entities/task/components/TaskTypeIcon";
+import { TaskActionsPopover } from "@/entities/task/components/TaskActionsPopover";
 import { TaskCalendar } from "@/entities/task/components/TaskCalendar";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, addDays, isToday as isTodayFns, isSameDay, getWeek, startOfWeek, endOfWeek } from "date-fns";
@@ -157,6 +159,9 @@ export function CalendarView({ spaceId, projectId, teamId, listId, viewId, initi
     const [inlineAddTaskType, setInlineAddTaskType] = useState<string | null>(null);
     const [inlineAddStartDate, setInlineAddStartDate] = useState<Date | null>(null);
     const [inlineAddDueDate, setInlineAddDueDate] = useState<Date | null>(null);
+    // Tracks whether the inline-create task has no explicit start/end time
+    const [inlineNoStartTime, setInlineNoStartTime] = useState(false);
+    const [inlineNoEndTime, setInlineNoEndTime] = useState(false);
 
     const { data: space } = trpc.space.get.useQuery({ id: spaceId as string }, { enabled: !!spaceId });
     const { data: project } = trpc.project.get.useQuery({ id: projectId as string }, { enabled: !!projectId });
@@ -228,6 +233,43 @@ export function CalendarView({ spaceId, projectId, teamId, listId, viewId, initi
         }
     });
 
+    const deleteTask = trpc.task.delete.useMutation({
+        onSuccess: () => {
+            void utils.task.list.invalidate(taskListInput);
+        }
+    });
+
+    const ActionButtons = ({ task, className }: { task: any, className?: string }) => (
+        <div
+            className={cn("opacity-0 group-hover/task:opacity-100 transition-opacity z-30", className)}
+            onClick={(e) => e.stopPropagation()}
+        >
+            <TaskActionsPopover
+                task={task}
+                context={spaceId ? "SPACE" : projectId ? "PROJECT" : "GENERAL"}
+                contextId={(spaceId || projectId) as any}
+                workspaceId={resolvedWorkspaceId!}
+                users={users as any}
+                lists={[]}
+                defaultListId={listId}
+                availableStatuses={allAvailableStatuses}
+                onDelete={async (id) => {
+                    try { await deleteTask.mutateAsync({ id }); } catch (e) { }
+                }}
+                onUpdate={async (id, data) => {
+                    try { await updateTask.mutateAsync({ id, ...(data as any) }); } catch (e) { }
+                }}
+                onAction={() => { }}
+            >
+                <button
+                    className="flex items-center justify-center text-zinc-400 hover:text-zinc-700 transition-colors mx-0.5 cursor-pointer"
+                >
+                    <MoreHorizontal className="h-[14px] w-[14px]" />
+                </button>
+            </TaskActionsPopover>
+        </div>
+    );
+
     const handleUpdateTaskStatus = async (taskId: string, statusId: string) => {
         try {
             await updateTask.mutateAsync({ id: taskId, statusId });
@@ -271,8 +313,8 @@ export function CalendarView({ spaceId, projectId, teamId, listId, viewId, initi
                 workspaceId: resolvedWorkspaceId || undefined,
                 dueDate: dueDate ?? undefined,
                 startDate: inlineAddStartDate ?? undefined,
-                noStartTime: inlineCreateState.hour === -1,
-                noEndTime: inlineCreateState.hour === -1,
+                noStartTime: inlineNoStartTime,
+                noEndTime: inlineNoEndTime,
                 priority: inlineAddPriority || undefined,
                 statusId: inlineAddStatusId || undefined,
                 tags: inlineAddTags,
@@ -289,6 +331,8 @@ export function CalendarView({ spaceId, projectId, teamId, listId, viewId, initi
             setInlineAddStatusId(null);
             setInlineAddStartDate(null);
             setInlineAddDueDate(null);
+            setInlineNoStartTime(false);
+            setInlineNoEndTime(false);
         } catch (e) {
             console.error("Failed to create task", e);
         }
@@ -659,18 +703,11 @@ export function CalendarView({ spaceId, projectId, teamId, listId, viewId, initi
 
             // Exclude "all day" tasks from the time grid
             if (task.noStartTime && task.noEndTime) return;
-            // Also exclude legacy all-day tasks by date check (no start time & midnight due date)
-            const isAllDayLegacy = !task.startDate && task.dueDate && 
-                new Date(task.dueDate).getHours() === 0 && 
-                new Date(task.dueDate).getMinutes() === 0 && 
-                new Date(task.dueDate).getSeconds() === 0 &&
-                new Date(task.dueDate).getMilliseconds() === 0;
-            if (isAllDayLegacy) return;
 
             const dateKey = format(startD, 'yyyy-MM-dd');
             const hour = startD.getHours();
             const min = startD.getMinutes();
-            
+
             if (!map.has(dateKey)) map.set(dateKey, new Map());
             const hourMap = map.get(dateKey)!;
             if (!hourMap.has(hour)) hourMap.set(hour, []);
@@ -702,13 +739,6 @@ export function CalendarView({ spaceId, projectId, teamId, listId, viewId, initi
 
                 // Exclude "all day" tasks from the time grid layout calculation
                 if (t.noStartTime && t.noEndTime) return false;
-                // Also exclude legacy all-day tasks
-                const isAllDayLegacy = !t.startDate && t.dueDate && 
-                    new Date(t.dueDate).getHours() === 0 && 
-                    new Date(t.dueDate).getMinutes() === 0 && 
-                    new Date(t.dueDate).getSeconds() === 0 &&
-                    new Date(t.dueDate).getMilliseconds() === 0;
-                if (isAllDayLegacy) return false;
 
                 return format(s, 'yyyy-MM-dd') === dateKey;
             });
@@ -843,17 +873,6 @@ export function CalendarView({ spaceId, projectId, teamId, listId, viewId, initi
         }
     };
 
-    const getPriorityColor = (priority: string) => {
-        switch (priority) {
-            case 'URGENT': return 'bg-red-500';
-            case 'HIGH': return 'bg-orange-500';
-            case 'NORMAL': return 'bg-blue-500';
-            case 'LOW': return 'bg-zinc-400';
-            default: return 'bg-zinc-200';
-        }
-    };
-
-
     const [savedFiltersPanelOpen, setSavedFiltersPanelOpen] = useState(false);
     const [savedFilterName, setSavedFilterName] = useState("");
     const [savedFiltersSearch, setSavedFiltersSearch] = useState("");
@@ -901,14 +920,12 @@ export function CalendarView({ spaceId, projectId, teamId, listId, viewId, initi
         return Array.from(set.values());
     }, [tasks]);
 
-    const getPriorityStyles = (priority: string | null) => {
-        switch (priority) {
-            case "URGENT": return { icon: "text-red-500", text: "text-red-600", bg: "bg-red-50" };
-            case "HIGH": return { icon: "text-orange-500", text: "text-orange-600", bg: "bg-orange-50" };
-            case "NORMAL": return { icon: "text-blue-500", text: "text-blue-600", bg: "bg-blue-50" };
-            case "LOW": return { icon: "text-zinc-400", text: "text-zinc-600", bg: "bg-zinc-100" };
-            default: return { icon: "text-zinc-300", text: "text-zinc-500", bg: "bg-zinc-50" };
-        }
+    const getPriorityStyles = (p: string) => {
+        if (p === "URGENT") return { badge: "text-red-700 bg-red-50 border-red-200", icon: "text-red-600" };
+        if (p === "HIGH") return { badge: "text-orange-700 bg-orange-50 border-orange-200", icon: "text-orange-600" };
+        if (p === "NORMAL") return { badge: "text-blue-700 bg-blue-50 border-blue-200", icon: "text-blue-600" };
+        if (p === "LOW") return { badge: "text-slate-600 bg-slate-100 border-slate-200", icon: "text-slate-500" };
+        return { badge: "text-slate-600 bg-slate-50 border-slate-200", icon: "text-slate-400" };
     };
 
 
@@ -1756,7 +1773,7 @@ export function CalendarView({ spaceId, projectId, teamId, listId, viewId, initi
                                     )}
                                 </button>
                             </PopoverTrigger>
-                            <PopoverContent align="start" className="w-[240px] p-2 bg-white shadow-xl border-zinc-200 z-[60]">
+                            <PopoverContent align="start" className="w-[240px] p-2 bg-white shadow-xl border-zinc-200 z-[200]">
                                 <Tabs defaultValue="status">
                                     <TabsList className="grid w-full grid-cols-2 mb-2 bg-zinc-100/50 p-1">
                                         <TabsTrigger value="status" className="text-xs data-[state=active]:bg-white data-[state=active]:shadow-sm">Status</TabsTrigger>
@@ -1807,11 +1824,12 @@ export function CalendarView({ spaceId, projectId, teamId, listId, viewId, initi
                                     agents={agents}
                                     workspaceId={resolvedWorkspaceId}
                                     variant="compact"
+                                    contentClassName="z-[200]"
                                     value={inlineAddAssigneeIds}
                                     onChange={setInlineAddAssigneeIds}
                                     align="end"
                                     trigger={
-                                        <button className={cn("h-6 w-6 flex items-center justify-center rounded-full hover:bg-zinc-100 transition-colors border border-dashed shrink-0", inlineAddAssigneeIds.length > 0 ? "bg-blue-50 border-blue-200" : "bg-transparent border-zinc-200")}>
+                                        <button className={cn("h-6 w-6 flex items-center justify-center rounded-full hover:bg-zinc-100 transition-colors border border-dashed shrink-0 cursor-pointer", inlineAddAssigneeIds.length > 0 ? "bg-blue-50 border-blue-200" : "bg-transparent border-zinc-200")}>
                                             {inlineAddAssigneeIds.length > 0 ? (
                                                 <div className="flex -space-x-1">
                                                     {inlineAddAssigneeIds.slice(0, 1).map(id => {
@@ -1827,22 +1845,34 @@ export function CalendarView({ spaceId, projectId, teamId, listId, viewId, initi
 
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
-                                    <button className={cn("p-1 rounded-md hover:bg-zinc-100 transition-colors shrink-0 outline-none focus:ring-0",
+                                    <button className={cn("p-1 rounded-md hover:bg-zinc-100 cursor-pointer transition-colors shrink-0 outline-none focus:ring-0",
                                         inlineAddPriority === 'URGENT' ? "text-red-500" :
                                             inlineAddPriority === 'HIGH' ? "text-orange-500" :
                                                 inlineAddPriority === 'NORMAL' ? "text-blue-500" :
-                                                    inlineAddPriority === 'LOW' ? "text-zinc-500" :
+                                                    inlineAddPriority === 'LOW' ? "text-zinc-400" :
                                                         "text-zinc-400"
                                     )}>
-                                        <Flag className="w-3.5 h-3.5" />
+                                        <Flag className="w-3.5 h-3.5 fill-current" />
                                     </button>
                                 </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end" className="w-32 z-[60]">
-                                    <DropdownMenuItem onClick={() => setInlineAddPriority("URGENT")}>Urgent</DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => setInlineAddPriority("HIGH")}>High</DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => setInlineAddPriority("NORMAL")}>Normal</DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => setInlineAddPriority("LOW")}>Low</DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => setInlineAddPriority(null)}>Clear</DropdownMenuItem>
+                                <DropdownMenuContent align="start" className="w-48 z-[200]">
+                                    <DropdownMenuLabel className="text-xs">Priority</DropdownMenuLabel>
+                                    <DropdownMenuItem onClick={() => setInlineAddPriority("URGENT")}>
+                                        <Flag className="h-3 w-3 mr-2 text-red-600 fill-current" /> Urgent
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => setInlineAddPriority("HIGH")}>
+                                        <Flag className="h-3 w-3 mr-2 text-orange-600 fill-current" /> High
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => setInlineAddPriority("NORMAL")}>
+                                        <Flag className="h-3 w-3 mr-2 text-blue-600 fill-current" /> Normal
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => setInlineAddPriority("LOW")}>
+                                        <Flag className="h-3 w-3 mr-2 text-slate-600 fill-current" /> Low
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem onClick={() => setInlineAddPriority(null)}>
+                                        <CircleSlash className="h-3 w-3 mr-2 text-slate-500" />Clear
+                                    </DropdownMenuItem>
                                 </DropdownMenuContent>
                             </DropdownMenu>
 
@@ -1862,7 +1892,7 @@ export function CalendarView({ spaceId, projectId, teamId, listId, viewId, initi
         return (
             <div className={cn(
                 "z-[100] bg-white border border-zinc-300 shadow-[0_20px_50px_rgba(0,0,0,0.15)] flex flex-col p-2.5 cursor-default overflow-visible rounded-lg group/form",
-                isAbsolute ? "absolute top-[0px] h-[95px]" : "relative min-h-[95px] shrink-0 mt-1 mb-1 z-[60] w-full",
+                isAbsolute ? "absolute top-[0px] h-[95px]" : "relative min-h-[95px] shrink-0 mt-1 mb-1 z-[100] w-full",
                 isAbsolute && (viewMode === "week" || viewMode === "4days") ? "w-[380px] sm:w-[480px]" : isAbsolute ? "left-[-1px] right-[0px]" : "",
                 isAbsolute && (viewMode === "week" || viewMode === "4days") && colIndex !== undefined && totalCols !== undefined && (colIndex >= totalCols - 2) ? "right-0" : isAbsolute ? "left-[-1px]" : ""
             )} onClick={e => e.stopPropagation()}>
@@ -1888,7 +1918,7 @@ export function CalendarView({ spaceId, projectId, teamId, listId, viewId, initi
                                     )}
                                 </button>
                             </PopoverTrigger>
-                            <PopoverContent align="start" className="w-[240px] p-2 bg-white shadow-xl border-zinc-200 z-[60]">
+                            <PopoverContent align="start" className="w-[240px] p-2 bg-white shadow-xl border-zinc-200 z-[200]">
                                 <Tabs defaultValue="status">
                                     <TabsList className="grid w-full grid-cols-2 mb-2 bg-zinc-100/50 p-1">
                                         <TabsTrigger value="status" className="text-xs data-[state=active]:bg-white data-[state=active]:shadow-sm">Status</TabsTrigger>
@@ -1934,11 +1964,12 @@ export function CalendarView({ spaceId, projectId, teamId, listId, viewId, initi
                                 agents={agents}
                                 workspaceId={resolvedWorkspaceId}
                                 variant="compact"
+                                contentClassName="z-[200]"
                                 value={inlineAddAssigneeIds}
                                 onChange={setInlineAddAssigneeIds}
                                 align="end"
                                 trigger={
-                                    <button className={cn("h-7 w-7 flex items-center justify-center rounded-full hover:bg-zinc-100 transition-colors border border-dashed shrink-0", inlineAddAssigneeIds.length > 0 ? "bg-blue-50 border-blue-200" : "bg-transparent border-zinc-200")}>
+                                    <button className={cn("h-7 w-7 flex items-center justify-center rounded-full hover:bg-zinc-100 transition-colors border border-dashed shrink-0 cursor-pointer", inlineAddAssigneeIds.length > 0 ? "bg-blue-50 border-blue-200" : "bg-transparent border-zinc-200")}>
                                         {inlineAddAssigneeIds.length > 0 ? (
                                             <div className="flex -space-x-1">
                                                 {inlineAddAssigneeIds.slice(0, 1).map(id => {
@@ -1958,22 +1989,34 @@ export function CalendarView({ spaceId, projectId, teamId, listId, viewId, initi
                         <div className="flex items-center gap-3">
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
-                                    <button className={cn("p-1 rounded-md hover:bg-zinc-100 transition-colors shrink-0 outline-none focus:ring-0",
+                                    <button className={cn("px-1.5 py-1 rounded-md hover:bg-zinc-100 cursor-pointer transition-colors shrink-0 outline-none focus:ring-0",
                                         inlineAddPriority === 'URGENT' ? "text-red-500" :
                                             inlineAddPriority === 'HIGH' ? "text-orange-500" :
                                                 inlineAddPriority === 'NORMAL' ? "text-blue-500" :
-                                                    inlineAddPriority === 'LOW' ? "text-zinc-500" :
+                                                    inlineAddPriority === 'LOW' ? "text-zinc-400" :
                                                         "text-zinc-400"
                                     )}>
-                                        <Flag className="w-3.5 h-3.5" />
+                                        <Flag className="w-3.5 h-3.5 fill-current" />
                                     </button>
                                 </DropdownMenuTrigger>
-                                <DropdownMenuContent align="start" className="w-32 z-[60]">
-                                    <DropdownMenuItem onClick={() => setInlineAddPriority("URGENT")}>Urgent</DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => setInlineAddPriority("HIGH")}>High</DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => setInlineAddPriority("NORMAL")}>Normal</DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => setInlineAddPriority("LOW")}>Low</DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => setInlineAddPriority(null)}>Clear</DropdownMenuItem>
+                                <DropdownMenuContent align="start" className="w-48 z-[200]">
+                                    <DropdownMenuLabel className="text-xs">Priority</DropdownMenuLabel>
+                                    <DropdownMenuItem onClick={() => setInlineAddPriority("URGENT")}>
+                                        <Flag className="h-3 w-3 mr-2 text-red-600 fill-current" /> Urgent
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => setInlineAddPriority("HIGH")}>
+                                        <Flag className="h-3 w-3 mr-2 text-orange-600 fill-current" /> High
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => setInlineAddPriority("NORMAL")}>
+                                        <Flag className="h-3 w-3 mr-2 text-blue-600 fill-current" /> Normal
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => setInlineAddPriority("LOW")}>
+                                        <Flag className="h-3 w-3 mr-2 text-slate-600 fill-current" /> Low
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem onClick={() => setInlineAddPriority(null)}>
+                                        <CircleSlash className="h-3 w-3 mr-2 text-slate-500" />Clear
+                                    </DropdownMenuItem>
                                 </DropdownMenuContent>
                             </DropdownMenu>
 
@@ -2042,12 +2085,18 @@ export function CalendarView({ spaceId, projectId, teamId, listId, viewId, initi
                                         </TooltipProvider>
                                     </div>
                                 </PopoverTrigger>
-                                <PopoverContent align="start" className="p-0 border-none shadow-2xl bg-white z-[60]" sideOffset={8}>
+                                <PopoverContent align="start" className="p-0 border-none shadow-2xl bg-white z-[200]" sideOffset={8}>
                                     <TaskCalendar
                                         startDate={inlineAddStartDate ?? undefined}
                                         endDate={inlineAddDueDate ?? undefined}
-                                        onStartDateChange={(d) => setInlineAddStartDate(d ?? null)}
-                                        onEndDateChange={(d) => setInlineAddDueDate(d ?? null)}
+                                        onStartDateChange={(d) => {
+                                            setInlineAddStartDate(d ?? null);
+                                        }}
+                                        onEndDateChange={(d) => {
+                                            setInlineAddDueDate(d ?? null);
+                                        }}
+                                        onNoStartTimeChange={setInlineNoStartTime}
+                                        onNoEndTimeChange={setInlineNoEndTime}
                                     />
                                 </PopoverContent>
                             </Popover>
@@ -2270,8 +2319,14 @@ export function CalendarView({ spaceId, projectId, teamId, listId, viewId, initi
                                 {/* All Day Row */}
                                 <div className="flex shrink-0">
                                     <div
-                                        className="w-16 px-2 py-3 text-[10px] font-medium text-zinc-500 border-r border-zinc-200 shrink-0 flex items-start cursor-pointer hover:bg-zinc-50/50 transition-colors"
+                                        className={cn(
+                                            "w-16 px-2 py-3 text-[10px] font-medium text-zinc-500 border-r border-zinc-200 shrink-0 flex items-start transition-colors",
+                                            viewMode === "week" || viewMode === "4days"
+                                                ? "cursor-default"
+                                                : "cursor-pointer hover:bg-zinc-50/50"
+                                        )}
                                         onClick={() => {
+                                            if (viewMode === "week" || viewMode === "4days") return;
                                             const firstDay = calendarDays[0];
                                             if (!firstDay) return;
                                             const dateKey = format(firstDay, 'yyyy-MM-dd');
@@ -2283,6 +2338,8 @@ export function CalendarView({ spaceId, projectId, teamId, listId, viewId, initi
                                             setInlineAddPriority(null);
                                             setInlineAddDueDate(null);
                                             setInlineAddStartDate(null);
+                                            setInlineNoStartTime(true);
+                                            setInlineNoEndTime(true);
                                         }}
                                     >
                                         All day
@@ -2290,21 +2347,23 @@ export function CalendarView({ spaceId, projectId, teamId, listId, viewId, initi
                                     <div className="flex-1 flex" onClick={(e) => e.stopPropagation()}>
                                         {calendarDays.map((day, i) => {
                                             const dateKey = format(day, 'yyyy-MM-dd');
-                                            // All Day: tasks with no startDate AND (no dueDate OR a date-only dueDate at midnight)
+                                            // All Day: explicitly only tasks with noStartTime && noEndTime
                                             const dayTasks = (tasksByDate.get(dateKey) || []).filter(task => {
-                                                if (task.noStartTime && task.noEndTime) return true;
-                                                if (task.startDate) return false;
-                                                if (!task.dueDate) return true;
-                                                const due = new Date(task.dueDate);
-                                                return due.getHours() === 0 && due.getMinutes() === 0 && due.getSeconds() === 0 && due.getMilliseconds() === 0;
+                                                return task.noStartTime && task.noEndTime;
                                             });
 
                                             const isInlineAllDay = inlineCreateState?.dayKey === dateKey && inlineCreateState?.hour === -1;
 
                                             return (
                                                 <div key={i}
-                                                    className="flex-1 border-r border-zinc-200 last:border-r-0 relative min-h-[40px] p-1 gap-1 flex flex-col group/allday cursor-pointer hover:bg-zinc-50/50 transition-colors overflow-visible"
+                                                    className={cn(
+                                                        "flex-1 border-r border-zinc-200 last:border-r-0 relative min-h-[40px] p-1 gap-1 flex flex-col group/allday transition-colors overflow-visible",
+                                                        viewMode === "week" || viewMode === "4days"
+                                                            ? "cursor-default"
+                                                            : "cursor-pointer hover:bg-zinc-50/50"
+                                                    )}
                                                     onClick={(e) => {
+                                                        if (viewMode === "week" || viewMode === "4days") return;
                                                         if (isInlineAllDay) return;
                                                         e.stopPropagation();
                                                         setInlineCreateState({ dayKey: dateKey, hour: -1, half: 0 });
@@ -2314,6 +2373,8 @@ export function CalendarView({ spaceId, projectId, teamId, listId, viewId, initi
                                                         setInlineAddPriority(null);
                                                         setInlineAddDueDate(null);
                                                         setInlineAddStartDate(null);
+                                                        setInlineNoStartTime(true);
+                                                        setInlineNoEndTime(true);
                                                     }}
                                                 >
                                                     {/* All Day Inline Task Creation — rendered first so it appears at top */}
@@ -2347,12 +2408,8 @@ export function CalendarView({ spaceId, projectId, teamId, listId, viewId, initi
                                                                     })()}
                                                                     <span className="truncate">{task.title || task.name}</span>
                                                                 </div>
-                                                                {task.dueDate && (
-                                                                    <span className="text-[9px] opacity-60 flex items-center shrink-0">
-                                                                        <Clock className="w-2.5 h-2.5 mr-0.5" />
-                                                                        {format(new Date(task.dueDate), 'h:mma').toLowerCase()}
-                                                                    </span>
-                                                                )}
+                                                                <ActionButtons task={task} />
+
                                                             </div>
                                                         );
                                                     })}
@@ -2415,6 +2472,8 @@ export function CalendarView({ spaceId, projectId, teamId, listId, viewId, initi
                                                                             setInlineAddPriority(null);
                                                                             setInlineAddDueDate(slotTime);
                                                                             setInlineAddStartDate(null);
+                                                                            setInlineNoStartTime(false);
+                                                                            setInlineNoEndTime(false);
                                                                         }}
                                                                     >
                                                                         {/* Inline Create Form */}
@@ -2507,15 +2566,24 @@ export function CalendarView({ spaceId, projectId, teamId, listId, viewId, initi
                                                                         </Popover>
 
                                                                         <div className="px-1.5 py-0.5 flex flex-col gap-1 h-full overflow-hidden leading-tight flex-1 ml-[4px]">
-                                                                            <div className="flex items-center gap-1 shrink-0">
+                                                                            <div className="flex items-center justify-between gap-2 shrink-0">
                                                                                 <span className="text-[11px] font-medium text-zinc-700 truncate">{task.title || task.name}</span>
+                                                                                <div className="flex items-center shrink-0">
+                                                                                    {(task.startDate || task.dueDate) && (
+                                                                                        <span className="text-[9px] text-zinc-400 flex items-center gap-0.5 whitespace-nowrap">
+                                                                                            <Clock className="w-2 h-2" />
+                                                                                            {task.startDate && task.dueDate ? (
+                                                                                                `${format(new Date(task.startDate), 'h:mma').toLowerCase()} - ${format(new Date(task.dueDate), 'h:mma').toLowerCase()}`
+                                                                                            ) : (
+                                                                                                format(startD, 'h:mma').toLowerCase()
+                                                                                            )}
+                                                                                        </span>
+                                                                                    )}
+                                                                                    <div className="w-0 overflow-hidden group-hover/task:w-auto transition-all duration-150 ml-1.5">
+                                                                                        <ActionButtons task={task} />
+                                                                                    </div>
+                                                                                </div>
                                                                             </div>
-                                                                            {heightPx >= 50 && task.dueDate && (
-                                                                                <span className="text-[9px] text-zinc-400 shrink-0 truncate">
-                                                                                    {startD !== task.dueDate && format(startD, 'h:mma').toLowerCase() + " - "}
-                                                                                    {format(endD, 'h:mma').toLowerCase()}
-                                                                                </span>
-                                                                            )}
                                                                         </div>
                                                                     </div>
                                                                 );
@@ -2568,7 +2636,7 @@ export function CalendarView({ spaceId, projectId, teamId, listId, viewId, initi
                                                             <div
                                                                 key={task.id}
                                                                 className={cn(
-                                                                    "px-2 py-1 rounded text-[11px] font-medium transition-all cursor-pointer flex items-center justify-between gap-1 truncate text-zinc-700",
+                                                                    "px-2 py-1 rounded text-[11px] font-medium transition-all cursor-pointer flex items-center justify-between gap-1 truncate text-zinc-700 group/task",
                                                                     "hover:opacity-80 border"
                                                                 )}
                                                                 style={{
@@ -2590,12 +2658,13 @@ export function CalendarView({ spaceId, projectId, teamId, listId, viewId, initi
                                                                     })()}
                                                                     <span className="truncate">{task.title || task.name}</span>
                                                                 </div>
-                                                                {task.dueDate && (
+                                                                {task.dueDate && !(task.noStartTime && task.noEndTime) && (
                                                                     <span className="text-[9px] opacity-60 flex items-center shrink-0">
                                                                         <Clock className="w-2.5 h-2.5 mr-0.5" />
                                                                         {format(new Date(task.dueDate), 'h:mm a')}
                                                                     </span>
                                                                 )}
+                                                                <ActionButtons task={task} />
                                                             </div>
                                                         );
                                                     })}
@@ -2729,7 +2798,9 @@ export function CalendarView({ spaceId, projectId, teamId, listId, viewId, initi
                                             </div>
                                             {task.dueDate && (
                                                 <span className="text-[11px] text-zinc-500 shrink-0 whitespace-nowrap">
-                                                    {format(new Date(task.dueDate), 'MMM d, h:mma')}
+                                                    {task.noStartTime && task.noEndTime
+                                                        ? format(new Date(task.dueDate), 'MMM d')
+                                                        : format(new Date(task.dueDate), 'MMM d, h:mma')}
                                                 </span>
                                             )}
                                         </div>

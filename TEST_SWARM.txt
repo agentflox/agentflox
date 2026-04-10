@@ -1,0 +1,4 @@
+run the swarm execution for workforce id cmn89sx1c0001surc6oswe19n
+1. Make sure execution succeed, tasks assgeined , agents communitcate working, agent execution working properly 
+2. ChatView, LogView, TaskView, GraphView, metricsView timeline view are all working and functional data should be persisted on all these views 
+3. ChatView display properly as planned 

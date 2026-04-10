@@ -883,6 +883,7 @@ model View {
   project     Project?    @relation(fields: [projectId], references: [id], onDelete: Cascade)
   space       Space?      @relation(fields: [spaceId], references: [id], onDelete: Cascade)
   team        Team?       @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  formResponses FormResponse[]
 
   @@index([listId])
   @@index([folderId])
@@ -891,6 +892,20 @@ model View {
   @@index([teamId])
   @@index([createdBy])
   @@map("views")
+}
+
+model FormResponse {
+  id          String   @id @default(cuid())
+  viewId      String   @map("view_id")
+  status      String   @default("submitted")
+  values      Json
+  submittedAt DateTime @default(now()) @map("submitted_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  view        View     @relation(fields: [viewId], references: [id], onDelete: Cascade)
+
+  @@index([viewId, submittedAt])
+  @@map("form_responses")
 }
 
 model ViewShare {
@@ -5285,6 +5300,7 @@ enum ViewType {
   TABLE
   WORKLOAD
   MAP
+  PEOPLE
   MIND_MAP
   ACTIVITY
   OVERVIEW

@@ -318,6 +318,8 @@ exports.Prisma.TaskScalarFieldEnum = {
   taskTypeId: 'taskTypeId',
   startDate: 'startDate',
   dueDate: 'dueDate',
+  noStartTime: 'noStartTime',
+  noEndTime: 'noEndTime',
   timeEstimate: 'timeEstimate',
   isStarred: 'isStarred',
   tags: 'tags',
@@ -547,6 +549,16 @@ exports.Prisma.ViewScalarFieldEnum = {
   isLocked: 'isLocked',
   isAutosave: 'isAutosave',
   position: 'position',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
+exports.Prisma.FormResponseScalarFieldEnum = {
+  id: 'id',
+  viewId: 'viewId',
+  status: 'status',
+  values: 'values',
+  submittedAt: 'submittedAt',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 };
@@ -2126,6 +2138,8 @@ exports.Prisma.AiConversationScalarFieldEnum = {
   projectId: 'projectId',
   proposalId: 'proposalId',
   teamId: 'teamId',
+  workforceId: 'workforceId',
+  compositeToolId: 'compositeToolId',
   systemPrompt: 'systemPrompt',
   modelId: 'modelId',
   messageCount: 'messageCount',
@@ -2573,9 +2587,16 @@ exports.Prisma.AgentTaskScalarFieldEnum = {
   dependsOn: 'dependsOn',
   blockedBy: 'blockedBy',
   executionId: 'executionId',
+  version: 'version',
   attempts: 'attempts',
   maxAttempts: 'maxAttempts',
   lastAttemptAt: 'lastAttemptAt',
+  lastHeartbeatAt: 'lastHeartbeatAt',
+  depth: 'depth',
+  parentTaskId: 'parentTaskId',
+  availableAt: 'availableAt',
+  claimToken: 'claimToken',
+  claimExpiresAt: 'claimExpiresAt',
   metadata: 'metadata',
   tags: 'tags',
   createdAt: 'createdAt',
@@ -2603,6 +2624,10 @@ exports.Prisma.AgentWorkflowExecutionScalarFieldEnum = {
   executionVersion: 'executionVersion',
   startTime: 'startTime',
   endTime: 'endTime',
+  totalCostUsd: 'totalCostUsd',
+  maxCostUsd: 'maxCostUsd',
+  totalTasks: 'totalTasks',
+  maxTasks: 'maxTasks',
   error: 'error'
 };
 
@@ -2781,6 +2806,7 @@ exports.Prisma.CompositeToolScalarFieldEnum = {
   ownerId: 'ownerId',
   name: 'name',
   description: 'description',
+  systemPrompt: 'systemPrompt',
   category: 'category',
   functionSchema: 'functionSchema',
   steps: 'steps',
@@ -2952,6 +2978,9 @@ exports.Prisma.WorkforceScalarFieldEnum = {
   mode: 'mode',
   status: 'status',
   workspaceId: 'workspaceId',
+  spaceId: 'spaceId',
+  projectId: 'projectId',
+  teamId: 'teamId',
   createdBy: 'createdBy',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt',
@@ -3036,6 +3065,7 @@ exports.IntegrationProvider = exports.$Enums.IntegrationProvider = {
   TRELLO: 'TRELLO',
   GOOGLE_CALENDAR: 'GOOGLE_CALENDAR',
   GOOGLE_DRIVE: 'GOOGLE_DRIVE',
+  GOOGLE_MAIL: 'GOOGLE_MAIL',
   DROPBOX: 'DROPBOX',
   ZAPIER: 'ZAPIER',
   FIGMA: 'FIGMA',
@@ -3112,6 +3142,7 @@ exports.ViewType = exports.$Enums.ViewType = {
   TABLE: 'TABLE',
   WORKLOAD: 'WORKLOAD',
   MAP: 'MAP',
+  PEOPLE: 'PEOPLE',
   MIND_MAP: 'MIND_MAP',
   ACTIVITY: 'ACTIVITY',
   OVERVIEW: 'OVERVIEW',
@@ -3988,7 +4019,12 @@ exports.ConversationType = exports.$Enums.ConversationType = {
   AGENT_EXECUTOR: 'AGENT_EXECUTOR',
   AGENT_OPERATOR: 'AGENT_OPERATOR',
   WAR_ROOM: 'WAR_ROOM',
-  WORKFORCE_EXECUTION: 'WORKFORCE_EXECUTION'
+  WORKFORCE_EXECUTION: 'WORKFORCE_EXECUTION',
+  WORKFORCE_WORKFLOW_EXECUTION: 'WORKFORCE_WORKFLOW_EXECUTION',
+  WORKFORCE_SWARM_EXECUTION: 'WORKFORCE_SWARM_EXECUTION',
+  WORKFORCE_BUILDER: 'WORKFORCE_BUILDER',
+  TOOL_BUILDER: 'TOOL_BUILDER',
+  SWARM_SESSION: 'SWARM_SESSION'
 };
 
 exports.MessageRole = exports.$Enums.MessageRole = {
@@ -4197,7 +4233,10 @@ exports.AgentTaskStatus = exports.$Enums.AgentTaskStatus = {
   FAILED: 'FAILED',
   CANCELLED: 'CANCELLED',
   PAUSED: 'PAUSED',
-  BLOCKED: 'BLOCKED'
+  BLOCKED: 'BLOCKED',
+  BACKOFF: 'BACKOFF',
+  PENDING_APPROVAL: 'PENDING_APPROVAL',
+  FAILED_PERMANENTLY: 'FAILED_PERMANENTLY'
 };
 
 exports.ToolCallStatus = exports.$Enums.ToolCallStatus = {
@@ -4336,6 +4375,7 @@ exports.Prisma.ModelName = {
   Folder: 'Folder',
   List: 'List',
   View: 'View',
+  FormResponse: 'FormResponse',
   ViewShare: 'ViewShare',
   Dashboard: 'Dashboard',
   DashboardWidget: 'DashboardWidget',
