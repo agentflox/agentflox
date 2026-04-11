@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import {
     Star, Copy, Clock, BellOff, Mail, Plus, GitMerge, ArrowRight,
     Printer, Link, PenTool, Archive, Trash2, UserPlus,
-    Shield, Edit3, Link2, ExternalLink, Type, ChevronRight
+    Shield, Edit3, Link2, ExternalLink, Type, ChevronRight, Globe
 } from "lucide-react";
 import {
     Popover,
@@ -26,6 +26,9 @@ import { TaskDependenciesModal } from "./TaskDependenciesModal";
 import { MoveTaskModal } from "./MoveTaskModal";
 import { MergeTaskModal } from "./MergeTaskModal";
 import { RemindMePopover } from "./RemindMePopover";
+import { useMarketplaceGuard } from "@/features/marketplace/hooks/useMarketplaceGuard";
+import { MarketplaceGuardDialog } from "@/features/marketplace/components/MarketplaceGuardDialog";
+import { PublishEntityModal } from "@/features/marketplace/components/PublishEntityModal";
 
 export interface TaskActionsProps {
     task: any;
@@ -73,6 +76,16 @@ export function TaskActionsPopover({
     const [dependenciesModalOpen, setDependenciesModalOpen] = useState(false);
     const [moveModalOpen, setMoveModalOpen] = useState(false);
     const [mergeModalOpen, setMergeModalOpen] = useState(false);
+    
+    // Marketplace Injection
+    const { checkProfileAndProceed, isGuardOpen, setIsGuardOpen } = useMarketplaceGuard();
+    const [isPublishModalOpen, setIsPublishModalOpen] = useState(false);
+
+    const handlePublishClick = () => {
+        checkProfileAndProceed(() => {
+            setIsPublishModalOpen(true);
+        });
+    };
 
     const contextMenuHandler = (e: React.MouseEvent) => {
         if (!openOnContextMenu) return;
@@ -266,6 +279,12 @@ export function TaskActionsPopover({
                         label="Move"
                         onClick={() => { setMoveModalOpen(true); setIsOpen(false); }}
                     />
+                    
+                    <ActionItem
+                        icon={Globe}
+                        label="Publish to Marketplace"
+                        onClick={() => { handlePublishClick(); setIsOpen(false); }}
+                    />
 
                     <ActionItem
                         icon={Printer}
@@ -392,6 +411,18 @@ export function TaskActionsPopover({
                 itemName={task.title}
                 workspaceId={workspaceId}
             />
+            
+            <MarketplaceGuardDialog isOpen={isGuardOpen} onOpenChange={setIsGuardOpen} />
+            {isPublishModalOpen && (
+                <PublishEntityModal 
+                    open={isPublishModalOpen} 
+                    onOpenChange={setIsPublishModalOpen} 
+                    entityType="task"
+                    entityId={task.id}
+                    initialTitle={task.title}
+                    initialDescription={task.description}
+                />
+            )}
         </Popover>
     );
 }

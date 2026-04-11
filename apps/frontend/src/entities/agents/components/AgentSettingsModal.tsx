@@ -9,9 +9,8 @@ import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
     FileText, Sparkles, Zap, Wrench, Brain,
-    X, ExternalLink, ChevronDown, Bell,
-    Database, Code, Settings, HelpCircle,
-    Bot
+    Code, Settings, HelpCircle,
+    Bot, Globe
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { InstructionsTab } from "./tabs/InstructionsTab";
@@ -19,6 +18,9 @@ import { TriggersTab } from "./tabs/TriggersTab";
 import { ToolsTab } from "./tabs/ToolsTab";
 import { KnowledgeTab } from "./tabs/KnowledgeTab";
 import { SkillsTab } from "./tabs/SkillsTab";
+import { useMarketplaceGuard } from "@/features/marketplace/hooks/useMarketplaceGuard";
+import { MarketplaceGuardDialog } from "@/features/marketplace/components/MarketplaceGuardDialog";
+import { PublishEntityModal } from "@/features/marketplace/components/PublishEntityModal";
 
 interface AgentSettingsModalProps {
     open: boolean;
@@ -34,6 +36,16 @@ export function AgentSettingsModal({
     onUpdate
 }) {
     const [activeSection, setActiveSection] = useState("instructions");
+    
+    // Marketplace Injection
+    const { checkProfileAndProceed, isGuardOpen, setIsGuardOpen } = useMarketplaceGuard();
+    const [isPublishModalOpen, setIsPublishModalOpen] = useState(false);
+
+    const handlePublishClick = () => {
+        checkProfileAndProceed(() => {
+            setIsPublishModalOpen(true);
+        });
+    };
 
     const sidebarItems = [
         { id: 'instructions', label: 'Instructions', description: 'Create guidelines for your agent', icon: FileText },
@@ -129,6 +141,14 @@ export function AgentSettingsModal({
                             </div>
 
                             <div className="flex items-center gap-3">
+                                <Button 
+                                    variant="outline" 
+                                    className="gap-2 text-indigo-600 border-indigo-200 hover:bg-indigo-50 font-bold rounded-xl h-10 px-4"
+                                    onClick={handlePublishClick}
+                                >
+                                    <Globe className="h-4 w-4" />
+                                    Publish to Marketplace
+                                </Button>
                                 <Button variant="ghost" className="gap-2 text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800 font-bold rounded-xl h-10 px-4">
                                     <ExternalLink className="h-4 w-4" />
                                     View in builder
@@ -205,6 +225,18 @@ export function AgentSettingsModal({
                     </div>
                 </div>
             </DialogContent>
+            
+            <MarketplaceGuardDialog isOpen={isGuardOpen} onOpenChange={setIsGuardOpen} />
+            {isPublishModalOpen && (
+                <PublishEntityModal 
+                    open={isPublishModalOpen} 
+                    onOpenChange={setIsPublishModalOpen} 
+                    entityType="agent"
+                    entityId={agent.id}
+                    initialTitle={agent.name}
+                    initialDescription={agent.systemPrompt}
+                />
+            )}
         </Dialog>
     );
 }

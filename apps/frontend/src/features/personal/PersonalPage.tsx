@@ -4,7 +4,7 @@
  */
 "use client"
 import { useState } from 'react';
-import { Bell, Inbox, Activity, FileText, CheckSquare, MessageSquare, MessageCircle, Menu, User } from 'lucide-react';
+import { Bell, Inbox, Activity, FileText, CheckSquare, MessageSquare, MessageCircle, Menu, User, BriefcaseBusiness, Package } from 'lucide-react';
 import { NotificationsView } from './tabs/NotificationsView';
 import { RequestsView } from './tabs/RequestsView';
 import { ActivitiesView } from './tabs/ActivitiesView';
@@ -12,12 +12,17 @@ import { PostsView } from './tabs/PostsView';
 import { TasksView } from './tabs/TasksView';
 import { MessagesView } from './tabs/MessagesView';
 import { CommentsView } from './tabs/CommentsView';
+import { ProfileView } from './tabs/ProfileView';
+import { ApplicationsView } from './tabs/ApplicationsView';
+import { MyAssetsView } from './tabs/MyAssetsView';
+import { MyListingsView } from './tabs/MyListingsView';
+import { EarningsView } from './tabs/EarningsView';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 
-type PersonalTab = 'notifications' | 'requests' | 'activities' | 'posts' | 'tasks' | 'messages' | 'comments';
+type PersonalTab = 'profile' | 'notifications' | 'requests' | 'activities' | 'posts' | 'tasks' | 'messages' | 'comments' | 'applications' | 'assets' | 'listings' | 'earnings';
 
 export function PersonalPage() {
     const [activeTab, setActiveTab] = useState<PersonalTab>('tasks');
@@ -26,9 +31,14 @@ export function PersonalPage() {
     const navItems = [
         { id: 'tasks', label: 'Tasks', icon: CheckSquare, description: 'Assigned to me & lists' },
         { id: 'notifications', label: 'Notifications', icon: Bell, description: 'Updates & alerts' },
-        { id: 'requests', label: 'Requests', icon: Inbox, description: 'Pending invitatons' },
+        { id: 'requests', label: 'Requests', icon: Inbox, description: 'Pending invitations' },
+        { id: 'applications', label: 'Applications', icon: BriefcaseBusiness, description: 'Marketplace bids & applications' },
+        { id: 'assets', label: 'My Assets', icon: Package, description: 'Downloaded & purchased assets' },
+        { id: 'listings', label: 'My Listings', icon: Package, description: 'Assets & opportunities you posted' },
+        { id: 'earnings', label: 'Earnings', icon: BriefcaseBusiness, description: 'Marketplace credits & payouts' },
         { id: 'activities', label: 'Activities', icon: Activity, description: 'Recent actions' },
         { id: 'posts', label: 'Posts', icon: FileText, description: 'Your posts' },
+        { id: 'profile', label: 'Profile Settings', icon: User, description: 'Marketplace bio & alias' },
         // { id: 'messages', label: 'Messages', icon: MessageSquare },
         // { id: 'comments', label: 'Comments', icon: MessageCircle },
     ] as const;
@@ -42,6 +52,11 @@ export function PersonalPage() {
             case 'tasks': return <TasksView />;
             case 'messages': return <MessagesView />;
             case 'comments': return <CommentsView />;
+            case 'profile': return <ProfileView />;
+            case 'applications': return <ApplicationsView />;
+            case 'assets': return <MyAssetsView />;
+            case 'listings': return <MyListingsView />;
+            case 'earnings': return <EarningsView />;
             default: return <TasksView />;
         }
     };

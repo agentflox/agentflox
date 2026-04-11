@@ -112,6 +112,9 @@ model User {
   permissionsGranted             LocationPermission[]       @relation("PermissionGranter")
   locationPermissions            LocationPermission[]       @relation("UserLocationPermissions")
   marketplaceOrders              MarketplaceOrder[]
+  marketplaceApplications        MarketplaceApplication[]   @relation("marketplaceApplications")
+  marketplaceListings            MarketplaceListing[]       @relation("marketplaceListings")
+  earnings                       Earning[]                  @relation("userEarnings")
   materialPurchases              MaterialPurchase[]         @relation("MaterialPurchasesBuyer")
   ownedMaterials                 Material[]                 @relation("MaterialOwner")
   memberProfile                  MemberProfile?
@@ -1401,15 +1404,74 @@ model MarketplaceOrder {
   id        String             @id @default(cuid())
   serviceId String             @map("service_id")
   projectId String             @map("project_id")
-  buyerId   String             @map("buyer_id")
-  status    String             @default("PENDING")
-  amount    Float
+  buyerId        String             @map("buyer_id")
+  status         String             @default("PENDING")
+  creditAmount   Int
+  stripeIntentId String?            @map("stripe_intent_id")
+  listingId      String?            @map("listing_id")
   createdAt DateTime           @default(now())
   buyer     User               @relation(fields: [buyerId], references: [id])
   project   Project            @relation(fields: [projectId], references: [id])
   service   MarketplaceService @relation(fields: [serviceId], references: [id])
+  listing   MarketplaceListing? @relation("listingOrders", fields: [listingId], references: [id])
 
   @@map("marketplace_orders")
+}
+
+model MarketplaceApplication {
+  id                 String   @id @default(cuid())
+  listingId          String   @map("listing_id")
+  applicantId        String   @map("applicant_id")
+  pitch              String
+  targetRate         String?  @map("target_rate")
+  estimatedDuration  String?  @map("estimated_duration")
+  provisioningStatus String   @default("pending") @map("provisioning_status")
+  createdAt          DateTime @default(now())
+  applicant          User     @relation("marketplaceApplications", fields: [applicantId], references: [id])
+  listing            MarketplaceListing @relation("listingApplications", fields: [listingId], references: [id])
+
+  @@map("marketplace_applications")
+}
+
+model MarketplaceListing {
+  id             String      @id @default(cuid())
+  type           String      // "task", "project", "agent", "tool", "template", "talent", "team"
+  status         String      // "active", "paused", "closed", "expired"
+  title          String
+  description    String
+  authorId       String      @map("author_id")
+  createdAt      DateTime    @default(now()) @map("created_at")
+  isFree         Boolean     @default(true) @map("is_free")
+  priceCredits   Int?        @map("price_credits")
+  skills         String[]    @default([])
+  budgetMin      Int?        @map("budget_min")
+  budgetMax      Int?        @map("budget_max")
+  budgetCurrency String?     @map("budget_currency")
+  location       String?
+  isRemote       Boolean     @default(false) @map("is_remote")
+  version        String?     @default("1.0.0")
+
+  author         User                     @relation("marketplaceListings", fields: [authorId], references: [id])
+  applications   MarketplaceApplication[] @relation("listingApplications")
+  orders         MarketplaceOrder[]       @relation("listingOrders")
+  earnings       Earning[]                @relation("listingEarnings")
+
+  @@map("marketplace_listings")
+}
+
+model Earning {
+  id             String   @id @default(cuid())
+  userId         String   @map("user_id")
+  listingId      String?  @map("listing_id")
+  amountCredits  Int      @map("amount_credits")
+  reason         String   // e.g. "Asset Sale", "Task Completion"
+  status         String   @default("CLEARED") // "PENDING", "CLEARED"
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  user           User                @relation("userEarnings", fields: [userId], references: [id])
+  listing        MarketplaceListing? @relation("listingEarnings", fields: [listingId], references: [id])
+
+  @@map("earnings")
 }
 
 model CapTableEntry {

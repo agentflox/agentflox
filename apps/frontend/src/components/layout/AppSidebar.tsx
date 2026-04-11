@@ -133,9 +133,9 @@ export function AppSidebar({
     return (
         <aside
             className={cn(
-                "flex h-screen flex-col border-r border-zinc-200 bg-white transition-all duration-300 ease-in-out",
+                "flex h-full flex-col border-r border-zinc-200 bg-white transition-all duration-300 ease-in-out",
                 isCollapsed ? "w-20" : expandedWidth,
-                mode === "overlay" && "fixed inset-y-0 left-0 z-40 shadow-xl",
+                mode === "overlay" && "fixed inset-y-0 left-0 z-40 shadow-xl h-screen",
                 className
             )}
         >

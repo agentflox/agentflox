@@ -1,7 +1,7 @@
-import { Controller, Post, Body, Req, Res, UseGuards } from '@nestjs/common';
+import { Controller, Post, Req, Res, UseGuards } from '@nestjs/common';
 import { Response as ExpressResponse } from 'express';
 import { AuthenticatedRequest, JwtAuthGuard } from '@/middleware/httpAuth';
-import { ProposalService } from '@/services/ai/proposal.service';
+import { ListingService } from '@/services/ai/listing.service';
 import { AiTextService } from '@/services/ai/aiText.service';
 import { z } from 'zod';
 
@@ -21,62 +21,70 @@ const aiTextBodySchema = z.object({
         .optional(),
 });
 
+const listingEntityTypes = ['task', 'project', 'agent', 'tool', 'template', 'team', 'talent', 'workforce'] as const;
+
 @Controller('v1/ai')
 @UseGuards(JwtAuthGuard)
 export class AiController {
-    private proposalService: ProposalService;
+    private listingService: ListingService;
     private aiTextService: AiTextService;
 
     constructor() {
-        this.proposalService = new ProposalService();
+        this.listingService = new ListingService();
         this.aiTextService = new AiTextService();
     }
 
-    @Post('proposal/generate')
-    async generateProposal(@Req() req: AuthenticatedRequest, @Res() res: ExpressResponse) {
+    /**
+     * Entity-aware marketplace listing generation.
+     * Accepts any entityType (task | project | agent | tool | template | team | talent)
+     * and returns contextually appropriate marketplace copy fields.
+     *
+     * Assets (agent, tool, template) → returns useCases + intendedUsers
+     * Opportunities (task, project, team, talent) → returns niceToHaveSkills + experience + dueDate
+     */
+    @Post('listing/generate')
+    async generateListing(@Req() req: AuthenticatedRequest, @Res() res: ExpressResponse) {
         try {
-            // Validate request body
             const schema = z.object({
-                taskTitle: z.string().min(1),
-                taskDescription: z.string().optional(),
+                entityType: z.enum(listingEntityTypes),
+                entityId: z.string().optional(),
+                title: z.string().optional(),
+                description: z.string().optional(),
                 dueDate: z.string().optional(),
-                projectId: z.string().optional()
             });
 
             const body = schema.parse(req.body);
             const userId = req.userId!;
 
-            // Delegate to service layer
-            const result = await this.proposalService.generateProposal(
+            const result = await this.listingService.generate(
                 {
-                    taskTitle: body.taskTitle,
-                    taskDescription: body.taskDescription,
+                    entityType: body.entityType,
+                    entityId: body.entityId,
+                    title: body.title,
+                    description: body.description,
                     dueDate: body.dueDate,
-                    projectId: body.projectId
                 },
                 userId
             );
 
-            // Check if result is a token limit error
             if ('error' in result && result.error === 'Insufficient tokens') {
                 return res.status(403).json({
                     error: result.error,
                     remaining: result.remaining,
-                    required: result.required
+                    required: result.required,
                 });
             }
 
-            // Return successful response
             return res.json(result);
 
         } catch (error) {
-            console.error('AI Proposal Generation Error:', error);
+            console.error('AI Listing Generation Error:', error);
             if (error instanceof z.ZodError) {
                 return res.status(400).json({ error: 'Invalid request', details: error.errors });
             }
             return res.status(500).json({
                 error: 'Internal server error',
-                message: error instanceof Error ? error.message : 'Unknown'
+                message: error instanceof Error ? error.message : 'Unknown',
             });
         }
     }

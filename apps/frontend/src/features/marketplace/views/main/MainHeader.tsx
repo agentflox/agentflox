@@ -1,41 +1,40 @@
 "use client";
 import { cn } from "@/lib/utils";
-import { Sparkles, Plus, Search } from "lucide-react";
+import { Sparkles, LayoutList, ShoppingBag } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Protect } from "@/features/permissions/components/Protect";
 import { Capability } from "@/features/permissions/capabilities";
-import { Input } from "@/components/ui/input";
+import PostListingWizard from "../../components/PostListingWizard";
+import { useRouter } from "next/navigation";
 
 interface MainHeaderProps {
-  title?: string;
-  description?: string;
   className?: string;
 }
 
-export default function MainHeader({
-  title = "Marketplace",
-  description = "Discover trusted agents, expert teams, and innovative projects.",
-  className,
-}: MainHeaderProps) {
+export default function MainHeader({ className }: MainHeaderProps) {
+  const router = useRouter();
+
   return (
-    <div className={cn("space-y-6 pb-6 border-b border-zinc-200", className)}>
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div className="space-y-1">
-          <h1 className="text-3xl font-bold tracking-tight text-zinc-900 flex items-center gap-2">
-            {title}
-            <Sparkles className="h-5 w-5 text-amber-500 fill-amber-500" />
+    <div className={cn("sticky top-0 z-50 w-full bg-background border-b border-border/50", className)}>
+      <div className="max-w-7xl mx-auto px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <h1 className="text-xl font-bold tracking-tight text-foreground flex items-center gap-2 cursor-pointer" onClick={() => router.push('/marketplace')}>
+            Agentflox Marketplace
+            <Sparkles className="h-4 w-4 text-primary fill-primary/50" />
           </h1>
-          <p className="text-base text-zinc-500 max-w-2xl">{description}</p>
         </div>
         <div className="flex items-center gap-3">
-          <Button variant="outline" className="border-dashed">
+          <Button variant="ghost" size="sm" onClick={() => router.push('/personal?tab=my_listings')} className="hidden sm:flex text-muted-foreground hover:text-foreground">
+            <LayoutList className="w-4 h-4 mr-2" />
             My Listings
           </Button>
+          <Button variant="ghost" size="sm" onClick={() => router.push('/personal?tab=earnings')} className="hidden sm:flex text-muted-foreground hover:text-foreground">
+            <ShoppingBag className="w-4 h-4 mr-2" />
+            My Purchases
+          </Button>
+
           <Protect permission={Capability.MARKETPLACE_LIST_ITEM}>
-            <Button className="bg-zinc-900 text-white hover:bg-zinc-800 gap-2">
-              <Plus className="h-4 w-4" />
-              List Item
-            </Button>
+            <PostListingWizard />
           </Protect>
         </div>
       </div>

@@ -13,6 +13,10 @@ import { Loader2 } from "lucide-react";
 import { IconColorSelector } from "@/components/ui/icon-color-selector";
 import { TeamIcon } from "@/entities/teams/components/TeamIcon";
 import { useQueryClient } from "@tanstack/react-query";
+import { Globe } from "lucide-react";
+import { useMarketplaceGuard } from "@/features/marketplace/hooks/useMarketplaceGuard";
+import { MarketplaceGuardDialog } from "@/features/marketplace/components/MarketplaceGuardDialog";
+import { PublishEntityModal } from "@/features/marketplace/components/PublishEntityModal";
 
 interface TeamGeneralSettingsModalProps {
     teamId: string | null;
@@ -49,9 +53,19 @@ export function TeamGeneralSettingsModal({ teamId, open, onOpenChange }: TeamGen
     const queryClient = useQueryClient();
     const [name, setName] = useState("");
     const [description, setDescription] = useState("");
-    const [visibility, setVisibility] = useState<"OWNERS_ONLY" | "OWNERS_ADMINS" | "MEMBERS" | "PUBLIC">("PRIVATE");
+    const [visibility, setVisibility] = useState<"OWNERS_ONLY" | "OWNERS_ADMINS" | "MEMBERS" | "PUBLIC">("PRIVATE" as any);
     const [color, setColor] = useState("#8B5CF6");
     const [icon, setIcon] = useState("");
+
+    // Marketplace Injection
+    const { checkProfileAndProceed, isGuardOpen, setIsGuardOpen } = useMarketplaceGuard();
+    const [isPublishModalOpen, setIsPublishModalOpen] = useState(false);
+
+    const handlePublishClick = () => {
+        checkProfileAndProceed(() => {
+            setIsPublishModalOpen(true);
+        });
+    };
 
     const { data: team, isLoading } = trpc.team.get.useQuery(
         { id: teamId || "" },
@@ -235,34 +249,58 @@ export function TeamGeneralSettingsModal({ teamId, open, onOpenChange }: TeamGen
                             </Select>
                         </div>
 
-                        <DialogFooter className="gap-3">
-                            <Button
-                                type="button"
-                                variant="ghost"
-                                className="w-full rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 sm:w-auto"
-                                onClick={() => onOpenChange(false)}
-                                disabled={updateTeam.isPending}
-                            >
-                                Cancel
-                            </Button>
-                            <Button
-                                type="submit"
-                                className="w-full rounded-xl bg-gradient-to-r from-cyan-500 via-cyan-600 to-blue-600 text-white shadow-lg shadow-cyan-500/30 transition hover:shadow-2xl sm:w-auto"
-                                disabled={updateTeam.isPending || !name.trim()}
-                            >
-                                {updateTeam.isPending ? (
-                                    <span className="flex items-center gap-2">
-                                        <Loader2 className="h-4 w-4 animate-spin" />
-                                        Saving...
-                                    </span>
-                                ) : (
-                                    "Save changes"
-                                )}
-                            </Button>
+                        <DialogFooter className="gap-3 justify-between sm:justify-between w-full flex-row">
+                            <div>
+                                <Button 
+                                    type="button" 
+                                    variant="outline" 
+                                    className="gap-2 text-indigo-600 border-indigo-200 hover:bg-indigo-50"
+                                    onClick={handlePublishClick}
+                                >
+                                    <Globe className="h-4 w-4" /> Publish to Marketplace
+                                </Button>
+                            </div>
+                            <div className="flex gap-3">
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    className="w-full rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 sm:w-auto"
+                                    onClick={() => onOpenChange(false)}
+                                    disabled={updateTeam.isPending}
+                                >
+                                    Cancel
+                                </Button>
+                                <Button
+                                    type="submit"
+                                    className="w-full rounded-xl bg-gradient-to-r from-cyan-500 via-cyan-600 to-blue-600 text-white shadow-lg shadow-cyan-500/30 transition hover:shadow-2xl sm:w-auto"
+                                    disabled={updateTeam.isPending || !name.trim()}
+                                >
+                                    {updateTeam.isPending ? (
+                                        <span className="flex items-center gap-2">
+                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                            Saving...
+                                        </span>
+                                    ) : (
+                                        "Save changes"
+                                    )}
+                                </Button>
+                            </div>
                         </DialogFooter>
                     </form>
                 )}
             </DialogContent>
+            
+            <MarketplaceGuardDialog isOpen={isGuardOpen} onOpenChange={setIsGuardOpen} />
+            {isPublishModalOpen && (
+                <PublishEntityModal 
+                    open={isPublishModalOpen} 
+                    onOpenChange={setIsPublishModalOpen} 
+                    entityType="team"
+                    entityId={teamId}
+                    initialTitle={name}
+                    initialDescription={description}
+                />
+            )}
         </Dialog>
     );
 }

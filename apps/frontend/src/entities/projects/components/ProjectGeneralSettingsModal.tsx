@@ -13,6 +13,10 @@ import { Loader2 } from "lucide-react";
 import { IconColorSelector } from "@/components/ui/icon-color-selector";
 import { ProjectIcon } from "@/entities/projects/components/ProjectIcon";
 import { useQueryClient } from "@tanstack/react-query";
+import { Globe } from "lucide-react";
+import { useMarketplaceGuard } from "@/features/marketplace/hooks/useMarketplaceGuard";
+import { MarketplaceGuardDialog } from "@/features/marketplace/components/MarketplaceGuardDialog";
+import { PublishEntityModal } from "@/features/marketplace/components/PublishEntityModal";
 
 interface ProjectGeneralSettingsModalProps {
     projectId: string | null;
@@ -49,9 +53,19 @@ export function ProjectGeneralSettingsModal({ projectId, open, onOpenChange }: P
     const queryClient = useQueryClient();
     const [name, setName] = useState("");
     const [description, setDescription] = useState("");
-    const [visibility, setVisibility] = useState<"OWNERS_ONLY" | "OWNERS_ADMINS" | "MEMBERS" | "PUBLIC">("PRIVATE");
+    const [visibility, setVisibility] = useState<"OWNERS_ONLY" | "OWNERS_ADMINS" | "MEMBERS" | "PUBLIC">("PRIVATE" as any);
     const [color, setColor] = useState("#4F46E5");
     const [icon, setIcon] = useState("");
+
+    // Marketplace Injection
+    const { checkProfileAndProceed, isGuardOpen, setIsGuardOpen } = useMarketplaceGuard();
+    const [isPublishModalOpen, setIsPublishModalOpen] = useState(false);
+
+    const handlePublishClick = () => {
+        checkProfileAndProceed(() => {
+            setIsPublishModalOpen(true);
+        });
+    };
 
     const { data: project, isLoading } = trpc.project.get.useQuery(
         { id: projectId || "" },
@@ -241,34 +255,59 @@ export function ProjectGeneralSettingsModal({ projectId, open, onOpenChange }: P
                             </Select>
                         </div>
 
-                        <DialogFooter className="gap-3">
-                            <Button
-                                type="button"
-                                variant="ghost"
-                                className="w-full rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 sm:w-auto"
-                                onClick={() => onOpenChange(false)}
-                                disabled={updateProject.isPending}
-                            >
-                                Cancel
-                            </Button>
-                            <Button
-                                type="submit"
-                                className="w-full rounded-xl bg-gradient-to-r from-cyan-500 via-cyan-600 to-blue-600 text-white shadow-lg shadow-cyan-500/30 transition hover:shadow-2xl sm:w-auto"
-                                disabled={updateProject.isPending || !name.trim()}
-                            >
-                                {updateProject.isPending ? (
-                                    <span className="flex items-center gap-2">
-                                        <Loader2 className="h-4 w-4 animate-spin" />
-                                        Saving...
-                                    </span>
-                                ) : (
-                                    "Save changes"
-                                )}
-                            </Button>
+                        <DialogFooter className="gap-3 justify-between sm:justify-between w-full flex-row">
+                            <div>
+                                <Button 
+                                    type="button" 
+                                    variant="outline" 
+                                    className="gap-2 text-indigo-600 border-indigo-200 hover:bg-indigo-50"
+                                    onClick={handlePublishClick}
+                                >
+                                    <Globe className="h-4 w-4" /> Publish to Marketplace
+                                </Button>
+                            </div>
+                            <div className="flex gap-3">
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    className="w-full rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 sm:w-auto"
+                                    onClick={() => onOpenChange(false)}
+                                    disabled={updateProject.isPending}
+                                >
+                                    Cancel
+                                </Button>
+                                <Button
+                                    type="submit"
+                                    className="w-full rounded-xl bg-gradient-to-r from-cyan-500 via-cyan-600 to-blue-600 text-white shadow-lg shadow-cyan-500/30 transition hover:shadow-2xl sm:w-auto"
+                                    disabled={updateProject.isPending || !name.trim()}
+                                >
+                                    {updateProject.isPending ? (
+                                        <span className="flex items-center gap-2">
+                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                            Saving...
+                                        </span>
+                                    ) : (
+                                        "Save changes"
+                                    )}
+                                </Button>
+                            </div>
                         </DialogFooter>
                     </form>
                 )}
             </DialogContent>
+            
+            {/* Context injected guards and modals off the dialog */}
+            <MarketplaceGuardDialog isOpen={isGuardOpen} onOpenChange={setIsGuardOpen} />
+            {isPublishModalOpen && (
+                <PublishEntityModal 
+                    open={isPublishModalOpen} 
+                    onOpenChange={setIsPublishModalOpen} 
+                    entityType="project"
+                    entityId={projectId}
+                    initialTitle={name}
+                    initialDescription={description}
+                />
+            )}
         </Dialog>
     );
 }

@@ -150,6 +150,10 @@ import { ToolRunView } from "./components/ToolRunView";
 import { StepDetailModal } from "@/entities/tools/components/builder/StepDetailModal";
 import { OutputsDetailModal } from "@/entities/tools/components/builder/OutputsDetailModal";
 import { LoopDetailModal } from "@/entities/tools/components/builder/LoopDetailModal";
+import { useMarketplaceGuard } from "@/features/marketplace/hooks/useMarketplaceGuard";
+import { MarketplaceGuardDialog } from "@/features/marketplace/components/MarketplaceGuardDialog";
+import { PublishEntityModal } from "@/features/marketplace/components/PublishEntityModal";
+import { Globe } from "lucide-react";
 
 export type ToolBuilderViewProps = {
   workspaceId: string;
@@ -207,6 +211,16 @@ export function ToolBuilderView({ workspaceId, initialTool, onClose }: ToolBuild
   const [outputsModalOpen, setOutputsModalOpen] = React.useState(false);
   const [isSidebarTitleEditing, setIsSidebarTitleEditing] = React.useState(false);
   const [sidebarTitleDraft, setSidebarTitleDraft] = React.useState("");
+
+  // Marketplace Injection
+  const { checkProfileAndProceed, isGuardOpen, setIsGuardOpen } = useMarketplaceGuard();
+  const [isPublishModalOpen, setIsPublishModalOpen] = React.useState(false);
+
+  const handlePublishClick = () => {
+    checkProfileAndProceed(() => {
+        setIsPublishModalOpen(true);
+    });
+  };
 
   const systemToolsQuery = trpc.tool.systemList.useQuery({
     query: systemToolsListOpen ? toolStepSidebarQuery || undefined : undefined,
@@ -2065,14 +2079,11 @@ export function ToolBuilderView({ workspaceId, initialTool, onClose }: ToolBuild
 
           <Button
             type="button"
-            className="h-8 px-4 text-xs font-semibold bg-violet-600 hover:bg-violet-700 text-white"
-            onClick={() =>
-              toast({
-                title: "Publish",
-                description: "Publishing flow isn’t wired yet—UI parity first.",
-              })
-            }
+            className="h-8 px-4 text-xs font-semibold bg-violet-600 hover:bg-violet-700 text-white gap-2"
+            onClick={handlePublishClick}
+            disabled={!initialTool?.id}
           >
+            <Globe className="h-3.5 w-3.5" />
             Publish
           </Button>
 
@@ -4678,6 +4689,18 @@ export function ToolBuilderView({ workspaceId, initialTool, onClose }: ToolBuild
       </Dialog>
 
       {/* Assistant is now a left sidebar */ }
+      
+      <MarketplaceGuardDialog isOpen={isGuardOpen} onOpenChange={setIsGuardOpen} />
+      {isPublishModalOpen && (
+          <PublishEntityModal 
+              open={isPublishModalOpen} 
+              onOpenChange={setIsPublishModalOpen} 
+              entityType="tool"
+              entityId={initialTool?.id || ""}
+              initialTitle={name}
+              initialDescription={description}
+          />
+      )}
     </>
   );
 }

@@ -101,6 +101,20 @@ export const messagesRouter = router({
     .mutation(async ({ ctx, input }) => {
       const senderId = ctx.session!.user!.id;
       if (senderId === input.toUserId) throw new Error("Cannot message yourself");
+
+      const connection = await prisma.connection.findFirst({
+        where: {
+          OR: [
+            { requesterId: senderId, receiverId: input.toUserId, status: "ACCEPTED" },
+            { requesterId: input.toUserId, receiverId: senderId, status: "ACCEPTED" },
+          ],
+        },
+      });
+
+      if (!connection) {
+        throw new Error("You must be connected with this user to send a message.");
+      }
+
       const msg = await prisma.message.create({
         data: {
           senderId,

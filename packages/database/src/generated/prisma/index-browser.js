@@ -895,7 +895,49 @@ exports.Prisma.MarketplaceOrderScalarFieldEnum = {
   projectId: 'projectId',
   buyerId: 'buyerId',
   status: 'status',
-  amount: 'amount',
+  creditAmount: 'creditAmount',
+  stripeIntentId: 'stripeIntentId',
+  listingId: 'listingId',
+  createdAt: 'createdAt'
+};
+
+exports.Prisma.MarketplaceApplicationScalarFieldEnum = {
+  id: 'id',
+  listingId: 'listingId',
+  applicantId: 'applicantId',
+  pitch: 'pitch',
+  targetRate: 'targetRate',
+  estimatedDuration: 'estimatedDuration',
+  provisioningStatus: 'provisioningStatus',
+  createdAt: 'createdAt'
+};
+
+exports.Prisma.MarketplaceListingScalarFieldEnum = {
+  id: 'id',
+  type: 'type',
+  status: 'status',
+  title: 'title',
+  description: 'description',
+  authorId: 'authorId',
+  createdAt: 'createdAt',
+  isFree: 'isFree',
+  priceCredits: 'priceCredits',
+  skills: 'skills',
+  budgetMin: 'budgetMin',
+  budgetMax: 'budgetMax',
+  budgetCurrency: 'budgetCurrency',
+  location: 'location',
+  isRemote: 'isRemote',
+  version: 'version'
+};
+
+exports.Prisma.EarningScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  listingId: 'listingId',
+  amountCredits: 'amountCredits',
+  reason: 'reason',
+  status: 'status',
   createdAt: 'createdAt'
 };
 
@@ -4400,6 +4442,9 @@ exports.Prisma.ModelName = {
   MemberProfile: 'MemberProfile',
   MarketplaceService: 'MarketplaceService',
   MarketplaceOrder: 'MarketplaceOrder',
+  MarketplaceApplication: 'MarketplaceApplication',
+  MarketplaceListing: 'MarketplaceListing',
+  Earning: 'Earning',
   CapTableEntry: 'CapTableEntry',
   InvestorUpdate: 'InvestorUpdate',
   Project: 'Project',

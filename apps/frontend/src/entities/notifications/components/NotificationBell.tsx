@@ -108,7 +108,7 @@ export default function NotificationBell() {
     <div className="relative" ref={dropdownRef}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className={`flex h-8 w-8 items-center justify-center rounded-full border border-zinc-200 bg-zinc-50 text-zinc-500 transition-all hover:bg-zinc-100 hover:text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-200 ${isOpen ? 'ring-2 ring-zinc-200 text-zinc-900' : ''
+        className={`flex h-8 w-8 items-center justify-center rounded-full border border-zinc-200 bg-zinc-50 text-zinc-500 transition-all hover:bg-zinc-100 hover:text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-200 cursor-pointer ${isOpen ? 'ring-2 ring-zinc-200 text-zinc-900' : ''
           }`}
       >
         <Bell className="h-4 w-4" />

@@ -1,13 +1,13 @@
 "use client";
 import Shell from "@/components/layout/Shell";
 import MainHeader from "@/features/marketplace/views/main/MainHeader";
-import MainView from "@/features/marketplace/views/main/MainView";
+import ExploreHubView from "@/features/marketplace/views/main/ExploreHubView";
 
 export default function MarketplacePage() {
   return (
-    <Shell>
+    <Shell noPadding>
       <MainHeader />
-      <MainView />
+      <ExploreHubView />
     </Shell>
   );
 }

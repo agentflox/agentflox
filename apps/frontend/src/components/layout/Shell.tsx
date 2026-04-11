@@ -1,21 +1,19 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Sidebar from "./Sidebar";
-import { X, Menu } from "lucide-react";
+import { Menu } from "lucide-react";
 
-export default function Shell({ children }: { children: React.ReactNode }) {
-    const [open, setOpen] = useState(false); // mobile main sidebar drawer
+export default function Shell({ children, noPadding = false }: { children: React.ReactNode, noPadding?: boolean }) {
+    const [open, setOpen] = useState(false);
 
     return (
-        <div className="relative mx-auto w-full max-w-8xl">
+        <div className="flex flex-col h-full w-full overflow-hidden">
             {/* Mobile top bar */}
-            <div className="flex h-12 items-center gap-2 border-b px-4 md:hidden">
+            <div className="flex h-12 items-center gap-2 border-b px-4 md:hidden shrink-0">
                 {!open && (
                     <button
                         aria-label="Open sidebar"
-                        onClick={() => {
-                            setOpen(true);
-                        }}
+                        onClick={() => setOpen(true)}
                         className="rounded-md border p-2"
                     >
                         <Menu size={18} />
@@ -24,17 +22,17 @@ export default function Shell({ children }: { children: React.ReactNode }) {
                 <div className="text-sm text-muted-foreground">Navigation</div>
             </div>
 
-            {/* Desktop layout with inline sidebar */}
-            <div className="hidden md:grid md:grid-cols-[var(--main-sidebar-width,_16rem)_1fr]">
+            {/* Desktop: normal full-parent layout — sidebar + scrollable content */}
+            <div className="hidden md:flex flex-1 min-h-0 w-full overflow-hidden">
                 <Sidebar />
-                <div className="min-h-[calc(100vh-8rem)] max-h-screen overflow-y-auto p-6">
+                <div className={`flex-1 h-full overflow-y-auto overflow-x-hidden ${noPadding ? '' : 'p-6'}`}>
                     {children}
                 </div>
             </div>
 
-            {/* Mobile content (sidebar shown as overlay) */}
-            <div className="md:hidden">
-                <div className="min-h-[calc(100vh-3rem)] p-4">
+            {/* Mobile: normal flow with overlay sidebar */}
+            <div className="md:hidden flex-1 overflow-y-auto">
+                <div className={`${noPadding ? '' : 'p-4'}`}>
                     {children}
                 </div>
                 {/* Overlay sidebar */}

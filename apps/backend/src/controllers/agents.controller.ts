@@ -20,7 +20,17 @@ import { agentHiringService } from '@/services/agents/orchestration/agentHiringS
 import { AgentDepartment } from '@/services/agents/types/types';
 import { agentSimulationService } from '@/services/agents/simulation/agentSimulationService';
 import { runWorkforce } from '@/services/agents/orchestration/workforceExecutionService';
-import { runEditorAssistantMessage } from '@/services/agents/arch/editorAssistantService';
+
+import { toolEditorAssistant } from '@/services/agents/arch/ToolEditorAssistantService';
+import { workforceEditorAssistant } from '@/services/agents/arch/WorkforceEditorAssistantService';
+
+const runEditorAssistantMessage = async (params: { mode: 'tool' | 'workforce'; userId: string; conversationId: string; message: string; context: any }) => {
+  if (params.mode === 'tool') {
+    return toolEditorAssistant.processMessage(params);
+  } else {
+    return workforceEditorAssistant.processMessage(params);
+  }
+};
 
 @Controller('v1/agents')
 @UseGuards(JwtAuthGuard)

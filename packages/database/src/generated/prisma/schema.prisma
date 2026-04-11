@@ -112,6 +112,9 @@ model User {
   permissionsGranted             LocationPermission[]       @relation("PermissionGranter")
   locationPermissions            LocationPermission[]       @relation("UserLocationPermissions")
   marketplaceOrders              MarketplaceOrder[]
+  marketplaceApplications        MarketplaceApplication[]   @relation("marketplaceApplications")
+  marketplaceListings            MarketplaceListing[]       @relation("marketplaceListings")
+  earnings                       Earning[]                  @relation("userEarnings")
   materialPurchases              MaterialPurchase[]         @relation("MaterialPurchasesBuyer")
   ownedMaterials                 Material[]                 @relation("MaterialOwner")
   memberProfile                  MemberProfile?
@@ -400,6 +403,7 @@ model Space {
   teams              Team[]
   tools              Tool[]
   views              View[]
+  workforces         Workforce[]
 
   @@index([workspaceId])
   @@index([isActive])
@@ -455,6 +459,8 @@ model Task {
   taskTypeId          String?            @map("task_type_id")
   startDate           DateTime?          @map("start_date")
   dueDate             DateTime?          @map("due_date")
+  noStartTime         Boolean            @default(false) @map("no_start_time")
+  noEndTime           Boolean            @default(false) @map("no_end_time")
   timeEstimate        Int?               @map("time_estimate")
   isStarred           Boolean            @default(false) @map("is_starred")
   tags                String[]           @default([])
@@ -848,38 +854,39 @@ model List {
 }
 
 model View {
-  id          String      @id @default(cuid())
-  listId      String?     @map("list_id")
-  folderId    String?     @map("folder_id")
-  workspaceId String?     @map("workspace_id")
-  spaceId     String?     @map("space_id")
-  projectId   String?     @map("project_id")
-  teamId      String?     @map("team_id")
-  createdBy   String      @map("created_by")
-  name        String
-  type        ViewType
-  description String?
-  config      Json?
-  filters     Json?
-  grouping    Json?
-  sorting     Json?
-  columns     Json?
-  isDefault   Boolean     @default(false) @map("is_default")
-  isShared    Boolean     @default(false) @map("is_shared")
-  isPrivate   Boolean     @default(false) @map("is_private")
-  isPinned    Boolean     @default(false) @map("is_pinned")
-  isLocked    Boolean     @default(false) @map("is_locked")
-  isAutosave  Boolean     @default(false) @map("is_autosave")
-  position    Int         @default(0)
-  createdAt   DateTime    @default(now()) @map("created_at")
-  updatedAt   DateTime    @updatedAt @map("updated_at")
-  shares      ViewShare[]
-  creator     User        @relation(fields: [createdBy], references: [id], onDelete: Cascade)
-  folder      Folder?     @relation(fields: [folderId], references: [id], onDelete: Cascade)
-  list        List?       @relation(fields: [listId], references: [id], onDelete: Cascade)
-  project     Project?    @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  space       Space?      @relation(fields: [spaceId], references: [id], onDelete: Cascade)
-  team        Team?       @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  id            String         @id @default(cuid())
+  listId        String?        @map("list_id")
+  folderId      String?        @map("folder_id")
+  workspaceId   String?        @map("workspace_id")
+  spaceId       String?        @map("space_id")
+  projectId     String?        @map("project_id")
+  teamId        String?        @map("team_id")
+  createdBy     String         @map("created_by")
+  name          String
+  type          ViewType
+  description   String?
+  config        Json?
+  filters       Json?
+  grouping      Json?
+  sorting       Json?
+  columns       Json?
+  isDefault     Boolean        @default(false) @map("is_default")
+  isShared      Boolean        @default(false) @map("is_shared")
+  isPrivate     Boolean        @default(false) @map("is_private")
+  isPinned      Boolean        @default(false) @map("is_pinned")
+  isLocked      Boolean        @default(false) @map("is_locked")
+  isAutosave    Boolean        @default(false) @map("is_autosave")
+  position      Int            @default(0)
+  createdAt     DateTime       @default(now()) @map("created_at")
+  updatedAt     DateTime       @updatedAt @map("updated_at")
+  shares        ViewShare[]
+  creator       User           @relation(fields: [createdBy], references: [id], onDelete: Cascade)
+  folder        Folder?        @relation(fields: [folderId], references: [id], onDelete: Cascade)
+  list          List?          @relation(fields: [listId], references: [id], onDelete: Cascade)
+  project       Project?       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  space         Space?         @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  team          Team?          @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  formResponses FormResponse[]
 
   @@index([listId])
   @@index([folderId])
@@ -888,6 +895,20 @@ model View {
   @@index([teamId])
   @@index([createdBy])
   @@map("views")
+}
+
+model FormResponse {
+  id          String   @id @default(cuid())
+  viewId      String   @map("view_id")
+  status      String   @default("submitted")
+  values      Json
+  submittedAt DateTime @default(now()) @map("submitted_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  view        View     @relation(fields: [viewId], references: [id], onDelete: Cascade)
+
+  @@index([viewId, submittedAt])
+  @@map("form_responses")
 }
 
 model ViewShare {
@@ -1380,18 +1401,77 @@ model MarketplaceService {
 }
 
 model MarketplaceOrder {
-  id        String             @id @default(cuid())
-  serviceId String             @map("service_id")
-  projectId String             @map("project_id")
-  buyerId   String             @map("buyer_id")
-  status    String             @default("PENDING")
-  amount    Float
-  createdAt DateTime           @default(now())
-  buyer     User               @relation(fields: [buyerId], references: [id])
-  project   Project            @relation(fields: [projectId], references: [id])
-  service   MarketplaceService @relation(fields: [serviceId], references: [id])
+  id             String              @id @default(cuid())
+  serviceId      String              @map("service_id")
+  projectId      String              @map("project_id")
+  buyerId        String              @map("buyer_id")
+  status         String              @default("PENDING")
+  creditAmount   Int
+  stripeIntentId String?             @map("stripe_intent_id")
+  listingId      String?             @map("listing_id")
+  createdAt      DateTime            @default(now())
+  buyer          User                @relation(fields: [buyerId], references: [id])
+  project        Project             @relation(fields: [projectId], references: [id])
+  service        MarketplaceService  @relation(fields: [serviceId], references: [id])
+  listing        MarketplaceListing? @relation("listingOrders", fields: [listingId], references: [id])
 
   @@map("marketplace_orders")
+}
+
+model MarketplaceApplication {
+  id                 String             @id @default(cuid())
+  listingId          String             @map("listing_id")
+  applicantId        String             @map("applicant_id")
+  pitch              String
+  targetRate         String?            @map("target_rate")
+  estimatedDuration  String?            @map("estimated_duration")
+  provisioningStatus String             @default("pending") @map("provisioning_status")
+  createdAt          DateTime           @default(now())
+  applicant          User               @relation("marketplaceApplications", fields: [applicantId], references: [id])
+  listing            MarketplaceListing @relation("listingApplications", fields: [listingId], references: [id])
+
+  @@map("marketplace_applications")
+}
+
+model MarketplaceListing {
+  id             String   @id @default(cuid())
+  type           String // "task", "project", "agent", "tool", "template", "talent", "team"
+  status         String // "active", "paused", "closed", "expired"
+  title          String
+  description    String
+  authorId       String   @map("author_id")
+  createdAt      DateTime @default(now()) @map("created_at")
+  isFree         Boolean  @default(true) @map("is_free")
+  priceCredits   Int?     @map("price_credits")
+  skills         String[] @default([])
+  budgetMin      Int?     @map("budget_min")
+  budgetMax      Int?     @map("budget_max")
+  budgetCurrency String?  @map("budget_currency")
+  location       String?
+  isRemote       Boolean  @default(false) @map("is_remote")
+  version        String?  @default("1.0.0")
+
+  author       User                     @relation("marketplaceListings", fields: [authorId], references: [id])
+  applications MarketplaceApplication[] @relation("listingApplications")
+  orders       MarketplaceOrder[]       @relation("listingOrders")
+  earnings     Earning[]                @relation("listingEarnings")
+
+  @@map("marketplace_listings")
+}
+
+model Earning {
+  id            String   @id @default(cuid())
+  userId        String   @map("user_id")
+  listingId     String?  @map("listing_id")
+  amountCredits Int      @map("amount_credits")
+  reason        String // e.g. "Asset Sale", "Task Completion"
+  status        String   @default("CLEARED") // "PENDING", "CLEARED"
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  user    User                @relation("userEarnings", fields: [userId], references: [id])
+  listing MarketplaceListing? @relation("listingEarnings", fields: [listingId], references: [id])
+
+  @@map("earnings")
 }
 
 model CapTableEntry {
@@ -1463,6 +1543,7 @@ model Project {
   activityLogs       ActivityLog[]
   aiAgents           AiAgent[]
   aiConversations    AiConversation[]
+  workforces         Workforce[]
   attachments        Attachment[]               @relation("ProjectAttachments")
   automations        Automation[]
   compositeTools     CompositeTool[]
@@ -1750,6 +1831,7 @@ model Team {
   activityLogs        ActivityLog[]
   aiAgents            AiAgent[]
   aiConversations     AiConversation[]
+  workforces          Workforce[]
   attachments         Attachment[]           @relation("TeamAttachments")
   automations         Automation[]
   compositeTools      CompositeTool[]
@@ -3167,6 +3249,8 @@ model AiConversation {
   projectId        String?                  @map("project_id")
   proposalId       String?                  @map("proposal_id")
   teamId           String?                  @map("team_id")
+  workforceId      String?                  @map("workforce_id")
+  compositeToolId  String?                  @map("composite_tool_id")
   systemPrompt     String?                  @map("system_prompt")
   modelId          String?                  @map("model_id")
   messageCount     Int                      @default(0) @map("message_count")
@@ -3200,6 +3284,8 @@ model AiConversation {
   team             Team?                    @relation(fields: [teamId], references: [id])
   user             User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
   workspace        Workspace?               @relation("WorkspaceConversations", fields: [workspaceId], references: [id])
+  workforce        Workforce?               @relation(fields: [workforceId], references: [id], onDelete: Cascade)
+  compositeTool    CompositeTool?           @relation(fields: [compositeToolId], references: [id], onDelete: Cascade)
   messages         AiMessage[]
 
   @@index([userId, createdAt(sort: Desc)])
@@ -3213,6 +3299,8 @@ model AiConversation {
   @@index([listId])
   @@index([folderId])
   @@index([agentId])
+  @@index([workforceId])
+  @@index([compositeToolId])
   @@index([conversationType])
   @@map("ai_conversations")
 }
@@ -3810,9 +3898,16 @@ model AgentTask {
   dependsOn           String[]                @map("depends_on")
   blockedBy           String[]                @map("blocked_by")
   executionId         String?                 @unique @map("execution_id")
+  version             Int                     @default(0) @map("version")
   attempts            Int                     @default(0)
   maxAttempts         Int                     @default(3) @map("max_attempts")
   lastAttemptAt       DateTime?               @map("last_attempt_at")
+  lastHeartbeatAt     DateTime?               @map("last_heartbeat_at")
+  depth               Int                     @default(0)
+  parentTaskId        String?                 @map("parent_task_id") @db.Uuid
+  availableAt         DateTime?               @map("available_at")
+  claimToken          String?                 @map("claim_token")
+  claimExpiresAt      DateTime?               @map("claim_expires_at")
   metadata            Json?
   tags                String[]                @default([])
   createdAt           DateTime                @default(now()) @map("created_at")
@@ -3856,6 +3951,10 @@ model AgentWorkflowExecution {
   executionVersion Int       @default(0) @map("version")
   startTime        DateTime  @default(now()) @map("start_time")
   endTime          DateTime? @map("end_time")
+  totalCostUsd     Float     @default(0) @map("total_cost_usd")
+  maxCostUsd       Float?    @map("max_cost_usd")
+  totalTasks       Int       @default(0) @map("total_tasks")
+  maxTasks         Int?      @map("max_tasks")
   error            String?
 
   workflow AgentWorkflow? @relation(fields: [workflowId], references: [id], onDelete: Cascade)
@@ -4106,25 +4205,27 @@ model SystemTool {
 }
 
 model CompositeTool {
-  id             String     @id @default(cuid())
-  workspaceId    String?    @map("workspace_id")
-  spaceId        String?    @map("space_id")
-  projectId      String?    @map("project_id")
-  teamId         String?    @map("team_id")
-  ownerId        String     @map("owner_id")
-  name           String
-  description    String?
-  category       String?
-  functionSchema Json
-  steps          Json
-  isPublic       Boolean    @default(true) @map("is_public")
-  createdAt      DateTime   @default(now()) @map("created_at")
-  updatedAt      DateTime   @updatedAt @map("updated_at")
-  workspace      Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  owner          User       @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  space          Space?     @relation(fields: [spaceId], references: [id], onDelete: Cascade)
-  project        Project?   @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  team           Team?      @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  id              String           @id @default(cuid())
+  workspaceId     String?          @map("workspace_id")
+  spaceId         String?          @map("space_id")
+  projectId       String?          @map("project_id")
+  teamId          String?          @map("team_id")
+  ownerId         String           @map("owner_id")
+  name            String
+  description     String?
+  systemPrompt    String?          @map("system_prompt")
+  category        String?
+  functionSchema  Json
+  steps           Json
+  isPublic        Boolean          @default(true) @map("is_public")
+  createdAt       DateTime         @default(now()) @map("created_at")
+  updatedAt       DateTime         @updatedAt @map("updated_at")
+  workspace       Workspace?       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  owner           User             @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  space           Space?           @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  project         Project?         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  team            Team?            @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  aiConversations AiConversation[]
 
   @@index([workspaceId])
   @@index([spaceId])
@@ -5175,6 +5276,11 @@ enum ConversationType {
   AGENT_OPERATOR
   WAR_ROOM
   WORKFORCE_EXECUTION
+  WORKFORCE_WORKFLOW_EXECUTION
+  WORKFORCE_SWARM_EXECUTION
+  WORKFORCE_BUILDER
+  TOOL_BUILDER
+  SWARM_SESSION
 }
 
 enum MessageRole {
@@ -5256,6 +5362,7 @@ enum ViewType {
   TABLE
   WORKLOAD
   MAP
+  PEOPLE
   MIND_MAP
   ACTIVITY
   OVERVIEW
@@ -5399,6 +5506,7 @@ enum IntegrationProvider {
   TRELLO
   GOOGLE_CALENDAR
   GOOGLE_DRIVE
+  GOOGLE_MAIL
   DROPBOX
   ZAPIER
   FIGMA
@@ -5577,6 +5685,9 @@ enum AgentTaskStatus {
   CANCELLED
   PAUSED
   BLOCKED
+  BACKOFF
+  PENDING_APPROVAL
+  FAILED_PERMANENTLY
 }
 
 enum AgentTaskType {
@@ -5723,17 +5834,27 @@ model Workforce {
   description String?
   mode        WorkforceMode
   status      WorkforceStatus @default(DRAFT)
-  workspaceId String          @map("workspace_id")
+  workspaceId String?         @map("workspace_id")
+  spaceId     String?         @map("space_id")
+  projectId   String?         @map("project_id")
+  teamId      String?         @map("team_id")
   createdBy   String          @map("created_by")
   createdAt   DateTime        @default(now()) @map("created_at")
   updatedAt   DateTime        @updatedAt @map("updated_at")
   graph       Json?
   data        Json?
 
-  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  creator   User      @relation(fields: [createdBy], references: [id])
+  workspace       Workspace?       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  space           Space?           @relation(fields: [spaceId], references: [id])
+  project         Project?         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  team            Team?            @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  creator         User             @relation(fields: [createdBy], references: [id])
+  aiConversations AiConversation[]
 
   @@index([workspaceId])
+  @@index([spaceId])
+  @@index([projectId])
+  @@index([teamId])
   @@index([createdBy])
   @@index([status])
   @@map("workforces")

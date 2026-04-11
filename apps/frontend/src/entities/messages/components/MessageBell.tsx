@@ -12,7 +12,7 @@ export default function MessageBell() {
 
   return (
     <Link href="/dashboard/messages" className="relative">
-      <div className="flex h-8 w-8 items-center justify-center rounded-full border border-zinc-200 bg-zinc-50 text-zinc-500 transition-all hover:bg-zinc-100 hover:text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-200">
+      <div className="flex h-8 w-8 items-center justify-center rounded-full border border-zinc-200 bg-zinc-50 text-zinc-500 transition-all hover:bg-zinc-100 hover:text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-200 cursor-pointer">
         <Mail className="h-4 w-4" />
       </div>
       {unread > 0 && (

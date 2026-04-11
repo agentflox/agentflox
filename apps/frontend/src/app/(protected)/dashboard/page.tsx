@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Shell from "@/components/layout/Shell";
 import { useInterfaceSettings } from "@/hooks/useInterfaceSettings";
 import { DASHBOARD_ROUTES } from "@/constants/routes.config";
@@ -15,6 +16,7 @@ import {
   Users,
   LucideIcon,
   Sparkles,
+  Search,
 } from 'lucide-react';
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -22,6 +24,7 @@ import { Badge } from "@/components/ui/badge";
 
 export default function DashboardPage() {
   const { t } = useInterfaceSettings();
+  const [searchQuery, setSearchQuery] = useState("");
 
   const navItems = [
     {
@@ -147,32 +150,94 @@ export default function DashboardPage() {
     }
   ];
 
+  const filteredNavItems = navItems.filter((item) => 
+    item.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
+    item.description.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   return (
     <Shell>
-      <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/30">
-        <div className="mx-auto max-w-7xl space-y-8 py-8 px-4 sm:px-6 lg:px-8">
+      <div className="bg-gradient-to-br from-background via-background to-muted/30 pb-12">
+        <div className="flex flex-col mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8 pt-12 pb-8 gap-6">
 
-          {/* Header */}
-          <div className="space-y-6 pb-6 border-b border-border">
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-              <div className="space-y-1">
-                <h1 className="text-3xl font-bold tracking-tight text-foreground flex items-center gap-2">
-                  {t("dashboard.title")}
-                  <Sparkles className="h-5 w-5 text-amber-500 fill-amber-500" />
+          {/* Header Banner */}
+          <div className="shrink-0 relative overflow-hidden rounded-3xl border border-border bg-card p-12 lg:p-16 shadow-sm">
+            <div className="absolute right-0 top-0 -translate-y-12 translate-x-1/4 w-96 h-96 bg-primary/10 rounded-full blur-3xl pointer-events-none" />
+            <div className="absolute z-0 inset-0 bg-gradient-to-br from-primary/5 via-transparent to-transparent opacity-50 pointer-events-none" />
+            
+            <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-8">
+              <div className="space-y-3">
+                <h1 className="text-4xl sm:text-5xl font-bold tracking-tight text-foreground flex items-center gap-3">
+                  {t("dashboard.title") || "Dashboard"}
+                  <Sparkles className="h-8 w-8 text-primary animate-[pulse_3s_ease-in-out_infinite]" />
                 </h1>
-                <p className="text-base text-muted-foreground max-w-2xl">
-                  {t("dashboard.subtitle") || "Manage your projects, teams, and resources in one place."}
+                <p className="text-muted-foreground max-w-xl text-lg sm:text-xl font-medium">
+                  {t("dashboard.subtitle") || "Overview of your collaborative environment."}
                 </p>
+              </div>
+              
+              <div className="relative w-full md:w-auto md:min-w-[340px] shrink-0">
+                <div className="group flex h-12 w-full items-center rounded-xl border border-border/80 bg-background/50 backdrop-blur-md px-4 shadow-sm transition-all focus-within:border-primary/50 focus-within:bg-background focus-within:ring-4 focus-within:ring-primary/10 hover:border-border">
+                  <Search className="h-5 w-5 shrink-0 text-muted-foreground transition-colors group-focus-within:text-foreground" />
+                  <input 
+                    className="flex-1 h-full w-full bg-transparent pl-3 pr-0 text-base text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-0 border-none outline-none" 
+                    placeholder="Search anything..." 
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                  />
+                </div>
               </div>
             </div>
           </div>
 
-          {/* Grid Layout */}
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {navItems.map((item) => (
-              <DashboardCard key={item.id} item={item} t={t} />
-            ))}
+          {/* Intro Text */}
+          <div className="shrink-0 text-left py-2">
+            <p className="text-muted-foreground text-base max-w-3xl">
+              Create intelligent agents, orchestrate complex workflows, and empower your team to achieve more. Choose a module below to begin your journey.
+            </p>
           </div>
+
+          {/* Cards Container */}
+          <div>
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 pb-4">
+              {filteredNavItems.map((item) => (
+                <DashboardCard key={item.id} item={item} t={t} />
+              ))}
+              {filteredNavItems.length === 0 && (
+                <div className="col-span-full py-12 text-center text-muted-foreground">
+                  No modules found matching "{searchQuery}"
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Bottom Banner */}
+          <div className="shrink-0 pt-4 pb-4">
+            <div className="rounded-3xl border border-border bg-card p-8 md:p-10 flex flex-col md:flex-row items-center justify-between gap-8 relative overflow-hidden shadow-sm">
+              <div className="absolute right-0 top-0 w-64 h-64 bg-primary/5 rounded-full blur-3xl pointer-events-none -translate-y-1/2 translate-x-1/3" />
+              <div className="absolute z-0 inset-0 bg-gradient-to-tl from-primary/5 via-transparent to-transparent opacity-50 pointer-events-none" />
+              
+              <div className="relative z-10 space-y-2 text-left w-full">
+                <h3 className="text-2xl font-bold tracking-tight text-foreground">Ready to customize and implement your strategies?</h3>
+                <p className="text-muted-foreground text-base max-w-2xl">
+                  Explore our comprehensive documentation to master the platform and build powerful agents.
+                </p>
+              </div>
+              <div className="relative z-10 shrink-0 w-full md:w-auto mt-2 md:mt-0 flex justify-start md:justify-end">
+                <Button 
+                  asChild 
+                  size="lg" 
+                  className="rounded-2xl font-semibold px-8 shadow-sm hover:shadow-md transition-all duration-300 group bg-black text-white hover:bg-black/90 dark:bg-white dark:text-black dark:hover:bg-white/90"
+                >
+                  <a href="https://docs.agentflox.com" target="_blank" rel="noopener noreferrer">
+                    Get Started
+                    <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
+                  </a>
+                </Button>
+              </div>
+            </div>
+          </div>
+
         </div>
       </div>
     </Shell>
@@ -198,35 +263,45 @@ function DashboardCard({ item, t }: { item: DashboardItem; t: any }) {
     <Link
       href={item.href}
       className={cn(
-        "group relative overflow-hidden rounded-2xl border backdrop-blur-sm transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl",
+        "group relative flex flex-col overflow-hidden rounded-2xl border backdrop-blur-sm transition-all duration-500 hover:-translate-y-1 hover:shadow-xl",
         item.borderColor,
         item.gradient,
-        item.hoverGlow
+        item.hoverGlow,
+        "bg-background/40 hover:bg-background/80"
       )}
     >
+      <div className="absolute inset-0 bg-gradient-to-br opacity-0 transition-opacity duration-500 group-hover:opacity-10 pointer-events-none" />
+
       {/* Card content */}
-      <div className="relative p-6 space-y-4">
+      <div className="relative p-6 flex flex-col flex-1 h-full">
         {/* Icon */}
-        <div className="flex items-start justify-between">
-          <div className="rounded-xl bg-background/50 p-3 shadow-sm transition-transform duration-300 group-hover:scale-110 group-hover:rotate-3">
-            <Icon className={cn("h-8 w-8", item.iconColor)} />
+        <div className="flex items-start justify-between mb-4">
+          <div className={cn(
+            "rounded-xl p-3 shadow-inner transition-all duration-500 group-hover:scale-110 group-hover:rotate-3",
+            "bg-gradient-to-br from-background to-muted backdrop-blur-md border border-border/50"
+          )}>
+            <Icon className={cn("h-7 w-7 transition-colors duration-300", item.iconColor)} />
           </div>
         </div>
 
         {/* Title and description */}
-        <div className="space-y-2">
-          <h3 className="text-xl font-semibold tracking-tight text-foreground">
+        <div className="space-y-2 mb-6 flex-1">
+          <h3 className="text-lg font-bold tracking-tight text-foreground/90 group-hover:text-foreground transition-colors duration-300">
             {item.title}
           </h3>
-          <p className="text-sm text-muted-foreground line-clamp-2">
+          <p className="text-sm text-muted-foreground leading-relaxed line-clamp-2 group-hover:text-foreground/80 transition-colors duration-300">
             {item.description}
           </p>
         </div>
 
-        {/* CTA Button Style */}
-        <div className="flex items-center justify-between w-full p-2 rounded-md bg-transparent transition-colors group-hover:bg-background/40">
-          <span className="text-sm font-medium text-foreground/80 group-hover:text-foreground">Explore</span>
-          <ArrowRight className="h-4 w-4 text-foreground/80 transition-transform duration-300 group-hover:translate-x-1 group-hover:text-foreground" />
+        {/* CTA Button Style - Enhanced Hover */}
+        <div className="mt-auto group/btn flex items-center gap-2 overflow-hidden w-fit">
+          <div className="flex items-center justify-center p-2 rounded-full bg-foreground/5 text-foreground/70 transition-all duration-300 group-hover:bg-foreground group-hover:text-background shadow-sm">
+            <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-0.5" />
+          </div>
+          <span className="text-sm font-semibold tracking-wide text-foreground/70 opacity-0 -translate-x-4 transition-all duration-300 group-hover:opacity-100 group-hover:translate-x-0">
+            Explore now
+          </span>
         </div>
       </div>
     </Link>
