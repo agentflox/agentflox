@@ -19,7 +19,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Button } from '@/components/ui/button';
 import { UserIcon, X, Plus, Check, Mail, Globe, Users, Bot } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { PublishTaskToMarketplaceModal } from '@/components/marketplace/PublishTaskToMarketplaceModal';
+import { PublishEntityModal } from '@/features/marketplace/components/PublishEntityModal';
 import { ShareModal } from '@/components/permissions/ShareModal';
 import { type Task } from '@/entities/tasks/types';
 
@@ -355,11 +355,13 @@ export function AssigneeSelector({
 
     const modals = (
         <>
-            <PublishTaskToMarketplaceModal
+            <PublishEntityModal
                 open={showPublishModal}
                 onOpenChange={setShowPublishModal}
-                task={task}
-                projectId={projectId}
+                entityType="task"
+                entityId={task?.id}
+                initialTitle={task?.title}
+                initialDescription={task?.description}
             />
 
             <ShareModal

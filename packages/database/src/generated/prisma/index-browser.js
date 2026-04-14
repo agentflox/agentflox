@@ -360,6 +360,7 @@ exports.Prisma.TaskStatusScalarFieldEnum = {
   projectId: 'projectId',
   teamId: 'teamId',
   folderId: 'folderId',
+  isSystem: 'isSystem',
   name: 'name',
   color: 'color',
   position: 'position',
@@ -547,6 +548,7 @@ exports.Prisma.ViewScalarFieldEnum = {
   isPrivate: 'isPrivate',
   isPinned: 'isPinned',
   isLocked: 'isLocked',
+  visibility: 'visibility',
   isAutosave: 'isAutosave',
   position: 'position',
   createdAt: 'createdAt',
@@ -659,21 +661,6 @@ exports.Prisma.DocumentCollaboratorScalarFieldEnum = {
   userId: 'userId',
   permission: 'permission',
   addedAt: 'addedAt'
-};
-
-exports.Prisma.TemplateScalarFieldEnum = {
-  id: 'id',
-  workspaceId: 'workspaceId',
-  createdBy: 'createdBy',
-  name: 'name',
-  description: 'description',
-  category: 'category',
-  type: 'type',
-  content: 'content',
-  isPublic: 'isPublic',
-  useCount: 'useCount',
-  createdAt: 'createdAt',
-  updatedAt: 'updatedAt'
 };
 
 exports.Prisma.ChannelScalarFieldEnum = {
@@ -1159,6 +1146,7 @@ exports.Prisma.TeamScalarFieldEnum = {
   industry: 'industry',
   skills: 'skills',
   status: 'status',
+  isPublic: 'isPublic',
   visibility: 'visibility',
   isActive: 'isActive',
   isHiring: 'isHiring',
@@ -2897,26 +2885,6 @@ exports.Prisma.AgentRelationScalarFieldEnum = {
   updatedAt: 'updatedAt'
 };
 
-exports.Prisma.AgentTemplateScalarFieldEnum = {
-  id: 'id',
-  workspaceId: 'workspaceId',
-  createdBy: 'createdBy',
-  name: 'name',
-  description: 'description',
-  role: 'role',
-  objective: 'objective',
-  categories: 'categories',
-  capabilities: 'capabilities',
-  instructions: 'instructions',
-  triggers: 'triggers',
-  isPublic: 'isPublic',
-  isSystem: 'isSystem',
-  usageCount: 'usageCount',
-  createdAt: 'createdAt',
-  updatedAt: 'updatedAt',
-  embeddingUpdatedAt: 'embeddingUpdatedAt'
-};
-
 exports.Prisma.WorkspaceGuestScalarFieldEnum = {
   id: 'id',
   workspaceId: 'workspaceId',
@@ -2931,17 +2899,6 @@ exports.Prisma.LocationPermissionScalarFieldEnum = {
   id: 'id',
   locationType: 'locationType',
   locationId: 'locationId',
-  userId: 'userId',
-  teamId: 'teamId',
-  permission: 'permission',
-  grantedById: 'grantedById',
-  createdAt: 'createdAt',
-  updatedAt: 'updatedAt'
-};
-
-exports.Prisma.TaskPermissionScalarFieldEnum = {
-  id: 'id',
-  taskId: 'taskId',
   userId: 'userId',
   teamId: 'teamId',
   permission: 'permission',
@@ -3026,8 +2983,72 @@ exports.Prisma.WorkforceScalarFieldEnum = {
   createdBy: 'createdBy',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt',
+  visibility: 'visibility',
   graph: 'graph',
   data: 'data'
+};
+
+exports.Prisma.TemplateScalarFieldEnum = {
+  id: 'id',
+  workspaceId: 'workspaceId',
+  organizationId: 'organizationId',
+  createdBy: 'createdBy',
+  name: 'name',
+  description: 'description',
+  icon: 'icon',
+  coverImage: 'coverImage',
+  color: 'color',
+  tags: 'tags',
+  category: 'category',
+  entityType: 'entityType',
+  complexity: 'complexity',
+  sourceEntityType: 'sourceEntityType',
+  sourceEntityId: 'sourceEntityId',
+  content: 'content',
+  includedEntityTypes: 'includedEntityTypes',
+  captureConfig: 'captureConfig',
+  visibility: 'visibility',
+  shareUserIds: 'shareUserIds',
+  shareTeamIds: 'shareTeamIds',
+  isPublic: 'isPublic',
+  isFeatured: 'isFeatured',
+  isArchived: 'isArchived',
+  isSystem: 'isSystem',
+  useCount: 'useCount',
+  viewCount: 'viewCount',
+  version: 'version',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt',
+  archivedAt: 'archivedAt',
+  publishedAt: 'publishedAt'
+};
+
+exports.Prisma.TemplateVersionScalarFieldEnum = {
+  id: 'id',
+  templateId: 'templateId',
+  version: 'version',
+  name: 'name',
+  description: 'description',
+  content: 'content',
+  createdBy: 'createdBy',
+  createdAt: 'createdAt',
+  changeNote: 'changeNote'
+};
+
+exports.Prisma.TemplateAuditLogScalarFieldEnum = {
+  id: 'id',
+  templateId: 'templateId',
+  actorId: 'actorId',
+  event: 'event',
+  targetEntityType: 'targetEntityType',
+  targetEntityId: 'targetEntityId',
+  targetEntityName: 'targetEntityName',
+  status: 'status',
+  errorMessage: 'errorMessage',
+  metadata: 'metadata',
+  oldValue: 'oldValue',
+  newValue: 'newValue',
+  createdAt: 'createdAt'
 };
 
 exports.Prisma.SortOrder = {
@@ -3093,9 +3114,9 @@ exports.WorkspaceRole = exports.$Enums.WorkspaceRole = {
 
 exports.Visibility = exports.$Enums.Visibility = {
   PRIVATE: 'PRIVATE',
-  OWNERS_ONLY: 'OWNERS_ONLY',
-  OWNERS_ADMINS: 'OWNERS_ADMINS',
+  ADMINS: 'ADMINS',
   MEMBERS: 'MEMBERS',
+  EVERYONE: 'EVERYONE',
   PUBLIC: 'PUBLIC'
 };
 
@@ -3253,16 +3274,6 @@ exports.DocumentPermission = exports.$Enums.DocumentPermission = {
   COMMENT: 'COMMENT',
   EDIT: 'EDIT',
   ADMIN: 'ADMIN'
-};
-
-exports.TemplateType = exports.$Enums.TemplateType = {
-  TASK: 'TASK',
-  LIST: 'LIST',
-  FOLDER: 'FOLDER',
-  SPACE: 'SPACE',
-  DOCUMENT: 'DOCUMENT',
-  DASHBOARD: 'DASHBOARD',
-  VIEW: 'VIEW'
 };
 
 exports.ChannelType = exports.$Enums.ChannelType = {
@@ -4387,6 +4398,48 @@ exports.WorkforceStatus = exports.$Enums.WorkforceStatus = {
   ARCHIVED: 'ARCHIVED'
 };
 
+exports.TemplateEntityType = exports.$Enums.TemplateEntityType = {
+  SPACE: 'SPACE',
+  PROJECT: 'PROJECT',
+  FOLDER: 'FOLDER',
+  LIST: 'LIST',
+  TASK: 'TASK',
+  DOC: 'DOC',
+  VIEW: 'VIEW',
+  AGENT: 'AGENT',
+  WORKFORCE: 'WORKFORCE',
+  PROPOSAL: 'PROPOSAL',
+  LISTING: 'LISTING'
+};
+
+exports.TemplateComplexity = exports.$Enums.TemplateComplexity = {
+  BEGINNER: 'BEGINNER',
+  INTERMEDIATE: 'INTERMEDIATE',
+  ADVANCED: 'ADVANCED'
+};
+
+exports.TemplateAuditEvent = exports.$Enums.TemplateAuditEvent = {
+  CREATED: 'CREATED',
+  UPDATED: 'UPDATED',
+  DELETED: 'DELETED',
+  ARCHIVED: 'ARCHIVED',
+  RESTORED: 'RESTORED',
+  PUBLISHED: 'PUBLISHED',
+  UNPUBLISHED: 'UNPUBLISHED',
+  APPLIED: 'APPLIED',
+  MERGED: 'MERGED',
+  SHARED: 'SHARED',
+  UNSHARED: 'UNSHARED',
+  VERSION_CREATED: 'VERSION_CREATED',
+  VERSION_RESTORED: 'VERSION_RESTORED'
+};
+
+exports.TemplateAuditStatus = exports.$Enums.TemplateAuditStatus = {
+  SUCCESS: 'SUCCESS',
+  FAILED: 'FAILED',
+  PARTIAL: 'PARTIAL'
+};
+
 exports.Prisma.ModelName = {
   Account: 'Account',
   Session: 'Session',
@@ -4426,7 +4479,6 @@ exports.Prisma.ModelName = {
   Document: 'Document',
   DocumentVersion: 'DocumentVersion',
   DocumentCollaborator: 'DocumentCollaborator',
-  Template: 'Template',
   Channel: 'Channel',
   ChannelMember: 'ChannelMember',
   ChannelMessage: 'ChannelMessage',
@@ -4560,15 +4612,16 @@ exports.Prisma.ModelName = {
   AgentToSkill: 'AgentToSkill',
   SkillToTool: 'SkillToTool',
   AgentRelation: 'AgentRelation',
-  AgentTemplate: 'AgentTemplate',
   WorkspaceGuest: 'WorkspaceGuest',
   LocationPermission: 'LocationPermission',
-  TaskPermission: 'TaskPermission',
   CustomRole: 'CustomRole',
   PermissionInvitation: 'PermissionInvitation',
   PublicLink: 'PublicLink',
   AgentRunEvent: 'AgentRunEvent',
-  Workforce: 'Workforce'
+  Workforce: 'Workforce',
+  Template: 'Template',
+  TemplateVersion: 'TemplateVersion',
+  TemplateAuditLog: 'TemplateAuditLog'
 };
 
 /**

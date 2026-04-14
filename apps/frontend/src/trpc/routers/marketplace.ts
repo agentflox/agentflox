@@ -65,8 +65,8 @@ export const marketplaceRouter = router({
 
       let orderBy: any = { createdAt: 'desc' };
       if (input.sortBy === 'oldest') orderBy = { createdAt: 'asc' };
-      if (input.sortBy === 'popular') orderBy = { downloadCount: 'desc' }; // or applyCount, we'll sort natively
-      if (input.sortBy === 'likes') orderBy = { commentCount: 'desc' }; // proxy for likes since relations are heavy
+      if (input.sortBy === 'popular') orderBy = { orders: { _count: 'desc' } };
+      if (input.sortBy === 'likes') orderBy = { applications: { _count: 'desc' } };
 
       return prisma.marketplaceListing.findMany({
         where,

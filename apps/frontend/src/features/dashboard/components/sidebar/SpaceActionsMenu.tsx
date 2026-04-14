@@ -40,6 +40,7 @@ import { SpacePermissionsModal } from "@/entities/spaces/components/SpacePermiss
 import { SpaceArchiveModal } from "@/entities/spaces/components/SpaceArchiveModal";
 import { SpaceDeleteModal } from "@/entities/spaces/components/SpaceDeleteModal";
 import { SpaceTransferModal } from "@/entities/spaces/components/SpaceTransferModal";
+import { TemplateMenuPopover } from "@/entities/templates/components/TemplateMenuPopover";
 
 interface SpaceActionsMenuProps {
     workspaceId: string;
@@ -173,6 +174,18 @@ export function SpaceActionsMenu({ workspaceId, spaceId, trigger }: SpaceActions
                     <DropdownMenuItem onClick={handleCopyLink}>
                         <Copy className="mr-2 h-4 w-4" /> Copy Link
                     </DropdownMenuItem>
+
+                    <TemplateMenuPopover
+                        entityType="SPACE"
+                        workspaceId={workspaceId}
+                        contentToSave={{
+                            id: spaceId,
+                            workspaceId: space?.workspaceId ?? workspaceId,
+                            spaceId,
+                            name: space?.name ?? "Space",
+                        }}
+                        triggerClassName="text-sm"
+                    />
 
 
 

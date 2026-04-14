@@ -3,11 +3,12 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import {
 	GitBranch, UserIcon, Bot, MessageSquare, Paperclip,
-	Calendar, CheckCircle2, MoreHorizontal, Flag, Target, ListIcon, FileText
+	Calendar, CheckCircle2, MoreVertical, Flag, Target, ListIcon, FileText
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -53,6 +54,8 @@ type Props = {
 	onOpen?: (id: string) => void;
 	onConvert?: (id: string) => void;
 	className?: string;
+	isSelected?: boolean;
+	onSelect?: (id: string, selected: boolean) => void;
 };
 
 const getStatusColor = (status: string | null | undefined) => {
@@ -76,7 +79,7 @@ const getPriorityIcon = (priority: string | null | undefined) => {
 	}
 };
 
-export function TaskCard({ item, onOpen, onConvert, className }: Props) {
+export function TaskCard({ item, onOpen, onConvert, className, isSelected, onSelect }: Props) {
 	const statusLabel = typeof item.status === 'object' ? (item as any).status?.name : item.status;
 
 	// Format date if needed
@@ -86,7 +89,8 @@ export function TaskCard({ item, onOpen, onConvert, className }: Props) {
 	return (
 		<div
 			className={cn(
-				"group relative flex flex-col bg-white rounded-lg border border-zinc-200 shadow-sm hover:shadow-md hover:border-zinc-300 transition-all duration-200 cursor-pointer overflow-hidden",
+				"group relative flex flex-col bg-white rounded-lg border shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer overflow-hidden",
+				isSelected ? "border-blue-400 ring-1 ring-blue-200 bg-blue-50/20" : "border-zinc-200 hover:border-zinc-300",
 				className
 			)}
 			onClick={() => onOpen?.(item.id)}
@@ -118,19 +122,35 @@ export function TaskCard({ item, onOpen, onConvert, className }: Props) {
 						)}
 					</div>
 
-					<div className="opacity-0 group-hover:opacity-100 transition-opacity absolute top-2 right-2 bg-white/50 backdrop-blur-sm rounded-md">
-						<DropdownMenu>
-							<DropdownMenuTrigger asChild>
-								<Button variant="ghost" size="icon" className="h-6 w-6">
-									<MoreHorizontal className="h-4 w-4 text-zinc-500" />
-								</Button>
-							</DropdownMenuTrigger>
-							<DropdownMenuContent align="end">
-								<DropdownMenuItem onClick={(e) => { e.stopPropagation(); onOpen?.(item.id); }}>View Details</DropdownMenuItem>
-								<DropdownMenuItem onClick={(e) => { e.stopPropagation(); onConvert?.(item.id); }}>Convert to Proposal</DropdownMenuItem>
-							</DropdownMenuContent>
-						</DropdownMenu>
-					</div>
+			{/* Checkbox — top left, visible on hover or when selected */}
+			<div
+				className={cn(
+					"absolute top-2 left-2 z-10 transition-opacity",
+					isSelected ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+				)}
+				onClick={(e) => { e.stopPropagation(); onSelect?.(item.id, !isSelected); }}
+			>
+				<Checkbox
+					checked={isSelected}
+					onCheckedChange={(checked) => onSelect?.(item.id, !!checked)}
+					className="h-4 w-4 border-zinc-300 bg-white shadow-sm cursor-pointer"
+				/>
+			</div>
+
+			{/* Actions — top right, vertical dots */}
+			<div className="opacity-0 group-hover:opacity-100 transition-opacity absolute top-2 right-2">
+				<DropdownMenu>
+					<DropdownMenuTrigger asChild>
+						<Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => e.stopPropagation()}>
+							<MoreVertical className="h-4 w-4 text-zinc-400" />
+						</Button>
+					</DropdownMenuTrigger>
+					<DropdownMenuContent align="end">
+						<DropdownMenuItem onClick={(e) => { e.stopPropagation(); onOpen?.(item.id); }}>View Details</DropdownMenuItem>
+						<DropdownMenuItem onClick={(e) => { e.stopPropagation(); onConvert?.(item.id); }}>Convert to Proposal</DropdownMenuItem>
+					</DropdownMenuContent>
+				</DropdownMenu>
+			</div>
 				</div>
 
 				{/* Title */}

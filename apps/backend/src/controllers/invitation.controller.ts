@@ -539,37 +539,24 @@ export class InvitationController {
                 const targetId = invitation.targetId!;
                 const permission = invitation.permission!;
 
-                if (targetType === 'task') {
-                    await tx.taskPermission.upsert({
-                        where: { taskId_userId: { taskId: targetId, userId } },
-                        create: {
-                            taskId: targetId,
-                            userId,
-                            permission: permission,
-                            grantedById: 'system',
-                        },
-                        update: { permission: permission }
-                    });
-                } else {
-                    // Space, Project, Folder etc
-                    await tx.locationPermission.upsert({
-                        where: {
-                            locationType_locationId_userId: {
-                                locationType: targetType!,
-                                locationId: targetId,
-                                userId
-                            }
-                        },
-                        create: {
+                // Grant access via unified LocationPermission (locationType covers 'task' too)
+                await tx.locationPermission.upsert({
+                    where: {
+                        locationType_locationId_userId: {
                             locationType: targetType!,
                             locationId: targetId,
-                            userId,
-                            permission: permission,
-                            grantedById: 'system',
-                        },
-                        update: { permission: permission }
-                    });
-                }
+                            userId
+                        }
+                    },
+                    create: {
+                        locationType: targetType!,
+                        locationId: targetId,
+                        userId,
+                        permission: permission,
+                        grantedById: invitation.invitedById,
+                    },
+                    update: { permission: permission }
+                });
 
                 // Ensure they are marked as a guest in the workspace (if workspace context exists)
                 if (invitation.workspaceId) {

@@ -23,12 +23,12 @@ interface SpaceGeneralSettingsModalProps {
 const VISIBILITY_OPTIONS = [
     {
         label: "Only Owners",
-        value: "OWNERS_ONLY",
+        value: "PRIVATE",
         description: "Only space owners can view and edit"
     },
     {
         label: "Owners & Admins",
-        value: "OWNERS_ADMINS",
+        value: "ADMINS",
         description: "Owners and admins can view and edit"
     },
     {
@@ -49,7 +49,7 @@ export function SpaceGeneralSettingsModal({ spaceId, open, onOpenChange }: Space
     const queryClient = useQueryClient();
     const [name, setName] = useState("");
     const [description, setDescription] = useState("");
-    const [visibility, setVisibility] = useState<"OWNERS_ONLY" | "OWNERS_ADMINS" | "MEMBERS" | "PUBLIC">("PRIVATE");
+    const [visibility, setVisibility] = useState<"PRIVATE" | "ADMINS" | "MEMBERS" | "EVERYONE" | "PUBLIC">("PRIVATE");
     const [color, setColor] = useState("#3B82F6");
     const [icon, setIcon] = useState("");
 

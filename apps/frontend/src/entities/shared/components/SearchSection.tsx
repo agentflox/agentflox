@@ -1,8 +1,9 @@
 "use client";
 import React from "react";
-import { Search } from "lucide-react";
+import { Search, LayoutGrid, List } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
 
 interface SearchSectionProps {
   searchValue: string;
@@ -18,6 +19,8 @@ interface SearchSectionProps {
   createButtonText?: string;
   showFilters?: boolean;
   showSort?: boolean;
+  viewMode?: "grid" | "list";
+  onViewModeChange?: (mode: "grid" | "list") => void;
   children?: React.ReactNode;
 }
 
@@ -39,11 +42,13 @@ export const SearchSection: React.FC<SearchSectionProps> = ({
   createButtonText = "Create New",
   showFilters = true,
   showSort = true,
+  viewMode,
+  onViewModeChange,
   children,
 }) => {
   return (
-    <div className="py-6">
-      <div className="flex flex-col gap-4">
+    <div className="pt-4 pb-1">
+      <div className="flex flex-col gap-3">
         {/* Search Bar and Filter Button Row */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
           <div className="w-full md:max-w-md">
@@ -60,9 +65,37 @@ export const SearchSection: React.FC<SearchSectionProps> = ({
             </div>
           </div>
 
-          {children && (
+          {(children || (viewMode && onViewModeChange)) && (
             <div className="flex items-center gap-3 md:ml-auto">
               {children}
+              {viewMode && onViewModeChange && (
+                <div className="flex items-center rounded-md border border-zinc-200 bg-white p-0.5 shadow-sm">
+                  <button
+                    onClick={() => onViewModeChange("grid")}
+                    className={cn(
+                      "rounded-sm p-1.5 transition-colors cursor-pointer",
+                      viewMode === "grid"
+                        ? "bg-zinc-100 text-zinc-900 shadow-sm"
+                        : "text-zinc-500 hover:text-zinc-700"
+                    )}
+                    title="Grid view"
+                  >
+                    <LayoutGrid className="h-4 w-4" />
+                  </button>
+                  <button
+                    onClick={() => onViewModeChange("list")}
+                    className={cn(
+                      "rounded-sm p-1.5 transition-colors cursor-pointer",
+                      viewMode === "list"
+                        ? "bg-zinc-100 text-zinc-900 shadow-sm"
+                        : "text-zinc-500 hover:text-zinc-700"
+                    )}
+                    title="List view"
+                  >
+                    <List className="h-4 w-4" />
+                  </button>
+                </div>
+              )}
             </div>
           )}
 
@@ -99,6 +132,8 @@ export const SearchSection: React.FC<SearchSectionProps> = ({
           </div>
 
           <div className="flex items-center gap-3">
+
+
             {showFilters && onFilterToggle && (
               <button
                 onClick={onFilterToggle}

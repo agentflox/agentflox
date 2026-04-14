@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import {
     Star, Copy, Clock, BellOff, Mail, Plus, GitMerge, ArrowRight,
     Printer, Link, PenTool, Archive, Trash2, UserPlus,
-    Shield, Edit3, Link2, ExternalLink, Type, ChevronRight, Globe
+    Shield, Edit3, Link2, ExternalLink, Type, ChevronRight, Globe, LayoutTemplate
 } from "lucide-react";
 import {
     Popover,
@@ -15,6 +15,7 @@ import {
     TooltipProvider,
     TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { TemplateMenuPopover } from "@/entities/templates/components/TemplateMenuPopover";
 import { TaskCreationModal } from "./TaskCreationModal";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -228,6 +229,14 @@ export function TaskActionsPopover({
                         onClick={handleToggleFavorite}
                     />
 
+                    <TemplateMenuPopover entityType="TASK" workspaceId={workspaceId} contentToSave={task}>
+                        <button className="w-full flex items-center gap-2 px-2 py-1.5 text-xs rounded-md hover:bg-zinc-100 transition-colors text-left text-zinc-700">
+                            <LayoutTemplate className="h-3.5 w-3.5 text-zinc-500" />
+                            <span className="flex-1">Templates</span>
+                            <ChevronRight className="size-4 text-zinc-500" />
+                        </button>
+                    </TemplateMenuPopover>
+
                     <ActionItem
                         icon={UserPlus}
                         label="Invite"
@@ -250,7 +259,7 @@ export function TaskActionsPopover({
                         <button className="w-full flex items-center gap-2 px-2 py-1.5 text-xs rounded-md hover:bg-zinc-100 transition-colors text-left text-zinc-700">
                             <Clock className="h-3.5 w-3.5 text-zinc-500" />
                             <span className="flex-1">Remind me in Inbox</span>
-                            <ChevronRight className="h-3 w-3 text-zinc-400" />
+                            <ChevronRight className="size-4 text-zinc-500" />
                         </button>
                     </RemindMePopover>
 
@@ -331,10 +340,10 @@ export function TaskActionsPopover({
                         availableStatuses={availableStatuses}
                         defaultParentId={task.id}
                         trigger={
-                            <div className="flex select-none items-center rounded-md px-2 py-1.5 text-xs outline-none hover:bg-zinc-100 cursor-pointer text-zinc-700">
-                                <Plus className="h-3.5 w-3.5 mr-2 text-zinc-500" />
-                                Add Subtask
-                            </div>
+                            <button className="w-full flex items-center gap-2 px-2 py-1.5 text-xs rounded-md transition-colors text-left text-zinc-700 hover:bg-zinc-100">
+                                <Plus className="h-3.5 w-3.5 text-zinc-500" />
+                                <span className="flex-1">Add Subtask</span>
+                            </button>
                         }
                     />
 

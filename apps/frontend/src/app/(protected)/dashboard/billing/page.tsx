@@ -102,7 +102,13 @@ export default function BillingPage() {
         <PageHeader
           title="Billing"
           description="Manage your subscription, packages, and payments."
-          actions={<Button onClick={handleUpgrade}>Upgrade</Button>}
+          actions={<Button
+								onClick={handleUpgrade}
+								className="group flex items-center gap-2 bg-zinc-900 hover:bg-zinc-700 text-white dark:bg-zinc-50 dark:text-zinc-900 dark:hover:bg-zinc-200 px-4 py-2 h-9 rounded-md transition-all duration-300 shadow-sm hover:shadow-md active:scale-[0.98]"
+							>
+								<Plus className="h-4 w-4 transition-transform duration-300 group-hover:rotate-90" />
+								<span className="font-medium text-sm">New item</span>
+							</Button>}
         />
 
         <Card className="p-6">

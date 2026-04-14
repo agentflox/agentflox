@@ -11,7 +11,7 @@ const listInputSchema = z.object({
 	page: z.number().int().min(1).optional().default(1),
 	pageSize: z.number().int().min(1).max(50).optional().default(12),
 	includeCounts: z.boolean().optional(),
-	visibility: z.array(z.enum(["OWNERS_ONLY", "OWNERS_ADMINS", "MEMBERS", "PUBLIC"])).optional(),
+	visibility: z.array(z.enum(["PRIVATE", "ADMINS", "MEMBERS", "EVERYONE", "PUBLIC"])).optional(),
 });
 
 const createInputSchema = z.object({
@@ -20,7 +20,7 @@ const createInputSchema = z.object({
 	description: z.string().optional().nullable(),
 	icon: z.string().optional().nullable(),
 	color: z.string().optional().nullable(),
-	visibility: z.enum(["OWNERS_ONLY", "OWNERS_ADMINS", "MEMBERS", "PUBLIC"]).optional().default("OWNERS_ONLY"),
+	visibility: z.enum(["PRIVATE", "ADMINS", "MEMBERS", "EVERYONE", "PUBLIC"]).optional().default("ADMINS"),
 	isActive: z.boolean().optional(),
 });
 
@@ -30,7 +30,7 @@ const updateInputSchema = z.object({
 	description: z.string().optional().nullable(),
 	icon: z.string().optional().nullable(),
 	color: z.string().optional().nullable(),
-	visibility: z.enum(["OWNERS_ONLY", "OWNERS_ADMINS", "MEMBERS", "PUBLIC"]).optional(),
+	visibility: z.enum(["PRIVATE", "ADMINS", "MEMBERS", "EVERYONE", "PUBLIC"]).optional(),
 	isActive: z.boolean().optional(),
 	settings: z.any().optional().nullable(),
 });

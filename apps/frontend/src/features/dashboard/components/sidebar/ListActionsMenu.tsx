@@ -37,6 +37,7 @@ import { ListArchiveModal } from "@/entities/lists/components/ListArchiveModal";
 import { ListSettingsModal } from "@/entities/lists/components/ListSettingsModal";
 import { ListDeleteModal } from "@/entities/lists/components/ListDeleteModal";
 import { ShareModal } from "@/components/permissions/ShareModal";
+import { TemplateMenuPopover } from "@/entities/templates/components/TemplateMenuPopover";
 
 interface ListActionsMenuProps {
     workspaceId: string;
@@ -119,6 +120,22 @@ export function ListActionsMenu({ workspaceId, spaceId, listId, trigger }: ListA
                     <DropdownMenuItem onClick={handleCopyLink}>
                         <Copy className="mr-2 h-4 w-4" /> Copy Link
                     </DropdownMenuItem>
+
+                    <TemplateMenuPopover
+                        entityType="LIST"
+                        workspaceId={workspaceId}
+                        contentToSave={{
+                            id: listId,
+                            workspaceId,
+                            spaceId: list?.spaceId ?? spaceId ?? undefined,
+                            projectId: list?.projectId ?? undefined,
+                            teamId: list?.teamId ?? undefined,
+                            folderId: list?.folderId ?? undefined,
+                            listId,
+                            name: list?.name ?? "List",
+                        }}
+                        triggerClassName="text-sm"
+                    />
 
                     <DropdownMenuSub>
                         <DropdownMenuSubTrigger>

@@ -77,41 +77,23 @@ export const permissionsRouter = router({
                 });
             }
 
-            // Create permission record
-            if (input.itemType === 'task') {
-                await prisma.taskPermission.upsert({
-                    where: input.userId
-                        ? { taskId_userId: { taskId: input.itemId, userId: input.userId } }
-                        : { taskId_teamId: { taskId: input.itemId, teamId: input.teamId! } },
-                    create: {
-                        taskId: input.itemId,
-                        userId: input.userId,
-                        teamId: input.teamId,
-                        permission: input.permission,
-                        grantedById: ctx.user.id,
-                    },
-                    update: {
-                        permission: input.permission,
-                    },
-                });
-            } else {
-                await prisma.locationPermission.upsert({
-                    where: input.userId
-                        ? { locationType_locationId_userId: { locationType: input.itemType, locationId: input.itemId, userId: input.userId } }
-                        : { locationType_locationId_teamId: { locationType: input.itemType, locationId: input.itemId, teamId: input.teamId! } },
-                    create: {
-                        locationType: input.itemType,
-                        locationId: input.itemId,
-                        userId: input.userId,
-                        teamId: input.teamId,
-                        permission: input.permission,
-                        grantedById: ctx.user.id,
-                    },
-                    update: {
-                        permission: input.permission,
-                    },
-                });
-            }
+            // Create permission record via unified LocationPermission (locationType covers 'task' too)
+            await prisma.locationPermission.upsert({
+                where: input.userId
+                    ? { locationType_locationId_userId: { locationType: input.itemType, locationId: input.itemId, userId: input.userId } }
+                    : { locationType_locationId_teamId: { locationType: input.itemType, locationId: input.itemId, teamId: input.teamId! } },
+                create: {
+                    locationType: input.itemType,
+                    locationId: input.itemId,
+                    userId: input.userId,
+                    teamId: input.teamId,
+                    permission: input.permission,
+                    grantedById: ctx.user.id,
+                },
+                update: {
+                    permission: input.permission,
+                },
+            });
 
             // Invalidate cache
             if (input.userId) {
@@ -151,25 +133,15 @@ export const permissionsRouter = router({
                 });
             }
 
-            // Delete permission record
-            if (input.itemType === 'task') {
-                await prisma.taskPermission.deleteMany({
-                    where: {
-                        taskId: input.itemId,
-                        ...(input.userId && { userId: input.userId }),
-                        ...(input.teamId && { teamId: input.teamId }),
-                    },
-                });
-            } else {
-                await prisma.locationPermission.deleteMany({
-                    where: {
-                        locationType: input.itemType,
-                        locationId: input.itemId,
-                        ...(input.userId && { userId: input.userId }),
-                        ...(input.teamId && { teamId: input.teamId }),
-                    },
-                });
-            }
+            // Delete permission record via unified LocationPermission
+            await prisma.locationPermission.deleteMany({
+                where: {
+                    locationType: input.itemType,
+                    locationId: input.itemId,
+                    ...(input.userId && { userId: input.userId }),
+                    ...(input.teamId && { teamId: input.teamId }),
+                },
+            });
 
             // Invalidate cache
             if (input.userId) {
@@ -210,70 +182,38 @@ export const permissionsRouter = router({
             let userPermissions: any[] = [];
             let teamPermissions: any[] = [];
 
-            if (input.itemType === 'task') {
-                // Get task permissions
-                const taskPerms = await prisma.taskPermission.findMany({
-                    where: { taskId: input.itemId },
-                    include: {
-                        user: {
-                            select: { id: true, name: true, email: true, avatar: true },
-                        },
-                        team: {
-                            select: { id: true, name: true, avatar: true },
-                        },
-                        grantedBy: {
-                            select: { id: true, name: true },
-                        },
+            // Unified LocationPermission lookup (covers all types including 'task')
+            const locationPerms = await prisma.locationPermission.findMany({
+                where: {
+                    locationType: input.itemType,
+                    locationId: input.itemId,
+                },
+                include: {
+                    user: {
+                        select: { id: true, name: true, email: true, avatar: true },
                     },
-                });
-
-                userPermissions = taskPerms.filter((p) => p.userId).map((p) => ({
-                    user: p.user,
-                    permission: p.permission,
-                    grantedBy: p.grantedBy,
-                    createdAt: p.createdAt,
-                }));
-
-                teamPermissions = taskPerms.filter((p) => p.teamId).map((p) => ({
-                    team: p.team,
-                    permission: p.permission,
-                    grantedBy: p.grantedBy,
-                    createdAt: p.createdAt,
-                }));
-            } else {
-                // Get location permissions
-                const locationPerms = await prisma.locationPermission.findMany({
-                    where: {
-                        locationType: input.itemType,
-                        locationId: input.itemId,
+                    team: {
+                        select: { id: true, name: true, avatar: true },
                     },
-                    include: {
-                        user: {
-                            select: { id: true, name: true, email: true, avatar: true },
-                        },
-                        team: {
-                            select: { id: true, name: true, avatar: true },
-                        },
-                        grantedBy: {
-                            select: { id: true, name: true },
-                        },
+                    grantedBy: {
+                        select: { id: true, name: true },
                     },
-                });
+                },
+            });
 
-                userPermissions = locationPerms.filter((p) => p.userId).map((p) => ({
-                    user: p.user,
-                    permission: p.permission,
-                    grantedBy: p.grantedBy,
-                    createdAt: p.createdAt,
-                }));
+            userPermissions = locationPerms.filter((p) => p.userId).map((p) => ({
+                user: p.user,
+                permission: p.permission,
+                grantedBy: p.grantedBy,
+                createdAt: p.createdAt,
+            }));
 
-                teamPermissions = locationPerms.filter((p) => p.teamId).map((p) => ({
-                    team: p.team,
-                    permission: p.permission,
-                    grantedBy: p.grantedBy,
-                    createdAt: p.createdAt,
-                }));
-            }
+            teamPermissions = locationPerms.filter((p) => p.teamId).map((p) => ({
+                team: p.team,
+                permission: p.permission,
+                grantedBy: p.grantedBy,
+                createdAt: p.createdAt,
+            }));
 
             return {
                 userPermissions,

@@ -240,6 +240,31 @@ export function TaskCreationModal({
     },
   });
 
+  const selectedListId = methods.watch('listId');
+
+  // Fetch statuses: list-scoped → workspace-scoped → system global
+  const { data: statusData } = trpc.taskStatus.list.useQuery(
+    {
+      listId:      selectedListId || undefined,
+      workspaceId: workspaceId || undefined,
+    },
+    { enabled: isOpen }
+  );
+
+  const dynamicStatuses = React.useMemo(() => {
+    if (availableStatuses.length > 0) return availableStatuses;
+    return statusData ?? [];
+  }, [availableStatuses, statusData]);
+
+  // Auto-select first valid status when list changes or statuses load
+  React.useEffect(() => {
+    if (!isOpen) return;
+    const currentStatus = methods.getValues('statusId');
+    if (dynamicStatuses.length > 0 && (!currentStatus || !dynamicStatuses.find((s: any) => s.id === currentStatus))) {
+      methods.setValue('statusId', dynamicStatuses[0].id);
+    }
+  }, [dynamicStatuses, methods, isOpen]);
+
   React.useEffect(() => {
     if (isOpen) {
       methods.reset({
@@ -264,13 +289,6 @@ export function TaskCreationModal({
   }, [isOpen, defaultListId, defaultStatus, defaultParentId, context, contextId, workspaceId, methods]);
 
   const onSubmit = async (data: TaskFormValues) => {
-    if (!data.listId) {
-      methods.setError('listId', {
-        type: 'manual',
-        message: 'Please select a list.'
-      });
-      return;
-    }
     setIsSubmitting(true);
     try {
       const assigneeIds = Array.from(new Set([
@@ -318,9 +336,11 @@ export function TaskCreationModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={handleOpenChange}>
-      <DialogTrigger asChild>
-        {trigger || defaultTrigger}
-      </DialogTrigger>
+      {!isControlled && (
+        <DialogTrigger asChild>
+          {trigger || defaultTrigger}
+        </DialogTrigger>
+      )}
       <DialogContent className="sm:max-w-[800px] h-[700px] max-h-[90vh] flex flex-col p-0 gap-0 overflow-hidden bg-white">
         <FormProvider {...methods}>
           <form onSubmit={methods.handleSubmit(onSubmit as any)} className="flex-1 flex flex-col min-h-0">
@@ -501,7 +521,7 @@ export function TaskCreationModal({
                       lists={lists} /* Keeping passing lists just in case, though handled above now */
                       spaces={spaces}
                       workspaceId={workspaceId}
-                      availableStatuses={availableStatuses}
+                      availableStatuses={dynamicStatuses}
                     />
                   </TabsContent>
                   <TabsContent value="attachments" className="mt-0 h-full">

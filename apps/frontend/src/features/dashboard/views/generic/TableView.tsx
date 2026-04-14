@@ -77,7 +77,7 @@ import { TaskCreationModal } from "@/entities/task/components/TaskCreationModal"
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
 import { ListCreationModal } from "@/entities/task/components/ListCreationModal";
 import { AssigneeSelector, formatAssigneeIdsForSelector } from "@/entities/task/components/AssigneeSelector";
-import { TaskActionsDropdown } from "@/entities/task/components/TaskActionsDropdown";
+import { TaskActionsPopover } from "@/entities/task/components/TaskActionsPopover";
 import { TaskDetailModal } from "@/entities/task/components/TaskDetailModal";
 import { TaskDependenciesModal } from "@/entities/task/components/TaskDependenciesModal";
 import { TagsPopover } from "@/entities/task/components/TagsPopover";
@@ -2037,7 +2037,7 @@ export function TableView({ spaceId, projectId, teamId, listId, viewId, initialC
                                 );
                             })}
                             <TableCell className="w-[50px] py-2 pr-4">
-                                <TaskActionsDropdown
+                                <TaskActionsPopover
                                     task={task as any}
                                     context={spaceId ? "SPACE" : projectId ? "PROJECT" : "GENERAL"}
                                     contextId={(spaceId || projectId) as any}
@@ -2049,7 +2049,15 @@ export function TableView({ spaceId, projectId, teamId, listId, viewId, initialC
                                     onDelete={id => void handleTaskDelete(id)}
                                     onUpdate={handleTaskUpdate}
                                     onAction={() => { }}
-                                />
+                                >
+                                    <button
+                                        type="button"
+                                        onClick={(e) => e.stopPropagation()}
+                                        className="ml-auto inline-flex h-7 w-7 items-center justify-center rounded-md text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 transition-all cursor-pointer opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
+                                    >
+                                        <MoreHorizontal className="h-4 w-4" />
+                                    </button>
+                                </TaskActionsPopover>
                             </TableCell>
                         </TableRow>
 

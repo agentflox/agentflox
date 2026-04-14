@@ -40,7 +40,7 @@ export function TaskPermissionsModal({ workspaceId, taskId, open, onOpenChange }
 
     // State
     const [searchQuery, setSearchQuery] = useState("");
-    const [isPublic, setIsPublic] = useState(false); // Maps to WORKSPACE visibility
+    const [isPublic, setIsPublic] = useState(false); // Maps to MEMBERS / EVERYONE / PUBLIC visibility
     const [expandedSections, setExpandedSections] = useState({
         workspace: true,
         people: true,
@@ -90,7 +90,10 @@ export function TaskPermissionsModal({ workspaceId, taskId, open, onOpenChange }
     // Initialize state from task data
     useEffect(() => {
         if (task) {
-            const publicAccess = task.visibility === "WORKSPACE" || task.visibility === "PUBLIC";
+            const publicAccess =
+                task.visibility === "MEMBERS" ||
+                task.visibility === "EVERYONE" ||
+                task.visibility === "PUBLIC";
             setIsPublic(publicAccess);
 
             // If private, collapse workspace section by default
@@ -110,8 +113,8 @@ export function TaskPermissionsModal({ workspaceId, taskId, open, onOpenChange }
     const handleVisibilityToggle = async (checked: boolean) => {
         if (!taskId) return;
         setIsUpdating(true);
-        // Toggle between WORKSPACE (Public to workspace) and PRIVATE
-        const newVisibility = checked ? "WORKSPACE" : "PRIVATE";
+        // Shared with workspace members (not guests) vs creator-only
+        const newVisibility = checked ? "MEMBERS" : "PRIVATE";
 
         try {
             await updateTask.mutateAsync({
@@ -317,27 +320,25 @@ export function TaskPermissionsModal({ workspaceId, taskId, open, onOpenChange }
                         <div className="p-6">
                             {/* Search */}
                             <div className="relative mb-6">
-                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                                <Input
-                                    placeholder="Share by name or email"
-                                    value={searchQuery}
-                                    onChange={(e) => setSearchQuery(e.target.value)}
-                                    onFocus={() => setIsSearching(true)}
-                                    className="pl-9 pr-9 h-10 bg-slate-50 border-slate-200 focus-visible:ring-offset-0 focus-visible:ring-1 focus-visible:ring-blue-500 rounded-lg"
-                                />
-                                {isSearching && (
-                                    <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 text-slate-400 hover:text-slate-600 rounded-full"
-                                        onClick={() => {
-                                            setSearchQuery("");
-                                            setIsSearching(false);
-                                        }}
-                                    >
-                                        <X className="h-4 w-4" />
-                                    </Button>
-                                )}
+                                <div className="flex h-9 items-center rounded-md border border-zinc-200 bg-white px-3 shadow-sm transition-colors focus-within:border-indigo-500">
+                                    <Search className="h-4 w-4 shrink-0 text-zinc-400" />
+                                    <input
+                                        placeholder="Share by name or email"
+                                        value={searchQuery}
+                                        onChange={(e) => { setSearchQuery(e.target.value); setIsSearching(true); }}
+                                        onFocus={() => setIsSearching(true)}
+                                        className="flex-1 h-full bg-transparent pl-2 pr-0 text-sm outline-none border-none placeholder:text-zinc-400"
+                                    />
+                                    {isSearching && (
+                                        <button
+                                            type="button"
+                                            className="h-5 w-5 flex items-center justify-center text-slate-400 hover:text-slate-600 rounded-full"
+                                            onClick={() => { setSearchQuery(""); setIsSearching(false); }}
+                                        >
+                                            <X className="h-3.5 w-3.5" />
+                                        </button>
+                                    )}
+                                </div>
                             </div>
 
                             {isSearching ? (

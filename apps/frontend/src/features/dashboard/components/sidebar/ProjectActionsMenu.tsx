@@ -40,6 +40,7 @@ import { ProjectPermissionsModal } from "@/entities/projects/components/ProjectP
 import { ProjectArchiveModal } from "@/entities/projects/components/ProjectArchiveModal";
 import { ProjectDeleteModal } from "@/entities/projects/components/ProjectDeleteModal";
 import { ProjectTransferModal } from "@/entities/projects/components/ProjectTransferModal";
+import { TemplateMenuPopover } from "@/entities/templates/components/TemplateMenuPopover";
 
 interface ProjectActionsMenuProps {
     workspaceId: string;
@@ -173,6 +174,19 @@ export function ProjectActionsMenu({ workspaceId, projectId, trigger }: ProjectA
                     <DropdownMenuItem onClick={handleCopyLink}>
                         <Copy className="mr-2 h-4 w-4" /> Copy Link
                     </DropdownMenuItem>
+
+                    <TemplateMenuPopover
+                        entityType={"PROJECT" as any}
+                        workspaceId={workspaceId}
+                        contentToSave={{
+                            id: projectId,
+                            workspaceId: project?.workspaceId ?? workspaceId,
+                            spaceId: project?.spaceId ?? undefined,
+                            projectId,
+                            name: project?.name ?? "Project",
+                        }}
+                        triggerClassName="text-sm"
+                    />
 
                     <DropdownMenuSub>
                         <DropdownMenuSubTrigger>

@@ -53,53 +53,35 @@ export const sharingRouter = router({
             // Cannot grant higher permission than you have
             const grantedPermission = input.permission;
 
-            // Grant permission
-            if (input.itemType === 'task') {
-                await prisma.taskPermission.upsert({
-                    where: input.userId
-                        ? { taskId_userId: { taskId: input.itemId, userId: input.userId } }
-                        : { taskId_teamId: { taskId: input.itemId, teamId: input.teamId! } },
-                    create: {
-                        taskId: input.itemId,
-                        userId: input.userId,
-                        teamId: input.teamId,
-                        permission: grantedPermission,
-                        grantedById: ctx.user.id,
-                    },
-                    update: {
-                        permission: grantedPermission,
-                    },
-                });
-            } else {
-                await prisma.locationPermission.upsert({
-                    where: input.userId
-                        ? {
-                            locationType_locationId_userId: {
-                                locationType: input.itemType,
-                                locationId: input.itemId,
-                                userId: input.userId,
-                            },
-                        }
-                        : {
-                            locationType_locationId_teamId: {
-                                locationType: input.itemType,
-                                locationId: input.itemId,
-                                teamId: input.teamId!,
-                            },
+            // Grant permission via unified LocationPermission (locationType covers 'task' too)
+            await prisma.locationPermission.upsert({
+                where: input.userId
+                    ? {
+                        locationType_locationId_userId: {
+                            locationType: input.itemType,
+                            locationId: input.itemId,
+                            userId: input.userId,
                         },
-                    create: {
-                        locationType: input.itemType,
-                        locationId: input.itemId,
-                        userId: input.userId,
-                        teamId: input.teamId,
-                        permission: grantedPermission,
-                        grantedById: ctx.user.id,
+                    }
+                    : {
+                        locationType_locationId_teamId: {
+                            locationType: input.itemType,
+                            locationId: input.itemId,
+                            teamId: input.teamId!,
+                        },
                     },
-                    update: {
-                        permission: grantedPermission,
-                    },
-                });
-            }
+                create: {
+                    locationType: input.itemType,
+                    locationId: input.itemId,
+                    userId: input.userId,
+                    teamId: input.teamId,
+                    permission: grantedPermission,
+                    grantedById: ctx.user.id,
+                },
+                update: {
+                    permission: grantedPermission,
+                },
+            });
 
             // Invalidate cache
             if (input.userId) {
@@ -163,7 +145,7 @@ export const sharingRouter = router({
             } else if (input.itemType === 'team') {
                 await prisma.team.update({
                     where: { id: input.itemId },
-                    data: { visibility: 'OWNERS_ADMINS' },
+                    data: { visibility: "ADMINS" },
                 });
             } else if (input.itemType === 'task') {
                 await prisma.task.update({
@@ -178,43 +160,25 @@ export const sharingRouter = router({
                 });
             }
 
-            // Grant creator full access if requested
+            // Grant creator full access if requested — unified via LocationPermission
             if (input.keepCreatorAccess && creatorId) {
-                if (input.itemType === 'task') {
-                    await prisma.taskPermission.upsert({
-                        where: {
-                            taskId_userId: {
-                                taskId: input.itemId,
-                                userId: creatorId,
-                            },
-                        },
-                        create: {
-                            taskId: input.itemId,
-                            userId: creatorId,
-                            permission: PermissionLevel.FULL,
-                            grantedById: ctx.user.id,
-                        },
-                        update: {},
-                    });
-                } else {
-                    await prisma.locationPermission.upsert({
-                        where: {
-                            locationType_locationId_userId: {
-                                locationType: input.itemType,
-                                locationId: input.itemId,
-                                userId: creatorId,
-                            },
-                        },
-                        create: {
+                await prisma.locationPermission.upsert({
+                    where: {
+                        locationType_locationId_userId: {
                             locationType: input.itemType,
                             locationId: input.itemId,
                             userId: creatorId,
-                            permission: PermissionLevel.FULL,
-                            grantedById: ctx.user.id,
                         },
-                        update: {},
-                    });
-                }
+                    },
+                    create: {
+                        locationType: input.itemType,
+                        locationId: input.itemId,
+                        userId: creatorId,
+                        permission: PermissionLevel.FULL,
+                        grantedById: ctx.user.id,
+                    },
+                    update: {},
+                });
             }
 
             // Invalidate all caches for this item

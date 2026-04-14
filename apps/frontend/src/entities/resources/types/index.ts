@@ -31,7 +31,7 @@ export type Resource = {
   tags?: string[];
   priceUsd: number;
   currency: string;
-  visibility: "PUBLIC" | "PRIVATE" | "WORKSPACE" | "TEAM" | "PROJECT" | "MEMBERS_ONLY";
+  visibility: "PUBLIC" | "PRIVATE" | "ADMINS" | "MEMBERS" | "EVERYONE";
   isPublic: boolean;
   isFeatured: boolean;
   isPremium: boolean;

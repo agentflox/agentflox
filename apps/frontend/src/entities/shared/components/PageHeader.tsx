@@ -17,7 +17,7 @@ export function PageHeader({
 }: PageHeaderProps) {
   return (
     <div className="border-b border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950">
-      <div className="px-6 py-10">
+      <div className="pb-6">
         <div className="flex items-start justify-between gap-6">
           {/* Left: Title & Subtitle */}
           <div className="flex-1 min-w-0 space-y-1">

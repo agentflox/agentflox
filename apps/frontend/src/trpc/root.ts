@@ -37,6 +37,8 @@ import { customFieldsRouter } from "@/trpc/routers/customFields";
 import { integrationRouter } from "@/trpc/routers/integration";
 import { workforceRouter } from "@/trpc/routers/workforce";
 import { compositeToolRouter } from "@/trpc/routers/compositeTool";
+import { templateRouter } from "@/trpc/routers/template";
+import { taskStatusRouter } from "@/trpc/routers/taskStatus";
 
 export const appRouter = router({
   proposal: proposalRouter,
@@ -77,6 +79,8 @@ export const appRouter = router({
   integration: integrationRouter,
   workforce: workforceRouter,
   compositeTool: compositeToolRouter,
+  template: templateRouter,
+  taskStatus: taskStatusRouter,
 });
 
 export type AppRouter = typeof appRouter;

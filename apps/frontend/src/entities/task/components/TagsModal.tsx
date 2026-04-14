@@ -113,11 +113,11 @@ export function TagsModal({
 
     const isTagSelected = (tag: string) => tags.includes(tag);
 
-    const displayTags = searchInput.trim()
+    const displayTags = (searchInput.trim()
         ? exactMatch
             ? [exactMatch, ...partialMatches]
             : partialMatches
-        : allTags;
+        : allTags).filter(tag => !isTagSelected(tag));
 
     return (
         <Popover open={isOpen} onOpenChange={setIsOpen}>
@@ -136,6 +136,29 @@ export function TagsModal({
             </PopoverTrigger>
             <PopoverContent className="w-[320px] p-3" align="start">
                 <div className="space-y-2">
+                    {/* Selected Tags */}
+                    {tags.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5 mb-2">
+                            {tags.map((tag) => {
+                                const parsed = parseEncodedTag(tag);
+                                return (
+                                    <Badge
+                                        key={tag}
+                                        style={{ backgroundColor: parsed.color || "#e5e7eb", color: parsed.color ? "white" : "#374151" }}
+                                        className="h-6 gap-1 px-2 pr-1.5 text-[12px] font-medium border-0 shadow-none cursor-pointer hover:opacity-80 transition-opacity"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            deleteTag(tag);
+                                        }}
+                                    >
+                                        {parsed.label}
+                                        <X className="h-3 w-3 ml-0.5 opacity-70 hover:opacity-100" />
+                                    </Badge>
+                                );
+                            })}
+                        </div>
+                    )}
+
                     {/* Search Input */}
                     <Input
                         autoFocus
@@ -184,80 +207,78 @@ export function TagsModal({
                                     <div className="flex-1" />
 
                                     {/* Settings button with color picker */}
-                                    {selected && (
-                                        <HoverCard openDelay={200} closeDelay={100}>
-                                            <HoverCardTrigger asChild>
-                                                <button
-                                                    className="opacity-0 group-hover/item:opacity-100 h-6 w-6 flex items-center justify-center rounded hover:bg-zinc-200 text-zinc-400 hover:text-zinc-700 transition-all"
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        setEditingColor(tag);
-                                                    }}
-                                                >
-                                                    <MoreHorizontal className="h-3.5 w-3.5" />
-                                                </button>
-                                            </HoverCardTrigger>
-                                            <HoverCardContent
-                                                side="right"
-                                                align="start"
-                                                className="w-[220px] p-3"
-                                                onClick={(e) => e.stopPropagation()}
+                                    <HoverCard openDelay={200} closeDelay={100}>
+                                        <HoverCardTrigger asChild>
+                                            <button
+                                                className="opacity-0 group-hover/item:opacity-100 h-6 w-6 flex items-center justify-center rounded hover:bg-zinc-200 text-zinc-400 hover:text-zinc-700 transition-all cursor-pointer"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setEditingColor(tag);
+                                                }}
                                             >
-                                                {/* Color Input at top */}
-                                                <Input
-                                                    value={parsed.label}
-                                                    readOnly
-                                                    className="h-8 text-sm mb-3 border-zinc-200 bg-white"
-                                                />
+                                                <MoreHorizontal className="h-3.5 w-3.5" />
+                                            </button>
+                                        </HoverCardTrigger>
+                                        <HoverCardContent
+                                            side="right"
+                                            align="start"
+                                            className="w-[200px] p-3"
+                                            onClick={(e) => e.stopPropagation()}
+                                        >
+                                            {/* Color Input at top */}
+                                            <Input
+                                                value={parsed.label}
+                                                readOnly
+                                                className="h-8 text-sm mb-3 border-zinc-200 bg-white"
+                                            />
 
-                                                {/* Color Palette Grid */}
-                                                <div className="grid grid-cols-7 gap-1.5 mb-3">
-                                                    {TAG_COLORS.map((color, idx) => (
-                                                        <button
-                                                            key={idx}
-                                                            className={cn(
-                                                                "h-7 w-7 rounded-full transition-all hover:scale-110",
-                                                                color === ""
-                                                                    ? "border-2 border-zinc-300 bg-white relative"
-                                                                    : "border-2 border-transparent hover:border-zinc-300"
-                                                            )}
-                                                            style={{ backgroundColor: color || "white" }}
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                updateTagColor(tag, color);
-                                                            }}
-                                                        >
-                                                            {color === "" && (
-                                                                <div className="absolute inset-0 flex items-center justify-center">
-                                                                    <div className="w-5 h-0.5 bg-red-500 rotate-45" />
-                                                                </div>
-                                                            )}
-                                                        </button>
-                                                    ))}
+                                            {/* Color Palette Grid */}
+                                            <div className="grid grid-cols-7 gap-2 mb-3">
+                                                {TAG_COLORS.map((color, idx) => (
                                                     <button
-                                                        className="h-7 w-7 rounded-full border-2 border-dashed border-zinc-300 flex items-center justify-center hover:border-zinc-400 transition-colors"
-                                                        onClick={(e) => e.stopPropagation()}
+                                                        key={idx}
+                                                        className={cn(
+                                                            "h-5 w-5 rounded-full transition-all hover:scale-110 cursor-pointer",
+                                                            color === ""
+                                                                ? "border border-zinc-300 bg-white relative"
+                                                                : "border border-transparent hover:border-slate-300 shadow-sm"
+                                                        )}
+                                                        style={{ backgroundColor: color || "white" }}
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            updateTagColor(tag, color);
+                                                        }}
                                                     >
-                                                        <Plus className="h-3.5 w-3.5 text-zinc-400" />
+                                                        {color === "" && (
+                                                            <div className="absolute inset-0 flex items-center justify-center">
+                                                                <div className="w-4 h-0.5 bg-red-400 rotate-45" />
+                                                            </div>
+                                                        )}
                                                     </button>
-                                                </div>
-
-                                                {/* Delete Button */}
-                                                <Button
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    className="w-full justify-start h-8 text-xs text-zinc-600 hover:text-red-600 hover:bg-red-50"
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        deleteTag(tag);
-                                                    }}
+                                                ))}
+                                                <button
+                                                    className="h-5 w-5 rounded-full border border-dashed border-zinc-300 flex items-center justify-center hover:border-zinc-400 transition-colors cursor-pointer"
+                                                    onClick={(e) => e.stopPropagation()}
                                                 >
-                                                    <Trash2 className="h-3.5 w-3.5 mr-2" />
-                                                    Delete
-                                                </Button>
-                                            </HoverCardContent>
-                                        </HoverCard>
-                                    )}
+                                                    <Plus className="h-3 w-3 text-zinc-400" />
+                                                </button>
+                                            </div>
+
+                                            {/* Delete Button */}
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                className="w-full justify-start h-8 text-xs text-zinc-600 hover:text-red-600 hover:bg-red-50 cursor-pointer"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    deleteTag(tag);
+                                                }}
+                                            >
+                                                <Trash2 className="h-3.5 w-3.5 mr-2" />
+                                                Delete
+                                            </Button>
+                                        </HoverCardContent>
+                                    </HoverCard>
                                 </div>
                             );
                         })}

@@ -11,6 +11,7 @@ import {
   FileText,
   FolderOpen,
   Layers,
+  LayoutDashboard,
   Link2,
   Settings,
   Users,
@@ -150,51 +151,96 @@ export default function DashboardPage() {
     }
   ];
 
-  const filteredNavItems = navItems.filter((item) => 
-    item.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
+  const filteredNavItems = navItems.filter((item) =>
+    item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
     item.description.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   return (
     <Shell>
       <div className="bg-gradient-to-br from-background via-background to-muted/30 pb-12">
-        <div className="flex flex-col mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8 pt-12 pb-8 gap-6">
+        <div className="flex flex-col mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8 pt-4 pb-8 gap-6">
 
           {/* Header Banner */}
           <div className="shrink-0 relative overflow-hidden rounded-3xl border border-border bg-card p-12 lg:p-16 shadow-sm">
             <div className="absolute right-0 top-0 -translate-y-12 translate-x-1/4 w-96 h-96 bg-primary/10 rounded-full blur-3xl pointer-events-none" />
             <div className="absolute z-0 inset-0 bg-gradient-to-br from-primary/5 via-transparent to-transparent opacity-50 pointer-events-none" />
-            
+
             <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-8">
               <div className="space-y-3">
                 <h1 className="text-4xl sm:text-5xl font-bold tracking-tight text-foreground flex items-center gap-3">
                   {t("dashboard.title") || "Dashboard"}
-                  <Sparkles className="h-8 w-8 text-primary animate-[pulse_3s_ease-in-out_infinite]" />
+                  <LayoutDashboard className="h-8 w-8 text-primary" />
                 </h1>
                 <p className="text-muted-foreground max-w-xl text-lg sm:text-xl font-medium">
                   {t("dashboard.subtitle") || "Overview of your collaborative environment."}
                 </p>
               </div>
-              
-              <div className="relative w-full md:w-auto md:min-w-[340px] shrink-0">
-                <div className="group flex h-12 w-full items-center rounded-xl border border-border/80 bg-background/50 backdrop-blur-md px-4 shadow-sm transition-all focus-within:border-primary/50 focus-within:bg-background focus-within:ring-4 focus-within:ring-primary/10 hover:border-border">
-                  <Search className="h-5 w-5 shrink-0 text-muted-foreground transition-colors group-focus-within:text-foreground" />
-                  <input 
-                    className="flex-1 h-full w-full bg-transparent pl-3 pr-0 text-base text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-0 border-none outline-none" 
-                    placeholder="Search anything..." 
+
+              {/* Quick Stats */}
+              <div className="flex items-center gap-3 sm:gap-4 shrink-0 overflow-x-auto pb-2 md:pb-0 hide-scrollbar w-full md:w-auto">
+                <div className="flex flex-col p-4 rounded-2xl bg-background/60 border border-border/50 backdrop-blur-md min-w-[120px] shadow-sm transition-all hover:-translate-y-1 hover:shadow-md flex-1 md:flex-none">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="p-1.5 rounded-md bg-blue-500/10 text-blue-500">
+                      <Box className="w-4 h-4" />
+                    </div>
+                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Workspaces</span>
+                  </div>
+                  <div className="text-3xl font-bold text-foreground">3</div>
+                </div>
+                
+                <div className="flex flex-col p-4 rounded-2xl bg-background/60 border border-border/50 backdrop-blur-md min-w-[120px] shadow-sm transition-all hover:-translate-y-1 hover:shadow-md flex-1 md:flex-none">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="p-1.5 rounded-md bg-indigo-500/10 text-indigo-500">
+                      <Layers className="w-4 h-4" />
+                    </div>
+                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Spaces</span>
+                  </div>
+                  <div className="text-3xl font-bold text-foreground">12</div>
+                </div>
+
+                <div className="flex flex-col p-4 rounded-2xl bg-background/60 border border-border/50 backdrop-blur-md min-w-[120px] shadow-sm transition-all hover:-translate-y-1 hover:shadow-md hidden sm:flex flex-1 md:flex-none">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="p-1.5 rounded-md bg-emerald-500/10 text-emerald-500">
+                      <Users className="w-4 h-4" />
+                    </div>
+                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Team</span>
+                  </div>
+                  <div className="text-3xl font-bold text-foreground">24</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Modules Section Header */}
+          <div className="shrink-0 pt-8 pb-4">
+            <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
+              <div className="space-y-3">
+                <div className="inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-sm font-medium text-primary shadow-sm">
+                  <Layers className="h-4 w-4" />
+                  <span>Platform Ecosystem</span>
+                </div>
+                <h2 className="text-2xl pt-1 font-bold tracking-tight text-foreground">
+                  Explore Your Modules
+                </h2>
+                <p className="text-muted-foreground text-base max-w-2xl leading-relaxed">
+                  Create intelligent agents, orchestrate complex workflows, and empower your team to achieve more. Choose a module below to begin your journey.
+                </p>
+              </div>
+
+              {/* Search Bar */}
+              <div className="relative w-full md:w-auto md:min-w-[320px] lg:min-w-[400px] shrink-0">
+                <div className="group flex h-12 w-full items-center rounded-xl border border-border/80 bg-card/50 backdrop-blur-md px-4 shadow-sm transition-all focus-within:border-primary/50 focus-within:bg-background focus-within:ring-4 focus-within:ring-primary/10 hover:border-border">
+                  <Search className="h-4 w-4 shrink-0 text-muted-foreground transition-colors group-focus-within:text-primary" />
+                  <input
+                    className="flex-1 h-full w-full bg-transparent pl-3 pr-0 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-0 border-none outline-none"
+                    placeholder="Search modules..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                   />
                 </div>
               </div>
             </div>
-          </div>
-
-          {/* Intro Text */}
-          <div className="shrink-0 text-left py-2">
-            <p className="text-muted-foreground text-base max-w-3xl">
-              Create intelligent agents, orchestrate complex workflows, and empower your team to achieve more. Choose a module below to begin your journey.
-            </p>
           </div>
 
           {/* Cards Container */}
@@ -212,11 +258,11 @@ export default function DashboardPage() {
           </div>
 
           {/* Bottom Banner */}
-          <div className="shrink-0 pt-4 pb-4">
+          <div className="shrink-0 pt-16">
             <div className="rounded-3xl border border-border bg-card p-8 md:p-10 flex flex-col md:flex-row items-center justify-between gap-8 relative overflow-hidden shadow-sm">
               <div className="absolute right-0 top-0 w-64 h-64 bg-primary/5 rounded-full blur-3xl pointer-events-none -translate-y-1/2 translate-x-1/3" />
               <div className="absolute z-0 inset-0 bg-gradient-to-tl from-primary/5 via-transparent to-transparent opacity-50 pointer-events-none" />
-              
+
               <div className="relative z-10 space-y-2 text-left w-full">
                 <h3 className="text-2xl font-bold tracking-tight text-foreground">Ready to customize and implement your strategies?</h3>
                 <p className="text-muted-foreground text-base max-w-2xl">
@@ -224,9 +270,9 @@ export default function DashboardPage() {
                 </p>
               </div>
               <div className="relative z-10 shrink-0 w-full md:w-auto mt-2 md:mt-0 flex justify-start md:justify-end">
-                <Button 
-                  asChild 
-                  size="lg" 
+                <Button
+                  asChild
+                  size="lg"
                   className="rounded-2xl font-semibold px-8 shadow-sm hover:shadow-md transition-all duration-300 group bg-black text-white hover:bg-black/90 dark:bg-white dark:text-black dark:hover:bg-white/90"
                 >
                   <a href="https://docs.agentflox.com" target="_blank" rel="noopener noreferrer">

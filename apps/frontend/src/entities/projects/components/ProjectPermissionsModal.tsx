@@ -62,7 +62,7 @@ export function ProjectPermissionsModal({ workspaceId, projectId, open, onOpenCh
         if (project) {
             const publicAccess = project.visibility === "MEMBERS" || project.visibility === "PUBLIC";
             setIsPublic(publicAccess);
-            setAllowAdminsToManage(project.visibility === "OWNERS_ADMINS");
+            setAllowAdminsToManage(project.visibility === "ADMINS");
 
             setExpandedSections(prev => ({
                 ...prev,
@@ -80,12 +80,12 @@ export function ProjectPermissionsModal({ workspaceId, projectId, open, onOpenCh
     const handleVisibilityToggle = async (checked: boolean) => {
         if (!projectId) return;
         setIsUpdating(true);
-        const newVisibility = checked ? "MEMBERS" : "OWNERS_ONLY";
+        const newVisibility = checked ? "MEMBERS" : "PRIVATE";
 
         try {
             await updateProject.mutateAsync({
                 id: projectId,
-                visibility: newVisibility as "MEMBERS" | "OWNERS_ONLY" | "OWNERS_ADMINS" | "PUBLIC"
+                visibility: newVisibility as "MEMBERS" | "PRIVATE" | "ADMINS" | "EVERYONE" | "PUBLIC"
             });
 
             setIsPublic(checked);
@@ -105,12 +105,12 @@ export function ProjectPermissionsModal({ workspaceId, projectId, open, onOpenCh
     const handleAdminToggle = async (checked: boolean) => {
         if (!projectId) return;
         setIsUpdating(true);
-        const newVisibility = checked ? "OWNERS_ADMINS" : "OWNERS_ONLY";
+        const newVisibility = checked ? "ADMINS" : "PRIVATE";
 
         try {
             await updateProject.mutateAsync({
                 id: projectId,
-                visibility: newVisibility as "MEMBERS" | "OWNERS_ONLY" | "OWNERS_ADMINS" | "PUBLIC"
+                visibility: newVisibility as "MEMBERS" | "PRIVATE" | "ADMINS" | "EVERYONE" | "PUBLIC"
             });
 
             setAllowAdminsToManage(checked);
@@ -221,7 +221,7 @@ export function ProjectPermissionsModal({ workspaceId, projectId, open, onOpenCh
                         {project && (
                             <div className="flex items-center gap-2 text-sm text-slate-500">
                                 <span>Sharing Project with all views</span>
-                                {project.visibility === "OWNERS_ONLY" ? <Lock className="h-3 w-3" /> : <Globe className="h-3 w-3" />}
+                                {project.visibility === "PRIVATE" ? <Lock className="h-3 w-3" /> : <Globe className="h-3 w-3" />}
                                 <span className="font-medium text-slate-700">{project.name}</span>
                             </div>
                         )}
@@ -240,27 +240,25 @@ export function ProjectPermissionsModal({ workspaceId, projectId, open, onOpenCh
                         <div className="p-6">
                             {/* Search */}
                             <div className="relative mb-6">
-                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                                <Input
-                                    placeholder="Share by name or email"
-                                    value={searchQuery}
-                                    onChange={(e) => setSearchQuery(e.target.value)}
-                                    onFocus={() => setIsSearching(true)}
-                                    className="pl-9 pr-9 h-10 bg-slate-50 border-slate-200 focus-visible:ring-offset-0 focus-visible:ring-1 focus-visible:ring-blue-500 rounded-lg"
-                                />
-                                {isSearching && (
-                                    <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 text-slate-400 hover:text-slate-600 rounded-full"
-                                        onClick={() => {
-                                            setSearchQuery("");
-                                            setIsSearching(false);
-                                        }}
-                                    >
-                                        <X className="h-4 w-4" />
-                                    </Button>
-                                )}
+                                <div className="flex h-9 items-center rounded-md border border-zinc-200 bg-white px-3 shadow-sm transition-colors focus-within:border-indigo-500">
+                                    <Search className="h-4 w-4 shrink-0 text-zinc-400" />
+                                    <input
+                                        placeholder="Share by name or email"
+                                        value={searchQuery}
+                                        onChange={(e) => { setSearchQuery(e.target.value); setIsSearching(true); }}
+                                        onFocus={() => setIsSearching(true)}
+                                        className="flex-1 h-full bg-transparent pl-2 pr-0 text-sm outline-none border-none placeholder:text-zinc-400"
+                                    />
+                                    {isSearching && (
+                                        <button
+                                            type="button"
+                                            className="h-5 w-5 flex items-center justify-center text-slate-400 hover:text-slate-600 rounded-full"
+                                            onClick={() => { setSearchQuery(""); setIsSearching(false); }}
+                                        >
+                                            <X className="h-3.5 w-3.5" />
+                                        </button>
+                                    )}
+                                </div>
                             </div>
 
                             <div className="space-y-6">

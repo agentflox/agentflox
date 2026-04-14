@@ -36,6 +36,7 @@ import { trpc } from "@/lib/trpc";
 import { EntityRenameDialog } from "../modals/EntityRenameDialog";
 import { ShareModal } from "@/components/permissions/ShareModal";
 import { ListCreationModal } from "@/entities/task/components/ListCreationModal";
+import { TemplateMenuPopover } from "@/entities/templates/components/TemplateMenuPopover";
 
 interface FolderActionsMenuProps {
     workspaceId: string;
@@ -122,6 +123,19 @@ export function FolderActionsMenu({
                     <DropdownMenuItem onClick={handleCopyLink}>
                         <Copy className="mr-2 h-4 w-4" /> Copy Link
                     </DropdownMenuItem>
+
+                    <TemplateMenuPopover
+                        entityType="FOLDER"
+                        workspaceId={workspaceId}
+                        contentToSave={{
+                            id: folderId,
+                            workspaceId,
+                            spaceId,
+                            folderId,
+                            name: folderName,
+                        }}
+                        triggerClassName="text-sm"
+                    />
 
                     <DropdownMenuSub>
                         <DropdownMenuSubTrigger>

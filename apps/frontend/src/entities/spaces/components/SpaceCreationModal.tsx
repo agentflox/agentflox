@@ -32,12 +32,12 @@ interface CreateSpaceModalProps {
 const VISIBILITY_OPTIONS = [
 	{
 		label: "Only Owners",
-		value: "OWNERS_ONLY",
+		value: "PRIVATE",
 		description: "Only space owners can view and edit"
 	},
 	{
 		label: "Owners & Admins",
-		value: "OWNERS_ADMINS",
+		value: "ADMINS",
 		description: "Owners and admins can view and edit"
 	},
 	{
@@ -59,7 +59,7 @@ export function SpaceCreationModal({ workspaceId, open, onOpenChange, onSuccess,
 	const [icon, setIcon] = useState("");
 	const [hasManualIcon, setHasManualIcon] = useState(false);
 	const [color, setColor] = useState("#3B82F6");
-	const [visibility, setVisibility] = useState<"OWNERS_ONLY" | "OWNERS_ADMINS" | "MEMBERS" | "PUBLIC">("OWNERS_ONLY");
+	const [visibility, setVisibility] = useState<"PRIVATE" | "ADMINS" | "MEMBERS" | "EVERYONE" | "PUBLIC">("ADMINS");
 	const [focusedField, setFocusedField] = useState<"name" | "description" | null>(null);
 	const router = useRouter();
 	const { toast } = useToast();
@@ -75,7 +75,7 @@ export function SpaceCreationModal({ workspaceId, open, onOpenChange, onSuccess,
 			setIcon(initialName?.charAt(0).toUpperCase() || "S");
 			setHasManualIcon(false);
 			setColor("#3B82F6");
-			setVisibility("OWNERS_ONLY");
+			setVisibility("ADMINS");
 		}
 	}, [open, initialName, workspaceId]);
 
@@ -146,7 +146,7 @@ export function SpaceCreationModal({ workspaceId, open, onOpenChange, onSuccess,
 			setIcon("");
 			setHasManualIcon(false);
 			setColor("#3B82F6");
-			setVisibility("OWNERS_ONLY");
+			setVisibility("ADMINS");
 			onOpenChange(false);
 			if (onSuccess) {
 				onSuccess(data.id);

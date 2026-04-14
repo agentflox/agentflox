@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 type TaskScope = "owned" | "assigned" | "all";
 
 const TASK_STATUSES = ["OPEN", "IN_PROGRESS", "COMPLETED", "BLOCKED"] as const;
-const TASK_VISIBILITY = ["PRIVATE", "TEAM", "WORKSPACE", "PUBLIC"] as const;
+const TASK_VISIBILITY = ["PRIVATE", "ADMINS", "MEMBERS", "EVERYONE", "PUBLIC"] as const;
 
 type TaskFilters = {
 	statuses: string[];

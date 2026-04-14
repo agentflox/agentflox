@@ -77,8 +77,6 @@ model User {
   activityLogs                   ActivityLog[]
   agentAuditLogs                 AgentAuditLog[]
   agentCollaborators             AgentCollaborator[]
-  agentFeedback                  AgentFeedback[]
-  agentTemplates                 AgentTemplate[]
   aiAgents                       AiAgent[]
   aiConversationFeedback         AiConversationFeedback[]
   sharedConversations            AiConversationShare[]      @relation("SharedBy")
@@ -115,6 +113,15 @@ model User {
   marketplaceApplications        MarketplaceApplication[]   @relation("marketplaceApplications")
   marketplaceListings            MarketplaceListing[]       @relation("marketplaceListings")
   earnings                       Earning[]                  @relation("userEarnings")
+  listingRatings                 ListingRating[]            @relation("listingRatingsGiven")
+  listingRatingsModerator        ListingRating[]            @relation("listingRatingsModerator")
+  listingRatingVotes             ListingRatingVote[]        @relation("listingRatingVotes")
+  listingComments                ListingComment[]           @relation("listingCommentsGiven")
+  listingCommentsModerator       ListingComment[]           @relation("listingCommentsModerator")
+  listingCommentVotes            ListingCommentVote[]       @relation("listingCommentVotes")
+  listingLikes                   ListingLike[]              @relation("listingLikesGiven")
+  listingDownloads               ListingDownload[]          @relation("listingDownloadsUser")
+  listingVersions                ListingVersion[]           @relation("listingVersionsUser")
   materialPurchases              MaterialPurchase[]         @relation("MaterialPurchasesBuyer")
   ownedMaterials                 Material[]                 @relation("MaterialOwner")
   memberProfile                  MemberProfile?
@@ -165,39 +172,41 @@ model User {
   taskAssignees                  TaskAssignee[]             @relation("TaskAssigneesUser")
   taskAttachments                TaskAttachment[]
   taskComments                   TaskComment[]
-  taskPermissionsGranted         TaskPermission[]           @relation("TaskPermissionGranter")
-  taskPermissions                TaskPermission[]           @relation("UserTaskPermissions")
-  taskWatchers                   TaskWatcher[]
-  tasksCreated                   Task[]                     @relation("TaskCreator")
-  teamComments                   TeamComment[]
-  teamLikes                      TeamLike[]
-  teamMemberships                TeamMember[]               @relation("TeamMemberUser")
-  ownedTeams                     Team[]                     @relation("TeamOwner")
-  templatesCreated               Template[]
-  timeEntries                    TimeEntry[]
-  ownedTools                     Tool[]                     @relation("ToolOwner")
-  usages                         Usage[]                    @relation("userUsages")
-  activities                     UserActivity[]
-  commentsReceived               UserComment[]              @relation("UserCommentsReceived")
-  commentsGiven                  UserComment[]              @relation("UserCommentsGiven")
-  interests                      UserInterest[]
-  likesReceived                  UserLike[]                 @relation("UserLikesReceived")
-  likesGiven                     UserLike[]                 @relation("UserLikesGiven")
-  quota                          UserQuota?
-  settings                       UserSettings?
-  skills                         UserSkill[]
-  vectorEmbeddings               VectorEmbedding[]
-  verificationRequests           VerificationRequest[]
-  viewShares                     ViewShare[]
-  viewsCreated                   View[]
-  webhooksCreated                Webhook[]
-  workspaceActivities            WorkspaceActivity[]
-  invitedGuests                  WorkspaceGuest[]           @relation("GuestInviter")
-  guestMemberships               WorkspaceGuest[]           @relation("UserGuestWorkspaces")
-  workspaceMemberships           WorkspaceMember[]          @relation("WorkspaceMemberUser")
-  ownedWorkspaces                Workspace[]                @relation("WorkspaceOwner")
 
-  workforces Workforce[]
+  taskWatchers         TaskWatcher[]
+  tasksCreated         Task[]                @relation("TaskCreator")
+  teamComments         TeamComment[]
+  teamLikes            TeamLike[]
+  teamMemberships      TeamMember[]          @relation("TeamMemberUser")
+  ownedTeams           Team[]                @relation("TeamOwner")
+  templatesCreated     Template[]
+  templateVersions     TemplateVersion[]
+  templateAuditLogs    TemplateAuditLog[]
+  timeEntries          TimeEntry[]
+  ownedTools           Tool[]                @relation("ToolOwner")
+  usages               Usage[]               @relation("userUsages")
+  activities           UserActivity[]
+  commentsReceived     UserComment[]         @relation("UserCommentsReceived")
+  commentsGiven        UserComment[]         @relation("UserCommentsGiven")
+  interests            UserInterest[]
+  likesReceived        UserLike[]            @relation("UserLikesReceived")
+  likesGiven           UserLike[]            @relation("UserLikesGiven")
+  quota                UserQuota?
+  settings             UserSettings?
+  skills               UserSkill[]
+  vectorEmbeddings     VectorEmbedding[]
+  verificationRequests VerificationRequest[]
+  viewShares           ViewShare[]
+  viewsCreated         View[]
+  webhooksCreated      Webhook[]
+  workspaceActivities  WorkspaceActivity[]
+  invitedGuests        WorkspaceGuest[]      @relation("GuestInviter")
+  guestMemberships     WorkspaceGuest[]      @relation("UserGuestWorkspaces")
+  workspaceMemberships WorkspaceMember[]     @relation("WorkspaceMemberUser")
+  ownedWorkspaces      Workspace[]           @relation("WorkspaceOwner")
+
+  workforces     Workforce[]
+  agentFeedbacks AgentFeedback[]
 
   @@map("users")
 }
@@ -221,6 +230,7 @@ model Organization {
   projects    Project[]
   teams       Team[]
   workspaces  Workspace[]
+  templates   Template[]
 
   @@map("organizations")
 }
@@ -275,7 +285,6 @@ model Workspace {
   slug                  String?                @unique
   storageLimit          BigInt?                @map("storage_limit")
   storageUsed           BigInt                 @default(0) @map("storage_used")
-  agentTemplates        AgentTemplate[]
   aiAgents              AiAgent[]
   agentWorkflows        AgentWorkflow[]
   aiConversations       AiConversation[]       @relation("WorkspaceConversations")
@@ -382,7 +391,7 @@ model Space {
   embeddingUpdatedAt DateTime?              @map("embedding_updated_at")
   icon               String?
   color              String?
-  visibility         Visibility             @default(OWNERS_ADMINS)
+  visibility         Visibility             @default(ADMINS)
   settings           Json?
   aiAgents           AiAgent[]
   aiConversations    AiConversation[]       @relation("SpaceConversations")
@@ -403,7 +412,7 @@ model Space {
   teams              Team[]
   tools              Tool[]
   views              View[]
-  workforces          Workforce[]
+  workforces         Workforce[]
 
   @@index([workspaceId])
   @@index([isActive])
@@ -452,7 +461,7 @@ model Task {
   description         String?
   assigneeId          String?            @map("assignee_id")
   createdBy           String             @map("created_by")
-  visibility          Visibility         @default(OWNERS_ADMINS)
+  visibility          Visibility         @default(ADMINS)
   isPublic            Boolean            @default(false) @map("is_public")
   proposalId          String?            @unique @map("proposal_id")
   priority            TaskPriority       @default(NORMAL)
@@ -481,21 +490,21 @@ model Task {
   comments            TaskComment[]
   blockedDependencies TaskDependency[]   @relation("BlockingTask")
   dependencies        TaskDependency[]   @relation("DependentTask")
-  taskPermissions     TaskPermission[]   @relation("TaskPermissions")
-  watchers            TaskWatcher[]
-  channel             Channel?           @relation(fields: [channelId], references: [id])
-  creator             User               @relation("TaskCreator", fields: [createdBy], references: [id], onDelete: Cascade)
-  list                List?              @relation(fields: [listId], references: [id])
-  tasks               Task?              @relation("tasksTotasks", fields: [parentId], references: [id], onDelete: Cascade)
-  other_tasks         Task[]             @relation("tasksTotasks")
-  project             Project?           @relation(fields: [projectId], references: [id])
-  proposal            Proposal?          @relation(fields: [proposalId], references: [id])
-  space               Space?             @relation(fields: [spaceId], references: [id])
-  status              TaskStatus?        @relation(fields: [statusId], references: [id])
-  taskType            TaskType?          @relation(fields: [taskTypeId], references: [id])
-  team                Team?              @relation(fields: [teamId], references: [id])
-  workspace           Workspace?         @relation(fields: [workspaceId], references: [id])
-  timeEntries         TimeEntry[]
+
+  watchers    TaskWatcher[]
+  channel     Channel?      @relation(fields: [channelId], references: [id])
+  creator     User          @relation("TaskCreator", fields: [createdBy], references: [id], onDelete: Cascade)
+  list        List?         @relation(fields: [listId], references: [id])
+  tasks       Task?         @relation("tasksTotasks", fields: [parentId], references: [id], onDelete: Cascade)
+  other_tasks Task[]        @relation("tasksTotasks")
+  project     Project?      @relation(fields: [projectId], references: [id])
+  proposal    Proposal?     @relation(fields: [proposalId], references: [id])
+  space       Space?        @relation(fields: [spaceId], references: [id])
+  status      TaskStatus?   @relation(fields: [statusId], references: [id])
+  taskType    TaskType?     @relation(fields: [taskTypeId], references: [id])
+  team        Team?         @relation(fields: [teamId], references: [id])
+  workspace   Workspace?    @relation(fields: [workspaceId], references: [id])
+  timeEntries TimeEntry[]
 
   @@index([workspaceId])
   @@index([listId])
@@ -545,32 +554,33 @@ model TaskType {
 
 model TaskStatus {
   id          String     @id @default(cuid())
-  listId      String     @map("list_id")
+  listId      String?    @map("list_id")
   workspaceId String?    @map("workspace_id")
   spaceId     String?    @map("space_id")
   projectId   String?    @map("project_id")
   teamId      String?    @map("team_id")
   folderId    String?    @map("folder_id")
+  isSystem    Boolean    @default(false) @map("is_system")
   name        String
   color       String     @default("#94A3B8")
   position    Int        @default(0)
   type        StatusType @default(CUSTOM)
   createdAt   DateTime   @default(now()) @map("created_at")
   folder      Folder?    @relation(fields: [folderId], references: [id], onDelete: Cascade)
-  list        List       @relation(fields: [listId], references: [id], onDelete: Cascade)
+  list        List?      @relation(fields: [listId], references: [id], onDelete: Cascade)
   project     Project?   @relation(fields: [projectId], references: [id], onDelete: Cascade)
   space       Space?     @relation(fields: [spaceId], references: [id], onDelete: Cascade)
   team        Team?      @relation(fields: [teamId], references: [id], onDelete: Cascade)
   workspace   Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   tasks       Task[]
 
-  @@unique([workspaceId, name])
   @@index([listId])
   @@index([folderId])
   @@index([workspaceId])
   @@index([spaceId])
   @@index([projectId])
   @@index([teamId])
+  @@index([isSystem])
   @@map("task_statuses")
 }
 
@@ -854,38 +864,39 @@ model List {
 }
 
 model View {
-  id          String      @id @default(cuid())
-  listId      String?     @map("list_id")
-  folderId    String?     @map("folder_id")
-  workspaceId String?     @map("workspace_id")
-  spaceId     String?     @map("space_id")
-  projectId   String?     @map("project_id")
-  teamId      String?     @map("team_id")
-  createdBy   String      @map("created_by")
-  name        String
-  type        ViewType
-  description String?
-  config      Json?
-  filters     Json?
-  grouping    Json?
-  sorting     Json?
-  columns     Json?
-  isDefault   Boolean     @default(false) @map("is_default")
-  isShared    Boolean     @default(false) @map("is_shared")
-  isPrivate   Boolean     @default(false) @map("is_private")
-  isPinned    Boolean     @default(false) @map("is_pinned")
-  isLocked    Boolean     @default(false) @map("is_locked")
-  isAutosave  Boolean     @default(false) @map("is_autosave")
-  position    Int         @default(0)
-  createdAt   DateTime    @default(now()) @map("created_at")
-  updatedAt   DateTime    @updatedAt @map("updated_at")
-  shares      ViewShare[]
-  creator     User        @relation(fields: [createdBy], references: [id], onDelete: Cascade)
-  folder      Folder?     @relation(fields: [folderId], references: [id], onDelete: Cascade)
-  list        List?       @relation(fields: [listId], references: [id], onDelete: Cascade)
-  project     Project?    @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  space       Space?      @relation(fields: [spaceId], references: [id], onDelete: Cascade)
-  team        Team?       @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  id            String         @id @default(cuid())
+  listId        String?        @map("list_id")
+  folderId      String?        @map("folder_id")
+  workspaceId   String?        @map("workspace_id")
+  spaceId       String?        @map("space_id")
+  projectId     String?        @map("project_id")
+  teamId        String?        @map("team_id")
+  createdBy     String         @map("created_by")
+  name          String
+  type          ViewType
+  description   String?
+  config        Json?
+  filters       Json?
+  grouping      Json?
+  sorting       Json?
+  columns       Json?
+  isDefault     Boolean        @default(false) @map("is_default")
+  isShared      Boolean        @default(false) @map("is_shared")
+  isPrivate     Boolean        @default(false) @map("is_private")
+  isPinned      Boolean        @default(false) @map("is_pinned")
+  isLocked      Boolean        @default(false) @map("is_locked")
+  visibility    Visibility     @default(ADMINS)
+  isAutosave    Boolean        @default(false) @map("is_autosave")
+  position      Int            @default(0)
+  createdAt     DateTime       @default(now()) @map("created_at")
+  updatedAt     DateTime       @updatedAt @map("updated_at")
+  shares        ViewShare[]
+  creator       User           @relation(fields: [createdBy], references: [id], onDelete: Cascade)
+  folder        Folder?        @relation(fields: [folderId], references: [id], onDelete: Cascade)
+  list          List?          @relation(fields: [listId], references: [id], onDelete: Cascade)
+  project       Project?       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  space         Space?         @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  team          Team?          @relation(fields: [teamId], references: [id], onDelete: Cascade)
   formResponses FormResponse[]
 
   @@index([listId])
@@ -1066,27 +1077,6 @@ model DocumentCollaborator {
   @@unique([documentId, userId])
   @@index([userId])
   @@map("document_collaborators")
-}
-
-model Template {
-  id          String       @id @default(cuid())
-  workspaceId String       @map("workspace_id")
-  createdBy   String       @map("created_by")
-  name        String
-  description String?
-  category    String
-  type        TemplateType
-  content     Json
-  isPublic    Boolean      @default(false) @map("is_public")
-  useCount    Int          @default(0) @map("use_count")
-  createdAt   DateTime     @default(now()) @map("created_at")
-  updatedAt   DateTime     @updatedAt @map("updated_at")
-  creator     User         @relation(fields: [createdBy], references: [id], onDelete: Cascade)
-  workspace   Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-
-  @@index([workspaceId])
-  @@index([category])
-  @@map("templates")
 }
 
 model Channel {
@@ -1401,75 +1391,361 @@ model MarketplaceService {
 }
 
 model MarketplaceOrder {
-  id        String             @id @default(cuid())
-  serviceId String             @map("service_id")
-  projectId String             @map("project_id")
-  buyerId        String             @map("buyer_id")
-  status         String             @default("PENDING")
+  id             String              @id @default(cuid())
+  serviceId      String              @map("service_id")
+  projectId      String              @map("project_id")
+  buyerId        String              @map("buyer_id")
+  status         String              @default("PENDING")
   creditAmount   Int
-  stripeIntentId String?            @map("stripe_intent_id")
-  listingId      String?            @map("listing_id")
-  createdAt DateTime           @default(now())
-  buyer     User               @relation(fields: [buyerId], references: [id])
-  project   Project            @relation(fields: [projectId], references: [id])
-  service   MarketplaceService @relation(fields: [serviceId], references: [id])
-  listing   MarketplaceListing? @relation("listingOrders", fields: [listingId], references: [id])
+  stripeIntentId String?             @map("stripe_intent_id")
+  listingId      String?             @map("listing_id")
+  createdAt      DateTime            @default(now())
+  buyer          User                @relation(fields: [buyerId], references: [id])
+  project        Project             @relation(fields: [projectId], references: [id])
+  service        MarketplaceService  @relation(fields: [serviceId], references: [id])
+  listing        MarketplaceListing? @relation("listingOrders", fields: [listingId], references: [id])
 
   @@map("marketplace_orders")
 }
 
 model MarketplaceApplication {
-  id                 String   @id @default(cuid())
-  listingId          String   @map("listing_id")
-  applicantId        String   @map("applicant_id")
+  id                 String             @id @default(cuid())
+  listingId          String             @map("listing_id")
+  applicantId        String             @map("applicant_id")
   pitch              String
-  targetRate         String?  @map("target_rate")
-  estimatedDuration  String?  @map("estimated_duration")
-  provisioningStatus String   @default("pending") @map("provisioning_status")
-  createdAt          DateTime @default(now())
-  applicant          User     @relation("marketplaceApplications", fields: [applicantId], references: [id])
+  targetRate         String?            @map("target_rate")
+  estimatedDuration  String?            @map("estimated_duration")
+  provisioningStatus String             @default("pending") @map("provisioning_status")
+  createdAt          DateTime           @default(now())
+  applicant          User               @relation("marketplaceApplications", fields: [applicantId], references: [id])
   listing            MarketplaceListing @relation("listingApplications", fields: [listingId], references: [id])
 
   @@map("marketplace_applications")
 }
 
+/// A published item in the marketplace (template, agent, tool, task, talent, team, project).
 model MarketplaceListing {
-  id             String      @id @default(cuid())
-  type           String      // "task", "project", "agent", "tool", "template", "talent", "team"
-  status         String      // "active", "paused", "closed", "expired"
-  title          String
-  description    String
-  authorId       String      @map("author_id")
-  createdAt      DateTime    @default(now()) @map("created_at")
-  isFree         Boolean     @default(true) @map("is_free")
-  priceCredits   Int?        @map("price_credits")
-  skills         String[]    @default([])
-  budgetMin      Int?        @map("budget_min")
-  budgetMax      Int?        @map("budget_max")
-  budgetCurrency String?     @map("budget_currency")
-  location       String?
-  isRemote       Boolean     @default(false) @map("is_remote")
-  version        String?     @default("1.0.0")
+  // ─── Identity ───────────────────────────────────────────────────────────────
+  id          String              @id @default(cuid())
+  slug        String              @unique // SEO-friendly URL slug
+  type        ListingType
+  status      ListingStatus       @default(DRAFT)
 
-  author         User                     @relation("marketplaceListings", fields: [authorId], references: [id])
-  applications   MarketplaceApplication[] @relation("listingApplications")
-  orders         MarketplaceOrder[]       @relation("listingOrders")
-  earnings       Earning[]                @relation("listingEarnings")
+  // ─── Content ────────────────────────────────────────────────────────────────
+  title           String
+  shortDesc       String?          @map("short_desc")   // ~160 char tagline for cards
+  description     String           // Rich markdown/HTML body
+  changelog       String?          // Markdown release notes
+  coverImage      String?          @map("cover_image")
+  previewImages   String[]         @default([]) @map("preview_images")
+  demoUrl         String?          @map("demo_url")
+  repoUrl         String?          @map("repo_url")
+  documentationUrl String?         @map("documentation_url")
 
+  // ─── Classification ─────────────────────────────────────────────────────────
+  category    String?              // primary category slug
+  subcategory String?              // secondary category slug
+  tags        String[]  @default([])
+  skills      String[]  @default([])
+  industry    String[]  @default([])
+
+  // ─── Authorship ─────────────────────────────────────────────────────────────
+  authorId    String               @map("author_id")
+
+  // ─── Pricing ────────────────────────────────────────────────────────────────
+  isFree         Boolean  @default(true)  @map("is_free")
+  priceCredits   Int?                     @map("price_credits")   // credits if paid
+  pricingModel   String?                  @map("pricing_model")   // "one_time"|"subscription"|"usage"
+  licenseType    ListingLicenseType       @default(PROPRIETARY)   @map("license_type")
+  budgetMin      Int?                     @map("budget_min")      // for talent/task types
+  budgetMax      Int?                     @map("budget_max")
+  budgetCurrency String?                  @map("budget_currency")
+
+  // ─── Discovery flags ────────────────────────────────────────────────────────
+  isRemote    Boolean  @default(false)  @map("is_remote")
+  location    String?
+  isFeatured  Boolean  @default(false)  @map("is_featured")
+  isVerified  Boolean  @default(false)  @map("is_verified")   // staff/badge verified
+  isBoosted   Boolean  @default(false)  @map("is_boosted")    // paid promotion
+  boostExpiresAt DateTime?              @map("boost_expires_at")
+
+  // ─── Versioning ─────────────────────────────────────────────────────────────
+  version       String?  @default("1.0.0")
+  latestVersionId String? @map("latest_version_id")  // FK resolved in versions relation
+
+  // ─── Permissions ────────────────────────────────────────────────────────────
+  allowClone       Boolean @default(true)  @map("allow_clone")
+  allowFork        Boolean @default(false) @map("allow_fork")
+  allowRepublish   Boolean @default(false) @map("allow_republish")
+  requireAttribution Boolean @default(true) @map("require_attribution")
+
+  // ─── Counters (denormalised for fast reads) ──────────────────────────────────
+  viewCount      Int   @default(0) @map("view_count")
+  likeCount      Int   @default(0) @map("like_count")
+  commentCount   Int   @default(0) @map("comment_count")
+  downloadCount  Int   @default(0) @map("download_count")
+  cloneCount     Int   @default(0) @map("clone_count")
+  installCount   Int   @default(0) @map("install_count")
+  orderCount     Int   @default(0) @map("order_count")
+  // Rating counters
+  ratingAvg      Float @default(0) @map("rating_avg")    // 0.0 – 5.0
+  ratingCount    Int   @default(0) @map("rating_count")
+  rating1Count   Int   @default(0) @map("rating_1_count") // histogram buckets
+  rating2Count   Int   @default(0) @map("rating_2_count")
+  rating3Count   Int   @default(0) @map("rating_3_count")
+  rating4Count   Int   @default(0) @map("rating_4_count")
+  rating5Count   Int   @default(0) @map("rating_5_count")
+
+  // ─── Timestamps ─────────────────────────────────────────────────────────────
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt      @map("updated_at")
+  publishedAt   DateTime?               @map("published_at")
+  featuredAt    DateTime?               @map("featured_at")
+  archivedAt    DateTime?               @map("archived_at")
+  lastActivityAt DateTime?              @map("last_activity_at")
+
+  // ─── Relations ──────────────────────────────────────────────────────────────
+  author       User                     @relation("marketplaceListings", fields: [authorId], references: [id])
+  applications MarketplaceApplication[] @relation("listingApplications")
+  orders       MarketplaceOrder[]       @relation("listingOrders")
+  earnings     Earning[]                @relation("listingEarnings")
+  ratings      ListingRating[]          @relation("listingRatings")
+  comments     ListingComment[]         @relation("listingComments")
+  likes        ListingLike[]            @relation("listingLikes")
+  downloads    ListingDownload[]        @relation("listingDownloads")
+  versions     ListingVersion[]         @relation("listingVersions")
+
+  // ─── Indexes ────────────────────────────────────────────────────────────────
+  @@index([slug])
+  @@index([type, status])
+  @@index([category, subcategory])
+  @@index([authorId])
+  @@index([isFeatured, status])
+  @@index([isBoosted, boostExpiresAt])
+  @@index([ratingAvg, ratingCount])
+  @@index([downloadCount])
+  @@index([likeCount])
+  @@index([publishedAt])
+  @@index([createdAt])
   @@map("marketplace_listings")
 }
 
-model Earning {
-  id             String   @id @default(cuid())
-  userId         String   @map("user_id")
-  listingId      String?  @map("listing_id")
-  amountCredits  Int      @map("amount_credits")
-  reason         String   // e.g. "Asset Sale", "Task Completion"
-  status         String   @default("CLEARED") // "PENDING", "CLEARED"
-  createdAt      DateTime @default(now()) @map("created_at")
+// ───────────────────────────────────────────────────────────────────────────────
+// Listing Rating  (one per user per listing, with vote-on-review support)
+// ───────────────────────────────────────────────────────────────────────────────
 
-  user           User                @relation("userEarnings", fields: [userId], references: [id])
-  listing        MarketplaceListing? @relation("listingEarnings", fields: [listingId], references: [id])
+/// A star rating (1–5) with an optional written review left by a buyer.
+model ListingRating {
+  id                 String                 @id @default(cuid())
+  listingId          String                 @map("listing_id")
+  userId             String                 @map("user_id")
+  // Rating core
+  rating             Int                    // 1 – 5
+  title              String?                // review headline
+  body               String?                // full review body
+  // Quality signals
+  isVerifiedPurchase Boolean @default(false) @map("is_verified_purchase")
+  helpfulCount       Int     @default(0)     @map("helpful_count")     // number of "helpful" votes
+  notHelpfulCount    Int     @default(0)     @map("not_helpful_count")
+  // Moderation
+  moderationStatus   ListingModerationStatus @default(APPROVED) @map("moderation_status")
+  moderatedBy        String?                 @map("moderated_by")
+  moderatedAt        DateTime?               @map("moderated_at")
+  moderationNote     String?                 @map("moderation_note")
+  // Edit tracking
+  isEdited           Boolean  @default(false) @map("is_edited")
+  editedAt           DateTime?               @map("edited_at")
+  // Timestamps
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt      @map("updated_at")
+
+  listing    MarketplaceListing  @relation("listingRatings",    fields: [listingId], references: [id], onDelete: Cascade)
+  user       User                @relation("listingRatingsGiven", fields: [userId],   references: [id], onDelete: Cascade)
+  moderator  User?               @relation("listingRatingsModerator", fields: [moderatedBy], references: [id])
+  votes      ListingRatingVote[] @relation("ratingVotes")
+
+  @@unique([listingId, userId])    // one rating per user per listing
+  @@index([listingId, moderationStatus])
+  @@index([userId])
+  @@index([rating])
+  @@index([helpfulCount])
+  @@index([createdAt])
+  @@map("listing_ratings")
+}
+
+/// Helpful / not-helpful vote on a review (like Amazon reviews).
+model ListingRatingVote {
+  id        String          @id @default(cuid())
+  ratingId  String          @map("rating_id")
+  userId    String          @map("user_id")
+  isHelpful Boolean         @map("is_helpful")  // true = helpful, false = not helpful
+  createdAt DateTime        @default(now()) @map("created_at")
+
+  rating    ListingRating   @relation("ratingVotes", fields: [ratingId], references: [id], onDelete: Cascade)
+  user      User            @relation("listingRatingVotes", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([ratingId, userId])
+  @@index([userId])
+  @@map("listing_rating_votes")
+}
+
+// ───────────────────────────────────────────────────────────────────────────────
+// Listing Comment  (mirrors Post → PostComment → PostCommentVote pattern)
+// ───────────────────────────────────────────────────────────────────────────────
+
+/// Threaded comment + Q&A on a marketplace listing.
+model ListingComment {
+  id           String                  @id @default(cuid())
+  listingId    String                  @map("listing_id")
+  userId       String                  @map("user_id")
+  parentId     String?                 @map("parent_id")  // null = top-level thread
+  content      String
+  // Vote tallies (denormalised for fast display)
+  upvotes      Int     @default(0)
+  downvotes    Int     @default(0)
+  // Metadata
+  isPinned     Boolean @default(false) @map("is_pinned")   // author/staff can pin
+  isAuthorReply Boolean @default(false) @map("is_author_reply") // listing author reply
+  isEdited     Boolean @default(false) @map("is_edited")
+  editedAt     DateTime?               @map("edited_at")
+  // Soft-delete
+  deletedAt    DateTime?               @map("deleted_at")  // null = live
+  deletedBy    String?                 @map("deleted_by")
+  // Moderation
+  status       ListingCommentStatus    @default(VISIBLE)
+  moderatedBy  String?                 @map("moderated_by")
+  moderatedAt  DateTime?               @map("moderated_at")
+  // Timestamps
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt      @map("updated_at")
+
+  listing    MarketplaceListing    @relation("listingComments", fields: [listingId], references: [id], onDelete: Cascade)
+  user       User                  @relation("listingCommentsGiven", fields: [userId], references: [id], onDelete: Cascade)
+  moderator  User?                 @relation("listingCommentsModerator", fields: [moderatedBy], references: [id])
+  parent     ListingComment?       @relation("ListingCommentReplies", fields: [parentId], references: [id])
+  replies    ListingComment[]      @relation("ListingCommentReplies")
+  votes      ListingCommentVote[]  @relation("commentVotes")
+
+  @@index([listingId, status])
+  @@index([listingId, parentId])
+  @@index([userId])
+  @@index([parentId])
+  @@index([isPinned])
+  @@index([createdAt])
+  @@map("listing_comments")
+}
+
+/// Up/down vote on a listing comment (mirrors PostCommentVote).
+model ListingCommentVote {
+  id        String         @id @default(cuid())
+  commentId String         @map("comment_id")
+  userId    String         @map("user_id")
+  voteType  VoteType       @map("vote_type")  // reuses existing UPVOTE | DOWNVOTE enum
+  createdAt DateTime       @default(now()) @map("created_at")
+
+  comment   ListingComment @relation("commentVotes", fields: [commentId], references: [id], onDelete: Cascade)
+  user      User           @relation("listingCommentVotes", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([commentId, userId])
+  @@index([userId])
+  @@map("listing_comment_votes")
+}
+
+// ───────────────────────────────────────────────────────────────────────────────
+// Listing Like  (mirrors PostLike)
+// ───────────────────────────────────────────────────────────────────────────────
+
+/// A user "liking" / saving a listing (also acts as wishlist).
+model ListingLike {
+  id        String             @id @default(cuid())
+  listingId String             @map("listing_id")
+  userId    String             @map("user_id")
+  createdAt DateTime           @default(now()) @map("created_at")
+
+  listing   MarketplaceListing @relation("listingLikes", fields: [listingId], references: [id], onDelete: Cascade)
+  user      User               @relation("listingLikesGiven", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([listingId, userId])
+  @@index([userId])
+  @@index([createdAt])
+  @@map("listing_likes")
+}
+
+// ───────────────────────────────────────────────────────────────────────────────
+// Listing Download / Clone  (audit trail + counter source-of-truth)
+// ───────────────────────────────────────────────────────────────────────────────
+
+/// Records every download, clone, or install event for audit and analytics.
+model ListingDownload {
+  id          String             @id @default(cuid())
+  listingId   String             @map("listing_id")
+  userId      String?            @map("user_id")   // null = anonymous
+  versionId   String?            @map("version_id")
+  // Event kind: "download", "clone", "install", "fork"
+  eventType   String             @default("download") @map("event_type")
+  isPaid      Boolean            @default(false) @map("is_paid")  // credits exchanged?
+  orderId     String?            @map("order_id")  // FK to MarketplaceOrder if paid
+  // Request metadata
+  ipHash      String?            @map("ip_hash")   // hashed IP for abuse detection
+  userAgent   String?            @map("user_agent")
+  country     String?            // ISO 3166-1 alpha-2
+  createdAt   DateTime           @default(now()) @map("created_at")
+
+  listing     MarketplaceListing @relation("listingDownloads", fields: [listingId], references: [id], onDelete: Cascade)
+  user        User?              @relation("listingDownloadsUser", fields: [userId], references: [id])
+  version     ListingVersion?    @relation("versionDownloads", fields: [versionId], references: [id])
+
+  @@index([listingId, eventType])
+  @@index([userId])
+  @@index([createdAt])
+  @@index([country])
+  @@map("listing_downloads")
+}
+
+// ───────────────────────────────────────────────────────────────────────────────
+// Listing Version  (full changelog + file snapshots per semver)
+// ───────────────────────────────────────────────────────────────────────────────
+
+/// Immutable semantic version snapshot of a listing's published artifact.
+model ListingVersion {
+  id            String             @id @default(cuid())
+  listingId     String             @map("listing_id")
+  authorId      String             @map("author_id")
+  version       String             // semver string e.g. "2.3.1"
+  changelog     String?            // release notes for this version
+  artifactUrl   String?            @map("artifact_url")  // downloadable asset URL
+  artifactSize  Int?               @map("artifact_size") // bytes
+  artifactHash  String?            @map("artifact_hash") // SHA-256 for integrity
+  metadata      Json?              // arbitrary version-specific metadata
+  isLatest      Boolean            @default(false) @map("is_latest")
+  isDeprecated  Boolean            @default(false) @map("is_deprecated")
+  deprecatedAt  DateTime?          @map("deprecated_at")
+  deprecationNote String?          @map("deprecation_note")
+  downloadCount Int                @default(0) @map("download_count")
+  createdAt     DateTime           @default(now()) @map("created_at")
+
+  listing   MarketplaceListing @relation("listingVersions",  fields: [listingId], references: [id], onDelete: Cascade)
+  author    User               @relation("listingVersionsUser", fields: [authorId], references: [id])
+  downloads ListingDownload[]  @relation("versionDownloads")
+
+  @@unique([listingId, version])
+  @@index([listingId, isLatest])
+  @@index([authorId])
+  @@index([createdAt])
+  @@map("listing_versions")
+}
+
+model Earning {
+  id            String   @id @default(cuid())
+  userId        String   @map("user_id")
+  listingId     String?  @map("listing_id")
+  amountCredits Int      @map("amount_credits")
+  reason        String // e.g. "Asset Sale", "Task Completion"
+  status        String   @default("CLEARED") // "PENDING", "CLEARED"
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  user    User                @relation("userEarnings", fields: [userId], references: [id])
+  listing MarketplaceListing? @relation("listingEarnings", fields: [listingId], references: [id])
 
   @@map("earnings")
 }
@@ -1525,7 +1801,7 @@ model Project {
   isHiring           Boolean                    @default(false) @map("is_hiring")
   status             ProjectStatus              @default(DRAFT)
   isActive           Boolean                    @default(true) @map("is_active")
-  visibility         Visibility                 @default(OWNERS_ADMINS)
+  visibility         Visibility                 @default(ADMINS)
   isPublic           Boolean                    @default(true) @map("is_public")
   isFeatured         Boolean                    @default(false) @map("is_featured")
   location           String?
@@ -1815,7 +2091,8 @@ model Team {
   industry            String[]
   skills              String[]
   status              TeamStatus             @default(DRAFT)
-  visibility          Visibility             @default(OWNERS_ADMINS)
+  isPublic            Boolean                @default(false) @map("is_public")
+  visibility          Visibility             @default(ADMINS)
   isActive            Boolean                @default(true) @map("is_active")
   isHiring            Boolean                @default(false) @map("is_hiring")
   size                Int                    @default(1)
@@ -1845,20 +2122,20 @@ model Team {
   Requests            Request[]
   reviews             Review[]
   taskAssignees       TaskAssignee[]         @relation("TaskAssigneesTeam")
-  taskPermissions     TaskPermission[]       @relation("TeamTaskPermissions")
-  taskStatuses        TaskStatus[]
-  taskTypes           TaskType[]
-  tasks               Task[]
-  comments            TeamComment[]
-  likes               TeamLike[]
-  members             TeamMember[]           @relation("TeamMemberTeam")
-  department          Department?            @relation(fields: [departmentId], references: [id])
-  organization        Organization?          @relation(fields: [organizationId], references: [id])
-  owner               User                   @relation("TeamOwner", fields: [ownerId], references: [id], onDelete: Cascade)
-  space               Space?                 @relation(fields: [spaceId], references: [id])
-  workspace           Workspace?             @relation(fields: [workspaceId], references: [id])
-  viewShares          ViewShare[]
-  views               View[]
+
+  taskStatuses TaskStatus[]
+  taskTypes    TaskType[]
+  tasks        Task[]
+  comments     TeamComment[]
+  likes        TeamLike[]
+  members      TeamMember[]  @relation("TeamMemberTeam")
+  department   Department?   @relation(fields: [departmentId], references: [id])
+  organization Organization? @relation(fields: [organizationId], references: [id])
+  owner        User          @relation("TeamOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  space        Space?        @relation(fields: [spaceId], references: [id])
+  workspace    Workspace?    @relation(fields: [workspaceId], references: [id])
+  viewShares   ViewShare[]
+  views        View[]
 
   @@index([spaceId])
   @@map("teams")
@@ -2324,18 +2601,15 @@ model Proposal {
   projectId          String?                  @map("project_id")
   teamId             String?                  @map("team_id")
   title              String                   @db.VarChar(200)
-  shortSummary       String                   @db.VarChar(500)
-  detailedDesc       String
-  industry           String[]
-  keywords           String[]
+  description        String?                   @db.VarChar(500)
+  tags               String[]
   status             ProposalStatus           @default(DRAFT)
-  visibility         Visibility               @default(OWNERS_ADMINS)
+  visibility         Visibility               @default(ADMINS)
   featured           Boolean                  @default(false)
   views              Int                      @default(0)
   bookmarks          Int                      @default(0)
   slug               String?
   metaDescription    String?                  @db.VarChar(160)
-  tags               String[]
   language           String                   @default("en") @db.VarChar(5)
   currency           String                   @default("USD") @db.VarChar(3)
   timezone           String?                  @db.VarChar(50)
@@ -2351,14 +2625,8 @@ model Proposal {
   aiConversations    AiConversation[]
   attachments        Attachment[]
   budget             Budget?
-  cofounder          CoFounderProposal?
   contact            Contact?
-  customer           CustomerProposal?
-  investor           InvestorProposal?
   location           Location?
-  membership         MembershipProposal?
-  mentor             MentorProposal?
-  partner            PartnerProposal?
   comments           ProposalComment[]
   likes              ProposalLike[]
   project            Project?                 @relation(fields: [projectId], references: [id], onDelete: Cascade)
@@ -2368,7 +2636,6 @@ model Proposal {
   Requests           Request[]
   reviews            Review[]
   tasks              Task?
-  team               TeamProposal?
   timeline           Timeline?
 
   @@index([userId])
@@ -2397,7 +2664,7 @@ model Material {
   isForSale    Boolean            @default(false) @map("is_for_sale")
   thumbnailUrl String?            @map("thumbnail_url")
   status       MaterialStatus     @default(DRAFT)
-  visibility   Visibility         @default(OWNERS_ADMINS)
+  visibility   Visibility         @default(ADMINS)
   attachments  Attachment[]       @relation("MaterialAttachments")
   purchases    MaterialPurchase[]
   owner        User               @relation("MaterialOwner", fields: [ownerId], references: [id], onDelete: Cascade)
@@ -2440,7 +2707,7 @@ model Tool {
   thumbnailUrl String?      @map("thumbnail_url")
   fileUrl      String?
   status       ToolStatus   @default(DRAFT)
-  visibility   Visibility   @default(OWNERS_ADMINS)
+  visibility   Visibility   @default(ADMINS)
   attachments  Attachment[] @relation("ToolAttachments")
   owner        User         @relation("ToolOwner", fields: [ownerId], references: [id], onDelete: Cascade)
   space        Space?       @relation(fields: [spaceId], references: [id])
@@ -2563,196 +2830,6 @@ model Contact {
   proposal         Proposal      @relation(fields: [proposalId], references: [id], onDelete: Cascade)
 
   @@map("contacts")
-}
-
-model MembershipProposal {
-  id                  String              @id @default(cuid())
-  seekingOrOffering   MembershipDirection @map("seeking_or_offering")
-  roleTitle           String              @map("role_title") @db.VarChar(100)
-  department          String?             @db.VarChar(50)
-  customRole          String?             @map("custom_role") @db.VarChar(100)
-  keyResponsibilities String[]            @map("key_responsibilities")
-  requiredSkills      String[]            @map("required_skills")
-  preferredSkills     String[]            @map("preferred_skills")
-  experienceLevel     SeniorityLevel?     @map("experience_level")
-  yearsExperience     Int?                @map("years_experience")
-  compensationType    CompensationType?   @map("compensation_type")
-  salaryRange         Json?               @map("salary_range")
-  equityRange         Json?               @map("equity_range")
-  benefits            String[]
-  timeCommitment      Commitment?         @map("time_commitment")
-  hoursPerWeek        Int?                @map("hours_per_week")
-  startDate           DateTime?           @map("start_date")
-  duration            String?
-  workArrangement     WorkArrangement     @default(HYBRID) @map("work_arrangement")
-  whatOffered         String?             @map("what_offered")
-  whatExpected        String?             @map("what_expected")
-  projectStage        StartupStage?       @map("project_stage")
-  teamSize            Int?                @map("team_size")
-  companyValues       String[]            @map("company_values")
-  teamCulture         String?             @map("team_culture")
-  currentPosition     String?             @map("current_position")
-  portfolioUrl        String?             @map("portfolio_url")
-  availability        Availability?
-  permissions         Permission[]
-  decisionAuthority   String[]            @map("decision_authority")
-  proposalId          String              @unique @map("proposal_id")
-  proposal            Proposal            @relation(fields: [proposalId], references: [id], onDelete: Cascade)
-
-  @@map("membership_proposals")
-}
-
-model InvestorProposal {
-  id               String         @id @default(cuid())
-  fundingNeeded    Float?         @map("funding_needed")
-  fundingType      FundingType?   @map("funding_type")
-  stage            StartupStage?  @map("startup_stage")
-  currentRevenue   Float?         @map("current_revenue")
-  projectedRevenue Float?         @map("projected_revenue")
-  customers        Int?
-  monthlyUsers     Int?           @map("monthly_users")
-  growthRate       Float?         @map("growth_rate")
-  useOfFunds       String?        @map("use_of_funds")
-  keyMetrics       Json?          @map("key_metrics")
-  teamSize         Int?           @map("team_size")
-  foundedDate      DateTime?      @map("founded_date")
-  previousFunding  Float?         @map("previous_funding")
-  equityOffered    Float?         @map("equity_offered")
-  boardSeat        Boolean        @default(false) @map("board_seat")
-  expectedROI      Float?         @map("expected_roi")
-  exitStrategy     String?        @map("exit_strategy")
-  minInvestment    Float?         @map("min_investment")
-  maxInvestment    Float?         @map("max_investment")
-  investorKind     InvestorKind[] @map("investor_kind")
-  proposalId       String         @unique @map("proposal_id")
-  proposal         Proposal       @relation(fields: [proposalId], references: [id], onDelete: Cascade)
-
-  @@map("investor_proposals")
-}
-
-model MentorProposal {
-  id                 String             @id @default(cuid())
-  seekingOrOffering  MentorDirection    @map("seeking_or_offering")
-  guidanceAreas      String[]           @map("guidance_areas")
-  specificChallenges String?            @map("specific_challenges")
-  currentStage       StartupStage?      @map("current_stage")
-  preferredMentorBg  String[]           @map("preferred_mentor_bg")
-  expertiseAreas     String[]           @map("expertise_areas")
-  yearsExperience    Int?               @map("years_experience")
-  industriesServed   String[]           @map("industries_served")
-  successStories     String?            @map("success_stories")
-  menteesCriteria    String?            @map("mentees_criteria")
-  preferredEngage    EngagementType?    @map("preferred_engage")
-  sessionFrequency   String?            @map("session_frequency")
-  compensationExp    MentorCompensation @default(FREE) @map("compensation_exp")
-  proposalId         String             @unique @map("proposal_id")
-  proposal           Proposal           @relation(fields: [proposalId], references: [id], onDelete: Cascade)
-
-  @@map("mentor_proposals")
-}
-
-model TeamProposal {
-  id                String            @id @default(cuid())
-  hiringOrSeeking   TeamDirection     @map("hiring_or_seeking")
-  roleTitle         String            @map("role_title") @db.VarChar(100)
-  department        String?           @db.VarChar(50)
-  seniority         SeniorityLevel?   @map("seniority_level")
-  mustHaveSkills    String[]          @map("must_have_skills")
-  niceToHaveSkills  String[]          @map("nice_to_have_skills")
-  certifications    String[]
-  languagesRequired String[]          @map("languages_required")
-  workArrangement   WorkArrangement   @default(HYBRID) @map("work_arrangement")
-  compensation      CompensationType? @map("compensation_type")
-  salaryRange       Json?             @map("salary_range")
-  benefits          String[]
-  companySize       CompanySize?      @map("company_size")
-  companyStage      StartupStage?     @map("company_stage")
-  teamCulture       String?           @map("team_culture")
-  proposalId        String            @unique @map("proposal_id")
-  proposal          Proposal          @relation(fields: [proposalId], references: [id], onDelete: Cascade)
-
-  @@map("team_proposals")
-}
-
-model CoFounderProposal {
-  id                  String             @id @default(cuid())
-  seekingOrOffering   CofounderDirection @map("seeking_or_offering")
-  roleTitle           String             @map("role_title") @db.VarChar(100)
-  keyResponsibilities String[]           @map("key_responsibilities")
-  decisionAreas       String[]           @map("decision_areas")
-  equityOffered       Float?             @map("equity_offered")
-  equityExpected      Float?             @map("equity_expected")
-  vestingSchedule     String?            @map("vesting_schedule")
-  timeCommitment      String             @map("time_commitment")
-  requiredSkills      String[]           @map("required_skills")
-  preferredBackground String[]           @map("preferred_background")
-  mustHaveExperience  String[]           @map("must_have_experience")
-  personalityTraits   String[]           @map("personality_traits")
-  businessStage       StartupStage?      @map("business_stage")
-  currentTeamSize     Int?               @map("current_team_size")
-  businessModel       String?            @map("business_model")
-  targetMarket        String?            @map("target_market")
-  workStyle           String?            @map("work_style")
-  companyValues       String[]           @map("company_values")
-  conflictResolution  String?            @map("conflict_resolution")
-  proposalId          String             @unique @map("proposal_id")
-  proposal            Proposal           @relation(fields: [proposalId], references: [id], onDelete: Cascade)
-
-  @@map("cofounder_proposals")
-}
-
-model PartnerProposal {
-  id                  String               @id @default(cuid())
-  seekingOrOffering   PartnerDirection     @map("seeking_or_offering")
-  partnershipType     PartnershipType      @map("partnership_type")
-  valueOffered        String               @map("value_offered")
-  valueExpected       String               @map("value_expected")
-  mutualBenefits      String[]             @map("mutual_benefits")
-  partnershipModel    PartnershipModel?    @map("partnership_model")
-  revenueSharing      Float?               @map("revenue_sharing")
-  exclusivity         ExclusivityType      @default(NON_EXCLUSIVE)
-  duration            PartnershipDuration? @map("partnership_duration")
-  partnerCriteria     String?              @map("partner_criteria")
-  minimumRequirements String[]             @map("minimum_requirements")
-  idealPartnerProfile String?              @map("ideal_partner_profile")
-  currentPartners     Int?                 @map("current_partners")
-  marketReach         String[]             @map("market_reach")
-  customerBase        Int?                 @map("customer_base")
-  annualRevenue       Float?               @map("annual_revenue")
-  proposalId          String               @unique @map("proposal_id")
-  proposal            Proposal             @relation(fields: [proposalId], references: [id], onDelete: Cascade)
-
-  @@map("partner_proposals")
-}
-
-model CustomerProposal {
-  id                String            @id @default(cuid())
-  sellingOrBuying   CustomerDirection @map("selling_or_buying")
-  productService    String            @map("product_service") @db.VarChar(200)
-  category          String?           @db.VarChar(100)
-  description       String
-  pricingModel      PricingModel?     @map("pricing_model")
-  priceRange        Json?             @map("price_range")
-  availability      Availability?
-  deliveryTime      String?           @map("delivery_time")
-  targetAudience    String?           @map("target_audience")
-  customerBenefits  String[]          @map("customer_benefits")
-  uniqueSellingProp String?           @map("unique_selling_prop")
-  requirements      String[]
-  budgetRange       Json?             @map("budget_range")
-  decisionCriteria  String[]          @map("decision_criteria")
-  timeframe         String?
-  marketSize        String?           @map("market_size")
-  competitors       String[]
-  previousClients   Int?              @map("previous_clients")
-  testimonials      String?
-  supportIncluded   String[]          @map("support_included")
-  warrantyTerms     String?           @map("warranty_terms")
-  paymentTerms      String?           @map("payment_terms") @db.VarChar(100)
-  proposalId        String            @unique @map("proposal_id")
-  proposal          Proposal          @relation(fields: [proposalId], references: [id], onDelete: Cascade)
-
-  @@map("customer_proposals")
 }
 
 model Plan {
@@ -3490,7 +3567,7 @@ model Resource {
   tags             String[]
   priceUsd         Float                @default(0) @map("price_usd")
   currency         String               @default("USD") @db.VarChar(3)
-  visibility       Visibility           @default(OWNERS_ADMINS)
+  visibility       Visibility           @default(ADMINS)
   isPublic         Boolean              @default(false) @map("is_public")
   isFeatured       Boolean              @default(false) @map("is_featured")
   isPremium        Boolean              @default(false) @map("is_premium")
@@ -3944,18 +4021,18 @@ model AgentWorkflow {
 }
 
 model AgentWorkflowExecution {
-  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  workflowId String    @map("workflow_id") @db.Uuid
-  status     String    @default("RUNNING") // RUNNING, COMPLETED, FAILED, TIMED_OUT
-  context    Json? // Cumulative context of the workflow
-  executionVersion Int @default(0) @map("version")
-  startTime  DateTime  @default(now()) @map("start_time")
-  endTime    DateTime? @map("end_time")
-  totalCostUsd Float     @default(0) @map("total_cost_usd")
-  maxCostUsd   Float?    @map("max_cost_usd")
-  totalTasks   Int       @default(0) @map("total_tasks")
-  maxTasks     Int?      @map("max_tasks")
-  error      String?
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workflowId       String    @map("workflow_id") @db.Uuid
+  status           String    @default("RUNNING") // RUNNING, COMPLETED, FAILED, TIMED_OUT
+  context          Json? // Cumulative context of the workflow
+  executionVersion Int       @default(0) @map("version")
+  startTime        DateTime  @default(now()) @map("start_time")
+  endTime          DateTime? @map("end_time")
+  totalCostUsd     Float     @default(0) @map("total_cost_usd")
+  maxCostUsd       Float?    @map("max_cost_usd")
+  totalTasks       Int       @default(0) @map("total_tasks")
+  maxTasks         Int?      @map("max_tasks")
+  error            String?
 
   workflow AgentWorkflow? @relation(fields: [workflowId], references: [id], onDelete: Cascade)
   tasks    AgentTask[]
@@ -4127,7 +4204,7 @@ model AiAgent {
   totalCost         Float                @default(0) @map("total_cost")
   successRate       Float?               @map("success_rate")
   isShared          Boolean              @default(false) @map("is_shared")
-  visibility        Visibility           @default(OWNERS_ADMINS)
+  visibility        Visibility           @default(PRIVATE)
   tags              String[]             @default([])
   metadata          Json?
   customFields      Json?                @map("custom_fields")
@@ -4205,26 +4282,26 @@ model SystemTool {
 }
 
 model CompositeTool {
-  id             String     @id @default(cuid())
-  workspaceId    String?    @map("workspace_id")
-  spaceId        String?    @map("space_id")
-  projectId      String?    @map("project_id")
-  teamId         String?    @map("team_id")
-  ownerId        String     @map("owner_id")
-  name           String
-  description    String?
-  systemPrompt   String?    @map("system_prompt")
-  category       String?
-  functionSchema Json
-  steps          Json
-  isPublic       Boolean    @default(true) @map("is_public")
-  createdAt      DateTime   @default(now()) @map("created_at")
-  updatedAt      DateTime   @updatedAt @map("updated_at")
-  workspace      Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  owner          User       @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  space          Space?     @relation(fields: [spaceId], references: [id], onDelete: Cascade)
-  project        Project?   @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  team           Team?      @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  id              String           @id @default(cuid())
+  workspaceId     String?          @map("workspace_id")
+  spaceId         String?          @map("space_id")
+  projectId       String?          @map("project_id")
+  teamId          String?          @map("team_id")
+  ownerId         String           @map("owner_id")
+  name            String
+  description     String?
+  systemPrompt    String?          @map("system_prompt")
+  category        String?
+  functionSchema  Json
+  steps           Json
+  isPublic        Boolean          @default(true) @map("is_public")
+  createdAt       DateTime         @default(now()) @map("created_at")
+  updatedAt       DateTime         @updatedAt @map("updated_at")
+  workspace       Workspace?       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  owner           User             @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  space           Space?           @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  project         Project?         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  team            Team?            @relation(fields: [teamId], references: [id], onDelete: Cascade)
   aiConversations AiConversation[]
 
   @@index([workspaceId])
@@ -4304,34 +4381,6 @@ model AgentRelation {
   @@map("agent_relations")
 }
 
-model AgentTemplate {
-  id                 String                 @id @default(cuid())
-  workspaceId        String?                @map("workspace_id")
-  createdBy          String?                @map("created_by")
-  name               String
-  description        String
-  role               String
-  objective          String
-  categories         String[]
-  capabilities       Json
-  instructions       String
-  triggers           Json
-  isPublic           Boolean                @default(false) @map("is_public")
-  isSystem           Boolean                @default(false) @map("is_system")
-  usageCount         Int                    @default(0) @map("usage_count")
-  createdAt          DateTime               @default(now()) @map("created_at")
-  updatedAt          DateTime               @updatedAt @map("updated_at")
-  embedding          Unsupported("vector")?
-  embeddingUpdatedAt DateTime?              @map("embedding_updated_at")
-  creator            User?                  @relation(fields: [createdBy], references: [id])
-  workspace          Workspace?             @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-
-  @@index([workspaceId])
-  @@index([isSystem])
-  @@index([usageCount])
-  @@map("agent_templates")
-}
-
 model WorkspaceGuest {
   id          String    @id @default(cuid())
   workspaceId String    @map("workspace_id")
@@ -4372,28 +4421,6 @@ model LocationPermission {
   @@index([teamId])
   @@index([permission])
   @@map("location_permissions")
-}
-
-model TaskPermission {
-  id          String          @id @default(cuid())
-  taskId      String          @map("task_id")
-  userId      String?         @map("user_id")
-  teamId      String?         @map("team_id")
-  permission  PermissionLevel
-  grantedById String          @map("granted_by_id")
-  createdAt   DateTime        @default(now()) @map("created_at")
-  updatedAt   DateTime        @updatedAt @map("updated_at")
-  grantedBy   User            @relation("TaskPermissionGranter", fields: [grantedById], references: [id], onDelete: Cascade)
-  task        Task            @relation("TaskPermissions", fields: [taskId], references: [id], onDelete: Cascade)
-  team        Team?           @relation("TeamTaskPermissions", fields: [teamId], references: [id], onDelete: Cascade)
-  user        User?           @relation("UserTaskPermissions", fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([taskId, userId])
-  @@unique([taskId, teamId])
-  @@index([taskId])
-  @@index([userId])
-  @@index([teamId])
-  @@map("task_permissions")
 }
 
 model CustomRole {
@@ -4504,11 +4531,12 @@ enum AttachmentType {
   OTHER
 }
 
+/// Shared across tasks, spaces, templates, agents, workforces, etc.
 enum Visibility {
   PRIVATE
-  OWNERS_ONLY
-  OWNERS_ADMINS
+  ADMINS
   MEMBERS
+  EVERYONE
   PUBLIC
 }
 
@@ -5453,16 +5481,6 @@ enum DocumentPermission {
   ADMIN
 }
 
-enum TemplateType {
-  TASK
-  LIST
-  FOLDER
-  SPACE
-  DOCUMENT
-  DASHBOARD
-  VIEW
-}
-
 enum AutomationTriggerType {
   TASK_OR_SUBTASK_CREATED
   TASK_STATUS_CHANGED
@@ -5829,26 +5847,27 @@ enum WorkforceStatus {
 }
 
 model Workforce {
-  id          String          @id @default(cuid())
+  id          String              @id @default(cuid())
   name        String
   description String?
   mode        WorkforceMode
-  status      WorkforceStatus @default(DRAFT)
-  workspaceId String?          @map("workspace_id")
-  spaceId     String?          @map("space_id")
-  projectId   String?          @map("project_id")
-  teamId      String?          @map("team_id")
-  createdBy   String          @map("created_by")
-  createdAt   DateTime        @default(now()) @map("created_at")
-  updatedAt   DateTime        @updatedAt @map("updated_at")
+  status      WorkforceStatus     @default(DRAFT)
+  workspaceId String?             @map("workspace_id")
+  spaceId     String?             @map("space_id")
+  projectId   String?             @map("project_id")
+  teamId      String?             @map("team_id")
+  createdBy   String              @map("created_by")
+  createdAt   DateTime            @default(now()) @map("created_at")
+  updatedAt   DateTime            @updatedAt @map("updated_at")
+  visibility  Visibility          @default(PRIVATE)
   graph       Json?
   data        Json?
 
-  workspace Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  space     Space?     @relation(fields: [spaceId], references: [id])
-  project   Project?   @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  team      Team?      @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  creator   User       @relation(fields: [createdBy], references: [id])
+  workspace       Workspace?       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  space           Space?           @relation(fields: [spaceId], references: [id])
+  project         Project?         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  team            Team?            @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  creator         User             @relation(fields: [createdBy], references: [id])
   aiConversations AiConversation[]
 
   @@index([workspaceId])
@@ -5858,4 +5877,265 @@ model Workforce {
   @@index([createdBy])
   @@index([status])
   @@map("workforces")
+}
+
+// ─────────────────────────────────────────────
+// TEMPLATE SYSTEM
+// ─────────────────────────────────────────────
+
+/// The canonical template record. Stores the serialised snapshot (`content`)
+/// of any supported entity type (space, folder, list, task, doc, view, agent,
+/// workforce, proposal) together with all configuration, sharing rules, tags,
+/// custom fields, and version history.
+model Template {
+  id             String  @id @default(cuid())
+  /// Null = global / system-level template (not bound to any workspace).
+  workspaceId    String? @map("workspace_id")
+  /// Org-level scope: visible to all workspaces in this organisation.
+  organizationId String? @map("organization_id")
+  createdBy      String  @map("created_by")
+
+  // ── Identity ──────────────────────────────
+  name        String
+  description String?
+  icon        String?
+  coverImage  String?  @map("cover_image")
+  color       String?
+  tags        String[] @default([])
+
+  // ── Classification ────────────────────────
+  category   String?
+  entityType TemplateEntityType  @map("entity_type")
+  complexity TemplateComplexity? @map("complexity")
+
+  // ── Source tracking ───────────────────────
+  /// The type of the entity this template was captured from.
+  sourceEntityType TemplateEntityType? @map("source_entity_type")
+  /// The ID of the original entity this template was captured from.
+  sourceEntityId   String?             @map("source_entity_id")
+
+  // ── Captured snapshot ─────────────────────
+  /// Full serialised content of the source entity (JSON).
+  content Json
+
+  // ── What is included in the snapshot ──────
+  /// Which child entity types are bundled into this template
+  /// (e.g. a SPACE template may include FOLDER + LIST children).
+  includedEntityTypes TemplateEntityType[] @default([]) @map("included_entity_types")
+
+  /// Entity-agnostic capture configuration stored as a JSON object.
+  /// Each entity type defines its own relevant keys; unrecognised keys are ignored.
+  ///
+  /// Common keys (apply to most entity types):
+  ///   statuses, customFields, views, automations, attachments,
+  ///   assignees, dates, comments, relationships, permissions
+  ///
+  /// Task-specific:    subtasks, checklists, timeLogs, dependencies, watchers
+  /// List/Folder:      nestedFolders, nestedLists, tasks
+  /// Space:            members, settings
+  /// Doc:              versions, collaborators, embeds
+  /// View:             filters, grouping, sorting, columns
+  /// Agent:            triggers, memory, tools, knowledgeBase, outputSchema
+  /// Workforce:        graph, swarmConfig, agentAssignments
+  /// Proposal:         budget, timeline, attachments, contact
+  captureConfig Json? @map("capture_config")
+
+  // ── Visibility & sharing ──────────────────
+  /// Same `Visibility` enum as tasks/spaces/agents. Optional user/team allowlist when `visibility` is PRIVATE (custom share).
+  visibility     Visibility @default(PRIVATE)
+  shareUserIds   String[]   @default([]) @map("share_user_ids")
+  shareTeamIds   String[]   @default([]) @map("share_team_ids")
+  isPublic       Boolean    @default(false) @map("is_public")
+  isFeatured Boolean            @default(false) @map("is_featured")
+  isArchived Boolean            @default(false) @map("is_archived")
+  /// True for templates shipped with the platform (cannot be deleted by users).
+  isSystem   Boolean            @default(false) @map("is_system")
+
+  // ── Usage metrics ─────────────────────────
+  useCount  Int @default(0) @map("use_count")
+  viewCount Int @default(0) @map("view_count")
+
+  // ── Versioning ────────────────────────────
+  version Int @default(1)
+
+  // ── Timestamps ────────────────────────────
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  archivedAt  DateTime? @map("archived_at")
+  publishedAt DateTime? @map("published_at")
+
+  // ── Relations ─────────────────────────────
+  creator      User          @relation(fields: [createdBy], references: [id], onDelete: Cascade)
+  workspace    Workspace?    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  auditLogs    TemplateAuditLog[]
+  versions     TemplateVersion[]
+
+  @@index([workspaceId])
+  @@index([organizationId])
+  @@index([createdBy])
+  @@index([entityType])
+  @@index([category])
+  @@index([isPublic, isFeatured])
+  @@index([isSystem])
+  @@index([isArchived])
+  @@index([createdAt])
+  @@map("templates")
+}
+
+/// Immutable version snapshot created every time a template is updated.
+model TemplateVersion {
+  id          String   @id @default(cuid())
+  templateId  String   @map("template_id")
+  version     Int
+  name        String
+  description String?
+  content     Json
+  createdBy   String   @map("created_by")
+  createdAt   DateTime @default(now()) @map("created_at")
+  changeNote  String?  @map("change_note")
+
+  template Template @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  creator  User     @relation(fields: [createdBy], references: [id])
+
+  @@unique([templateId, version])
+  @@index([templateId])
+  @@map("template_versions")
+}
+
+/// Full audit trail for every significant template event (apply, merge,
+/// update, share, publish, archive …).
+model TemplateAuditLog {
+  id         String             @id @default(cuid())
+  templateId String             @map("template_id")
+  actorId    String             @map("actor_id")
+  event      TemplateAuditEvent
+
+  // ── Where was the template applied / merged to? ──
+  targetEntityType TemplateEntityType? @map("target_entity_type")
+  targetEntityId   String?             @map("target_entity_id")
+  targetEntityName String?             @map("target_entity_name")
+
+  // ── Result of the operation ───────────────────────
+  status       TemplateAuditStatus @default(SUCCESS)
+  errorMessage String?             @map("error_message")
+
+  // ── Rich metadata (diff, options used, etc.) ─────
+  metadata Json?
+  oldValue Json? @map("old_value")
+  newValue Json? @map("new_value")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  template Template @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  actor    User     @relation(fields: [actorId], references: [id])
+
+  @@index([templateId])
+  @@index([actorId])
+  @@index([event])
+  @@index([targetEntityType, targetEntityId])
+  @@index([createdAt])
+  @@map("template_audit_logs")
+}
+
+// ── Enums ──────────────────────────────────────────
+
+/// All entity types that can be captured into or applied from a template.
+enum TemplateEntityType {
+  SPACE
+  PROJECT
+  FOLDER
+  LIST
+  TASK
+  DOC
+  VIEW
+  AGENT
+  WORKFORCE
+  PROPOSAL
+  LISTING
+}
+
+/// All meaningful audit events on a template lifecycle.
+enum TemplateAuditEvent {
+  CREATED
+  UPDATED
+  DELETED
+  ARCHIVED
+  RESTORED
+  PUBLISHED
+  UNPUBLISHED
+  APPLIED // Template used to instantiate a new entity
+  MERGED // Template merged into an existing entity
+  SHARED
+  UNSHARED
+  VERSION_CREATED
+  VERSION_RESTORED
+}
+
+enum TemplateAuditStatus {
+  SUCCESS
+  FAILED
+  PARTIAL
+}
+
+enum TemplateComplexity {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+}
+
+// ─── Marketplace-specific enums ────────────────────────────────────────────────
+
+enum ListingType {
+  TASK
+  PROJECT
+  AGENT
+  TOOL
+  TEMPLATE
+  TALENT
+  TEAM
+  DATASET
+  INTEGRATION
+  WORKFLOW
+}
+
+enum ListingStatus {
+  DRAFT
+  PENDING_REVIEW   // submitted, awaits staff approval
+  ACTIVE
+  PAUSED
+  CLOSED
+  EXPIRED
+  REJECTED
+  ARCHIVED
+}
+
+enum ListingLicenseType {
+  PROPRIETARY       // all rights reserved
+  MIT
+  APACHE_2
+  GPL_3
+  LGPL_3
+  BSD_2
+  BSD_3
+  CC_BY
+  CC_BY_SA
+  CC_BY_NC
+  CC0               // public domain
+  CUSTOM            // custom license text
+}
+
+enum ListingModerationStatus {
+  PENDING
+  APPROVED
+  FLAGGED
+  REMOVED
+}
+
+enum ListingCommentStatus {
+  VISIBLE
+  HIDDEN      // hidden by author or staff
+  REMOVED     // moderated-removed
+  SPAM
 }

@@ -113,14 +113,7 @@ const statusEnum = z.enum([
   'ERROR',
 ]);
 
-const visibilityEnum = z.enum([
-  'PUBLIC',
-  'PRIVATE',
-  'WORKSPACE',
-  'TEAM',
-  'PROJECT',
-  'MEMBERS_ONLY',
-]);
+const visibilityEnum = z.enum(['PUBLIC', 'PRIVATE', 'ADMINS', 'MEMBERS', 'EVERYONE']);
 
 export const agentRouter = router({
   list: protectedProcedure

@@ -229,7 +229,7 @@ export const taskRouter = router({
       listId: z.string().optional(),
       assigneeId: z.string().optional(),
       status: z.array(z.string()).optional(),
-      visibility: z.enum(["PRIVATE", "TEAM", "WORKSPACE", "PUBLIC"]).optional(),
+      visibility: z.enum(["PRIVATE", "ADMINS", "MEMBERS", "EVERYONE", "PUBLIC"]).optional(),
       query: z.string().optional(),
       page: z.number().int().min(1).optional().default(1),
       pageSize: z.number().int().min(1).max(500).optional().default(12),
@@ -486,7 +486,7 @@ export const taskRouter = router({
       startDate: z.date().optional().nullable(),
       noStartTime: z.boolean().optional(),
       noEndTime: z.boolean().optional(),
-      visibility: z.enum(["PRIVATE", "TEAM", "WORKSPACE", "PUBLIC"]).default("PRIVATE"),
+      visibility: z.enum(["PRIVATE", "ADMINS", "MEMBERS", "EVERYONE", "PUBLIC"]).default("PRIVATE"),
       isPublic: z.boolean().default(false),
       position: z.string().optional(),
       order: z.string().optional(),
@@ -523,7 +523,10 @@ export const taskRouter = router({
 
       if (input.listId !== undefined) data.listId = input.listId;
       if (input.parentId !== undefined) data.parentId = input.parentId ?? undefined;
-      if (input.statusId !== undefined) data.statusId = input.statusId;
+      // Strip system: virtual status IDs — they are UI-only fallbacks with no DB record
+      if (input.statusId !== undefined) {
+        data.statusId = input.statusId?.startsWith('system:') ? undefined : input.statusId;
+      }
       if (input.description !== undefined) data.description = input.description;
       if (input.priority !== undefined) data.priority = input.priority;
       if (input.dueDate !== undefined) data.dueDate = input.dueDate ?? undefined;
@@ -694,7 +697,7 @@ export const taskRouter = router({
       channelId: z.string().optional().nullable(),
       projectId: z.string().optional().nullable(),
       teamId: z.string().optional().nullable(),
-      visibility: z.enum(["PRIVATE", "TEAM", "WORKSPACE", "PUBLIC"]).optional(),
+      visibility: z.enum(["PRIVATE", "ADMINS", "MEMBERS", "EVERYONE", "PUBLIC"]).optional(),
       isPublic: z.boolean().optional(),
       isStarred: z.boolean().optional(),
       position: z.string().optional(),
@@ -715,8 +718,9 @@ export const taskRouter = router({
       const data: any = {};
       if (updateData.title !== undefined) data.title = updateData.title;
       if (updateData.description !== undefined) data.description = updateData.description ?? undefined;
-      if (updateData.status !== undefined) data.statusId = updateData.status; // status is historically used for statusId in some places, but let's be safe
-      if (updateData.statusId !== undefined) data.statusId = updateData.statusId ?? undefined;
+      if (updateData.status !== undefined) data.statusId = updateData.status?.startsWith('system:') ? undefined : updateData.status;
+      // statusId takes precedence; also strip system: IDs
+      if (updateData.statusId !== undefined) data.statusId = updateData.statusId?.startsWith('system:') ? undefined : (updateData.statusId ?? undefined);
       if (updateData.priority !== undefined) data.priority = updateData.priority;
       if (updateData.dueDate !== undefined) data.dueDate = updateData.dueDate ? new Date(updateData.dueDate) : null;
       if (updateData.startDate !== undefined) data.startDate = updateData.startDate ? new Date(updateData.startDate) : null;

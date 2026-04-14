@@ -3,7 +3,7 @@ import {
     Star, Copy, Clock, BellOff, Mail, Plus, GitMerge, ArrowRight,
     Printer, History, Link, LayoutTemplate, PenTool, Archive, Trash2,
     Shield, MoreHorizontal, Edit3, FileText, Repeat, EyeOff, FolderInput,
-    Share2, Link2, ExternalLink, Type, Smartphone, ListPlus, UserPlus, ChevronRight
+    Share2, Link2, ExternalLink, Type, Smartphone, ListPlus, UserPlus, ChevronRight, Store
 } from "lucide-react";
 import {
     DropdownMenu,
@@ -23,6 +23,7 @@ import {
     TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { TaskCreationModal } from "./TaskCreationModal";
+import { TemplateMenuPopover } from "@/entities/templates/components/TemplateMenuPopover";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { ShareModal } from "@/components/permissions/ShareModal";
@@ -33,6 +34,7 @@ import { TaskDependenciesModal } from "./TaskDependenciesModal";
 import { MoveTaskModal } from "./MoveTaskModal";
 import { MergeTaskModal } from "./MergeTaskModal";
 import { RemindMePopover } from "./RemindMePopover";
+import { PublishEntityModal } from "@/features/marketplace/components/PublishEntityModal";
 
 interface TaskActionsDropdownProps {
     task: any;
@@ -77,6 +79,7 @@ export function TaskActionsDropdown({
     const [dependenciesModalOpen, setDependenciesModalOpen] = useState(false);
     const [moveModalOpen, setMoveModalOpen] = useState(false);
     const [mergeModalOpen, setMergeModalOpen] = useState(false);
+    const [publishModalOpen, setPublishModalOpen] = useState(false);
 
     const taskUrl = getTaskUrl
         ? getTaskUrl(task)
@@ -206,6 +209,16 @@ export function TaskActionsDropdown({
                         </DropdownMenuSubContent>
                     </DropdownMenuSub>
 
+                    <TemplateMenuPopover entityType="TASK" workspaceId={workspaceId} contentToSave={task}>
+                        <button 
+                            className="relative w-full flex select-none items-center gap-2 rounded-sm px-2 py-1.5 text-xs outline-none transition-colors hover:bg-zinc-100 focus:bg-zinc-100 cursor-pointer text-left"
+                        >
+                            <LayoutTemplate className="h-3.5 w-3.5 mr-2 text-zinc-500" />
+                            Templates
+                            <ChevronRight className="ml-auto size-4 text-zinc-500" />
+                        </button>
+                    </TemplateMenuPopover>
+
                     <MenuItem
                         icon={UserPlus}
                         label="Invite"
@@ -225,11 +238,13 @@ export function TaskActionsDropdown({
                     />
 
                     <RemindMePopover taskId={task.id}>
-                        <DropdownMenuItem className="text-xs py-1.5 focus:bg-zinc-100 cursor-pointer">
+                        <button 
+                            className="relative w-full flex select-none items-center gap-2 rounded-sm px-2 py-1.5 text-xs outline-none transition-colors hover:bg-zinc-100 focus:bg-zinc-100 cursor-pointer text-left"
+                        >
                             <Clock className="h-3.5 w-3.5 mr-2 text-zinc-500" />
                             Remind me in Inbox
-                            <ChevronRight className="h-3 w-3 ml-auto text-zinc-400" />
-                        </DropdownMenuItem>
+                            <ChevronRight className="ml-auto size-4 text-zinc-500" />
+                        </button>
                     </RemindMePopover>
 
                     {task.isStarred && (
@@ -296,6 +311,17 @@ export function TaskActionsDropdown({
                     <DropdownMenuSeparator className="my-1 bg-zinc-100" />
 
                     <div className="px-2 py-1.5 text-[10px] font-semibold text-zinc-400 uppercase tracking-wider">
+                        Marketplace
+                    </div>
+                    <MenuItem
+                        icon={Store}
+                        label="Publish to Marketplace"
+                        onClick={() => { setPublishModalOpen(true); setIsOpen(false); }}
+                    />
+
+                    <DropdownMenuSeparator className="my-1 bg-zinc-100" />
+
+                    <div className="px-2 py-1.5 text-[10px] font-semibold text-zinc-400 uppercase tracking-wider">
                         Advanced
                     </div>
 
@@ -330,7 +356,9 @@ export function TaskActionsDropdown({
                         availableStatuses={availableStatuses}
                         defaultParentId={task.id}
                         trigger={
-                            <div className="relative flex select-none items-center rounded-sm px-2 py-1.5 text-xs outline-none hover:bg-zinc-100 cursor-pointer text-zinc-900 focus:bg-zinc-100">
+                            <div 
+                                className="relative w-full flex select-none items-center gap-2 rounded-sm px-2 py-1.5 text-xs outline-none transition-colors hover:bg-zinc-100 focus:bg-zinc-100 cursor-pointer text-left"
+                            >
                                 <Plus className="h-3.5 w-3.5 mr-2 text-zinc-500" />
                                 Add Subtask
                             </div>
@@ -415,6 +443,14 @@ export function TaskActionsDropdown({
                 itemId={task.id}
                 itemName={task.title}
                 workspaceId={workspaceId}
+            />
+            <PublishEntityModal
+                open={publishModalOpen}
+                onOpenChange={setPublishModalOpen}
+                entityType="task"
+                entityId={task?.id}
+                initialTitle={task?.title}
+                initialDescription={task?.description}
             />
         </DropdownMenu >
     );

@@ -243,27 +243,16 @@ export const invitationRouter = router({
                     update: {},
                 });
 
-                // Grant permission to the target item
-                if (invitation.targetType === 'task') {
-                    await prisma.taskPermission.create({
-                        data: {
-                            taskId: invitation.targetId!,
-                            userId: ctx.user.id,
-                            permission: invitation.permission!,
-                            grantedById: ctx.user.id,
-                        },
-                    });
-                } else {
-                    await prisma.locationPermission.create({
-                        data: {
-                            locationType: invitation.targetType!,
-                            locationId: invitation.targetId!,
-                            userId: ctx.user.id,
-                            permission: invitation.permission!,
-                            grantedById: ctx.user.id,
-                        },
-                    });
-                }
+                // Grant permission to the target item via unified LocationPermission
+                await prisma.locationPermission.create({
+                    data: {
+                        locationType: invitation.targetType!,
+                        locationId: invitation.targetId!,
+                        userId: ctx.user.id,
+                        permission: invitation.permission!,
+                        grantedById: ctx.user.id,
+                    },
+                });
             }
 
             // Mark invitation as accepted

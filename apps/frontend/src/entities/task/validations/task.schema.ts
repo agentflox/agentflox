@@ -16,7 +16,7 @@ export const taskFormSchema = z.object({
 	parentId: z.string().optional().nullable(),
 	dueDate: z.coerce.date().optional().nullable(),
 	startDate: z.coerce.date().optional().nullable(),
-	visibility: z.enum(["PRIVATE", "TEAM", "WORKSPACE", "PUBLIC"]).default("PRIVATE"),
+	visibility: z.enum(["PRIVATE", "ADMINS", "MEMBERS", "EVERYONE", "PUBLIC"]).default("PRIVATE"),
 	isPublic: z.boolean().default(false),
 	workspaceId: z.string().optional().nullable(),
 	spaceId: z.string().optional().nullable(),

@@ -27,12 +27,12 @@ interface ProjectGeneralSettingsModalProps {
 const VISIBILITY_OPTIONS = [
     {
         label: "Only Owners",
-        value: "OWNERS_ONLY",
+        value: "PRIVATE",
         description: "Only project owners can view and edit"
     },
     {
         label: "Owners & Admins",
-        value: "OWNERS_ADMINS",
+        value: "ADMINS",
         description: "Owners and admins can view and edit"
     },
     {
@@ -53,7 +53,7 @@ export function ProjectGeneralSettingsModal({ projectId, open, onOpenChange }: P
     const queryClient = useQueryClient();
     const [name, setName] = useState("");
     const [description, setDescription] = useState("");
-    const [visibility, setVisibility] = useState<"OWNERS_ONLY" | "OWNERS_ADMINS" | "MEMBERS" | "PUBLIC">("PRIVATE" as any);
+    const [visibility, setVisibility] = useState<"PRIVATE" | "ADMINS" | "MEMBERS" | "EVERYONE" | "PUBLIC">("PRIVATE");
     const [color, setColor] = useState("#4F46E5");
     const [icon, setIcon] = useState("");
 

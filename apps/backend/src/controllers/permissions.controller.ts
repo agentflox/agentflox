@@ -83,41 +83,23 @@ export class PermissionsController {
         }
         // Add other types as needed
 
-        // Create permission record
-        if (itemType === 'task') {
-            await prisma.taskPermission.upsert({
-                where: body.userId
-                    ? { taskId_userId: { taskId: itemId, userId: body.userId } }
-                    : { taskId_teamId: { taskId: itemId, teamId: body.teamId! } },
-                create: {
-                    taskId: itemId,
-                    userId: body.userId,
-                    teamId: body.teamId,
-                    permission: body.permission,
-                    grantedById: userId,
-                },
-                update: {
-                    permission: body.permission,
-                },
-            });
-        } else {
-            await prisma.locationPermission.upsert({
-                where: body.userId
-                    ? { locationType_locationId_userId: { locationType: itemType, locationId: itemId, userId: body.userId } }
-                    : { locationType_locationId_teamId: { locationType: itemType, locationId: itemId, teamId: body.teamId! } },
-                create: {
-                    locationType: itemType,
-                    locationId: itemId,
-                    userId: body.userId,
-                    teamId: body.teamId,
-                    permission: body.permission,
-                    grantedById: userId,
-                },
-                update: {
-                    permission: body.permission,
-                },
-            });
-        }
+        // Create permission record via unified LocationPermission (locationType covers 'task' too)
+        await prisma.locationPermission.upsert({
+            where: body.userId
+                ? { locationType_locationId_userId: { locationType: itemType, locationId: itemId, userId: body.userId } }
+                : { locationType_locationId_teamId: { locationType: itemType, locationId: itemId, teamId: body.teamId! } },
+            create: {
+                locationType: itemType,
+                locationId: itemId,
+                userId: body.userId,
+                teamId: body.teamId,
+                permission: body.permission,
+                grantedById: userId,
+            },
+            update: {
+                permission: body.permission,
+            },
+        });
 
         // Invalidate cache
         if (body.userId) {
@@ -181,41 +163,21 @@ export class PermissionsController {
 
         // Handle User Permissions
         if (body.userIds && body.userIds.length > 0) {
-            if (itemType === 'task') {
-                // Bulk upsert not directly supported for permissions with unique constraints in simplified way
-                // Loop for now or use createMany if we delete first (but we want upsert behavior)
-                // Transactional loop is safest
-                await prisma.$transaction(
-                    body.userIds.map(uid =>
-                        prisma.taskPermission.upsert({
-                            where: { taskId_userId: { taskId: itemId, userId: uid } },
-                            create: {
-                                taskId: itemId,
-                                userId: uid,
-                                permission: body.permission,
-                                grantedById: userId,
-                            },
-                            update: { permission: body.permission },
-                        })
-                    )
-                );
-            } else {
-                await prisma.$transaction(
-                    body.userIds.map(uid =>
-                        prisma.locationPermission.upsert({
-                            where: { locationType_locationId_userId: { locationType: itemType, locationId: itemId, userId: uid } },
-                            create: {
-                                locationType: itemType,
-                                locationId: itemId,
-                                userId: uid,
-                                permission: body.permission,
-                                grantedById: userId,
-                            },
-                            update: { permission: body.permission },
-                        })
-                    )
-                );
-            }
+            await prisma.$transaction(
+                body.userIds.map(uid =>
+                    prisma.locationPermission.upsert({
+                        where: { locationType_locationId_userId: { locationType: itemType, locationId: itemId, userId: uid } },
+                        create: {
+                            locationType: itemType,
+                            locationId: itemId,
+                            userId: uid,
+                            permission: body.permission,
+                            grantedById: userId,
+                        },
+                        update: { permission: body.permission },
+                    })
+                )
+            );
 
             // Invalidate caches and notify
             for (const uid of body.userIds) {
@@ -236,38 +198,21 @@ export class PermissionsController {
 
         // Handle Team Permissions
         if (body.teamIds && body.teamIds.length > 0) {
-            if (itemType === 'task') {
-                await prisma.$transaction(
-                    body.teamIds.map(tid =>
-                        prisma.taskPermission.upsert({
-                            where: { taskId_teamId: { taskId: itemId, teamId: tid } },
-                            create: {
-                                taskId: itemId,
-                                teamId: tid,
-                                permission: body.permission,
-                                grantedById: userId,
-                            },
-                            update: { permission: body.permission },
-                        })
-                    )
-                );
-            } else {
-                await prisma.$transaction(
-                    body.teamIds.map(tid =>
-                        prisma.locationPermission.upsert({
-                            where: { locationType_locationId_teamId: { locationType: itemType, locationId: itemId, teamId: tid } },
-                            create: {
-                                locationType: itemType,
-                                locationId: itemId,
-                                teamId: tid,
-                                permission: body.permission,
-                                grantedById: userId,
-                            },
-                            update: { permission: body.permission },
-                        })
-                    )
-                );
-            }
+            await prisma.$transaction(
+                body.teamIds.map(tid =>
+                    prisma.locationPermission.upsert({
+                        where: { locationType_locationId_teamId: { locationType: itemType, locationId: itemId, teamId: tid } },
+                        create: {
+                            locationType: itemType,
+                            locationId: itemId,
+                            teamId: tid,
+                            permission: body.permission,
+                            grantedById: userId,
+                        },
+                        update: { permission: body.permission },
+                    })
+                )
+            );
 
             permissionCache.invalidateItem(itemType as any, itemId);
         }
@@ -311,24 +256,12 @@ export class PermissionsController {
         // User Verification required: "Remove all - Removes access for all invited people at once".
         // "Invited people" implies those with explicit permissions.
 
-        if (itemType === 'task') {
-            const where: any = { taskId: itemId };
-
-            if (body.userIds?.length) where.userId = { in: body.userIds };
-            if (body.teamIds?.length) where.teamId = { in: body.teamIds };
-
-            // If "Remove All" (no IDs provided), and excludeOwners check needed?
-            // Assuming permission table only holds "granted" permissions, not intrinsic owner permissions.
-
-            await prisma.taskPermission.deleteMany({ where });
-        } else {
             const where: any = { locationType: itemType, locationId: itemId };
 
             if (body.userIds?.length) where.userId = { in: body.userIds };
             if (body.teamIds?.length) where.teamId = { in: body.teamIds };
 
             await prisma.locationPermission.deleteMany({ where });
-        }
 
         // Invalidate cache
         if (body.userIds) {
@@ -438,25 +371,15 @@ export class PermissionsController {
             throw new Error('You do not have permission to revoke access to this item');
         }
 
-        // Delete permission record
-        if (itemType === 'task') {
-            await prisma.taskPermission.deleteMany({
-                where: {
-                    taskId: itemId,
-                    ...(query.userId && { userId: query.userId }),
-                    ...(query.teamId && { teamId: query.teamId }),
-                },
-            });
-        } else {
-            await prisma.locationPermission.deleteMany({
-                where: {
-                    locationType: itemType,
-                    locationId: itemId,
-                    ...(query.userId && { userId: query.userId }),
-                    ...(query.teamId && { teamId: query.teamId }),
-                },
-            });
-        }
+        // Delete permission record via unified LocationPermission
+        await prisma.locationPermission.deleteMany({
+            where: {
+                locationType: itemType,
+                locationId: itemId,
+                ...(query.userId && { userId: query.userId }),
+                ...(query.teamId && { teamId: query.teamId }),
+            },
+        });
 
         // Invalidate cache
         if (query.userId) {
@@ -508,68 +431,32 @@ export class PermissionsController {
         let userPermissions: any[] = [];
         let teamPermissions: any[] = [];
 
-        if (itemType === 'task') {
-            const taskPerms = await prisma.taskPermission.findMany({
-                where: { taskId: itemId },
-                include: {
-                    user: {
-                        select: { id: true, name: true, email: true, avatar: true },
-                    },
-                    team: {
-                        select: { id: true, name: true, avatar: true },
-                    },
-                    grantedBy: {
-                        select: { id: true, name: true },
-                    },
-                },
-            });
+        // Unified LocationPermission lookup (covers all types including 'task')
+        const locationPerms = await prisma.locationPermission.findMany({
+            where: {
+                locationType: itemType,
+                locationId: itemId,
+            },
+            include: {
+                user: { select: { id: true, name: true, email: true, avatar: true } },
+                team: { select: { id: true, name: true, avatar: true } },
+                grantedBy: { select: { id: true, name: true } },
+            },
+        });
 
-            userPermissions = taskPerms.filter((p) => p.userId).map((p) => ({
-                user: p.user,
-                permission: p.permission,
-                grantedBy: p.grantedBy,
-                createdAt: p.createdAt,
-            }));
+        userPermissions = locationPerms.filter((p) => p.userId).map((p) => ({
+            user: p.user,
+            permission: p.permission,
+            grantedBy: p.grantedBy,
+            createdAt: p.createdAt,
+        }));
 
-            teamPermissions = taskPerms.filter((p) => p.teamId).map((p) => ({
-                team: p.team,
-                permission: p.permission,
-                grantedBy: p.grantedBy,
-                createdAt: p.createdAt,
-            }));
-        } else {
-            const locationPerms = await prisma.locationPermission.findMany({
-                where: {
-                    locationType: itemType,
-                    locationId: itemId,
-                },
-                include: {
-                    user: {
-                        select: { id: true, name: true, email: true, avatar: true },
-                    },
-                    team: {
-                        select: { id: true, name: true, avatar: true },
-                    },
-                    grantedBy: {
-                        select: { id: true, name: true },
-                    },
-                },
-            });
-
-            userPermissions = locationPerms.filter((p) => p.userId).map((p) => ({
-                user: p.user,
-                permission: p.permission,
-                grantedBy: p.grantedBy,
-                createdAt: p.createdAt,
-            }));
-
-            teamPermissions = locationPerms.filter((p) => p.teamId).map((p) => ({
-                team: p.team,
-                permission: p.permission,
-                grantedBy: p.grantedBy,
-                createdAt: p.createdAt,
-            }));
-        }
+        teamPermissions = locationPerms.filter((p) => p.teamId).map((p) => ({
+            team: p.team,
+            permission: p.permission,
+            grantedBy: p.grantedBy,
+            createdAt: p.createdAt,
+        }));
 
         return {
             userPermissions,

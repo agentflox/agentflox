@@ -40,6 +40,7 @@ import { TeamPermissionsModal } from "@/entities/teams/components/TeamPermission
 import { TeamArchiveModal } from "@/entities/teams/components/TeamArchiveModal";
 import { TeamDeleteModal } from "@/entities/teams/components/TeamDeleteModal";
 import { TeamTransferModal } from "@/entities/teams/components/TeamTransferModal";
+import { TemplateMenuPopover } from "@/entities/templates/components/TemplateMenuPopover";
 
 interface TeamActionsMenuProps {
     workspaceId: string;
@@ -173,6 +174,19 @@ export function TeamActionsMenu({ workspaceId, teamId, trigger }: TeamActionsMen
                     <DropdownMenuItem onClick={handleCopyLink}>
                         <Copy className="mr-2 h-4 w-4" /> Copy Link
                     </DropdownMenuItem>
+
+                    <TemplateMenuPopover
+                        entityType={"TEAM" as any}
+                        workspaceId={workspaceId}
+                        contentToSave={{
+                            id: teamId,
+                            workspaceId: team?.workspaceId ?? workspaceId,
+                            spaceId: team?.spaceId ?? undefined,
+                            teamId,
+                            name: team?.name ?? "Team",
+                        }}
+                        triggerClassName="text-sm"
+                    />
 
                     <DropdownMenuSub>
                         <DropdownMenuSubTrigger>

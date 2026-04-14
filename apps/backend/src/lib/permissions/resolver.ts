@@ -331,21 +331,7 @@ export class PermissionResolver {
         try {
             this.metrics.databaseQueries++;
 
-            if (itemType === 'task') {
-                const taskPerm = await prisma.taskPermission.findUnique({
-                    where: {
-                        taskId_userId: {
-                            taskId: itemId,
-                            userId,
-                        },
-                    },
-                    select: { permission: true },
-                });
-
-                return taskPerm?.permission || null;
-            }
-
-            // Location permissions (space, folder, list, project, team)
+            // Unified: task uses locationType='task', same as all other entities
             const locationPerm = await prisma.locationPermission.findUnique({
                 where: {
                     locationType_locationId_userId: {
@@ -393,19 +379,7 @@ export class PermissionResolver {
             const teamIds = userTeams.map((t) => t.teamId);
             if (teamIds.length === 0) return null;
 
-            if (itemType === 'task') {
-                const teamPerms = await prisma.taskPermission.findMany({
-                    where: {
-                        taskId: itemId,
-                        teamId: { in: teamIds },
-                    },
-                    select: { permission: true },
-                });
-
-                return this.getHighestPermission(teamPerms.map((p) => p.permission));
-            }
-
-            // Location permissions
+            // Unified: task uses locationType='task', same as all other entities
             const teamPerms = await prisma.locationPermission.findMany({
                 where: {
                     locationType: itemType,
@@ -449,18 +423,22 @@ export class PermissionResolver {
 
             const itemData = item as Record<string, unknown>;
 
-            // For Project, check isPublic field (inverse)
-            if (itemType === 'project') {
+            // If the model returned a 'visibility' field
+            if (itemData.visibility !== undefined) {
+                return itemData.visibility === "PRIVATE";
+            }
+
+            // If the model returned an 'isPublic' field
+            if (itemData.isPublic !== undefined) {
                 return itemData.isPublic !== true;
             }
 
-            // For Team, check visibility field
-            if (itemType === 'team') {
-                return itemData.visibility !== 'PUBLIC';
+            // If the model returned an 'isPrivate' field
+            if (itemData.isPrivate !== undefined) {
+                return itemData.isPrivate === true;
             }
 
-            // For others, check isPrivate field
-            return itemData.isPrivate === true;
+            return false;
         } catch (error) {
             // Log but don't throw - fail-secure (treat as private on error)
             console.error('[PermissionResolver] Error checking item privacy', {

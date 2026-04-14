@@ -303,13 +303,15 @@ export function ShareModal({
                 <div className="px-6 py-5 bg-zinc-50/50">
                     {/* Invite Section */}
                     <div className="relative">
-                        <div className="bg-white p-1 rounded-xl border shadow-sm ring-1 ring-zinc-900/5 focus-within:ring-2 focus-within:ring-indigo-500 transition-all">
-                            <div className="flex flex-wrap gap-1 p-1">
+                        <div className="flex items-center gap-2">
+                            {/* Search input — SearchSection style */}
+                            <div className="flex flex-1 h-9 items-center rounded-md border border-zinc-200 bg-white px-3 shadow-sm transition-colors focus-within:border-indigo-500">
+                                <Search className="h-4 w-4 shrink-0 text-zinc-400" />
                                 <input
                                     ref={inputRef}
                                     type="text"
                                     placeholder="Invite by name or email"
-                                    className="flex-1 min-w-[150px] outline-none border-none bg-transparent px-2 h-7 text-sm"
+                                    className="flex-1 h-full bg-transparent pl-2 pr-0 text-sm outline-none border-none placeholder:text-zinc-400"
                                     value={emailInput}
                                     onChange={(e) => {
                                         setEmailInput(e.target.value);
@@ -323,33 +325,34 @@ export function ShareModal({
                                         }
                                     }}
                                 />
-                                {/* Role Selector inside input area */}
-                                <div className="ml-auto flex items-center border-l pl-2 gap-2">
-                                    <Select value={selectedRole} onValueChange={(r: any) => setSelectedRole(r)}>
-                                        <SelectTrigger className="h-7 border-none shadow-none text-xs font-medium bg-transparent hover:bg-zinc-100 w-[110px] gap-1 px-2 text-zinc-600">
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent align="end">
-                                            <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">Workspace Roles</div>
-                                            <SelectItem value="MEMBER">Member</SelectItem>
-                                            <SelectItem value="ADMIN">Admin</SelectItem>
-                                            <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground mt-1">External</div>
-                                            <SelectItem value="GUEST">Guest</SelectItem>
-                                            <SelectItem value="LIMITED_MEMBER">Limited</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                    <Select value={selectedPermission} onValueChange={(p: any) => setSelectedPermission(p)}>
-                                        <SelectTrigger className="h-7 border-none shadow-none text-xs font-medium bg-transparent hover:bg-zinc-100 w-[90px] gap-1 px-2 text-zinc-600">
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent align="end">
-                                            <SelectItem value="VIEW">View</SelectItem>
-                                            <SelectItem value="COMMENT">Comment</SelectItem>
-                                            <SelectItem value="EDIT">Edit</SelectItem>
-                                            <SelectItem value="FULL">Full</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                </div>
+                            </div>
+
+                            {/* Role + Permission selectors */}
+                            <div className="flex items-center gap-2 shrink-0">
+                                <Select value={selectedRole} onValueChange={(r: any) => setSelectedRole(r)}>
+                                    <SelectTrigger className="h-9 border-zinc-200 shadow-sm text-xs font-medium bg-white hover:bg-zinc-50 w-[110px] gap-1 px-2 text-zinc-600">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent align="end">
+                                        <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">Workspace Roles</div>
+                                        <SelectItem value="MEMBER">Member</SelectItem>
+                                        <SelectItem value="ADMIN">Admin</SelectItem>
+                                        <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground mt-1">External</div>
+                                        <SelectItem value="GUEST">Guest</SelectItem>
+                                        <SelectItem value="LIMITED_MEMBER">Limited</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                                <Select value={selectedPermission} onValueChange={(p: any) => setSelectedPermission(p)}>
+                                    <SelectTrigger className="h-9 border-zinc-200 shadow-sm text-xs font-medium bg-white hover:bg-zinc-50 w-[90px] gap-1 px-2 text-zinc-600">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent align="end">
+                                        <SelectItem value="VIEW">View</SelectItem>
+                                        <SelectItem value="COMMENT">Comment</SelectItem>
+                                        <SelectItem value="EDIT">Edit</SelectItem>
+                                        <SelectItem value="FULL">Full</SelectItem>
+                                    </SelectContent>
+                                </Select>
                             </div>
                         </div>
 

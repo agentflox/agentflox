@@ -2,6 +2,7 @@ import { z } from "zod";
 import { protectedProcedure, router } from "@/trpc/init";
 import { prisma } from "@/lib/prisma";
 import { WorkspaceRole } from '@agentflox/database/src/generated/prisma/client';
+import { ensureWorkspaceStatuses } from "@/trpc/routers/taskStatus";
 
 type WorkspaceScope = "owned" | "member" | "all" | "editable";
 
@@ -141,6 +142,9 @@ export const workspaceRouter = router({
 					});
 					prevPosition = position;
 				}
+
+				// Seed default workspace-level statuses
+				await ensureWorkspaceStatuses(ws.id);
 
 				return ws;
 			});

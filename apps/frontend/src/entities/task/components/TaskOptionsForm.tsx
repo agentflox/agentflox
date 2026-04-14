@@ -47,12 +47,12 @@ export function TaskOptionsForm() {
                 </div>
               </label>
 
-              {/* Workspace Option */}
+              {/* Workspace members */}
               <label className={cn(
                 "flex items-start gap-3 p-3 rounded-lg border border-zinc-200 cursor-pointer transition-all hover:bg-zinc-50 hover:border-zinc-300",
-                field.value === 'WORKSPACE' && "bg-blue-50/50 border-blue-200 ring-1 ring-blue-200"
+                field.value === 'MEMBERS' && "bg-blue-50/50 border-blue-200 ring-1 ring-blue-200"
               )}>
-                <RadioGroupItem value="WORKSPACE" id="visibility-workspace" className="mt-1" />
+                <RadioGroupItem value="MEMBERS" id="visibility-members" className="mt-1" />
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
                     <Users className="h-4 w-4 text-zinc-500" />
