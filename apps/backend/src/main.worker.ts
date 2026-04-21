@@ -33,6 +33,11 @@ async function bootstrapWorker() {
 
     // Start message delivery worker
     lifecycle.onStartup('messageDeliveryWorker', async () => {
+        const disabled = String(env.DISABLE_MESSAGE_DELIVERY_WORKER || '').toLowerCase() === 'true';
+        if (disabled) {
+            console.log('[worker] Message delivery worker disabled via DISABLE_MESSAGE_DELIVERY_WORKER=true');
+            return;
+        }
         const { startMessageDeliveryWorker } = await import('./services/messageDeliveryQueue');
         // Pass null for io since worker doesn't have socket access
         // Messages get routed through Redis pub/sub instead
@@ -41,11 +46,16 @@ async function bootstrapWorker() {
     }, 50);
 
     // Start matching scheduler (singleton - only one instance should run this)
-    lifecycle.onSingleton('matchingScheduler', async () => {
-        const { startMatchingScheduler } = await import('./services/matching/processors/schedule');
-        await startMatchingScheduler();
-        console.log('[worker] Matching scheduler started');
-    }, 10);
+    const matchingSchedulerDisabled = String(env.DISABLE_MATCHING_SCHEDULER || '').toLowerCase() === 'true';
+    if (!matchingSchedulerDisabled) {
+        lifecycle.onSingleton('matchingScheduler', async () => {
+            const { startMatchingScheduler } = await import('./services/matching/processors/schedule');
+            await startMatchingScheduler();
+            console.log('[worker] Matching scheduler started');
+        }, 10);
+    } else {
+        console.log('[worker] Matching scheduler disabled via DISABLE_MATCHING_SCHEDULER=true');
+    }
 
     // Register interval tasks
     lifecycle.registerInterval('cleanStalePresence', async () => {

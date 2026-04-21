@@ -8,8 +8,8 @@ import {
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
-    FileText, Sparkles, Zap, Wrench, Brain,
-    Code, Settings, HelpCircle,
+    FileText, Sparkles, Zap, Wrench, Brain, X,
+    Code, Settings, HelpCircle, ExternalLink,
     Bot, Globe
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -36,7 +36,7 @@ export function AgentSettingsModal({
     onUpdate
 }) {
     const [activeSection, setActiveSection] = useState("instructions");
-    
+
     // Marketplace Injection
     const { checkProfileAndProceed, isGuardOpen, setIsGuardOpen } = useMarketplaceGuard();
     const [isPublishModalOpen, setIsPublishModalOpen] = useState(false);
@@ -141,8 +141,8 @@ export function AgentSettingsModal({
                             </div>
 
                             <div className="flex items-center gap-3">
-                                <Button 
-                                    variant="outline" 
+                                <Button
+                                    variant="outline"
                                     className="gap-2 text-indigo-600 border-indigo-200 hover:bg-indigo-50 font-bold rounded-xl h-10 px-4"
                                     onClick={handlePublishClick}
                                 >
@@ -225,16 +225,27 @@ export function AgentSettingsModal({
                     </div>
                 </div>
             </DialogContent>
-            
+
             <MarketplaceGuardDialog isOpen={isGuardOpen} onOpenChange={setIsGuardOpen} />
             {isPublishModalOpen && (
-                <PublishEntityModal 
-                    open={isPublishModalOpen} 
-                    onOpenChange={setIsPublishModalOpen} 
+                <PublishEntityModal
+                    open={isPublishModalOpen}
+                    onOpenChange={setIsPublishModalOpen}
                     entityType="agent"
                     entityId={agent.id}
                     initialTitle={agent.name}
                     initialDescription={agent.systemPrompt}
+                    entityContext={{
+                        avatar: agent.avatar,
+                        description: agent.systemPrompt,
+                        status: agent.model ?? "Agent",
+                        metadata: [
+                            ...(agent.tools?.length ? [{ label: "Tools", value: agent.tools.length }] : []),
+                            ...(agent.triggers?.length ? [{ label: "Triggers", value: agent.triggers.length }] : []),
+                            ...(agent.schedules?.length ? [{ label: "Schedules", value: agent.schedules.length }] : []),
+                        ],
+                        capabilities: agent.tools?.map((t: any) => t.name ?? t.id) ?? [],
+                    }}
                 />
             )}
         </Dialog>

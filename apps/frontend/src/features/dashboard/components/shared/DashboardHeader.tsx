@@ -571,7 +571,7 @@ export function DashboardHeader({
                                     <Button
                                         variant="ghost"
                                         size="sm"
-                                        onClick={() => router.push("/home")}
+                                        onClick={() => router.push("/")}
                                         className="h-8 relative group transition-all duration-200 ease-in-out w-8 hover:w-auto px-0 hover:px-3 justify-center hover:justify-start"
                                     >
                                         <div className="flex items-center justify-center w-8 h-8 shrink-0">

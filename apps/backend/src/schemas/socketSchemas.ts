@@ -4,39 +4,46 @@ import { z } from 'zod';
  * Validation schemas for socket events
  */
 
+const AppIdSchema = z
+    .string()
+    .trim()
+    .min(1, 'Invalid ID format')
+    .max(191, 'Invalid ID format');
+
 export const MessageCreateSchema = z.object({
-    id: z.string().uuid('Invalid message ID format'),
-    toUserId: z.string().uuid('Invalid recipient ID format'),
+    id: AppIdSchema,
+    toUserId: AppIdSchema,
     content: z.string().max(10000, 'Message content too long (max 10000 chars)').optional(),
     attachments: z.array(z.string().url('Invalid attachment URL')).max(10, 'Too many attachments (max 10)').optional(),
     replyTo: z.object({
-        id: z.string().uuid(),
+        id: AppIdSchema,
         content: z.string().optional(),
-        senderId: z.string().uuid().optional(),
+        senderId: AppIdSchema.optional(),
     }).optional(),
+    marketplaceListingId: z.string().optional(),
 }).refine(
     (data) => data.content?.trim() || data.attachments?.length,
     { message: 'Message must have content or attachments' }
 );
 
 export const MessageReactSchema = z.object({
-    messageId: z.string().uuid('Invalid message ID'),
+    messageId: AppIdSchema,
     emoji: z.string().min(1).max(10, 'Invalid emoji'),
 });
 
 export const MessageReadSchema = z.object({
-    fromUserId: z.string().uuid('Invalid user ID'),
+    fromUserId: AppIdSchema,
 });
 
 export const ChannelMessageCreateSchema = z.object({
-    id: z.string().uuid('Invalid message ID'),
-    channelId: z.string().uuid('Invalid channel ID'),
+    id: AppIdSchema,
+    channelId: AppIdSchema,
     content: z.string().max(10000).optional(),
     attachments: z.array(z.any()).max(10).optional(),
     replyTo: z.object({
-        id: z.string().uuid(),
+        id: AppIdSchema,
         content: z.string().optional(),
-        userId: z.string().uuid().optional(),
+        userId: AppIdSchema.optional(),
     }).optional(),
 }).refine(
     (data) => data.content?.trim() || data.attachments?.length,
@@ -44,16 +51,16 @@ export const ChannelMessageCreateSchema = z.object({
 );
 
 export const ChannelJoinSchema = z.object({
-    channelId: z.string().uuid('Invalid channel ID'),
+    channelId: AppIdSchema,
 });
 
 export const ChannelReadSchema = z.object({
-    channelId: z.string().uuid('Invalid channel ID'),
+    channelId: AppIdSchema,
 });
 
 export const TypingDataSchema = z.object({
-    postId: z.string().uuid().optional(),
-    commentId: z.string().uuid().optional(),
+    postId: AppIdSchema.optional(),
+    commentId: AppIdSchema.optional(),
 }).refine(
     (data) => data.postId || data.commentId,
     { message: 'Either postId or commentId must be provided' }

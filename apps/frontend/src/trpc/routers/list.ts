@@ -122,6 +122,124 @@ const contextSchema = baseContextSchema.refine(
 );
 
 export const listRouter = router({
+  getPersonal: protectedProcedure
+    .query(async ({ ctx }) => {
+      const userId = ctx.session!.user!.id;
+
+      // Find personal list
+      let list = await prisma.list.findFirst({
+        where: {
+          locationType: "PERSONAL",
+          createdBy: userId,
+        },
+        include: {
+          views: {
+            orderBy: { position: 'asc' }
+          },
+          statuses: {
+            orderBy: { position: 'asc' }
+          },
+        }
+      });
+
+      if (!list) {
+        // Create it if it doesn't exist
+        list = await prisma.$transaction(async (tx) => {
+          const newList = await tx.list.create({
+            data: {
+              name: "Personal",
+              locationType: "PERSONAL",
+              createdBy: userId,
+            },
+          });
+
+          // Add default statuses
+          const defaultStatuses = [
+            { name: "To Do", type: "OPEN" as const, color: "#94A3B8", position: 0 },
+            { name: "In Progress", type: "IN_PROGRESS" as const, color: "#3B82F6", position: 1 },
+            { name: "Done", type: "COMPLETED" as const, color: "#10B981", position: 2 },
+          ];
+
+          await Promise.all(
+            defaultStatuses.map((status) =>
+              tx.taskStatus.create({
+                data: {
+                  listId: newList.id,
+                  name: status.name,
+                  type: status.type,
+                  color: status.color,
+                  position: status.position,
+                },
+              })
+            )
+          );
+
+          // Add default views
+          const defaultViews = [
+            { name: "List", type: "LIST" as const, position: 0 },
+            { name: "Board", type: "BOARD" as const, position: 1 },
+          ];
+
+          await Promise.all(
+            defaultViews.map((view) =>
+              tx.view.create({
+                data: {
+                  listId: newList.id,
+                  name: view.name,
+                  type: view.type,
+                  position: view.position,
+                  createdBy: userId,
+                  isDefault: view.position === 0,
+                  isPrivate: true,
+                },
+              })
+            )
+          );
+
+          return tx.list.findUnique({
+            where: { id: newList.id },
+            include: {
+              views: { orderBy: { position: 'asc' } },
+              statuses: { orderBy: { position: 'asc' } },
+            }
+          });
+        }) as any;
+      } else if (list.views.length === 0) {
+        // Existing list has no views — provision defaults now
+        const defaultViews = [
+          { name: "List", type: "LIST" as const, position: 0 },
+          { name: "Board", type: "BOARD" as const, position: 1 },
+        ];
+
+        await Promise.all(
+          defaultViews.map((view) =>
+            prisma.view.create({
+              data: {
+                listId: list!.id,
+                name: view.name,
+                type: view.type,
+                position: view.position,
+                createdBy: userId,
+                isDefault: view.position === 0,
+                isPrivate: true,
+              },
+            })
+          )
+        );
+
+        // Re-fetch with views
+        list = await prisma.list.findUnique({
+          where: { id: list.id },
+          include: {
+            views: { orderBy: { position: 'asc' } },
+            statuses: { orderBy: { position: 'asc' } },
+          }
+        }) as any;
+      }
+
+      return list;
+    }),
+
   byContext: protectedProcedure
     .input(
       baseContextSchema
@@ -245,12 +363,17 @@ export const listRouter = router({
       const list = await prisma.list.findFirst({
         where: {
           id: input.id,
-          workspace: {
-            OR: [
-              { ownerId: userId },
-              { members: { some: { userId } } },
-            ],
-          },
+          OR: [
+            { createdBy: userId },
+            {
+              workspace: {
+                OR: [
+                  { ownerId: userId },
+                  { members: { some: { userId } } },
+                ],
+              },
+            },
+          ],
         },
         select: {
           id: true,
@@ -270,6 +393,21 @@ export const listRouter = router({
               color: true,
               type: true,
               position: true,
+            },
+            orderBy: { position: "asc" },
+          },
+          views: {
+            select: {
+              id: true,
+              name: true,
+              type: true,
+              position: true,
+              isPinned: true,
+              isPrivate: true,
+              isDefault: true,
+              isLocked: true,
+              isShared: true,
+              config: true,
             },
             orderBy: { position: "asc" },
           },
@@ -338,6 +476,7 @@ export const listRouter = router({
             projectId: input.projectId ?? undefined,
             teamId: input.teamId ?? undefined,
             folderId: input.folderId ?? undefined,
+            createdBy: userId,
           },
           select: {
             id: true,
@@ -411,7 +550,6 @@ export const listRouter = router({
         description: z.string().optional().nullable(),
         color: z.string().optional().nullable(),
         icon: z.string().optional().nullable(),
-        icon: z.string().optional().nullable(),
         position: z.number().int().optional(),
         isArchived: z.boolean().optional(),
       })
@@ -424,12 +562,17 @@ export const listRouter = router({
       const list = await prisma.list.findFirst({
         where: {
           id,
-          workspace: {
-            OR: [
-              { ownerId: userId },
-              { members: { some: { userId } } },
-            ],
-          },
+          OR: [
+            { createdBy: userId },
+            {
+              workspace: {
+                OR: [
+                  { ownerId: userId },
+                  { members: { some: { userId } } },
+                ],
+              },
+            },
+          ],
         },
         select: { id: true, workspaceId: true },
       });
@@ -469,12 +612,17 @@ export const listRouter = router({
       const list = await prisma.list.findFirst({
         where: {
           id: input.id,
-          workspace: {
-            OR: [
-              { ownerId: userId },
-              { members: { some: { userId } } },
-            ],
-          },
+          OR: [
+            { createdBy: userId },
+            {
+              workspace: {
+                OR: [
+                  { ownerId: userId },
+                  { members: { some: { userId } } },
+                ],
+              },
+            },
+          ],
         },
         select: { id: true },
       });
@@ -502,12 +650,17 @@ export const listRouter = router({
       const sourceList = await prisma.list.findFirst({
         where: {
           id: input.id,
-          workspace: {
-            OR: [
-              { ownerId: userId },
-              { members: { some: { userId } } },
-            ],
-          },
+          OR: [
+            { createdBy: userId },
+            {
+              workspace: {
+                OR: [
+                  { ownerId: userId },
+                  { members: { some: { userId } } },
+                ],
+              },
+            },
+          ],
         },
         include: {
           statuses: true,

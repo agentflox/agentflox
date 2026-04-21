@@ -349,15 +349,21 @@ export default function FolderDashboardView({ folderId, spaceId, projectId, team
                                 return (
                                     <ContextMenu key={view.id}>
                                         <ContextMenuTrigger>
-                                            <TabsTrigger
-                                                value={view.id}
-                                                asChild
-                                            >
-                                                <div className="group relative flex items-center gap-2 h-10 px-4 py-2.5 text-base cursor-pointer data-[state=active]:bg-slate-100">
-                                                    <Icon className="h-4 w-4" />
-                                                    <span>{view.name}</span>
-                                                    {view.isPinned && <Pin className="h-3 w-3 -mr-1 rotate-45 text-muted-foreground" />}
-                                                    {view.isPrivate && <Lock className="h-3 w-3 -mr-1 text-muted-foreground" />}
+                                            <TabsTrigger value={view.id} asChild>
+                                                <div className={cn(
+                                                    "group relative flex items-center gap-1.5 h-10 px-3 py-2 text-sm cursor-pointer whitespace-nowrap transition-colors rounded-md",
+                                                    activeTab === view.id
+                                                        ? "text-primary font-medium"
+                                                        : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                                                )}>
+                                                    <Icon className={cn("h-4 w-4 shrink-0", activeTab === view.id ? "text-primary" : "text-slate-500 group-hover:text-slate-700")} />
+                                                    <span className="inline-block max-w-[120px] truncate align-bottom">{view.name}</span>
+                                                    {view.isPinned && <Pin className="h-3 w-3 shrink-0 rotate-45 text-muted-foreground" />}
+                                                    {view.isPrivate && <Lock className="h-3 w-3 shrink-0 text-muted-foreground" />}
+                                                    
+                                                    {activeTab === view.id && (
+                                                        <div className="absolute left-0 right-0 h-0.5 bg-primary rounded-t-full" style={{ bottom: "-5px" }} />
+                                                    )}
                                                 </div>
                                             </TabsTrigger>
                                         </ContextMenuTrigger>

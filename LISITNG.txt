@@ -1,0 +1,8 @@
+now implement functionality to when add custom fields save with location type LISTING, implement apply tempalte save tempalte for listing as well 
+
+implement all functionalities in the 
+
+in the modal add saved location for users to select only at the workspace/space/project/team/personal 
+
+
+

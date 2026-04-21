@@ -7,9 +7,9 @@ import { useEffect, useRef, useCallback, useMemo } from 'react';
 import { useToast } from '@/hooks/useToast';
 import type { CreateCommentData } from '@agentflox/types/socket-events';
 import type { PostComment } from '@agentflox/database/src/generated/prisma/client';
-import { normalizeTimestamp } from '@/utils/utilities/formatter';
+type CommentEntityType = 'post' | 'listing';
 
-export function useComments(postId: string) {
+export function useComments(postId: string, entityType: CommentEntityType = 'post') {
   const { socket, isConnected, waitForConnection } = useSocket();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -22,13 +22,16 @@ export function useComments(postId: string) {
     postIdRef.current = postId;
   }, [postId]);
 
-  const queryKey = ['comments.list', { postId, page: 1, pageSize: 100 }] as const;
+  const queryKey = entityType === 'post'
+    ? (['comments.list', { postId, page: 1, pageSize: 100 }] as const)
+    : (['marketplace.listComments', { listingId: postId, page: 1, pageSize: 100 }] as const);
 
   const normalizeComment = useCallback((src: any) => {
     if (!src) return src;
     return {
       ...src,
-      postId: src.postId ?? src.post_id,
+      postId: src.postId ?? src.post_id ?? src.listingId ?? src.listing_id,
+      listingId: src.listingId ?? src.listing_id,
       parentId: src.parentId ?? src.parent_id,
       content: src.content,
       createdAt: src.createdAt ?? src.created_at,
@@ -39,10 +42,10 @@ export function useComments(postId: string) {
     };
   }, []);
   // ✅ Fetch with optimized settings
-  const { data: commentsResp, isLoading } = trpc.comments.list.useQuery(
+  const postCommentsQuery = trpc.comments.list.useQuery(
     { postId, page: 1, pageSize: 100 },
     {
-      enabled: !!postId,
+      enabled: !!postId && entityType === 'post',
       staleTime: Infinity,
       gcTime: 300000,
       refetchInterval: false,
@@ -52,37 +55,74 @@ export function useComments(postId: string) {
       placeholderData: keepPreviousData,
     }
   );
+  const listingCommentsQuery = trpc.marketplace.listComments.useQuery(
+    { listingId: postId, page: 1, pageSize: 100 },
+    {
+      enabled: !!postId && entityType === 'listing',
+      staleTime: Infinity,
+      gcTime: 300000,
+      refetchInterval: false,
+      refetchOnWindowFocus: false,
+      refetchOnReconnect: false,
+      refetchOnMount: false,
+      placeholderData: keepPreviousData,
+    }
+  );
+  const commentsResp = entityType === 'post' ? postCommentsQuery.data : listingCommentsQuery.data;
+  const isLoading = entityType === 'post' ? postCommentsQuery.isLoading : listingCommentsQuery.isLoading;
 
   // ✅ CRITICAL FIX: Subscribe to live cache updates
   const comments = useMemo(() => {
     const cached = queryClient.getQueryData(queryKey) as any;
-    return (cached?.items || commentsResp?.items || []) as PostComment[];
+    const sourceItems = (cached?.items || commentsResp?.items || []) as any[];
+    return sourceItems.map((item) => normalizeComment(item)) as PostComment[];
   }, [queryClient.getQueryState(queryKey)?.dataUpdatedAt, commentsResp]); // Re-run when cache updates
 
   // ✅ Subscribe to post room
   useEffect(() => {
     if (!socket || !isConnected || !postId || subscribedRef.current) return;
 
-    socket.emit('feed:subscribe', {
-      feedType: 'project',
-      feedId: postId
-    });
+    if (entityType === 'listing') {
+      socket.emit('listing:comment:subscribe', { listingId: postId });
+    } else {
+      socket.emit('feed:subscribe', {
+        feedType: 'project',
+        feedId: postId
+      });
+    }
     subscribedRef.current = true;
 
     return () => {
       if (socket && subscribedRef.current) {
-        socket.emit('feed:unsubscribe', {
-          feedType: 'project',
-          feedId: postId
-        });
+        if (entityType === 'listing') {
+          socket.emit('listing:comment:unsubscribe', { listingId: postId });
+        } else {
+          socket.emit('feed:unsubscribe', {
+            feedType: 'project',
+            feedId: postId
+          });
+        }
         subscribedRef.current = false;
       }
     };
-  }, [socket, isConnected, postId]);
+  }, [socket, isConnected, postId, entityType]);
 
   // ✅ Helper: Update cache instantly
   const updateCommentCache = useCallback(
     (updater: (items: any[]) => any[]) => {
+      if (entityType === 'listing') {
+        utils.marketplace.listComments.setData(
+          { listingId: postId as string, page: 1, pageSize: 100 },
+          (old) => {
+            if (!old) return old;
+            const items = (old as any).items ?? [];
+            const updatedItems = updater(items).map(normalizeComment);
+            return { ...(old as any), items: updatedItems } as any;
+          }
+        );
+        return;
+      }
+
       utils.comments.list.setData(
         { postId: postId as string, page: 1, pageSize: 100 },
         (old) => {
@@ -93,12 +133,13 @@ export function useComments(postId: string) {
         }
       );
     },
-    [utils, postId, normalizeComment]
+    [utils, postId, normalizeComment, entityType]
   );
 
   // ✅ Handle comment created (with deduplication)
   const handleCommentCreated = useCallback((data: any) => {
-    if (data.comment.postId !== postIdRef.current) return;
+    const incomingTargetId = data.comment?.postId ?? data.comment?.listingId;
+    if (incomingTargetId !== postIdRef.current) return;
     const eventId = `created-${data.comment.id}`;
     if (processedEvents.current.has(eventId)) return;
     processedEvents.current.add(eventId);
@@ -147,18 +188,26 @@ export function useComments(postId: string) {
   useEffect(() => {
     if (!socket || !isConnected) return;
 
-    socket.on('comment:created', handleCommentCreated);
-    socket.on('comment:updated', handleCommentUpdated);
-    socket.on('comment:deleted', handleCommentDeleted);
-    socket.on('comment:voted', handleCommentVoted);
+    if (entityType === 'listing') {
+      socket.on('listing:comment:created', handleCommentCreated);
+    } else {
+      socket.on('comment:created', handleCommentCreated);
+      socket.on('comment:updated', handleCommentUpdated);
+      socket.on('comment:deleted', handleCommentDeleted);
+      socket.on('comment:voted', handleCommentVoted);
+    }
 
     return () => {
-      socket.off('comment:created', handleCommentCreated);
-      socket.off('comment:updated', handleCommentUpdated);
-      socket.off('comment:deleted', handleCommentDeleted);
-      socket.off('comment:voted', handleCommentVoted);
+      if (entityType === 'listing') {
+        socket.off('listing:comment:created', handleCommentCreated);
+      } else {
+        socket.off('comment:created', handleCommentCreated);
+        socket.off('comment:updated', handleCommentUpdated);
+        socket.off('comment:deleted', handleCommentDeleted);
+        socket.off('comment:voted', handleCommentVoted);
+      }
     };
-  }, [socket, isConnected, handleCommentCreated, handleCommentUpdated, handleCommentDeleted, handleCommentVoted]);
+  }, [socket, isConnected, handleCommentCreated, handleCommentUpdated, handleCommentDeleted, handleCommentVoted, entityType]);
 
   // ✅ Create comment with INSTANT optimistic update
   const createComment = useMutation({
@@ -166,6 +215,7 @@ export function useComments(postId: string) {
       const tempComment = {
         id: data.id,
         postId: data.postId,
+        listingId: entityType === 'listing' ? data.postId : undefined,
         parentId: data.parentId,
         content: data.content,
         createdAt: new Date(),
@@ -184,7 +234,11 @@ export function useComments(postId: string) {
         const response = await new Promise((resolve, reject) => {
           const timeoutId = setTimeout(() => reject(new Error('Request timeout')), 60000);
 
-          s.emit('comment:create', data, (err: any, response?: any) => {
+          const eventName = entityType === 'listing' ? 'listing:comment:create' : 'comment:create';
+          const payload = entityType === 'listing'
+            ? { listingId: data.postId, content: data.content, parentId: data.parentId }
+            : data;
+          s.emit(eventName as any, payload, (err: any, response?: any) => {
             clearTimeout(timeoutId);
             if (err) {
               const message = typeof err === 'string' ? err : (err?.message || 'Request failed');
@@ -196,12 +250,14 @@ export function useComments(postId: string) {
 
         // ✅ Replace temp with real comment
         const realComment = (response as any).comment;
-        updateCommentCache((items) =>
-          items.map(c => c.id === data.id ? {
-            ...realComment,
-            isPending: false
-          } : c)
-        );
+        updateCommentCache((items) => {
+          const withoutTemp = items.filter((c) => c.id !== data.id);
+          const normalizedReal = normalizeComment({ ...realComment, isPending: false });
+          if (withoutTemp.some((c) => c.id === normalizedReal.id)) {
+            return withoutTemp;
+          }
+          return [...withoutTemp, normalizedReal];
+        });
 
         return response;
       } catch (error) {

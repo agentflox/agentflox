@@ -117,40 +117,5 @@ ENV NODE_ENV=production PORT=3001
 # Run API server
 CMD ["node", "dist/main.api.js"]
 
-# ===== Runtime layer (Worker) =====
-FROM node:20-alpine AS worker
-
-RUN addgroup --system --gid 1001 nodejs \
-    && adduser --system --uid 1001 serviceio
-
-WORKDIR /app
-
-# Copy production dependencies
-COPY --from=prod-deps --chown=serviceio:nodejs /app/node_modules ./node_modules
-COPY --from=prod-deps --chown=serviceio:nodejs /app/packages/database/node_modules ./packages/database/node_modules
-
-# Copy built artifacts
-COPY --from=builder --chown=serviceio:nodejs /app/packages/database/src/generated ./packages/database/src/generated
-COPY --from=builder --chown=serviceio:nodejs /app/packages/types/dist ./packages/types/dist
-COPY --from=builder --chown=serviceio:nodejs /app/packages/logger/dist ./packages/logger/dist
-COPY --from=builder --chown=serviceio:nodejs /app/packages/config/dist ./packages/config/dist
-COPY --from=builder --chown=serviceio:nodejs /app/packages/errors/dist ./packages/errors/dist
-COPY --from=builder --chown=serviceio:nodejs /app/apps/backend/dist ./apps/backend/dist
-
-# Copy package.json files
-COPY --from=builder --chown=serviceio:nodejs /app/package.json ./
-COPY --from=builder --chown=serviceio:nodejs /app/packages/database/package.json ./packages/database/
-COPY --from=builder --chown=serviceio:nodejs /app/packages/types/package.json ./packages/types/
-COPY --from=builder --chown=serviceio:nodejs /app/packages/logger/package.json ./packages/logger/
-COPY --from=builder --chown=serviceio:nodejs /app/packages/config/package.json ./packages/config/
-COPY --from=builder --chown=serviceio:nodejs /app/packages/errors/package.json ./packages/errors/
-COPY --from=builder --chown=serviceio:nodejs /app/apps/backend/package.json ./apps/backend/
-
-WORKDIR /app/apps/backend
-
-USER serviceio
-
-# Worker health check (if WORKER_HEALTH_PORT is set)
-ENV NODE_ENV=production
-
-CMD ["node", "dist/main.worker.js"]
+# Worker runtime image removed intentionally.
+# Build only the API target from this Dockerfile.

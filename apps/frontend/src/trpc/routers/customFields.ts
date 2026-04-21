@@ -13,12 +13,129 @@ export const customFieldsRouter = router({
       teamId: z.string().optional(),
       applyTo: z.enum(["TASK", "PROJECT"]).optional(),
     }))
-    .query(async ({ input }) => {
+    .query(async ({ ctx, input }) => {
+      const userId = ctx.session!.user!.id;
       const conditions: any[] = [];
+      const hasSpecificContext = Boolean(
+        input.listId || input.folderId || input.spaceId || input.projectId || input.teamId
+      );
 
-      // Always include workspace if provided
-      if (input.workspaceId) {
+      // If the manager doesn't pass any workspace/context, return all custom fields
+      // the current user can access (owner/member). This powers the "load everything"
+      // mode in the Custom Fields Manager modal.
+      if (!input.workspaceId && !hasSpecificContext) {
+        const accessibleWorkspaceIds = await prisma.workspace.findMany({
+          where: { OR: [{ ownerId: userId }, { members: { some: { userId } } }] },
+          select: { id: true },
+        });
+
+        const workspaceIds = accessibleWorkspaceIds.map((w) => w.id);
+
+        const spaceOr: any[] = [
+          { createdBy: userId },
+          { members: { some: { userId } } },
+        ];
+        if (workspaceIds.length > 0) {
+          spaceOr.push({ workspaceId: { in: workspaceIds } });
+        }
+
+        const accessibleSpaceIds = await prisma.space.findMany({
+          where: { OR: spaceOr },
+          select: { id: true },
+        });
+        const spaceIds = accessibleSpaceIds.map((s) => s.id);
+
+        const accessibleProjectIds = await prisma.project.findMany({
+          where: {
+            OR: [
+              { ownerId: userId },
+              { members: { some: { userId } } },
+              ...(workspaceIds.length > 0 ? [{ workspaceId: { in: workspaceIds } }] : []),
+            ],
+          },
+          select: { id: true },
+        });
+        const projectIds = accessibleProjectIds.map((p) => p.id);
+
+        const accessibleTeamIds = await prisma.team.findMany({
+          where: {
+            OR: [
+              { ownerId: userId },
+              { members: { some: { userId } } },
+              ...(workspaceIds.length > 0 ? [{ workspaceId: { in: workspaceIds } }] : []),
+            ],
+          },
+          select: { id: true },
+        });
+        const teamIds = accessibleTeamIds.map((t) => t.id);
+
+        const accessibleFolderIds = await prisma.folder.findMany({
+          where: {
+            OR: [
+              ...(workspaceIds.length > 0 ? [{ workspaceId: { in: workspaceIds } }] : []),
+              ...(projectIds.length > 0 ? [{ projectId: { in: projectIds } }] : []),
+              ...(spaceIds.length > 0 ? [{ spaceId: { in: spaceIds } }] : []),
+              ...(teamIds.length > 0 ? [{ teamId: { in: teamIds } }] : []),
+            ],
+          },
+          select: { id: true },
+        });
+        const folderIds = accessibleFolderIds.map((f) => f.id);
+
+        const accessibleListIds = await prisma.list.findMany({
+          where: {
+            OR: [
+              ...(workspaceIds.length > 0 ? [{ workspaceId: { in: workspaceIds } }] : []),
+              ...(projectIds.length > 0 ? [{ projectId: { in: projectIds } }] : []),
+              ...(spaceIds.length > 0 ? [{ spaceId: { in: spaceIds } }] : []),
+              ...(teamIds.length > 0 ? [{ teamId: { in: teamIds } }] : []),
+            ],
+          },
+          select: { id: true },
+        });
+        const listIds = accessibleListIds.map((l) => l.id);
+
+        const accessConditions: any[] = [{ locationType: "PERSONAL" }];
+        if (workspaceIds.length > 0) accessConditions.push({ workspaceId: { in: workspaceIds } });
+        if (spaceIds.length > 0) accessConditions.push({ spaceId: { in: spaceIds } });
+        if (projectIds.length > 0) accessConditions.push({ projectId: { in: projectIds } });
+        if (folderIds.length > 0) accessConditions.push({ folderId: { in: folderIds } });
+        if (listIds.length > 0) accessConditions.push({ listId: { in: listIds } });
+        if (teamIds.length > 0) accessConditions.push({ teamId: { in: teamIds } });
+
+        return prisma.customField.findMany({
+          where: {
+            OR: accessConditions,
+            ...(input.applyTo ? { applyTo: { has: input.applyTo } } : {}),
+          },
+          orderBy: { position: "asc" },
+          include: {
+            creator: { select: { id: true, name: true, email: true, firstName: true, lastName: true } },
+          },
+        });
+      }
+
+      // Workspace-level manager view:
+      // include workspace-linked fields plus personal/unscoped fields.
+      if (input.workspaceId && !hasSpecificContext) {
         conditions.push({ workspaceId: input.workspaceId });
+        conditions.push({
+          locationType: "PERSONAL",
+          workspaceId: null,
+          spaceId: null,
+          projectId: null,
+          folderId: null,
+          listId: null,
+          teamId: null,
+        });
+
+        // Manager view should also include fields that are not directly attached
+        // to the workspace, e.g. standalone projects/lists/spaces.
+        conditions.push({ workspaceId: null, spaceId: { not: null } });
+        conditions.push({ workspaceId: null, projectId: { not: null } });
+        conditions.push({ workspaceId: null, folderId: { not: null } });
+        conditions.push({ workspaceId: null, listId: { not: null } });
+        conditions.push({ workspaceId: null, teamId: { not: null } });
       }
 
       // Hierarchy resolution
@@ -60,7 +177,10 @@ export const customFieldsRouter = router({
           OR: conditions,
           ...(input.applyTo ? { applyTo: { has: input.applyTo } } : {}),
         },
-        orderBy: { position: 'asc' }
+        orderBy: { position: 'asc' },
+        include: {
+          creator: { select: { id: true, name: true, email: true, firstName: true, lastName: true } },
+        },
       });
     }),
 
@@ -69,7 +189,10 @@ export const customFieldsRouter = router({
     .query(async ({ input }) => {
       return prisma.customField.findUnique({
         where: { id: input.id },
-        include: { values: true }
+        include: {
+          values: true,
+          creator: { select: { id: true, name: true, email: true, firstName: true, lastName: true } },
+        },
       });
     }),
 
@@ -81,14 +204,19 @@ export const customFieldsRouter = router({
       folderId: z.string().optional(),
       listId: z.string().optional(),
       teamId: z.string().optional(),
+      locationType: z.enum(["WORKSPACE", "SPACE", "PROJECT", "TEAM", "FOLDER", "LIST", "PERSONAL"]).optional(),
       name: z.string(),
       type: z.string(), // Display type from field types (e.g. TEXT_AREA, MONEY)
       config: z.any().optional(),
       defaultValue: z.any().optional(),
       isRequired: z.boolean().optional(),
+      isPinned: z.boolean().optional(),
+      isRequiredInTasks: z.boolean().optional(),
+      isVisibleToGuests: z.boolean().optional(),
+      visibility: z.enum(["PRIVATE", "ADMINS", "MEMBERS", "EVERYONE", "PUBLIC"]).optional(),
       applyTo: z.array(z.enum(["TASK", "PROJECT"])),
     }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       const DB_TYPES = ["TEXT", "NUMBER", "DROPDOWN", "DATE", "CHECKBOX", "URL", "EMAIL", "PHONE", "MULTI_SELECT", "CURRENCY", "RATING", "USER", "LOCATION", "FORMULA"] as const;
       const typeToDb: Record<string, string> = {
         TEXT: "TEXT", TEXT_AREA: "TEXT", LONG_TEXT: "TEXT", SUMMARY: "TEXT", CUSTOM_TEXT: "TEXT",
@@ -126,17 +254,23 @@ export const customFieldsRouter = router({
 
       return prisma.customField.create({
         data: {
+          createdBy: ctx.session.user.id,
           workspaceId: input.workspaceId,
           spaceId: input.spaceId,
           projectId: input.projectId,
           folderId: input.folderId,
           listId: input.listId,
           teamId: input.teamId,
+          locationType: input.locationType,
           name: input.name,
           type: dbType,
           config: Object.keys(config).length ? config : input.config,
           defaultValue: input.defaultValue,
           isRequired: input.isRequired ?? false,
+          isPinned: input.isPinned ?? false,
+          isRequiredInTasks: input.isRequiredInTasks ?? false,
+          isVisibleToGuests: input.isVisibleToGuests ?? true,
+          visibility: input.visibility ?? "ADMINS",
           applyTo: input.applyTo,
           position: (maxPosition?.position ?? 0) + 1,
         }
@@ -150,6 +284,10 @@ export const customFieldsRouter = router({
       config: z.any().optional(),
       defaultValue: z.any().optional(),
       isRequired: z.boolean().optional(),
+      isPinned: z.boolean().optional(),
+      isRequiredInTasks: z.boolean().optional(),
+      isVisibleToGuests: z.boolean().optional(),
+      visibility: z.enum(["PRIVATE", "ADMINS", "MEMBERS", "EVERYONE", "PUBLIC"]).optional(),
       position: z.number().optional(),
     }))
     .mutation(async ({ input }) => {

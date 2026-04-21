@@ -36,6 +36,53 @@ export default function NotificationBell() {
     },
   });
 
+  const markAllAsReadMutation = trpc.notification.markAllAsRead.useMutation({
+    onMutate: async () => {
+      await utils.notification.getNotifications.cancel();
+      await utils.notification.getUnreadCount.cancel();
+
+      const previousNotifications = utils.notification.getNotifications.getData({
+        unreadOnly: false,
+        pageSize: 10,
+      });
+      const previousUnreadCount = utils.notification.getUnreadCount.getData();
+
+      if (previousNotifications) {
+        utils.notification.getNotifications.setData(
+          { unreadOnly: false, pageSize: 10 },
+          {
+            ...previousNotifications,
+            notifications: previousNotifications.notifications.map((n: any) => ({
+              ...n,
+              read: true,
+            })),
+          }
+        );
+      }
+
+      if (previousUnreadCount) {
+        utils.notification.getUnreadCount.setData(undefined, { count: 0 });
+      }
+
+      return { previousNotifications, previousUnreadCount };
+    },
+    onError: (err, newTodo, context) => {
+      if (context?.previousNotifications) {
+        utils.notification.getNotifications.setData(
+          { unreadOnly: false, pageSize: 10 },
+          context.previousNotifications
+        );
+      }
+      if (context?.previousUnreadCount) {
+        utils.notification.getUnreadCount.setData(undefined, context.previousUnreadCount);
+      }
+    },
+    onSettled: () => {
+      utils.notification.getNotifications.invalidate();
+      utils.notification.getUnreadCount.invalidate();
+    },
+  });
+
   const deleteNotificationMutation = trpc.notification.deleteNotification.useMutation({
     onSuccess: () => {
       toast({
@@ -104,10 +151,18 @@ export default function NotificationBell() {
 
   const allNotifications = notifications?.notifications || [];
 
+  const handleToggle = () => {
+    const nextOpen = !isOpen;
+    setIsOpen(nextOpen);
+    if (nextOpen && unreadCount && unreadCount.count > 0) {
+      markAllAsReadMutation.mutate();
+    }
+  };
+
   return (
     <div className="relative" ref={dropdownRef}>
       <button
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={handleToggle}
         className={`flex h-8 w-8 items-center justify-center rounded-full border border-zinc-200 bg-zinc-50 text-zinc-500 transition-all hover:bg-zinc-100 hover:text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-200 cursor-pointer ${isOpen ? 'ring-2 ring-zinc-200 text-zinc-900' : ''
           }`}
       >
@@ -120,14 +175,9 @@ export default function NotificationBell() {
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-80 overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-lg ring-1 ring-black/5 animate-in fade-in zoom-in-95 duration-100 z-50">
+        <div className="absolute right-0 mt-2 w-80 overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-lg ring-1 ring-black/5 animate-in fade-in =zoom-in-95 duration-100 z-50">
           <div className="flex items-center justify-between border-b border-zinc-100 bg-zinc-50/50 px-4 py-3">
             <h3 className="text-sm font-semibold text-zinc-900">Notifications</h3>
-            {unreadCount && unreadCount.count > 0 && (
-              <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
-                {unreadCount.count} unread
-              </span>
-            )}
           </div>
 
           <div className="max-h-[320px] overflow-y-auto">
@@ -144,16 +194,15 @@ export default function NotificationBell() {
                 {allNotifications.map((notification: any) => (
                   <div
                     key={notification.id}
-                    className={`group relative p-4 transition-colors hover:bg-zinc-50/80 ${!notification.isRead ? "bg-zinc-50/50" : "bg-white"
-                      }`}
+                    className="group relative p-4 transition-colors bg-white hover:bg-zinc-50"
                   >
                     <div className="flex items-start gap-3">
-                      {!notification.isRead && (
+                      {!notification.read && (
                         <div className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-blue-600" />
                       )}
 
                       <div className="flex-1 min-w-0">
-                        <p className={`text-sm ${!notification.isRead ? "font-medium text-zinc-900" : "font-normal text-zinc-600"
+                        <p className={`text-sm ${!notification.read ? "font-medium text-zinc-900" : "font-normal text-zinc-600"
                           }`}>
                           {notification.title}
                         </p>
@@ -166,24 +215,12 @@ export default function NotificationBell() {
                       </div>
 
                       <div className="flex shrink-0 gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-                        {!notification.isRead && (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleMarkAsRead(notification.id);
-                            }}
-                            className="rounded p-1 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-900"
-                            title="Mark as read"
-                          >
-                            <Eye className="h-3.5 w-3.5" />
-                          </button>
-                        )}
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
                             handleDeleteNotification(notification.id);
                           }}
-                          className="rounded p-1 text-zinc-400 hover:bg-red-50 hover:text-red-600"
+                          className="rounded p-1 text-zinc-400 hover:bg-red-50 hover:text-red-600 cursor-pointer"
                           title="Delete"
                         >
                           <Trash2 className="h-3.5 w-3.5" />
@@ -200,7 +237,7 @@ export default function NotificationBell() {
             <Button
               variant="ghost"
               onClick={handleViewAll}
-              className="w-full h-8 text-xs justify-center gap-2 text-zinc-600 hover:text-zinc-900 hover:bg-zinc-200/50"
+              className="w-full h-8 text-xs justify-center gap-2 text-zinc-600 hover:text-zinc-900 hover:bg-zinc-200/50 cursor-pointer"
             >
               View All
               <ArrowRight className="h-3 w-3" />

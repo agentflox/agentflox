@@ -33,7 +33,7 @@ export function registerMessageHandlers(io: any, socket: Socket) {
         throw error;
       }
 
-      // 2. System Health Check - Enforce Degraded Mode
+      // 2. System Health Check
       const systemHealth = isSystemDegraded();
       if (!systemHealth.canWrite) {
         const err = {
@@ -66,7 +66,7 @@ export function registerMessageHandlers(io: any, socket: Socket) {
       }
 
       // 4. Authorization
-      const authorized = await canSendMessage(userId, data.toUserId);
+      const authorized = await canSendMessage(userId, data.toUserId, data.marketplaceListingId);
       if (!authorized) {
         const err = {
           message: 'Not authorized to send message to this user',
@@ -77,7 +77,7 @@ export function registerMessageHandlers(io: any, socket: Socket) {
         return socket.emit('error', err);
       }
 
-      // 5. Check cache for deduplication (with circuit breaker)
+      // 5. Deduplication cache check
       const cachedMessage = await executeRedisOperation(
         () => redis.get(`msg:${data.id}`),
         null
@@ -90,32 +90,33 @@ export function registerMessageHandlers(io: any, socket: Socket) {
         return;
       }
 
-      const conversationId = getConversationId(userId, data.toUserId);
       const now = new Date();
 
-      // 6. Atomic Database Transaction - Create message + delivery tracking
+      // 6. Atomic DB Transaction
       const result = await executeDbOperation(async () => {
         return await prisma.$transaction(async (tx) => {
-          // Get or create conversation
-          let conversation = await tx.conversation.findUnique({
+          const participantIds = [userId, data.toUserId].sort();
+          const marketplaceListingId = data.marketplaceListingId ?? null;
+
+          let conversation = await tx.conversation.findFirst({
             where: {
-              participantIds: [userId, data.toUserId].sort(), // Ensure consistent ordering
+              participantIds: { equals: participantIds },
+              marketplaceListingId,
             },
           });
 
           if (!conversation) {
             conversation = await tx.conversation.create({
               data: {
-                participantIds: [userId, data.toUserId].sort(),
+                participantIds,
+                marketplaceListingId,
                 messageSequence: 0,
               },
             });
           }
 
-          // Increment sequence number
-          const sequenceNumber = conversation.messageSequence + 1;
+          const sequenceNumber = BigInt(conversation.messageSequence) + 1n;
 
-          // Create message
           const message = await tx.message.create({
             data: {
               id: data.id,
@@ -150,7 +151,6 @@ export function registerMessageHandlers(io: any, socket: Socket) {
             },
           });
 
-          // Create delivery tracking
           await tx.messageDelivery.create({
             data: {
               messageId: message.id,
@@ -159,7 +159,6 @@ export function registerMessageHandlers(io: any, socket: Socket) {
             },
           });
 
-          // Update conversation sequence
           await tx.conversation.update({
             where: { id: conversation.id },
             data: {
@@ -173,9 +172,14 @@ export function registerMessageHandlers(io: any, socket: Socket) {
       });
 
       // 7. Format payload
+      // IMPORTANT: sequenceNumber is a BigInt from Prisma.
+      // JSON.stringify (used by Socket.IO internally) cannot serialize BigInt —
+      // convert to string to avoid "Do not know how to serialize a BigInt" crash.
       const payload = {
         id: result.id,
         conversationId: result.conversationId,
+        senderId: result.sender.id,
+        toUserId: data.toUserId,
         from: {
           id: result.sender.id,
           username: result.sender.username,
@@ -187,22 +191,23 @@ export function registerMessageHandlers(io: any, socket: Socket) {
         reactions: result.reactions,
         replyTo: result.replyTo,
         isRead: result.isRead,
+        marketplaceListingId: data.marketplaceListingId ?? null,
         createdAt: result.createdAt,
-        sequenceNumber: result.sequenceNumber,
+        sequenceNumber: result.sequenceNumber.toString(), // ✅ BigInt → string
       };
 
-      // 8. Cache for deduplication (with circuit breaker)
+      // 8. Cache for deduplication
       await executeRedisOperation(
         () => redis.setex(`msg:${data.id}`, 3600, JSON.stringify(payload)),
         null
       );
 
-      // 9. Enqueue for delivery via BullMQ
+      // 9. Enqueue for delivery
       await enqueueMessageDelivery(result.id, data.toUserId, userId, 1);
 
       metrics.messagesCreated.inc({ status: 'success' });
 
-      // 10. Echo back to sender immediately
+      // 10. Echo back to sender
       socket.emit('message:sent', payload);
       console.log('📤 Emitted message:sent to sender');
 
@@ -224,12 +229,11 @@ export function registerMessageHandlers(io: any, socket: Socket) {
     }
   });
 
-  // Toggle reaction on a message with atomic operation
+  // Toggle reaction on a message
   socket.on('message:react', async (rawData: any, ack?: (err: any, response?: any) => void) => {
     try {
       const userId = socket.data.userId as string;
 
-      // 1. Validate input
       let data;
       try {
         data = MessageReactSchema.parse(rawData);
@@ -242,7 +246,6 @@ export function registerMessageHandlers(io: any, socket: Socket) {
         throw error;
       }
 
-      // 2. Rate limiting
       const rateLimitResult = await consumeRateLimit(
         socketRateLimiters.reaction,
         userId,
@@ -250,15 +253,12 @@ export function registerMessageHandlers(io: any, socket: Socket) {
       );
 
       if (!rateLimitResult.allowed) {
-        const err = {
-          message: rateLimitResult.error,
-          code: 'RATE_LIMIT_EXCEEDED',
-        };
+        const err = { message: rateLimitResult.error, code: 'RATE_LIMIT_EXCEEDED' };
         if (ack) return ack(err);
         return socket.emit('error', err);
       }
 
-      // 3. Use Lua script for atomic reaction toggle in Redis (with circuit breaker)
+      // Atomic reaction toggle via Lua script
       const luaScript = `
         local key = KEYS[1]
         local userId = ARGV[1]
@@ -267,16 +267,17 @@ export function registerMessageHandlers(io: any, socket: Socket) {
         local reactions = redis.call('GET', key)
         reactions = reactions and cjson.decode(reactions) or {}
         
-        local found = false
+        local found_same = false
         for i = #reactions, 1, -1 do
-          if reactions[i].userId == userId and reactions[i].emoji == emoji then
+          if reactions[i].userId == userId then
+            if reactions[i].emoji == emoji then
+              found_same = true
+            end
             table.remove(reactions, i)
-            found = true
-            break
           end
         end
         
-        if not found then
+        if not found_same then
           table.insert(reactions, {userId = userId, emoji = emoji})
         end
         
@@ -297,18 +298,14 @@ export function registerMessageHandlers(io: any, socket: Socket) {
 
       const reactions = JSON.parse(reactionsJson || '[]');
 
-      // 4. Update database asynchronously with transaction
       const updated = await executeDbOperation(async () => {
         const message = await prisma.message.findUnique({
           where: { id: data.messageId },
           select: { id: true, senderId: true, receiverId: true, conversationId: true },
         });
 
-        if (!message) {
-          throw new Error('Message not found');
-        }
+        if (!message) throw new Error('Message not found');
 
-        // Update reactions in database
         await prisma.message.update({
           where: { id: data.messageId },
           data: { reactions },
@@ -323,20 +320,14 @@ export function registerMessageHandlers(io: any, socket: Socket) {
         reactions,
       };
 
-      // 5. Broadcast to both users in the conversation
-      const roomA = `user:${updated.senderId}`;
-      const roomB = `user:${updated.receiverId}`;
-      io.to(roomA).emit('message:reaction', payload);
-      io.to(roomB).emit('message:reaction', payload);
+      io.to(`user:${updated.senderId}`).emit('message:reaction', payload);
+      io.to(`user:${updated.receiverId}`).emit('message:reaction', payload);
 
       if (ack) return ack(null, payload);
     } catch (err: any) {
       console.error('❌ message:react error:', err);
       if (typeof ack === 'function') {
-        return ack({
-          message: err?.message || 'Failed to react',
-          code: 'MESSAGE_REACT_FAILED',
-        });
+        return ack({ message: err?.message || 'Failed to react', code: 'MESSAGE_REACT_FAILED' });
       }
       socket.emit('error', { message: 'Failed to react to message', code: 'MESSAGE_REACT_FAILED' });
     }
@@ -346,7 +337,12 @@ export function registerMessageHandlers(io: any, socket: Socket) {
     console.log('📥 message:read received:', { reader: socket.data.userId, from: rawData?.fromUserId });
 
     try {
-      // 1. Validate input
+      const systemHealth = isSystemDegraded();
+      if (!systemHealth.canWrite) {
+        console.warn('⚠️ Skipping message:read in degraded mode');
+        return;
+      }
+
       let data;
       try {
         data = MessageReadSchema.parse(rawData);
@@ -358,7 +354,6 @@ export function registerMessageHandlers(io: any, socket: Socket) {
       const me = socket.data.userId;
       const now = new Date();
 
-      // 2. Update messages as read (with transaction)
       const updated = await executeDbOperation(async () => {
         return await prisma.$transaction(async (tx) => {
           const messages = await tx.message.findMany({
@@ -370,31 +365,19 @@ export function registerMessageHandlers(io: any, socket: Socket) {
             select: { id: true },
           });
 
-          if (messages.length === 0) {
-            return [];
-          }
+          if (messages.length === 0) return [];
 
-          // Update all as read
           await tx.message.updateMany({
-            where: {
-              id: { in: messages.map((m) => m.id) },
-            },
-            data: {
-              isRead: true,
-              readAt: now,
-            },
+            where: { id: { in: messages.map((m) => m.id) } },
+            data: { isRead: true, readAt: now },
           });
 
-          // Update delivery status
           await tx.messageDelivery.updateMany({
             where: {
               messageId: { in: messages.map((m) => m.id) },
               userId: me,
             },
-            data: {
-              status: 'READ',
-              timestamp: now,
-            },
+            data: { status: 'READ', timestamp: now },
           });
 
           return messages;
@@ -404,14 +387,12 @@ export function registerMessageHandlers(io: any, socket: Socket) {
       const messageIds = updated.map((m) => m.id);
       console.log('✅ Marked as read:', messageIds.length, 'messages');
 
-      // 3. Notify sender
-      const senderRoom = `user:${data.fromUserId}`;
-      io.to(senderRoom).emit('message:read:ack', {
+      io.to(`user:${data.fromUserId}`).emit('message:read:ack', {
         byUserId: me,
         at: now.toISOString(),
         messageIds,
       });
-      console.log('📤 Emitted message:read:ack to:', senderRoom);
+      console.log('📤 Emitted message:read:ack to:', `user:${data.fromUserId}`);
     } catch (err) {
       console.error('❌ message:read error:', err);
       socket.emit('error', {

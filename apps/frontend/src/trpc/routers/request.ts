@@ -6,9 +6,9 @@ export const requestRouter = router({
   list: protectedProcedure
     .input(z.object({
       query: z.string().optional(),
-      status: z.enum(["PENDING","ACCEPTED","REJECTED","WITHDRAWN","EXPIRED"]).optional(),
+      status: z.enum(["PENDING", "ACCEPTED", "REJECTED", "WITHDRAWN", "EXPIRED"]).optional(),
       sortBy: z.enum(["recent"]).optional().default("recent"),
-      scope: z.enum(["received","sent"]).optional().default("received"),
+      scope: z.enum(["received", "sent"]).optional().default("received"),
       page: z.number().int().min(1).optional().default(1),
       pageSize: z.number().int().min(1).max(50).optional().default(10),
     }))
@@ -35,7 +35,7 @@ export const requestRouter = router({
           orderBy: { createdAt: "desc" },
           skip,
           take,
-          include: { project: true, team: true, proposal: true, sender: true, receiver: true },
+          include: { project: true, team: true, sender: true, receiver: true },
         }),
       ]);
       return { items, total, page: input.page, pageSize: input.pageSize };
@@ -46,7 +46,7 @@ export const requestRouter = router({
       const userId = ctx.session!.user!.id;
       const app = await prisma.request.findFirst({
         where: { id: input.id, receiverId: userId },
-        include: { project: true, team: true, proposal: true, sender: true },
+        include: { project: true, team: true, sender: true },
       });
       if (!app) throw new Error("Request not found");
       return app;
@@ -66,11 +66,11 @@ export const requestRouter = router({
         // Add sender to project
         await prisma.projectMember.upsert({
           where: { projectId_userId: { projectId: app.projectId, userId: app.senderId } },
-          create: { 
-            projectId: app.projectId, 
-            userId: app.senderId, 
-            role: app.roleApplied, 
-            title: "Member", 
+          create: {
+            projectId: app.projectId,
+            userId: app.senderId,
+            role: app.roleApplied,
+            title: "Member",
             permissions: [],
             compensationType: "PROJECT_BASED",
             status: "ACTIVE",
@@ -84,11 +84,11 @@ export const requestRouter = router({
         // Add sender to project
         await prisma.projectMember.upsert({
           where: { projectId_userId: { projectId: app.projectId, userId: app.senderId } },
-          create: { 
-            projectId: app.projectId, 
-            userId: app.senderId, 
-            role: "member", 
-            title: "Member", 
+          create: {
+            projectId: app.projectId,
+            userId: app.senderId,
+            role: "member",
+            title: "Member",
             permissions: [],
             compensationType: "PROJECT_BASED",
             status: "ACTIVE",

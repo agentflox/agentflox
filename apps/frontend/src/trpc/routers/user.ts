@@ -12,6 +12,7 @@ const baseUserSelect = {
   lastName: true,
   username: true,
   avatar: true,
+  linkedinUrl: true,
   bio: true,
   phone: true,
   website: true,
@@ -48,8 +49,9 @@ export const userRouter = router({
     .input(z.object({
       firstName: z.string().min(1).max(100).optional().nullable(),
       lastName: z.string().min(1).max(100).optional().nullable(),
-      username: z.string().min(3).max(30).regex(/^[a-zA-Z0-9_]+$/).optional().nullable(),
+      username: z.string().min(3).max(30).regex(/^[a-zA-Z0-9_ ]+$/).optional().nullable(),
       avatar: z.string().url().optional().nullable(),
+      linkedinUrl: z.string().url().optional().nullable(),
       bio: z.string().max(2000).optional().nullable(),
       phone: z.string().max(50).optional().nullable(),
       website: z.string().url().optional().nullable(),
@@ -63,6 +65,7 @@ export const userRouter = router({
         lastName: input.lastName ?? undefined,
         username: input.username ?? undefined,
         avatar: input.avatar ?? undefined,
+        linkedinUrl: input.linkedinUrl ?? undefined,
         bio: input.bio ?? undefined,
         phone: input.phone ?? undefined,
         website: input.website ?? undefined,
@@ -78,6 +81,23 @@ export const userRouter = router({
     await prisma.user.delete({ where: { id: userId } });
     return { ok: true };
   }),
+
+  searchPeople: protectedProcedure
+    .input(z.object({ query: z.string().min(1) }))
+    .query(async ({ input, ctx }) => {
+      const q = input.query.toLowerCase().trim();
+      const user = await prisma.user.findFirst({
+        where: {
+          OR: [
+            { email: q },
+            { username: q },
+          ],
+          NOT: { id: ctx.session!.user!.id }
+        },
+        select: baseUserSelect,
+      });
+      return user;
+    }),
 });
 
 

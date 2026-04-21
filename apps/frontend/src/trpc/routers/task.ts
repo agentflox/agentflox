@@ -90,7 +90,6 @@ async function duplicateTaskInternal(
       dueDate: sourceTask.dueDate,
       startDate: sourceTask.startDate,
       timeEstimate: sourceTask.timeEstimate,
-      timeEstimate: sourceTask.timeEstimate,
       taskTypeId: sourceTask.taskTypeId,
       tags: sourceTask.tags as any,
       listId: listId,
@@ -650,7 +649,6 @@ export const taskRouter = router({
       const userId = ctx.session!.user!.id;
       const task = await prisma.task.findUnique({ where: { id: input.taskId } });
       if (!task) throw new Error("Task not found");
-      if (task.proposalId) return prisma.proposal.findUnique({ where: { id: task.proposalId } });
 
       const proposal = await prisma.proposal.create({
         data: {
@@ -670,8 +668,6 @@ export const taskRouter = router({
           workspaceId: task.workspaceId || undefined,
         },
       });
-
-      await prisma.task.update({ where: { id: task.id }, data: { proposalId: proposal.id } });
       return proposal;
     }),
 

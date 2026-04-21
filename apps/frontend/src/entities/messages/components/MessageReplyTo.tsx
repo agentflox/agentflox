@@ -1,67 +1,39 @@
 'use client';
 
 import React from 'react';
+import { Reply } from 'lucide-react';
 
 interface MessageReplyToProps {
-  replyTo: { id: string; content: string; senderId: string };
+  replyTo: { id: string; content: string; senderId: string; senderName?: string };
   isOwnMessage: boolean;
+  currentSenderName?: string;
+  repliedToName?: string;
 }
 
-export function MessageReplyTo({ replyTo, isOwnMessage }: MessageReplyToProps) {
+export function MessageReplyTo({ replyTo, isOwnMessage, currentSenderName, repliedToName }: MessageReplyToProps) {
   return (
-    <div
-      className={`group relative mb-1.5 px-3 py-2 rounded-xl overflow-hidden border-l-[3px] transition-all duration-200 ${
-        isOwnMessage
-          ? // Own message → blue-on-blue contrast (slightly darker tone)
-            'border-blue-300 bg-blue-700/50 text-blue-50'
-          : // Received message → light-gray background on white bubble
-            'border-gray-300 bg-gray-100/90 dark:bg-gray-800/80 text-gray-800 dark:text-gray-100'
-      }`}
-    >
-      {/* Gradient Accent Bar */}
-      <div
-        className={`absolute inset-y-0 left-0 w-[3px] rounded-full ${
-          isOwnMessage
-            ? 'bg-gradient-to-b from-blue-300 to-blue-400'
-            : 'bg-gradient-to-b from-gray-300 to-gray-400 dark:from-gray-600 dark:to-gray-500'
-        }`}
-      ></div>
-
-      {/* Text */}
-      <div className="pl-3.5 pr-5">
-        <div
-          className={`text-[11px] font-semibold uppercase tracking-wide mb-0.5 ${
-            isOwnMessage ? 'text-blue-100/90' : 'text-gray-500 dark:text-gray-400'
-          }`}
-        >
-          {replyTo.senderId === 'me' ? 'You replied to' : 'Replying to'}
-        </div>
-        <div
-          className={`text-sm leading-snug line-clamp-2 ${
-            isOwnMessage ? 'text-blue-50' : 'text-gray-900 dark:text-gray-100'
-          }`}
-          title={replyTo.content}
-        >
-          {replyTo.content}
-        </div>
+    <div className={`flex flex-col -mb-3 relative z-0 ${isOwnMessage ? 'items-end' : 'items-start'}`}>
+      {/* Header: "Jane replied to Jasmine" */}
+      <div className={`flex items-center gap-1.5 mb-1 px-1 text-[12px] font-medium text-zinc-500 dark:text-zinc-400 ${
+        isOwnMessage ? 'flex-row-reverse' : 'flex-row'
+      }`}>
+        <Reply className={`h-3 w-3 ${isOwnMessage ? '-scale-x-100' : ''}`} />
+        <span>
+          <span className="font-semibold">{currentSenderName}</span> replied to <span className="font-semibold">{repliedToName}</span>
+        </span>
       </div>
 
-      {/* Optional arrow icon */}
+      {/* Replied-to Bubble */}
+      {/* Added pb-5 to pad the bottom where it overlaps, and removed border to make it seamlessly sit behind */}
       <div
-        className={`absolute top-1.5 right-2 opacity-0 group-hover:opacity-80 transition-opacity duration-200 ${
-          isOwnMessage ? 'text-blue-200/80' : 'text-gray-400 dark:text-gray-500'
-        }`}
+        className={`px-4 pt-3 pb-5 rounded-2xl max-w-full text-[13px] leading-relaxed shadow-sm
+          bg-zinc-100 dark:bg-zinc-800/80 text-zinc-600 dark:text-zinc-300 border border-zinc-200/50 dark:border-zinc-700/50
+          ${isOwnMessage ? 'rounded-br-sm' : 'rounded-bl-sm'}
+        `}
       >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          className="h-3.5 w-3.5"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-          strokeWidth={2}
-        >
-          <path strokeLinecap="round" strokeLinejoin="round" d="M3 10h11M3 10l5-5m-5 5l5 5" />
-        </svg>
+        <div className="line-clamp-2" title={replyTo.content}>
+          {replyTo.content}
+        </div>
       </div>
     </div>
   );

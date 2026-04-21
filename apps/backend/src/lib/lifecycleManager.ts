@@ -23,13 +23,31 @@ interface LifecycleHook {
  * Distributed lock for singleton operations
  */
 async function acquireLock(lockKey: string, ttlMs: number = 30000): Promise<boolean> {
-    const lockValue = `${process.pid}-${Date.now()}`;
-    const result = await redis.set(lockKey, lockValue, 'PX', ttlMs, 'NX');
-    return result === 'OK';
+    try {
+        const lockValue = `${process.pid}-${Date.now()}`;
+        const result = await redis.set(lockKey, lockValue, 'PX', ttlMs, 'NX');
+        return result === 'OK';
+    } catch (error: any) {
+        const msg = String(error?.message || error || '');
+        if (msg.includes('max requests limit exceeded')) {
+            console.warn(`[lifecycle] Skipping lock "${lockKey}" due to Redis quota limit`);
+            return false;
+        }
+        throw error;
+    }
 }
 
 async function releaseLock(lockKey: string): Promise<void> {
-    await redis.del(lockKey);
+    try {
+        await redis.del(lockKey);
+    } catch (error: any) {
+        const msg = String(error?.message || error || '');
+        if (msg.includes('max requests limit exceeded')) {
+            console.warn(`[lifecycle] Skipping lock release "${lockKey}" due to Redis quota limit`);
+            return;
+        }
+        throw error;
+    }
 }
 
 /**
@@ -240,6 +258,13 @@ export class LifecycleManager {
 
         // Handle unhandled rejections
         process.on('unhandledRejection', async (reason) => {
+            const reasonText = String((reason as any)?.message || reason || '');
+            const ignoreRedisQuotaErrors =
+                String(process.env.IGNORE_REDIS_UNHANDLED_REJECTION || '').toLowerCase() === 'true';
+            if (ignoreRedisQuotaErrors && reasonText.includes('max requests limit exceeded')) {
+                console.warn(`[${this.serviceName}] Ignoring Redis quota unhandled rejection due to IGNORE_REDIS_UNHANDLED_REJECTION=true`);
+                return;
+            }
             console.error(`[${this.serviceName}] Unhandled rejection:`, reason);
             await this.shutdown('unhandledRejection');
             process.exit(1);

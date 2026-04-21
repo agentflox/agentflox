@@ -154,6 +154,7 @@ exports.Prisma.UserScalarFieldEnum = {
   lastName: 'lastName',
   username: 'username',
   avatar: 'avatar',
+  linkedinUrl: 'linkedinUrl',
   bio: 'bio',
   phone: 'phone',
   website: 'website',
@@ -313,7 +314,6 @@ exports.Prisma.TaskScalarFieldEnum = {
   createdBy: 'createdBy',
   visibility: 'visibility',
   isPublic: 'isPublic',
-  proposalId: 'proposalId',
   priority: 'priority',
   taskTypeId: 'taskTypeId',
   startDate: 'startDate',
@@ -330,7 +330,8 @@ exports.Prisma.TaskScalarFieldEnum = {
   statusId: 'statusId',
   spaceId: 'spaceId',
   parentId: 'parentId',
-  order: 'order'
+  order: 'order',
+  locationType: 'locationType'
 };
 
 exports.Prisma.TaskTypeScalarFieldEnum = {
@@ -453,18 +454,25 @@ exports.Prisma.CustomFieldScalarFieldEnum = {
   workspaceId: 'workspaceId',
   name: 'name',
   type: 'type',
+  locationType: 'locationType',
   config: 'config',
   defaultValue: 'defaultValue',
   isRequired: 'isRequired',
   position: 'position',
   applyTo: 'applyTo',
   createdAt: 'createdAt',
+  createdBy: 'createdBy',
   updatedAt: 'updatedAt',
   folderId: 'folderId',
   listId: 'listId',
   projectId: 'projectId',
   spaceId: 'spaceId',
-  teamId: 'teamId'
+  teamId: 'teamId',
+  inheritedFrom: 'inheritedFrom',
+  isPinned: 'isPinned',
+  isRequiredInTasks: 'isRequiredInTasks',
+  visibility: 'visibility',
+  isVisibleToGuests: 'isVisibleToGuests'
 };
 
 exports.Prisma.CustomFieldValueScalarFieldEnum = {
@@ -523,7 +531,9 @@ exports.Prisma.ListScalarFieldEnum = {
   updatedAt: 'updatedAt',
   archivedAt: 'archivedAt',
   projectId: 'projectId',
-  teamId: 'teamId'
+  teamId: 'teamId',
+  locationType: 'locationType',
+  createdBy: 'createdBy'
 };
 
 exports.Prisma.ViewScalarFieldEnum = {
@@ -803,67 +813,6 @@ exports.Prisma.UserCommentScalarFieldEnum = {
   content: 'content'
 };
 
-exports.Prisma.FounderProfileScalarFieldEnum = {
-  id: 'id',
-  userId: 'userId',
-  companyExperience: 'companyExperience',
-  previousExits: 'previousExits',
-  linkedinProfile: 'linkedinProfile',
-  industryPreferences: 'industryPreferences',
-  locationPreferences: 'locationPreferences',
-  embeddingUpdatedAt: 'embeddingUpdatedAt',
-  createdAt: 'createdAt',
-  updatedAt: 'updatedAt'
-};
-
-exports.Prisma.InvestorProfileScalarFieldEnum = {
-  id: 'id',
-  userId: 'userId',
-  investorType: 'investorType',
-  firmName: 'firmName',
-  investmentRange: 'investmentRange',
-  minInvestment: 'minInvestment',
-  maxInvestment: 'maxInvestment',
-  preferredStages: 'preferredStages',
-  preferredIndustries: 'preferredIndustries',
-  geographicFocus: 'geographicFocus',
-  investmentThesis: 'investmentThesis',
-  valueAddServices: 'valueAddServices',
-  portfolioSize: 'portfolioSize',
-  successfulExits: 'successfulExits',
-  averageCheckSize: 'averageCheckSize',
-  isAccredited: 'isAccredited',
-  accreditationProof: 'accreditationProof',
-  embeddingUpdatedAt: 'embeddingUpdatedAt',
-  createdAt: 'createdAt',
-  updatedAt: 'updatedAt'
-};
-
-exports.Prisma.MemberProfileScalarFieldEnum = {
-  id: 'id',
-  userId: 'userId',
-  jobTitle: 'jobTitle',
-  experience: 'experience',
-  currentSalary: 'currentSalary',
-  salaryExpectation: 'salaryExpectation',
-  availabilityType: 'availabilityType',
-  hoursPerWeek: 'hoursPerWeek',
-  startDate: 'startDate',
-  acceptsEquity: 'acceptsEquity',
-  acceptsCash: 'acceptsCash',
-  acceptsDeferred: 'acceptsDeferred',
-  minEquityPercentage: 'minEquityPercentage',
-  remotePreference: 'remotePreference',
-  rolePreferences: 'rolePreferences',
-  industryPreferences: 'industryPreferences',
-  portfolioUrl: 'portfolioUrl',
-  linkedinUrl: 'linkedinUrl',
-  githubUrl: 'githubUrl',
-  achievements: 'achievements',
-  createdAt: 'createdAt',
-  updatedAt: 'updatedAt'
-};
-
 exports.Prisma.MarketplaceServiceScalarFieldEnum = {
   id: 'id',
   title: 'title',
@@ -895,27 +844,168 @@ exports.Prisma.MarketplaceApplicationScalarFieldEnum = {
   pitch: 'pitch',
   targetRate: 'targetRate',
   estimatedDuration: 'estimatedDuration',
+  proposalText: 'proposalText',
+  answers: 'answers',
   provisioningStatus: 'provisioningStatus',
   createdAt: 'createdAt'
 };
 
 exports.Prisma.MarketplaceListingScalarFieldEnum = {
   id: 'id',
+  slug: 'slug',
   type: 'type',
   status: 'status',
   title: 'title',
+  shortDesc: 'shortDesc',
   description: 'description',
+  changelog: 'changelog',
+  coverImage: 'coverImage',
+  previewImages: 'previewImages',
+  demoUrl: 'demoUrl',
+  repoUrl: 'repoUrl',
+  documentationUrl: 'documentationUrl',
+  categories: 'categories',
+  tags: 'tags',
+  industry: 'industry',
+  intent: 'intent',
+  applicationSchema: 'applicationSchema',
   authorId: 'authorId',
-  createdAt: 'createdAt',
   isFree: 'isFree',
   priceCredits: 'priceCredits',
-  skills: 'skills',
-  budgetMin: 'budgetMin',
-  budgetMax: 'budgetMax',
-  budgetCurrency: 'budgetCurrency',
-  location: 'location',
+  price: 'price',
+  pricingModel: 'pricingModel',
+  licenseType: 'licenseType',
+  priceMin: 'priceMin',
+  priceMax: 'priceMax',
+  currency: 'currency',
   isRemote: 'isRemote',
-  version: 'version'
+  location: 'location',
+  isFeatured: 'isFeatured',
+  isVerified: 'isVerified',
+  isBoosted: 'isBoosted',
+  boostExpiresAt: 'boostExpiresAt',
+  version: 'version',
+  latestVersionId: 'latestVersionId',
+  allowClone: 'allowClone',
+  allowFork: 'allowFork',
+  allowRepublish: 'allowRepublish',
+  requireAttribution: 'requireAttribution',
+  viewCount: 'viewCount',
+  likeCount: 'likeCount',
+  commentCount: 'commentCount',
+  downloadCount: 'downloadCount',
+  cloneCount: 'cloneCount',
+  installCount: 'installCount',
+  orderCount: 'orderCount',
+  ratingAvg: 'ratingAvg',
+  ratingCount: 'ratingCount',
+  rating1Count: 'rating1Count',
+  rating2Count: 'rating2Count',
+  rating3Count: 'rating3Count',
+  rating4Count: 'rating4Count',
+  rating5Count: 'rating5Count',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt',
+  publishedAt: 'publishedAt',
+  featuredAt: 'featuredAt',
+  archivedAt: 'archivedAt',
+  lastActivityAt: 'lastActivityAt'
+};
+
+exports.Prisma.ListingRatingScalarFieldEnum = {
+  id: 'id',
+  listingId: 'listingId',
+  userId: 'userId',
+  rating: 'rating',
+  title: 'title',
+  body: 'body',
+  isVerifiedPurchase: 'isVerifiedPurchase',
+  helpfulCount: 'helpfulCount',
+  notHelpfulCount: 'notHelpfulCount',
+  moderationStatus: 'moderationStatus',
+  moderatedBy: 'moderatedBy',
+  moderatedAt: 'moderatedAt',
+  moderationNote: 'moderationNote',
+  isEdited: 'isEdited',
+  editedAt: 'editedAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
+exports.Prisma.ListingRatingVoteScalarFieldEnum = {
+  id: 'id',
+  ratingId: 'ratingId',
+  userId: 'userId',
+  isHelpful: 'isHelpful',
+  createdAt: 'createdAt'
+};
+
+exports.Prisma.ListingCommentScalarFieldEnum = {
+  id: 'id',
+  listingId: 'listingId',
+  userId: 'userId',
+  parentId: 'parentId',
+  content: 'content',
+  upvotes: 'upvotes',
+  downvotes: 'downvotes',
+  isPinned: 'isPinned',
+  isAuthorReply: 'isAuthorReply',
+  isEdited: 'isEdited',
+  editedAt: 'editedAt',
+  deletedAt: 'deletedAt',
+  deletedBy: 'deletedBy',
+  status: 'status',
+  moderatedBy: 'moderatedBy',
+  moderatedAt: 'moderatedAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
+exports.Prisma.ListingCommentVoteScalarFieldEnum = {
+  id: 'id',
+  commentId: 'commentId',
+  userId: 'userId',
+  voteType: 'voteType',
+  createdAt: 'createdAt'
+};
+
+exports.Prisma.ListingLikeScalarFieldEnum = {
+  id: 'id',
+  listingId: 'listingId',
+  userId: 'userId',
+  createdAt: 'createdAt'
+};
+
+exports.Prisma.ListingDownloadScalarFieldEnum = {
+  id: 'id',
+  listingId: 'listingId',
+  userId: 'userId',
+  versionId: 'versionId',
+  eventType: 'eventType',
+  isPaid: 'isPaid',
+  orderId: 'orderId',
+  ipHash: 'ipHash',
+  userAgent: 'userAgent',
+  country: 'country',
+  createdAt: 'createdAt'
+};
+
+exports.Prisma.ListingVersionScalarFieldEnum = {
+  id: 'id',
+  listingId: 'listingId',
+  authorId: 'authorId',
+  version: 'version',
+  changelog: 'changelog',
+  artifactUrl: 'artifactUrl',
+  artifactSize: 'artifactSize',
+  artifactHash: 'artifactHash',
+  metadata: 'metadata',
+  isLatest: 'isLatest',
+  isDeprecated: 'isDeprecated',
+  deprecatedAt: 'deprecatedAt',
+  deprecationNote: 'deprecationNote',
+  downloadCount: 'downloadCount',
+  createdAt: 'createdAt'
 };
 
 exports.Prisma.EarningScalarFieldEnum = {
@@ -1230,7 +1320,6 @@ exports.Prisma.RequestScalarFieldEnum = {
   targetType: 'targetType',
   projectId: 'projectId',
   teamId: 'teamId',
-  proposalId: 'proposalId',
   role: 'role',
   message: 'message',
   proposedTerms: 'proposedTerms',
@@ -1265,7 +1354,6 @@ exports.Prisma.ReviewScalarFieldEnum = {
   contextType: 'contextType',
   projectId: 'projectId',
   teamId: 'teamId',
-  proposalId: 'proposalId',
   rating: 'rating',
   title: 'title',
   content: 'content',
@@ -1338,15 +1426,22 @@ exports.Prisma.ConnectionScalarFieldEnum = {
   status: 'status',
   message: 'message',
   requestedAt: 'requestedAt',
-  acceptedAt: 'acceptedAt'
+  acceptedAt: 'acceptedAt',
+  conversationId: 'conversationId'
 };
 
 exports.Prisma.ConversationScalarFieldEnum = {
   id: 'id',
   participantIds: 'participantIds',
+  marketplaceListingId: 'marketplaceListingId',
   messageSequence: 'messageSequence',
   createdAt: 'createdAt',
-  updatedAt: 'updatedAt'
+  updatedAt: 'updatedAt',
+  pinnedBy: 'pinnedBy',
+  archivedBy: 'archivedBy',
+  mutedBy: 'mutedBy',
+  hiddenStatusBy: 'hiddenStatusBy',
+  blockedBy: 'blockedBy'
 };
 
 exports.Prisma.MessageScalarFieldEnum = {
@@ -1362,7 +1457,9 @@ exports.Prisma.MessageScalarFieldEnum = {
   reactions: 'reactions',
   sequenceNumber: 'sequenceNumber',
   deliveryStatus: 'deliveryStatus',
-  createdAt: 'createdAt'
+  createdAt: 'createdAt',
+  isPinned: 'isPinned',
+  deletedFor: 'deletedFor'
 };
 
 exports.Prisma.MessageDeliveryScalarFieldEnum = {
@@ -1387,22 +1484,6 @@ exports.Prisma.ProjectCommentScalarFieldEnum = {
   content: 'content',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
-};
-
-exports.Prisma.ProposalCommentScalarFieldEnum = {
-  id: 'id',
-  userId: 'userId',
-  proposalId: 'proposalId',
-  content: 'content',
-  createdAt: 'createdAt',
-  updatedAt: 'updatedAt'
-};
-
-exports.Prisma.ProposalLikeScalarFieldEnum = {
-  id: 'id',
-  userId: 'userId',
-  proposalId: 'proposalId',
-  createdAt: 'createdAt'
 };
 
 exports.Prisma.NotificationScalarFieldEnum = {
@@ -1444,6 +1525,7 @@ exports.Prisma.UserSettingsScalarFieldEnum = {
   theme: 'theme',
   language: 'language',
   timezone: 'timezone',
+  messagingConfig: 'messagingConfig',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt',
   newRequestEmail: 'newRequestEmail'
@@ -1478,39 +1560,6 @@ exports.Prisma.VerificationTokenScalarFieldEnum = {
   identifier: 'identifier',
   token: 'token',
   expires: 'expires'
-};
-
-exports.Prisma.ProposalScalarFieldEnum = {
-  id: 'id',
-  workspaceId: 'workspaceId',
-  userId: 'userId',
-  createdBy: 'createdBy',
-  category: 'category',
-  projectId: 'projectId',
-  teamId: 'teamId',
-  title: 'title',
-  shortSummary: 'shortSummary',
-  detailedDesc: 'detailedDesc',
-  industry: 'industry',
-  keywords: 'keywords',
-  status: 'status',
-  visibility: 'visibility',
-  featured: 'featured',
-  views: 'views',
-  bookmarks: 'bookmarks',
-  slug: 'slug',
-  metaDescription: 'metaDescription',
-  tags: 'tags',
-  language: 'language',
-  currency: 'currency',
-  timezone: 'timezone',
-  createdAt: 'createdAt',
-  updatedAt: 'updatedAt',
-  expiresAt: 'expiresAt',
-  metadata: 'metadata',
-  embeddingUpdatedAt: 'embeddingUpdatedAt',
-  intent: 'intent',
-  spaceId: 'spaceId'
 };
 
 exports.Prisma.MaterialScalarFieldEnum = {
@@ -1573,7 +1622,6 @@ exports.Prisma.PayoutScalarFieldEnum = {
 
 exports.Prisma.AttachmentScalarFieldEnum = {
   id: 'id',
-  proposalId: 'proposalId',
   projectId: 'projectId',
   teamId: 'teamId',
   investmentId: 'investmentId',
@@ -1595,224 +1643,6 @@ exports.Prisma.AttachmentScalarFieldEnum = {
   materialId: 'materialId',
   resourceId: 'resourceId',
   toolId: 'toolId'
-};
-
-exports.Prisma.BudgetScalarFieldEnum = {
-  id: 'id',
-  minAmount: 'minAmount',
-  maxAmount: 'maxAmount',
-  currency: 'currency',
-  description: 'description',
-  proposalId: 'proposalId'
-};
-
-exports.Prisma.LocationScalarFieldEnum = {
-  id: 'id',
-  country: 'country',
-  countryCode: 'countryCode',
-  region: 'region',
-  city: 'city',
-  remote: 'remote',
-  hybrid: 'hybrid',
-  willRelocate: 'willRelocate',
-  timeZones: 'timeZones',
-  proposalId: 'proposalId'
-};
-
-exports.Prisma.TimelineScalarFieldEnum = {
-  id: 'id',
-  startDate: 'startDate',
-  endDate: 'endDate',
-  duration: 'duration',
-  commitment: 'commitment',
-  availability: 'availability',
-  urgency: 'urgency',
-  proposalId: 'proposalId'
-};
-
-exports.Prisma.ContactScalarFieldEnum = {
-  id: 'id',
-  name: 'name',
-  email: 'email',
-  phone: 'phone',
-  website: 'website',
-  linkedin: 'linkedin',
-  twitter: 'twitter',
-  github: 'github',
-  telegram: 'telegram',
-  discord: 'discord',
-  preferredContact: 'preferredContact',
-  publicProfile: 'publicProfile',
-  proposalId: 'proposalId'
-};
-
-exports.Prisma.MembershipProposalScalarFieldEnum = {
-  id: 'id',
-  seekingOrOffering: 'seekingOrOffering',
-  roleTitle: 'roleTitle',
-  department: 'department',
-  customRole: 'customRole',
-  keyResponsibilities: 'keyResponsibilities',
-  requiredSkills: 'requiredSkills',
-  preferredSkills: 'preferredSkills',
-  experienceLevel: 'experienceLevel',
-  yearsExperience: 'yearsExperience',
-  compensationType: 'compensationType',
-  salaryRange: 'salaryRange',
-  equityRange: 'equityRange',
-  benefits: 'benefits',
-  timeCommitment: 'timeCommitment',
-  hoursPerWeek: 'hoursPerWeek',
-  startDate: 'startDate',
-  duration: 'duration',
-  workArrangement: 'workArrangement',
-  whatOffered: 'whatOffered',
-  whatExpected: 'whatExpected',
-  projectStage: 'projectStage',
-  teamSize: 'teamSize',
-  companyValues: 'companyValues',
-  teamCulture: 'teamCulture',
-  currentPosition: 'currentPosition',
-  portfolioUrl: 'portfolioUrl',
-  availability: 'availability',
-  permissions: 'permissions',
-  decisionAuthority: 'decisionAuthority',
-  proposalId: 'proposalId'
-};
-
-exports.Prisma.InvestorProposalScalarFieldEnum = {
-  id: 'id',
-  fundingNeeded: 'fundingNeeded',
-  fundingType: 'fundingType',
-  stage: 'stage',
-  currentRevenue: 'currentRevenue',
-  projectedRevenue: 'projectedRevenue',
-  customers: 'customers',
-  monthlyUsers: 'monthlyUsers',
-  growthRate: 'growthRate',
-  useOfFunds: 'useOfFunds',
-  keyMetrics: 'keyMetrics',
-  teamSize: 'teamSize',
-  foundedDate: 'foundedDate',
-  previousFunding: 'previousFunding',
-  equityOffered: 'equityOffered',
-  boardSeat: 'boardSeat',
-  expectedROI: 'expectedROI',
-  exitStrategy: 'exitStrategy',
-  minInvestment: 'minInvestment',
-  maxInvestment: 'maxInvestment',
-  investorKind: 'investorKind',
-  proposalId: 'proposalId'
-};
-
-exports.Prisma.MentorProposalScalarFieldEnum = {
-  id: 'id',
-  seekingOrOffering: 'seekingOrOffering',
-  guidanceAreas: 'guidanceAreas',
-  specificChallenges: 'specificChallenges',
-  currentStage: 'currentStage',
-  preferredMentorBg: 'preferredMentorBg',
-  expertiseAreas: 'expertiseAreas',
-  yearsExperience: 'yearsExperience',
-  industriesServed: 'industriesServed',
-  successStories: 'successStories',
-  menteesCriteria: 'menteesCriteria',
-  preferredEngage: 'preferredEngage',
-  sessionFrequency: 'sessionFrequency',
-  compensationExp: 'compensationExp',
-  proposalId: 'proposalId'
-};
-
-exports.Prisma.TeamProposalScalarFieldEnum = {
-  id: 'id',
-  hiringOrSeeking: 'hiringOrSeeking',
-  roleTitle: 'roleTitle',
-  department: 'department',
-  seniority: 'seniority',
-  mustHaveSkills: 'mustHaveSkills',
-  niceToHaveSkills: 'niceToHaveSkills',
-  certifications: 'certifications',
-  languagesRequired: 'languagesRequired',
-  workArrangement: 'workArrangement',
-  compensation: 'compensation',
-  salaryRange: 'salaryRange',
-  benefits: 'benefits',
-  companySize: 'companySize',
-  companyStage: 'companyStage',
-  teamCulture: 'teamCulture',
-  proposalId: 'proposalId'
-};
-
-exports.Prisma.CoFounderProposalScalarFieldEnum = {
-  id: 'id',
-  seekingOrOffering: 'seekingOrOffering',
-  roleTitle: 'roleTitle',
-  keyResponsibilities: 'keyResponsibilities',
-  decisionAreas: 'decisionAreas',
-  equityOffered: 'equityOffered',
-  equityExpected: 'equityExpected',
-  vestingSchedule: 'vestingSchedule',
-  timeCommitment: 'timeCommitment',
-  requiredSkills: 'requiredSkills',
-  preferredBackground: 'preferredBackground',
-  mustHaveExperience: 'mustHaveExperience',
-  personalityTraits: 'personalityTraits',
-  businessStage: 'businessStage',
-  currentTeamSize: 'currentTeamSize',
-  businessModel: 'businessModel',
-  targetMarket: 'targetMarket',
-  workStyle: 'workStyle',
-  companyValues: 'companyValues',
-  conflictResolution: 'conflictResolution',
-  proposalId: 'proposalId'
-};
-
-exports.Prisma.PartnerProposalScalarFieldEnum = {
-  id: 'id',
-  seekingOrOffering: 'seekingOrOffering',
-  partnershipType: 'partnershipType',
-  valueOffered: 'valueOffered',
-  valueExpected: 'valueExpected',
-  mutualBenefits: 'mutualBenefits',
-  partnershipModel: 'partnershipModel',
-  revenueSharing: 'revenueSharing',
-  exclusivity: 'exclusivity',
-  duration: 'duration',
-  partnerCriteria: 'partnerCriteria',
-  minimumRequirements: 'minimumRequirements',
-  idealPartnerProfile: 'idealPartnerProfile',
-  currentPartners: 'currentPartners',
-  marketReach: 'marketReach',
-  customerBase: 'customerBase',
-  annualRevenue: 'annualRevenue',
-  proposalId: 'proposalId'
-};
-
-exports.Prisma.CustomerProposalScalarFieldEnum = {
-  id: 'id',
-  sellingOrBuying: 'sellingOrBuying',
-  productService: 'productService',
-  category: 'category',
-  description: 'description',
-  pricingModel: 'pricingModel',
-  priceRange: 'priceRange',
-  availability: 'availability',
-  deliveryTime: 'deliveryTime',
-  targetAudience: 'targetAudience',
-  customerBenefits: 'customerBenefits',
-  uniqueSellingProp: 'uniqueSellingProp',
-  requirements: 'requirements',
-  budgetRange: 'budgetRange',
-  decisionCriteria: 'decisionCriteria',
-  timeframe: 'timeframe',
-  marketSize: 'marketSize',
-  competitors: 'competitors',
-  previousClients: 'previousClients',
-  testimonials: 'testimonials',
-  supportIncluded: 'supportIncluded',
-  warrantyTerms: 'warrantyTerms',
-  paymentTerms: 'paymentTerms',
-  proposalId: 'proposalId'
 };
 
 exports.Prisma.PlanScalarFieldEnum = {
@@ -1898,13 +1728,11 @@ exports.Prisma.FeatureScalarFieldEnum = {
   description: 'description',
   maxProjects: 'maxProjects',
   maxTeams: 'maxTeams',
-  maxProposals: 'maxProposals',
   maxRequests: 'maxRequests',
   maxSupabaseStorage: 'maxSupabaseStorage',
   maxCredits: 'maxCredits',
   maxChatsPerProject: 'maxChatsPerProject',
   maxChatsPerProfile: 'maxChatsPerProfile',
-  maxChatsPerProposal: 'maxChatsPerProposal',
   maxChatsPerTeam: 'maxChatsPerTeam',
   maxRedisStorage: 'maxRedisStorage',
   maxTokens: 'maxTokens',
@@ -2047,8 +1875,6 @@ exports.Prisma.UsageScalarFieldEnum = {
   remainingProjects: 'remainingProjects',
   maxTeams: 'maxTeams',
   remainingTeams: 'remainingTeams',
-  maxProposals: 'maxProposals',
-  remainingProposals: 'remainingProposals',
   maxRequests: 'maxRequests',
   remainingRequests: 'remainingRequests',
   maxSupabaseStorage: 'maxSupabaseStorage',
@@ -2067,8 +1893,6 @@ exports.Prisma.UsageScalarFieldEnum = {
   remainingChatsPerProject: 'remainingChatsPerProject',
   maxChatsPerProfile: 'maxChatsPerProfile',
   remainingChatsPerProfile: 'remainingChatsPerProfile',
-  maxChatsPerProposal: 'maxChatsPerProposal',
-  remainingChatsPerProposal: 'remainingChatsPerProposal',
   maxChatsPerTeam: 'maxChatsPerTeam',
   remainingChatsPerTeam: 'remainingChatsPerTeam',
   maxSpaces: 'maxSpaces',
@@ -2083,14 +1907,12 @@ exports.Prisma.UserQuotaScalarFieldEnum = {
   subscriptionId: 'subscriptionId',
   maxProjects: 'maxProjects',
   maxTeams: 'maxTeams',
-  maxProposals: 'maxProposals',
   maxRequests: 'maxRequests',
   maxSupabaseStorage: 'maxSupabaseStorage',
   maxRedisStorage: 'maxRedisStorage',
   maxCredits: 'maxCredits',
   maxChatsPerProject: 'maxChatsPerProject',
   maxChatsPerProfile: 'maxChatsPerProfile',
-  maxChatsPerProposal: 'maxChatsPerProposal',
   maxChatsPerTeam: 'maxChatsPerTeam',
   maxTokens: 'maxTokens',
   maxRPM: 'maxRPM',
@@ -2099,7 +1921,6 @@ exports.Prisma.UserQuotaScalarFieldEnum = {
   maxTPD: 'maxTPD',
   totalProjectsCreated: 'totalProjectsCreated',
   totalTeamsCreated: 'totalTeamsCreated',
-  totalProposalsCreated: 'totalProposalsCreated',
   totalRequestsSent: 'totalRequestsSent',
   totalTokensAllTime: 'totalTokensAllTime',
   totalCreditsAllTime: 'totalCreditsAllTime',
@@ -2166,7 +1987,6 @@ exports.Prisma.AiConversationScalarFieldEnum = {
   title: 'title',
   conversationType: 'conversationType',
   projectId: 'projectId',
-  proposalId: 'proposalId',
   teamId: 'teamId',
   workforceId: 'workforceId',
   compositeToolId: 'compositeToolId',
@@ -3150,6 +2970,16 @@ exports.TaskPriority = exports.$Enums.TaskPriority = {
   LOW: 'LOW'
 };
 
+exports.LocationType = exports.$Enums.LocationType = {
+  WORKSPACE: 'WORKSPACE',
+  SPACE: 'SPACE',
+  PROJECT: 'PROJECT',
+  TEAM: 'TEAM',
+  FOLDER: 'FOLDER',
+  LIST: 'LIST',
+  PERSONAL: 'PERSONAL'
+};
+
 exports.StatusType = exports.$Enums.StatusType = {
   OPEN: 'OPEN',
   IN_PROGRESS: 'IN_PROGRESS',
@@ -3217,7 +3047,6 @@ exports.ViewType = exports.$Enums.ViewType = {
   DOCS: 'DOCS',
   TASKS: 'TASKS',
   CHANNELS: 'CHANNELS',
-  PROPOSALS: 'PROPOSALS',
   TOOLS: 'TOOLS',
   MATERIALS: 'MATERIALS',
   DOC: 'DOC',
@@ -3346,14 +3175,63 @@ exports.AutomationTriggerType = exports.$Enums.AutomationTriggerType = {
   TASK_ASSIGNEE_CHANGED: 'TASK_ASSIGNEE_CHANGED'
 };
 
-exports.InvestorType = exports.$Enums.InvestorType = {
-  ANGEL: 'ANGEL',
-  VC_FUND: 'VC_FUND',
-  FAMILY_OFFICE: 'FAMILY_OFFICE',
-  CORPORATE_VC: 'CORPORATE_VC',
-  CROWDFUNDING: 'CROWDFUNDING',
-  GOVERNMENT: 'GOVERNMENT',
-  OTHER: 'OTHER'
+exports.ListingType = exports.$Enums.ListingType = {
+  TASK: 'TASK',
+  PROJECT: 'PROJECT',
+  AGENT: 'AGENT',
+  TOOL: 'TOOL',
+  TEMPLATE: 'TEMPLATE',
+  TALENT: 'TALENT',
+  TEAM: 'TEAM',
+  DATASET: 'DATASET',
+  INTEGRATION: 'INTEGRATION',
+  WORKFLOW: 'WORKFLOW',
+  WORKFORCE: 'WORKFORCE'
+};
+
+exports.ListingStatus = exports.$Enums.ListingStatus = {
+  DRAFT: 'DRAFT',
+  PENDING_REVIEW: 'PENDING_REVIEW',
+  ACTIVE: 'ACTIVE',
+  PAUSED: 'PAUSED',
+  CLOSED: 'CLOSED',
+  EXPIRED: 'EXPIRED',
+  REJECTED: 'REJECTED',
+  ARCHIVED: 'ARCHIVED'
+};
+
+exports.ListingLicenseType = exports.$Enums.ListingLicenseType = {
+  PROPRIETARY: 'PROPRIETARY',
+  MIT: 'MIT',
+  APACHE_2: 'APACHE_2',
+  GPL_3: 'GPL_3',
+  LGPL_3: 'LGPL_3',
+  BSD_2: 'BSD_2',
+  BSD_3: 'BSD_3',
+  CC_BY: 'CC_BY',
+  CC_BY_SA: 'CC_BY_SA',
+  CC_BY_NC: 'CC_BY_NC',
+  CC0: 'CC0',
+  CUSTOM: 'CUSTOM'
+};
+
+exports.ListingModerationStatus = exports.$Enums.ListingModerationStatus = {
+  PENDING: 'PENDING',
+  APPROVED: 'APPROVED',
+  FLAGGED: 'FLAGGED',
+  REMOVED: 'REMOVED'
+};
+
+exports.ListingCommentStatus = exports.$Enums.ListingCommentStatus = {
+  VISIBLE: 'VISIBLE',
+  HIDDEN: 'HIDDEN',
+  REMOVED: 'REMOVED',
+  SPAM: 'SPAM'
+};
+
+exports.VoteType = exports.$Enums.VoteType = {
+  UPVOTE: 'UPVOTE',
+  DOWNVOTE: 'DOWNVOTE'
 };
 
 exports.ProjectStage = exports.$Enums.ProjectStage = {
@@ -3364,21 +3242,6 @@ exports.ProjectStage = exports.$Enums.ProjectStage = {
   GROWTH: 'GROWTH',
   SCALE: 'SCALE',
   EXIT: 'EXIT'
-};
-
-exports.AvailabilityType = exports.$Enums.AvailabilityType = {
-  FULL_TIME: 'FULL_TIME',
-  PART_TIME: 'PART_TIME',
-  CONTRACT: 'CONTRACT',
-  CONSULTANT: 'CONSULTANT',
-  INTERN: 'INTERN'
-};
-
-exports.RemotePreference = exports.$Enums.RemotePreference = {
-  REMOTE_ONLY: 'REMOTE_ONLY',
-  HYBRID: 'HYBRID',
-  ON_SITE: 'ON_SITE',
-  FLEXIBLE: 'FLEXIBLE'
 };
 
 exports.ProjectStatus = exports.$Enums.ProjectStatus = {
@@ -3455,11 +3318,6 @@ exports.PostVisibility = exports.$Enums.PostVisibility = {
   PRIVATE: 'PRIVATE'
 };
 
-exports.VoteType = exports.$Enums.VoteType = {
-  UPVOTE: 'UPVOTE',
-  DOWNVOTE: 'DOWNVOTE'
-};
-
 exports.ShareType = exports.$Enums.ShareType = {
   INTERNAL: 'INTERNAL',
   EXTERNAL: 'EXTERNAL',
@@ -3496,10 +3354,6 @@ exports.LogAction = exports.$Enums.LogAction = {
   INVESTMENT_PROPOSE: 'INVESTMENT_PROPOSE',
   INVESTMENT_ACCEPT: 'INVESTMENT_ACCEPT',
   INVESTMENT_REJECT: 'INVESTMENT_REJECT',
-  PROPOSAL_CREATE: 'PROPOSAL_CREATE',
-  PROPOSAL_UPDATE: 'PROPOSAL_UPDATE',
-  PROPOSAL_DELETE: 'PROPOSAL_DELETE',
-  PROPOSAL_PUBLISH: 'PROPOSAL_PUBLISH',
   SYSTEM_MAINTENANCE: 'SYSTEM_MAINTENANCE',
   SYSTEM_UPDATE: 'SYSTEM_UPDATE',
   SYSTEM_ALERT: 'SYSTEM_ALERT',
@@ -3515,7 +3369,6 @@ exports.LogCategory = exports.$Enums.LogCategory = {
   PROJECT: 'PROJECT',
   TEAM: 'TEAM',
   INVESTMENT: 'INVESTMENT',
-  PROPOSAL: 'PROPOSAL',
   SYSTEM: 'SYSTEM',
   SECURITY: 'SECURITY',
   NOTIFICATION: 'NOTIFICATION',
@@ -3609,8 +3462,7 @@ exports.ReviewContextType = exports.$Enums.ReviewContextType = {
   PROJECT: 'PROJECT',
   TEAM: 'TEAM',
   INVESTMENT: 'INVESTMENT',
-  GENERAL: 'GENERAL',
-  PROPOSAL: 'PROPOSAL'
+  GENERAL: 'GENERAL'
 };
 
 exports.VerificationType = exports.$Enums.VerificationType = {
@@ -3700,27 +3552,6 @@ exports.ActivityType = exports.$Enums.ActivityType = {
   REVIEW_GIVE: 'REVIEW_GIVE'
 };
 
-exports.ProposalType = exports.$Enums.ProposalType = {
-  INVESTMENT: 'INVESTMENT',
-  MENTORSHIP: 'MENTORSHIP',
-  TEAM: 'TEAM',
-  COFOUNDER: 'COFOUNDER',
-  PARTNERSHIP: 'PARTNERSHIP',
-  CUSTOMER: 'CUSTOMER',
-  MEMBERSHIP: 'MEMBERSHIP'
-};
-
-exports.ProposalStatus = exports.$Enums.ProposalStatus = {
-  DRAFT: 'DRAFT',
-  PUBLISHED: 'PUBLISHED',
-  ARCHIVED: 'ARCHIVED'
-};
-
-exports.ProposalIntent = exports.$Enums.ProposalIntent = {
-  SEEKING: 'SEEKING',
-  OFFERING: 'OFFERING'
-};
-
 exports.MaterialStatus = exports.$Enums.MaterialStatus = {
   DRAFT: 'DRAFT',
   PUBLISHED: 'PUBLISHED',
@@ -3740,170 +3571,6 @@ exports.AttachmentType = exports.$Enums.AttachmentType = {
   AUDIO: 'AUDIO',
   LINK: 'LINK',
   OTHER: 'OTHER'
-};
-
-exports.Commitment = exports.$Enums.Commitment = {
-  PART_TIME: 'PART_TIME',
-  FULL_TIME: 'FULL_TIME',
-  CONTRACT: 'CONTRACT',
-  FLEXIBLE: 'FLEXIBLE'
-};
-
-exports.Urgency = exports.$Enums.Urgency = {
-  LOW: 'LOW',
-  MEDIUM: 'MEDIUM',
-  HIGH: 'HIGH',
-  URGENT: 'URGENT'
-};
-
-exports.ContactMethod = exports.$Enums.ContactMethod = {
-  EMAIL: 'EMAIL',
-  PHONE: 'PHONE',
-  LINKEDIN: 'LINKEDIN',
-  TELEGRAM: 'TELEGRAM',
-  DISCORD: 'DISCORD'
-};
-
-exports.MembershipDirection = exports.$Enums.MembershipDirection = {
-  SEEKING_MEMBERSHIP: 'SEEKING_MEMBERSHIP',
-  OFFERING_MEMBERSHIP: 'OFFERING_MEMBERSHIP'
-};
-
-exports.SeniorityLevel = exports.$Enums.SeniorityLevel = {
-  INTERN: 'INTERN',
-  JUNIOR: 'JUNIOR',
-  MID_LEVEL: 'MID_LEVEL',
-  SENIOR: 'SENIOR',
-  LEAD: 'LEAD',
-  PRINCIPAL: 'PRINCIPAL',
-  DIRECTOR: 'DIRECTOR',
-  VP: 'VP',
-  C_LEVEL: 'C_LEVEL'
-};
-
-exports.WorkArrangement = exports.$Enums.WorkArrangement = {
-  REMOTE: 'REMOTE',
-  ONSITE: 'ONSITE',
-  HYBRID: 'HYBRID'
-};
-
-exports.StartupStage = exports.$Enums.StartupStage = {
-  IDEA: 'IDEA',
-  MVP: 'MVP',
-  BETA: 'BETA',
-  LAUNCHED: 'LAUNCHED',
-  GROWTH: 'GROWTH',
-  SCALE: 'SCALE'
-};
-
-exports.Availability = exports.$Enums.Availability = {
-  IMMEDIATE: 'IMMEDIATE',
-  WITHIN_WEEK: 'WITHIN_WEEK',
-  WITHIN_MONTH: 'WITHIN_MONTH',
-  NEGOTIABLE: 'NEGOTIABLE'
-};
-
-exports.FundingType = exports.$Enums.FundingType = {
-  EQUITY: 'EQUITY',
-  DEBT: 'DEBT',
-  GRANT: 'GRANT',
-  SAFE: 'SAFE',
-  CONVERTIBLE_NOTE: 'CONVERTIBLE_NOTE',
-  REVENUE_SHARE: 'REVENUE_SHARE'
-};
-
-exports.InvestorKind = exports.$Enums.InvestorKind = {
-  ANGEL: 'ANGEL',
-  VC: 'VC',
-  STRATEGIC: 'STRATEGIC',
-  CROWDFUNDING: 'CROWDFUNDING',
-  GOVERNMENT: 'GOVERNMENT',
-  FAMILY_OFFICE: 'FAMILY_OFFICE'
-};
-
-exports.MentorDirection = exports.$Enums.MentorDirection = {
-  SEEKING_MENTOR: 'SEEKING_MENTOR',
-  OFFERING_MENTORSHIP: 'OFFERING_MENTORSHIP'
-};
-
-exports.EngagementType = exports.$Enums.EngagementType = {
-  ONE_OFF: 'ONE_OFF',
-  ONGOING: 'ONGOING',
-  MENTORSHIP: 'MENTORSHIP',
-  CONSULTING: 'CONSULTING'
-};
-
-exports.MentorCompensation = exports.$Enums.MentorCompensation = {
-  FREE: 'FREE',
-  EQUITY: 'EQUITY',
-  ADVISORY_SHARES: 'ADVISORY_SHARES',
-  PAID: 'PAID',
-  BARTER: 'BARTER'
-};
-
-exports.TeamDirection = exports.$Enums.TeamDirection = {
-  HIRING: 'HIRING',
-  SEEKING_POSITION: 'SEEKING_POSITION'
-};
-
-exports.CompanySize = exports.$Enums.CompanySize = {
-  STARTUP_1_10: 'STARTUP_1_10',
-  SMALL_11_50: 'SMALL_11_50',
-  MEDIUM_51_200: 'MEDIUM_51_200',
-  LARGE_201_1000: 'LARGE_201_1000',
-  ENTERPRISE_1000_PLUS: 'ENTERPRISE_1000_PLUS'
-};
-
-exports.CofounderDirection = exports.$Enums.CofounderDirection = {
-  SEEKING_COFOUNDER: 'SEEKING_COFOUNDER',
-  OFFERING_COFOUNDING: 'OFFERING_COFOUNDING'
-};
-
-exports.PartnerDirection = exports.$Enums.PartnerDirection = {
-  SEEKING_PARTNER: 'SEEKING_PARTNER',
-  OFFERING_PARTNERSHIP: 'OFFERING_PARTNERSHIP'
-};
-
-exports.PartnershipType = exports.$Enums.PartnershipType = {
-  STRATEGIC: 'STRATEGIC',
-  TECHNOLOGY: 'TECHNOLOGY',
-  DISTRIBUTION: 'DISTRIBUTION',
-  MARKETING: 'MARKETING',
-  JOINT_VENTURE: 'JOINT_VENTURE'
-};
-
-exports.PartnershipModel = exports.$Enums.PartnershipModel = {
-  REVENUE_SHARE: 'REVENUE_SHARE',
-  FIXED_FEE: 'FIXED_FEE',
-  COMMISSION_BASED: 'COMMISSION_BASED',
-  EQUITY_BASED: 'EQUITY_BASED',
-  BARTER: 'BARTER',
-  JOINT_VENTURE: 'JOINT_VENTURE'
-};
-
-exports.ExclusivityType = exports.$Enums.ExclusivityType = {
-  EXCLUSIVE: 'EXCLUSIVE',
-  NON_EXCLUSIVE: 'NON_EXCLUSIVE',
-  SEMI_EXCLUSIVE: 'SEMI_EXCLUSIVE'
-};
-
-exports.PartnershipDuration = exports.$Enums.PartnershipDuration = {
-  SHORT_TERM: 'SHORT_TERM',
-  MID_TERM: 'MID_TERM',
-  LONG_TERM: 'LONG_TERM'
-};
-
-exports.CustomerDirection = exports.$Enums.CustomerDirection = {
-  SELLING: 'SELLING',
-  BUYING: 'BUYING'
-};
-
-exports.PricingModel = exports.$Enums.PricingModel = {
-  FIXED: 'FIXED',
-  HOURLY: 'HOURLY',
-  SUBSCRIPTION: 'SUBSCRIPTION',
-  TIERED: 'TIERED',
-  USAGE_BASED: 'USAGE_BASED'
 };
 
 exports.PlanType = exports.$Enums.PlanType = {
@@ -4118,7 +3785,6 @@ exports.VectorSourceType = exports.$Enums.VectorSourceType = {
   POST: 'POST',
   DOCUMENT: 'DOCUMENT',
   COMMENT: 'COMMENT',
-  PROPOSAL: 'PROPOSAL',
   TEAM: 'TEAM',
   MESSAGE: 'MESSAGE',
   CUSTOM: 'CUSTOM'
@@ -4408,7 +4074,6 @@ exports.TemplateEntityType = exports.$Enums.TemplateEntityType = {
   VIEW: 'VIEW',
   AGENT: 'AGENT',
   WORKFORCE: 'WORKFORCE',
-  PROPOSAL: 'PROPOSAL',
   LISTING: 'LISTING'
 };
 
@@ -4489,13 +4154,17 @@ exports.Prisma.ModelName = {
   AutomationTrigger: 'AutomationTrigger',
   UserLike: 'UserLike',
   UserComment: 'UserComment',
-  FounderProfile: 'FounderProfile',
-  InvestorProfile: 'InvestorProfile',
-  MemberProfile: 'MemberProfile',
   MarketplaceService: 'MarketplaceService',
   MarketplaceOrder: 'MarketplaceOrder',
   MarketplaceApplication: 'MarketplaceApplication',
   MarketplaceListing: 'MarketplaceListing',
+  ListingRating: 'ListingRating',
+  ListingRatingVote: 'ListingRatingVote',
+  ListingComment: 'ListingComment',
+  ListingCommentVote: 'ListingCommentVote',
+  ListingLike: 'ListingLike',
+  ListingDownload: 'ListingDownload',
+  ListingVersion: 'ListingVersion',
   Earning: 'Earning',
   CapTableEntry: 'CapTableEntry',
   InvestorUpdate: 'InvestorUpdate',
@@ -4530,30 +4199,16 @@ exports.Prisma.ModelName = {
   MessageDelivery: 'MessageDelivery',
   ProjectLike: 'ProjectLike',
   ProjectComment: 'ProjectComment',
-  ProposalComment: 'ProposalComment',
-  ProposalLike: 'ProposalLike',
   Notification: 'Notification',
   UserSettings: 'UserSettings',
   UserActivity: 'UserActivity',
   ProjectAnalytics: 'ProjectAnalytics',
   VerificationToken: 'VerificationToken',
-  Proposal: 'Proposal',
   Material: 'Material',
   MaterialPurchase: 'MaterialPurchase',
   Tool: 'Tool',
   Payout: 'Payout',
   Attachment: 'Attachment',
-  Budget: 'Budget',
-  Location: 'Location',
-  Timeline: 'Timeline',
-  Contact: 'Contact',
-  MembershipProposal: 'MembershipProposal',
-  InvestorProposal: 'InvestorProposal',
-  MentorProposal: 'MentorProposal',
-  TeamProposal: 'TeamProposal',
-  CoFounderProposal: 'CoFounderProposal',
-  PartnerProposal: 'PartnerProposal',
-  CustomerProposal: 'CustomerProposal',
   Plan: 'Plan',
   Subscription: 'Subscription',
   CreditPackage: 'CreditPackage',

@@ -43,9 +43,42 @@ export const connectionsRouter = router({
     .input(z.object({ requesterId: z.string(), accept: z.boolean() }))
     .mutation(async ({ ctx, input }) => {
       const me = ctx.session!.user!.id;
-      const conn = await prisma.connection.findFirst({ where: { requesterId: input.requesterId, receiverId: me } });
+      const conn = await prisma.connection.findFirst({
+        where: { requesterId: input.requesterId, receiverId: me }
+      });
       if (!conn) throw new Error("Connection not found");
-      const updated = await prisma.connection.update({ where: { id: conn.id }, data: { status: input.accept ? "ACCEPTED" : "REJECTED", acceptedAt: input.accept ? new Date() : null } });
+
+      let conversationId = conn.conversationId;
+
+      if (input.accept && !conversationId) {
+        // Automatically create or find the personal conversation thread
+        const participants = [input.requesterId, me].sort();
+        let conversation = await prisma.conversation.findFirst({
+          where: {
+            participantIds: { equals: participants },
+            marketplaceListingId: null,
+          },
+        });
+
+        if (!conversation) {
+          conversation = await prisma.conversation.create({
+            data: {
+              participantIds: participants,
+              marketplaceListingId: null,
+            },
+          });
+        }
+        conversationId = conversation.id;
+      }
+
+      const updated = await prisma.connection.update({
+        where: { id: conn.id },
+        data: {
+          status: input.accept ? "ACCEPTED" : "REJECTED",
+          acceptedAt: input.accept ? new Date() : null,
+          conversationId,
+        },
+      });
       return { id: updated.id, status: updated.status } as const;
     }),
 
@@ -72,8 +105,8 @@ export const connectionsRouter = router({
           where,
           orderBy: { requestedAt: "desc" },
           include: {
-            requester: { select: { id: true, name: true, username: true, avatar: true } },
-            receiver: { select: { id: true, name: true, username: true, avatar: true } },
+            requester: { select: { id: true, name: true, username: true, avatar: true, image: true } },
+            receiver: { select: { id: true, name: true, username: true, avatar: true, image: true } },
           },
           skip,
           take,

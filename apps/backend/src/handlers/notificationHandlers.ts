@@ -39,6 +39,17 @@ export function registerNotificationHandlers(io: any, socket: Socket) {
     }
   });
 
+  socket.on('notification:delete', async (data: { notificationId: string }, ack) => {
+    try {
+      if (!userId) throw new Error("Unauthorized");
+      await notificationService.deleteNotification(data.notificationId, userId);
+      if (typeof ack === 'function') ack(null, { success: true });
+    } catch (err) {
+      console.error('Error deleting notification:', err);
+      if (typeof ack === 'function') ack({ message: 'Failed to delete notification' });
+    }
+  });
+
   socket.on('notification:fetch', async (data: { limit?: number; cursor?: string; unreadOnly?: boolean }, ack) => {
     try {
       if (!userId) throw new Error("Unauthorized");

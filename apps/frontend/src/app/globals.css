@@ -119,11 +119,12 @@
 /* Thin, modern horizontal scrollbar (toolbars) */
 .toolbar-scroll-x {
   scrollbar-width: thin; /* Firefox */
-  scrollbar-color: rgba(113, 113, 122, 0.35) transparent;
+  scrollbar-color: rgba(139, 92, 246, 0.3) transparent;
 }
 
 .toolbar-scroll-x::-webkit-scrollbar {
-  height: 4px;
+  height: 5px;
+  width: 5px;
 }
 
 .toolbar-scroll-x::-webkit-scrollbar-track {
@@ -131,12 +132,40 @@
 }
 
 .toolbar-scroll-x::-webkit-scrollbar-thumb {
-  background: rgba(113, 113, 122, 0.22);
+  background: rgba(139, 92, 246, 0.2);
   border-radius: 999px;
+  border: 1px solid transparent;
+  background-clip: padding-box;
 }
 
 .toolbar-scroll-x::-webkit-scrollbar-thumb:hover {
-  background: rgba(113, 113, 122, 0.38);
+  background: rgba(139, 92, 246, 0.4);
+}
+
+/* Thin, modern custom scrollbar */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(139, 92, 246, 0.3) transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(139, 92, 246, 0.2);
+  border-radius: 999px;
+  border: 1px solid transparent;
+  background-clip: padding-box;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(139, 92, 246, 0.4);
 }
 
 
@@ -355,4 +384,15 @@
 ::view-transition-new(*) {
   animation-duration: 0.25s;
   animation-timing-function: cubic-bezier(0.19, 1, 0.22, 1);
+}
+
+.preview-html * {
+  margin: 0 !important;
+  font-size: inherit !important;
+  font-weight: inherit !important;
+  display: inline;
+}
+
+.preview-html br {
+  display: block;
 }

@@ -846,29 +846,36 @@ export default function ProjectDashboardView({ projectId }: ProjectDashboardView
                                                                         />
                                                                     </ContextMenu>
                                                                 )}
-                                                                renderTab={(view, isActive) => (
-                                                                    <ContextMenu key={view.id}>
-                                                                        <ContextMenuTrigger>
-                                                                            <Tooltip>
-                                                                                <TooltipTrigger asChild>
-                                                                                    <TabsTrigger
-                                                                                        value={view.id}
-                                                                                        className={cn(
-                                                                                            "h-9 px-3 text-xs font-medium transition-all duration-200 whitespace-nowrap",
-                                                                                            "data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary",
-                                                                                            "hover:bg-slate-50 hover:text-slate-900 border-none rounded-none"
-                                                                                        )}
-                                                                                    >
-                                                                                        <div className="flex items-center gap-1.5">
-                                                                                            {view.isPinned && <Pin className="h-3 w-3 text-primary shrink-0" />}
-                                                                                            {view.isPrivate && <Lock className="h-3 w-3 text-slate-400 shrink-0" />}
-                                                                                            <span className="inline-block max-w-[120px] truncate align-bottom">{view.name || viewConfig[view.type as ViewType]?.label || view.type}</span>
-                                                                                        </div>
-                                                                                    </TabsTrigger>
-                                                                                </TooltipTrigger>
-                                                                                <TooltipContent>{view.name || viewConfig[view.type as ViewType]?.label || view.type}</TooltipContent>
-                                                                            </Tooltip>
-                                                                        </ContextMenuTrigger>
+                                                                renderTab={(view, isActive) => {
+                                                                    const viewType = view.type as ViewType;
+                                                                    const config = viewConfig[viewType] || { icon: FileText };
+                                                                    const Icon = config.icon;
+                                                                    return (
+                                                                        <ContextMenu key={view.id}>
+                                                                            <ContextMenuTrigger>
+                                                                                <Tooltip>
+                                                                                    <TooltipTrigger asChild>
+                                                                                        <TabsTrigger value={view.id} asChild>
+                                                                                            <div className={cn(
+                                                                                                "group relative flex items-center gap-1.5 h-10 px-3 py-2 text-sm cursor-pointer whitespace-nowrap transition-colors rounded-md",
+                                                                                                activeTab === view.id
+                                                                                                    ? "text-primary font-medium"
+                                                                                                    : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                                                                                            )}>
+                                                                                                <Icon className={cn("h-4 w-4 shrink-0", activeTab === view.id ? "text-primary" : "text-slate-500 group-hover:text-slate-700")} />
+                                                                                                <span className="inline-block max-w-[120px] truncate align-bottom">{view.name || viewConfig[viewType]?.label || viewType}</span>
+                                                                                                {view.isPinned && <Pin className="h-3 w-3 shrink-0 rotate-45 text-muted-foreground" />}
+                                                                                                {view.isPrivate && <Lock className="h-3 w-3 shrink-0 text-muted-foreground" />}
+                                                                                                
+                                                                                                {activeTab === view.id && (
+                                                                                                    <div className="absolute left-0 right-0 h-0.5 bg-primary rounded-t-full" style={{ bottom: "-5px" }} />
+                                                                                                )}
+                                                                                            </div>
+                                                                                        </TabsTrigger>
+                                                                                    </TooltipTrigger>
+                                                                                    <TooltipContent>{view.name || viewConfig[viewType]?.label || viewType}</TooltipContent>
+                                                                                </Tooltip>
+                                                                            </ContextMenuTrigger>
                                                                         <ProjectViewContextMenu
                                                                             view={view}
                                                                             onRename={() => setViewToRename({ id: view.id, name: view.name || "" })}
@@ -884,15 +891,21 @@ export default function ProjectDashboardView({ projectId }: ProjectDashboardView
                                                                             onCopyLink={() => handleCopyViewLink(view)}
                                                                             onSaveAsTemplate={() => setViewToTemplate(view)}
                                                                         />
-                                                                    </ContextMenu>
-                                                                )}
-                                                                renderMeasureTab={(view) => (
-                                                                    <div className="flex items-center gap-1.5 h-9 px-3 text-xs font-medium whitespace-nowrap">
-                                                                        {view.isPinned && <Pin className="h-3 w-3 shrink-0" />}
-                                                                        {view.isPrivate && <Lock className="h-3 w-3 shrink-0" />}
-                                                                        <span className="truncate max-w-[120px]">{view.name || viewConfig[view.type as ViewType]?.label || view.type}</span>
-                                                                    </div>
-                                                                )}
+                                                                    );
+                                                                }}
+                                                                renderMeasureTab={(view) => {
+                                                                    const viewType = view.type as ViewType;
+                                                                    const config = viewConfig[viewType] || { icon: FileText };
+                                                                    const Icon = config.icon;
+                                                                    return (
+                                                                        <div className="flex items-center gap-1.5 h-10 px-3 py-2 text-sm whitespace-nowrap font-medium">
+                                                                            <Icon className="h-4 w-4 shrink-0" />
+                                                                            <span className="max-w-[120px] truncate">{view.name || viewConfig[viewType]?.label || viewType}</span>
+                                                                            {view.isPinned && <Pin className="h-3 w-3 shrink-0 rotate-45" />}
+                                                                            {view.isPrivate && <Lock className="h-3 w-3 shrink-0" />}
+                                                                        </div>
+                                                                    );
+                                                                }}
                                                             />
                                                         </TabsList>
                                                         <Button

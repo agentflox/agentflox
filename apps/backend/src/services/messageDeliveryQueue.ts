@@ -140,6 +140,11 @@ export function startMessageDeliveryWorker(io: any) {
                                 senderId: true,
                             },
                         },
+                        conversation: {
+                            select: {
+                                marketplaceListingId: true,
+                            },
+                        },
                     },
                 })
             );
@@ -153,6 +158,8 @@ export function startMessageDeliveryWorker(io: any) {
             io.to(recipientRoom).emit('message:received', {
                 id: message.id,
                 conversationId: message.conversationId,
+                senderId: message.sender.id,
+                toUserId: recipientId,
                 from: {
                     id: message.sender.id,
                     username: message.sender.username,
@@ -164,6 +171,7 @@ export function startMessageDeliveryWorker(io: any) {
                 reactions: message.reactions,
                 replyTo: message.replyTo,
                 isRead: message.isRead,
+                marketplaceListingId: message.conversation?.marketplaceListingId || null,
                 createdAt: message.createdAt,
             });
 
@@ -218,6 +226,13 @@ export function startMessageDeliveryWorker(io: any) {
 
     worker.on('error', (error) => {
         console.error('[DeliveryWorker] Worker error:', error);
+        const message = String((error as any)?.message || '');
+        if (message.includes('max requests limit exceeded')) {
+            console.error('[DeliveryWorker] Upstash max requests reached. Closing delivery worker to stop retry spam.');
+            worker.close().catch((closeError) => {
+                console.error('[DeliveryWorker] Failed to close worker cleanly:', closeError);
+            });
+        }
     });
 
     console.log('📬 Message delivery worker started');
@@ -254,6 +269,11 @@ export async function deliverPendingMessages(userId: string, io: any): Promise<n
                                 senderId: true,
                             },
                         },
+                        conversation: {
+                            select: {
+                                marketplaceListingId: true,
+                            },
+                        },
                     },
                 },
             },
@@ -279,6 +299,8 @@ export async function deliverPendingMessages(userId: string, io: any): Promise<n
         io.to(userRoom).emit('message:received', {
             id: message.id,
             conversationId: message.conversationId,
+            senderId: message.sender.id,
+            toUserId: userId,
             from: {
                 id: message.sender.id,
                 username: message.sender.username,
@@ -290,6 +312,7 @@ export async function deliverPendingMessages(userId: string, io: any): Promise<n
             reactions: message.reactions,
             replyTo: message.replyTo,
             isRead: message.isRead,
+            marketplaceListingId: message.conversation?.marketplaceListingId || null,
             createdAt: message.createdAt,
         });
 

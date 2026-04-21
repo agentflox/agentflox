@@ -1,11 +1,14 @@
 "use client";
 
 import { useState } from "react";
+import { useSession } from "next-auth/react";
 import { MarketplaceListing } from "../types/marketplace.types";
-import { useMatchScore } from "../hooks/useMatchScore";
+import { trpc } from "@/lib/trpc";
+
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { MessageSquare, Download, CheckCircle2, Star, Zap, HardDriveDownload, GitFork, Lock, Unlock } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { MessageSquare, Download, CheckCircle2, Star, Zap, HardDriveDownload, GitFork, Lock, Unlock, Clock, ImageIcon, Tag } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ApplyToListingModal } from "./ApplyToListingModal";
 
@@ -14,10 +17,14 @@ interface ListingCardProps {
 }
 
 export default function ListingCard({ listing }: ListingCardProps) {
-  // Mocking profile for deterministic scoring
-  const mockProfile = { skills: ["React", "TypeScript"] };
-  const match = useMatchScore(listing, mockProfile);
-  
+  const { data: session } = useSession();
+  const isOwnListing = session?.user?.id === listing.author.id;
+  const { data: existingApplication } = trpc.marketplace.myApplicationForListing.useQuery(
+    { listingId: listing.id },
+    { enabled: !!session?.user?.id && !isOwnListing && !['agent', 'tool', 'template', 'workforce'].includes(listing.type), staleTime: 30_000 }
+  );
+
+
   const [downloadState, setDownloadState] = useState<'idle' | 'downloading' | 'installed'>('idle');
   const [progress, setProgress] = useState(0);
   const [applyOpen, setApplyOpen] = useState(false);
@@ -29,11 +36,11 @@ export default function ListingCard({ listing }: ListingCardProps) {
     if (downloadState !== 'idle') return;
     setDownloadState('downloading');
     setProgress(0);
-    
+
     // Simulate progress bar 0-100% over 1.8s
     const start = Date.now();
     const duration = 1800;
-    
+
     const tick = () => {
       const elapsed = Date.now() - start;
       if (elapsed > duration) {
@@ -44,171 +51,218 @@ export default function ListingCard({ listing }: ListingCardProps) {
         requestAnimationFrame(tick);
       }
     };
-    
+
     requestAnimationFrame(tick);
   };
 
   return (
     <>
-    <div
-      className="group relative flex flex-col bg-card rounded-2xl border border-border shadow-sm hover:shadow-md transition-shadow duration-300 overflow-hidden"
-      style={{ viewTransitionName: `listing-${listing.id}` } as React.CSSProperties}
-    >
-      
-      {/* Top Banner Area (Optional context per type) */}
-      <div className="px-6 pt-6 pb-4 flex justify-between items-start gap-4">
-        <div className="space-y-1.5 flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-2">
-            <Badge variant="secondary" className="capitalize text-xs rounded-full px-2 py-0.5 border-zinc-200 dark:border-zinc-800">
-               {listing.type}
+      <div
+        className="group relative flex flex-col bg-card rounded-2xl border border-border/60 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-500 overflow-hidden h-full"
+        style={{ viewTransitionName: `listing-${listing.id}` } as React.CSSProperties}
+      >
+
+        {/* Cover Image Area */}
+        {(listing as any).thumbnail || (listing as any).coverImage ? (
+          <div className="w-full h-40 overflow-hidden relative border-b border-border/50 shrink-0">
+            <img src={(listing as any).thumbnail || (listing as any).coverImage} alt={listing.title} className="object-cover w-full h-full transition-transform duration-700 ease-out group-hover:scale-105" />
+            <div className="absolute inset-0 bg-gradient-to-t from-background/80 via-background/10 to-transparent" />
+
+            <Badge variant="outline" className="absolute top-3 right-3 capitalize text-[10px] font-bold tracking-wider rounded-full px-2.5 py-0.5 border-none bg-background/90 text-foreground backdrop-blur-md shadow-sm">
+              {(listing as any).isFree ? 'Free' : 'Paid'}
             </Badge>
-            {listing.version && (
-               <span className="text-xs text-muted-foreground font-mono">v{listing.version}</span>
-            )}
+
+            <div className="absolute bottom-3 left-4 flex gap-2">
+              <Badge variant="secondary" className="capitalize text-[10px] font-bold tracking-wide rounded-full px-2.5 py-0.5 border-zinc-200/50 bg-background/80 backdrop-blur-md shadow-sm">
+                {listing.type}
+              </Badge>
+            </div>
+          </div>
+        ) : (
+          <div className="w-full h-40 overflow-hidden relative border-b border-border/50 shrink-0 bg-gradient-to-br from-primary/5 via-primary/10 to-transparent flex items-center justify-center">
+            <div className="absolute inset-0 opacity-20 pointer-events-none" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, currentColor 1px, transparent 0)', backgroundSize: '16px 16px', color: 'var(--primary)' }} />
+            <div className="absolute inset-0 bg-gradient-to-t from-background/90 to-transparent/10" />
+            <ImageIcon className="w-10 h-10 text-primary/20 absolute right-6 bottom-4 drop-shadow-sm" />
+
+            <Badge variant="outline" className="absolute top-3 right-3 capitalize text-[10px] font-bold tracking-wider rounded-full px-2.5 py-0.5 border-none bg-background/90 text-foreground backdrop-blur-md shadow-sm">
+              {(listing as any).isFree ? 'Free' : 'Paid'}
+            </Badge>
+
+            <div className="absolute bottom-3 left-4 flex gap-2">
+              <Badge variant="secondary" className="capitalize text-[10px] font-bold tracking-wide rounded-full px-2.5 py-0.5 border-zinc-200 dark:border-zinc-800 bg-background/80 backdrop-blur-md shadow-sm">
+                {listing.type}
+              </Badge>
+            </div>
+          </div>
+        )}
+
+        {/* Content Area */}
+        <div className="px-5 pt-4 pb-0 flex-1 flex flex-col">
+
+          {/* Badges row (status) */}
+          <div className="flex items-center gap-1.5 mb-2 flex-wrap">
             {listing.assetState === 'locked' && (
-              <span className="inline-flex items-center gap-1 text-[10px] font-medium bg-zinc-100 dark:bg-zinc-800 text-zinc-500 px-1.5 py-0.5 rounded-full border border-zinc-200 dark:border-zinc-700">
+              <span className="inline-flex items-center gap-1 text-[10px] font-bold tracking-wide uppercase bg-zinc-100 dark:bg-zinc-800/80 text-zinc-500 px-2 py-0.5 rounded-md border border-zinc-200 dark:border-zinc-700">
                 <Lock className="h-2.5 w-2.5" /> Locked
               </span>
             )}
             {listing.assetState === 'ejected' && (
-              <span className="inline-flex items-center gap-1 text-[10px] font-medium bg-amber-50 text-amber-600 px-1.5 py-0.5 rounded-full border border-amber-200">
+              <span className="inline-flex items-center gap-1 text-[10px] font-bold tracking-wide uppercase bg-amber-50 text-amber-600 px-2 py-0.5 rounded-md border border-amber-200">
                 <Unlock className="h-2.5 w-2.5" /> Ejected
               </span>
             )}
             {listing.assetState === 'outdated' && (
-              <span className="inline-flex items-center gap-1 text-[10px] font-medium bg-red-50 text-red-500 px-1.5 py-0.5 rounded-full border border-red-200">
+              <span className="inline-flex items-center gap-1 text-[10px] font-bold tracking-wide uppercase bg-red-50 text-red-500 px-2 py-0.5 rounded-md border border-red-200">
                 Update available
               </span>
             )}
           </div>
-          <a href={`/marketplace/listing/${listing.id}`} className="block">
-            <h3 className="text-xl font-semibold leading-tight text-foreground truncate group-hover:text-amber-600 transition-colors cursor-pointer">
-              {listing.title}
-            </h3>
-          </a>
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <span className="font-medium text-foreground">{listing.author.name}</span>
-            {listing.author.verified && <CheckCircle2 className="h-3.5 w-3.5 text-blue-500 fill-blue-50" />}
-          </div>
-        </div>
-        
-        {/* Match Percentage (Opportunities) or Ratings (Assets) */}
-        {isOpportunity && (
-          <div className="relative group/match shrink-0 flex items-center justify-center h-12 w-12 rounded-full border-2 border-emerald-500/30 bg-emerald-500/10 text-emerald-600 font-bold text-sm">
-             {match.score}%
-             
-             {/* Match Details tooltip on hover */}
-             <div className="absolute top-14 right-0 w-64 bg-zinc-900 dark:bg-zinc-100 text-zinc-50 dark:text-zinc-900 p-4 rounded-xl shadow-xl opacity-0 invisible group-hover/match:opacity-100 group-hover/match:visible transition-all z-10 translate-y-2 group-hover/match:translate-y-0 text-sm font-normal">
-                <div className="flex items-center gap-2 mb-3 pb-2 border-b border-zinc-700 dark:border-zinc-300">
-                   <Zap className="h-4 w-4 text-emerald-400 dark:text-emerald-600" />
-                   <span className="font-semibold">Match Breakdown</span>
-                </div>
-                <ul className="space-y-2">
-                   <li className="flex justify-between">
-                     <span className="text-zinc-400 dark:text-zinc-500">Skills overlap:</span>
-                     <span className="font-medium">{match.factors.skillsMatch}/{match.factors.skillsTotal}</span>
-                   </li>
-                   {match.factors.budgetFits !== undefined && (
-                     <li className="flex justify-between">
-                       <span className="text-zinc-400 dark:text-zinc-500">Budget criteria:</span>
-                       <span className="font-medium">{match.factors.budgetFits ? 'Fits' : 'Mismatch'}</span>
-                     </li>
-                   )}
-                   <li className="flex justify-between">
-                     <span className="text-zinc-400 dark:text-zinc-500">Remote possible:</span>
-                     <span className="font-medium">✓ Fit</span>
-                   </li>
-                </ul>
-             </div>
-          </div>
-        )}
 
-        {isAsset && listing.ratings && (
-          <div className="shrink-0 flex items-center gap-1.5 bg-amber-500/10 text-amber-600 px-2.5 py-1 rounded-full text-sm font-medium border border-amber-500/20">
-            <Star className="h-3.5 w-3.5 fill-amber-500" />
-            {listing.ratings.average.toFixed(1)}
+          {/* Title & Price */}
+          <div className="flex justify-between items-start gap-3 mb-2">
+            <a href={`/marketplace/listing/${listing.id}`} className="group/title block flex-1 min-w-0">
+              <h3 className="text-base sm:text-[17px] font-bold leading-snug text-foreground line-clamp-2 group-hover/title:text-primary group-hover/title:underline decoration-primary/50 underline-offset-4 transition-all tracking-tight cursor-pointer">
+                {listing.title}
+              </h3>
+            </a>
+
+            {/* Pricing Stack */}
+            <div className="shrink-0 flex items-start gap-1.5 mt-0.5">
+              <Tag className="w-4 h-4 text-zinc-500 dark:text-zinc-400 mt-0.5" />
+              <div className="flex flex-col">
+                <span className="text-[15px] font-bold text-sky-700 dark:text-sky-500 leading-none tracking-tight">
+                  {(listing as any).isFree ? 'No fee' : (
+                    isAsset ?
+                      ((listing as any).priceCredits ? `⚡${(listing as any).priceCredits}` : 'Premium') :
+                      ((listing as any).pricingModel === 'range' ? `$${(listing as any).priceMin} - $${(listing as any).priceMax}` :
+                        ((listing as any).price ? `$${(listing as any).price}` : 'Premium'))
+                  )}
+                </span>
+                <span className="text-[11px] text-muted-foreground capitalize mt-1.5 leading-none font-medium">
+                  {(listing as any).pricingModel === 'hourly' ? 'Hourly' : ((listing as any).pricingModel === 'range' ? 'Range' : 'Fixed-price')}
+                </span>
+              </div>
+            </div>
           </div>
-        )}
-      </div>
 
-      <div className="px-6 flex-1">
-        <p className="text-sm text-muted-foreground line-clamp-2 leading-relaxed">
-           {listing.description}
-        </p>
-        
-        {/* Skills/Tags */}
-        <div className="mt-4 flex flex-wrap gap-1.5">
-          {listing.skills.slice(0, 4).map(skill => (
-            <span key={skill} className="inline-flex items-center rounded-md bg-muted px-2 py-1 text-xs font-medium text-muted-foreground ring-1 ring-inset ring-muted/50">
-              {skill}
-            </span>
-          ))}
-          {listing.skills.length > 4 && (
-            <span className="inline-flex items-center rounded-md px-2 py-1 text-xs font-medium text-muted-foreground">
-              +{listing.skills.length - 4}
-            </span>
-          )}
-        </div>
-      </div>
+          {/* Metadata Stack */}
+          <div className="flex flex-col gap-1">
+            {/* Author */}
+            <div className="flex items-center gap-1.5">
+              <div className="h-5 w-5 rounded-full overflow-hidden border border-border bg-gradient-to-br from-muted to-muted/50 flex items-center justify-center shrink-0 shadow-sm">
+                {(listing.author as any).avatar ? (
+                  <img src={(listing.author as any).avatar} alt={listing.author.name} className="h-full w-full object-cover" />
+                ) : (
+                  <span className="text-[9px] font-bold text-muted-foreground">{listing.author.name.substring(0, 2).toUpperCase()}</span>
+                )}
+              </div>
+              <a href={`/profiles/${listing.author.id}`} className="font-semibold text-xs text-muted-foreground hover:text-primary transition-colors hover:underline decoration-primary/30 underline-offset-4">
+                {listing.author.name}
+              </a>
+              {listing.author.verified && <CheckCircle2 className="h-3 w-3 text-blue-500 fill-blue-50/50 -ml-0.5" />}
+            </div>
 
-      {/* Footer / Actions */}
-      <div className="mt-6 px-6 py-4 bg-muted/40 border-t border-border flex items-center justify-between gap-4">
-        
-        <div className="flex gap-4 text-xs font-medium text-muted-foreground border-r border-border pr-4">
-           {listing.commentCount > 0 && (
-              <span className="flex items-center gap-1.5 hover:text-foreground cursor-pointer transition-colors">
-                <MessageSquare className="h-4 w-4" /> {listing.commentCount}
+            {/* Time */}
+            <div className="flex items-center">
+              <span className="text-[11px] font-medium text-muted-foreground mt-0.5">
+                Posted {new Date((listing as any).updatedAt || (listing as any).createdAt || Date.now()).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
               </span>
-           )}
-           {isAsset && listing.downloadCount && (
-              <span className="flex items-center gap-1.5">
-                <HardDriveDownload className="h-4 w-4" /> {listing.downloadCount.toLocaleString()}
+            </div>
+          </div>
+
+          {/* Description */}
+          <div className="mt-4 flex-1">
+            {/<[a-z][\s\S]*>/i.test(listing.description) ? (
+              <div
+                className="text-[13px] text-muted-foreground line-clamp-2 leading-relaxed preview-html font-medium custom-prose-sm"
+                dangerouslySetInnerHTML={{ __html: listing.description }}
+              />
+            ) : (
+              <p className="text-[13px] text-muted-foreground line-clamp-2 leading-relaxed font-medium">
+                {listing.description}
+              </p>
+            )}
+          </div>
+
+          {/* Metrics (Ratings, Installs) */}
+          <div className="flex items-center gap-3 mt-5 pb-4 text-xs font-bold text-muted-foreground border-t border-border/50 pt-4">
+            {(isAsset || listing.ratings) && (
+              <div className="flex items-center gap-1.5 text-amber-600 bg-amber-500/10 px-2 py-1 rounded-md border border-amber-500/20">
+                <Star className="h-3.5 w-3.5 fill-amber-500" />
+                <span>{(listing.ratings?.average || 0).toFixed(1)} <span className="text-[10px] text-amber-600/60 ml-0.5">({listing.ratings?.count || 0})</span></span>
+              </div>
+            )}
+            {listing.commentCount > 0 && (
+              <span className="flex items-center gap-1.5 overflow-hidden text-ellipsis whitespace-nowrap text-muted-foreground">
+                <MessageSquare className="h-3.5 w-3.5 shrink-0" /> {listing.commentCount}
+                <span className="hidden sm:inline font-medium">comments</span>
               </span>
-           )}
+            )}
+            <span className="flex items-center gap-1.5 ml-auto text-primary/70 shrink-0">
+              <HardDriveDownload className="h-3.5 w-3.5" />
+              {listing.downloadCount?.toLocaleString() || 0}
+              <span className="hidden sm:inline font-medium">{isOpportunity ? 'applied' : (listing.type === 'template' ? 'cloned' : 'installed')}</span>
+            </span>
+          </div>
         </div>
 
-        <div className="flex-1 flex justify-end gap-2">
-          {isAsset ? (
-             <>
-               {listing.type === 'template' && (
-                  <Button variant="outline" size="sm" className="h-8 shadow-none hidden sm:flex">
-                     <GitFork className="h-3.5 w-3.5 mr-1.5" /> Fork
+        {/* Footer / Actions */}
+        <div className="px-5 py-4 bg-muted/20 border-t border-border flex items-center justify-end gap-4 shrink-0">
+
+
+          <div className="flex items-center gap-2">
+            {isAsset ? (
+              <>
+                {listing.type === 'template' && (
+                  <Button variant="outline" size="sm" className="h-9 shadow-sm hidden sm:flex rounded-full px-4 font-bold hover:bg-muted transition-all">
+                    <GitFork className="h-4 w-4 mr-1.5 text-muted-foreground" /> Fork
                   </Button>
-               )}
-               <Button 
-                  size="sm" 
+                )}
+                <Button
+                  size="sm"
                   variant={downloadState === 'installed' ? 'secondary' : 'default'}
                   onClick={handleDownload}
                   disabled={downloadState === 'downloading'}
                   className={cn(
-                    "h-8 relative overflow-hidden transition-all w-28",
-                    downloadState === 'installed' && "bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20"
+                    "h-9 relative overflow-hidden transition-all w-28 rounded-full font-bold shadow-md hover:shadow-primary/30",
+                    downloadState === 'installed' ? "bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 border border-emerald-500/20 hover:shadow-sm" : "bg-primary hover:bg-primary/90 text-primary-foreground"
                   )}
-               >
-                 {downloadState === 'idle' && (
-                   <span className="flex items-center gap-1.5"><Download className="h-3.5 w-3.5"/> Install</span>
-                 )}
-                 {downloadState === 'downloading' && (
-                   <>
-                     <div className="absolute inset-0 bg-primary/20" />
-                     <div className="absolute inset-y-0 left-0 bg-primary opacity-20 transition-all duration-75" style={{ width: `${progress}%` }} />
-                     <span className="relative text-xs">{progress}%</span>
-                   </>
-                 )}
-                 {downloadState === 'installed' && (
-                   <span className="flex items-center gap-1.5"><CheckCircle2 className="h-4 w-4"/> Launch</span>
-                 )}
-               </Button>
-             </>
-          ) : (
-             <Button size="sm" className="h-8" onClick={() => setApplyOpen(true)}>
-                {['talent', 'team'].includes(listing.type) ? 'Connect' : 'Apply'}
-             </Button>
-          )}
+                >
+                  {downloadState === 'idle' && (
+                    <span className="flex items-center gap-1.5"><Download className="h-4 w-4" /> Install</span>
+                  )}
+                  {downloadState === 'downloading' && (
+                    <>
+                      <div className="absolute inset-0 bg-primary/20" />
+                      <div className="absolute inset-y-0 left-0 bg-primary opacity-20 transition-all duration-75" style={{ width: `${progress}%` }} />
+                      <span className="relative text-xs">{progress}%</span>
+                    </>
+                  )}
+                  {downloadState === 'installed' && (
+                    <span className="flex items-center gap-1.5"><CheckCircle2 className="h-4 w-4" /> Launch</span>
+                  )}
+                </Button>
+              </>
+            ) : existingApplication ? (
+              <Button size="sm" className="h-9 rounded-full px-5 font-bold shadow-sm" variant="secondary" disabled>
+                Applied
+              </Button>
+            ) : (
+              <Button
+                size="sm"
+                className="h-9 rounded-full px-5 font-bold transition-all duration-300 hover:shadow-lg hover:shadow-primary/40 hover:-translate-y-0.5 group relative overflow-hidden bg-primary text-primary-foreground border-none"
+                asChild
+              >
+                <a href={`/marketplace/listing/${listing.id}`}>
+                  <span className="relative z-10">{isOwnListing ? 'Your Listing' : 'View Details'}</span>
+                  <div className="absolute inset-0 h-full w-[200%] -translate-x-full group-hover:translate-x-full transition-transform duration-1000 ease-in-out bg-gradient-to-r from-transparent via-white/20 to-transparent z-0" />
+                </a>
+              </Button>
+            )}
+          </div>
         </div>
       </div>
-    </div>
-    <ApplyToListingModal listing={listing} open={applyOpen} onOpenChange={setApplyOpen} />
+      <ApplyToListingModal listing={listing} open={applyOpen} onOpenChange={setApplyOpen} />
     </>
   );
 }

@@ -4,12 +4,18 @@ export interface MessagesUIState {
   launcherOpen: boolean;
   modalUserId: string | null;
   selectedUserId: string | null;
+  showArchived: boolean;
+  notificationsEnabled: boolean;
+  blockAll: boolean;
 }
 
 const initialState: MessagesUIState = {
   launcherOpen: false,
   modalUserId: null,
   selectedUserId: null,
+  showArchived: false,
+  notificationsEnabled: true,
+  blockAll: false,
 };
 
 const messagesSlice = createSlice({
@@ -34,10 +40,29 @@ const messagesSlice = createSlice({
     selectUser(state, action: PayloadAction<string | null>) {
       state.selectedUserId = action.payload;
     },
+    toggleShowArchived(state) {
+      state.showArchived = !state.showArchived;
+    },
+    setShowArchived(state, action: PayloadAction<boolean>) {
+      state.showArchived = action.payload;
+    },
+    setMessagingConfig(state, action: PayloadAction<Partial<Pick<MessagesUIState, 'showArchived' | 'notificationsEnabled' | 'blockAll'>>>) {
+      if (action.payload.showArchived !== undefined) state.showArchived = action.payload.showArchived;
+      if (action.payload.notificationsEnabled !== undefined) state.notificationsEnabled = action.payload.notificationsEnabled;
+      if (action.payload.blockAll !== undefined) state.blockAll = action.payload.blockAll;
+    }
   },
 });
 
-export const { openLauncher, closeLauncher, openModalWithUser, closeModal, selectUser } = messagesSlice.actions;
+export const { 
+  openLauncher, 
+  closeLauncher, 
+  openModalWithUser, 
+  closeModal, 
+  selectUser, 
+  toggleShowArchived, 
+  setShowArchived,
+  setMessagingConfig
+} = messagesSlice.actions;
 export default messagesSlice.reducer;
-
 

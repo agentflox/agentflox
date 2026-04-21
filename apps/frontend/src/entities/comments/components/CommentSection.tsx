@@ -11,10 +11,11 @@ interface CommentSectionProps {
   postId: string;
   feedId?: string;
   feedType?: 'global' | 'user' | 'project' | 'team';
+  entityType?: 'post' | 'listing';
 }
 
-export function CommentSection({ postId, feedId, feedType }: CommentSectionProps) {
-  const { comments, isLoading, createComment } = useComments(postId);
+export function CommentSection({ postId, feedId, feedType, entityType = 'post' }: CommentSectionProps) {
+  const { comments, isLoading, createComment } = useComments(postId, entityType);
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
 
   if (isLoading) {
@@ -34,6 +35,7 @@ export function CommentSection({ postId, feedId, feedType }: CommentSectionProps
         postId={postId}
         feedId={feedId}
         feedType={feedType}
+        submitting={createComment.isPending}
         onSubmit={(content) => {
           createComment.mutate({
             id: uuidv4(),
@@ -54,6 +56,7 @@ export function CommentSection({ postId, feedId, feedType }: CommentSectionProps
             onReply={(commentId) => setReplyingTo(commentId)}
             replyingTo={replyingTo}
             setReplyingTo={setReplyingTo}
+            entityType={entityType}
           />
         ))}
       </div>

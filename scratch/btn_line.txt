@@ -1,0 +1,1 @@
+﻿                                                                                        className="absolute top-2 right-2 h-7 w-7 rounded-full bg-black/60 text-white hover:bg-black/80 flex items-center justify-center cursor-pointer transition-all active:scale-90"

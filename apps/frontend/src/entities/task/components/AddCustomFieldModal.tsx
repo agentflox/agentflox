@@ -110,19 +110,22 @@ export function AddCustomFieldModal({
         <>
             {/* Step 1: Type picker modal (images 1, 2, 3) */}
             <Dialog open={open && step === 'picker'} onOpenChange={(open) => !open && handleClose()}>
-                <DialogContent className="sm:max-w-[400px] p-0 gap-0 overflow-hidden [&>button]:hidden">
+                <DialogContent className="sm:max-w-[320px] p-0 gap-0 overflow-hidden [&>button]:hidden shadow-2xl">
                     <DialogTitle className="sr-only">Select field type</DialogTitle>
-                    <div className="p-3 border-b border-zinc-200">
-                        <div className="relative">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
+                    <div className="p-3 border-b border-zinc-100 bg-white">
+                        <div className="flex items-center gap-2.5 px-3 h-9 bg-zinc-50/50 border border-zinc-200 rounded-lg group focus-within:border-violet-400 focus-within:ring-2 focus-within:ring-violet-500/10 transition-all">
+                            <Search className="h-4 w-4 text-zinc-400 shrink-0 group-focus-within:text-violet-500 transition-colors" />
                             <Input
+                                variant="ghost"
                                 value={search}
                                 onChange={(e) => setSearch(e.target.value)}
                                 placeholder="Search..."
-                                className="pl-9 h-9 bg-zinc-50 border-zinc-200"
+                                className="border-0 bg-transparent p-0 h-full focus:outline-none focus:ring-0 focus-visible:ring-0 shadow-none text-sm placeholder:text-zinc-400"
                             />
                         </div>
                     </div>
+
+
                     <ScrollArea className="max-h-[360px]">
                         <div className="p-2">
                             {filteredAi.length > 0 && (
@@ -138,13 +141,14 @@ export function AddCustomFieldModal({
                                                     key={field.id}
                                                     type="button"
                                                     onClick={() => handleTypeSelect(field)}
-                                                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-md hover:bg-zinc-100 transition-colors text-left"
+                                                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg border border-transparent hover:border-violet-200 hover:bg-violet-50/50 transition-all text-left group cursor-pointer"
                                                 >
-                                                    <div className={cn("h-8 w-8 rounded-md flex items-center justify-center bg-purple-50", field.color)}>
+                                                    <div className={cn("h-8 w-8 rounded-md flex items-center justify-center bg-purple-50 group-hover:scale-110 transition-transform", field.color)}>
                                                         <Icon className="h-4 w-4" />
                                                     </div>
-                                                    <span className="text-sm font-medium text-zinc-900">{field.label}</span>
+                                                    <span className="text-sm font-medium text-zinc-700 group-hover:text-violet-900 transition-colors">{field.label}</span>
                                                 </button>
+
                                             );
                                         })}
                                     </div>
@@ -162,13 +166,14 @@ export function AddCustomFieldModal({
                                                 key={field.id}
                                                 type="button"
                                                 onClick={() => handleTypeSelect(field)}
-                                                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-md hover:bg-zinc-100 transition-colors text-left"
+                                                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg border border-transparent hover:border-violet-200 hover:bg-violet-50/50 transition-all text-left group cursor-pointer"
                                             >
-                                                <div className={cn("h-8 w-8 rounded-md flex items-center justify-center", field.isAi ? "bg-purple-50" : "bg-zinc-100", field.color)}>
+                                                <div className={cn("h-8 w-8 rounded-md flex items-center justify-center transition-all", field.isAi ? "bg-purple-50" : "bg-zinc-100 group-hover:bg-white group-hover:shadow-sm", field.color)}>
                                                     <Icon className="h-4 w-4" />
                                                 </div>
-                                                <span className="text-sm font-medium text-zinc-900">{field.label}</span>
+                                                <span className="text-sm font-medium text-zinc-700 group-hover:text-violet-900 transition-colors">{field.label}</span>
                                             </button>
+
                                         );
                                     })}
                                 </div>

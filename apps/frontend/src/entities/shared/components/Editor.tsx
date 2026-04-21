@@ -167,8 +167,12 @@ export function Editor({
   return (
     <div className="flex flex-col h-full">
       {editable && (
-        <BubbleMenu editor={editor} options={{ placement: "top", offset: 8, flip: true }}>
-          <div className="bubble-menu">
+        <BubbleMenu
+          editor={editor}
+          appendTo={() => document.body}
+          options={{ placement: "top", offset: 8, flip: true }}
+        >
+          <div className="bubble-menu shadow-md border rounded-md" style={{ zIndex: 99999 }}>
             {/* Inline marks */}
             <Button
               variant="ghost" size="sm"

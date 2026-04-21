@@ -224,17 +224,12 @@ export default function SpaceDashboardView({ spaceId }: SpaceDashboardViewProps)
     const { data: space, isLoading: isSpaceLoading } = trpc.space.get.useQuery({ id: spaceId });
     const workspaceId = space?.workspaceId;
 
-    const { data: workspace, isLoading: isWorkspaceLoading } = trpc.workspace.get.useQuery(
-        { id: workspaceId! },
-        { enabled: !!workspaceId }
-    );
-
     const { data: selectedList } = trpc.list.get.useQuery(
         { id: selectedListId || "" },
         { enabled: !!selectedListId }
     );
 
-    const isLoading = isSpaceLoading || (!!workspaceId && isWorkspaceLoading);
+    const isLoading = isSpaceLoading;
 
     // Type assertion for space data that includes tools and materials
     const spaceWithTools = space as any;
@@ -287,12 +282,12 @@ export default function SpaceDashboardView({ spaceId }: SpaceDashboardViewProps)
 
     // Derived Data
     const spaceProjects = useMemo(() => {
-        return (workspace?.projects ?? []).filter((p: any) => p.spaceId === spaceId);
-    }, [workspace?.projects, spaceId]);
+        return space?.projects ?? [];
+    }, [space?.projects]);
 
     const spaceTeams = useMemo(() => {
-        return (workspace?.teams ?? []).filter((t: any) => t.spaceId === spaceId);
-    }, [workspace?.teams, spaceId]);
+        return space?.teams ?? [];
+    }, [space?.teams]);
 
     // Derived views from DB
     const views = useMemo(() => {
@@ -494,7 +489,7 @@ export default function SpaceDashboardView({ spaceId }: SpaceDashboardViewProps)
 
         switch (viewType) {
             case "OVERVIEW":
-                return <SpaceOverviewTab spaceId={spaceId} workspaceId={workspaceId} />;
+                return <SpaceOverviewTab space={space} spaceProjects={spaceProjects} spaceTeams={spaceTeams} />;
 
             case "PROJECTS":
                 return (
@@ -1066,11 +1061,20 @@ export default function SpaceDashboardView({ spaceId }: SpaceDashboardViewProps)
                                                                                 <Tooltip>
                                                                                     <TooltipTrigger asChild>
                                                                                         <TabsTrigger value={view.id} asChild>
-                                                                                            <div className="group relative flex items-center gap-1.5 h-10 px-3 py-2 text-sm cursor-pointer whitespace-nowrap data-[state=active]:bg-slate-100 rounded-md hover:bg-slate-50 transition-colors">
-                                                                                                <Icon className="h-3.5 w-3.5 shrink-0" />
+                                                                                            <div className={cn(
+                                                                                                "group relative flex items-center gap-1.5 h-10 px-3 py-2 text-sm cursor-pointer whitespace-nowrap transition-colors rounded-md",
+                                                                                                activeTab === view.id
+                                                                                                    ? "text-primary font-medium"
+                                                                                                    : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                                                                                            )}>
+                                                                                                <Icon className={cn("h-4 w-4 shrink-0", activeTab === view.id ? "text-primary" : "text-slate-500 group-hover:text-slate-700")} />
                                                                                                 <span className="inline-block max-w-[120px] truncate align-bottom">{view.name}</span>
                                                                                                 {view.isPinned && <Pin className="h-3 w-3 shrink-0 rotate-45 text-muted-foreground" />}
                                                                                                 {view.isPrivate && <Lock className="h-3 w-3 shrink-0 text-muted-foreground" />}
+                                                                                                
+                                                                                                {activeTab === view.id && (
+                                                                                                    <div className="absolute left-0 right-0 h-0.5 bg-primary rounded-t-full" style={{ bottom: "-5px" }} />
+                                                                                                )}
                                                                                             </div>
                                                                                         </TabsTrigger>
                                                                                     </TooltipTrigger>
@@ -1104,8 +1108,8 @@ export default function SpaceDashboardView({ spaceId }: SpaceDashboardViewProps)
                                                                     const config = viewConfig[viewType] || { icon: FileText };
                                                                     const Icon = config.icon;
                                                                     return (
-                                                                        <div className="flex items-center gap-1.5 h-10 px-3 py-2 text-sm whitespace-nowrap">
-                                                                            <Icon className="h-3.5 w-3.5 shrink-0" />
+                                                                        <div className="flex items-center gap-1.5 h-10 px-3 py-2 text-sm whitespace-nowrap font-medium">
+                                                                            <Icon className="h-4 w-4 shrink-0" />
                                                                             <span className="max-w-[120px] truncate">{view.name}</span>
                                                                             {view.isPinned && <Pin className="h-3 w-3 shrink-0 rotate-45" />}
                                                                             {view.isPrivate && <Lock className="h-3 w-3 shrink-0" />}

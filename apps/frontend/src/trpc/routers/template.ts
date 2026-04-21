@@ -13,7 +13,7 @@ import { randomUUID } from "crypto";
 
 const ENTITY_TYPES = [
   "SPACE", "FOLDER", "LIST", "TASK", "DOC",
-  "VIEW", "AGENT", "WORKFORCE", "PROPOSAL",
+  "VIEW", "AGENT", "WORKFORCE", "PROPOSAL", "LISTING",
 ] as const;
 
 const COMPLEXITY_TYPES = ["BEGINNER", "INTERMEDIATE", "ADVANCED"] as const;
@@ -224,6 +224,35 @@ function shiftDateByMs(date: Date | null, shiftMs?: number): Date | null {
   if (!date) return null;
   if (!shiftMs) return date;
   return new Date(date.getTime() + shiftMs);
+}
+
+function makeListingSlugBase(input: string): string {
+  const base = input
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return base || "listing";
+}
+
+async function generateUniqueListingSlug(input: string): Promise<string> {
+  const base = makeListingSlugBase(input);
+  const existing = await prisma.marketplaceListing.findUnique({
+    where: { slug: base },
+    select: { id: true },
+  });
+  if (!existing) return base;
+
+  for (let n = 2; n < 1000; n += 1) {
+    const candidate = `${base}-${n}`;
+    const match = await prisma.marketplaceListing.findUnique({
+      where: { slug: candidate },
+      select: { id: true },
+    });
+    if (!match) return candidate;
+  }
+
+  return `${base}-${Date.now()}`;
 }
 
 function isCaptureEnabled(
@@ -1182,7 +1211,7 @@ export const templateRouter = router({
         });
         createdId = created.id;
       } else if (entityType === "PROPOSAL") {
-        const created = await prisma.proposal.create({
+        const created = await (prisma as any).proposal.create({
           data: {
             workspaceId: destination.kind === "standalone" ? undefined : resolvedWorkspaceId,
             userId,
@@ -1196,22 +1225,90 @@ export const templateRouter = router({
             industry: Array.isArray(content.industry) ? content.industry : [],
             keywords: Array.isArray(content.keywords) ? content.keywords : [],
             tags: Array.isArray(content.tags) ? content.tags : [],
-          },
+          } as any,
           select: { id: true },
         });
         createdId = created.id;
       } else if (entityType === "LISTING") {
+        const listingTypeCandidates = new Set([
+          "TASK",
+          "PROJECT",
+          "AGENT",
+          "TOOL",
+          "TEMPLATE",
+          "TALENT",
+          "TEAM",
+          "DATASET",
+          "INTEGRATION",
+          "WORKFLOW",
+        ]);
+        const rawType = String(content.type ?? "TEMPLATE").toUpperCase();
+        const listingType = listingTypeCandidates.has(rawType) ? rawType : "TEMPLATE";
+        const selectedCategories = Array.isArray(content.selectedCategories) ? content.selectedCategories : [];
+        const resolvedCategory =
+          (typeof content.category === "string" && content.category.trim()) ||
+          (typeof selectedCategories[0] === "string" && selectedCategories[0]) ||
+          null;
+        const resolvedDescription =
+          (typeof content.polishedDescription === "string" && content.polishedDescription.trim()) ||
+          (typeof content.roughDraft === "string" && content.roughDraft.trim()) ||
+          (typeof content.description === "string" && content.description.trim()) ||
+          "Created from template";
+        const resolvedSkills = Array.isArray(content.suggestedSkills)
+          ? content.suggestedSkills
+          : Array.isArray(content.skills)
+            ? content.skills
+            : [];
+        const isPaid = content.pricingType === "paid" || content.isFree === false;
+        const resolvedCredits = isPaid
+          ? Math.max(
+              1,
+              Number(
+                content.creditAmount ??
+                content.priceCredits ??
+                1
+              ) || 1
+            )
+          : null;
+        const resolvedAllowClone = content.allowCloning ?? content.allowClone ?? true;
+        const resolvedAllowRepublish = content.allowRepublishing ?? content.allowRepublish ?? false;
+        const resolvedIntent =
+          (typeof content.intent === "string" && content.intent.trim()) ? content.intent : null;
+        const resolvedApplicationSchema = Array.isArray(content.customFields)
+          ? {
+              fields: content.customFields
+                .filter((field: any) => typeof field?.label === "string" && field.label.trim())
+                .map((field: any) => ({
+                  id: String(field.id ?? ""),
+                  type: String(field.type ?? "text"),
+                  label: String(field.label ?? ""),
+                  required: !!field.required,
+                  placeholder: typeof field.placeholder === "string" ? field.placeholder : undefined,
+                  description: typeof field.description === "string" ? field.description : undefined,
+                  options: Array.isArray(field.options) ? field.options : undefined,
+                })),
+            }
+          : null;
+        const slug = await generateUniqueListingSlug(name);
+
         const created = await prisma.marketplaceListing.create({
           data: {
             authorId: userId,
+            slug,
             title: name,
-            description: content.description ?? "Created from template",
-            type: String(content.type ?? "template"),
-            status: "active",
-            isFree: content.isFree ?? true,
-            priceCredits: content.priceCredits ?? null,
-            skills: Array.isArray(content.skills) ? content.skills : [],
-          },
+            description: resolvedDescription,
+            type: listingType as any,
+            status: "ACTIVE",
+            category: resolvedCategory,
+            isFree: !isPaid,
+            priceCredits: resolvedCredits,
+            skills: resolvedSkills,
+            tags: Array.isArray(content.tags) ? content.tags : [],
+            allowClone: !!resolvedAllowClone,
+            allowRepublish: !!resolvedAllowRepublish,
+            intent: resolvedIntent,
+            proposalSchema: resolvedApplicationSchema as Prisma.InputJsonValue | null,
+          } as any,
           select: { id: true },
         });
         createdId = created.id;

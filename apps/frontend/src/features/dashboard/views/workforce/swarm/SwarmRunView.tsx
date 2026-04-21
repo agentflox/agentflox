@@ -136,9 +136,12 @@ export default function SwarmRunView({
   const utils = trpc.useUtils();
   const createConversation = trpc.chat.createWorkforceConversation.useMutation();
   const persistMessages = trpc.chat.persistWorkforceMessages.useMutation();
-  const { data: workforceData } = trpc.workforce.get.useQuery({ id: workforceId }, { enabled: mentionModalOpen });
-  // Nodes are stored in the DB as data.react_flow_graph.nodes (saved by workforce.update)
-  const rfNodes: any[] = (workforceData as any)?.data?.react_flow_graph?.nodes ?? [];
+  const { data: workforceData } = trpc.workforce.get.useQuery({ id: workforceId });
+  
+  // Extract nodes from graph
+  const graph = (workforceData as any)?.graph || (workforceData as any)?.data?.react_flow_graph;
+  const rfNodes: any[] = graph?.nodes ?? [];
+  
   const swarmAgents = rfNodes.filter((n: any) => n.type === 'agentNode');
   const swarmTasks = rfNodes.filter((n: any) => n.type === 'taskNode');
 
@@ -289,7 +292,7 @@ export default function SwarmRunView({
   }, [sessionStatus, fetchTasks]);
 
   // ── start swarm ───────────────────────────────────────────────────────────
-  const handleStartSwarm = async () => {
+  const handleStartSwarm = useCallback(async () => {
     if (!conversationId) { toast.error("No active conversation"); return; }
     setIsStarting(true);
     try {
@@ -310,36 +313,36 @@ export default function SwarmRunView({
       subscribeSSE(data.sessionId);
     } catch (e: any) { toast.error(e?.message || "Failed to start swarm"); }
     finally { setIsStarting(false); }
-  };
+  }, [conversationId, workforceId, subscribeSSE]);
 
   // ── stop swarm ────────────────────────────────────────────────────────────
-  const handleStopSwarm = async () => {
+  const handleStopSwarm = useCallback(async () => {
     if (!swarmSessionId) return;
     sseRef.current?.abort();
     try {
       await backendFetch(`/v1/agents/swarm/${swarmSessionId}/stop`, { method: "POST" });
       setSessionStatus("stopped"); toast.info("Swarm stopped");
     } catch { }
-  };
+  }, [swarmSessionId]);
 
   // ── handle task approve ───────────────────────────────────────────────────
-  const handleApprove = async (taskId: string) => {
+  const handleApprove = useCallback(async (taskId: string) => {
     try {
       await backendFetch(`/v1/agents/swarm/tasks/${taskId}/approve`, { method: "POST" });
       toast.success("Task approved"); fetchTasks();
     } catch { toast.error("Approval failed"); }
-  };
+  }, [fetchTasks]);
 
   // ── handle task deny ─────────────────────────────────────────────────────
-  const handleDeny = async (taskId: string) => {
+  const handleDeny = useCallback(async (taskId: string) => {
     try {
       await backendFetch(`/v1/agents/swarm/tasks/${taskId}/deny`, { method: "POST" });
       toast.info("Task denied"); fetchTasks();
     } catch { toast.error("Deny failed"); }
-  };
+  }, [fetchTasks]);
 
   // ── send chat message ─────────────────────────────────────────────────────
-  const handleSend = async (message: string) => {
+  const handleSend = useCallback(async (message: string) => {
     const cleanContent = message.trim();
     if (!cleanContent) return;
     setError(null); setOptimisticPending(true);
@@ -407,32 +410,9 @@ export default function SwarmRunView({
       } catch (e: any) { toast.error(e?.message || "Failed to send message to swarm"); }
       setOptimisticPending(false);
     }
-  };
+  }, [selectedContexts, selectedMentions, sessionStatus, swarmSessionId, workspaceId, conversationId, workforceId, subscribeSSE]);
 
-  // ── derive logs from swarm events ─────────────────────────────────────────
-  // Note: log view state and derivations are moved inside SwarmLogView.
-
-  // Metrics derived from events + tasks
-  const cycleCount = swarmEvents.filter(e => e.type === "CYCLE_COMPLETED").length;
-  const errorCount = swarmEvents.filter(e => e.type === "CYCLE_ERROR").length;
-  const tasksDone = tasks.filter(t => t.status === "COMPLETED").length;
-  const tasksFailed = tasks.filter(t => t.status.includes("FAIL")).length;
-
-
-  // ── skeleton while no conversation ───────────────────────────────────────
-  if (!conversationId) {
-    return (
-      <div className="flex h-full flex-col items-center justify-center gap-4">
-        <WorkforceChatSkeleton />
-        <button onClick={startNewConversation} disabled={createConversation.isPending}
-          className="px-5 py-2 bg-indigo-600 text-white text-sm font-bold rounded-xl hover:bg-indigo-700 transition-colors disabled:opacity-50">
-          {createConversation.isPending ? "Creating…" : "Start Session"}
-        </button>
-      </div>
-    );
-  }
-
-  // Combine messages, tasks, and swarm events into a single chronological feed
+  // ── Combine messages, tasks, and swarm events BEFORE conditional returns ──
   const combinedFeed = React.useMemo(() => {
     const feed: ({ ts: number; id: string } & (
       | { _type: 'message'; msg: ConvMessage; idx: number }
@@ -469,6 +449,25 @@ export default function SwarmRunView({
 
     return feed.sort((a, b) => a.ts - b.ts);
   }, [messages, pendingApprovals, swarmEvents]);
+
+  // Metrics derived from events + tasks
+  const cycleCount = swarmEvents.filter(e => e.type === "CYCLE_COMPLETED").length;
+  const errorCount = swarmEvents.filter(e => e.type === "CYCLE_ERROR").length;
+  const tasksDone = tasks.filter(t => t.status === "COMPLETED").length;
+  const tasksFailed = tasks.filter(t => t.status.includes("FAIL")).length;
+
+  // ── skeleton while no conversation ───────────────────────────────────────
+  if (!conversationId) {
+    return (
+      <div className="flex h-full flex-col items-center justify-center gap-4">
+        <WorkforceChatSkeleton />
+        <button onClick={startNewConversation} disabled={createConversation.isPending}
+          className="px-5 py-2 bg-indigo-600 text-white text-sm font-bold rounded-xl hover:bg-indigo-700 transition-colors disabled:opacity-50">
+          {createConversation.isPending ? "Creating…" : "Start Session"}
+        </button>
+      </div>
+    );
+  }
 
   const TABS: { id: ViewType; label: string; Icon: any }[] = [
     { id: "chat", label: "Chat", Icon: MessageSquare },
@@ -549,8 +548,10 @@ export default function SwarmRunView({
                     contextCount={selectedContexts.length}
                     selectedContexts={selectedContexts}
                     onMentionClick={() => setMentionModalOpen(true)}
+                    onMentionSelect={(m) => setSelectedMentions(prev => prev.find(x => x.id === m.id) ? prev : [...prev, m])}
                     mentionCount={selectedMentions.length}
                     selectedMentions={selectedMentions}
+                    mentionsData={{ agents: swarmAgents, tasks: swarmTasks }}
                   />
                   <div className="flex items-center justify-between mt-1.5 px-1">
                     <ActiveProcessingWidget events={swarmEvents} status={sessionStatus} />
@@ -578,7 +579,7 @@ export default function SwarmRunView({
                         <button onClick={() => handleApprove(t.id)} className="flex-1 py-1.5 bg-amber-500 hover:bg-amber-600 text-white text-[10px] font-bold rounded-lg transition-colors flex items-center justify-center gap-1">
                           <Check className="h-3 w-3" />Approve
                         </button>
-                        <button className="px-3 py-1.5 bg-zinc-100 hover:bg-zinc-200 text-zinc-600 text-[10px] font-bold rounded-lg transition-colors">Deny</button>
+                        <button onClick={() => handleDeny(t.id)} className="px-3 py-1.5 bg-zinc-100 hover:bg-zinc-200 text-zinc-600 text-[10px] font-bold rounded-lg transition-colors">Deny</button>
                       </div>
                     </div>
                   ))}

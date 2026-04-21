@@ -2,6 +2,7 @@
 
 import { Download, File, Image, Video, FileText, Music, Archive, X } from 'lucide-react';
 import { useState } from 'react';
+import Link from 'next/link';
 
 interface MessageContentProps {
   content: string;
@@ -17,6 +18,18 @@ interface AttachmentInfo {
 
 export function MessageContent({ content, attachments = [], isOwnMessage = false }: MessageContentProps) {
   const [selectedMedia, setSelectedMedia] = useState<{ url: string; type: string } | null>(null);
+  const submission = (() => {
+    const prefix = '__AF_MARKETPLACE_SUBMISSION__';
+    if (!content?.startsWith(prefix)) return null;
+    try {
+      return JSON.parse(content.slice(prefix.length));
+    } catch {
+      return null;
+    }
+  })();
+
+  const stripHtml = (html: string) =>
+    String(html || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
 
   const parseAttachment = (url: string): AttachmentInfo => {
     const urlParts = url.split('/');
@@ -71,104 +84,124 @@ export function MessageContent({ content, attachments = [], isOwnMessage = false
 
   return (
     <>
-      {content && (
-        <div className="break-words whitespace-pre-wrap">{content}</div>
+      {submission ? (
+        <div className="w-full min-w-[200px]">
+          {submission?.application?.answers && typeof submission.application.answers === 'object' && (
+            <div className="space-y-3.5 w-full">
+              {Object.entries(submission.application.answers as Record<string, any>).map(([key, data]) => {
+                const label = (data && typeof data === 'object' && 'label' in data) ? data.label : key;
+                const value = (data && typeof data === 'object' && 'value' in data) ? data.value : data;
+                return (
+                  <div key={key} className="text-[13px] leading-relaxed w-full">
+                    <div className={`font-bold tracking-tight mb-0.5 ${isOwnMessage ? 'text-white' : 'text-zinc-900 dark:text-zinc-100'}`}>{label}</div>
+                    <div className={`break-words whitespace-pre-wrap ${isOwnMessage ? 'text-blue-50/90' : 'text-zinc-600 dark:text-zinc-300'}`}>
+                      {typeof value === 'string' ? value : JSON.stringify(value)}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      ) : (
+        content && (
+          <div className="break-words whitespace-pre-wrap text-[15px] leading-relaxed">{content}</div>
+        )
       )}
       
       {attachmentsInfo.length > 0 && (
-        <div className={`${content ? 'mt-2' : ''} space-y-2`}>
-          <div className={`${attachmentsInfo.length > 1 ? 'grid grid-cols-2 gap-2' : ''}`}>
+        <div className={`${content ? 'mt-3' : ''} space-y-2.5`}>
+          <div className={`${attachmentsInfo.length > 1 ? 'grid grid-cols-2 gap-2.5' : ''}`}>
             {attachmentsInfo.map((attachment, index) => {
               const isImage = attachment.type.startsWith('image/');
               const isVideo = attachment.type.startsWith('video/');
               
               return (
-                <div key={index} className="relative group">
+                <div key={index} className="relative group/media">
                   {isImage ? (
                     <div
-                      className="relative rounded-xl overflow-hidden cursor-pointer bg-gray-100/50 backdrop-blur-sm"
+                      className="relative rounded-[20px] overflow-hidden cursor-pointer bg-zinc-100/50 dark:bg-zinc-800/50 backdrop-blur-sm border border-black/5 dark:border-white/10 shadow-sm transition-all duration-300 hover:shadow-md"
                       onClick={() => setSelectedMedia({ url: attachment.url, type: attachment.type })}
                     >
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={attachment.url}
                         alt={attachment.name}
-                        className="w-full h-auto max-h-80 object-cover"
+                        loading="lazy"
+                        className="w-full h-auto max-h-[360px] object-cover transition-transform duration-500 group-hover/media:scale-105"
                       />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDownload(attachment.url, attachment.name);
-                          }}
-                          className="bg-white/95 hover:bg-white text-gray-800 p-3 rounded-full shadow-xl transform transition-all duration-200 hover:scale-110"
-                          title="Download"
-                        >
-                          <Download className="h-5 w-5" />
-                        </button>
-                      </div>
+                      <div className="absolute inset-0 bg-black/0 group-hover/media:bg-black/10 transition-colors duration-300"></div>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDownload(attachment.url, attachment.name);
+                        }}
+                        className="absolute top-3 right-3 bg-black/30 hover:bg-black/50 backdrop-blur-md border border-white/10 text-white p-2.5 rounded-full shadow-lg opacity-0 group-hover/media:opacity-100 transition-all duration-300 ease-out hover:scale-110"
+                        title="Download"
+                      >
+                        <Download className="h-4 w-4 drop-shadow-sm" />
+                      </button>
                     </div>
                   ) : isVideo ? (
-                    <div className="relative rounded-xl overflow-hidden bg-gray-100/50 backdrop-blur-sm">
+                    <div className="relative rounded-[20px] overflow-hidden bg-zinc-100/50 dark:bg-zinc-800/50 backdrop-blur-sm border border-black/5 dark:border-white/10 shadow-sm transition-all duration-300 hover:shadow-md">
                       <video
                         src={attachment.url}
                         controls
-                        className="w-full max-h-80 rounded-xl"
+                        className="w-full max-h-[360px] object-cover"
                         onClick={(e) => e.stopPropagation()}
                       />
-                      <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                      <div className="absolute top-3 right-3 opacity-0 group-hover/media:opacity-100 transition-opacity duration-300">
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
                             handleDownload(attachment.url, attachment.name);
                           }}
-                          className="bg-white/95 hover:bg-white text-gray-800 p-2.5 rounded-full shadow-xl transform transition-all duration-200 hover:scale-110"
+                          className="bg-black/30 hover:bg-black/50 backdrop-blur-md border border-white/10 text-white p-2.5 rounded-full shadow-lg transform transition-all duration-200 hover:scale-110"
                           title="Download"
                         >
-                          <Download className="h-4 w-4" />
+                          <Download className="h-4 w-4 drop-shadow-sm" />
                         </button>
                       </div>
                     </div>
                   ) : (
-                    <div className={`flex items-center gap-2 p-2 rounded-xl border transition-all duration-200 hover:shadow-md max-w-[280px] ${
-                      isOwnMessage 
-                        ? 'bg-white/20 backdrop-blur-sm border-white/30 hover:bg-white/30' 
-                        : 'bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600'
-                    }`}>
-                      <div className={`flex-shrink-0 p-1.5 rounded-lg ${
+                    <div 
+                      onClick={() => handleDownload(attachment.url, attachment.name)}
+                      className={`group/file flex w-full max-w-[320px] items-center gap-3.5 p-3 rounded-[20px] border cursor-pointer transition-all duration-300 hover:shadow-md hover:-translate-y-0.5 ${
                         isOwnMessage 
-                          ? 'bg-white/30 text-white' 
-                          : 'bg-gray-100 dark:bg-gray-600 text-gray-600 dark:text-gray-300'
+                          ? 'bg-white/10 backdrop-blur-md border-white/20 hover:bg-white/20' 
+                          : 'bg-white dark:bg-zinc-900/80 border-zinc-200/80 dark:border-zinc-800/80 hover:border-indigo-300/50 dark:hover:border-indigo-500/50 shadow-sm'
+                      }`}
+                    >
+                      <div className={`flex-shrink-0 h-10 w-10 flex items-center justify-center rounded-[14px] transition-transform duration-300 group-hover/file:scale-105 ${
+                        isOwnMessage 
+                          ? 'bg-white/20 text-white' 
+                          : 'bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400'
                       }`}>
                         {getFileIcon(attachment.type)}
                       </div>
-                      <div className="flex-1 min-w-0 pr-1">
-                        <p className={`text-xs font-semibold truncate ${
-                          isOwnMessage 
-                            ? 'text-white' 
-                            : 'text-gray-900 dark:text-gray-100'
+                      <div className="flex-1 min-w-0">
+                        <p className={`text-[13px] font-bold leading-tight truncate ${
+                          isOwnMessage ? 'text-white' : 'text-zinc-800 dark:text-zinc-200'
                         }`} title={attachment.name}>
                           {attachment.name}
                         </p>
-                        <p className={`text-[10px] mt-0.5 uppercase ${
-                          isOwnMessage 
-                            ? 'text-white/80' 
-                            : 'text-gray-500 dark:text-gray-400'
+                        <div className={`flex items-center gap-1.5 mt-1 text-[10px] font-bold tracking-wider uppercase ${
+                          isOwnMessage ? 'text-blue-100/70' : 'text-zinc-500 dark:text-zinc-500'
                         }`}>
-                          {attachment.type.split('/')[1] || 'FILE'}
-                        </p>
+                          <span>{attachment.type.split('/')[1] || 'FILE'}</span>
+                          <span className="w-1 h-1 rounded-full bg-current opacity-50"></span>
+                          <span>ATTACHMENT</span>
+                        </div>
                       </div>
-                      <button
-                        onClick={() => handleDownload(attachment.url, attachment.name)}
-                        className={`flex-shrink-0 p-1.5 rounded-lg transition-all duration-200 hover:scale-110 ${
+                      <div
+                        className={`flex-shrink-0 h-8 w-8 flex items-center justify-center rounded-full transition-all duration-300 ${
                           isOwnMessage 
-                            ? 'text-white hover:bg-white/20' 
-                            : 'text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-600'
+                            ? 'bg-white/10 text-white group-hover/file:bg-white/20' 
+                            : 'bg-zinc-100 dark:bg-zinc-800/80 text-zinc-500 dark:text-zinc-400 group-hover/file:bg-indigo-100 dark:group-hover/file:bg-indigo-500/20 group-hover/file:text-indigo-600 dark:group-hover/file:text-indigo-400'
                         }`}
-                        title="Download"
                       >
                         <Download className="h-4 w-4" />
-                      </button>
+                      </div>
                     </div>
                   )}
                 </div>

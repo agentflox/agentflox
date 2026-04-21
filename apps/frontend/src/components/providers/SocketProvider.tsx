@@ -44,6 +44,7 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
   const { toast } = useToast();
   const initializingRef = useRef(false);
   const toastShownRef = useRef(false);
+  const socketRef = useRef<Socket | null>(null);
 
   // Store current scope to avoid unnecessary reconnects
   const currentScopeRef = useRef<SocketScope>({});
@@ -130,28 +131,49 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
     await connectSocket(scope);
   }, [connectSocket]);
 
-  const waitForConnection = useCallback((): Promise<Socket> => {
-    return new Promise<Socket>((resolve, reject) => {
-      if (!socket) return reject(new Error('Socket not initialized'));
-      if (socket.connected) return resolve(socket);
+  const waitForConnection = useCallback(async (): Promise<Socket> => {
+    if (!socketRef.current) {
+      await connectSocket(currentScopeRef.current);
+    }
 
+    const activeSocket = socketRef.current;
+    if (!activeSocket) throw new Error('Socket not initialized');
+    if (activeSocket.connected) return activeSocket;
+
+    if (!activeSocket.active) {
+      activeSocket.connect();
+    }
+
+    return new Promise<Socket>((resolve, reject) => {
+      let lastErrorMessage: string | null = null;
       const timeoutId = setTimeout(() => {
         cleanup();
-        reject(new Error('Connection timeout'));
-      }, 5000);
+        reject(new Error(lastErrorMessage ? `Connection timeout: ${lastErrorMessage}` : 'Connection timeout'));
+      }, 15000);
 
       const handleConnect = () => {
         cleanup();
-        resolve(socket);
+        resolve(activeSocket);
+      };
+
+      const handleError = (error: unknown) => {
+        // Keep waiting for auto-reconnects; do not fail fast on transient websocket errors.
+        lastErrorMessage = error instanceof Error ? error.message : 'Socket connect error';
       };
 
       const cleanup = () => {
         clearTimeout(timeoutId);
-        socket.off('connect', handleConnect);
+        activeSocket.off('connect', handleConnect);
+        activeSocket.off('connect_error', handleError);
       };
 
-      socket.once('connect', handleConnect);
+      activeSocket.once('connect', handleConnect);
+      activeSocket.once('connect_error', handleError);
     });
+  }, [connectSocket]);
+
+  useEffect(() => {
+    socketRef.current = socket;
   }, [socket]);
 
   // Initial connection (global)

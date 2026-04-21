@@ -1811,7 +1811,7 @@ export function TableView({ spaceId, projectId, teamId, listId, viewId, initialC
                             </TableCell>
                             {visibleColumns.has("assignee") && (
                                 <TableCell className="py-2 overflow-hidden" style={{ width: colWidths.assignee, minWidth: 80 }}>
-                                     <AssigneeSelector
+                                    <AssigneeSelector
                                         users={users as any}
                                         agents={agents}
                                         workspaceId={resolvedWorkspaceId}
@@ -3758,7 +3758,7 @@ export function TableView({ spaceId, projectId, teamId, listId, viewId, initialC
                     <div className="flex flex-col items-center justify-center h-full p-8 text-center">
                         <p className="text-sm font-medium text-zinc-700">No tasks found</p>
                         <p className="text-xs text-zinc-500 mt-1">Adjust filters or create a task.</p>
-                        <TaskCreationModal context={spaceId ? "SPACE" : projectId ? "PROJECT" : "GENERAL"} contextId={spaceId || projectId} workspaceId={resolvedWorkspaceId} users={users} lists={lists} defaultListId={listId} availableStatuses={allAvailableStatuses} trigger={<Button size="sm" className="mt-4"><Plus className="h-4 w-4 mr-2" />Add Task</Button>} />
+                        <TaskCreationModal context={spaceId ? "SPACE" : projectId ? "PROJECT" : "GENERAL"} contextId={spaceId || projectId} workspaceId={resolvedWorkspaceId} users={users} lists={lists} defaultListId={listId} availableStatuses={allAvailableStatuses} trigger={<button type="button" className="flex items-center gap-1.5 h-8 px-3 mt-4 rounded-lg text-[13px] font-bold text-white bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 transition-all cursor-pointer shadow-sm"><CheckSquare className="h-3 w-3" />Create a task</button>} />
                     </div>
                 ) : (
                     <DndContext
@@ -4454,324 +4454,324 @@ export function TableView({ spaceId, projectId, teamId, listId, viewId, initialC
                     onClose={() => setCustomizePanelOpen(false)}
                     className="absolute bottom-0 right-0 h-full w-[380px] max-w-[90vw] bg-white border-l border-zinc-200 shadow-xl z-50 flex flex-col"
                 >
-                        <div className="flex items-center justify-between p-4 border-b border-zinc-100">
-                            <h3 className="font-semibold text-zinc-900">Customize view</h3>
-                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setCustomizePanelOpen(false)}><X className="h-4 w-4" /></Button>
-                        </div>
-                        <ScrollArea className="flex-1 min-h-0">
-                            <div className="p-3 space-y-2 pb-24">
-                                <div className="flex items-center gap-2 mb-4">
-                                    <div className="flex items-center justify-center h-10 w-10 rounded-lg border border-zinc-200 bg-zinc-50 shrink-0">
-                                        <LayoutList className="h-5 w-5 text-zinc-600" />
-                                    </div>
-                                    <Input
-                                        value={viewNameDraft}
-                                        onChange={(e) => setViewNameDraft(e.target.value)}
-                                        onBlur={() => updateViewName(viewNameDraft)}
-                                        onKeyDown={(e) => {
-                                            if (e.key === "Enter") {
-                                                updateViewName(viewNameDraft);
-                                                (e.target as HTMLInputElement).blur();
-                                            }
-                                        }}
-                                        className="h-10 text-sm font-medium border-zinc-200"
-                                        placeholder="View name"
-                                    />
+                    <div className="flex items-center justify-between p-4 border-b border-zinc-100">
+                        <h3 className="font-semibold text-zinc-900">Customize view</h3>
+                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setCustomizePanelOpen(false)}><X className="h-4 w-4" /></Button>
+                    </div>
+                    <ScrollArea className="flex-1 min-h-0">
+                        <div className="p-3 space-y-2 pb-24">
+                            <div className="flex items-center gap-2 mb-4">
+                                <div className="flex items-center justify-center h-10 w-10 rounded-lg border border-zinc-200 bg-zinc-50 shrink-0">
+                                    <LayoutList className="h-5 w-5 text-zinc-600" />
                                 </div>
+                                <Input
+                                    value={viewNameDraft}
+                                    onChange={(e) => setViewNameDraft(e.target.value)}
+                                    onBlur={() => updateViewName(viewNameDraft)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === "Enter") {
+                                            updateViewName(viewNameDraft);
+                                            (e.target as HTMLInputElement).blur();
+                                        }
+                                    }}
+                                    className="h-10 text-sm font-medium border-zinc-200"
+                                    placeholder="View name"
+                                />
+                            </div>
 
-                                <div className="space-y-1">
-                                    {groupBy === "status" ? (
-                                        <div className="flex items-center justify-between py-1 px-2">
-                                            <span className="text-sm text-zinc-800">Show empty statuses</span>
-                                            <Switch
-                                                checked={showEmptyStatuses}
-                                                onCheckedChange={setShowEmptyStatuses}
-                                            />
-                                        </div>
-                                    ) : (
-                                        <TooltipProvider delayDuration={0}>
-                                            <Tooltip>
-                                                <TooltipTrigger asChild>
-                                                    <div className="flex items-center justify-between py-1 cursor-not-allowed opacity-50 px-2">
-                                                        <span className="text-sm text-zinc-800">Show empty statuses</span>
-                                                        <Switch
-                                                            checked={showEmptyStatuses}
-                                                            onCheckedChange={setShowEmptyStatuses}
-                                                            disabled
-                                                        />
-                                                    </div>
-                                                </TooltipTrigger>
-                                                <TooltipContent side="left" className="bg-zinc-900 text-white border-none text-[11px] py-1.5 px-2.5">
-                                                    Grouping by status is required to enable this
-                                                </TooltipContent>
-                                            </Tooltip>
-                                        </TooltipProvider>
-                                    )}
+                            <div className="space-y-1">
+                                {groupBy === "status" ? (
                                     <div className="flex items-center justify-between py-1 px-2">
-                                        <span className="text-sm text-zinc-800">Wrap text</span>
-                                        <Switch checked={wrapText} onCheckedChange={setWrapText} />
+                                        <span className="text-sm text-zinc-800">Show empty statuses</span>
+                                        <Switch
+                                            checked={showEmptyStatuses}
+                                            onCheckedChange={setShowEmptyStatuses}
+                                        />
                                     </div>
-                                    <div className="flex items-center justify-between py-1 px-2">
-                                        <span className="text-sm text-zinc-800">Show task locations</span>
-                                        <Switch checked={showTaskLocations} onCheckedChange={setShowTaskLocations} />
-                                    </div>
-                                    <div className="flex items-center justify-between py-1 px-2">
-                                        <span className="text-sm text-zinc-800">Show subtask parent names</span>
-                                        <Switch checked={showSubtaskParentNames} onCheckedChange={setShowSubtaskParentNames} />
-                                    </div>
-                                    <div className="flex items-center justify-between py-1 px-2">
-                                        <span className="text-sm text-zinc-800">Show closed tasks</span>
-                                        <Switch checked={showCompleted} onCheckedChange={setShowCompleted} />
-                                    </div>
-                                    <button
-                                        type="button"
-                                        className="w-full flex items-center justify-between py-2.5 text-sm text-zinc-800 hover:bg-zinc-50 rounded-md px-2"
-                                        onClick={() => { setLayoutOptionsOpen(true); }}
-                                    >
-                                        <span className="flex items-center gap-2">More options</span>
-                                        <ChevronRight className="inline h-3 w-3 ml-1 text-zinc-400" />
-                                    </button>
-                                </div>
-                                <div className="h-px bg-zinc-100 my-2" />
-                                <div className="space-y-1">
-                                    <button type="button" className="w-full flex items-center justify-between py-2.5 text-sm text-zinc-800 hover:bg-zinc-50 rounded-md px-2" onClick={() => { setFieldsPanelOpen(true); setCustomizePanelOpen(false); }}>
-                                        <span className="flex items-center gap-2"><SlidersHorizontal className="h-4 w-4 text-zinc-400" />Fields</span>
-                                        <span className="text-xs text-zinc-500">{Array.from(visibleColumns).length} shown</span>
-                                    </button>
-                                    <Popover open={customizeViewFilterOpen} onOpenChange={setCustomizeViewFilterOpen}>
-                                        <PopoverTrigger asChild>
-                                            <button
-                                                type="button"
-                                                className="w-full flex items-center justify-between py-2.5 text-sm text-zinc-800 hover:bg-zinc-50 rounded-md px-2"
-                                                onClick={() => { if (filterGroups.conditions.length === 0) { addFilterGroup(); } }}
-                                            >
-                                                <span className="flex items-center gap-2"><Filter className="h-4 w-4 text-zinc-400" />Filter</span>
-                                                <span className="text-xs text-zinc-500">{appliedFilterCount > 0 ? `${appliedFilterCount} applied` : "None"} <ChevronRight className="inline h-3 w-3 ml-1" /></span>
-                                            </button>
-                                        </PopoverTrigger>
-                                        <PopoverContent side="left" align="start" className="w-[600px] max-w-[90vw] p-0 overflow-hidden shadow-2xl rounded-2xl border border-zinc-200/80" sideOffset={16}>
-                                            {renderFilterContent({ onClose: () => setCustomizeViewFilterOpen(false) })}
-                                        </PopoverContent>
-                                    </Popover>
-                                    <Popover open={customizeViewGroupOpen} onOpenChange={setCustomizeViewGroupOpen}>
-                                        <PopoverTrigger asChild>
-                                            <button
-                                                type="button"
-                                                className="w-full flex items-center justify-between py-2.5 text-sm text-zinc-800 hover:bg-zinc-50 rounded-md px-2"
-                                            >
-                                                <span className="flex items-center gap-2"><LayoutList className="h-4 w-4 text-zinc-400" />Group</span>
-                                                <span className="text-xs text-zinc-500">{groupLabel} <ChevronRight className="inline h-3 w-3 ml-1" /></span>
-                                            </button>
-                                        </PopoverTrigger>
-                                        <PopoverContent side="left" align="start" className="w-[240px] p-1.5 rounded-xl shadow-xl border-zinc-200/60" sideOffset={16}>
-                                            <div className="px-2 py-1.5 mb-1">
-                                                <span className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">Group by</span>
-                                            </div>
-                                            <div className="space-y-0.5">
-                                                {[
-                                                    { id: "status", label: "Status", icon: Circle },
-                                                    { id: "assignee", label: "Assignee", icon: Users },
-                                                    { id: "priority", label: "Priority", icon: Flag },
-                                                    { id: "tags", label: "Tags", icon: Tag },
-                                                    { id: "dueDate", label: "Due date", icon: Calendar },
-                                                    { id: "taskType", label: "Task type", icon: Box },
-                                                ].map((opt) => (
-                                                    <div
-                                                        key={opt.id}
-                                                        className={cn(
-                                                            "flex items-center gap-2.5 px-2 py-1.5 text-sm rounded-md cursor-pointer transition-colors",
-                                                            groupBy === opt.id ? "bg-violet-50 text-violet-700" : "text-zinc-600 hover:bg-zinc-100"
-                                                        )}
-                                                        onClick={() => { setGroupBy(opt.id as any); setCustomizeViewGroupOpen(false); }}
-                                                    >
-                                                        <opt.icon className={cn("h-4 w-4", groupBy === opt.id ? "text-violet-500" : "text-zinc-400")} />
-                                                        <span className="flex-1">{opt.label}</span>
-                                                        {groupBy === opt.id && <div className="h-1.5 w-1.5 rounded-full bg-violet-600" />}
-                                                    </div>
-                                                ))}
-                                                {FIELD_CONFIG.filter(f => f.isCustom).length > 0 && (
-                                                    <>
-                                                        <div className="h-px bg-zinc-100 my-1.5" />
-                                                        <div className="px-2 py-1.5 mb-0.5">
-                                                            <span className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">Custom Fields</span>
-                                                        </div>
-                                                        {FIELD_CONFIG.filter(f => f.isCustom).map((f) => {
-                                                            const Icon = f.icon as any;
-                                                            return (
-                                                                <div
-                                                                    key={f.id}
-                                                                    className={cn(
-                                                                        "flex items-center gap-2.5 px-2 py-1.5 text-sm rounded-md cursor-pointer transition-colors",
-                                                                        groupBy === f.id ? "bg-violet-50 text-violet-700" : "text-zinc-600 hover:bg-zinc-100"
-                                                                    )}
-                                                                    onClick={() => { setGroupBy(f.id); setCustomizeViewGroupOpen(false); }}
-                                                                >
-                                                                    <Icon className={cn("h-4 w-4", groupBy === f.id ? "text-violet-500" : "text-zinc-400")} />
-                                                                    <span className="flex-1 truncate">{f.label}</span>
-                                                                    {groupBy === f.id && <div className="h-1.5 w-1.5 rounded-full bg-violet-600" />}
-                                                                </div>
-                                                            );
-                                                        })}
-                                                    </>
-                                                )}
-                                                {groupBy !== "none" && (
-                                                    <>
-                                                        <div className="h-px bg-zinc-100 my-1.5" />
-                                                        <div className="flex items-center gap-1 p-1">
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="sm"
-                                                                className={cn("flex-1 h-7 text-[10px] uppercase tracking-wider font-bold", groupDirection === "asc" ? "bg-white shadow-sm border border-zinc-200 text-zinc-900" : "text-zinc-500")}
-                                                                onClick={() => setGroupDirection("asc")}
-                                                            >
-                                                                Ascending
-                                                            </Button>
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="sm"
-                                                                className={cn("flex-1 h-7 text-[10px] uppercase tracking-wider font-bold", groupDirection === "desc" ? "bg-white shadow-sm border border-zinc-200 text-zinc-900" : "text-zinc-500")}
-                                                                onClick={() => setGroupDirection("desc")}
-                                                            >
-                                                                Descending
-                                                            </Button>
-                                                        </div>
-                                                    </>
-                                                )}
-                                                <div className="h-px bg-zinc-100 my-1.5" />
-                                                <div
-                                                    className={cn(
-                                                        "flex items-center gap-2.5 px-2 py-1.5 text-sm rounded-md cursor-pointer transition-colors text-red-600 hover:bg-red-50 hover:text-red-700",
-                                                        groupBy === "none" && "bg-zinc-100"
-                                                    )}
-                                                    onClick={() => { setGroupBy("none"); setCustomizeViewGroupOpen(false); }}
-                                                >
-                                                    <Trash2 className="h-4 w-4" />
-                                                    <span className="flex-1">Remove grouping</span>
+                                ) : (
+                                    <TooltipProvider delayDuration={0}>
+                                        <Tooltip>
+                                            <TooltipTrigger asChild>
+                                                <div className="flex items-center justify-between py-1 cursor-not-allowed opacity-50 px-2">
+                                                    <span className="text-sm text-zinc-800">Show empty statuses</span>
+                                                    <Switch
+                                                        checked={showEmptyStatuses}
+                                                        onCheckedChange={setShowEmptyStatuses}
+                                                        disabled
+                                                    />
                                                 </div>
+                                            </TooltipTrigger>
+                                            <TooltipContent side="left" className="bg-zinc-900 text-white border-none text-[11px] py-1.5 px-2.5">
+                                                Grouping by status is required to enable this
+                                            </TooltipContent>
+                                        </Tooltip>
+                                    </TooltipProvider>
+                                )}
+                                <div className="flex items-center justify-between py-1 px-2">
+                                    <span className="text-sm text-zinc-800">Wrap text</span>
+                                    <Switch checked={wrapText} onCheckedChange={setWrapText} />
+                                </div>
+                                <div className="flex items-center justify-between py-1 px-2">
+                                    <span className="text-sm text-zinc-800">Show task locations</span>
+                                    <Switch checked={showTaskLocations} onCheckedChange={setShowTaskLocations} />
+                                </div>
+                                <div className="flex items-center justify-between py-1 px-2">
+                                    <span className="text-sm text-zinc-800">Show subtask parent names</span>
+                                    <Switch checked={showSubtaskParentNames} onCheckedChange={setShowSubtaskParentNames} />
+                                </div>
+                                <div className="flex items-center justify-between py-1 px-2">
+                                    <span className="text-sm text-zinc-800">Show closed tasks</span>
+                                    <Switch checked={showCompleted} onCheckedChange={setShowCompleted} />
+                                </div>
+                                <button
+                                    type="button"
+                                    className="w-full flex items-center justify-between py-2.5 text-sm text-zinc-800 hover:bg-zinc-50 rounded-md px-2"
+                                    onClick={() => { setLayoutOptionsOpen(true); }}
+                                >
+                                    <span className="flex items-center gap-2">More options</span>
+                                    <ChevronRight className="inline h-3 w-3 ml-1 text-zinc-400" />
+                                </button>
+                            </div>
+                            <div className="h-px bg-zinc-100 my-2" />
+                            <div className="space-y-1">
+                                <button type="button" className="w-full flex items-center justify-between py-2.5 text-sm text-zinc-800 hover:bg-zinc-50 rounded-md px-2" onClick={() => { setFieldsPanelOpen(true); setCustomizePanelOpen(false); }}>
+                                    <span className="flex items-center gap-2"><SlidersHorizontal className="h-4 w-4 text-zinc-400" />Fields</span>
+                                    <span className="text-xs text-zinc-500">{Array.from(visibleColumns).length} shown</span>
+                                </button>
+                                <Popover open={customizeViewFilterOpen} onOpenChange={setCustomizeViewFilterOpen}>
+                                    <PopoverTrigger asChild>
+                                        <button
+                                            type="button"
+                                            className="w-full flex items-center justify-between py-2.5 text-sm text-zinc-800 hover:bg-zinc-50 rounded-md px-2"
+                                            onClick={() => { if (filterGroups.conditions.length === 0) { addFilterGroup(); } }}
+                                        >
+                                            <span className="flex items-center gap-2"><Filter className="h-4 w-4 text-zinc-400" />Filter</span>
+                                            <span className="text-xs text-zinc-500">{appliedFilterCount > 0 ? `${appliedFilterCount} applied` : "None"} <ChevronRight className="inline h-3 w-3 ml-1" /></span>
+                                        </button>
+                                    </PopoverTrigger>
+                                    <PopoverContent side="left" align="start" className="w-[600px] max-w-[90vw] p-0 overflow-hidden shadow-2xl rounded-2xl border border-zinc-200/80" sideOffset={16}>
+                                        {renderFilterContent({ onClose: () => setCustomizeViewFilterOpen(false) })}
+                                    </PopoverContent>
+                                </Popover>
+                                <Popover open={customizeViewGroupOpen} onOpenChange={setCustomizeViewGroupOpen}>
+                                    <PopoverTrigger asChild>
+                                        <button
+                                            type="button"
+                                            className="w-full flex items-center justify-between py-2.5 text-sm text-zinc-800 hover:bg-zinc-50 rounded-md px-2"
+                                        >
+                                            <span className="flex items-center gap-2"><LayoutList className="h-4 w-4 text-zinc-400" />Group</span>
+                                            <span className="text-xs text-zinc-500">{groupLabel} <ChevronRight className="inline h-3 w-3 ml-1" /></span>
+                                        </button>
+                                    </PopoverTrigger>
+                                    <PopoverContent side="left" align="start" className="w-[240px] p-1.5 rounded-xl shadow-xl border-zinc-200/60" sideOffset={16}>
+                                        <div className="px-2 py-1.5 mb-1">
+                                            <span className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">Group by</span>
+                                        </div>
+                                        <div className="space-y-0.5">
+                                            {[
+                                                { id: "status", label: "Status", icon: Circle },
+                                                { id: "assignee", label: "Assignee", icon: Users },
+                                                { id: "priority", label: "Priority", icon: Flag },
+                                                { id: "tags", label: "Tags", icon: Tag },
+                                                { id: "dueDate", label: "Due date", icon: Calendar },
+                                                { id: "taskType", label: "Task type", icon: Box },
+                                            ].map((opt) => (
+                                                <div
+                                                    key={opt.id}
+                                                    className={cn(
+                                                        "flex items-center gap-2.5 px-2 py-1.5 text-sm rounded-md cursor-pointer transition-colors",
+                                                        groupBy === opt.id ? "bg-violet-50 text-violet-700" : "text-zinc-600 hover:bg-zinc-100"
+                                                    )}
+                                                    onClick={() => { setGroupBy(opt.id as any); setCustomizeViewGroupOpen(false); }}
+                                                >
+                                                    <opt.icon className={cn("h-4 w-4", groupBy === opt.id ? "text-violet-500" : "text-zinc-400")} />
+                                                    <span className="flex-1">{opt.label}</span>
+                                                    {groupBy === opt.id && <div className="h-1.5 w-1.5 rounded-full bg-violet-600" />}
+                                                </div>
+                                            ))}
+                                            {FIELD_CONFIG.filter(f => f.isCustom).length > 0 && (
+                                                <>
+                                                    <div className="h-px bg-zinc-100 my-1.5" />
+                                                    <div className="px-2 py-1.5 mb-0.5">
+                                                        <span className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">Custom Fields</span>
+                                                    </div>
+                                                    {FIELD_CONFIG.filter(f => f.isCustom).map((f) => {
+                                                        const Icon = f.icon as any;
+                                                        return (
+                                                            <div
+                                                                key={f.id}
+                                                                className={cn(
+                                                                    "flex items-center gap-2.5 px-2 py-1.5 text-sm rounded-md cursor-pointer transition-colors",
+                                                                    groupBy === f.id ? "bg-violet-50 text-violet-700" : "text-zinc-600 hover:bg-zinc-100"
+                                                                )}
+                                                                onClick={() => { setGroupBy(f.id); setCustomizeViewGroupOpen(false); }}
+                                                            >
+                                                                <Icon className={cn("h-4 w-4", groupBy === f.id ? "text-violet-500" : "text-zinc-400")} />
+                                                                <span className="flex-1 truncate">{f.label}</span>
+                                                                {groupBy === f.id && <div className="h-1.5 w-1.5 rounded-full bg-violet-600" />}
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </>
+                                            )}
+                                            {groupBy !== "none" && (
+                                                <>
+                                                    <div className="h-px bg-zinc-100 my-1.5" />
+                                                    <div className="flex items-center gap-1 p-1">
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            className={cn("flex-1 h-7 text-[10px] uppercase tracking-wider font-bold", groupDirection === "asc" ? "bg-white shadow-sm border border-zinc-200 text-zinc-900" : "text-zinc-500")}
+                                                            onClick={() => setGroupDirection("asc")}
+                                                        >
+                                                            Ascending
+                                                        </Button>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            className={cn("flex-1 h-7 text-[10px] uppercase tracking-wider font-bold", groupDirection === "desc" ? "bg-white shadow-sm border border-zinc-200 text-zinc-900" : "text-zinc-500")}
+                                                            onClick={() => setGroupDirection("desc")}
+                                                        >
+                                                            Descending
+                                                        </Button>
+                                                    </div>
+                                                </>
+                                            )}
+                                            <div className="h-px bg-zinc-100 my-1.5" />
+                                            <div
+                                                className={cn(
+                                                    "flex items-center gap-2.5 px-2 py-1.5 text-sm rounded-md cursor-pointer transition-colors text-red-600 hover:bg-red-50 hover:text-red-700",
+                                                    groupBy === "none" && "bg-zinc-100"
+                                                )}
+                                                onClick={() => { setGroupBy("none"); setCustomizeViewGroupOpen(false); }}
+                                            >
+                                                <Trash2 className="h-4 w-4" />
+                                                <span className="flex-1">Remove grouping</span>
                                             </div>
-                                        </PopoverContent>
-                                    </Popover>
-                                    <Popover open={customizeViewSubtasksOpen} onOpenChange={setCustomizeViewSubtasksOpen}>
-                                        <PopoverTrigger asChild>
+                                        </div>
+                                    </PopoverContent>
+                                </Popover>
+                                <Popover open={customizeViewSubtasksOpen} onOpenChange={setCustomizeViewSubtasksOpen}>
+                                    <PopoverTrigger asChild>
+                                        <button
+                                            type="button"
+                                            className="w-full flex items-center justify-between py-2.5 text-sm text-zinc-800 hover:bg-zinc-50 rounded-md px-2"
+                                        >
+                                            <span className="flex items-center gap-2"><Link2 className="h-4 w-4 text-zinc-400" />Subtasks</span>
+                                            <span className="text-xs text-zinc-500">{expandedSubtaskMode === "collapsed" ? "Collapsed" : expandedSubtaskMode === "expanded" ? "Expanded" : "Separate"} <ChevronRight className="inline h-3 w-3 ml-1" /></span>
+                                        </button>
+                                    </PopoverTrigger>
+                                    <PopoverContent side="left" align="start" className="w-56" sideOffset={16}>
+                                        <div className="text-xs px-2 pb-2 font-semibold text-zinc-900">Show subtasks</div>
+                                        <div className="space-y-1">
                                             <button
                                                 type="button"
-                                                className="w-full flex items-center justify-between py-2.5 text-sm text-zinc-800 hover:bg-zinc-50 rounded-md px-2"
+                                                className={cn(
+                                                    "w-full text-left text-xs px-2 py-1 rounded",
+                                                    expandedSubtaskMode === "collapsed" ? "bg-zinc-100 text-zinc-900" : "text-zinc-700 hover:bg-zinc-50"
+                                                )}
+                                                onClick={() => {
+                                                    setExpandedSubtaskMode("collapsed");
+                                                    setExpandedParents(new Set());
+                                                    setCustomizeViewSubtasksOpen(false);
+                                                }}
                                             >
-                                                <span className="flex items-center gap-2"><Link2 className="h-4 w-4 text-zinc-400" />Subtasks</span>
-                                                <span className="text-xs text-zinc-500">{expandedSubtaskMode === "collapsed" ? "Collapsed" : expandedSubtaskMode === "expanded" ? "Expanded" : "Separate"} <ChevronRight className="inline h-3 w-3 ml-1" /></span>
+                                                Collapsed (default)
                                             </button>
-                                        </PopoverTrigger>
-                                        <PopoverContent side="left" align="start" className="w-56" sideOffset={16}>
-                                            <div className="text-xs px-2 pb-2 font-semibold text-zinc-900">Show subtasks</div>
-                                            <div className="space-y-1">
-                                                <button
-                                                    type="button"
-                                                    className={cn(
-                                                        "w-full text-left text-xs px-2 py-1 rounded",
-                                                        expandedSubtaskMode === "collapsed" ? "bg-zinc-100 text-zinc-900" : "text-zinc-700 hover:bg-zinc-50"
-                                                    )}
-                                                    onClick={() => {
-                                                        setExpandedSubtaskMode("collapsed");
-                                                        setExpandedParents(new Set());
-                                                        setCustomizeViewSubtasksOpen(false);
-                                                    }}
-                                                >
-                                                    Collapsed (default)
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    className={cn(
-                                                        "w-full text-left text-xs px-2 py-1 rounded",
-                                                        expandedSubtaskMode === "expanded" ? "bg-zinc-100 text-zinc-900" : "text-zinc-700 hover:bg-zinc-50"
-                                                    )}
-                                                    onClick={() => {
-                                                        setExpandedSubtaskMode("expanded");
-                                                        const next = new Set<string>();
-                                                        filteredTasks.forEach((t: Task) => {
-                                                            if (hasSubtasks(t, filteredTasks as Task[])) next.add(t.id);
-                                                        });
-                                                        setExpandedParents(next);
-                                                        setCustomizeViewSubtasksOpen(false);
-                                                    }}
-                                                >
-                                                    Expanded
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    className={cn(
-                                                        "w-full text-left text-xs px-2 py-1 rounded",
-                                                        expandedSubtaskMode === "separate" ? "bg-zinc-100 text-zinc-900" : "text-zinc-700 hover:bg-zinc-50"
-                                                    )}
-                                                    onClick={() => {
-                                                        setExpandedSubtaskMode("separate");
-                                                        setExpandedParents(new Set());
-                                                        setCustomizeViewSubtasksOpen(false);
-                                                    }}
-                                                >
-                                                    As separate items
-                                                </button>
-                                            </div>
-                                        </PopoverContent>
-                                    </Popover>
+                                            <button
+                                                type="button"
+                                                className={cn(
+                                                    "w-full text-left text-xs px-2 py-1 rounded",
+                                                    expandedSubtaskMode === "expanded" ? "bg-zinc-100 text-zinc-900" : "text-zinc-700 hover:bg-zinc-50"
+                                                )}
+                                                onClick={() => {
+                                                    setExpandedSubtaskMode("expanded");
+                                                    const next = new Set<string>();
+                                                    filteredTasks.forEach((t: Task) => {
+                                                        if (hasSubtasks(t, filteredTasks as Task[])) next.add(t.id);
+                                                    });
+                                                    setExpandedParents(next);
+                                                    setCustomizeViewSubtasksOpen(false);
+                                                }}
+                                            >
+                                                Expanded
+                                            </button>
+                                            <button
+                                                type="button"
+                                                className={cn(
+                                                    "w-full text-left text-xs px-2 py-1 rounded",
+                                                    expandedSubtaskMode === "separate" ? "bg-zinc-100 text-zinc-900" : "text-zinc-700 hover:bg-zinc-50"
+                                                )}
+                                                onClick={() => {
+                                                    setExpandedSubtaskMode("separate");
+                                                    setExpandedParents(new Set());
+                                                    setCustomizeViewSubtasksOpen(false);
+                                                }}
+                                            >
+                                                As separate items
+                                            </button>
+                                        </div>
+                                    </PopoverContent>
+                                </Popover>
+                            </div>
+                            <div className="h-px bg-zinc-100 my-2" />
+                            <div className="space-y-1">
+                                <div className="flex items-center justify-between py-2.5 px-2 hover:bg-zinc-50 rounded-md transition-colors">
+                                    <div className="flex items-center gap-2">
+                                        <Save className="h-4 w-4 text-zinc-400" />
+                                        <span className="text-sm text-zinc-800">Autosave for me</span>
+                                    </div>
+                                    <Switch checked={viewAutosave} onCheckedChange={handleToggleAutosave} />
                                 </div>
-                                <div className="h-px bg-zinc-100 my-2" />
-                                <div className="space-y-1">
-                                    <div className="flex items-center justify-between py-2.5 px-2 hover:bg-zinc-50 rounded-md transition-colors">
-                                        <div className="flex items-center gap-2">
-                                            <Save className="h-4 w-4 text-zinc-400" />
-                                            <span className="text-sm text-zinc-800">Autosave for me</span>
-                                        </div>
-                                        <Switch checked={viewAutosave} onCheckedChange={handleToggleAutosave} />
+                                <div className="flex items-center justify-between py-2.5 px-2 hover:bg-zinc-50 rounded-md transition-colors">
+                                    <div className="flex items-center gap-2">
+                                        <Pin className="h-4 w-4 text-zinc-400" />
+                                        <span className="text-sm text-zinc-800">Pin view</span>
                                     </div>
-                                    <div className="flex items-center justify-between py-2.5 px-2 hover:bg-zinc-50 rounded-md transition-colors">
-                                        <div className="flex items-center gap-2">
-                                            <Pin className="h-4 w-4 text-zinc-400" />
-                                            <span className="text-sm text-zinc-800">Pin view</span>
-                                        </div>
-                                        <Switch checked={pinView} onCheckedChange={(val) => { setPinView(val); updateViewProperty('isPinned', val); }} />
-                                    </div>
-                                    <div className="flex items-center justify-between py-2.5 px-2 hover:bg-zinc-50 rounded-md transition-colors">
-                                        <div className="flex items-center gap-2">
-                                            <Lock className="h-4 w-4 text-zinc-400" />
-                                            <span className="text-sm text-zinc-800">Private view</span>
-                                        </div>
-                                        <Switch checked={privateView} onCheckedChange={(val) => { setPrivateView(val); updateViewProperty('isPrivate', val); }} />
-                                    </div>
-                                    <div className="flex items-center justify-between py-2.5 px-2 hover:bg-zinc-50 rounded-md transition-colors">
-                                        <div className="flex items-center gap-2">
-                                            <ShieldCheck className="h-4 w-4 text-zinc-400" />
-                                            <span className="text-sm text-zinc-800">Protect view</span>
-                                        </div>
-                                        <Switch checked={protectView} onCheckedChange={(val) => { setProtectView(val); updateViewProperty('isLocked', val); }} />
-                                    </div>
-                                    <div className="flex items-center justify-between py-2.5 px-2 hover:bg-zinc-50 rounded-md transition-colors">
-                                        <div className="flex items-center gap-2">
-                                            <Home className="h-4 w-4 text-zinc-400" />
-                                            <span className="text-sm text-zinc-800">Set as default view</span>
-                                        </div>
-                                        <Switch checked={defaultView} onCheckedChange={(val) => { setDefaultView(val); updateViewProperty('isDefault', val); }} />
-                                    </div>
+                                    <Switch checked={pinView} onCheckedChange={(val) => { setPinView(val); updateViewProperty('isPinned', val); }} />
                                 </div>
-                                <div className="h-px bg-zinc-100 my-2" />
-                                <div className="space-y-1">
-                                    <button type="button" className="w-full flex items-center justify-between py-2.5 text-sm text-zinc-800 hover:bg-zinc-50 rounded-md px-2" onClick={() => {
-                                        const url = `${window.location.origin}${window.location.pathname}?v=${viewId}`;
-                                        navigator.clipboard?.writeText(url);
-                                        toast.success("Link copied to clipboard");
-                                    }}>
-                                        <span className="flex items-center gap-2"><Link className="h-4 w-4 text-zinc-400" />Copy link to view</span>
-                                    </button>
-                                    <button
-                                        type="button"
-                                        className="w-full flex items-center justify-between py-2.5 text-sm text-zinc-800 hover:bg-zinc-50 rounded-md px-2"
-                                        onClick={() => setIsShareModalOpen(true)}
-                                    >
-                                        <span className="flex items-center gap-2"><Users className="h-4 w-4 text-zinc-400" />Sharing & Permissions</span>
-                                        <ChevronRight className="inline h-3 w-3 ml-1 text-zinc-400" />
-                                    </button>
+                                <div className="flex items-center justify-between py-2.5 px-2 hover:bg-zinc-50 rounded-md transition-colors">
+                                    <div className="flex items-center gap-2">
+                                        <Lock className="h-4 w-4 text-zinc-400" />
+                                        <span className="text-sm text-zinc-800">Private view</span>
+                                    </div>
+                                    <Switch checked={privateView} onCheckedChange={(val) => { setPrivateView(val); updateViewProperty('isPrivate', val); }} />
+                                </div>
+                                <div className="flex items-center justify-between py-2.5 px-2 hover:bg-zinc-50 rounded-md transition-colors">
+                                    <div className="flex items-center gap-2">
+                                        <ShieldCheck className="h-4 w-4 text-zinc-400" />
+                                        <span className="text-sm text-zinc-800">Protect view</span>
+                                    </div>
+                                    <Switch checked={protectView} onCheckedChange={(val) => { setProtectView(val); updateViewProperty('isLocked', val); }} />
+                                </div>
+                                <div className="flex items-center justify-between py-2.5 px-2 hover:bg-zinc-50 rounded-md transition-colors">
+                                    <div className="flex items-center gap-2">
+                                        <Home className="h-4 w-4 text-zinc-400" />
+                                        <span className="text-sm text-zinc-800">Set as default view</span>
+                                    </div>
+                                    <Switch checked={defaultView} onCheckedChange={(val) => { setDefaultView(val); updateViewProperty('isDefault', val); }} />
                                 </div>
                             </div>
-                        </ScrollArea>
+                            <div className="h-px bg-zinc-100 my-2" />
+                            <div className="space-y-1">
+                                <button type="button" className="w-full flex items-center justify-between py-2.5 text-sm text-zinc-800 hover:bg-zinc-50 rounded-md px-2" onClick={() => {
+                                    const url = `${window.location.origin}${window.location.pathname}?v=${viewId}`;
+                                    navigator.clipboard?.writeText(url);
+                                    toast.success("Link copied to clipboard");
+                                }}>
+                                    <span className="flex items-center gap-2"><Link className="h-4 w-4 text-zinc-400" />Copy link to view</span>
+                                </button>
+                                <button
+                                    type="button"
+                                    className="w-full flex items-center justify-between py-2.5 text-sm text-zinc-800 hover:bg-zinc-50 rounded-md px-2"
+                                    onClick={() => setIsShareModalOpen(true)}
+                                >
+                                    <span className="flex items-center gap-2"><Users className="h-4 w-4 text-zinc-400" />Sharing & Permissions</span>
+                                    <ChevronRight className="inline h-3 w-3 ml-1 text-zinc-400" />
+                                </button>
+                            </div>
+                        </div>
+                    </ScrollArea>
                 </SidePanel>
             )}
             {layoutOptionsOpen && (
@@ -4780,121 +4780,121 @@ export function TableView({ spaceId, projectId, teamId, listId, viewId, initialC
                     onClose={() => { setLayoutOptionsOpen(false); setCustomizePanelOpen(false); }}
                     className="absolute bottom-0 right-0 h-full w-[380px] max-w-[90vw] bg-white border-l border-zinc-200 shadow-xl z-50 flex flex-col"
                 >
-                        <div className="flex items-center justify-between p-4 border-b border-zinc-100">
-                            <Button variant="ghost" size="icon" className="h-8 w-8 -ml-1 cursor-pointer" onClick={() => { setLayoutOptionsOpen(false); setCustomizePanelOpen(true); }}>
-                                <ArrowRight className="h-4 w-4 rotate-180" />
-                            </Button>
-                            <h3 className="font-semibold text-zinc-900">Layout options</h3>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 cursor-pointer" onClick={() => { setLayoutOptionsOpen(false); setCustomizePanelOpen(false); }}><X className="h-4 w-4" /></Button>
-                        </div>
-                        <ScrollArea className="flex-1 min-h-0">
-                            <div className="p-3 space-y-4 pb-24">
-                                <div className="space-y-2">
-                                    <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-2">Page layout</p>
-                                    {groupBy === "status" ? (
-                                        <div className="flex items-center justify-between py-1 px-2">
-                                            <span className="text-sm text-zinc-800">Show empty statuses</span>
-                                            <Switch
-                                                checked={showEmptyStatuses}
-                                                onCheckedChange={setShowEmptyStatuses}
-                                            />
-                                        </div>
-                                    ) : (
-                                        <TooltipProvider delayDuration={0}>
-                                            <Tooltip>
-                                                <TooltipTrigger asChild>
-                                                    <div className="flex items-center justify-between py-1 cursor-not-allowed opacity-50 px-2">
-                                                        <span className="text-sm text-zinc-800">Show empty statuses</span>
-                                                        <Switch
-                                                            checked={showEmptyStatuses}
-                                                            onCheckedChange={setShowEmptyStatuses}
-                                                            disabled
-                                                        />
-                                                    </div>
-                                                </TooltipTrigger>
-                                                <TooltipContent side="left" className="bg-zinc-900 text-white border-none text-[11px] py-1.5 px-2.5">
-                                                    Grouping by status is required to enable this
-                                                </TooltipContent>
-                                            </Tooltip>
-                                        </TooltipProvider>
-                                    )}
+                    <div className="flex items-center justify-between p-4 border-b border-zinc-100">
+                        <Button variant="ghost" size="icon" className="h-8 w-8 -ml-1 cursor-pointer" onClick={() => { setLayoutOptionsOpen(false); setCustomizePanelOpen(true); }}>
+                            <ArrowRight className="h-4 w-4 rotate-180" />
+                        </Button>
+                        <h3 className="font-semibold text-zinc-900">Layout options</h3>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 cursor-pointer" onClick={() => { setLayoutOptionsOpen(false); setCustomizePanelOpen(false); }}><X className="h-4 w-4" /></Button>
+                    </div>
+                    <ScrollArea className="flex-1 min-h-0">
+                        <div className="p-3 space-y-4 pb-24">
+                            <div className="space-y-2">
+                                <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-2">Page layout</p>
+                                {groupBy === "status" ? (
                                     <div className="flex items-center justify-between py-1 px-2">
-                                        <span className="text-sm text-zinc-800">Pin description</span>
+                                        <span className="text-sm text-zinc-800">Show empty statuses</span>
                                         <Switch
-                                            checked={pinDescription}
-                                            onCheckedChange={setPinDescription}
-                                            disabled={!currentList}
+                                            checked={showEmptyStatuses}
+                                            onCheckedChange={setShowEmptyStatuses}
                                         />
                                     </div>
-                                    <div className="flex items-center justify-between py-1 px-2">
-                                        <span className="text-sm text-zinc-800">Wrap text</span>
-                                        <Switch checked={wrapText} onCheckedChange={setWrapText} />
-                                    </div>
+                                ) : (
+                                    <TooltipProvider delayDuration={0}>
+                                        <Tooltip>
+                                            <TooltipTrigger asChild>
+                                                <div className="flex items-center justify-between py-1 cursor-not-allowed opacity-50 px-2">
+                                                    <span className="text-sm text-zinc-800">Show empty statuses</span>
+                                                    <Switch
+                                                        checked={showEmptyStatuses}
+                                                        onCheckedChange={setShowEmptyStatuses}
+                                                        disabled
+                                                    />
+                                                </div>
+                                            </TooltipTrigger>
+                                            <TooltipContent side="left" className="bg-zinc-900 text-white border-none text-[11px] py-1.5 px-2.5">
+                                                Grouping by status is required to enable this
+                                            </TooltipContent>
+                                        </Tooltip>
+                                    </TooltipProvider>
+                                )}
+                                <div className="flex items-center justify-between py-1 px-2">
+                                    <span className="text-sm text-zinc-800">Pin description</span>
+                                    <Switch
+                                        checked={pinDescription}
+                                        onCheckedChange={setPinDescription}
+                                        disabled={!currentList}
+                                    />
                                 </div>
-                                <div className="space-y-2">
-                                    <div className="flex items-center justify-between py-1 px-2">
-                                        <span className="text-sm text-zinc-800">Show task locations</span>
-                                        <Switch checked={showTaskLocations} onCheckedChange={setShowTaskLocations} />
-                                    </div>
-                                    <div className="flex items-center justify-between py-1 px-2">
-                                        <span className="text-sm text-zinc-800">Show task properties</span>
-                                        <Switch checked={showTaskProperties} onCheckedChange={setShowTaskProperties} />
-                                    </div>
-                                    <div className="flex items-center justify-between py-1 px-2">
-                                        <span className="text-sm text-zinc-800">Show subtask parent names</span>
-                                        <Switch checked={showSubtaskParentNames} onCheckedChange={setShowSubtaskParentNames} />
-                                    </div>
-                                </div>
-
-                                <div className="h-px bg-zinc-100" />
-
-                                <div className="space-y-2">
-                                    <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-2">Task visibility</p>
-                                    <div className="flex items-center justify-between py-1 px-2">
-                                        <span className="text-sm text-zinc-800">Show closed tasks</span>
-                                        <Switch checked={showCompleted} onCheckedChange={setShowCompleted} />
-                                    </div>
-                                    <div className="flex items-center justify-between py-1 px-2">
-                                        <span className="text-sm text-zinc-800">Show closed subtasks</span>
-                                        <Switch checked={showCompletedSubtasks} onCheckedChange={setShowCompletedSubtasks} />
-                                    </div>
-                                    <div className="flex items-center justify-between py-1 px-2">
-                                        <span className="text-sm text-zinc-800">Show tasks from other Lists</span>
-                                        <Switch checked={showTasksFromOtherLists} onCheckedChange={setShowTasksFromOtherLists} />
-                                    </div>
-                                    <div className="flex items-center justify-between py-1 px-2">
-                                        <span className="text-sm text-zinc-800">Show subtasks from other Lists</span>
-                                        <Switch checked={showSubtasksFromOtherLists} onCheckedChange={setShowSubtasksFromOtherLists} />
-                                    </div>
-
-                                </div>
-
-                                <div className="h-px bg-zinc-100" />
-
-                                <div className="space-y-2">
-                                    <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-2">View settings</p>
-                                    <div className="flex items-center justify-between py-1 px-2">
-                                        <span className="text-sm flex items-center gap-2"><UserRound className="h-4 w-4 text-zinc-400" />Default to Me Mode</span>
-                                        <Switch checked={defaultToMeMode} onCheckedChange={setDefaultToMeMode} />
-                                    </div>
-                                    <div
-                                        className="flex items-center justify-between py-1 px-2 hover:bg-zinc-50 rounded cursor-pointer"
-                                        onClick={resetViewToDefaults}
-                                    >
-                                        <span className="text-sm flex items-center gap-2"><RefreshCcw className="h-4 w-4 text-zinc-400" />Reset view to defaults</span>
-                                    </div>
-                                    <div
-                                        className="flex items-center justify-between py-1 px-2 hover:bg-zinc-50 rounded cursor-pointer"
-                                        onClick={() => {
-                                            setDefaultViewSettingsDraft(spaceDefaultViewConfig);
-                                            setIsDefaultViewSettingsModalOpen(true);
-                                        }}
-                                    >
-                                        <span className="text-sm flex items-center gap-2"><Settings className="h-4 w-4 text-zinc-400" />Default view settings</span>
-                                    </div>
+                                <div className="flex items-center justify-between py-1 px-2">
+                                    <span className="text-sm text-zinc-800">Wrap text</span>
+                                    <Switch checked={wrapText} onCheckedChange={setWrapText} />
                                 </div>
                             </div>
-                        </ScrollArea>
+                            <div className="space-y-2">
+                                <div className="flex items-center justify-between py-1 px-2">
+                                    <span className="text-sm text-zinc-800">Show task locations</span>
+                                    <Switch checked={showTaskLocations} onCheckedChange={setShowTaskLocations} />
+                                </div>
+                                <div className="flex items-center justify-between py-1 px-2">
+                                    <span className="text-sm text-zinc-800">Show task properties</span>
+                                    <Switch checked={showTaskProperties} onCheckedChange={setShowTaskProperties} />
+                                </div>
+                                <div className="flex items-center justify-between py-1 px-2">
+                                    <span className="text-sm text-zinc-800">Show subtask parent names</span>
+                                    <Switch checked={showSubtaskParentNames} onCheckedChange={setShowSubtaskParentNames} />
+                                </div>
+                            </div>
+
+                            <div className="h-px bg-zinc-100" />
+
+                            <div className="space-y-2">
+                                <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-2">Task visibility</p>
+                                <div className="flex items-center justify-between py-1 px-2">
+                                    <span className="text-sm text-zinc-800">Show closed tasks</span>
+                                    <Switch checked={showCompleted} onCheckedChange={setShowCompleted} />
+                                </div>
+                                <div className="flex items-center justify-between py-1 px-2">
+                                    <span className="text-sm text-zinc-800">Show closed subtasks</span>
+                                    <Switch checked={showCompletedSubtasks} onCheckedChange={setShowCompletedSubtasks} />
+                                </div>
+                                <div className="flex items-center justify-between py-1 px-2">
+                                    <span className="text-sm text-zinc-800">Show tasks from other Lists</span>
+                                    <Switch checked={showTasksFromOtherLists} onCheckedChange={setShowTasksFromOtherLists} />
+                                </div>
+                                <div className="flex items-center justify-between py-1 px-2">
+                                    <span className="text-sm text-zinc-800">Show subtasks from other Lists</span>
+                                    <Switch checked={showSubtasksFromOtherLists} onCheckedChange={setShowSubtasksFromOtherLists} />
+                                </div>
+
+                            </div>
+
+                            <div className="h-px bg-zinc-100" />
+
+                            <div className="space-y-2">
+                                <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-2">View settings</p>
+                                <div className="flex items-center justify-between py-1 px-2">
+                                    <span className="text-sm flex items-center gap-2"><UserRound className="h-4 w-4 text-zinc-400" />Default to Me Mode</span>
+                                    <Switch checked={defaultToMeMode} onCheckedChange={setDefaultToMeMode} />
+                                </div>
+                                <div
+                                    className="flex items-center justify-between py-1 px-2 hover:bg-zinc-50 rounded cursor-pointer"
+                                    onClick={resetViewToDefaults}
+                                >
+                                    <span className="text-sm flex items-center gap-2"><RefreshCcw className="h-4 w-4 text-zinc-400" />Reset view to defaults</span>
+                                </div>
+                                <div
+                                    className="flex items-center justify-between py-1 px-2 hover:bg-zinc-50 rounded cursor-pointer"
+                                    onClick={() => {
+                                        setDefaultViewSettingsDraft(spaceDefaultViewConfig);
+                                        setIsDefaultViewSettingsModalOpen(true);
+                                    }}
+                                >
+                                    <span className="text-sm flex items-center gap-2"><Settings className="h-4 w-4 text-zinc-400" />Default view settings</span>
+                                </div>
+                            </div>
+                        </div>
+                    </ScrollArea>
                 </SidePanel>
             )
             }

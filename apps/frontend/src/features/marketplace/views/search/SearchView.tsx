@@ -24,32 +24,32 @@ const TAG_CATEGORIES = [
   {
     name: 'Use Cases',
     tags: [
-      'Lead Generation', 'Prospecting', 'Outreach', 'Content Creation', 'Social Media Mgmt', 
-      'Competitor Research', 'Market Research', 'Data Enrichment', 'Reporting', 
+      'Lead Generation', 'Prospecting', 'Outreach', 'Content Creation', 'Social Media Mgmt',
+      'Competitor Research', 'Market Research', 'Data Enrichment', 'Reporting',
       'Customer Support', 'CRM Sync', 'Workflow Automation'
     ]
   },
   {
     name: 'Capabilities',
     tags: [
-      'AI Video', 'AI Image', 'AI Voice', 'AI Avatar', 'AI Writing', 'Web Scraping', 
-      'Data Extraction', 'Document Generation', 'Transcription', 'Translation', 
+      'AI Video', 'AI Image', 'AI Voice', 'AI Avatar', 'AI Writing', 'Web Scraping',
+      'Data Extraction', 'Document Generation', 'Transcription', 'Translation',
       'Summarization', 'Scheduling', 'OCR', 'Background Removal'
     ]
   },
   {
     name: 'Platforms',
     tags: [
-      'LinkedIn', 'Instagram', 'YouTube', 'TikTok', 'Twitter', 'Facebook', 'HubSpot', 
-      'Salesforce', 'Gmail', 'Slack', 'Notion', 'Shopify', 'Google Sheets', 'Google Docs', 
-      'Google Drive', 'Google Calendar', 'Airtable', 'Intercom', 'Linear', 'Asana', 
+      'LinkedIn', 'Instagram', 'YouTube', 'TikTok', 'Twitter', 'Facebook', 'HubSpot',
+      'Salesforce', 'Gmail', 'Slack', 'Notion', 'Shopify', 'Google Sheets', 'Google Docs',
+      'Google Drive', 'Google Calendar', 'Airtable', 'Intercom', 'Linear', 'Asana',
       'Trello', 'Webflow', 'Zapier', 'GitHub', 'Replicate', 'ElevenLabs', 'OpenAI', 'Perplexity'
     ]
   },
   {
     name: 'Industries',
     tags: [
-      'Sales', 'Marketing', 'Recruiting', 'E-Commerce', 'Real Estate', 'Agency', 
+      'Sales', 'Marketing', 'Recruiting', 'E-Commerce', 'Real Estate', 'Agency',
       'Education', 'Finance'
     ]
   }
@@ -97,7 +97,7 @@ export default function SearchView() {
   const [selectedPrices, setSelectedPrices] = useState<string[]>(parseList(searchParams.get('price')));
   const [selectedTags, setSelectedTags] = useState<string[]>(parseList(searchParams.get('tag')));
   const [sortBy, setSortBy] = useState(searchParams.get('sort') || 'recent');
-  
+
   const [openType, setOpenType] = useState(false);
   const [openCategory, setOpenCategory] = useState(false);
   const [openPrice, setOpenPrice] = useState(false);
@@ -114,21 +114,21 @@ export default function SearchView() {
       if (selectedPrices.length) params.set('price', selectedPrices.join(','));
       if (selectedTags.length) params.set('tag', selectedTags.join(','));
       if (sortBy && sortBy !== 'recent') params.set('sort', sortBy);
-      
+
       const qs = params.toString();
       const newPath = qs ? `${pathname}?${qs}` : pathname;
-      
+
       // Update URL without reloading page
       window.history.replaceState(null, '', newPath);
     }, 300); // debounce updates
-    
+
     return () => clearTimeout(timeoutId);
   }, [query, selectedTypes, selectedCategories, selectedPrices, selectedTags, sortBy, pathname]);
 
   // Derive TRPC constraints for the backend
   const activeType = selectedTypes.length === 1 ? selectedTypes[0] : (searchParams.get('type') || 'all');
   const pricingArg = selectedPrices.includes('free') && !selectedPrices.includes('paid') ? true :
-                     selectedPrices.includes('paid') && !selectedPrices.includes('free') ? false : undefined;
+    selectedPrices.includes('paid') && !selectedPrices.includes('free') ? false : undefined;
 
   // Fetch Data
   const { data: listings, isLoading } = trpc.marketplace.searchListings.useQuery({
@@ -158,23 +158,23 @@ export default function SearchView() {
 
   return (
     <div className="flex flex-col min-h-screen bg-background w-full relative overflow-hidden">
-      
+
       {/* Ambient Background Glows */}
       <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] rounded-full bg-blue-500/10 blur-[120px] pointer-events-none" />
       <div className="absolute top-[10%] right-[-10%] w-[40%] h-[40%] rounded-full bg-purple-500/10 blur-[120px] pointer-events-none" />
 
       <div className="max-w-[1400px] mx-auto w-full px-6 lg:px-12 py-10 relative z-10 flex flex-col gap-6">
-        
+
         {/* Top Header */}
         <div className="space-y-6">
-          <button 
-            onClick={() => router.back()} 
+          <button
+            onClick={() => router.back()}
             className="group flex items-center cursor-pointer text-muted-foreground hover:text-foreground transition-all text-sm font-semibold tracking-wide bg-secondary/50 hover:bg-secondary px-5 py-2 rounded-full w-fit backdrop-blur-sm"
           >
             <ChevronLeft className="w-4 h-4 mr-1 transition-transform group-hover:-translate-x-1" />
             Back to Explore
           </button>
-          
+
           <div className="flex flex-col space-y-4 pt-2">
             <h1 className="text-4xl sm:text-[48px] font-extrabold tracking-tight text-transparent bg-clip-text bg-gradient-to-b from-foreground to-foreground/70 leading-tight">
               Results for "{query || 'all'}"
@@ -189,7 +189,7 @@ export default function SearchView() {
         <div className="sticky top-0 z-40 py-4 -mx-6 px-6 lg:-mx-12 lg:px-12 bg-background/60 backdrop-blur-2xl border-b border-border/50 shadow-sm mt-4">
           <div className="flex flex-col gap-4">
             <div className="flex flex-wrap items-center justify-between gap-4">
-              
+
               <div className="flex flex-wrap items-center gap-3">
                 {/* Search Box */}
                 <div className="relative group min-w-[200px] w-full sm:w-[300px]">
@@ -219,7 +219,7 @@ export default function SearchView() {
                       <div className="space-y-3">
                         {LISTING_TYPES.map(t => (
                           <div key={t.id} className="flex items-center space-x-3 group">
-                            <Checkbox id={`type-${t.id}`} 
+                            <Checkbox id={`type-${t.id}`}
                               checked={selectedTypes.includes(t.id)}
                               onCheckedChange={(c) => setSelectedTypes(prev => c ? [...prev, t.id] : prev.filter(x => x !== t.id))}
                               className="rounded bg-background/50 data-[state=checked]:bg-primary data-[state=checked]:border-primary transition-all border-muted-foreground/30"
@@ -246,7 +246,7 @@ export default function SearchView() {
                         <div className="space-y-4 pr-2">
                           {CATEGORIES_MOCK.map(c => (
                             <div key={c.id} className="flex items-center space-x-3 group">
-                              <Checkbox id={`cat-${c.id}`} 
+                              <Checkbox id={`cat-${c.id}`}
                                 checked={selectedCategories.includes(c.id)}
                                 onCheckedChange={(ch) => setSelectedCategories(prev => ch ? [...prev, c.id] : prev.filter(x => x !== c.id))}
                                 className="rounded bg-background/50 data-[state=checked]:bg-primary data-[state=checked]:border-primary transition-all border-muted-foreground/30"
@@ -273,7 +273,7 @@ export default function SearchView() {
                       <div className="space-y-3">
                         {PRICE_OPTIONS.map(p => (
                           <div key={p.id} className="flex items-center space-x-3 group">
-                            <Checkbox id={`price-${p.id}`} 
+                            <Checkbox id={`price-${p.id}`}
                               checked={selectedPrices.includes(p.id)}
                               onCheckedChange={(c) => setSelectedPrices(prev => c ? [...prev, p.id] : prev.filter(x => x !== p.id))}
                               className="rounded bg-background/50 data-[state=checked]:bg-primary data-[state=checked]:border-primary transition-all border-muted-foreground/30"
@@ -319,7 +319,7 @@ export default function SearchView() {
                   <ListFilter className="h-4 w-4 text-foreground" />
                 </Button>
               </div>
-              
+
             </div>
 
             <div className="flex">
@@ -345,7 +345,7 @@ export default function SearchView() {
                             <div className="grid grid-cols-1 gap-2.5">
                               {category.tags.map(tag => (
                                 <div key={tag} className="flex items-center space-x-3 group">
-                                  <Checkbox id={`tag-${tag}`} 
+                                  <Checkbox id={`tag-${tag}`}
                                     checked={selectedTags.includes(tag)}
                                     onCheckedChange={(c) => setSelectedTags(prev => c ? [...prev, tag] : prev.filter(x => x !== tag))}
                                     className="rounded bg-background/50 data-[state=checked]:bg-primary data-[state=checked]:border-primary transition-all border-muted-foreground/30"
@@ -384,7 +384,7 @@ export default function SearchView() {
               ))}
             </div>
           ) : listings && listings.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6 pb-24">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 pb-24">
               <AnimatePresence>
                 {listings.map((listing, idx) => (
                   <motion.div
@@ -394,6 +394,7 @@ export default function SearchView() {
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     exit={{ opacity: 0, y: -10, scale: 0.95 }}
                     transition={{ duration: 0.3, delay: idx * 0.05, ease: "easeOut" }}
+                    className="h-full"
                   >
                     <ListingCard listing={listing as any} />
                   </motion.div>
@@ -410,8 +411,8 @@ export default function SearchView() {
               <p className="text-[15px] text-muted-foreground mt-3 max-w-md font-medium leading-relaxed">
                 We couldn't track down any listings perfectly matching your criteria. Try loosening your parameters.
               </p>
-              <Button 
-                variant="default" 
+              <Button
+                variant="default"
                 className="mt-8 rounded-full shadow-lg font-bold px-8 h-12"
                 onClick={() => {
                   setQuery('');

@@ -17,6 +17,7 @@ export interface AuthorProfile {
   name: string;
   avatarUrl?: string;
   verified?: boolean;
+  isVerified?: boolean;
   role?: string;
 }
 
@@ -55,12 +56,17 @@ export interface MarketplaceListing {
   status: ListingStatus;
   title: string;
   description: string;
+  category?: string | null;
+  tags?: string[];
   author: AuthorProfile;
   createdAt: string;
   
   // Pricing Model
   isFree?: boolean;
   priceCredits?: number;
+  pricingModel?: "fixed" | "hourly" | string;
+  coverImage?: string | null;
+  attachmentUrls?: string[];
 
   // Tagging & Match Info
   skills: string[];
@@ -81,6 +87,29 @@ export interface MarketplaceListing {
   
   // Specific to 'Opportunity' variants
   applyCount?: number;
+  intent?: string | null;
+  applicationSchema?: {
+    fields?: Array<{
+      id: string;
+      type: string;
+      label: string;
+      required?: boolean;
+      placeholder?: string;
+      description?: string;
+      options?: string[];
+    }>;
+  } | null;
+  proposalSchema?: {
+    fields?: Array<{
+      id: string;
+      type: string;
+      label: string;
+      required?: boolean;
+      placeholder?: string;
+      description?: string;
+      options?: string[];
+    }>;
+  } | null;
 }
 
 export interface MarketplaceApplication {
@@ -90,6 +119,8 @@ export interface MarketplaceApplication {
   pitch: string;
   targetRate?: string;
   estimatedDuration?: string;
+  proposalText?: string;
+  answers?: Record<string, unknown> | null;
   provisioningStatus: ProvisioningStatus;
   createdAt: string;
 }

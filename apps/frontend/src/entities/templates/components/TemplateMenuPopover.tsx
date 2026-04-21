@@ -84,7 +84,7 @@ export function TemplateMenuPopover({
                         {triggerNode}
                     </div>
                 </HoverCardTrigger>
-                <HoverCardContent align="start" side="right" sideOffset={5} className="w-56 p-1 z-[100] shadow-md border-muted">
+                <HoverCardContent align="start" side="right" sideOffset={5} className="w-56 p-1 z-[9999] shadow-md border-muted">
                     <div className="px-2 py-1.5 text-[13px] font-medium text-slate-500">
                         Recent Templates
                     </div>

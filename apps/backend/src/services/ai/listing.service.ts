@@ -113,15 +113,22 @@ export class ListingService {
         
         return `
 You are an expert Listing Copywriter for a freelance marketplace.
-Generate a high-quality marketplace listing description based on the following ${input.entityType || 'task'}:
+Generate a high-quality, comprehensive marketplace listing description based on the following ${input.entityType || 'task'}:
 
 Title: ${input.title || 'Untitled'}
 Description/Internal Context: ${input.description || 'No description provided'}
 ${input.dueDate ? `Due Date: ${input.dueDate}` : ''}
 
+CRITICAL HTML FORMATTING RULES:
+For the detailedDesc field, you MUST generate rich HTML content that can be perfectly rendered inside a Tiptap rich-text editor. You should use semantic HTML tags (e.g. <h2>, <h3>, <p>, <ul>, <li>, <strong>, <em>). Do NOT use markdown.
+
+CONTENT GENERATION RULES:
+If the entity is an opportunity (such as a task, project, workforce, team, or talent), structure the content to clearly indicate we are looking for someone to join, looking for someone to carry out the task, or requesting collaboration. 
+Intelligently expand upon the provided context to generate a comprehensive, persuasive, and professional listing description. Introduce logical sections (e.g. "What we are looking for", "Scope of Work", "Deliverables", etc.) if it fits the context.
+
 Please generate a JSON response with the following fields:
 - taskTitle: A highly polished and engaging public title for the listing.
-- detailedDesc: A professional and detailed public description (markdown supported).
+- detailedDesc: The expertly crafted rich HTML description.
 - skills: A list of 3-5 mandatory skills required or tags associated with this.
 ${isAsset ? `
 - useCases: A list of 3-5 practical use cases for this asset.

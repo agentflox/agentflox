@@ -177,7 +177,8 @@ interface BoardViewProps {
     viewId?: string;
     initialConfig?: any;
     selectedTaskIdFromParent?: string | null;
-    onTaskSelect?: (taskId: string) => void;
+    onTaskSelect?: (taskId: string | null) => void;
+    scope?: "owned" | "assigned" | "all";
 }
 
 // Helper: Normalize parentId (null and "root" are equivalent)
@@ -1832,7 +1833,7 @@ function BoardColumn({
 }
 
 // Main Board View Component
-export function BoardView({ spaceId, projectId, teamId, listId, viewId, initialConfig, selectedTaskIdFromParent, onTaskSelect }: BoardViewProps) {
+export function BoardView({ spaceId, projectId, teamId, listId, viewId, initialConfig, selectedTaskIdFromParent, onTaskSelect, scope }: BoardViewProps) {
     const [searchQuery, setSearchQuery] = useState("");
     const [isToolbarSearchOpen, setIsToolbarSearchOpen] = useState(false);
     const toolbarSearchContainerRef = useRef<HTMLDivElement | null>(null);
@@ -2079,8 +2080,8 @@ export function BoardView({ spaceId, projectId, teamId, listId, viewId, initialC
     const { data: listsData } = trpc.list.byContext.useQuery({ spaceId, projectId, workspaceId: resolvedWorkspaceId }, { enabled: !!(spaceId || projectId || resolvedWorkspaceId) });
     const { data: currentList } = trpc.list.get.useQuery({ id: listId as string }, { enabled: !!listId });
 
-    const taskListInput = useMemo(() => ({ spaceId, projectId, teamId, listId, includeRelations: true, page: 1, pageSize: 500 }), [spaceId, projectId, teamId, listId]);
-    const { data: tasksData, isLoading } = trpc.task.list.useQuery(taskListInput, { enabled: !!(spaceId || projectId || teamId || listId) });
+    const taskListInput = useMemo(() => ({ spaceId, projectId, teamId, listId, scope, includeRelations: true, page: 1, pageSize: 500 }), [spaceId, projectId, teamId, listId, scope]);
+    const { data: tasksData, isLoading } = trpc.task.list.useQuery(taskListInput, { enabled: !!(spaceId || projectId || teamId || listId || scope) });
     const tasks = useMemo<Task[]>(() => ((tasksData?.items as Task[]) ?? []), [tasksData]);
 
     const allAvailableTags = useMemo(() => {

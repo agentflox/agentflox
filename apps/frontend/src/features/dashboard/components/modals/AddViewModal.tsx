@@ -104,39 +104,22 @@ export function AddViewModal({ open, onOpenChange, existingViews, onAddViews, on
 	const [searchQuery, setSearchQuery] = useState("");
 	const [selectedViews, setSelectedViews] = useState<ViewType[]>([]);
 
-	const { data: templates = [] } = trpc.template.list.useQuery({ type: "VIEW" as any }, { enabled: open });
-
-	const combinedViews = useMemo(() => {
-		const templateViews: ViewOption[] = templates.map(t => ({
-			id: t.id as any,
-			label: t.name,
-			description: t.description || "Template",
-			icon: Sparkles,
-			category: "Templates",
-			color: "text-amber-600 bg-amber-100",
-			isTemplate: true
-		}));
-
-		return [...availableViews, ...templateViews];
-	}, [templates]);
-
 	const filteredViews = useMemo(() => {
 		const query = searchQuery.toLowerCase().trim();
-		if (!query) return combinedViews;
-		return combinedViews.filter(
+		if (!query) return availableViews;
+		return availableViews.filter(
 			(view) =>
 				view.label.toLowerCase().includes(query) ||
 				view.description.toLowerCase().includes(query)
 		);
-	}, [searchQuery, combinedViews]);
+	}, [searchQuery]);
 
 	// Grouping
 	const groupedViews = useMemo(() => {
 		const groups: Record<string, ViewOption[]> = {
 			"Popular": [],
 			"Advanced": [],
-			"Embeds": [],
-			"Templates": []
+			"Embeds": []
 		};
 		filteredViews.forEach(view => {
 			if (groups[view.category]) {
@@ -156,14 +139,9 @@ export function AddViewModal({ open, onOpenChange, existingViews, onAddViews, on
 		const normalSelected = selectedViews
 			.filter(id => availableViews.some(v => v.id === id))
 			.map(normalizeViewType);
-		const templateSelected = selectedViews.filter(id => combinedViews.some(v => v.id === id && v.isTemplate));
 
 		if (normalSelected.length > 0) {
 			onAddViews(normalSelected);
-		}
-
-		if (templateSelected.length > 0 && onAddFromTemplate) {
-			templateSelected.forEach(id => onAddFromTemplate(id as string));
 		}
 
 		if (selectedViews.length > 0) {

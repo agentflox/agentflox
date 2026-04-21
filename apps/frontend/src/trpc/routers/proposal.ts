@@ -3,7 +3,6 @@ import { protectedProcedure, router } from "@/trpc/init";
 import { prisma } from "@/lib/prisma";
 import { UsageManager } from "@/features/usage/utils/usageManager";
 import { LimitGuard } from "@/features/usage/utils/limitGuard";
-import { ProposalType } from "@agentflox/database/src/generated/prisma/client";
 
 export const proposalRouter = router({
 	list: protectedProcedure
@@ -613,7 +612,7 @@ export const proposalRouter = router({
 	      title: input.title,
 	      shortSummary: input.shortSummary,
 	      detailedDesc: input.detailedDesc,
-		  category: input.category.toUpperCase() as ProposalType,
+		  category: input.category.toUpperCase(),
 	      status: input.status ?? "DRAFT",
 	      intent: input.intent ?? "OFFERING",
 	      projectId: input.projectId || undefined,

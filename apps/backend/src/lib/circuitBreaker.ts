@@ -29,7 +29,7 @@ export const dbBreaker = new CircuitBreaker(
         return await operation();
     },
     {
-        timeout: 5000, // 5s timeout
+        timeout: 15000, // 5s timeout
         errorThresholdPercentage: 50,
         resetTimeout: 60000, // Try again after 60s
         rollingCountTimeout: 10000,

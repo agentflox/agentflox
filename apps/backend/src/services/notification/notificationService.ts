@@ -362,6 +362,30 @@ export class NotificationService {
     }
 
     /**
+     * Delete a notification belonging to a user
+     */
+    async deleteNotification(notificationId: string, userId: string): Promise<void> {
+        const notification = await prisma.notification.findFirst({
+            where: { id: notificationId, userId }
+        });
+
+        if (!notification) return;
+
+        await prisma.notification.delete({
+            where: { id: notificationId }
+        });
+
+        // Keep unread counter in sync when deleting an unread notification
+        if (!notification.read) {
+            await this.decrementUnreadCount(userId);
+        }
+
+        if (this.io) {
+            this.io.to(`user:${userId}`).emit('notification:deleted', { notificationId });
+        }
+    }
+
+    /**
      * Get notifications for a user
      */
     async getNotifications(

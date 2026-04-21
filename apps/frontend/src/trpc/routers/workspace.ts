@@ -61,7 +61,7 @@ export const workspaceRouter = router({
 		const take = input.pageSize;
 
 		const include = input.includeCounts
-			? { _count: { select: { members: true, projects: true, teams: true, tasks: true, channels: true, proposals: true } } }
+			? { _count: { select: { members: true, projects: true, teams: true, tasks: true, channels: true } } }
 			: undefined;
 
 		const [total, items] = await Promise.all([
@@ -198,7 +198,7 @@ export const workspaceRouter = router({
 							status: true,
 							spaceId: true,
 							updatedAt: true,
-							_count: { select: { tasks: true, proposals: true } },
+							_count: { select: { tasks: true } },
 						},
 					},
 					teams: {
@@ -230,16 +230,6 @@ export const workspaceRouter = router({
 							assigneeId: true,
 							visibility: true,
 							createdBy: true,
-							updatedAt: true,
-						},
-					},
-					proposals: {
-						orderBy: { updatedAt: "desc" },
-						select: {
-							id: true,
-							title: true,
-							status: true,
-							category: true,
 							updatedAt: true,
 						},
 					},
@@ -283,7 +273,6 @@ export const workspaceRouter = router({
 							tasks: true,
 							tools: true,
 							materials: true,
-							proposals: true,
 						},
 					},
 				},

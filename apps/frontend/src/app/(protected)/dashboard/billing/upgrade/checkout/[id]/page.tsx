@@ -13,37 +13,49 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Check, Package } from "lucide-react";
+import { ArrowLeft, Check, Package, CreditCard, ShieldCheck, AlertCircle } from "lucide-react";
 import CheckoutPaymentCard from "@/features/billing/components/checkout/CheckoutPaymentCard";
 import { useSession } from "next-auth/react";
 
-/**
- * Helper to render the package feature (only requests)
- */
-function renderPackageFeature(pkg: any) {
-  if (!pkg?.feature) return null;
-
-  const requests = pkg.feature.requests ?? pkg.feature.request_count ?? null;
-  if (!requests) return null;
-
-  return (
-    <div className="space-y-3">
-      <h4 className="font-medium text-lg">What’s included:</h4>
-      <ul className="space-y-2">
-        <li className="flex items-center gap-2">
-          <Check className="w-4 h-4 text-green-500 flex-shrink-0" />
-          <span>+{requests.toLocaleString()} requests</span>
-        </li>
-      </ul>
+const CheckoutSkeleton = () => (
+  <div className="space-y-8 animate-in fade-in duration-500 max-w-4xl mx-auto">
+    <div className="flex items-center gap-4">
+      <div className="h-10 w-24 bg-zinc-200 dark:bg-zinc-800 rounded-md animate-pulse"></div>
+      <div className="space-y-2">
+        <div className="h-8 w-64 bg-zinc-200 dark:bg-zinc-800 rounded-md animate-pulse"></div>
+        <div className="h-4 w-96 bg-zinc-200 dark:bg-zinc-800 rounded-md animate-pulse"></div>
+      </div>
     </div>
-  );
-}
+    
+    <Card className="border-zinc-100 dark:border-zinc-800/60 p-6 bg-white/50 dark:bg-zinc-950/50">
+       <div className="flex justify-between">
+         <div className="space-y-4 w-1/2">
+           <div className="h-8 w-48 bg-zinc-200 dark:bg-zinc-800 rounded-md animate-pulse"></div>
+           <div className="h-4 w-full bg-zinc-200 dark:bg-zinc-800 rounded-md animate-pulse"></div>
+           <div className="space-y-2 pt-4 border-t border-zinc-100 dark:border-zinc-800/60">
+             <div className="h-4 w-3/4 bg-zinc-200 dark:bg-zinc-800 rounded-md animate-pulse"></div>
+           </div>
+         </div>
+         <div className="space-y-2 text-right">
+           <div className="h-10 w-32 bg-zinc-200 dark:bg-zinc-800 rounded-md animate-pulse ml-auto"></div>
+           <div className="h-6 w-24 bg-zinc-200 dark:bg-zinc-800 rounded-full animate-pulse ml-auto"></div>
+         </div>
+       </div>
+    </Card>
+
+    <div className="space-y-6">
+      <div className="h-8 w-48 bg-zinc-200 dark:bg-zinc-800 rounded-md animate-pulse"></div>
+      <div className="h-64 w-full bg-zinc-200 dark:bg-zinc-800 rounded-xl animate-pulse"></div>
+    </div>
+  </div>
+);
+
+
 
 export default function CheckoutPage() {
   const { id } = useParams();
   const router = useRouter();
   const { data: session } = useSession();
-  const [error, setError] = useState<string | null>(null);
 
   const packages = trpc.billing.listPackages.useQuery({});
 
@@ -52,11 +64,6 @@ export default function CheckoutPage() {
     [packages.data, id]
   );
 
-  const handleError = useCallback((error: any) => {
-    console.error("Payment error:", error);
-    setError(error.message || "Payment failed. Please try again.");
-  }, []);
-
   const handleBack = () => {
     router.push("/dashboard/billing/upgrade");
   };
@@ -64,8 +71,12 @@ export default function CheckoutPage() {
   if (!session?.user?.id) {
     return (
       <Shell>
-        <div className="flex items-center justify-center min-h-[400px]">
-          <p className="text-muted-foreground">
+        <div className="flex flex-col items-center justify-center min-h-[400px] text-center">
+          <div className="h-16 w-16 bg-zinc-100 dark:bg-zinc-900 rounded-full flex items-center justify-center mb-4">
+            <CreditCard className="h-8 w-8 text-zinc-400" />
+          </div>
+          <h2 className="text-xl font-semibold mb-2">Authentication Required</h2>
+          <p className="text-muted-foreground max-w-sm">
             Please sign in to purchase packages.
           </p>
         </div>
@@ -76,12 +87,7 @@ export default function CheckoutPage() {
   if (packages.isLoading) {
     return (
       <Shell>
-        <div className="flex items-center justify-center min-h-[400px]">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-            <p className="text-muted-foreground">Loading package details...</p>
-          </div>
-        </div>
+        <CheckoutSkeleton />
       </Shell>
     );
   }
@@ -90,11 +96,11 @@ export default function CheckoutPage() {
     return (
       <Shell>
         <div className="flex items-center justify-center min-h-[400px]">
-          <div className="text-center">
-            <p className="text-red-500 mb-4">
+          <div className="text-center bg-red-50 dark:bg-red-950/20 p-8 rounded-xl border border-red-100 dark:border-red-900/50">
+            <p className="text-red-700 dark:text-red-400 mb-6 font-medium text-lg">
               Package not found or error loading package details.
             </p>
-            <Button onClick={handleBack} variant="outline">
+            <Button onClick={handleBack} variant="outline" className="cursor-pointer border-red-200 hover:bg-red-100 dark:border-red-900/50 dark:hover:bg-red-900/30">
               <ArrowLeft className="w-4 h-4 mr-2" />
               Back to Packages
             </Button>
@@ -106,80 +112,39 @@ export default function CheckoutPage() {
 
   return (
     <Shell>
-      <div className="space-y-8">
+      <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 max-w-4xl mx-auto">
         {/* Header */}
-        <div className="flex items-center gap-4">
-          <Button onClick={handleBack} variant="outline">
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back
+        <div className="flex items-center gap-5">
+          <Button onClick={handleBack} variant="outline" className="cursor-pointer h-12 w-12 p-0 rounded-full shadow-sm hover:shadow-md transition-all">
+            <ArrowLeft className="w-5 h-5" />
           </Button>
           <div>
-            <h1 className="text-3xl font-semibold">
-              Purchase {selectedPackage.displayName || selectedPackage.name}
+            <h1 className="text-3xl font-bold tracking-tight flex items-center gap-3">
+              Purchase <span className="bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-cyan-600 dark:from-blue-400 dark:to-cyan-400">{selectedPackage.displayName || selectedPackage.name}</span>
             </h1>
-            <p className="text-muted-foreground">
-              Choose your preferred payment method to complete your purchase
+            <p className="text-muted-foreground mt-1 text-lg">
+              Select your preferred payment method to complete the transaction securely.
             </p>
           </div>
         </div>
 
-        {error && (
-          <div className="bg-red-50 border border-red-200 rounded-md p-4">
-            <p className="text-red-700">{error}</p>
-          </div>
-        )}
-
-        {/* Package Details */}
-        <Card className="border-2 border-primary/20">
-          <CardHeader>
-            <div className="flex items-start justify-between">
-              <div>
-                <CardTitle className="text-2xl flex items-center gap-2">
-                  <Package className="w-6 h-6 text-primary" />
-                  {selectedPackage.displayName || selectedPackage.name}
-                </CardTitle>
-                <CardDescription className="mt-2 text-base">
-                  {selectedPackage.description}
-                </CardDescription>
-              </div>
-              <div className="text-right">
-                <div className="text-4xl font-bold text-primary">
-                  ${selectedPackage.price}
-                </div>
-                <Badge variant="secondary" className="mt-2">
-                  One-time purchase
-                </Badge>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent>{renderPackageFeature(selectedPackage)}</CardContent>
-        </Card>
-
         {/* Payment Options */}
-        <div>
-          <h2 className="text-2xl font-semibold mb-6">Choose Payment Method</h2>
-          <CheckoutPaymentCard pkg={selectedPackage} onError={handleError} />
+        <div className="space-y-6">
+          <div className="bg-white dark:bg-zinc-950 rounded-xl shadow-sm border border-zinc-200/80 dark:border-zinc-800/80 overflow-hidden">
+            <CheckoutPaymentCard pkg={selectedPackage} onError={console.error} />
+          </div>
         </div>
 
         {/* Additional Info */}
-        <Card className="bg-muted/50">
-          <CardContent className="pt-6">
-            <div className="text-sm text-muted-foreground space-y-2">
-              <p>• This is a one-time purchase with no recurring charges</p>
-              <p>
-                • Your credits will be available immediately after payment
-                confirmation
-              </p>
-              <p>
-                • All payments are processed securely through our trusted payment
-                partners
-              </p>
-            </div>
-          </CardContent>
-        </Card>
+        <div className="bg-zinc-50 dark:bg-zinc-900/40 rounded-xl p-6 border border-zinc-100 dark:border-zinc-800/50 flex items-start gap-4">
+          <ShieldCheck className="w-6 h-6 text-green-500 flex-shrink-0 mt-0.5" />
+          <div className="text-sm text-muted-foreground space-y-2 font-medium">
+            <p>• This is a one-time purchase with no recurring charges.</p>
+            <p>• Your credits will be available immediately after payment confirmation.</p>
+            <p>• All payments are processed securely through our trusted payment partners with bank-grade encryption.</p>
+          </div>
+        </div>
       </div>
     </Shell>
   );
 }
-
-

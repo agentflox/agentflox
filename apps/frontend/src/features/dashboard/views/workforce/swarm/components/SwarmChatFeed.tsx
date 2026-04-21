@@ -167,16 +167,21 @@ export function ActiveProcessingWidget({ events, status }: { events: SwarmEvent[
 
 // ─── renderUserMessageTokens ──────────────────────────────────────────────────
 export function renderUserMessageTokens(content: string, mentions?: any[]): React.ReactNode {
-  if (!mentions || mentions.length === 0) return content;
-  const sortedMentions = [...mentions].sort((a, b) => (b.name?.length || 0) - (a.name?.length || 0));
-  const regexNames = sortedMentions.map(m => (m.name || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).filter(Boolean).join('|');
-  if (!regexNames) return content;
-  const regex = new RegExp(`([@#](?:${regexNames}))\\b`, 'gi');
+  // Regex to match [@Name] or [#Name] or @Name or #Name
+  const regex = /(\[?[@#][^\]\s]+\]?)/g;
+  
   return content.split(regex).map((part, i) => {
-    if (part.startsWith('@') || part.startsWith('#')) {
+    if (part.match(/^\[?[@#]/)) {
+      const isTask = part.includes('#');
+      const cleanName = part.replace(/[\[\]@#]/g, '');
+      
       return (
-        <span key={i} className="inline-flex items-center rounded bg-blue-50 text-blue-600 px-1.5 py-0 mx-[2px] font-bold text-[13px] leading-tight align-baseline">
-          {part}
+        <span key={i} className={cn(
+          "inline-flex items-center rounded px-1.5 py-0.5 mx-[1px] font-bold text-[12px] leading-tight align-baseline shadow-sm border",
+          "bg-purple-50 text-purple-700 border-purple-200"
+        )}>
+          {isTask ? <Files className="h-2.5 w-2.5 mr-1" /> : <AtSign className="h-2.5 w-2.5 mr-1" />}
+          {cleanName}
         </span>
       );
     }

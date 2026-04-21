@@ -15,6 +15,7 @@ import { metrics, getMetrics, contentType } from '@/monitoring/metrics';
 import { authMiddleware } from './middleware/auth';
 import { registerPostHandlers } from './handlers/postHandlers';
 import { registerCommentHandlers } from './handlers/commentHandlers';
+import { registerListingCommentHandlers } from './handlers/listingCommentHandlers';
 import { registerFeedHandlers } from './handlers/feedHandlers';
 import { registerNotificationHandlers } from './handlers/notificationHandlers';
 import { registerMessageHandlers } from './handlers/messageHandlers';
@@ -27,6 +28,7 @@ import { inngestHandler } from './inngest/serve';
 import { createHealthRouter } from './services/matching/routes/health';
 import { Pool } from 'pg';
 import { createLifecycleManager } from './lib/lifecycleManager';
+import { PRESENCE_CONFIG } from './lib/presenceConfig';
 import type {
     ServerToClientEvents,
     ClientToServerEvents,
@@ -38,9 +40,10 @@ import { execSync } from 'child_process';
 const lifecycle = createLifecycleManager('api-server');
 
 async function bootstrapApiServer() {
-    const app = await NestFactory.create(AppModule, {
-        cors: false,
-    });
+    const redisRealtimeDisabled = String(env.DISABLE_REDIS_REALTIME || '').toLowerCase() === 'true';
+    const apiSingletonsDisabled = String(env.DISABLE_API_SINGLETON_HOOKS || '').toLowerCase() === 'true';
+
+    const app = await NestFactory.create(AppModule, { cors: false });
 
     app.use(json({ limit: '1mb' }));
     app.use(
@@ -50,7 +53,6 @@ async function bootstrapApiServer() {
         })
     );
 
-    // Inngest webhook endpoint
     app.use('/api/inngest', inngestHandler);
 
     const httpServer = app.getHttpServer();
@@ -63,33 +65,34 @@ async function bootstrapApiServer() {
         },
         transports: ['websocket', 'polling'],
 
-        // Optimize for 5k concurrent users
-        pingTimeout: 30000,        // Reduce from 60s (faster disconnect detection)
-        pingInterval: 25000,
-        maxHttpBufferSize: 1e6,    // 1MB limit per message
-        perMessageDeflate: false,  // Disable compression (saves CPU)
+        // Keep these in sync with PRESENCE_CONFIG
+        pingTimeout: PRESENCE_CONFIG.PING_TIMEOUT_MS,
+        pingInterval: PRESENCE_CONFIG.PING_INTERVAL_MS,
+        maxHttpBufferSize: 1e6,
+        perMessageDeflate: false,
 
-        // Connection timeouts
-        connectTimeout: 45000,     // Connection establishment timeout
-        upgradeTimeout: 10000,     // WebSocket upgrade timeout
+        connectTimeout: 45000,
+        upgradeTimeout: 30000, // Increased from 10s — allows auth middleware time to complete
     });
 
-    // Connection Limiter
-    const MAX_CONNECTIONS_PER_INSTANCE = 6000; // Increased to 6k for 5k user goal
+    // Connection limiter
+    const MAX_CONNECTIONS_PER_INSTANCE = 6000;
     io.use((socket, next) => {
         const currentConnections = io.sockets.sockets.size;
-
         if (currentConnections >= MAX_CONNECTIONS_PER_INSTANCE) {
             console.warn(`⚠️ Connection limit reached: ${currentConnections}/${MAX_CONNECTIONS_PER_INSTANCE}`);
             return next(new Error('Server at capacity, please try again'));
         }
-
         next();
     });
 
-    io.adapter(createAdapter(redisPub, redisSub));
-    io.use(authMiddleware);
+    if (!redisRealtimeDisabled) {
+        io.adapter(createAdapter(redisPub, redisSub));
+    } else {
+        console.warn('[api-server] Redis Socket.IO adapter disabled. Running single-instance in-memory mode.');
+    }
 
+    io.use(authMiddleware);
     const { scopeAuthMiddleware } = await import('./middleware/socket/scopeAuth');
     io.use(scopeAuthMiddleware as any);
 
@@ -97,7 +100,6 @@ async function bootstrapApiServer() {
 
     const expressApp = app.getHttpAdapter().getInstance();
 
-    // Health check endpoints
     expressApp.get('/health', async (req: any, res: any) => {
         const checks = {
             redis: redis.status === 'ready',
@@ -107,60 +109,70 @@ async function bootstrapApiServer() {
             uptime: process.uptime(),
             phase: lifecycle.getPhase(),
         };
-
         const healthy = checks.redis && checks.redisPub && checks.redisSub && lifecycle.isReady();
         res.status(healthy ? 200 : 503).json({
             status: healthy ? 'healthy' : 'degraded',
             checks,
-            timestamp: new Date().toISOString()
+            timestamp: new Date().toISOString(),
         });
     });
 
-    // Liveness probe (is the process responding?)
-    expressApp.get('/health/live', (req: any, res: any) => {
+    expressApp.get('/health/live', (_req: any, res: any) => {
         res.status(200).json({ status: 'alive' });
     });
 
-    // Readiness probe (is the service ready for traffic?)
-    expressApp.get('/health/ready', async (req: any, res: any) => {
+    expressApp.get('/health/ready', async (_req: any, res: any) => {
         const ready = lifecycle.isReady() && redis.status === 'ready';
         res.status(ready ? 200 : 503).json({
             status: ready ? 'ready' : 'not_ready',
-            phase: lifecycle.getPhase()
+            phase: lifecycle.getPhase(),
         });
     });
 
-    expressApp.get('/metrics', async (req: any, res: any) => {
+    expressApp.get('/metrics', async (_req: any, res: any) => {
         res.set('Content-Type', contentType);
         res.end(await getMetrics());
     });
 
-    // Matching service health checks
-    // Matching service health checks and db pool optimization
     const matchingDbPool = new Pool({
         connectionString: env.DATABASE_URL,
-        max: 20, // Increase pool size (20 connections)
-        idleTimeoutMillis: 30000, // Close idle connections after 30s
-        connectionTimeoutMillis: 5000, // Fail if no connection available after 5s
+        max: 20,
+        idleTimeoutMillis: 30000,
+        connectionTimeoutMillis: 5000,
     });
     app.use('/api', createHealthRouter(matchingDbPool));
 
     // Redis pub/sub for notifications
-    redisNotificationsSub.subscribe('notifications').catch((err) => {
-        console.error('[api-server] Failed to subscribe to notifications channel', err);
-    });
+    if (!redisRealtimeDisabled) {
+        redisNotificationsSub.subscribe('notifications').catch((err) => {
+            console.error('[api-server] Failed to subscribe to notifications channel', err);
+        });
 
-    redisNotificationsSub.on('message', (channel, message) => {
-        if (channel !== 'notifications') return;
-        try {
-            const payload = JSON.parse(message);
-            const { userId, notification } = payload;
-            if (!userId || !notification) return;
-            io.to(`user:${userId}`).emit('notification:new', { notification });
-        } catch (err) {
-            console.error('[api-server] Error handling notification message', err);
-        }
-    });
+        redisNotificationsSub.on('message', (channel, message) => {
+            if (channel !== 'notifications') return;
+            try {
+                const payload = JSON.parse(message);
+                const { userId, notification } = payload;
+                if (!userId || !notification) return;
+                io.to(`user:${userId}`).emit('notification:new', { notification });
+            } catch (err) {
+                console.error('[api-server] Error handling notification message', err);
+            }
+        });
+    }
+
+    // Pre-import dynamic modules to avoid per-connection import overhead
+    const [
+        { ShardingService },
+        { PresenceBroadcastService },
+        { deliverPendingMessages },
+        { registerEnhancedTypingHandlers },
+    ] = await Promise.all([
+        import('./services/socket/shardingService'),
+        import('./services/socket/presenceBroadcast'),
+        import('./services/messageDeliveryQueue'),
+        import('./handlers/typingHandlers'),
+    ]);
 
     // Socket connection handler
     io.on('connection', async (socket) => {
@@ -170,9 +182,7 @@ async function bootstrapApiServer() {
         try {
             await PresenceService.setUserOnline(socket.data.userId, socket.id);
 
-            // Only join workspace-specific rooms if workspace context exists
             if (socket.data.workspaceId) {
-                const { ShardingService } = await import('./services/socket/shardingService');
                 const userRoom = ShardingService.getShardedWorkspaceUserRoom(
                     socket.data.workspaceId,
                     socket.data.userId
@@ -180,14 +190,12 @@ async function bootstrapApiServer() {
                 await socket.join(userRoom);
             }
 
-            // Always join user-specific room
+            // Always join user-specific room — required for direct message delivery
             await socket.join(`user:${socket.data.userId}`);
 
-            // 🧪 SKIP HEAVY OPERATIONS FOR LOAD TESTING
             const isLoadTestUser = socket.data.userId.startsWith('load-test-');
 
             if (!isLoadTestUser && socket.data.workspaceId) {
-                const { PresenceBroadcastService } = await import('./services/socket/presenceBroadcast');
                 const shouldBroadcast = await PresenceBroadcastService.shouldBroadcastPresence(
                     socket.data.userId,
                     'online',
@@ -208,46 +216,43 @@ async function bootstrapApiServer() {
                         workspaceId: socket.data.workspaceId,
                     });
 
-                    await redisPub.publish(
-                        'presence:updates',
-                        JSON.stringify({
-                            userId: socket.data.userId,
-                            username: socket.data.username,
-                            status: 'online',
-                            workspaceId: socket.data.workspaceId,
-                            timestamp: new Date().toISOString(),
-                        })
-                    );
+                    if (!redisRealtimeDisabled) {
+                        await redisPub.publish(
+                            'presence:updates',
+                            JSON.stringify({
+                                userId: socket.data.userId,
+                                username: socket.data.username,
+                                status: 'online',
+                                workspaceId: socket.data.workspaceId,
+                                timestamp: new Date().toISOString(),
+                            })
+                        );
+                    }
                 }
 
-                // Deliver pending messages
-                const { deliverPendingMessages } = await import('./services/messageDeliveryQueue');
                 await deliverPendingMessages(socket.data.userId, io);
             }
 
-
-            // Heartbeat handler
+            // Heartbeat — refreshes Redis presence TTL
+            // Client must emit 'heartbeat' every PRESENCE_CONFIG.HEARTBEAT_MS ms
             socket.on('heartbeat', async (callback?: () => void) => {
                 if (!isLoadTestUser) {
                     await PresenceService.updatePresence(socket.data.userId, socket.id);
                 }
-                if (callback) callback(); // ACK for load test latency tracking
+                if (typeof callback === 'function') callback();
             });
 
-            // Register all handlers
+            // Register all event handlers
             registerPostHandlers(io, socket);
             registerCommentHandlers(io, socket);
+            registerListingCommentHandlers(io, socket);
             registerFeedHandlers(io, socket);
-
-            const { registerEnhancedTypingHandlers } = await import('./handlers/typingHandlers');
             registerEnhancedTypingHandlers(io, socket);
-
             registerNotificationHandlers(io, socket);
             registerMessageHandlers(io, socket);
             registerChannelHandlers(io, socket);
             registerCollaborationHandlers(io, socket);
 
-            // Disconnect handler
             socket.on('disconnect', async (reason: string) => {
                 metrics.socketConnections.dec();
                 console.log(`[api-server] ❌ User disconnected: ${socket.data.userId} (${reason})`);
@@ -257,9 +262,7 @@ async function bootstrapApiServer() {
                         await PresenceService.setUserOffline(socket.data.userId, socket.id);
                         const isStillOnline = await PresenceService.isUserOnline(socket.data.userId);
 
-                        // Only broadcast presence updates if user has workspace context
                         if (!isStillOnline && socket.data.workspaceId) {
-                            const { PresenceBroadcastService } = await import('./services/socket/presenceBroadcast');
                             const shouldBroadcastOffline = await PresenceBroadcastService.shouldBroadcastPresence(
                                 socket.data.userId,
                                 'offline',
@@ -280,16 +283,18 @@ async function bootstrapApiServer() {
                                     workspaceId: socket.data.workspaceId,
                                 });
 
-                                await redisPub.publish(
-                                    'presence:updates',
-                                    JSON.stringify({
-                                        userId: socket.data.userId,
-                                        username: socket.data.username,
-                                        status: 'offline',
-                                        workspaceId: socket.data.workspaceId,
-                                        timestamp: new Date().toISOString(),
-                                    })
-                                );
+                                if (!redisRealtimeDisabled) {
+                                    await redisPub.publish(
+                                        'presence:updates',
+                                        JSON.stringify({
+                                            userId: socket.data.userId,
+                                            username: socket.data.username,
+                                            status: 'offline',
+                                            workspaceId: socket.data.workspaceId,
+                                            timestamp: new Date().toISOString(),
+                                        })
+                                    );
+                                }
                             }
                         }
                     }
@@ -303,91 +308,79 @@ async function bootstrapApiServer() {
         }
     });
 
-    // Register lifecycle hooks
+    // Singleton lifecycle hooks
+    if (!apiSingletonsDisabled) {
+        lifecycle.onSingleton('syncTools', async () => {
+            const { syncSkillsAndTools } = await import('./services/agents/registry/sync');
+            await syncSkillsAndTools();
+        }, 10);
+    } else {
+        console.warn('[api-server] API singleton hooks disabled (DISABLE_API_SINGLETON_HOOKS=true)');
+    }
 
-    // Singleton hooks (run on only one instance)
-    lifecycle.onSingleton('syncTools', async () => {
-        const { syncSkillsAndTools } = await import('./services/agents/registry/sync');
-        await syncSkillsAndTools();
-    }, 10);
-
-    //lifecycle.onSingleton('syncTriggers', async () => {
-    //     const { syncTriggersToDatabase } = await import('./services/agents/registry/triggerRegistry');
-    //     await syncTriggersToDatabase();
-    //     console.log('[api-server] Triggers synced to database');
-    // }, 20);
-
-    //lifecycle.onSingleton('syncTemplates', async () => {
-    //     const { syncTemplatesToDatabase } = await import('./services/agents/prompts/templateRegistry');
-    //     await syncTemplatesToDatabase();
-    //     console.log('[api-server] Templates synced to database');
-    // }, 30);
-
-    // Interval tasks (cleanup, maintenance)
     lifecycle.registerInterval('cleanStalePresence', async () => {
         const cleaned = await PresenceService.cleanupStaleEntries();
         if (cleaned > 0) {
             console.log(`[api-server] Cleaned ${cleaned} stale presence entries`);
         }
-    }, 60000);
+    }, PRESENCE_CONFIG.CLEANUP_INTERVAL_MS);
 
-    // Monitor Performance Metrics
     lifecycle.registerInterval('logMetrics', async () => {
         try {
-            const metrics = {
+            const snapshot = {
                 connections: io.sockets.sockets.size,
-                redisMemory: await redis.info('memory').then(info => {
+                redisMemory: await redis.info('memory').then((info) => {
                     const match = info.match(/used_memory_human:(\S+)/);
                     return match ? match[1] : 'unknown';
                 }).catch(() => 'error'),
                 uptime: process.uptime(),
-                memoryUsage: process.memoryUsage().rss / 1024 / 1024 + ' MB', // RSS in MB
+                memoryUsage: `${(process.memoryUsage().rss / 1024 / 1024).toFixed(1)} MB`,
             };
-
-            // Log metrics periodically
-            console.log('[metrics]', JSON.stringify(metrics));
-
-            // Alert if approaching limits
-            if (metrics.connections > 5400) { // 90% of 6000
+            console.log('[metrics]', JSON.stringify(snapshot));
+            if (snapshot.connections > 5400) {
                 console.warn('⚠️ Approaching connection limit!');
             }
         } catch (error) {
             console.error('[metrics] Error collecting metrics', error);
         }
-    }, 30000); // Every 30s
+    }, 30000);
 
-    // Shutdown hooks
     lifecycle.onShutdown('closeMatchingPool', async () => {
         await matchingDbPool.end();
         console.log('[api-server] Database pool closed');
     }, 10);
 
-    // Start everything
-    await lifecycle.start();
+    // Start lifecycle (background jobs, singletons) without blocking port binding
+    lifecycle.start().catch((err) => {
+        console.error('[api-server] Lifecycle startup error:', err);
+    });
 
     const PORT = parseInt(env.PORT, 10);
 
-    // In development on Windows, tsx watch often leaves zombie processes holding the port.
-    // We forcefully clear the port if it's in use by someone else.
+    // In development on Windows, tsx watch can leave zombie processes holding the port.
     if (env.NODE_ENV === 'development' && process.platform === 'win32') {
         try {
-            const stdout = execSync(`netstat -ano | findstr :${PORT} | findstr LISTENING`, { stdio: ['pipe', 'pipe', 'ignore'] }).toString();
+            const stdout = execSync(
+                `netstat -ano | findstr :${PORT} | findstr LISTENING`,
+                { stdio: ['pipe', 'pipe', 'ignore'] }
+            ).toString();
             const pid = stdout.split('\n')[0].trim().split(/\s+/).pop();
             if (pid && pid !== process.pid.toString()) {
-                console.log(`[api-server] � Killing zombie process ${pid} on port ${PORT}`);
+                console.log(`[api-server] 🔫 Killing zombie process ${pid} on port ${PORT}`);
                 execSync(`taskkill /F /PID ${pid}`, { stdio: 'ignore' });
-                // Small delay to allow OS to release the socket
-                await new Promise(r => setTimeout(r, 200));
+                await new Promise((r) => setTimeout(r, 200));
             }
-        } catch (e) {
-            // Port not in use or netstat failed, either way we're good to try listening
+        } catch {
+            // Port not in use — safe to proceed
         }
     }
 
-    await app.listen(PORT, '127.0.0.1');
-    console.log(`[api-server] 🚀 Server running on port ${PORT} (bound to 127.0.0.1)`);
-
+    // Bind the port FIRST so the socket server accepts connections immediately,
+    // before lifecycle hooks (tool sync, etc.) have finished warming up.
+    await app.listen(PORT, '0.0.0.0');
+    console.log(`[api-server] 🚀 Server running on port ${PORT}`);
     console.log(`[api-server] 📡 Environment: ${env.NODE_ENV}`);
+    console.log(`[api-server] 🕐 Presence TTL: ${PRESENCE_CONFIG.TTL_SECONDS}s | Heartbeat: ${PRESENCE_CONFIG.HEARTBEAT_MS}ms`);
 }
 
 bootstrapApiServer().catch((error) => {

@@ -235,7 +235,7 @@ function WorkforceDetailContent() {
         }
     }, []);
 
-    if (isLoading) {
+    if (isLoading || !workforce) {
         return (
             <div className="flex h-screen w-full items-center justify-center text-muted-foreground text-sm">
                 Loading workforce configuration…

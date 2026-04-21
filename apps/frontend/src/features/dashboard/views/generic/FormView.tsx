@@ -27,6 +27,7 @@ import { LogoUpload } from "@/components/ui/logo-upload";
 import { MediaUpload, type MediaFile } from "@/components/ui/media-upload";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { DescriptionEditor } from "@/entities/shared/components/DescriptionEditor";
+import { CustomFieldsManagerModal } from "@/entities/customfields/components/CustomFieldsManagerModal";
 import { SingleDateCalendar } from "@/components/ui/date-picker";
 import { AssigneeSelector } from "@/entities/task/components/AssigneeSelector";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -37,6 +38,7 @@ import {
     Settings,
     Share2,
     Eye,
+    EyeOff,
     GripVertical,
     Trash2,
     Type,
@@ -57,6 +59,7 @@ import {
     Star,
     Clock,
     FileText,
+    CircleChevronDown,
     Upload,
     Copy,
     MoreVertical,
@@ -77,10 +80,12 @@ import {
     Search,
     Download,
     ArrowUpDown,
+    ChevronsUpDown,
     Filter,
     FileSpreadsheet,
     Sun,
     Moon,
+    Pencil,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -105,31 +110,32 @@ import { CSS } from '@dnd-kit/utilities';
 
 interface FormField {
     id: string;
+    customFieldTitle?: string;
     type:
-        | 'text'
-        | 'textarea'
-        | 'number'
-        | 'email'
-        | 'phone'
-        | 'url'
-        | 'date'
-        | 'time'
-        | 'datetime'
-        | 'select'
-        | 'multiselect'
-        | 'radio'
-        | 'checkbox'
-        | 'file'
-        | 'rating'
-        | 'currency'
-        | 'percentage'
-        | 'user'
-        | 'tags'
-        | 'progress'
-        | 'voting'
-        | 'location'
-        | 'signature'
-        | 'block';
+    | 'text'
+    | 'textarea'
+    | 'number'
+    | 'email'
+    | 'phone'
+    | 'url'
+    | 'date'
+    | 'time'
+    | 'datetime'
+    | 'select'
+    | 'multiselect'
+    | 'radio'
+    | 'checkbox'
+    | 'file'
+    | 'rating'
+    | 'currency'
+    | 'percentage'
+    | 'user'
+    | 'tags'
+    | 'progress'
+    | 'voting'
+    | 'location'
+    | 'signature'
+    | 'block';
     label: string;
     placeholder?: string;
     /** HTML body for information block fields (builder + preview) */
@@ -152,6 +158,7 @@ interface FormField {
     customFieldId?: string;
     customFieldType?: string;
     customFieldConfig?: Record<string, any>;
+    showInApplicationForm?: boolean;
 }
 
 interface FormSettings {
@@ -259,7 +266,7 @@ function hsvToRgb(h: number, s: number, v: number): { r: number; g: number; b: n
     else if (h < 180) [rp, gp, bp] = [0, c, x];
     else if (h < 240) [rp, gp, bp] = [0, x, c];
     else if (h < 300) [rp, gp, bp] = [x, 0, c];
-    else [rp, gp, bp] = [c, 0, x];
+    else[rp, gp, bp] = [c, 0, x];
     return {
         r: Math.round((rp + m) * 255),
         g: Math.round((gp + m) * 255),
@@ -309,7 +316,7 @@ function hslToRgb(h: number, sPercent: number, lPercent: number): { r: number; g
     else if (h < 180) [rp, gp, bp] = [0, c, x];
     else if (h < 240) [rp, gp, bp] = [0, x, c];
     else if (h < 300) [rp, gp, bp] = [x, 0, c];
-    else [rp, gp, bp] = [c, 0, x];
+    else[rp, gp, bp] = [c, 0, x];
     return {
         r: Math.round((rp + m) * 255),
         g: Math.round((gp + m) * 255),
@@ -346,10 +353,11 @@ function ThemeColorPicker({
     };
 
     return (
-        <div className="space-y-3">
+        <div className="space-y-4 p-1">
+            {/* Saturation/Brightness Panel */}
             <div
                 ref={panelRef}
-                className="relative h-40 w-full rounded-xl border border-zinc-200 cursor-crosshair overflow-hidden"
+                className="relative h-36 w-full rounded-2xl cursor-crosshair overflow-hidden shadow-sm"
                 style={{ backgroundColor: `hsl(${Math.round(hsv.h)} 100% 50%)` }}
                 onMouseDown={(e) => {
                     updateFromPanel(e.clientX, e.clientY);
@@ -365,29 +373,41 @@ function ThemeColorPicker({
                 <div className="absolute inset-0" style={{ background: "linear-gradient(to right, #fff 0%, rgba(255,255,255,0) 100%)" }} />
                 <div className="absolute inset-0" style={{ background: "linear-gradient(to top, #000 0%, rgba(0,0,0,0) 100%)" }} />
                 <div
-                    className="absolute h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white shadow"
+                    className="absolute h-5 w-5 -translate-x-1/2 -translate-y-1/2 rounded-full border-4 border-white shadow-lg ring-1 ring-black/10"
                     style={{ left: `${hsv.s * 100}%`, top: `${(1 - hsv.v) * 100}%` }}
                 />
             </div>
-            <div className="flex items-center gap-3">
-                <input
-                    type="range"
-                    min={0}
-                    max={360}
-                    value={Math.round(hsv.h)}
-                    onChange={(e) => {
-                        const nextRgb = hsvToRgb(Number(e.target.value), hsv.s, hsv.v);
-                        onColorChange(rgbToHex(nextRgb.r, nextRgb.g, nextRgb.b));
-                    }}
-                    className="w-full cursor-pointer"
-                />
-                <div className="h-8 w-8 rounded-full border border-zinc-200" style={{ backgroundColor: color }} />
+
+            {/* Hue Slider */}
+            <div className="flex items-center gap-4 px-1">
+                <div className="relative flex-1 h-3 rounded-full cursor-pointer">
+                    <input
+                        type="range"
+                        min={0}
+                        max={360}
+                        value={Math.round(hsv.h)}
+                        onChange={(e) => {
+                            const nextRgb = hsvToRgb(Number(e.target.value), hsv.s, hsv.v);
+                            onColorChange(rgbToHex(nextRgb.r, nextRgb.g, nextRgb.b));
+                        }}
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20"
+                    />
+                    <div className="absolute inset-0 rounded-full shadow-inner border border-black/5" style={{ background: "linear-gradient(to right, #ff0000 0%, #ffff00 17%, #00ff00 33%, #00ffff 50%, #0000ff 67%, #ff00ff 83%, #ff0000 100%)" }} />
+                    <div
+                        className="absolute top-1/2 -translate-y-1/2 h-6 w-6 rounded-full bg-white shadow-md border border-zinc-100 flex items-center justify-center pointer-events-none z-10"
+                        style={{ left: `calc(${(hsv.h / 360) * 100}% - 12px)` }}
+                    >
+                        <div className="h-3 w-3 rounded-full shadow-inner ring-1 ring-black/5" style={{ backgroundColor: `hsl(${hsv.h} 100% 50%)` }} />
+                    </div>
+                </div>
+                <div className="h-9 w-9 shrink-0 rounded-full border-2 border-white shadow-md ring-1 ring-zinc-200" style={{ backgroundColor: color }} />
             </div>
-            <div className="grid grid-cols-[96px_1fr] gap-2">
-                <Button
+
+            {/* Value Inputs */}
+            <div className="flex gap-2">
+                <button
                     type="button"
-                    variant="outline"
-                    className="h-9 justify-between px-3 text-xs font-medium"
+                    className="h-8 w-[72px] shrink-0 flex items-center justify-between px-2.5 rounded-lg border border-zinc-200 bg-white hover:bg-zinc-50 transition-all text-[12px] font-bold text-zinc-800 shadow-sm active:scale-[0.97] cursor-pointer"
                     onClick={() => {
                         const idx = modeOrder.indexOf(mode);
                         const next = modeOrder[(idx + 1) % modeOrder.length];
@@ -395,34 +415,207 @@ function ThemeColorPicker({
                     }}
                 >
                     {mode}
-                    <ArrowUpDown className="h-3.5 w-3.5 text-zinc-500" />
-                </Button>
+                    <ChevronsUpDown className="h-4 w-4 text-zinc-400" />
+                </button>
+
                 {mode === "HEX" ? (
-                    <Input
-                        value={color}
-                        onChange={(e) => onColorChange(e.target.value.startsWith("#") ? e.target.value : `#${e.target.value}`)}
-                        className="h-9 text-xs"
-                    />
-                ) : mode === "RGB" ? (
-                    <div className="grid grid-cols-3 gap-1">
-                        <Input className="h-9 text-xs text-center" value={rgb.r} onChange={(e) => onColorChange(rgbToHex(Number(e.target.value || 0), rgb.g, rgb.b))} />
-                        <Input className="h-9 text-xs text-center" value={rgb.g} onChange={(e) => onColorChange(rgbToHex(rgb.r, Number(e.target.value || 0), rgb.b))} />
-                        <Input className="h-9 text-xs text-center" value={rgb.b} onChange={(e) => onColorChange(rgbToHex(rgb.r, rgb.g, Number(e.target.value || 0)))} />
+                    <div className="flex-1 h-8 px-2.5 rounded-lg border border-zinc-200 bg-white shadow-sm flex items-center focus-within:border-violet-400 focus-within:ring-4 focus-within:ring-violet-400/10 transition-all">
+                        <input
+                            value={color}
+                            onChange={(e) => onColorChange(e.target.value.startsWith("#") ? e.target.value : `#${e.target.value}`)}
+                            className="w-full bg-transparent border-none p-0 h-full text-[12px] font-normal text-zinc-800 text-center placeholder:text-zinc-300 focus:outline-none focus:ring-0"
+                        />
                     </div>
                 ) : (
-                    <div className="grid grid-cols-3 gap-1">
-                        <Input className="h-9 text-xs text-center" value={hsl.h} onChange={(e) => { const next = hslToRgb(Number(e.target.value || 0), hsl.s, hsl.l); onColorChange(rgbToHex(next.r, next.g, next.b)); }} />
-                        <Input className="h-9 text-xs text-center" value={hsl.s} onChange={(e) => { const next = hslToRgb(hsl.h, Number(e.target.value || 0), hsl.l); onColorChange(rgbToHex(next.r, next.g, next.b)); }} />
-                        <Input className="h-9 text-xs text-center" value={hsl.l} onChange={(e) => { const next = hslToRgb(hsl.h, hsl.s, Number(e.target.value || 0)); onColorChange(rgbToHex(next.r, next.g, next.b)); }} />
+                    <div className="flex-1 h-8 flex items-center rounded-lg border border-zinc-200 bg-white shadow-sm focus-within:border-violet-400 focus-within:ring-4 focus-within:ring-violet-400/10 transition-all overflow-hidden">
+                        {mode === "RGB" ? (
+                            <>
+                                <input
+                                    className="w-full bg-transparent border-none p-0 h-full text-center text-[12px] font-normal focus:outline-none focus:ring-0"
+                                    value={rgb.r}
+                                    onChange={(e) => onColorChange(rgbToHex(Number(e.target.value || 0), rgb.g, rgb.b))}
+                                />
+                                <div className="w-[1px] h-3 bg-zinc-200 shrink-0" />
+                                <input
+                                    className="w-full bg-transparent border-none p-0 h-full text-center text-[12px] font-normal focus:outline-none focus:ring-0"
+                                    value={rgb.g}
+                                    onChange={(e) => onColorChange(rgbToHex(rgb.r, Number(e.target.value || 0), rgb.b))}
+                                />
+                                <div className="w-[1px] h-3 bg-zinc-200 shrink-0" />
+                                <input
+                                    className="w-full bg-transparent border-none p-0 h-full text-center text-[12px] font-normal focus:outline-none focus:ring-0"
+                                    value={rgb.b}
+                                    onChange={(e) => onColorChange(rgbToHex(rgb.r, rgb.g, Number(e.target.value || 0)))}
+                                />
+                            </>
+                        ) : (
+                            <>
+                                <input
+                                    className="w-full bg-transparent border-none p-0 h-full text-center text-[12px] font-normal focus:outline-none focus:ring-0"
+                                    value={hsl.h}
+                                    onChange={(e) => { const next = hslToRgb(Number(e.target.value || 0), hsl.s, hsl.l); onColorChange(rgbToHex(next.r, next.g, next.b)); }}
+                                />
+                                <div className="w-[1px] h-3 bg-zinc-200 shrink-0" />
+                                <input
+                                    className="w-full bg-transparent border-none p-0 h-full text-center text-[12px] font-normal focus:outline-none focus:ring-0"
+                                    value={hsl.s}
+                                    onChange={(e) => { const next = hslToRgb(hsl.h, Number(e.target.value || 0), hsl.l); onColorChange(rgbToHex(next.r, next.g, next.b)); }}
+                                />
+                                <div className="w-[1px] h-3 bg-zinc-200 shrink-0" />
+                                <input
+                                    className="w-full bg-transparent border-none p-0 h-full text-center text-[12px] font-normal focus:outline-none focus:ring-0"
+                                    value={hsl.l}
+                                    onChange={(e) => { const next = hslToRgb(hsl.h, hsl.s, Number(e.target.value || 0)); onColorChange(rgbToHex(next.r, next.g, next.b)); }}
+                                />
+                            </>
+                        )}
                     </div>
                 )}
             </div>
-            <Button className="w-full h-9 text-xs bg-zinc-900 hover:bg-zinc-800 cursor-pointer" onClick={onSave}>
+
+            <Button
+                className="w-full h-10 text-[13px] font-semibold bg-violet-600 hover:bg-violet-700 text-white rounded-xl shadow-lg shadow-violet-200 transition-all active:scale-[0.98] cursor-pointer"
+                onClick={onSave}
+            >
                 Save
             </Button>
         </div>
     );
 }
+
+// ---------------------------------------------------------------------------
+// FormView field-type row: hover triggers right-side flyout (same style as
+// MarketplaceCustomFieldBuilder.FieldTypeRow)
+// ---------------------------------------------------------------------------
+type FormFieldType = FormField["type"];
+
+const DB_TYPE_TO_FIELD_TYPE: Record<string, FormFieldType> = {
+    TEXT: 'text', NUMBER: 'number', DROPDOWN: 'select',
+    MULTI_SELECT: 'multiselect', DATE: 'date', CHECKBOX: 'checkbox',
+    URL: 'url', EMAIL: 'email', PHONE: 'phone', CURRENCY: 'currency',
+    RATING: 'rating', USER: 'user', LOCATION: 'location', FORMULA: 'text',
+};
+
+const FIELD_TYPES_MAP: { type: FormField["type"]; icon: LucideIcon; label: string }[] = [
+    { type: 'text', icon: Type, label: 'Short Text' },
+    { type: 'textarea', icon: FileText, label: 'Long Text' },
+    { type: 'number', icon: Hash, label: 'Number' },
+    { type: 'email', icon: Mail, label: 'Email' },
+    { type: 'phone', icon: Phone, label: 'Phone' },
+    { type: 'url', icon: LinkIcon, label: 'URL' },
+    { type: 'date', icon: Calendar, label: 'Date' },
+    { type: 'time', icon: Clock, label: 'Time' },
+    { type: 'select', icon: List, label: 'Dropdown' },
+    { type: 'multiselect', icon: List, label: 'Multi-Select' },
+    { type: 'radio', icon: CheckCircle2, label: 'Radio Buttons' },
+    { type: 'checkbox', icon: CheckSquare, label: 'Checkboxes' },
+    { type: 'rating', icon: Star, label: 'Rating' },
+    { type: 'currency', icon: DollarSign, label: 'Currency' },
+    { type: 'percentage', icon: Percent, label: 'Percentage' },
+    { type: 'file', icon: Upload, label: 'File Upload' },
+    { type: 'user', icon: Users, label: 'User Picker' },
+    { type: 'tags', icon: Tag, label: 'Tags' },
+    { type: 'progress', icon: Gauge, label: 'Progress' },
+    { type: 'voting', icon: Vote, label: 'Voting' },
+    { type: 'location', icon: MapPin, label: 'Location' },
+    { type: 'signature', icon: PenLine, label: 'Signature' },
+    { type: 'block', icon: LayoutTemplate, label: 'Information block' },
+];
+
+function FormViewFieldTypeRow({
+    type,
+    icon: Icon,
+    label,
+    existingFields,
+    onCreateNew,
+    onAddExisting,
+}: {
+    type: FormFieldType;
+    icon: LucideIcon;
+    label: string;
+    existingFields: any[];
+    onCreateNew: (el?: HTMLElement | null) => void;
+    onAddExisting: (field: any) => void;
+}) {
+    const [open, setOpen] = useState(false);
+    const triggerRef = useRef<HTMLButtonElement>(null);
+    const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    const scheduleClose = () => {
+        closeTimer.current = setTimeout(() => setOpen(false), 120);
+    };
+    const cancelClose = () => {
+        if (closeTimer.current) clearTimeout(closeTimer.current);
+    };
+
+    return (
+        <Popover open={open} onOpenChange={setOpen} modal={false}>
+            <PopoverTrigger asChild>
+                <button
+                    ref={triggerRef}
+                    type="button"
+                    onMouseEnter={() => { cancelClose(); setOpen(true); }}
+                    onMouseLeave={scheduleClose}
+                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-zinc-100 transition-colors text-left cursor-pointer group"
+                >
+                    <div className="h-8 w-8 rounded-lg bg-zinc-50 border border-zinc-100 flex items-center justify-center shrink-0 group-hover:bg-white group-hover:border-zinc-200 shadow-sm transition-all text-zinc-500">
+                        <Icon className="h-4 w-4" />
+                    </div>
+                    <span className="text-[13px] font-medium text-zinc-700 flex-1">{label}</span>
+                    <ChevronRight className="h-3.5 w-3.5 text-zinc-300 group-hover:text-zinc-500 transition-colors" />
+                </button>
+            </PopoverTrigger>
+            <PopoverContent
+                side="right"
+                align="start"
+                sideOffset={4}
+                onMouseEnter={cancelClose}
+                onMouseLeave={scheduleClose}
+                className="w-[220px] p-2 font-sans shadow-lg rounded-xl border border-zinc-200 bg-white z-[60]"
+            >
+                {/* Create new */}
+                <p className="px-2 pt-1 pb-1.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-400">
+                    Create new field
+                </p>
+                <button
+                    type="button"
+                    onClick={() => onCreateNew(triggerRef.current)}
+                    className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg hover:bg-indigo-50 transition-colors cursor-pointer group/create"
+                >
+                    <div className="h-7 w-7 rounded-md bg-indigo-50 border border-indigo-100 flex items-center justify-center shrink-0 group-hover/create:bg-indigo-100 text-indigo-500">
+                        <Icon className="h-3.5 w-3.5" />
+                    </div>
+                    <span className="text-[13px] font-medium text-zinc-700 group-hover/create:text-indigo-700">{label}</span>
+                </button>
+
+                {/* Existing custom fields */}
+                {existingFields.length > 0 && (
+                    <>
+                        <div className="my-1.5 h-px bg-zinc-100" />
+                        <p className="px-2 pb-1.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-400">
+                            Map existing field
+                        </p>
+                        {existingFields.map((field: any) => (
+                            <button
+                                key={field.id}
+                                type="button"
+                                onClick={() => onAddExisting(field)}
+                                className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg hover:bg-zinc-100 transition-colors cursor-pointer group/existing"
+                            >
+                                <div className="h-7 w-7 rounded-md bg-zinc-50 border border-zinc-100 flex items-center justify-center shrink-0 text-zinc-500">
+                                    <Icon className="h-3.5 w-3.5" />
+                                </div>
+                                <span className="text-[12px] font-medium text-zinc-700 truncate">{field.name}</span>
+                            </button>
+                        ))}
+                    </>
+                )}
+            </PopoverContent>
+        </Popover>
+    );
+}
+
+// ---------------------------------------------------------------------------
 
 function FieldInsertGap({
     insertIndex,
@@ -479,12 +672,15 @@ function FieldInsertGap({
 }
 
 // Enhanced Sortable Field Component
-function SortableField({ field, onDelete, onUpdate, onDuplicate, allFields }: {
+function SortableField({ field, onDelete, onUpdate, onDuplicate, onOpenAdvancedSettings, resolvedWorkspaceId, spaceId, projectId }: {
     field: FormField;
     onDelete: (id: string) => void;
     onUpdate: (id: string, updates: Partial<FormField>) => void;
     onDuplicate: (id: string) => void;
-    allFields: FormField[];
+    onOpenAdvancedSettings: (fieldId: string) => void;
+    resolvedWorkspaceId?: string;
+    spaceId?: string;
+    projectId?: string;
 }) {
     const [settingsOpen, setSettingsOpen] = useState(false);
     const [editingOptions, setEditingOptions] = useState(false);
@@ -776,7 +972,7 @@ function SortableField({ field, onDelete, onUpdate, onDuplicate, allFields }: {
                     <div className="min-w-0">
                         <div className="flex items-center gap-1 min-w-0">
                             <span className="text-sm font-semibold text-zinc-900 truncate">
-                                {field.label || "Untitled field"}
+                                {field.customFieldTitle || field.label || "Untitled field"}
                             </span>
                             {field.required && <span className="text-red-500 text-sm">*</span>}
                         </div>
@@ -790,15 +986,19 @@ function SortableField({ field, onDelete, onUpdate, onDuplicate, allFields }: {
                         builderExpanded ? "opacity-0 group-hover:opacity-100" : "opacity-100",
                     )}
                 >
-                    <div className="flex items-center gap-2 mr-1 bg-white px-2 py-1 rounded border border-zinc-200">
-                        <Label htmlFor={`req-${field.id}`} className="text-xs text-zinc-600 font-medium cursor-pointer">Required</Label>
-                        <Switch
-                            id={`req-${field.id}`}
-                            checked={field.required}
-                            onCheckedChange={(checked) => onUpdate(field.id, { required: checked })}
-                            className="scale-75"
-                        />
-                    </div>
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className={cn(
+                            "h-8 w-8 cursor-pointer",
+                            field.showInApplicationForm === false
+                                ? "text-amber-500 hover:text-amber-600 hover:bg-amber-50"
+                                : "text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100"
+                        )}
+                        onClick={() => onUpdate(field.id, { showInApplicationForm: field.showInApplicationForm === false })}
+                    >
+                        {field.showInApplicationForm === false ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </Button>
                     <Popover open={settingsOpen} onOpenChange={setSettingsOpen}>
                         <Tooltip>
                             <TooltipTrigger asChild>
@@ -809,80 +1009,74 @@ function SortableField({ field, onDelete, onUpdate, onDuplicate, allFields }: {
                                         className="h-8 w-8 text-zinc-400 hover:text-indigo-600 cursor-pointer"
                                         onClick={(e) => e.stopPropagation()}
                                     >
-                                        <Settings className="h-4 w-4" />
+                                        <Pencil className="h-4 w-4" />
                                     </Button>
                                 </PopoverTrigger>
                             </TooltipTrigger>
                             <TooltipContent side="top" sideOffset={8}>
-                                Field settings
+                                Edit field
                             </TooltipContent>
                         </Tooltip>
-                        <PopoverContent align="end" sideOffset={10} className="w-[360px] p-0">
-                            <div className="p-3 border-b border-zinc-200 flex items-center justify-between">
+                        <PopoverContent
+                            align="end"
+                            sideOffset={10}
+                            className="w-[320px] p-0 font-sans shadow-xl rounded-2xl overflow-hidden animate-in zoom-in-95 duration-200 z-50"
+                        >
+                            <div className="px-4 pt-4 flex items-center gap-2">
                                 <div>
-                                    <div className="text-sm font-semibold text-zinc-900">Field settings</div>
-                                    <div className="text-xs text-zinc-500 mt-0.5">Advanced configuration for this field</div>
+                                    <div className="text-[16px] leading-tight font-bold tracking-tight text-zinc-900">Edit field</div>
+                                    <div className="text-[11px] text-zinc-400 mt-0.5">{FIELD_TYPES_MAP.find(t => t.type === field.type)?.label}</div>
                                 </div>
-                                <button
-                                    type="button"
-                                    className="h-8 w-8 rounded-md hover:bg-zinc-100 flex items-center justify-center text-zinc-600 cursor-pointer"
-                                    onClick={() => setSettingsOpen(false)}
-                                >
-                                    <X className="h-4 w-4" />
-                                </button>
                             </div>
-                            <div className="p-4 space-y-4">
-                                {/* Validation Rules */}
-                                {['number', 'currency', 'percentage', 'text', 'progress'].includes(field.type) && (
-                                    <div className="grid grid-cols-2 gap-2">
-                                        <div>
-                                            <Label className="text-xs text-zinc-500">Min Value</Label>
-                                            <Input
-                                                type="number"
-                                                className="h-9 text-sm mt-1"
-                                                placeholder="0"
-                                                value={field.validation?.min || ''}
-                                                onChange={(e) => onUpdate(field.id, {
-                                                    validation: { ...field.validation, min: parseFloat(e.target.value) }
-                                                })}
-                                            />
-                                        </div>
-                                        <div>
-                                            <Label className="text-xs text-zinc-500">Max Value</Label>
-                                            <Input
-                                                type="number"
-                                                className="h-9 text-sm mt-1"
-                                                placeholder="100"
-                                                value={field.validation?.max || ''}
-                                                onChange={(e) => onUpdate(field.id, {
-                                                    validation: { ...field.validation, max: parseFloat(e.target.value) }
-                                                })}
-                                            />
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* Default Value */}
-                                <div>
-                                    <Label className="text-xs text-zinc-500">Default Value</Label>
+                            <div className="px-4 pb-4 pt-3 space-y-4">
+                                <div className="space-y-1.5 flex flex-col">
+                                    <Label className="text-[13px] font-semibold text-zinc-800">
+                                        Field Title <span className="text-red-500">*</span>
+                                    </Label>
                                     <Input
-                                        className="h-9 text-sm mt-1"
-                                        placeholder="Set default value..."
-                                        value={field.defaultValue || ''}
-                                        onChange={(e) => onUpdate(field.id, { defaultValue: e.target.value })}
+                                        value={field.label}
+                                        onChange={(e) => onUpdate(field.id, { label: e.target.value })}
+                                        placeholder="Enter field title..."
+                                        className="h-10 text-[14px]"
+                                        autoFocus
                                     />
                                 </div>
-
-                                {/* Conditional Logic */}
-                                <div>
-                                    <Label className="text-xs text-zinc-500">Show only if...</Label>
-                                    <select className="w-full h-9 text-sm mt-1 px-2 border border-zinc-200 rounded-md bg-white">
-                                        <option value="">Always show</option>
-                                        {allFields.filter(f => f.id !== field.id).map(f => (
-                                            <option key={f.id} value={f.id}>{f.label} is filled</option>
-                                        ))}
-                                    </select>
+                                <div className="space-y-1.5 flex flex-col">
+                                    <Label className="text-[13px] font-semibold text-zinc-800">
+                                        Description <span className="text-zinc-400 font-normal italic">(optional)</span>
+                                    </Label>
+                                    <Textarea
+                                        value={field.description || ""}
+                                        onChange={(e) => onUpdate(field.id, { description: e.target.value })}
+                                        placeholder="Add helpful instructions for users..."
+                                        rows={3}
+                                        className="resize-none text-[13px]"
+                                    />
                                 </div>
+                            </div>
+
+                            <div className="h-px bg-zinc-100 dark:bg-zinc-800 mx-4" />
+
+                            {/* Advanced settings footer */}
+                            <div className="p-3">
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setSettingsOpen(false);
+                                        if (field.customFieldId) {
+                                            onOpenAdvancedSettings(field.customFieldId);
+                                        } else {
+                                            toast.info("Advanced settings are only available for custom fields.");
+                                        }
+                                    }}
+                                    className="w-full rounded-lg flex items-center justify-between px-4 py-2 text-[13px] font-semibold text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-900/50 transition-colors cursor-pointer text-left group/adv"
+                                >
+                                    <div className="flex items-center gap-2.5">
+                                        <Settings className="h-3.5 w-3.5 text-zinc-400 dark:text-zinc-500 group-hover/adv:text-zinc-600 dark:group-hover/adv:text-zinc-300" />
+                                        <span>Advanced settings</span>
+                                    </div>
+                                    <ChevronRight className="h-4 w-4 text-zinc-300 group-hover/adv:text-zinc-400 transition-colors" />
+                                </button>
                             </div>
                         </PopoverContent>
                     </Popover>
@@ -906,118 +1100,129 @@ function SortableField({ field, onDelete, onUpdate, onDuplicate, allFields }: {
 
                 <Tooltip>
                     <TooltipTrigger asChild>
-                        <button
+                        <Button
                             type="button"
-                            className="h-8 w-8 shrink-0 rounded-md border border-zinc-200/80 bg-white hover:bg-zinc-50 text-zinc-600 hover:text-zinc-900 flex items-center justify-center cursor-pointer"
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 shrink-0 ml-1 cursor-pointer transition-colors text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100"
                             aria-expanded={builderExpanded}
-                            aria-label={builderExpanded ? "Collapse field details" : "Expand field details"}
+                            aria-label={builderExpanded ? "Collapse field" : "Expand field"}
                             onClick={(e) => {
                                 e.stopPropagation();
                                 setBuilderExpanded((v) => !v);
                             }}
                         >
-                            <ChevronDown className={cn("h-4 w-4 transition-transform duration-200", builderExpanded && "rotate-180")} />
-                        </button>
+                            <CircleChevronDown className={cn("h-4 w-4 transition-transform duration-200", builderExpanded && "rotate-180")} />
+                        </Button>
                     </TooltipTrigger>
                     <TooltipContent side="top" sideOffset={6}>
-                        {builderExpanded ? "Collapse (compact list for reorder)" : "Expand field editor"}
+                        {builderExpanded ? "Collapse field" : "Expand field"}
                     </TooltipContent>
                 </Tooltip>
             </div>
 
             {builderExpanded ? (
-            <div className="px-6 py-5">
-                {/* Field name (displayed in the form) */}
-                <div className="space-y-2">
-                    <Label className="text-xs font-medium text-zinc-600">Field name</Label>
-                    <Input
-                        value={field.label}
-                        onChange={(e) => onUpdate(field.id, { label: e.target.value })}
-                        className="h-10 text-sm"
-                        placeholder="Enter name..."
-                    />
-                </div>
-
-                {/* Field Description */}
-                <div className="mt-4 space-y-2">
-                    <Label className="text-xs font-medium text-zinc-600">Description (optional)</Label>
-                    <Input
-                        value={field.description || ""}
-                        onChange={(e) => onUpdate(field.id, { description: e.target.value })}
-                        className="h-10 text-sm"
-                        placeholder="Add a question description (optional)"
-                    />
-                </div>
-
-                {/* Field Preview */}
-                <div className="mt-4">
-                    {renderFieldPreview()}
-                </div>
-
-                {/* Placeholder/Helper Text */}
-                {field.type !== 'block' && (
-                    <div className="mt-3 space-y-2">
-                        <Label className="text-xs font-medium text-zinc-600">Placeholder</Label>
+                <div className="px-6 py-5">
+                    {/* Field name (displayed in the form) */}
+                    <div className="space-y-2">
+                        <Label className="text-xs font-medium text-zinc-600">Field name</Label>
                         <Input
-                            value={field.placeholder || ""}
-                            onChange={(e) => onUpdate(field.id, { placeholder: e.target.value })}
+                            value={field.label}
+                            onChange={(e) => onUpdate(field.id, { label: e.target.value })}
                             className="h-10 text-sm"
-                            placeholder="Placeholder text..."
+                            placeholder="Enter name..."
                         />
                     </div>
-                )}
 
-                {/* Block body (only in expanded builder) */}
-                {field.type === 'block' && (
+                    {/* Field Description */}
                     <div className="mt-4 space-y-2">
-                        <Label className="text-xs font-medium text-zinc-600">Information block content</Label>
-                        <div className="rounded-md border border-zinc-200 bg-white min-h-[140px] overflow-hidden">
-                            <DescriptionEditor
-                                content={field.content || "<p>Add information for respondents...</p>"}
-                                onChange={(html) => onUpdate(field.id, { content: html })}
-                                editable
-                                workspaceId={resolvedWorkspaceId || null}
-                                spaceId={spaceId || null}
-                                projectId={projectId || null}
+                        <Label className="text-xs font-medium text-zinc-600">Description (optional)</Label>
+                        <Input
+                            value={field.description || ""}
+                            onChange={(e) => onUpdate(field.id, { description: e.target.value })}
+                            className="h-10 text-sm"
+                            placeholder="Add a question description (optional)"
+                        />
+                    </div>
+
+                    {/* Placeholder/Helper Text */}
+                    {field.type !== 'block' && (
+                        <div className="mt-3 space-y-2">
+                            <Label className="text-xs font-medium text-zinc-600">Placeholder</Label>
+                            <Input
+                                value={field.placeholder || ""}
+                                onChange={(e) => onUpdate(field.id, { placeholder: e.target.value })}
+                                className="h-10 text-sm"
+                                placeholder="Placeholder text..."
                             />
                         </div>
-                    </div>
-                )}
+                    )}
 
-                {/* Options Editor for Select/Radio/Checkbox */}
-                {hasOptions && (
-                    <div className="mt-6 pt-5 border-t border-zinc-100">
-                        <div className="flex items-center justify-between mb-3">
-                            <span className="text-xs font-medium text-zinc-600">Options</span>
-                            <Button variant="ghost" size="sm" className="h-7 text-xs cursor-pointer" onClick={addOption}>
-                                <Plus className="h-3 w-3 mr-1" />
-                                Add Option
-                            </Button>
+                    {/* Block body (only in expanded builder) */}
+                    {field.type === 'block' && (
+                        <div className="mt-4 space-y-2">
+                            <Label className="text-xs font-medium text-zinc-600">Information block content</Label>
+                            <div className="rounded-md border border-zinc-200 bg-white min-h-[140px] overflow-hidden">
+                                <DescriptionEditor
+                                    content={field.content || "<p>Add information for respondents...</p>"}
+                                    onChange={(html) => onUpdate(field.id, { content: html })}
+                                    editable
+                                    workspaceId={resolvedWorkspaceId || null}
+                                    spaceId={spaceId || null}
+                                    projectId={projectId || null}
+                                />
+                            </div>
                         </div>
-                        <div className="space-y-1.5">
-                            {(field.options || []).map((option, idx) => (
-                                <div key={idx} className="flex items-center gap-2">
-                                    <div className="flex-1 relative">
-                                        <Input
-                                            value={option}
-                                            onChange={(e) => updateOption(idx, e.target.value)}
-                                            className="h-8 text-sm pr-8"
-                                            placeholder={`Option ${idx + 1}`}
-                                        />
-                                        <button
-                                            onClick={() => removeOption(idx)}
-                                            className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-red-500 cursor-pointer"
-                                        >
-                                            <X className="h-3.5 w-3.5" />
-                                        </button>
+                    )}
+
+                    {/* Options Editor for Select/Radio/Checkbox */}
+                    {hasOptions && (
+                        <div className="mt-6 pt-5 border-t border-zinc-100">
+                            <div className="flex items-center justify-between mb-3">
+                                <span className="text-xs font-medium text-zinc-600">Options</span>
+                                <Button variant="ghost" size="sm" className="h-7 text-xs cursor-pointer" onClick={addOption}>
+                                    <Plus className="h-3 w-3 mr-1" />
+                                    Add Option
+                                </Button>
+                            </div>
+                            <div className="space-y-1.5">
+                                {(field.options || []).map((option, idx) => (
+                                    <div key={idx} className="flex items-center gap-2">
+                                        <div className="flex-1 relative">
+                                            <Input
+                                                value={option}
+                                                onChange={(e) => updateOption(idx, e.target.value)}
+                                                className="h-8 text-sm pr-8"
+                                                placeholder={`Option ${idx + 1}`}
+                                            />
+                                            <button
+                                                onClick={() => removeOption(idx)}
+                                                className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-red-500 cursor-pointer"
+                                            >
+                                                <X className="h-3.5 w-3.5" />
+                                            </button>
+                                        </div>
                                     </div>
-                                </div>
-                            ))}
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    <div className="mt-6 pt-4 border-t border-zinc-100 flex items-center justify-end">
+                        <div className="flex items-center gap-1.5 bg-white px-2 py-1 rounded-md border border-zinc-200 shadow-[0_1px_2px_rgba(0,0,0,0.03)]">
+                            <Label htmlFor={`req-${field.id}`} className="!mb-0 !text-[9px] leading-none text-zinc-500 font-bold cursor-pointer tracking-wider uppercase">Required</Label>
+                            <div className="scale-75 -mr-1">
+                                <Switch
+                                    id={`req-${field.id}`}
+                                    checked={field.required}
+                                    onCheckedChange={(checked) => onUpdate(field.id, { required: checked })}
+                                    className="shrink-0 cursor-pointer"
+                                />
+                            </div>
                         </div>
                     </div>
-                )}
 
-            </div>
+                </div>
             ) : null}
         </div>
     );
@@ -1077,6 +1282,7 @@ export default function FormView({
     const fieldInsertIndexRef = useRef<number | null>(null);
     const leftFieldSidebarRef = useRef<HTMLDivElement | null>(null);
     const sidebarFieldSearchInputRef = useRef<HTMLInputElement | null>(null);
+    const [selectedAdvancedFieldId, setSelectedAdvancedFieldId] = useState<string | undefined>(undefined);
 
     const utils = trpc.useUtils();
     const { data: viewData, isLoading: isViewLoading, isFetching: isViewFetching } = trpc.view.get.useQuery(
@@ -1108,17 +1314,7 @@ export default function FormView({
         },
         { enabled: !!(resolvedWorkspaceId || listId || folderId || spaceId || projectId || teamId) }
     );
-    const [fields, setFields] = useState<FormField[]>([
-        { id: "1", type: "text", label: "Task name", required: true, placeholder: "Enter task name", description: "Give your task a clear, descriptive name" },
-        { id: "2", type: "textarea", label: "Description", required: false, placeholder: "Describe the task in detail...", description: "Provide any relevant details, requirements, or context" },
-        { id: "3", type: "user", label: "Assignee", required: false, placeholder: "Choose assignee", description: "Who owns this task?" },
-        { id: "4", type: "select", label: "Status", required: true, options: ["To do", "In progress", "Done", "Blocked"], description: "Current workflow state" },
-        { id: "5", type: "select", label: "Priority", required: true, options: ["Low", "Medium", "High", "Urgent"], description: "How urgent is this task?" },
-        { id: "6", type: "date", label: "Start date", required: false, placeholder: "Select date" },
-        { id: "7", type: "date", label: "Due date", required: true, placeholder: "Select date" },
-        { id: "8", type: "tags", label: "Tags", required: false, placeholder: "Add tags", description: "Organize with labels" },
-        { id: "9", type: "file", label: "Attachment", required: false, description: "Upload files related to this task" },
-    ]);
+    const [fields, setFields] = useState<FormField[]>([]);
 
     const [settings, setSettings] = useState<FormSettings>({
         submitButtonText: "Submit Request",
@@ -1137,7 +1333,7 @@ export default function FormView({
         defaultLandingPage: "build",
         coverBackgroundColor: "#7c3aed",
         coverImageUrl: "",
-        coverImagePath: "",
+        coverImagePath: "media",
         fieldCreationMode: "sidebar",
     });
 
@@ -1294,15 +1490,21 @@ export default function FormView({
 
     const BACKGROUND_COLORS: Array<{ value: string; label: string }> = [
         { value: "#FFFFFF", label: "White" },
-        { value: "#F8FAFC", label: "Slate" },
-        { value: "#F1F5F9", label: "Slate 100" },
-        { value: "#EEF2FF", label: "Indigo" },
-        { value: "#FDF2F8", label: "Pink" },
-        { value: "#ECFDF5", label: "Emerald" },
-        { value: "#FFFBEB", label: "Amber" },
-        { value: "#F5F3FF", label: "Violet" },
-        { value: "#EFF6FF", label: "Blue" },
-        { value: "#FAFAFA", label: "Zinc" },
+        { value: "#EEF2FF", label: "Indigo 50" },
+        { value: "#E0F2FE", label: "Sky 50" },
+        { value: "#ECFDF5", label: "Emerald 50" },
+        { value: "#F0FDF4", label: "Green 50" },
+        { value: "#FEF9C3", label: "Yellow 100" },
+        { value: "#FFEDD5", label: "Orange 100" },
+        { value: "#FCE7F3", label: "Pink 100" },
+        { value: "#F5F3FF", label: "Violet 50" },
+        { value: "#EDE9FE", label: "Violet 100" },
+        { value: "linear-gradient(135deg, #E0E7FF 0%, #F5F3FF 100%)", label: "Purple Graduate" },
+        { value: "linear-gradient(135deg, #FCE7F3 0%, #FFE4E6 100%)", label: "Pink Graduate" },
+        { value: "linear-gradient(135deg, #FFEDD5 0%, #FEF9C3 100%)", label: "Orange Graduate" },
+        { value: "linear-gradient(135deg, #ECFDF5 0%, #DCFCE7 100%)", label: "Green Graduate" },
+        { value: "linear-gradient(135deg, #E0F2FE 0%, #E0E7FF 100%)", label: "Blue Graduate" },
+        { value: "linear-gradient(135deg, #F5F3FF 0%, #EDE9FE 100%)", label: "Lavender Graduate" },
     ];
 
     const BUTTON_COLORS: Array<{ value: string; label: string }> = [
@@ -1328,6 +1530,7 @@ export default function FormView({
     const [customBgMode, setCustomBgMode] = useState<ColorMode>("HEX");
     const [customBtnMode, setCustomBtnMode] = useState<ColorMode>("HEX");
     const [customFieldDialogOpen, setCustomFieldDialogOpen] = useState(false);
+    const [customFieldsManagerOpen, setCustomFieldsManagerOpen] = useState(false);
     const [customFieldAnchorPos, setCustomFieldAnchorPos] = useState<{ left: number; top: number } | null>(null);
     const [customFieldName, setCustomFieldName] = useState("");
     const [customFieldDescription, setCustomFieldDescription] = useState("");
@@ -1380,6 +1583,10 @@ export default function FormView({
         (customFields as any[]).forEach((f: any) => m.set(f.id, f));
         return m;
     }, [customFields]);
+    const visibleFields = useMemo(
+        () => fields.filter((field) => field.showInApplicationForm !== false),
+        [fields]
+    );
 
     const mapFormFieldTypeToCustomType = (type: FormField["type"]): string => {
         const map: Record<FormField["type"], string> = {
@@ -1506,31 +1713,7 @@ export default function FormView({
         })
     );
 
-    const fieldTypes: { type: FormField['type']; icon: LucideIcon; label: string }[] = [
-        { type: 'text', icon: Type, label: 'Short Text' },
-        { type: 'textarea', icon: FileText, label: 'Long Text' },
-        { type: 'number', icon: Hash, label: 'Number' },
-        { type: 'email', icon: Mail, label: 'Email' },
-        { type: 'phone', icon: Phone, label: 'Phone' },
-        { type: 'url', icon: LinkIcon, label: 'URL' },
-        { type: 'date', icon: Calendar, label: 'Date' },
-        { type: 'time', icon: Clock, label: 'Time' },
-        { type: 'select', icon: List, label: 'Dropdown' },
-        { type: 'multiselect', icon: List, label: 'Multi-Select' },
-        { type: 'radio', icon: CheckCircle2, label: 'Radio Buttons' },
-        { type: 'checkbox', icon: CheckSquare, label: 'Checkboxes' },
-        { type: 'rating', icon: Star, label: 'Rating' },
-        { type: 'currency', icon: DollarSign, label: 'Currency' },
-        { type: 'percentage', icon: Percent, label: 'Percentage' },
-        { type: 'file', icon: Upload, label: 'File Upload' },
-        { type: 'user', icon: Users, label: 'User Picker' },
-        { type: 'tags', icon: Tag, label: 'Tags' },
-        { type: 'progress', icon: Gauge, label: 'Progress' },
-        { type: 'voting', icon: Vote, label: 'Voting' },
-        { type: 'location', icon: MapPin, label: 'Location' },
-        { type: 'signature', icon: PenLine, label: 'Signature' },
-        { type: 'block', icon: LayoutTemplate, label: 'Information block' },
-    ];
+
 
     const taskFieldPresets: Array<{
         key: string;
@@ -1538,126 +1721,126 @@ export default function FormView({
         icon: LucideIcon;
         create: () => Omit<FormField, 'id'>;
     }> = [
-        {
-            key: 'description',
-            label: 'Description',
-            icon: FileText,
-            create: () => ({
-                type: 'textarea',
-                taskFieldKey: 'description',
+            {
+                key: 'description',
                 label: 'Description',
-                required: false,
-                placeholder: 'Describe the task in detail…',
-                description: 'Details, requirements, and context',
-            }),
-        },
-        {
-            key: 'assignee',
-            label: 'Assignee',
-            icon: Users,
-            create: () => ({
-                type: 'user',
-                taskFieldKey: 'assignee',
+                icon: FileText,
+                create: () => ({
+                    type: 'textarea',
+                    taskFieldKey: 'description',
+                    label: 'Description',
+                    required: false,
+                    placeholder: 'Describe the task in detail…',
+                    description: 'Details, requirements, and context',
+                }),
+            },
+            {
+                key: 'assignee',
                 label: 'Assignee',
-                required: false,
-                placeholder: 'Choose assignee',
-                description: 'Who owns this task?',
-            }),
-        },
-        {
-            key: 'status',
-            label: 'Status',
-            icon: List,
-            create: () => ({
-                type: 'select',
-                taskFieldKey: 'status',
+                icon: Users,
+                create: () => ({
+                    type: 'user',
+                    taskFieldKey: 'assignee',
+                    label: 'Assignee',
+                    required: false,
+                    placeholder: 'Choose assignee',
+                    description: 'Who owns this task?',
+                }),
+            },
+            {
+                key: 'status',
                 label: 'Status',
-                required: true,
-                options: ['To do', 'In progress', 'Done', 'Blocked'],
-                placeholder: 'Select status',
-                description: 'Current workflow state',
-            }),
-        },
-        {
-            key: 'priority',
-            label: 'Priority',
-            icon: AlertCircle,
-            create: () => ({
-                type: 'select',
-                taskFieldKey: 'priority',
+                icon: List,
+                create: () => ({
+                    type: 'select',
+                    taskFieldKey: 'status',
+                    label: 'Status',
+                    required: true,
+                    options: ['To do', 'In progress', 'Done', 'Blocked'],
+                    placeholder: 'Select status',
+                    description: 'Current workflow state',
+                }),
+            },
+            {
+                key: 'priority',
                 label: 'Priority',
-                required: true,
-                options: ['Low', 'Medium', 'High', 'Urgent'],
-                placeholder: 'Select priority',
-                description: 'How urgent is this task?',
-            }),
-        },
-        {
-            key: 'startDate',
-            label: 'Start date',
-            icon: Calendar,
-            create: () => ({
-                type: 'date',
-                taskFieldKey: 'startDate',
+                icon: AlertCircle,
+                create: () => ({
+                    type: 'select',
+                    taskFieldKey: 'priority',
+                    label: 'Priority',
+                    required: true,
+                    options: ['Low', 'Medium', 'High', 'Urgent'],
+                    placeholder: 'Select priority',
+                    description: 'How urgent is this task?',
+                }),
+            },
+            {
+                key: 'startDate',
                 label: 'Start date',
-                required: false,
-                placeholder: 'Select start date',
-            }),
-        },
-        {
-            key: 'dueDate',
-            label: 'Due date',
-            icon: Calendar,
-            create: () => ({
-                type: 'date',
-                taskFieldKey: 'dueDate',
+                icon: Calendar,
+                create: () => ({
+                    type: 'date',
+                    taskFieldKey: 'startDate',
+                    label: 'Start date',
+                    required: false,
+                    placeholder: 'Select start date',
+                }),
+            },
+            {
+                key: 'dueDate',
                 label: 'Due date',
-                required: true,
-                placeholder: 'Select due date',
-            }),
-        },
-        {
-            key: 'tags',
-            label: 'Tags',
-            icon: Tag,
-            create: () => ({
-                type: 'tags',
-                taskFieldKey: 'tags',
+                icon: Calendar,
+                create: () => ({
+                    type: 'date',
+                    taskFieldKey: 'dueDate',
+                    label: 'Due date',
+                    required: true,
+                    placeholder: 'Select due date',
+                }),
+            },
+            {
+                key: 'tags',
                 label: 'Tags',
-                required: false,
-                placeholder: 'Add tags',
-                description: 'Organize with labels',
-            }),
-        },
-        {
-            key: 'attachment',
-            label: 'Attachment',
-            icon: Upload,
-            create: () => ({
-                type: 'file',
-                taskFieldKey: 'attachment',
+                icon: Tag,
+                create: () => ({
+                    type: 'tags',
+                    taskFieldKey: 'tags',
+                    label: 'Tags',
+                    required: false,
+                    placeholder: 'Add tags',
+                    description: 'Organize with labels',
+                }),
+            },
+            {
+                key: 'attachment',
                 label: 'Attachment',
-                required: false,
-                description: 'Upload files related to this task',
-            }),
-        },
-    ];
+                icon: Upload,
+                create: () => ({
+                    type: 'file',
+                    taskFieldKey: 'attachment',
+                    label: 'Attachment',
+                    required: false,
+                    description: 'Upload files related to this task',
+                }),
+            },
+        ];
 
     const normalizedSidebarSearch = sidebarSearch.trim().toLowerCase();
     const filteredTaskFieldPresets = normalizedSidebarSearch
         ? taskFieldPresets.filter((p) => p.label.toLowerCase().includes(normalizedSidebarSearch))
         : taskFieldPresets;
     const filteredFieldTypes = normalizedSidebarSearch
-        ? fieldTypes.filter((f) => f.label.toLowerCase().includes(normalizedSidebarSearch))
-        : fieldTypes;
+        ? FIELD_TYPES_MAP.filter((f) => f.label.toLowerCase().includes(normalizedSidebarSearch))
+        : FIELD_TYPES_MAP;
 
     const normalizedPickerSearch = fieldPickerSearch.trim().toLowerCase();
     const filteredPickerTaskPresets = normalizedPickerSearch
         ? taskFieldPresets.filter((p) => p.label.toLowerCase().includes(normalizedPickerSearch))
         : taskFieldPresets;
     const filteredPickerFieldTypes = normalizedPickerSearch
-        ? fieldTypes.filter((f) => f.label.toLowerCase().includes(normalizedPickerSearch))
-        : fieldTypes;
+        ? FIELD_TYPES_MAP.filter((f) => f.label.toLowerCase().includes(normalizedPickerSearch))
+        : FIELD_TYPES_MAP;
 
     const handleDragEnd = (event: DragEndEvent) => {
         const { active, over } = event;
@@ -1861,6 +2044,7 @@ export default function FormView({
 
         const newField: FormField = {
             id: `${Date.now()}-${customFieldPendingType}`,
+            customFieldTitle: trimmedName,
             type: customFieldPendingType,
             label: trimmedName,
             description: customFieldDescription.trim() || undefined,
@@ -1986,7 +2170,7 @@ export default function FormView({
                     Status: item.status,
                     "Submitted At": new Date(item.submittedAt).toLocaleString(),
                 };
-                fields.forEach((field) => {
+                visibleFields.forEach((field) => {
                     row[field.label] = getResponseValueAsText(item.values[field.id]);
                 });
                 return row;
@@ -2254,73 +2438,92 @@ export default function FormView({
                             />
                         </div>
                         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-                        <div className="p-4 space-y-5">
-                            <div>
-                                <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500 mb-2">Task fields</p>
-                                <div className="space-y-1">
-                                    {filteredTaskFieldPresets.map((preset) => {
-                                        const Icon = preset.icon;
-                                        return (
-                                            <Button
-                                                key={preset.key}
-                                                variant="outline"
-                                                className="w-full justify-start text-zinc-700 h-9 text-sm font-normal hover:bg-indigo-50 hover:text-indigo-700 hover:border-indigo-300 transition-all group"
-                                                onClick={() => addTaskPreset(preset.key)}
-                                            >
-                                                <Icon className="h-4 w-4 mr-2.5 text-zinc-400 group-hover:text-indigo-600" />
-                                                {preset.label}
-                                                <Plus className="h-3.5 w-3.5 ml-auto opacity-0 group-hover:opacity-100 transition-opacity" />
-                                            </Button>
-                                        );
-                                    })}
-                                    {filteredTaskFieldPresets.length === 0 && (
-                                        <div className="text-xs text-zinc-500 px-2 py-2">
-                                            No task fields match <span className="font-medium text-zinc-700">"{sidebarSearch.trim()}"</span>.
-                                        </div>
-                                    )}
+                            <div className="p-4 space-y-5">
+                                <div>
+                                    <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500 mb-2">Task fields</p>
+                                    <div className="space-y-0.5">
+                                        {filteredTaskFieldPresets.map((preset) => {
+                                            const Icon = preset.icon;
+                                            return (
+                                                <button
+                                                    key={preset.key}
+                                                    type="button"
+                                                    onClick={() => addTaskPreset(preset.key)}
+                                                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-zinc-100 transition-colors text-left cursor-pointer group"
+                                                >
+                                                    <div className="h-8 w-8 rounded-lg bg-zinc-50 border border-zinc-100 flex items-center justify-center shrink-0 group-hover:bg-white group-hover:border-zinc-200 shadow-sm transition-all text-zinc-500">
+                                                        <Icon className="h-4 w-4" />
+                                                    </div>
+                                                    <span className="text-[13px] font-medium text-zinc-700 flex-1">{preset.label}</span>
+                                                </button>
+                                            );
+                                        })}
+                                        {filteredTaskFieldPresets.length === 0 && (
+                                            <div className="text-xs text-zinc-500 px-2 py-2">
+                                                No task fields match <span className="font-medium text-zinc-700">"{sidebarSearch.trim()}"</span>.
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                                <div>
+                                    <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500 mb-2">All field types</p>
+                                    <div className="space-y-0.5">
+                                        {filteredFieldTypes.map((fieldType) => {
+                                            const matchingExisting = (customFields as any[]).filter(
+                                                (f: any) => DB_TYPE_TO_FIELD_TYPE[f.type] === fieldType.type
+                                            );
+                                            return (
+                                                <FormViewFieldTypeRow
+                                                    key={fieldType.type}
+                                                    type={fieldType.type}
+                                                    icon={fieldType.icon}
+                                                    label={fieldType.label}
+                                                    existingFields={matchingExisting}
+                                                    onCreateNew={(el) => {
+                                                        if (fieldType.type === 'block') {
+                                                            addField('block', el);
+                                                        } else {
+                                                            addField(fieldType.type, el);
+                                                        }
+                                                    }}
+                                                    onAddExisting={(field: any) => {
+                                                        const newFormField: FormField = {
+                                                            id: `${Date.now()}-${fieldType.type}`,
+                                                            customFieldTitle: field.name,
+                                                            type: fieldType.type,
+                                                            label: field.name,
+                                                            description: field.config?.description ?? undefined,
+                                                            required: false,
+                                                            placeholder: '',
+                                                            options: field.config?.options,
+                                                            customFieldId: field.id,
+                                                            customFieldType: field.type,
+                                                            customFieldConfig: field.config,
+                                                        };
+                                                        setFields((prev) => {
+                                                            const raw = fieldInsertIndexRef.current;
+                                                            fieldInsertIndexRef.current = null;
+                                                            const idx = raw === null ? prev.length : Math.max(0, Math.min(raw, prev.length));
+                                                            const next = [...prev];
+                                                            next.splice(idx, 0, newFormField);
+                                                            return next;
+                                                        });
+                                                        setHasUnsavedChanges(true);
+                                                        setIsFieldTypeSidebarOpen(false);
+                                                    }}
+                                                />
+                                            );
+                                        })}
+                                        {filteredFieldTypes.length === 0 && (
+                                            <div className="text-xs text-zinc-500 px-2 py-2">
+                                                No field types match <span className="font-medium text-zinc-700">"{sidebarSearch.trim()}"</span>.
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
-                            <div>
-                                <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500 mb-2">All field types</p>
-                                <div className="space-y-1">
-                                    {filteredFieldTypes.map((fieldType) => {
-                                        const Icon = fieldType.icon;
-                                        return (
-                                            <Button
-                                                key={fieldType.type}
-                                                variant="outline"
-                                                className="w-full justify-start text-zinc-700 h-10 font-normal hover:bg-indigo-50 hover:text-indigo-700 hover:border-indigo-300 transition-all group"
-                                                onClick={(e) => addField(fieldType.type, e.currentTarget)}
-                                            >
-                                                <Icon className="h-4 w-4 mr-3 text-zinc-400 group-hover:text-indigo-600" />
-                                                {fieldType.label}
-                                                <Plus className="h-3.5 w-3.5 ml-auto opacity-0 group-hover:opacity-100 transition-opacity" />
-                                            </Button>
-                                        );
-                                    })}
-                                    {filteredFieldTypes.length === 0 && (
-                                        <div className="text-xs text-zinc-500 px-2 py-2">
-                                            No field types match <span className="font-medium text-zinc-700">"{sidebarSearch.trim()}"</span>.
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
                         </div>
 
-                        <div className="shrink-0 p-4 border-t border-zinc-100 bg-zinc-50/50">
-                            <div className="flex items-start gap-2 text-xs text-zinc-500">
-                                <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
-                                <div>
-                                    <p className="font-medium text-zinc-700 mb-1">Pro Tips</p>
-                                    <ul className="space-y-1 list-disc list-inside">
-                                        <li>Drag fields to reorder</li>
-                                        <li>Click settings for validation</li>
-                                        <li>Use conditional logic</li>
-                                    </ul>
-                                </div>
-                            </div>
-                        </div>
 
                         {/* Resize handle (right edge) */}
                         <div
@@ -2576,163 +2779,166 @@ export default function FormView({
                                                     </button>
                                                 </PopoverTrigger>
                                                 <PopoverContent className="w-[420px] p-4" align="start">
-                                                    <div className="space-y-3">
+                                                    <div className="space-y-4">
                                                         <div className="flex items-center justify-between">
-                                                            <div className="inline-flex rounded-lg border border-zinc-200 bg-zinc-50 p-1">
-                                                                <button
-                                                                    type="button"
-                                                                    className={cn(
-                                                                        "h-8 px-3 rounded-md text-xs font-medium cursor-pointer",
-                                                                        coverTab === "background" ? "bg-white border border-zinc-200 shadow-sm text-zinc-900" : "text-zinc-600"
-                                                                    )}
-                                                                    onClick={() => setCoverTab("background")}
-                                                                >
-                                                                    Background color
-                                                                </button>
-                                                                <button
-                                                                    type="button"
-                                                                    className={cn(
-                                                                        "h-8 px-3 rounded-md text-xs font-medium cursor-pointer",
-                                                                        coverTab === "image" ? "bg-white border border-zinc-200 shadow-sm text-zinc-900" : "text-zinc-600"
-                                                                    )}
-                                                                    onClick={() => setCoverTab("image")}
-                                                                >
-                                                                    Image
-                                                                </button>
-                                                            </div>
+                                                            <div className="text-sm font-semibold text-zinc-800">Cover settings</div>
                                                             <button
                                                                 type="button"
-                                                                className="h-8 rounded-md border border-zinc-200 px-2 text-xs text-zinc-600 hover:bg-zinc-50 cursor-pointer"
+                                                                className="h-7 rounded-md border border-zinc-200 px-2 text-[11px] font-medium text-zinc-600 hover:bg-red-50 hover:text-red-500 hover:border-red-200 cursor-pointer transition-colors"
                                                                 onClick={() => {
-                                                                    if (coverTab === "background") {
-                                                                        setSettings({ ...settings, coverBackgroundColor: "" });
-                                                                    } else {
-                                                                        setSettings({ ...settings, coverImageUrl: "", coverImagePath: "" });
-                                                                    }
+                                                                    setSettings({ ...settings, coverBackgroundColor: "", coverImageUrl: "", coverImagePath: "" });
                                                                     setHasUnsavedChanges(true);
                                                                 }}
                                                             >
-                                                                Clear
+                                                                Clear cover
                                                             </button>
                                                         </div>
 
-                                                        {coverTab === "background" ? (
-                                                            <div>
-                                                                <div className="flex flex-wrap gap-2 items-center">
-                                                                    <button
-                                                                        type="button"
-                                                                        className="h-8 w-8 rounded-full border border-zinc-200 bg-white text-zinc-500 hover:bg-zinc-50 flex items-center justify-center cursor-pointer"
-                                                                        onClick={() => {
-                                                                            setSettings({ ...settings, coverBackgroundColor: "" });
-                                                                            setHasUnsavedChanges(true);
-                                                                        }}
-                                                                        aria-label="Remove cover color"
-                                                                    >
-                                                                        <X className="h-3.5 w-3.5" />
-                                                                    </button>
-                                                                    {BACKGROUND_COLORS.map((c) => (
-                                                                        <button
-                                                                            key={`cover-${c.value}`}
-                                                                            type="button"
-                                                                            className={cn(
-                                                                                "h-8 w-8 rounded-full border cursor-pointer",
-                                                                                (settings.coverBackgroundColor || "#7c3aed") === c.value ? "border-zinc-900 ring-2 ring-zinc-900/10" : "border-zinc-200"
-                                                                            )}
-                                                                            style={{ backgroundColor: c.value }}
-                                                                            onClick={() => {
-                                                                                setSettings({ ...settings, coverBackgroundColor: c.value });
-                                                                                setHasUnsavedChanges(true);
-                                                                            }}
-                                                                        />
-                                                                    ))}
-                                                                    <Popover
-                                                                        open={coverColorPickerOpen}
-                                                                        onOpenChange={(o) => {
-                                                                            setCoverColorPickerOpen(o);
-                                                                            if (o) {
-                                                                                setCoverColorDraft(settings.coverBackgroundColor || "#7c3aed");
-                                                                                setCoverColorMode("HEX");
-                                                                            }
-                                                                        }}
-                                                                    >
-                                                                        <PopoverTrigger asChild>
-                                                                            <button
-                                                                                type="button"
-                                                                                className="h-8 w-8 rounded-full border border-zinc-200 bg-white hover:bg-zinc-50 cursor-pointer flex items-center justify-center text-zinc-600"
-                                                                                aria-label="Custom cover color"
-                                                                            >
-                                                                                <Plus className="h-4 w-4" />
-                                                                            </button>
-                                                                        </PopoverTrigger>
-                                                                        <PopoverContent align="end" sideOffset={8} className="w-[320px] p-3">
-                                                                            <ThemeColorPicker
-                                                                                color={isValidHex(coverColorDraft) ? coverColorDraft : "#7c3aed"}
-                                                                                mode={coverColorMode}
-                                                                                onModeChange={setCoverColorMode}
-                                                                                onColorChange={(hex) => setCoverColorDraft(normalizeHex(hex))}
-                                                                                onSave={() => {
-                                                                                    if (!isValidHex(coverColorDraft)) return;
-                                                                                    setSettings({ ...settings, coverBackgroundColor: coverColorDraft });
-                                                                                    setHasUnsavedChanges(true);
-                                                                                    setCoverColorPickerOpen(false);
-                                                                                }}
-                                                                            />
-                                                                        </PopoverContent>
-                                                                    </Popover>
-                                                                </div>
-                                                            </div>
-                                                        ) : (
-                                                            <div className="space-y-3">
-                                                                <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-2">
-                                                                    {settings.coverImageUrl ? (
-                                                                        <div className="relative h-36 overflow-hidden rounded-md">
-                                                                            <Image src={settings.coverImageUrl} alt="Cover preview" fill className="object-cover" />
-                                                                            <button
-                                                                                type="button"
-                                                                                className="absolute right-2 top-2 h-7 w-7 rounded-full bg-black/60 text-white hover:bg-black/75 flex items-center justify-center cursor-pointer"
-                                                                                onClick={() => {
-                                                                                    setSettings({ ...settings, coverImageUrl: "", coverImagePath: "" });
-                                                                                    setHasUnsavedChanges(true);
-                                                                                }}
-                                                                            >
-                                                                                <X className="h-4 w-4" />
-                                                                            </button>
-                                                                        </div>
-                                                                    ) : (
-                                                                        <div className="h-36 rounded-md border border-dashed border-zinc-300 flex items-center justify-center text-xs text-zinc-500">
-                                                                            No cover image
-                                                                        </div>
+                                                        <div className="space-y-3">
+                                                            <div className="flex flex-wrap gap-2 items-center">
+                                                                <button
+                                                                    type="button"
+                                                                    className={cn(
+                                                                        "h-8 w-8 rounded-lg border border-zinc-200 bg-white relative overflow-hidden cursor-pointer flex items-center justify-center transition-all",
+                                                                        !settings.coverBackgroundColor && !settings.coverImageUrl ? "border-zinc-900 ring-2 ring-zinc-900/10" : "hover:scale-105"
                                                                     )}
-                                                                </div>
-                                                                <MediaUpload
-                                                                    bucket="media"
-                                                                    pathPrefix={`forms/${viewId || "draft"}/cover`}
-                                                                    maxFiles={1}
-                                                                    maxSizeMB={10}
-                                                                    initialMedia={
-                                                                        settings.coverImageUrl && settings.coverImagePath
-                                                                            ? [{
-                                                                                id: settings.coverImagePath,
-                                                                                name: settings.coverImagePath.split("/").pop() || "cover",
-                                                                                url: settings.coverImageUrl,
-                                                                                path: settings.coverImagePath,
-                                                                                size: 0,
-                                                                                type: "image/*",
-                                                                            } satisfies MediaFile]
-                                                                            : []
-                                                                    }
-                                                                    onChange={(media) => {
-                                                                        const first = media[0];
-                                                                        setSettings({
-                                                                            ...settings,
-                                                                            coverImageUrl: first?.url || "",
-                                                                            coverImagePath: first?.path || "",
-                                                                        });
+                                                                    onClick={() => {
+                                                                        setSettings({ ...settings, coverBackgroundColor: "", coverImageUrl: "", coverImagePath: "" });
                                                                         setHasUnsavedChanges(true);
                                                                     }}
-                                                                />
+                                                                    aria-label="Remove cover"
+                                                                >
+                                                                    <div className="absolute inset-0 flex items-center justify-center">
+                                                                        <div className="w-[1px] h-full bg-red-400 rotate-45" />
+                                                                    </div>
+                                                                </button>
+                                                                {BACKGROUND_COLORS.map((c) => (
+                                                                    <button
+                                                                        key={`cover-${c.value}`}
+                                                                        type="button"
+                                                                        className={cn(
+                                                                            "h-8 w-8 rounded-lg border cursor-pointer transition-all",
+                                                                            settings.coverBackgroundColor === c.value && !settings.coverImageUrl ? "border-zinc-900 ring-2 ring-zinc-900/10" : "border-zinc-200 hover:scale-105"
+                                                                        )}
+                                                                        style={{ background: c.value }}
+                                                                        onClick={() => {
+                                                                            setSettings({ ...settings, coverBackgroundColor: c.value, coverImageUrl: "", coverImagePath: "" });
+                                                                            setHasUnsavedChanges(true);
+                                                                        }}
+                                                                        aria-label={c.label}
+                                                                    />
+                                                                ))}
+
+                                                                <Popover
+                                                                    open={coverColorPickerOpen}
+                                                                    onOpenChange={(o) => {
+                                                                        setCoverColorPickerOpen(o);
+                                                                        if (o) {
+                                                                            setCoverColorDraft(settings.coverBackgroundColor || "#7c3aed");
+                                                                            setCoverColorMode("HEX");
+                                                                        }
+                                                                    }}
+                                                                >
+                                                                    <PopoverTrigger asChild>
+                                                                        <button
+                                                                            type="button"
+                                                                            className="h-8 w-8 rounded-lg border border-zinc-200 bg-zinc-50 hover:bg-zinc-100 cursor-pointer flex items-center justify-center text-zinc-600 transition-all active:scale-95"
+                                                                            aria-label="Custom cover color"
+                                                                        >
+                                                                            <Pencil className="h-4 w-4" />
+                                                                        </button>
+                                                                    </PopoverTrigger>
+                                                                    <PopoverContent align="start" sideOffset={12} className="w-[260px] p-4 rounded-2xl border border-zinc-200 shadow-2xl animate-in zoom-in-95 duration-200">
+                                                                        <ThemeColorPicker
+                                                                            color={isValidHex(coverColorDraft) ? coverColorDraft : "#7c3aed"}
+                                                                            mode={coverColorMode}
+                                                                            onModeChange={setCoverColorMode}
+                                                                            onColorChange={(hex) => setCoverColorDraft(normalizeHex(hex))}
+                                                                            onSave={() => {
+                                                                                if (!isValidHex(coverColorDraft)) return;
+                                                                                setSettings({ ...settings, coverBackgroundColor: coverColorDraft, coverImageUrl: "", coverImagePath: "" });
+                                                                                setHasUnsavedChanges(true);
+                                                                                setCoverColorPickerOpen(false);
+                                                                            }}
+                                                                        />
+                                                                    </PopoverContent>
+                                                                </Popover>
+
+                                                                <Popover>
+                                                                    <PopoverTrigger asChild>
+                                                                        <button
+                                                                            type="button"
+                                                                            className={cn(
+                                                                                "h-8 w-8 rounded-lg border border-zinc-200 bg-zinc-50 hover:bg-zinc-100 cursor-pointer flex items-center justify-center text-zinc-600 transition-all active:scale-95",
+                                                                                settings.coverImageUrl && "border-zinc-900 ring-2 ring-zinc-900/10 bg-white"
+                                                                            )}
+                                                                        >
+                                                                            <ImageIcon className="h-4 w-4" />
+                                                                        </button>
+                                                                    </PopoverTrigger>
+                                                                    <PopoverContent align="start" sideOffset={16} className="w-[340px] p-4 rounded-2xl border border-zinc-200 shadow-2xl animate-in zoom-in-95 duration-200 z-[100]">
+                                                                        <div className="space-y-3">
+                                                                            <div className="text-xs font-semibold text-zinc-800">
+                                                                                {settings.coverImageUrl ? "Current cover" : "Upload cover image"}
+                                                                            </div>
+                                                                            {settings.coverImageUrl ? (
+                                                                                <div className="relative group aspect-[2.5/1] w-full rounded-xl overflow-hidden border border-zinc-200 shadow-sm animate-in fade-in zoom-in-95 duration-200">
+                                                                                    <Image
+                                                                                        src={settings.coverImageUrl}
+                                                                                        alt="Cover preview"
+                                                                                        fill
+                                                                                        className="object-cover"
+                                                                                    />
+                                                                                    <button
+                                                                                        type="button"
+                                                                                        className="absolute top-2 right-2 h-5 w-5 rounded-full bg-black/60 text-white hover:bg-black/80 flex items-center justify-center cursor-pointer transition-all active:scale-90"
+                                                                                        onClick={() => {
+                                                                                            setSettings({ ...settings, coverImageUrl: "", coverImagePath: "" });
+                                                                                            setHasUnsavedChanges(true);
+                                                                                        }}
+                                                                                    >
+                                                                                        <X className="h-3 w-3" />
+                                                                                    </button>
+                                                                                </div>
+                                                                            ) : (
+                                                                                <MediaUpload
+                                                                                    bucket="media"
+                                                                                    pathPrefix={`forms/${viewId || "draft"}/cover`}
+                                                                                    maxFiles={1}
+                                                                                    initialMedia={
+                                                                                        settings.coverImageUrl && settings.coverImagePath
+                                                                                            ? [{
+                                                                                                id: settings.coverImagePath,
+                                                                                                name: "cover",
+                                                                                                url: settings.coverImageUrl,
+                                                                                                path: settings.coverImagePath,
+                                                                                                size: 0,
+                                                                                                type: "image/*"
+                                                                                            }]
+                                                                                            : []
+                                                                                    }
+                                                                                    onChange={(media) => {
+                                                                                        const first = media[0];
+                                                                                        setSettings({
+                                                                                            ...settings,
+                                                                                            coverImageUrl: first?.url || "",
+                                                                                            coverImagePath: first?.path || "",
+                                                                                            coverBackgroundColor: first ? "" : settings.coverBackgroundColor
+                                                                                        });
+                                                                                        setHasUnsavedChanges(true);
+                                                                                    }}
+                                                                                />
+                                                                            )}
+                                                                            {!settings.coverImageUrl && (
+                                                                                <p className="text-[10px] text-zinc-400 text-center">
+                                                                                    Recommended size: 1200x400px (3:1 aspect ratio)
+                                                                                </p>
+                                                                            )}
+                                                                        </div>
+                                                                    </PopoverContent>
+                                                                </Popover>
                                                             </div>
-                                                        )}
+                                                        </div>
                                                     </div>
                                                 </PopoverContent>
                                             </Popover>
@@ -2770,14 +2976,14 @@ export default function FormView({
                                                 </div>
                                             ) : null}
                                             <input
-                                                className="text-3xl font-bold text-center w-full border-none focus:ring-0 p-0 text-zinc-900 placeholder:text-zinc-300 bg-transparent selection:bg-indigo-100 mb-2"
+                                                className="text-3xl font-bold text-center w-full border-0 border-b border-transparent focus:border-violet-500 px-4 py-2 transition-all text-zinc-900 placeholder:text-zinc-300 bg-transparent mb-2 outline-none"
                                                 placeholder="Form Title"
                                                 value={title}
                                                 onChange={(e) => { setTitle(e.target.value); setHasUnsavedChanges(true); }}
                                                 disabled={previewMode}
                                             />
                                             <input
-                                                className="text-center w-full border-none focus:ring-0 p-0 text-zinc-600 placeholder:text-zinc-300 bg-transparent text-base"
+                                                className="text-base text-center w-full border-0 border-b border-transparent focus:border-violet-500 px-4 py-1 transition-all text-zinc-500 placeholder:text-zinc-300 bg-transparent outline-none"
                                                 placeholder="Add a description..."
                                                 value={description}
                                                 onChange={(e) => { setDescription(e.target.value); setHasUnsavedChanges(true); }}
@@ -2812,7 +3018,13 @@ export default function FormView({
                                                                     onDelete={deleteField}
                                                                     onUpdate={updateField}
                                                                     onDuplicate={duplicateField}
-                                                                    allFields={fields}
+                                                                    onOpenAdvancedSettings={(fieldId) => {
+                                                                        setSelectedAdvancedFieldId(fieldId);
+                                                                        setCustomFieldsManagerOpen(true);
+                                                                    }}
+                                                                    resolvedWorkspaceId={resolvedWorkspaceId}
+                                                                    spaceId={spaceId}
+                                                                    projectId={projectId}
                                                                 />
                                                                 {fieldIndex < fields.length - 1 ? (
                                                                     <FieldInsertGap
@@ -2837,18 +3049,18 @@ export default function FormView({
                                                             </div>
                                                         )}
 
-                                                        <div className="pt-0">
+                                                        <div className="mt-8">
                                                             <Button
                                                                 type="button"
                                                                 variant="outline"
-                                                                className="h-11 w-full cursor-pointer rounded-xl border-zinc-200 bg-white text-zinc-800 hover:bg-zinc-50"
+                                                                className="h-10 w-full cursor-pointer rounded-xl border-dashed border-zinc-300 bg-white text-[13px] text-zinc-500 hover:text-zinc-800 hover:border-zinc-400 hover:bg-zinc-50/50 transition-all shadow-none"
                                                                 onClick={(e) =>
                                                                     settings.fieldCreationMode === "modal"
                                                                         ? openFieldPickerAtIndex(fields.length, e.currentTarget)
                                                                         : focusLeftSidebarForAdd(fields.length)
                                                                 }
                                                             >
-                                                                <Plus className="mr-2 h-4 w-4" />
+                                                                <Plus className="mr-2 h-3.5 w-3.5" />
                                                                 Add field
                                                             </Button>
                                                         </div>
@@ -2857,7 +3069,7 @@ export default function FormView({
                                             </DndContext>
                                         ) : (
                                             <div className="space-y-3">
-                                                {fields.map((field) => (
+                                                {visibleFields.map((field) => (
                                                     <div key={field.id} className="bg-white p-5 rounded-lg border border-zinc-200">
                                                         <Label className="text-sm font-semibold text-zinc-900 mb-1 block">
                                                             {field.label}
@@ -2893,19 +3105,19 @@ export default function FormView({
                                                     </div>
                                                 </div>
                                             )}
-                                        <div className="flex justify-end">
-                                            <Button
-                                                className="px-8"
-                                                style={{ backgroundColor: settings.buttonColor }}
-                                                disabled={!previewMode || submittingResponse}
-                                                onClick={() => {
-                                                    void handleSubmitResponse();
-                                                }}
-                                            >
-                                                {submittingResponse && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                                {settings.submitButtonText}
-                                            </Button>
-                                        </div>
+                                            <div className="flex justify-end">
+                                                <Button
+                                                    className="px-8"
+                                                    style={{ backgroundColor: settings.buttonColor }}
+                                                    disabled={!previewMode || submittingResponse}
+                                                    onClick={() => {
+                                                        void handleSubmitResponse();
+                                                    }}
+                                                >
+                                                    {submittingResponse && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                                    {settings.submitButtonText}
+                                                </Button>
+                                            </div>
                                             {previewMode && settings.redirectUrl?.trim() && (
                                                 <p className="text-[11px] text-zinc-500 text-right">
                                                     Redirect after submit to <span className="font-medium text-zinc-700">{settings.redirectUrl}</span>
@@ -3102,471 +3314,481 @@ export default function FormView({
                         </div>
 
                         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-                        <div className="p-4 space-y-4 pb-8">
-                            {/* Submission settings */}
-                            <button
-                                type="button"
-                                className="w-full flex items-center justify-between py-2.5 text-sm text-zinc-800 hover:bg-zinc-50 rounded-md px-2 cursor-pointer"
-                                onClick={() => setCustomizeSubmissionOpen((v) => !v)}
-                            >
-                                <span className="font-medium">Submission settings</span>
-                                <ChevronDown className={cn("h-4 w-4 text-zinc-400 transition-transform", customizeSubmissionOpen && "rotate-180")} />
-                            </button>
-                            {customizeSubmissionOpen && (
-                                <div className="px-2 pb-2">
-                                    <div className="space-y-4">
-                                        <div className="flex items-center justify-between gap-4">
-                                            <div className="text-xs font-medium text-zinc-700">Redirect URL</div>
-                                            <Input
-                                                value={settings.redirectUrl || ""}
-                                                onChange={(e) => {
-                                                    setSettings({ ...settings, redirectUrl: e.target.value });
-                                                    setHasUnsavedChanges(true);
-                                                }}
-                                                placeholder="https://"
-                                                className="h-9 w-56 text-xs rounded-xl"
-                                            />
-                                        </div>
-
-                                        <div className="flex items-center justify-between gap-4">
-                                            <div className="text-xs font-medium text-zinc-700">Button label</div>
-                                            <Input
-                                                value={settings.submitButtonText}
-                                                onChange={(e) => {
-                                                    setSettings({ ...settings, submitButtonText: e.target.value });
-                                                    setHasUnsavedChanges(true);
-                                                }}
-                                                placeholder="Submit"
-                                                className="h-9 w-56 text-xs rounded-xl"
-                                            />
-                                        </div>
-
-                                        <div className="space-y-4 pt-2">
-                                            {/* Progress Bar */}
-                                            <div className="flex items-center justify-between">
-                                                <div>
-                                                    <Label className="text-sm text-zinc-700 font-medium">Show Progress Bar</Label>
-                                                    <p className="text-xs text-zinc-500 mt-0.5">Display completion progress</p>
-                                                </div>
-                                                <Switch
-                                                    checked={settings.showProgressBar}
-                                                    onCheckedChange={(checked) => {
-                                                        setSettings({ ...settings, showProgressBar: checked });
+                            <div className="p-4 space-y-4 pb-8">
+                                {/* Submission settings */}
+                                <button
+                                    type="button"
+                                    className="w-full flex items-center justify-between py-2.5 text-sm text-zinc-800 hover:bg-zinc-50 rounded-md px-2 cursor-pointer"
+                                    onClick={() => setCustomizeSubmissionOpen((v) => !v)}
+                                >
+                                    <span className="font-medium">Submission settings</span>
+                                    <ChevronDown className={cn("h-4 w-4 text-zinc-400 transition-transform", customizeSubmissionOpen && "rotate-180")} />
+                                </button>
+                                {customizeSubmissionOpen && (
+                                    <div className="px-2 pb-2">
+                                        <div className="space-y-4">
+                                            <div className="flex items-center justify-between gap-4">
+                                                <div className="text-xs font-medium text-zinc-700">Redirect URL</div>
+                                                <Input
+                                                    value={settings.redirectUrl || ""}
+                                                    onChange={(e) => {
+                                                        setSettings({ ...settings, redirectUrl: e.target.value });
                                                         setHasUnsavedChanges(true);
                                                     }}
+                                                    placeholder="https://"
+                                                    className="h-9 w-56 text-xs rounded-xl"
                                                 />
                                             </div>
 
-                                            {/* Multiple Submissions */}
-                                            <div className="flex items-center justify-between">
-                                                <div>
-                                                    <Label className="text-sm text-zinc-700 font-medium">Multiple Submissions</Label>
-                                                    <p className="text-xs text-zinc-500 mt-0.5">Allow users to submit multiple times</p>
-                                                </div>
-                                                <Switch
-                                                    checked={settings.allowMultipleSubmissions}
-                                                    onCheckedChange={(checked) => {
-                                                        setSettings({ ...settings, allowMultipleSubmissions: checked });
+                                            <div className="flex items-center justify-between gap-4">
+                                                <div className="text-xs font-medium text-zinc-700">Button label</div>
+                                                <Input
+                                                    value={settings.submitButtonText}
+                                                    onChange={(e) => {
+                                                        setSettings({ ...settings, submitButtonText: e.target.value });
                                                         setHasUnsavedChanges(true);
                                                     }}
+                                                    placeholder="Submit"
+                                                    className="h-9 w-56 text-xs rounded-xl"
                                                 />
                                             </div>
 
-                                            {/* Require Auth */}
-                                            <div className="flex items-center justify-between">
-                                                <div>
-                                                    <Label className="text-sm text-zinc-700 font-medium">Require Sign In</Label>
-                                                    <p className="text-xs text-zinc-500 mt-0.5">Only authenticated users can submit</p>
+                                            <div className="space-y-4 pt-2">
+                                                {/* Progress Bar */}
+                                                <div className="flex items-center justify-between">
+                                                    <div>
+                                                        <Label className="text-sm text-zinc-700 font-medium">Show Progress Bar</Label>
+                                                        <p className="text-xs text-zinc-500 mt-0.5">Display completion progress</p>
+                                                    </div>
+                                                    <Switch
+                                                        checked={settings.showProgressBar}
+                                                        onCheckedChange={(checked) => {
+                                                            setSettings({ ...settings, showProgressBar: checked });
+                                                            setHasUnsavedChanges(true);
+                                                        }}
+                                                    />
                                                 </div>
-                                                <Switch
-                                                    checked={settings.requireAuth}
-                                                    onCheckedChange={(checked) => {
-                                                        setSettings({ ...settings, requireAuth: checked });
-                                                        setHasUnsavedChanges(true);
-                                                    }}
-                                                />
-                                            </div>
 
-                                            {/* CAPTCHA */}
-                                            <div className="flex items-center justify-between">
-                                                <div>
-                                                    <Label className="text-sm text-zinc-700 font-medium">Show CAPTCHA</Label>
-                                                    <p className="text-xs text-zinc-500 mt-0.5">Add human verification before submit</p>
+                                                {/* Multiple Submissions */}
+                                                <div className="flex items-center justify-between">
+                                                    <div>
+                                                        <Label className="text-sm text-zinc-700 font-medium">Multiple Submissions</Label>
+                                                        <p className="text-xs text-zinc-500 mt-0.5">Allow users to submit multiple times</p>
+                                                    </div>
+                                                    <Switch
+                                                        checked={settings.allowMultipleSubmissions}
+                                                        onCheckedChange={(checked) => {
+                                                            setSettings({ ...settings, allowMultipleSubmissions: checked });
+                                                            setHasUnsavedChanges(true);
+                                                        }}
+                                                    />
                                                 </div>
-                                                <Switch
-                                                    checked={settings.showCaptcha}
-                                                    onCheckedChange={(checked) => {
-                                                        setSettings({ ...settings, showCaptcha: checked });
-                                                        setHasUnsavedChanges(true);
-                                                    }}
-                                                />
+
+                                                {/* Require Auth */}
+                                                <div className="flex items-center justify-between">
+                                                    <div>
+                                                        <Label className="text-sm text-zinc-700 font-medium">Require Sign In</Label>
+                                                        <p className="text-xs text-zinc-500 mt-0.5">Only authenticated users can submit</p>
+                                                    </div>
+                                                    <Switch
+                                                        checked={settings.requireAuth}
+                                                        onCheckedChange={(checked) => {
+                                                            setSettings({ ...settings, requireAuth: checked });
+                                                            setHasUnsavedChanges(true);
+                                                        }}
+                                                    />
+                                                </div>
+
+                                                {/* CAPTCHA */}
+                                                <div className="flex items-center justify-between">
+                                                    <div>
+                                                        <Label className="text-sm text-zinc-700 font-medium">Show CAPTCHA</Label>
+                                                        <p className="text-xs text-zinc-500 mt-0.5">Add human verification before submit</p>
+                                                    </div>
+                                                    <Switch
+                                                        checked={settings.showCaptcha}
+                                                        onCheckedChange={(checked) => {
+                                                            setSettings({ ...settings, showCaptcha: checked });
+                                                            setHasUnsavedChanges(true);
+                                                        }}
+                                                    />
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
-                                </div>
-                            )}
+                                )}
 
-                            {/* Layout */}
-                            <button
-                                type="button"
-                                className="w-full flex items-center justify-between py-2.5 text-sm text-zinc-800 hover:bg-zinc-50 rounded-md px-2 cursor-pointer"
-                                onClick={() => setCustomizeLayoutOpen((v) => !v)}
-                            >
-                                <span className="font-medium">Layout</span>
-                                <ChevronDown className={cn("h-4 w-4 text-zinc-400 transition-transform", customizeLayoutOpen && "rotate-180")} />
-                            </button>
-                            {customizeLayoutOpen && (
-                                <div className="px-2 pb-2">
-                                    <div className="grid grid-cols-2 gap-3">
-                                        <button
-                                            type="button"
-                                            className={cn(
-                                                "rounded-xl border p-3 text-left hover:bg-zinc-50 cursor-pointer transition-all",
-                                                settings.layoutMode === "one"
-                                                    ? "border-zinc-900 ring-2 ring-zinc-900/10 bg-white"
-                                                    : "border-zinc-200 bg-white"
-                                            )}
-                                            onClick={() => { setSettings({ ...settings, layoutMode: "one" }); setHasUnsavedChanges(true); }}
-                                        >
-                                            <div className="h-16 rounded-md bg-zinc-100/80 border border-zinc-200 mb-2 flex items-center justify-center">
-                                                <div className="w-[88%] space-y-1.5">
-                                                    <div className="h-5 rounded-md border border-zinc-300 bg-white/70 flex items-center justify-center px-1.5 gap-1.5">
-                                                        <div className="h-1.5 w-1.5 rounded-full bg-zinc-300" />
-                                                        <div className="h-1.5 w-6 rounded bg-zinc-300" />
-                                                    </div>
-                                                    <div className="h-4.5 rounded-md border border-zinc-300 bg-white/70 flex items-center justify-center px-1.5 gap-1.5">
-                                                        <div className="h-1 w-4 rounded-full bg-zinc-300/90" />
-                                                        <div className="h-1 w-7 rounded-full bg-zinc-300/90" />
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            <div className="text-xs font-medium text-zinc-800 leading-none">One column</div>
-                                        </button>
-                                        <button
-                                            type="button"
-                                            className={cn(
-                                                "rounded-xl border p-3 text-left hover:bg-zinc-50 cursor-pointer transition-all",
-                                                settings.layoutMode === "two"
-                                                    ? "border-zinc-900 ring-2 ring-zinc-900/10 bg-white"
-                                                    : "border-zinc-200 bg-white"
-                                            )}
-                                            onClick={() => { setSettings({ ...settings, layoutMode: "two" }); setHasUnsavedChanges(true); }}
-                                        >
-                                            <div className="h-16 rounded-md bg-zinc-100/80 border border-zinc-200 mb-2 flex items-center justify-center">
-                                                <div className="w-[88%] space-y-1.5">
-                                                    <div className="h-5 rounded-md border border-zinc-300 bg-white/70 flex items-center justify-center px-1.5 gap-1.5">
-                                                        <div className="h-1.5 w-1.5 rounded-full bg-zinc-300" />
-                                                        <div className="h-1.5 w-6 rounded bg-zinc-300" />
-                                                    </div>
-                                                    <div className="grid grid-cols-2 gap-1.5">
-                                                        <div className="h-4.5 rounded-md border border-zinc-300 bg-white/70 flex items-center justify-center px-1.5 gap-1.5">
-                                                            <div className="h-1 w-4 rounded-full bg-zinc-300/90" />
-                                                        </div>
-                                                        <div className="h-4.5 rounded-md border border-zinc-300 bg-white/70 flex items-center justify-center px-1.5 gap-1.5">
-                                                            <div className="h-1 w-4 rounded-full bg-zinc-300/90" />
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            <div className="text-xs font-medium text-zinc-800 leading-none">Two column</div>
-                                        </button>
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* Colors */}
-                            <button
-                                type="button"
-                                className="w-full flex items-center justify-between py-2.5 text-sm text-zinc-800 hover:bg-zinc-50 rounded-md px-2 cursor-pointer"
-                                onClick={() => setCustomizeColorsOpen((v) => !v)}
-                            >
-                                <span className="font-medium">Colors</span>
-                                <ChevronDown className={cn("h-4 w-4 text-zinc-400 transition-transform", customizeColorsOpen && "rotate-180")} />
-                            </button>
-                            {customizeColorsOpen && (
-                                <div className="px-2 pb-2 space-y-4">
-                                    <div>
-                                        <div className="text-xs font-medium text-zinc-600 mb-2">Theme</div>
-                                        <div className="inline-flex w-full rounded-xl bg-zinc-100 p-1 border border-zinc-200">
+                                {/* Layout */}
+                                <button
+                                    type="button"
+                                    className="w-full flex items-center justify-between py-2.5 text-sm text-zinc-800 hover:bg-zinc-50 rounded-md px-2 cursor-pointer"
+                                    onClick={() => setCustomizeLayoutOpen((v) => !v)}
+                                >
+                                    <span className="font-medium">Layout</span>
+                                    <ChevronDown className={cn("h-4 w-4 text-zinc-400 transition-transform", customizeLayoutOpen && "rotate-180")} />
+                                </button>
+                                {customizeLayoutOpen && (
+                                    <div className="px-2 pb-2">
+                                        <div className="grid grid-cols-2 gap-3">
                                             <button
                                                 type="button"
                                                 className={cn(
-                                                    "flex-1 h-8 rounded-lg text-xs font-semibold cursor-pointer transition-colors inline-flex items-center justify-center gap-1.5",
-                                                    settings.theme === "light" ? "bg-white shadow-sm border border-zinc-200 text-zinc-900" : "text-zinc-600 hover:bg-white/60"
+                                                    "rounded-xl border p-3 text-left hover:bg-zinc-50 cursor-pointer transition-all",
+                                                    settings.layoutMode === "one"
+                                                        ? "border-violet-500 ring-4 ring-violet-500/10 bg-violet-50/30"
+                                                        : "border-zinc-200 bg-white"
                                                 )}
-                                                onClick={() => { setSettings({ ...settings, theme: "light" }); setHasUnsavedChanges(true); }}
+                                                onClick={() => { setSettings({ ...settings, layoutMode: "one" }); setHasUnsavedChanges(true); }}
                                             >
-                                                <Sun className="h-3.5 w-3.5" />
-                                                Light
+                                                <div className="h-16 rounded-md bg-zinc-100/80 border border-zinc-200 mb-2 flex items-center justify-center">
+                                                    <div className="w-[88%] space-y-1.5">
+                                                        <div className="h-5 rounded-md border border-zinc-300 bg-white/70 flex items-center justify-center px-1.5 gap-1.5">
+                                                            <div className="h-1.5 w-1.5 rounded-full bg-zinc-300" />
+                                                            <div className="h-1.5 w-6 rounded bg-zinc-300" />
+                                                        </div>
+                                                        <div className="h-4.5 rounded-md border border-zinc-300 bg-white/70 flex items-center justify-center px-1.5 gap-1.5">
+                                                            <div className="h-1 w-4 rounded-full bg-zinc-300/90" />
+                                                            <div className="h-1 w-7 rounded-full bg-zinc-300/90" />
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div className="text-xs font-medium text-zinc-800 leading-none">One column</div>
                                             </button>
                                             <button
                                                 type="button"
                                                 className={cn(
-                                                    "flex-1 h-8 rounded-lg text-xs font-semibold cursor-pointer transition-colors inline-flex items-center justify-center gap-1.5",
-                                                    settings.theme === "dark" ? "bg-white shadow-sm border border-zinc-200 text-zinc-900" : "text-zinc-600 hover:bg-white/60"
+                                                    "rounded-xl border p-3 text-left hover:bg-zinc-50 cursor-pointer transition-all",
+                                                    settings.layoutMode === "two"
+                                                        ? "border-violet-500 ring-4 ring-violet-500/10 bg-violet-50/30"
+                                                        : "border-zinc-200 bg-white"
                                                 )}
-                                                onClick={() => { setSettings({ ...settings, theme: "dark" }); setHasUnsavedChanges(true); }}
+                                                onClick={() => { setSettings({ ...settings, layoutMode: "two" }); setHasUnsavedChanges(true); }}
                                             >
-                                                <Moon className="h-3.5 w-3.5" />
-                                                Dark
+                                                <div className="h-16 rounded-md bg-zinc-100/80 border border-zinc-200 mb-2 flex items-center justify-center">
+                                                    <div className="w-[88%] space-y-1.5">
+                                                        <div className="h-5 rounded-md border border-zinc-300 bg-white/70 flex items-center justify-center px-1.5 gap-1.5">
+                                                            <div className="h-1.5 w-1.5 rounded-full bg-zinc-300" />
+                                                            <div className="h-1.5 w-6 rounded bg-zinc-300" />
+                                                        </div>
+                                                        <div className="grid grid-cols-2 gap-1.5">
+                                                            <div className="h-4.5 rounded-md border border-zinc-300 bg-white/70 flex items-center justify-center px-1.5 gap-1.5">
+                                                                <div className="h-1 w-4 rounded-full bg-zinc-300/90" />
+                                                            </div>
+                                                            <div className="h-4.5 rounded-md border border-zinc-300 bg-white/70 flex items-center justify-center px-1.5 gap-1.5">
+                                                                <div className="h-1 w-4 rounded-full bg-zinc-300/90" />
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div className="text-xs font-medium text-zinc-800 leading-none">Two column</div>
                                             </button>
                                         </div>
                                     </div>
+                                )}
 
-                                    <div>
-                                        <div className="text-xs font-medium text-zinc-600 mb-2">Background</div>
-                                        <div className="flex flex-wrap gap-2 items-center">
-                                            <button
-                                                type="button"
-                                                className="h-8 w-8 rounded-lg border border-zinc-200 bg-white hover:bg-zinc-50 cursor-pointer flex items-center justify-center text-zinc-600"
-                                                onClick={() => { setSettings({ ...settings, backgroundColor: "" }); setHasUnsavedChanges(true); }}
-                                                aria-label="Remove background color"
-                                            >
-                                                <X className="h-4 w-4" />
-                                            </button>
-                                            {BACKGROUND_COLORS.map((c) => (
-                                                <button
-                                                    key={c.value}
-                                                    type="button"
-                                                    className={cn(
-                                                        "h-8 w-8 rounded-lg border cursor-pointer",
-                                                        settings.backgroundColor === c.value ? "border-zinc-900 ring-2 ring-zinc-900/10" : "border-zinc-200"
-                                                    )}
-                                                    style={{ backgroundColor: c.value }}
-                                                    onClick={() => { setSettings({ ...settings, backgroundColor: c.value }); setHasUnsavedChanges(true); }}
-                                                    aria-label={c.label}
-                                                />
-                                            ))}
-                                            <Popover open={customBgPickerOpen} onOpenChange={(o) => { setCustomBgPickerOpen(o); setCustomBgDraft(settings.backgroundColor); setCustomBgMode("HEX"); }}>
-                                                <PopoverTrigger asChild>
-                                                    <button
-                                                        type="button"
-                                                        className="h-8 w-8 rounded-lg border border-zinc-200 bg-white hover:bg-zinc-50 cursor-pointer flex items-center justify-center text-zinc-600"
-                                                        aria-label="Custom background color"
-                                                    >
-                                                        <Plus className="h-4 w-4" />
-                                                    </button>
-                                                </PopoverTrigger>
-                                                <PopoverContent align="end" sideOffset={8} className="w-[320px] p-3">
-                                                    <ThemeColorPicker
-                                                        color={isValidHex(customBgDraft) ? customBgDraft : "#ffffff"}
-                                                        mode={customBgMode}
-                                                        onModeChange={setCustomBgMode}
-                                                        onColorChange={(hex) => setCustomBgDraft(normalizeHex(hex))}
-                                                        onSave={() => {
-                                                            if (!isValidHex(customBgDraft)) return;
-                                                            setSettings({ ...settings, backgroundColor: customBgDraft });
-                                                            setHasUnsavedChanges(true);
-                                                            setCustomBgPickerOpen(false);
-                                                        }}
-                                                    />
-                                                </PopoverContent>
-                                            </Popover>
-                                        </div>
-                                    </div>
-
-                                    <div>
-                                        <div className="text-xs font-medium text-zinc-600 mb-2">Buttons color</div>
-                                        <div className="flex flex-wrap gap-2 items-center">
-                                            <button
-                                                type="button"
-                                                className="h-8 w-8 rounded-full border border-zinc-200 bg-white hover:bg-zinc-50 cursor-pointer flex items-center justify-center text-zinc-600"
-                                                onClick={() => { setSettings({ ...settings, buttonColor: "" }); setHasUnsavedChanges(true); }}
-                                                aria-label="Remove button color"
-                                            >
-                                                <X className="h-4 w-4" />
-                                            </button>
-                                            {BUTTON_COLORS.map((c) => (
-                                                <button
-                                                    key={c.value}
-                                                    type="button"
-                                                    className={cn(
-                                                        "h-8 w-8 rounded-full border cursor-pointer",
-                                                        settings.buttonColor === c.value ? "border-zinc-900 ring-2 ring-zinc-900/10" : "border-zinc-200"
-                                                    )}
-                                                    style={{ backgroundColor: c.value }}
-                                                    onClick={() => { setSettings({ ...settings, buttonColor: c.value }); setHasUnsavedChanges(true); }}
-                                                    aria-label={c.label}
-                                                />
-                                            ))}
-                                            <Popover open={customBtnPickerOpen} onOpenChange={(o) => { setCustomBtnPickerOpen(o); setCustomBtnDraft(settings.buttonColor); setCustomBtnMode("HEX"); }}>
-                                                <PopoverTrigger asChild>
-                                                    <button
-                                                        type="button"
-                                                        className="h-8 w-8 rounded-full border border-zinc-200 bg-white hover:bg-zinc-50 cursor-pointer flex items-center justify-center text-zinc-600"
-                                                        aria-label="Custom button color"
-                                                    >
-                                                        <Plus className="h-4 w-4" />
-                                                    </button>
-                                                </PopoverTrigger>
-                                                <PopoverContent align="end" sideOffset={8} className="w-[320px] p-3">
-                                                    <ThemeColorPicker
-                                                        color={isValidHex(customBtnDraft) ? customBtnDraft : "#18181b"}
-                                                        mode={customBtnMode}
-                                                        onModeChange={setCustomBtnMode}
-                                                        onColorChange={(hex) => setCustomBtnDraft(normalizeHex(hex))}
-                                                        onSave={() => {
-                                                            if (!isValidHex(customBtnDraft)) return;
-                                                            setSettings({ ...settings, buttonColor: customBtnDraft });
-                                                            setHasUnsavedChanges(true);
-                                                            setCustomBtnPickerOpen(false);
-                                                        }}
-                                                    />
-                                                </PopoverContent>
-                                            </Popover>
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* Branding */}
-                            <button
-                                type="button"
-                                className="w-full flex items-center justify-between py-2.5 text-sm text-zinc-800 hover:bg-zinc-50 rounded-md px-2 cursor-pointer"
-                                onClick={() => setCustomizeBrandingOpen((v) => !v)}
-                            >
-                                <span className="font-medium">Branding</span>
-                                <ChevronDown className={cn("h-4 w-4 text-zinc-400 transition-transform", customizeBrandingOpen && "rotate-180")} />
-                            </button>
-                            {customizeBrandingOpen && (
-                                <div className="px-2 pb-2 space-y-4">
-                                    <div className="flex items-center justify-between">
+                                {/* Colors */}
+                                <button
+                                    type="button"
+                                    className="w-full flex items-center justify-between py-2.5 text-sm text-zinc-800 hover:bg-zinc-50 rounded-md px-2 cursor-pointer"
+                                    onClick={() => setCustomizeColorsOpen((v) => !v)}
+                                >
+                                    <span className="font-medium">Colors</span>
+                                    <ChevronDown className={cn("h-4 w-4 text-zinc-400 transition-transform", customizeColorsOpen && "rotate-180")} />
+                                </button>
+                                {customizeColorsOpen && (
+                                    <div className="px-2 pb-2 space-y-4">
                                         <div>
-                                            <Label className="text-sm text-zinc-700 font-medium">Hide Agentflox branding</Label>
-                                            <p className="text-xs text-zinc-500 mt-0.5">Remove the “Powered by agentflox” mark</p>
+                                            <div className="text-xs font-medium text-zinc-600 mb-2">Theme</div>
+                                            <div className="inline-flex w-full rounded-xl bg-zinc-100 p-1 border border-zinc-200">
+                                                <button
+                                                    type="button"
+                                                    className={cn(
+                                                        "flex-1 h-8 rounded-lg text-xs font-semibold cursor-pointer transition-colors inline-flex items-center justify-center gap-1.5",
+                                                        settings.theme === "light" ? "bg-white shadow-sm border border-zinc-200 text-zinc-900" : "text-zinc-600 hover:bg-white/60"
+                                                    )}
+                                                    onClick={() => { setSettings({ ...settings, theme: "light" }); setHasUnsavedChanges(true); }}
+                                                >
+                                                    <Sun className="h-3.5 w-3.5" />
+                                                    Light
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    className={cn(
+                                                        "flex-1 h-8 rounded-lg text-xs font-semibold cursor-pointer transition-colors inline-flex items-center justify-center gap-1.5",
+                                                        settings.theme === "dark" ? "bg-white shadow-sm border border-zinc-200 text-zinc-900" : "text-zinc-600 hover:bg-white/60"
+                                                    )}
+                                                    onClick={() => { setSettings({ ...settings, theme: "dark" }); setHasUnsavedChanges(true); }}
+                                                >
+                                                    <Moon className="h-3.5 w-3.5" />
+                                                    Dark
+                                                </button>
+                                            </div>
                                         </div>
-                                        <Switch
-                                            checked={settings.hideBranding}
-                                            onCheckedChange={(checked) => {
-                                                setSettings({ ...settings, hideBranding: checked });
-                                                setHasUnsavedChanges(true);
-                                            }}
-                                        />
-                                    </div>
 
-                                    {!settings.hideBranding && (
-                                        <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-3">
-                                            <div className="text-xs text-zinc-500 mb-2">Preview</div>
-                                            <div className="flex items-center justify-between">
-                                                <div className="flex items-center gap-2">
-                                                    <span className="relative inline-block h-6 w-6">
-                                                        <Image
-                                                            src="/images/logo.png"
-                                                            alt="Agentflox logo"
-                                                            fill
-                                                            className="object-contain"
+                                        <div>
+                                            <div className="text-xs font-medium text-zinc-600 mb-2">Background</div>
+                                            <div className="flex flex-wrap gap-2 items-center">
+                                                <button
+                                                    type="button"
+                                                    className={cn(
+                                                        "h-8 w-8 rounded-lg border border-zinc-200 bg-white relative overflow-hidden cursor-pointer flex items-center justify-center transition-all",
+                                                        !settings.backgroundColor ? "border-zinc-900 ring-2 ring-zinc-900/10" : "hover:scale-105"
+                                                    )}
+                                                    onClick={() => { setSettings({ ...settings, backgroundColor: "" }); setHasUnsavedChanges(true); }}
+                                                    aria-label="Remove background color"
+                                                >
+                                                    <div className="absolute inset-0 flex items-center justify-center">
+                                                        <div className="w-[1px] h-full bg-red-400 rotate-45" />
+                                                    </div>
+                                                </button>
+                                                {BACKGROUND_COLORS.map((c) => (
+                                                    <button
+                                                        key={c.value}
+                                                        type="button"
+                                                        className={cn(
+                                                            "h-8 w-8 rounded-lg border cursor-pointer",
+                                                            settings.backgroundColor === c.value ? "border-zinc-900 ring-2 ring-zinc-900/10" : "border-zinc-200"
+                                                        )}
+                                                        style={{ backgroundColor: c.value }}
+                                                        onClick={() => { setSettings({ ...settings, backgroundColor: c.value }); setHasUnsavedChanges(true); }}
+                                                        aria-label={c.label}
+                                                    />
+                                                ))}
+                                                <Popover open={customBgPickerOpen} onOpenChange={(o) => { setCustomBgPickerOpen(o); setCustomBgDraft(settings.backgroundColor); setCustomBgMode("HEX"); }}>
+                                                    <PopoverTrigger asChild>
+                                                        <button
+                                                            type="button"
+                                                            className="h-8 w-8 rounded-lg border border-zinc-200 bg-white hover:bg-zinc-50 cursor-pointer flex items-center justify-center text-zinc-600"
+                                                            aria-label="Custom background color"
+                                                        >
+                                                            <Pencil className="h-4 w-4" />
+                                                        </button>
+                                                    </PopoverTrigger>
+                                                    <PopoverContent align="end" sideOffset={8} className="w-[260px] p-4 rounded-2xl border border-zinc-200 shadow-2xl animate-in zoom-in-95 duration-200">
+                                                        <ThemeColorPicker
+                                                            color={isValidHex(customBgDraft) ? customBgDraft : "#ffffff"}
+                                                            mode={customBgMode}
+                                                            onModeChange={setCustomBgMode}
+                                                            onColorChange={(hex) => setCustomBgDraft(normalizeHex(hex))}
+                                                            onSave={() => {
+                                                                if (!isValidHex(customBgDraft)) return;
+                                                                setSettings({ ...settings, backgroundColor: customBgDraft });
+                                                                setHasUnsavedChanges(true);
+                                                                setCustomBgPickerOpen(false);
+                                                            }}
                                                         />
-                                                    </span>
-                                                    <span className="text-xs font-semibold tracking-tight text-zinc-900">agentflox</span>
-                                                </div>
-                                                <span className="text-[11px] text-zinc-500">Powered forms</span>
+                                                    </PopoverContent>
+                                                </Popover>
                                             </div>
                                         </div>
-                                    )}
 
-                                    {settings.hideBranding && (
-                                        <div className="rounded-xl border border-zinc-200 bg-white p-3">
-                                            <div className="text-sm font-medium text-zinc-800 mb-1">Your brand logo</div>
-                                            <div className="text-xs text-zinc-500 mb-3">Upload a logo to show at the top of your form.</div>
-                                            <LogoUpload
-                                                bucket="logos"
-                                                currentLogoUrl={settings.brandLogoUrl}
-                                                currentLogoPath={settings.brandLogoPath}
-                                                onUploadSuccess={(url, path) => {
-                                                    setSettings({ ...settings, brandLogoUrl: url || undefined, brandLogoPath: path || undefined });
+                                        <div>
+                                            <div className="text-xs font-medium text-zinc-600 mb-2">Buttons color</div>
+                                            <div className="flex flex-wrap gap-2 items-center">
+                                                <button
+                                                    type="button"
+                                                    className={cn(
+                                                        "h-8 w-8 rounded-full border border-zinc-200 bg-white relative overflow-hidden cursor-pointer flex items-center justify-center transition-all",
+                                                        !settings.buttonColor ? "border-zinc-900 ring-2 ring-zinc-900/10" : "hover:scale-105"
+                                                    )}
+                                                    onClick={() => { setSettings({ ...settings, buttonColor: "" }); setHasUnsavedChanges(true); }}
+                                                    aria-label="Remove button color"
+                                                >
+                                                    <div className="absolute inset-0 flex items-center justify-center">
+                                                        <div className="w-[1px] h-full bg-red-400 rotate-45" />
+                                                    </div>
+                                                </button>
+                                                {BUTTON_COLORS.map((c) => (
+                                                    <button
+                                                        key={c.value}
+                                                        type="button"
+                                                        className={cn(
+                                                            "h-8 w-8 rounded-full border cursor-pointer",
+                                                            settings.buttonColor === c.value ? "border-zinc-900 ring-2 ring-zinc-900/10" : "border-zinc-200"
+                                                        )}
+                                                        style={{ backgroundColor: c.value }}
+                                                        onClick={() => { setSettings({ ...settings, buttonColor: c.value }); setHasUnsavedChanges(true); }}
+                                                        aria-label={c.label}
+                                                    />
+                                                ))}
+                                                <Popover open={customBtnPickerOpen} onOpenChange={(o) => { setCustomBtnPickerOpen(o); setCustomBtnDraft(settings.buttonColor); setCustomBtnMode("HEX"); }}>
+                                                    <PopoverTrigger asChild>
+                                                        <button
+                                                            type="button"
+                                                            className="h-8 w-8 rounded-full border border-zinc-200 bg-white hover:bg-zinc-50 cursor-pointer flex items-center justify-center text-zinc-600"
+                                                            aria-label="Custom button color"
+                                                        >
+                                                            <Plus className="h-4 w-4" />
+                                                        </button>
+                                                    </PopoverTrigger>
+                                                    <PopoverContent align="end" sideOffset={8} className="w-[260px] p-4 rounded-2xl border border-zinc-200 shadow-2xl animate-in zoom-in-95 duration-200">
+                                                        <ThemeColorPicker
+                                                            color={isValidHex(customBtnDraft) ? customBtnDraft : "#18181b"}
+                                                            mode={customBtnMode}
+                                                            onModeChange={setCustomBtnMode}
+                                                            onColorChange={(hex) => setCustomBtnDraft(normalizeHex(hex))}
+                                                            onSave={() => {
+                                                                if (!isValidHex(customBtnDraft)) return;
+                                                                setSettings({ ...settings, buttonColor: customBtnDraft });
+                                                                setHasUnsavedChanges(true);
+                                                                setCustomBtnPickerOpen(false);
+                                                            }}
+                                                        />
+                                                    </PopoverContent>
+                                                </Popover>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Branding */}
+                                <button
+                                    type="button"
+                                    className="w-full flex items-center justify-between py-2.5 text-sm text-zinc-800 hover:bg-zinc-50 rounded-md px-2 cursor-pointer"
+                                    onClick={() => setCustomizeBrandingOpen((v) => !v)}
+                                >
+                                    <span className="font-medium">Branding</span>
+                                    <ChevronDown className={cn("h-4 w-4 text-zinc-400 transition-transform", customizeBrandingOpen && "rotate-180")} />
+                                </button>
+                                {customizeBrandingOpen && (
+                                    <div className="px-2 pb-2 space-y-4">
+                                        <div className="flex items-center justify-between">
+                                            <div>
+                                                <Label className="text-sm text-zinc-700 font-medium">Hide Agentflox branding</Label>
+                                                <p className="text-xs text-zinc-500 mt-0.5">Remove the “Powered by agentflox” mark</p>
+                                            </div>
+                                            <Switch
+                                                checked={settings.hideBranding}
+                                                onCheckedChange={(checked) => {
+                                                    setSettings({ ...settings, hideBranding: checked });
                                                     setHasUnsavedChanges(true);
                                                 }}
                                             />
                                         </div>
-                                    )}
-                                </div>
-                            )}
 
-                            {/* View settings */}
-                            <button
-                                type="button"
-                                className="w-full flex items-center justify-between py-2.5 text-sm text-zinc-800 hover:bg-zinc-50 rounded-md px-2 cursor-pointer"
-                                onClick={() => setCustomizeViewSettingsOpen((v) => !v)}
-                            >
-                                <span className="font-medium">View settings</span>
-                                <ChevronDown className={cn("h-4 w-4 text-zinc-400 transition-transform", customizeViewSettingsOpen && "rotate-180")} />
-                            </button>
-                            {customizeViewSettingsOpen && (
-                                <div className="px-2 pb-2 space-y-4">
-                                    <div className="flex items-center justify-between gap-3">
-                                        <div>
-                                            <div className="text-xs font-medium text-zinc-700">Default landing page</div>
-                                            <div className="text-[11px] text-zinc-500 mt-0.5">Which mode opens first</div>
+                                        {!settings.hideBranding && (
+                                            <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-3">
+                                                <div className="text-xs text-zinc-500 mb-2">Preview</div>
+                                                <div className="flex items-center justify-between">
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="relative inline-block h-6 w-6">
+                                                            <Image
+                                                                src="/images/logo.png"
+                                                                alt="Agentflox logo"
+                                                                fill
+                                                                className="object-contain"
+                                                            />
+                                                        </span>
+                                                        <span className="text-xs font-semibold tracking-tight text-zinc-900">agentflox</span>
+                                                    </div>
+                                                    <span className="text-[11px] text-zinc-500">Powered forms</span>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {settings.hideBranding && (
+                                            <div className="rounded-xl border border-zinc-200 bg-white p-3">
+                                                <div className="text-sm font-medium text-zinc-800 mb-1">Your brand logo</div>
+                                                <div className="text-xs text-zinc-500 mb-3">Upload a logo to show at the top of your form.</div>
+                                                <LogoUpload
+                                                    bucket="logos"
+                                                    currentLogoUrl={settings.brandLogoUrl}
+                                                    currentLogoPath={settings.brandLogoPath}
+                                                    onUploadSuccess={(url, path) => {
+                                                        setSettings({ ...settings, brandLogoUrl: url || undefined, brandLogoPath: path || undefined });
+                                                        setHasUnsavedChanges(true);
+                                                    }}
+                                                />
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+
+                                {/* View settings */}
+                                <button
+                                    type="button"
+                                    className="w-full flex items-center justify-between py-2.5 text-sm text-zinc-800 hover:bg-zinc-50 rounded-md px-2 cursor-pointer"
+                                    onClick={() => setCustomizeViewSettingsOpen((v) => !v)}
+                                >
+                                    <span className="font-medium">View settings</span>
+                                    <ChevronDown className={cn("h-4 w-4 text-zinc-400 transition-transform", customizeViewSettingsOpen && "rotate-180")} />
+                                </button>
+                                {customizeViewSettingsOpen && (
+                                    <div className="px-2 pb-2 space-y-4">
+                                        <div className="flex items-center justify-between gap-3">
+                                            <div>
+                                                <div className="text-xs font-medium text-zinc-700">Default landing page</div>
+                                                <div className="text-[11px] text-zinc-500 mt-0.5">Which mode opens first</div>
+                                            </div>
+                                            <div className="inline-flex rounded-xl bg-zinc-100 p-1 border border-zinc-200">
+                                                <button
+                                                    type="button"
+                                                    className={cn(
+                                                        "h-8 px-3 rounded-lg text-xs font-semibold cursor-pointer transition-colors",
+                                                        settings.defaultLandingPage === "preview" ? "bg-white shadow-sm border border-zinc-200 text-zinc-900" : "text-zinc-600 hover:bg-white/60"
+                                                    )}
+                                                    onClick={() => {
+                                                        setSettings({ ...settings, defaultLandingPage: "preview" });
+                                                        setPreviewMode(true);
+                                                        setHasUnsavedChanges(true);
+                                                    }}
+                                                >
+                                                    Preview
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    className={cn(
+                                                        "h-8 px-3 rounded-lg text-xs font-semibold cursor-pointer transition-colors",
+                                                        settings.defaultLandingPage === "build" ? "bg-white shadow-sm border border-zinc-200 text-zinc-900" : "text-zinc-600 hover:bg-white/60"
+                                                    )}
+                                                    onClick={() => {
+                                                        setSettings({ ...settings, defaultLandingPage: "build" });
+                                                        setPreviewMode(false);
+                                                        setHasUnsavedChanges(true);
+                                                    }}
+                                                >
+                                                    Build
+                                                </button>
+                                            </div>
                                         </div>
-                                        <div className="inline-flex rounded-xl bg-zinc-100 p-1 border border-zinc-200">
-                                            <button
-                                                type="button"
-                                                className={cn(
-                                                    "h-8 px-3 rounded-lg text-xs font-semibold cursor-pointer transition-colors",
-                                                    settings.defaultLandingPage === "preview" ? "bg-white shadow-sm border border-zinc-200 text-zinc-900" : "text-zinc-600 hover:bg-white/60"
-                                                )}
-                                                onClick={() => {
-                                                    setSettings({ ...settings, defaultLandingPage: "preview" });
-                                                    setPreviewMode(true);
-                                                    setHasUnsavedChanges(true);
-                                                }}
-                                            >
-                                                Preview
-                                            </button>
-                                            <button
-                                                type="button"
-                                                className={cn(
-                                                    "h-8 px-3 rounded-lg text-xs font-semibold cursor-pointer transition-colors",
-                                                    settings.defaultLandingPage === "build" ? "bg-white shadow-sm border border-zinc-200 text-zinc-900" : "text-zinc-600 hover:bg-white/60"
-                                                )}
-                                                onClick={() => {
-                                                    setSettings({ ...settings, defaultLandingPage: "build" });
-                                                    setPreviewMode(false);
-                                                    setHasUnsavedChanges(true);
-                                                }}
-                                            >
-                                                Build
-                                            </button>
+
+                                        <div className="flex items-center justify-between gap-3">
+                                            <div>
+                                                <div className="text-xs font-medium text-zinc-700">Field creation mode</div>
+                                                <div className="text-[11px] text-zinc-500 mt-0.5">Choose how fields are added</div>
+                                            </div>
+                                            <div className="inline-flex rounded-xl bg-zinc-100 p-1 border border-zinc-200">
+                                                <button
+                                                    type="button"
+                                                    className={cn(
+                                                        "h-8 px-3 rounded-lg text-xs font-semibold cursor-pointer transition-colors",
+                                                        settings.fieldCreationMode === "sidebar" ? "bg-white shadow-sm border border-zinc-200 text-zinc-900" : "text-zinc-600 hover:bg-white/60"
+                                                    )}
+                                                    onClick={() => {
+                                                        setSettings({ ...settings, fieldCreationMode: "sidebar" });
+                                                        setHasUnsavedChanges(true);
+                                                    }}
+                                                >
+                                                    Sidebar
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    className={cn(
+                                                        "h-8 px-3 rounded-lg text-xs font-semibold cursor-pointer transition-colors",
+                                                        settings.fieldCreationMode === "modal" ? "bg-white shadow-sm border border-zinc-200 text-zinc-900" : "text-zinc-600 hover:bg-white/60"
+                                                    )}
+                                                    onClick={() => {
+                                                        setSettings({ ...settings, fieldCreationMode: "modal" });
+                                                        setHasUnsavedChanges(true);
+                                                    }}
+                                                >
+                                                    Modal
+                                                </button>
+                                            </div>
                                         </div>
                                     </div>
-
-                                    <div className="flex items-center justify-between gap-3">
-                                        <div>
-                                            <div className="text-xs font-medium text-zinc-700">Field creation mode</div>
-                                            <div className="text-[11px] text-zinc-500 mt-0.5">Choose how fields are added</div>
-                                        </div>
-                                        <div className="inline-flex rounded-xl bg-zinc-100 p-1 border border-zinc-200">
-                                            <button
-                                                type="button"
-                                                className={cn(
-                                                    "h-8 px-3 rounded-lg text-xs font-semibold cursor-pointer transition-colors",
-                                                    settings.fieldCreationMode === "sidebar" ? "bg-white shadow-sm border border-zinc-200 text-zinc-900" : "text-zinc-600 hover:bg-white/60"
-                                                )}
-                                                onClick={() => {
-                                                    setSettings({ ...settings, fieldCreationMode: "sidebar" });
-                                                    setHasUnsavedChanges(true);
-                                                }}
-                                            >
-                                                Sidebar
-                                            </button>
-                                            <button
-                                                type="button"
-                                                className={cn(
-                                                    "h-8 px-3 rounded-lg text-xs font-semibold cursor-pointer transition-colors",
-                                                    settings.fieldCreationMode === "modal" ? "bg-white shadow-sm border border-zinc-200 text-zinc-900" : "text-zinc-600 hover:bg-white/60"
-                                                )}
-                                                onClick={() => {
-                                                    setSettings({ ...settings, fieldCreationMode: "modal" });
-                                                    setHasUnsavedChanges(true);
-                                                }}
-                                            >
-                                                Modal
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
+                                )}
+                            </div>
                         </div>
                     </div>
                 )}
@@ -3597,8 +3819,13 @@ export default function FormView({
                         }}
                     />
                 </PopoverAnchor>
-                <PopoverContent side="right" align="start" sideOffset={8} collisionPadding={16} className="w-[360px] p-0 gap-0 overflow-hidden rounded-2xl">
-                    <div className="px-4 pt-4 text-[22px] leading-none font-semibold tracking-tight">Create field</div>
+                <PopoverContent side="right" align="start" sideOffset={8} collisionPadding={16} className="w-[320px] p-0 gap-0 overflow-hidden rounded-2xl">
+                    <div className="px-4 pt-4 flex items-center gap-2">
+                        <div>
+                            <div className="text-[16px] leading-tight font-bold tracking-tight text-zinc-900">Create field</div>
+                            <div className="text-[11px] text-zinc-400 mt-0.5">{FIELD_TYPES_MAP.find(t => t.type === customFieldPendingType)?.label}</div>
+                        </div>
+                    </div>
                     <div className="px-4 pb-4 pt-3 space-y-4 max-h-[64vh] overflow-y-auto">
                         <div className="space-y-1.5">
                             <Label className="text-[13px] font-semibold text-zinc-700">
@@ -3815,28 +4042,38 @@ export default function FormView({
                             </div>
                         )}
                     </div>
-                    <div className="px-4 py-3 border-t border-zinc-200 flex justify-end gap-2 bg-zinc-50">
+                    <div className="px-4 py-3 border-t border-zinc-100 bg-zinc-50 flex justify-end gap-2">
                         <Button
                             variant="outline"
                             onClick={() => {
                                 setCustomFieldDialogOpen(false);
                                 setCustomFieldAnchorPos(null);
                             }}
-                            className="h-8 px-4 text-[14px] font-medium rounded-xl"
+                            className="h-8 px-3 text-[12px] font-semibold rounded-md border-zinc-300 text-zinc-700 hover:text-zinc-900 cursor-pointer"
                         >
                             Cancel
                         </Button>
                         <Button
                             onClick={() => void handleCreateCustomField()}
                             disabled={createCustomFieldMutation.isPending || !customFieldName.trim() || (['select', 'multiselect', 'radio', 'checkbox', 'voting'].includes(customFieldPendingType) && customFieldOptions.filter((o) => o.label.trim()).length === 0)}
-                            className="h-8 px-4 text-[14px] font-medium rounded-xl bg-zinc-900 hover:bg-zinc-800"
+                            className="h-8 px-4 text-[12px] font-semibold rounded-md bg-zinc-900 text-white hover:bg-zinc-800 shadow-sm cursor-pointer"
                         >
                             {createCustomFieldMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
-                            Create
+                            Create Field
                         </Button>
                     </div>
                 </PopoverContent>
             </Popover>
+
+            <CustomFieldsManagerModal
+                open={customFieldsManagerOpen}
+                onOpenChange={(v) => {
+                    setCustomFieldsManagerOpen(v);
+                    if (!v) setSelectedAdvancedFieldId(undefined);
+                }}
+                workspaceId={resolvedWorkspaceId || ""}
+                initialFieldId={selectedAdvancedFieldId}
+            />
 
             {/* Field picker popover (for modal creation mode) */}
             <Popover
@@ -3867,76 +4104,117 @@ export default function FormView({
                         }}
                     />
                 </PopoverAnchor>
-                <PopoverContent side="right" align="start" sideOffset={8} collisionPadding={16} className="w-[420px] p-0 gap-0 overflow-hidden">
-                    <div className="p-3 border-b border-zinc-200 bg-white">
-                        <div className="relative">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
+                <PopoverContent
+                    side="right"
+                    align="start"
+                    sideOffset={8}
+                    collisionPadding={16}
+                    className="w-[320px] p-0 font-sans shadow-xl rounded-2xl overflow-hidden animate-in zoom-in-95 duration-200 z-50"
+                >
+                    {/* Search bar */}
+                    <div className="p-3 border-b border-zinc-100 bg-zinc-50/50">
+                        <div className="flex h-9 items-center rounded-md border border-zinc-200 bg-white px-3 shadow-sm">
+                            <Search className="h-4 w-4 shrink-0 text-zinc-400" />
                             <Input
+                                variant="ghost"
                                 value={fieldPickerSearch}
                                 onChange={(e) => setFieldPickerSearch(e.target.value)}
-                                placeholder="Search..."
-                                className="pl-9 h-9 bg-zinc-50 border-zinc-200 rounded-xl"
+                                placeholder="Search field types..."
+                                className="h-full bg-transparent pl-2 pr-0 focus:outline-none focus:ring-0 focus-visible:ring-0"
+                                autoFocus
                             />
                         </div>
                     </div>
-                    <div className="max-h-[420px] overflow-y-auto">
-                        <div className="p-2">
-                            <div className="mb-3">
-                                <p className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider px-2 py-1.5">
+
+                    <div className="max-h-[420px] overflow-y-auto p-1.5 scrollbar-thin" onWheel={(e) => e.stopPropagation()}>
+                        {/* Task properties section */}
+                        {filteredPickerTaskPresets.length > 0 && (
+                            <>
+                                <p className="px-2 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wider text-zinc-400">
                                     Task property
                                 </p>
-                                <div className="space-y-0.5">
-                                    {filteredPickerTaskPresets.map((preset) => {
-                                        const Icon = preset.icon;
-                                        return (
-                                            <button
-                                                key={preset.key}
-                                                type="button"
-                                                onClick={() => { addTaskPreset(preset.key); setFieldPickerOpen(false); }}
-                                                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-md hover:bg-zinc-100 transition-colors text-left cursor-pointer"
-                                            >
-                                                <div className="h-8 w-8 rounded-md flex items-center justify-center bg-zinc-100">
-                                                    <Icon className="h-4 w-4 text-zinc-600" />
-                                                </div>
-                                                <span className="text-sm font-medium text-zinc-900">{preset.label}</span>
-                                                <ChevronRight className="h-4 w-4 text-zinc-300 ml-auto" />
-                                            </button>
-                                        );
-                                    })}
-                                    {filteredPickerTaskPresets.length === 0 && (
-                                        <p className="text-sm text-zinc-500 py-3 px-3">No matching task properties</p>
-                                    )}
-                                </div>
-                            </div>
+                                {filteredPickerTaskPresets.map((preset) => {
+                                    const Icon = preset.icon;
+                                    return (
+                                        <button
+                                            key={preset.key}
+                                            type="button"
+                                            onClick={() => { addTaskPreset(preset.key); setFieldPickerOpen(false); }}
+                                            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-zinc-100 transition-colors text-left cursor-pointer group"
+                                        >
+                                            <div className="h-8 w-8 rounded-lg bg-zinc-50 border border-zinc-100 flex items-center justify-center shrink-0 group-hover:bg-white group-hover:border-zinc-200 shadow-sm transition-all text-zinc-500">
+                                                <Icon className="h-4 w-4" />
+                                            </div>
+                                            <span className="text-[13px] font-medium text-zinc-700 flex-1">{preset.label}</span>
+                                        </button>
+                                    );
+                                })}
+                                <div className="my-1.5 h-px bg-zinc-100 mx-2" />
+                            </>
+                        )}
 
-                            <div>
-                                <p className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider px-2 py-1.5">
-                                    Questions type
+                        {/* Custom field types with flyout */}
+                        {filteredPickerFieldTypes.length > 0 && (
+                            <>
+                                <p className="px-2 pt-1 pb-1 text-[10px] font-semibold uppercase tracking-wider text-zinc-400">
+                                    Field type
                                 </p>
-                                <div className="space-y-0.5">
-                                    {filteredPickerFieldTypes.map((ft) => {
-                                        const Icon = ft.icon;
-                                        return (
-                                            <button
-                                                key={ft.type}
-                                                type="button"
-                                                onClick={(e) => { addField(ft.type, e.currentTarget); }}
-                                                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-md hover:bg-zinc-100 transition-colors text-left cursor-pointer"
-                                            >
-                                                <div className="h-8 w-8 rounded-md flex items-center justify-center bg-zinc-100">
-                                                    <Icon className="h-4 w-4 text-zinc-600" />
-                                                </div>
-                                                <span className="text-sm font-medium text-zinc-900">{ft.label}</span>
-                                                <ChevronRight className="h-4 w-4 text-zinc-300 ml-auto" />
-                                            </button>
-                                        );
-                                    })}
-                                    {filteredPickerFieldTypes.length === 0 && (
-                                        <p className="text-sm text-zinc-500 py-3 px-3">No matching field types</p>
-                                    )}
-                                </div>
+                                {filteredPickerFieldTypes.map((ft) => {
+                                    const matchingExisting = (customFields as any[]).filter(
+                                        (f: any) => DB_TYPE_TO_FIELD_TYPE[f.type] === ft.type
+                                    );
+                                    return (
+                                        <FormViewFieldTypeRow
+                                            key={ft.type}
+                                            type={ft.type}
+                                            icon={ft.icon}
+                                            label={ft.label}
+                                            existingFields={matchingExisting}
+                                            onCreateNew={(el) => {
+                                                if (ft.type === 'block') {
+                                                    addField('block', el);
+                                                    setFieldPickerOpen(false);
+                                                } else {
+                                                    addField(ft.type, el);
+                                                }
+                                            }}
+                                            onAddExisting={(field: any) => {
+                                                // Map an existing custom field directly
+                                                const newFormField: FormField = {
+                                                    id: `${Date.now()}-${ft.type}`,
+                                                    customFieldTitle: field.name,
+                                                    type: ft.type,
+                                                    label: field.name,
+                                                    description: field.config?.description ?? undefined,
+                                                    required: false,
+                                                    placeholder: '',
+                                                    options: field.config?.options,
+                                                    customFieldId: field.id,
+                                                    customFieldType: field.type,
+                                                    customFieldConfig: field.config,
+                                                };
+                                                setFields((prev) => {
+                                                    const raw = fieldInsertIndexRef.current;
+                                                    fieldInsertIndexRef.current = null;
+                                                    const idx = raw === null ? prev.length : Math.max(0, Math.min(raw, prev.length));
+                                                    const next = [...prev];
+                                                    next.splice(idx, 0, newFormField);
+                                                    return next;
+                                                });
+                                                setHasUnsavedChanges(true);
+                                                setFieldPickerOpen(false);
+                                            }}
+                                        />
+                                    );
+                                })}
+                            </>
+                        )}
+
+                        {filteredPickerTaskPresets.length === 0 && filteredPickerFieldTypes.length === 0 && (
+                            <div className="px-3 py-8 text-center text-zinc-400 text-[13px]">
+                                No matching field types.
                             </div>
-                        </div>
+                        )}
                     </div>
                 </PopoverContent>
             </Popover>
@@ -3957,307 +4235,307 @@ function renderPreviewField(
         customField?: any;
     }
 ) {
-        const previewMode = ctx?.previewMode ?? true;
-        const previewValue = ctx?.previewValues?.[field.id];
-        const setPreviewValue = (value: any) => ctx?.onPreviewValueChange?.(field.id, value);
-        const baseClasses = "bg-white border-zinc-200";
+    const previewMode = ctx?.previewMode ?? true;
+    const previewValue = ctx?.previewValues?.[field.id];
+    const setPreviewValue = (value: any) => ctx?.onPreviewValueChange?.(field.id, value);
+    const baseClasses = "bg-white border-zinc-200";
 
-        if (field.taskFieldKey === "assignee") {
+    if (field.taskFieldKey === "assignee") {
+        return (
+            <AssigneeSelector
+                users={ctx?.workspaceMembers || []}
+                agents={ctx?.agents || []}
+                value={Array.isArray(previewValue) ? previewValue : []}
+                onChange={(ids) => {
+                    if (!previewMode) return;
+                    setPreviewValue(ids);
+                }}
+                variant="compact"
+                hidePopover={!previewMode}
+                trigger={
+                    <div className="min-h-[36px] rounded-md border border-zinc-200 px-3 py-2 text-sm text-zinc-600 bg-white">
+                        {Array.isArray(previewValue) && previewValue.length > 0 ? `${previewValue.length} selected` : "Select assignee"}
+                    </div>
+                }
+            />
+        );
+    }
+    if (field.taskFieldKey === "status") {
+        const statuses = ctx?.listStatuses || [];
+        const selected = statuses.find((s) => s.id === previewValue);
+        if (!previewMode) {
             return (
-                <AssigneeSelector
-                    users={ctx?.workspaceMembers || []}
-                    agents={ctx?.agents || []}
-                    value={Array.isArray(previewValue) ? previewValue : []}
-                    onChange={(ids) => {
-                        if (!previewMode) return;
-                        setPreviewValue(ids);
-                    }}
-                    variant="compact"
-                    hidePopover={!previewMode}
-                    trigger={
-                        <div className="min-h-[36px] rounded-md border border-zinc-200 px-3 py-2 text-sm text-zinc-600 bg-white">
-                            {Array.isArray(previewValue) && previewValue.length > 0 ? `${previewValue.length} selected` : "Select assignee"}
-                        </div>
-                    }
-                />
+                <div className="flex items-center gap-2 rounded-md border border-zinc-200 px-3 py-2 text-sm text-zinc-700">
+                    <div className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: selected?.color || "#a1a1aa" }} />
+                    <span>{selected?.name || "Select status"}</span>
+                </div>
             );
         }
-        if (field.taskFieldKey === "status") {
-            const statuses = ctx?.listStatuses || [];
-            const selected = statuses.find((s) => s.id === previewValue);
-            if (!previewMode) {
-                return (
-                    <div className="flex items-center gap-2 rounded-md border border-zinc-200 px-3 py-2 text-sm text-zinc-700">
+        return (
+            <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                    <button type="button" className="w-full flex items-center gap-2 rounded-md border border-zinc-200 px-3 py-2 text-sm text-zinc-700 cursor-pointer">
                         <div className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: selected?.color || "#a1a1aa" }} />
                         <span>{selected?.name || "Select status"}</span>
-                    </div>
-                );
-            }
-            return (
-                <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                        <button type="button" className="w-full flex items-center gap-2 rounded-md border border-zinc-200 px-3 py-2 text-sm text-zinc-700 cursor-pointer">
-                            <div className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: selected?.color || "#a1a1aa" }} />
-                            <span>{selected?.name || "Select status"}</span>
-                        </button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="start">
-                        {statuses.length > 0 ? statuses.map((s) => (
-                            <DropdownMenuItem key={s.id} onClick={() => setPreviewValue(s.id)}>
-                                <div className="flex items-center gap-2">
-                                    <div className="h-2 w-2 rounded-full" style={{ backgroundColor: s.color || "#94A3B8" }} />
-                                    <span>{s.name}</span>
-                                </div>
-                            </DropdownMenuItem>
-                        )) : <DropdownMenuItem disabled>No statuses available</DropdownMenuItem>}
-                    </DropdownMenuContent>
-                </DropdownMenu>
-            );
-        }
-        if (field.taskFieldKey === "priority") {
-            const options = [
-                { value: "URGENT", label: "Urgent", className: "text-red-600" },
-                { value: "HIGH", label: "High", className: "text-orange-600" },
-                { value: "NORMAL", label: "Normal", className: "text-blue-600" },
-                { value: "LOW", label: "Low", className: "text-zinc-600" },
-            ];
-            const selected = options.find((o) => o.value === previewValue);
-            if (!previewMode) return <div className="rounded-md border border-zinc-200 px-3 py-2 text-sm text-zinc-700">{selected?.label || "Select priority"}</div>;
-            return (
-                <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                        <button type="button" className="w-full rounded-md border border-zinc-200 px-3 py-2 text-left text-sm text-zinc-700 cursor-pointer">
-                            {selected?.label || "Select priority"}
-                        </button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="start">
-                        {options.map((o) => (
-                            <DropdownMenuItem key={o.value} onClick={() => setPreviewValue(o.value)}>
-                                <span className={o.className}>{o.label}</span>
-                            </DropdownMenuItem>
-                        ))}
-                    </DropdownMenuContent>
-                </DropdownMenu>
-            );
-        }
-        if (field.taskFieldKey === "startDate" || field.taskFieldKey === "dueDate") {
-            const selectedDate = previewValue ? new Date(previewValue) : undefined;
-            if (!previewMode) {
-                return <Input value={selectedDate ? selectedDate.toLocaleDateString() : ""} placeholder={field.placeholder || "Select date"} readOnly className={baseClasses} />;
-            }
-            return (
-                <Popover>
-                    <PopoverTrigger asChild>
-                        <button type="button" className="w-full rounded-md border border-zinc-200 px-3 py-2 text-left text-sm text-zinc-700 cursor-pointer bg-white">
-                            {selectedDate ? selectedDate.toLocaleDateString() : (field.placeholder || "Select date")}
-                        </button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                        <SingleDateCalendar
-                            selectedDate={selectedDate}
-                            onDateChange={(d) => setPreviewValue(d ? d.toISOString() : null)}
-                            showTimeInput={false}
-                        />
-                    </PopoverContent>
-                </Popover>
-            );
-        }
-
-        switch (field.type) {
-            case 'textarea':
-                return <Textarea placeholder={field.placeholder || "Enter text..."} className={cn(baseClasses, "resize-none h-24")} />;
-
-            case 'date':
-            case 'time':
-            case 'datetime':
-                return (
-                    <div className="relative">
-                        <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
-                        <Input placeholder={field.placeholder || `Select ${field.type}`} className={cn(baseClasses, "pl-9")} />
-                    </div>
-                );
-
-            case 'email':
-                return (
-                    <div className="relative">
-                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
-                        <Input type="email" placeholder={field.placeholder || "email@example.com"} className={cn(baseClasses, "pl-9")} />
-                    </div>
-                );
-
-            case 'phone':
-                return (
-                    <div className="relative">
-                        <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
-                        <Input type="tel" placeholder={field.placeholder || "+1 (555) 000-0000"} className={cn(baseClasses, "pl-9")} />
-                    </div>
-                );
-
-            case 'url':
-                return (
-                    <div className="relative">
-                        <LinkIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
-                        <Input type="url" placeholder={field.placeholder || "https://example.com"} className={cn(baseClasses, "pl-9")} />
-                    </div>
-                );
-
-            case 'number':
-            case 'currency':
-            case 'percentage':
-                const icon = field.type === 'currency' ? DollarSign : field.type === 'percentage' ? Percent : Hash;
-                const IconComponent = icon;
-                return (
-                    <div className="relative">
-                        <IconComponent className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
-                        <Input type="number" placeholder={field.placeholder || "0"} className={cn(baseClasses, "pl-9")} />
-                    </div>
-                );
-
-            case 'select':
-                return (
-                    <div className="relative">
-                        <select className={cn(baseClasses, "w-full h-10 px-3 rounded-md border appearance-none pr-8")}>
-                            <option>{field.placeholder || "Select an option"}</option>
-                            {field.options?.map((opt, i) => <option key={i}>{opt}</option>)}
-                        </select>
-                        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
-                    </div>
-                );
-
-            case 'multiselect':
-                return (
-                    <div className={cn(baseClasses, "p-2 rounded-md border min-h-[40px]")}>
-                        <span className="text-sm text-zinc-400">{field.placeholder || "Select multiple options"}</span>
-                    </div>
-                );
-
-            case 'radio':
-                return (
-                    <div className="space-y-2">
-                        {(field.options || ['Option 1', 'Option 2']).map((opt, i) => (
-                            <label key={i} className="flex items-center gap-2 cursor-pointer hover:bg-zinc-50 p-2 rounded">
-                                <input type="radio" name={field.id} className="h-4 w-4 text-indigo-600" />
-                                <span className="text-sm text-zinc-700">{opt}</span>
-                            </label>
-                        ))}
-                    </div>
-                );
-
-            case 'checkbox':
-                return (
-                    <div className="space-y-2">
-                        {(field.options || ['Option 1', 'Option 2']).map((opt, i) => (
-                            <label key={i} className="flex items-center gap-2 cursor-pointer hover:bg-zinc-50 p-2 rounded">
-                                <input type="checkbox" className="h-4 w-4 text-indigo-600 rounded" />
-                                <span className="text-sm text-zinc-700">{opt}</span>
-                            </label>
-                        ))}
-                    </div>
-                );
-
-            case 'rating':
-                return (
-                    <div className="flex gap-1">
-                        {[1, 2, 3, 4, 5].map((i) => (
-                            <button key={i} className="hover:scale-110 transition-transform">
-                                <Star className="h-7 w-7 text-zinc-300 hover:text-yellow-400 hover:fill-yellow-400 transition-colors" />
-                            </button>
-                        ))}
-                    </div>
-                );
-
-            case 'file':
-                return (
-                    <div className={cn(baseClasses, "p-6 rounded-md border-2 border-dashed text-center hover:border-indigo-300 hover:bg-indigo-50/50 transition-all cursor-pointer")}>
-                        <Upload className="h-10 w-10 text-zinc-400 mx-auto mb-2" />
-                        <p className="text-sm text-zinc-600 font-medium">Click to upload or drag and drop</p>
-                        <p className="text-xs text-zinc-400 mt-1">PDF, PNG, JPG up to 10MB</p>
-                    </div>
-                );
-
-            case 'user':
-                return (
-                    <div className="relative">
-                        <Users className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
-                        <Input placeholder={field.placeholder || "Assign to user"} className={cn(baseClasses, "pl-9")} />
-                    </div>
-                );
-
-            case 'tags':
-                return (
-                    <div className={cn(baseClasses, "p-2 rounded-md border min-h-[40px]")}>
-                        <Input placeholder={field.placeholder || "Add tags"} className="border-none shadow-none h-7 p-0 focus-visible:ring-0" />
-                    </div>
-                );
-
-            case 'progress':
-                return (
-                    <div className="space-y-2">
-                        <input
-                            type="range"
-                            min={0}
-                            max={100}
-                            defaultValue={50}
-                            className="w-full accent-indigo-600"
-                        />
-                        <div className="flex justify-between text-xs text-zinc-500">
-                            <span>0%</span>
-                            <span>100%</span>
-                        </div>
-                    </div>
-                );
-
-            case 'voting':
-                return (
-                    <div className="space-y-2">
-                        {(field.options || ['Option A', 'Option B']).map((opt, i) => (
-                            <label
-                                key={i}
-                                className="flex items-center justify-between gap-2 rounded-md border border-zinc-200 bg-white px-3 py-2.5 cursor-pointer hover:bg-zinc-50"
-                            >
-                                <span className="text-sm text-zinc-800">{opt}</span>
-                                <input type="radio" name={`vote-${field.id}`} className="h-4 w-4 text-indigo-600" />
-                            </label>
-                        ))}
-                    </div>
-                );
-
-            case 'location':
-                return (
-                    <div className="relative">
-                        <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
-                        <Input placeholder={field.placeholder || "Address, city, or place"} className={cn(baseClasses, "pl-9")} />
-                    </div>
-                );
-
-            case 'signature':
-                return (
-                    <div
-                        className={cn(
-                            baseClasses,
-                            "h-32 rounded-md border-2 border-dashed flex flex-col items-center justify-center gap-1 cursor-crosshair hover:border-indigo-300 hover:bg-indigo-50/30 transition-colors"
-                        )}
-                    >
-                        <PenLine className="h-7 w-7 text-zinc-400" />
-                        <span className="text-xs text-zinc-500">Draw your signature</span>
-                    </div>
-                );
-
-            case 'block':
-                return (
-                    <div className="rounded-md border border-zinc-200 bg-zinc-50/90 p-4 text-left">
-                        {field.content?.trim() ? (
-                            <div
-                                className="prose prose-sm max-w-none text-zinc-800"
-                                dangerouslySetInnerHTML={{ __html: field.content }}
-                            />
-                        ) : (
-                            <p className="text-sm text-zinc-800">—</p>
-                        )}
-                    </div>
-                );
-
-            default:
-                return <Input placeholder={field.placeholder || `Enter ${field.label}...`} className={baseClasses} />;
-        }
+                    </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start">
+                    {statuses.length > 0 ? statuses.map((s) => (
+                        <DropdownMenuItem key={s.id} onClick={() => setPreviewValue(s.id)}>
+                            <div className="flex items-center gap-2">
+                                <div className="h-2 w-2 rounded-full" style={{ backgroundColor: s.color || "#94A3B8" }} />
+                                <span>{s.name}</span>
+                            </div>
+                        </DropdownMenuItem>
+                    )) : <DropdownMenuItem disabled>No statuses available</DropdownMenuItem>}
+                </DropdownMenuContent>
+            </DropdownMenu>
+        );
     }
+    if (field.taskFieldKey === "priority") {
+        const options = [
+            { value: "URGENT", label: "Urgent", className: "text-red-600" },
+            { value: "HIGH", label: "High", className: "text-orange-600" },
+            { value: "NORMAL", label: "Normal", className: "text-blue-600" },
+            { value: "LOW", label: "Low", className: "text-zinc-600" },
+        ];
+        const selected = options.find((o) => o.value === previewValue);
+        if (!previewMode) return <div className="rounded-md border border-zinc-200 px-3 py-2 text-sm text-zinc-700">{selected?.label || "Select priority"}</div>;
+        return (
+            <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                    <button type="button" className="w-full rounded-md border border-zinc-200 px-3 py-2 text-left text-sm text-zinc-700 cursor-pointer">
+                        {selected?.label || "Select priority"}
+                    </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start">
+                    {options.map((o) => (
+                        <DropdownMenuItem key={o.value} onClick={() => setPreviewValue(o.value)}>
+                            <span className={o.className}>{o.label}</span>
+                        </DropdownMenuItem>
+                    ))}
+                </DropdownMenuContent>
+            </DropdownMenu>
+        );
+    }
+    if (field.taskFieldKey === "startDate" || field.taskFieldKey === "dueDate") {
+        const selectedDate = previewValue ? new Date(previewValue) : undefined;
+        if (!previewMode) {
+            return <Input value={selectedDate ? selectedDate.toLocaleDateString() : ""} placeholder={field.placeholder || "Select date"} readOnly className={baseClasses} />;
+        }
+        return (
+            <Popover>
+                <PopoverTrigger asChild>
+                    <button type="button" className="w-full rounded-md border border-zinc-200 px-3 py-2 text-left text-sm text-zinc-700 cursor-pointer bg-white">
+                        {selectedDate ? selectedDate.toLocaleDateString() : (field.placeholder || "Select date")}
+                    </button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                    <SingleDateCalendar
+                        selectedDate={selectedDate}
+                        onDateChange={(d) => setPreviewValue(d ? d.toISOString() : null)}
+                        showTimeInput={false}
+                    />
+                </PopoverContent>
+            </Popover>
+        );
+    }
+
+    switch (field.type) {
+        case 'textarea':
+            return <Textarea placeholder={field.placeholder || "Enter text..."} className={cn(baseClasses, "resize-none h-24")} />;
+
+        case 'date':
+        case 'time':
+        case 'datetime':
+            return (
+                <div className="relative">
+                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
+                    <Input placeholder={field.placeholder || `Select ${field.type}`} className={cn(baseClasses, "pl-9")} />
+                </div>
+            );
+
+        case 'email':
+            return (
+                <div className="relative">
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
+                    <Input type="email" placeholder={field.placeholder || "email@example.com"} className={cn(baseClasses, "pl-9")} />
+                </div>
+            );
+
+        case 'phone':
+            return (
+                <div className="relative">
+                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
+                    <Input type="tel" placeholder={field.placeholder || "+1 (555) 000-0000"} className={cn(baseClasses, "pl-9")} />
+                </div>
+            );
+
+        case 'url':
+            return (
+                <div className="relative">
+                    <LinkIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
+                    <Input type="url" placeholder={field.placeholder || "https://example.com"} className={cn(baseClasses, "pl-9")} />
+                </div>
+            );
+
+        case 'number':
+        case 'currency':
+        case 'percentage':
+            const icon = field.type === 'currency' ? DollarSign : field.type === 'percentage' ? Percent : Hash;
+            const IconComponent = icon;
+            return (
+                <div className="relative">
+                    <IconComponent className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
+                    <Input type="number" placeholder={field.placeholder || "0"} className={cn(baseClasses, "pl-9")} />
+                </div>
+            );
+
+        case 'select':
+            return (
+                <div className="relative">
+                    <select className={cn(baseClasses, "w-full h-10 px-3 rounded-md border appearance-none pr-8")}>
+                        <option>{field.placeholder || "Select an option"}</option>
+                        {field.options?.map((opt, i) => <option key={i}>{opt}</option>)}
+                    </select>
+                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
+                </div>
+            );
+
+        case 'multiselect':
+            return (
+                <div className={cn(baseClasses, "p-2 rounded-md border min-h-[40px]")}>
+                    <span className="text-sm text-zinc-400">{field.placeholder || "Select multiple options"}</span>
+                </div>
+            );
+
+        case 'radio':
+            return (
+                <div className="space-y-2">
+                    {(field.options || ['Option 1', 'Option 2']).map((opt, i) => (
+                        <label key={i} className="flex items-center gap-2 cursor-pointer hover:bg-zinc-50 p-2 rounded">
+                            <input type="radio" name={field.id} className="h-4 w-4 text-indigo-600" />
+                            <span className="text-sm text-zinc-700">{opt}</span>
+                        </label>
+                    ))}
+                </div>
+            );
+
+        case 'checkbox':
+            return (
+                <div className="space-y-2">
+                    {(field.options || ['Option 1', 'Option 2']).map((opt, i) => (
+                        <label key={i} className="flex items-center gap-2 cursor-pointer hover:bg-zinc-50 p-2 rounded">
+                            <input type="checkbox" className="h-4 w-4 text-indigo-600 rounded" />
+                            <span className="text-sm text-zinc-700">{opt}</span>
+                        </label>
+                    ))}
+                </div>
+            );
+
+        case 'rating':
+            return (
+                <div className="flex gap-1">
+                    {[1, 2, 3, 4, 5].map((i) => (
+                        <button key={i} className="hover:scale-110 transition-transform">
+                            <Star className="h-7 w-7 text-zinc-300 hover:text-yellow-400 hover:fill-yellow-400 transition-colors" />
+                        </button>
+                    ))}
+                </div>
+            );
+
+        case 'file':
+            return (
+                <div className={cn(baseClasses, "p-6 rounded-md border-2 border-dashed text-center hover:border-indigo-300 hover:bg-indigo-50/50 transition-all cursor-pointer")}>
+                    <Upload className="h-10 w-10 text-zinc-400 mx-auto mb-2" />
+                    <p className="text-sm text-zinc-600 font-medium">Click to upload or drag and drop</p>
+                    <p className="text-xs text-zinc-400 mt-1">PDF, PNG, JPG up to 10MB</p>
+                </div>
+            );
+
+        case 'user':
+            return (
+                <div className="relative">
+                    <Users className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
+                    <Input placeholder={field.placeholder || "Assign to user"} className={cn(baseClasses, "pl-9")} />
+                </div>
+            );
+
+        case 'tags':
+            return (
+                <div className={cn(baseClasses, "p-2 rounded-md border min-h-[40px]")}>
+                    <Input placeholder={field.placeholder || "Add tags"} className="border-none shadow-none h-7 p-0 focus-visible:ring-0" />
+                </div>
+            );
+
+        case 'progress':
+            return (
+                <div className="space-y-2">
+                    <input
+                        type="range"
+                        min={0}
+                        max={100}
+                        defaultValue={50}
+                        className="w-full accent-indigo-600"
+                    />
+                    <div className="flex justify-between text-xs text-zinc-500">
+                        <span>0%</span>
+                        <span>100%</span>
+                    </div>
+                </div>
+            );
+
+        case 'voting':
+            return (
+                <div className="space-y-2">
+                    {(field.options || ['Option A', 'Option B']).map((opt, i) => (
+                        <label
+                            key={i}
+                            className="flex items-center justify-between gap-2 rounded-md border border-zinc-200 bg-white px-3 py-2.5 cursor-pointer hover:bg-zinc-50"
+                        >
+                            <span className="text-sm text-zinc-800">{opt}</span>
+                            <input type="radio" name={`vote-${field.id}`} className="h-4 w-4 text-indigo-600" />
+                        </label>
+                    ))}
+                </div>
+            );
+
+        case 'location':
+            return (
+                <div className="relative">
+                    <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
+                    <Input placeholder={field.placeholder || "Address, city, or place"} className={cn(baseClasses, "pl-9")} />
+                </div>
+            );
+
+        case 'signature':
+            return (
+                <div
+                    className={cn(
+                        baseClasses,
+                        "h-32 rounded-md border-2 border-dashed flex flex-col items-center justify-center gap-1 cursor-crosshair hover:border-indigo-300 hover:bg-indigo-50/30 transition-colors"
+                    )}
+                >
+                    <PenLine className="h-7 w-7 text-zinc-400" />
+                    <span className="text-xs text-zinc-500">Draw your signature</span>
+                </div>
+            );
+
+        case 'block':
+            return (
+                <div className="rounded-md border border-zinc-200 bg-zinc-50/90 p-4 text-left">
+                    {field.content?.trim() ? (
+                        <div
+                            className="prose prose-sm max-w-none text-zinc-800"
+                            dangerouslySetInnerHTML={{ __html: field.content }}
+                        />
+                    ) : (
+                        <p className="text-sm text-zinc-800">—</p>
+                    )}
+                </div>
+            );
+
+        default:
+            return <Input placeholder={field.placeholder || `Enter ${field.label}...`} className={baseClasses} />;
+    }
+}

@@ -261,11 +261,6 @@ export function MyAssetsView() {
 
   return (
     <div className="space-y-4 max-w-3xl">
-      <div>
-        <h3 className="text-lg font-semibold">My Assets</h3>
-        <p className="text-sm text-muted-foreground">Downloaded and purchased assets from the marketplace.</p>
-      </div>
-
       {/* Filter chips */}
       <div className="flex gap-2 flex-wrap">
         {(['all', 'agent', 'tool', 'template', 'workforce'] as const).map(f => (

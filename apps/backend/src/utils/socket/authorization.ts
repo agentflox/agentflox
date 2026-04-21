@@ -2,6 +2,8 @@ import { redis } from '@/lib/redis';
 import { supabaseAdmin } from '@/lib/supabase';
 import { prisma } from '@/lib/prisma';
 
+const MARKETPLACE_SUBMISSION_PREFIX = '__AF_MARKETPLACE_SUBMISSION__';
+
 /**
  * Authorization helpers for socket events
  */
@@ -9,7 +11,7 @@ import { prisma } from '@/lib/prisma';
 /**
  * Check if a user can send a message to another user
  */
-export async function canSendMessage(senderId: string, receiverId: string): Promise<boolean> {
+export async function canSendMessage(senderId: string, receiverId: string, marketplaceListingId?: string | null): Promise<boolean> {
     try {
         // Don't allow messaging yourself
         if (senderId === receiverId) return false;
@@ -18,35 +20,46 @@ export async function canSendMessage(senderId: string, receiverId: string): Prom
         const isBlocked = await redis.sismember(`blocked:${receiverId}`, senderId);
         if (isBlocked) return false;
 
-        // Check receiver's privacy settings
-        const { data: receiver } = await supabaseAdmin
-            .from('users')
-            .select('privacy_settings')
-            .eq('id', receiverId)
-            .single();
+        // 1. If they already have a conversation record together (any context), 
+        // they are authorized to keep messaging.
+        const conversation = await prisma.conversation.findFirst({
+            where: {
+                participantIds: { equals: [senderId, receiverId].sort() },
+                ...(marketplaceListingId !== undefined ? { marketplaceListingId: marketplaceListingId || null } : {}),
+            },
+            select: { id: true },
+        });
+        if (conversation) return true;
+
+        // 2. If no conversation exists yet, check if they are explicitly connected.
+        const connected = await areConnected(senderId, receiverId);
+        if (connected) return true;
+
+        // 3. Check for specific marketplace listing context if provided.
+        // If a user is messaging a listing author for the first time, allow it.
+        if (marketplaceListingId) {
+            const listing = await prisma.marketplaceListing.findUnique({
+                where: { id: marketplaceListingId },
+                select: { authorId: true },
+            });
+            if (listing?.authorId === receiverId) return true;
+        }
+
+        // 4. Fallback: check receiver's privacy settings
+        const receiver = await prisma.user.findUnique({
+            where: { id: receiverId },
+            select: { privacySettings: true },
+        });
 
         if (!receiver) return false;
 
-        const privacySettings = receiver.privacy_settings as any;
-
-        // If privacy is set to NONE, no one can message
+        const privacySettings = receiver.privacySettings as any;
         if (privacySettings?.allowMessagesFrom === 'NONE') return false;
-
-        // If privacy is set to CONNECTIONS_ONLY, check connection
-        if (privacySettings?.allowMessagesFrom === 'CONNECTIONS_ONLY') {
-            return await areConnected(senderId, receiverId);
-        }
-
-        // If privacy is set to TEAM_ONLY, check team membership
-        if (privacySettings?.allowMessagesFrom === 'TEAM_ONLY') {
-            return await areTeamMembers(senderId, receiverId);
-        }
-
-        // Default: allow messaging
-        return true;
+        
+        // If not explicitly blocked and settings are open, allow.
+        return privacySettings?.allowMessagesFrom !== 'CONNECTIONS_ONLY';
     } catch (error) {
         console.error('Error checking message authorization:', error);
-        // Fail closed: deny access on error
         return false;
     }
 }
@@ -56,14 +69,15 @@ export async function canSendMessage(senderId: string, receiverId: string): Prom
  */
 async function areConnected(userId1: string, userId2: string): Promise<boolean> {
     try {
-        // Check if they follow each other
-        const { data: connections } = await supabaseAdmin
-            .from('user_connections')
-            .select('id')
-            .or(`and(follower_id.eq.${userId1},following_id.eq.${userId2}),and(follower_id.eq.${userId2},following_id.eq.${userId1})`)
-            .limit(1);
-
-        if (connections && connections.length > 0) return true;
+        const connection = await prisma.connection.findFirst({
+            where: {
+                OR: [
+                    { requesterId: userId1, receiverId: userId2, status: 'ACCEPTED' },
+                    { requesterId: userId2, receiverId: userId1, status: 'ACCEPTED' },
+                ],
+            },
+        });
+        if (connection) return true;
 
         // Check if they're in the same team
         return await areTeamMembers(userId1, userId2);

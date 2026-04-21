@@ -1,4 +1,5 @@
 export * from "./components/WorkspaceCreationModal";
+export * from "./components/WorkspaceIcon";
 export * from "./components/WorkspaceCard";
 export * from "./components/WorkspaceFilterSidebar";
 export * from "./hooks/useWorkspaceList";

@@ -64,8 +64,13 @@ export async function sendBackendRequest(
     });
 
     return response;
-  } catch (error) {
-    console.error(`[Backend Request Failed] URL: ${url}`, error);
+  } catch (error: any) {
+    if (error.code === 'ECONNREFUSED' || error.message?.includes('fetch failed')) {
+      console.error(`🔴 [Backend Connection Failed] Could not connect to ${url}.`);
+      console.error(`👉 Ensure the backend service is running: Run 'pnpm dev' (from root) or 'pnpm dev:service'`);
+    } else {
+      console.error(`[Backend Request Failed] URL: ${url}`, error);
+    }
     throw error;
   }
 }

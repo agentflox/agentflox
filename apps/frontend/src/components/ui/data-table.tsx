@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { cn } from "@/lib/utils"
 import {
   ColumnDef,
   ColumnFiltersState,
@@ -39,7 +40,10 @@ interface DataTableProps<TData, TValue> {
   data: TData[]
   onDeleteSelected?: (rows: TData[]) => void
   onTableReady?: (table: import("@tanstack/react-table").Table<TData>) => void
+  onRowSelectionChange?: (rowSelection: Record<string, boolean>) => void
   hideToolbar?: boolean
+  hideHeader?: boolean
+  onlyHeader?: boolean
   columnVisibility?: import("@tanstack/react-table").VisibilityState
   onColumnVisibilityChange?: React.Dispatch<React.SetStateAction<import("@tanstack/react-table").VisibilityState>>
 }
@@ -49,11 +53,15 @@ export function DataTable<TData, TValue>({
   data,
   onDeleteSelected,
   onTableReady,
+  onRowSelectionChange,
   hideToolbar = false,
+  hideHeader = false,
+  onlyHeader = false,
   columnVisibility: externalColumnVisibility,
   onColumnVisibilityChange,
 }: DataTableProps<TData, TValue>) {
   const [rowSelection, setRowSelection] = React.useState({})
+
   const [internalColumnVisibility, setInternalColumnVisibility] = React.useState<VisibilityState>({})
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
   const [sorting, setSorting] = React.useState<SortingState>([])
@@ -72,7 +80,11 @@ export function DataTable<TData, TValue>({
     },
     // we use manual pagination through our own APIs usually, so just render all rows
     enableRowSelection: true,
-    onRowSelectionChange: setRowSelection,
+    onRowSelectionChange: (updater) => {
+      const next = typeof updater === "function" ? updater(rowSelection) : updater;
+      setRowSelection(next);
+      onRowSelectionChange?.(next);
+    },
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
     onColumnVisibilityChange: setColumnVisibility,
@@ -95,7 +107,7 @@ export function DataTable<TData, TValue>({
   const hasSelected = selectedRows.length > 0
 
   return (
-    <div className="space-y-4">
+    <div className="w-full max-w-full min-w-0 space-y-4">
       {/* Table Toolbar Area: Column Filter */}
       {!hideToolbar && (
         <div className="flex items-center justify-between">
@@ -135,55 +147,63 @@ export function DataTable<TData, TValue>({
         </div>
       )}
 
-      <div className="rounded-md border bg-card relative">
-        <Table>
-          <TableHeader>
-            {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow key={headerGroup.id}>
-                {headerGroup.headers.map((header) => {
-                  return (
-                    <TableHead key={header.id} colSpan={header.colSpan}>
-                      {header.isPlaceholder
-                        ? null
-                        : flexRender(
-                            header.column.columnDef.header,
-                            header.getContext()
-                          )}
-                    </TableHead>
-                  )
-                })}
-              </TableRow>
-            ))}
-          </TableHeader>
-          <TableBody>
-            {table.getRowModel().rows?.length ? (
-              table.getRowModel().rows.map((row) => (
-                <TableRow
-                  key={row.id}
-                  data-state={row.getIsSelected() && "selected"}
-                  className="hover:bg-muted/50 cursor-pointer"
-                >
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id}>
-                      {flexRender(
-                        cell.column.columnDef.cell,
-                        cell.getContext()
-                      )}
-                    </TableCell>
-                  ))}
+      <div className={cn(
+        "w-full rounded-md border bg-card relative",
+        (hideHeader || onlyHeader) && "border-0 shadow-none bg-transparent",
+        onlyHeader && "mb-0 pb-0"
+      )}>
+        <Table containerClassName="toolbar-scroll-x">
+          {(!hideHeader || onlyHeader) && (
+            <TableHeader>
+              {table.getHeaderGroups().map((headerGroup) => (
+                <TableRow key={headerGroup.id} className={cn(onlyHeader && "hover:bg-transparent border-none")}>
+                  {headerGroup.headers.map((header) => {
+                    return (
+                      <TableHead key={header.id} colSpan={header.colSpan} className={(header.column.columnDef.meta as any)?.className}>
+                        {header.isPlaceholder
+                          ? null
+                          : flexRender(
+                              header.column.columnDef.header,
+                              header.getContext()
+                            )}
+                      </TableHead>
+                    )
+                  })}
                 </TableRow>
-              ))
-            ) : (
-              <TableRow>
-                <TableCell
-                  colSpan={columns.length}
-                  className="h-24 text-center text-muted-foreground"
-                >
-                  No results.
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
+              ))}
+            </TableHeader>
+          )}
+          {!onlyHeader && (
+            <TableBody>
+              {table.getRowModel().rows?.length ? (
+                table.getRowModel().rows.map((row) => (
+                  <TableRow
+                    key={row.id}
+                    data-state={row.getIsSelected() && "selected"}
+                    className={cn("hover:bg-muted/50 cursor-pointer", hideHeader && "border-none")}
+                  >
+                    {row.getVisibleCells().map((cell) => (
+                      <TableCell key={cell.id} className={(cell.column.columnDef.meta as any)?.className}>
+                        {flexRender(
+                          cell.column.columnDef.cell,
+                          cell.getContext()
+                        )}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell
+                    colSpan={columns.length}
+                    className="h-24 text-center text-muted-foreground"
+                  >
+                    No results.
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          )}
         </Table>
 
         {/* Floating Bulk Action Banner — fixed bottom center */}

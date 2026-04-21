@@ -451,6 +451,17 @@ export function TaskActionsDropdown({
                 entityId={task?.id}
                 initialTitle={task?.title}
                 initialDescription={task?.description}
+                entityContext={{
+                    description: task?.description,
+                    status: task?.status?.label ?? task?.statusId,
+                    metadata: [
+                        ...(task?.priority  ? [{ label: "Priority",  value: task.priority }]            : []),
+                        ...(task?.dueDate   ? [{ label: "Due",       value: new Date(task.dueDate).toLocaleDateString() }] : []),
+                        ...(task?.assignees?.length ? [{ label: "Assignees", value: task.assignees.length }] : []),
+                        ...(task?.subtasks?.length  ? [{ label: "Subtasks",  value: task.subtasks.length }]  : []),
+                    ],
+                    capabilities: task?.tags?.map((t: any) => t.label ?? t.name ?? t) ?? [],
+                }}
             />
         </DropdownMenu >
     );

@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Separator } from "@/components/ui/separator";
 import { Moon, Sun, Monitor, Globe, MessageSquare, Bot } from "lucide-react";
 import { useTheme } from "next-themes";
+import { PageHeader } from "@/entities/shared/components/PageHeader";
 
 export default function SettingsView() {
     const {
@@ -21,13 +22,11 @@ export default function SettingsView() {
     const { theme, setTheme } = useTheme();
 
     return (
-        <div className="mx-auto max-w-2xl space-y-8 p-6">
-            <div>
-                <h1 className="text-2xl font-bold tracking-tight text-zinc-900">{t("settings.title")}</h1>
-                <p className="text-sm text-zinc-500">{t("settings.subtitle")}</p>
-            </div>
-
-            <Separator />
+        <div className="space-y-8 max-w-4xl">
+            <PageHeader 
+                title={t("settings.title")} 
+                description={t("settings.subtitle")} 
+            />
 
             <div className="space-y-6">
                 <div className="flex items-center justify-between">
@@ -40,7 +39,7 @@ export default function SettingsView() {
                             variant={theme === 'light' ? 'secondary' : 'ghost'}
                             size="sm"
                             onClick={() => setTheme('light')}
-                            className="h-8 w-8 px-0"
+                            className="h-8 w-8 px-0 cursor-pointer"
                         >
                             <Sun size={16} />
                             <span className="sr-only">{t("settings.theme.light")}</span>
@@ -49,7 +48,7 @@ export default function SettingsView() {
                             variant={theme === 'dark' ? 'secondary' : 'ghost'}
                             size="sm"
                             onClick={() => setTheme('dark')}
-                            className="h-8 w-8 px-0"
+                            className="h-8 w-8 px-0 cursor-pointer"
                         >
                             <Moon size={16} />
                             <span className="sr-only">{t("settings.theme.dark")}</span>
@@ -58,7 +57,7 @@ export default function SettingsView() {
                             variant={theme === 'system' ? 'secondary' : 'ghost'}
                             size="sm"
                             onClick={() => setTheme('system')}
-                            className="h-8 w-8 px-0"
+                            className="h-8 w-8 px-0 cursor-pointer"
                         >
                             <Monitor size={16} />
                             <span className="sr-only">{t("settings.theme.system")}</span>
@@ -74,16 +73,16 @@ export default function SettingsView() {
                         <p className="text-sm text-zinc-500">{t("settings.language.desc")}</p>
                     </div>
                     <Select value={language} onValueChange={setLanguage}>
-                        <SelectTrigger className="w-[180px]">
+                        <SelectTrigger className="w-[180px] cursor-pointer">
                             <Globe size={16} className="mr-2 text-zinc-500" />
                             <SelectValue placeholder="Select language" />
                         </SelectTrigger>
                         <SelectContent>
-                            <SelectItem value="en">English (US)</SelectItem>
-                            <SelectItem value="es">Español</SelectItem>
-                            <SelectItem value="fr">Français</SelectItem>
-                            <SelectItem value="de">Deutsch</SelectItem>
-                            <SelectItem value="vi">Tiếng Việt</SelectItem>
+                            <SelectItem value="en" className="cursor-pointer">English (US)</SelectItem>
+                            <SelectItem value="es" className="cursor-pointer">Español</SelectItem>
+                            <SelectItem value="fr" className="cursor-pointer">Français</SelectItem>
+                            <SelectItem value="de" className="cursor-pointer">Deutsch</SelectItem>
+                            <SelectItem value="vi" className="cursor-pointer">Tiếng Việt</SelectItem>
                         </SelectContent>
                     </Select>
                 </div>
@@ -109,6 +108,7 @@ export default function SettingsView() {
                         <Switch
                             checked={showAgentIcon}
                             onCheckedChange={setShowAgentIcon}
+                            className="cursor-pointer"
                         />
                     </div>
 
@@ -125,6 +125,7 @@ export default function SettingsView() {
                         <Switch
                             checked={showMessageIcon}
                             onCheckedChange={setShowMessageIcon}
+                            className="cursor-pointer"
                         />
                     </div>
                 </div>

@@ -48,7 +48,7 @@ export default function Header() {
                 {showMessageIcon && (
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <span className="cursor-pointer hover:opacity-80">
+                      <span className="cursor-pointer">
                         <MessageBell />
                       </span>
                     </TooltipTrigger>
@@ -58,7 +58,7 @@ export default function Header() {
 
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <span className="cursor-pointer hover:opacity-80">
+                    <span className="cursor-pointer">
                       <NotificationBell />
                     </span>
                   </TooltipTrigger>
@@ -127,7 +127,7 @@ export default function Header() {
                         </DropdownMenuItem>
                       </Link>
                     </div>
-                    
+
                     <DropdownMenuSeparator className="bg-zinc-100/50 my-0 mx-2" />
 
                     <div className="p-1.5 flex flex-col gap-0.5">

@@ -77,7 +77,10 @@ export async function consumeRateLimit(
         await limiter.consume(userId);
         return { allowed: true };
     } catch (rejRes: any) {
-        const retryAfter = Math.ceil(rejRes.msBeforeNext / 1000);
+        const msBeforeNext = Number(rejRes?.msBeforeNext);
+        const retryAfter = Number.isFinite(msBeforeNext) && msBeforeNext > 0
+            ? Math.ceil(msBeforeNext / 1000)
+            : 60;
         return {
             allowed: false,
             retryAfter,

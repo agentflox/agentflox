@@ -251,7 +251,7 @@ export function MultiFileUpload({
                   </a>
                   <button
                     onClick={() => handleRemove(file)}
-                    className="text-red-600 hover:text-red-700 p-1 rounded hover:bg-red-50 transition-colors"
+                    className="text-red-600 hover:text-red-700 p-1 rounded hover:bg-red-50 transition-colors cursor-pointer"
                     title="Remove file"
                   >
                     <X className="w-4 h-4" />

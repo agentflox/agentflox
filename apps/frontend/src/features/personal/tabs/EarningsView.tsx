@@ -6,14 +6,62 @@ import { trpc } from "@/lib/trpc";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export function EarningsView() {
   const { data, isLoading } = trpc.marketplace.myEarnings.useQuery();
 
   if (isLoading) {
     return (
-      <div className="flex h-48 items-center justify-center">
-        <span className="text-sm text-muted-foreground animate-pulse">Loading earnings...</span>
+      <div className="space-y-6 max-w-4xl">
+        <div className="flex justify-between items-start">
+          <div className="space-y-2">
+            <Skeleton className="h-8 w-[150px]" />
+            <Skeleton className="h-4 w-[200px]" />
+          </div>
+          <Skeleton className="h-10 w-[140px]" />
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-3">
+          {[1, 2, 3].map((i) => (
+            <Card key={i}>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <Skeleton className="h-4 w-32" />
+                <Skeleton className="h-4 w-4" />
+              </CardHeader>
+              <CardContent>
+                <Skeleton className="h-8 w-20" />
+                <Skeleton className="h-3 w-32 mt-2" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
+        <Card>
+          <CardHeader>
+            <Skeleton className="h-6 w-48 mb-1.5" />
+            <Skeleton className="h-4 w-72" />
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="flex items-center justify-between p-4 border rounded-xl bg-muted/20">
+                  <div className="flex items-center gap-4">
+                    <Skeleton className="h-10 w-10 rounded-full shrink-0" />
+                    <div className="space-y-2">
+                      <Skeleton className="h-4 w-32" />
+                      <Skeleton className="h-3 w-48" />
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Skeleton className="h-5 w-20" />
+                    <Skeleton className="h-5 w-16 rounded-full" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
       </div>
     );
   }
@@ -22,10 +70,14 @@ export function EarningsView() {
 
   return (
     <div className="space-y-6 max-w-4xl">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h3 className="text-xl font-semibold">Your Earnings</h3>
-          <p className="text-sm text-muted-foreground">Manage your marketplace payouts and credit balance.</p>
+      <div className="flex justify-between">
+        <div className="space-y-1.5">
+          <h1 className="text-2xl font-bold bg-gradient-to-r from-slate-900 via-violet-900 to-slate-900 bg-clip-text text-transparent">
+            My Earnings
+          </h1>
+          <p className="text-slate-600 text-sm">
+            Manage your earnings
+          </p>
         </div>
         <Button className="gap-2">
           Request Payout
@@ -43,7 +95,7 @@ export function EarningsView() {
             <p className="text-xs text-muted-foreground mt-1">Available for payout</p>
           </CardContent>
         </Card>
-        
+
         <Card className="opacity-70">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Pending Credits</CardTitle>

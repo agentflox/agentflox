@@ -61,14 +61,19 @@ export const permissionsService = {
     // Permissions
     permissions: {
         resolvePermission: async (itemType: string, itemId: string, session?: any): Promise<string | null> => {
-            const response = await sendBackendRequest(`/api/permissions/${itemType}/${itemId}`, {
-                method: 'GET',
-            }, session);
-            if (!response.ok) {
-                return null;
+            try {
+                const response = await sendBackendRequest(`/api/permissions/${itemType}/${itemId}`, {
+                    method: 'GET',
+                }, session);
+                if (!response.ok) {
+                    return null;
+                }
+                const data = await response.json();
+                return data.permission as string | null;
+            } catch (error) {
+                console.error(`🔴 Permission Check Failed: Backend at port 3002 is unreachable for ${itemType}:${itemId}. Check if service-server is running.`);
+                return null; // Fail secure: deny permission if service is down
             }
-            const data = await response.json();
-            return data.permission as string | null;
         },
 
         list: (itemType: string, itemId: string, session?: any) =>

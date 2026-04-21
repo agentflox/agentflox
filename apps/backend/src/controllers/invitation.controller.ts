@@ -627,4 +627,120 @@ export class InvitationController {
 
         return { success: true };
     }
+
+    /**
+     * List sent invitations
+     */
+    @Get('sent')
+    @UseGuards(JwtAuthGuard)
+    async listSentInvitations(@Request() req: AuthenticatedRequest) {
+        const userId = req.userId;
+        if (!userId) return [];
+
+        const invitations = await prisma.permissionInvitation.findMany({
+            where: {
+                invitedById: userId
+            },
+            include: {
+                workspace: { select: { name: true } },
+                invitedUser: {
+                    select: {
+                        name: true,
+                        email: true,
+                        avatar: true,
+                        username: true
+                    }
+                }
+            },
+            orderBy: { createdAt: 'desc' }
+        });
+
+        return invitations.map(inv => ({
+            id: inv.id,
+            token: inv.token,
+            status: inv.status,
+            type: 'invitation',
+            title: `Invitation to ${inv.inviteType === 'member' ? inv.workspace?.name : ((inv.targetType || 'item') + (inv.workspace ? ' in ' + inv.workspace.name : ''))}`,
+            description: `Invited ${inv.email} as ${inv.role || inv.permission}`,
+            sender: {
+                name: 'You',
+                email: req.email
+            },
+            recipient: inv.invitedUser ? {
+                name: inv.invitedUser.name || inv.invitedUser.username || inv.invitedUser.email,
+                email: inv.invitedUser.email,
+                avatar: inv.invitedUser.avatar
+            } : {
+                email: inv.email
+            },
+            metadata: {
+                role: inv.role,
+                permission: inv.permission,
+                workspaceName: inv.workspace?.name,
+                inviteType: inv.inviteType,
+                targetType: inv.targetType
+            },
+            createdAt: inv.createdAt
+        }));
+    }
+
+    /**
+     * Cancel invitation
+     */
+    @Post(':id/cancel')
+    @UseGuards(JwtAuthGuard)
+    async cancelInvitation(@Param('id') id: string, @Request() req: AuthenticatedRequest) {
+        const userId = req.userId;
+        if (!userId) throw new Error('Unauthorized');
+
+        const invitation = await prisma.permissionInvitation.findUnique({
+            where: { id }
+        });
+
+        if (!invitation) throw new Error('Invitation not found');
+        if (invitation.invitedById !== userId) throw new Error('Permission denied');
+
+        await prisma.permissionInvitation.update({
+            where: { id },
+            data: {
+                status: 'cancelled',
+                cancelledById: userId,
+                cancelledAt: new Date()
+            }
+        });
+
+        return { success: true };
+    }
+
+    /**
+     * Resend invitation
+     */
+    @Post(':id/resend')
+    @UseGuards(JwtAuthGuard)
+    async resendInvitation(@Param('id') id: string, @Request() req: AuthenticatedRequest) {
+        const userId = req.userId;
+        if (!userId) throw new Error('Unauthorized');
+
+        const invitation = await prisma.permissionInvitation.findUnique({
+            where: { id }
+        });
+
+        if (!invitation) throw new Error('Invitation not found');
+        if (invitation.invitedById !== userId) throw new Error('Permission denied');
+
+        // Update expiry and status if it was cancelled
+        await prisma.permissionInvitation.update({
+            where: { id },
+            data: {
+                status: 'pending',
+                expiresAt: getExpiryDate(7),
+                updatedAt: new Date()
+            }
+        });
+
+        // Re-send email logic could be added here
+        // For now just return success
+
+        return { success: true };
+    }
 }

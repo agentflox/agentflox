@@ -4699,6 +4699,17 @@ export function ToolBuilderView({ workspaceId, initialTool, onClose }: ToolBuild
               entityId={initialTool?.id || ""}
               initialTitle={name}
               initialDescription={description}
+              entityContext={{
+                  avatar: toolIcon,
+                  description: description,
+                  status: category || "Custom",
+                  metadata: [
+                      { label: "Steps",   value: steps.length },
+                      { label: "Inputs",  value: inputs.length },
+                      { label: "Outputs", value: outputs.length },
+                  ],
+                  capabilities: steps.map((s) => s.name || s.type).filter(Boolean),
+              }}
           />
       )}
     </>

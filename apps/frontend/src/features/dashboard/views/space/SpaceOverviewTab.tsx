@@ -5,32 +5,25 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Users, FolderKanban, CheckSquare, Wrench, Package, Hash, Clock, Activity, FileText } from "lucide-react";
 import { SpaceIcon } from "@/entities/spaces/components/SpaceIcon";
-import { trpc } from "@/lib/trpc";
 import { formatDistanceToNow } from "date-fns";
 
 interface SpaceOverviewTabProps {
-    spaceId: string;
-    workspaceId: string;
+    space: any;
+    spaceProjects: any[];
+    spaceTeams: any[];
 }
 
-export function SpaceOverviewTab({ spaceId, workspaceId }: SpaceOverviewTabProps) {
-    const { data: space } = trpc.space.get.useQuery({ id: spaceId });
-    const { data: workspace } = trpc.workspace.get.useQuery({ id: workspaceId });
-
-    // Aggregate stats from workspace data (Assuming workspace stores everything flat for now or we filter)
-    // In a real app, we might query `space.stats`
+export function SpaceOverviewTab({ space, spaceProjects, spaceTeams }: SpaceOverviewTabProps) {
     const stats = useMemo(() => {
-        if (!workspace) return null;
-        const projects = (workspace.projects || []).filter((p: any) => p.spaceId === spaceId);
-        const teams = (workspace.teams || []).filter((t: any) => t.spaceId === spaceId);
+        if (!space) return null;
         const members = (space as any)?.members?.length || 0;
 
         return {
-            projects: projects.length,
-            teams: teams.length,
+            projects: spaceProjects.length,
+            teams: spaceTeams.length,
             members
         };
-    }, [workspace, spaceId, space]);
+    }, [space, spaceProjects, spaceTeams]);
 
     if (!space) return null;
 

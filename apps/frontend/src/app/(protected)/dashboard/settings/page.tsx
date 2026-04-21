@@ -1,4 +1,5 @@
 import SettingsView from "@/features/settings/views/SettingsView";
+import Shell from "@/components/layout/Shell";
 import React from "react";
 
 export const metadata = {
@@ -7,5 +8,9 @@ export const metadata = {
 };
 
 export default function SettingsPage() {
-    return <SettingsView />;
+    return (
+        <Shell>
+            <SettingsView />
+        </Shell>
+    );
 }

@@ -27,21 +27,21 @@ export const profileRouter = router({
   // Public endpoints for marketplace
   getSinglePublicProfile: protectedProcedure
     .input(z.object({ id: z.string() }))
-    .query(async ({ input }) => {
-      return prisma.user.findFirst({
-        where: { id: input.id, isActive: true },
+    .query(async ({ input, ctx }) => {
+      const user = await prisma.user.findUnique({
+        where: { id: input.id },
         select: {
           id: true,
           firstName: true,
           lastName: true,
           username: true,
           avatar: true,
+          linkedinUrl: true,
           bio: true,
           website: true,
+          location: true,
           userType: true,
-          memberProfile: true,
-          founderProfile: true,
-          investorProfile: true,
+          isActive: true,
           likesReceived: true,
           settings: {
             select: {
@@ -50,6 +50,14 @@ export const profileRouter = router({
           },
         },
       });
+
+      if (!user) return null;
+
+      const currentUserId = ctx.session!.user!.id;
+      if (!user.isActive && user.id !== currentUserId) return null;
+
+      const { isActive: _isActive, ...publicProfile } = user;
+      return publicProfile;
     }),
 
   getPublicProfiles: protectedProcedure
@@ -57,8 +65,8 @@ export const profileRouter = router({
       query: z.string().optional(),
       skills: z.array(z.string()).optional(),
       country: z.string().optional(),
-      commitment: z.enum(["PART_TIME","FULL_TIME","CONTRACT","FLEXIBLE"]).optional(),
-      sortBy: z.enum(["relevance","latest"]).optional().default("latest"),
+      commitment: z.enum(["PART_TIME", "FULL_TIME", "CONTRACT", "FLEXIBLE"]).optional(),
+      sortBy: z.enum(["relevance", "latest"]).optional().default("latest"),
       page: z.number().int().min(1).optional().default(1),
       pageSize: z.number().int().min(1).max(50).optional().default(12),
     }))
@@ -94,7 +102,10 @@ export const profileRouter = router({
             lastName: true,
             username: true,
             avatar: true,
+            linkedinUrl: true,
             bio: true,
+            website: true,
+            location: true,
             userType: true,
             memberProfile: true,
             likesReceived: true,

@@ -43,6 +43,10 @@ const nextConfig: NextConfig = {
         protocol: 'https',
         hostname: 'images.unsplash.com',
       },
+      {
+        protocol: 'https',
+        hostname: 'ijgsjckixpijaelkspjf.supabase.co',
+      },
     ],
   },
   webpack: (config, { isServer }) => {

@@ -39,6 +39,7 @@ import { workforceRouter } from "@/trpc/routers/workforce";
 import { compositeToolRouter } from "@/trpc/routers/compositeTool";
 import { templateRouter } from "@/trpc/routers/template";
 import { taskStatusRouter } from "@/trpc/routers/taskStatus";
+import { settingsRouter } from "@/trpc/routers/settings";
 
 export const appRouter = router({
   proposal: proposalRouter,
@@ -81,6 +82,7 @@ export const appRouter = router({
   compositeTool: compositeToolRouter,
   template: templateRouter,
   taskStatus: taskStatusRouter,
+  settings: settingsRouter,
 });
 
 export type AppRouter = typeof appRouter;

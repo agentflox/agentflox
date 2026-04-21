@@ -306,6 +306,15 @@ export function ProjectGeneralSettingsModal({ projectId, open, onOpenChange }: P
                     entityId={projectId}
                     initialTitle={name}
                     initialDescription={description}
+                    entityContext={{
+                        avatar: icon || "📁",
+                        description: description,
+                        status: visibility,
+                        metadata: [
+                            { label: "Visibility", value: visibility },
+                            ...(ownerName !== "Unknown" ? [{ label: "Owner", value: ownerName }] : []),
+                        ],
+                    }}
                 />
             )}
         </Dialog>
