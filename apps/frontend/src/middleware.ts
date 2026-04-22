@@ -32,6 +32,7 @@ export async function middleware(request: NextRequest) {
   const isOnboarding = pathname.startsWith("/onboarding");
   const isInviteAccept = pathname.startsWith("/invite/accept");
   const isProtectedRoute = pathname === "/" || PROTECTED_ROUTES.filter(route => route !== "/").some(route => pathname.startsWith(route));
+  const isAdminRoute = pathname === "/dashboard/admin" || pathname.startsWith("/dashboard/admin/");
 
   const token = await getToken({ req: request, secret: process.env.AUTH_SECRET, secureCookie: process.env.APP_ENV === 'production' });
   const isAuthenticated = !!token;
@@ -53,6 +54,14 @@ export async function middleware(request: NextRequest) {
 
   // Handle authenticated user flows
   if (isAuthenticated) {
+    // Admin-only guard for platform admin dashboard
+    if (isAdminRoute) {
+      const role = String((token as any)?.userType ?? "");
+      if (role.toUpperCase() !== "ADMIN") {
+        return NextResponse.redirect(new URL("/", url));
+      }
+    }
+
     const onboardingCompleted = Boolean(token?.onboardingCompleted);
     if (!onboardingCompleted && !isOnboarding) {
       return NextResponse.redirect(new URL("/onboarding", url));

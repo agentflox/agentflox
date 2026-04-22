@@ -1,8 +1,6 @@
 import { Controller, Param, Post, Req, Res } from '@nestjs/common';
 import type { Response } from 'express';
-import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
-import { logAiUsage } from '@/services/matching/utils/usageUtils';
 import { openai } from '@/lib/openai';
 import { OpenAIErrorHandler } from '@/utils/ai/errorHandler';
 import { countTokens } from '@/utils/ai/countTokens';
@@ -13,13 +11,6 @@ import { checkRateLimit } from '@/utils/ai/checkRateLimit';
 export class AnalyticsController {
   @Post('project/:projectId/compute')
   async compute(@Param('projectId') projectId: string, @Req() req: any, @Res() res: Response) {
-  const body = z
-    .object({
-      userId: z.string().optional(),
-      normalizedModel: z.string().optional(),
-    })
-    .parse(req.body || {});
-
   const project = await prisma.project.findUnique({ where: { id: projectId } });
   if (!project) return res.status(404).json({ error: 'Project not found' });
 
@@ -43,7 +34,6 @@ export class AnalyticsController {
     0.15 * marketSize +
     0.15 * competitivePosition;
 
-  const openai = initializeOpenAI();
   const selectedModel = await fetchModel();
   const chatModel = selectedModel?.name ?? 'gpt-4.1-mini';
   const temperature = selectedModel?.temperature ?? 0.3;
@@ -76,14 +66,6 @@ export class AnalyticsController {
       estimatedTokens > 0 ? estimatedTokens : Math.ceil(JSON.stringify(prompt).length / 4);
     const usageTokens = completion.usage?.total_tokens;
     const totalTokens = typeof usageTokens === 'number' ? usageTokens : fallbackTokens;
-
-    await logAiUsage({
-      action: 'ANALYZE',
-      model: chatModel,
-      tokensUsed: totalTokens,
-      metadata: { durationMs, projectId, inputTokens: tokens.inputTokens, outputTokens: tokens.outputTokens },
-      userId: body.userId,
-    });
 
     return res.json({
       fundingReadiness,

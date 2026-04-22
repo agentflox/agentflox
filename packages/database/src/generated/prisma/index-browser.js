@@ -155,12 +155,15 @@ exports.Prisma.UserScalarFieldEnum = {
   username: 'username',
   avatar: 'avatar',
   linkedinUrl: 'linkedinUrl',
+  twitterUrl: 'twitterUrl',
+  facebookUrl: 'facebookUrl',
+  instagramUrl: 'instagramUrl',
+  headline: 'headline',
   bio: 'bio',
   phone: 'phone',
   website: 'website',
   location: 'location',
   timezone: 'timezone',
-  userType: 'userType',
   isActive: 'isActive',
   isVerified: 'isVerified',
   onboardingCompleted: 'onboardingCompleted',
@@ -1148,6 +1151,9 @@ exports.Prisma.PostScalarFieldEnum = {
   topic: 'topic',
   projectId: 'projectId',
   teamId: 'teamId',
+  communityGroupId: 'communityGroupId',
+  slug: 'slug',
+  coverImage: 'coverImage',
   attachments: 'attachments',
   tags: 'tags',
   visibility: 'visibility',
@@ -1159,7 +1165,61 @@ exports.Prisma.PostScalarFieldEnum = {
   viewCount: 'viewCount',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt',
-  editedAt: 'editedAt'
+  deletedAt: 'deletedAt',
+  editedAt: 'editedAt',
+  isHidden: 'isHidden',
+  reportCount: 'reportCount',
+  publishedAt: 'publishedAt',
+  scheduledAt: 'scheduledAt',
+  embeddingUpdatedAt: 'embeddingUpdatedAt'
+};
+
+exports.Prisma.CommunityGroupScalarFieldEnum = {
+  id: 'id',
+  name: 'name',
+  slug: 'slug',
+  description: 'description',
+  ownerId: 'ownerId',
+  isActive: 'isActive',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
+exports.Prisma.CommunityGroupMemberScalarFieldEnum = {
+  id: 'id',
+  groupId: 'groupId',
+  userId: 'userId',
+  role: 'role',
+  joinedAt: 'joinedAt',
+  leftAt: 'leftAt',
+  isActive: 'isActive'
+};
+
+exports.Prisma.CommunityGroupBanScalarFieldEnum = {
+  id: 'id',
+  groupId: 'groupId',
+  userId: 'userId',
+  blockedByUserId: 'blockedByUserId',
+  reason: 'reason',
+  blockJoin: 'blockJoin',
+  blockPost: 'blockPost',
+  isActive: 'isActive',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
+exports.Prisma.CommunityGroupAppealScalarFieldEnum = {
+  id: 'id',
+  groupId: 'groupId',
+  userId: 'userId',
+  message: 'message',
+  status: 'status',
+  responseMessage: 'responseMessage',
+  reviewedByUserId: 'reviewedByUserId',
+  reviewedAt: 'reviewedAt',
+  reportedToAdmin: 'reportedToAdmin',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
 };
 
 exports.Prisma.PostLikeScalarFieldEnum = {
@@ -1197,6 +1257,28 @@ exports.Prisma.PostShareScalarFieldEnum = {
   userId: 'userId',
   comment: 'comment',
   shareType: 'shareType',
+  createdAt: 'createdAt'
+};
+
+exports.Prisma.PostBookmarkScalarFieldEnum = {
+  id: 'id',
+  postId: 'postId',
+  userId: 'userId',
+  createdAt: 'createdAt'
+};
+
+exports.Prisma.PostFollowScalarFieldEnum = {
+  id: 'id',
+  postId: 'postId',
+  userId: 'userId',
+  createdAt: 'createdAt'
+};
+
+exports.Prisma.PostReportScalarFieldEnum = {
+  id: 'id',
+  postId: 'postId',
+  userId: 'userId',
+  reason: 'reason',
   createdAt: 'createdAt'
 };
 
@@ -2900,13 +2982,6 @@ exports.Prisma.JsonNullValueFilter = {
   JsonNull: Prisma.JsonNull,
   AnyNull: Prisma.AnyNull
 };
-exports.UserType = exports.$Enums.UserType = {
-  FOUNDER: 'FOUNDER',
-  INVESTOR: 'INVESTOR',
-  MEMBER: 'MEMBER',
-  HYBRID: 'HYBRID'
-};
-
 exports.VerificationLevel = exports.$Enums.VerificationLevel = {
   UNVERIFIED: 'UNVERIFIED',
   EMAIL_VERIFIED: 'EMAIL_VERIFIED',
@@ -3298,7 +3373,11 @@ exports.PostType = exports.$Enums.PostType = {
   POLL: 'POLL',
   ARTICLE: 'ARTICLE',
   ACHIEVEMENT: 'ACHIEVEMENT',
-  DISCUSSION: 'DISCUSSION'
+  DISCUSSION: 'DISCUSSION',
+  INTRODUCTION: 'INTRODUCTION',
+  QUESTION: 'QUESTION',
+  FEATURE_REQUEST: 'FEATURE_REQUEST',
+  EVENT: 'EVENT'
 };
 
 exports.PostTopic = exports.$Enums.PostTopic = {
@@ -3316,6 +3395,12 @@ exports.PostVisibility = exports.$Enums.PostVisibility = {
   CONNECTIONS: 'CONNECTIONS',
   TEAM: 'TEAM',
   PRIVATE: 'PRIVATE'
+};
+
+exports.CommunityAppealStatus = exports.$Enums.CommunityAppealStatus = {
+  PENDING: 'PENDING',
+  RESPONDED: 'RESPONDED',
+  REJECTED: 'REJECTED'
 };
 
 exports.ShareType = exports.$Enums.ShareType = {
@@ -3744,7 +3829,8 @@ exports.ConversationType = exports.$Enums.ConversationType = {
   WORKFORCE_SWARM_EXECUTION: 'WORKFORCE_SWARM_EXECUTION',
   WORKFORCE_BUILDER: 'WORKFORCE_BUILDER',
   TOOL_BUILDER: 'TOOL_BUILDER',
-  SWARM_SESSION: 'SWARM_SESSION'
+  SWARM_SESSION: 'SWARM_SESSION',
+  SUPPORT: 'SUPPORT'
 };
 
 exports.MessageRole = exports.$Enums.MessageRole = {
@@ -4173,10 +4259,17 @@ exports.Prisma.ModelName = {
   ProjectOwnershipTransfer: 'ProjectOwnershipTransfer',
   ProjectBlockedMember: 'ProjectBlockedMember',
   Post: 'Post',
+  CommunityGroup: 'CommunityGroup',
+  CommunityGroupMember: 'CommunityGroupMember',
+  CommunityGroupBan: 'CommunityGroupBan',
+  CommunityGroupAppeal: 'CommunityGroupAppeal',
   PostLike: 'PostLike',
   PostComment: 'PostComment',
   PostCommentVote: 'PostCommentVote',
   PostShare: 'PostShare',
+  PostBookmark: 'PostBookmark',
+  PostFollow: 'PostFollow',
+  PostReport: 'PostReport',
   ActivityLog: 'ActivityLog',
   Team: 'Team',
   TeamLike: 'TeamLike',

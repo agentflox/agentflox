@@ -1,7 +1,6 @@
 import { Module } from '@nestjs/common';
 import { PermissionsModule } from './services/permissions/permissions.module';
 import { AgentsModule } from './modules/agents.module';
-import { MatchingModule } from './modules/matching.module';
 import { AnalyticsModule } from './modules/analytics.module';
 import { SystemModule } from './modules/system.module';
 import { ChatModule } from './modules/chat.module';
@@ -12,12 +11,12 @@ import { OrganizationModule } from './modules/organization.module';
 import { BillingModule } from './modules/billing.module';
 import { CommandModule } from './modules/command.module';
 import { AiModule } from './modules/ai.module';
+import { SupportModule } from './modules/support.module';
 
 @Module({
   imports: [
     PermissionsModule,
     SystemModule,
-    MatchingModule,
     AnalyticsModule,
     AgentsModule,
     ChatModule,
@@ -27,7 +26,8 @@ import { AiModule } from './modules/ai.module';
     OrganizationModule,
     BillingModule,
     CommandModule,
-    AiModule
+    AiModule,
+    SupportModule
   ],
 })
 export class AppModule { }

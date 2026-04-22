@@ -45,18 +45,6 @@ async function bootstrapWorker() {
         console.log('[worker] Message delivery worker started');
     }, 50);
 
-    // Start matching scheduler (singleton - only one instance should run this)
-    const matchingSchedulerDisabled = String(env.DISABLE_MATCHING_SCHEDULER || '').toLowerCase() === 'true';
-    if (!matchingSchedulerDisabled) {
-        lifecycle.onSingleton('matchingScheduler', async () => {
-            const { startMatchingScheduler } = await import('./services/matching/processors/schedule');
-            await startMatchingScheduler();
-            console.log('[worker] Matching scheduler started');
-        }, 10);
-    } else {
-        console.log('[worker] Matching scheduler disabled via DISABLE_MATCHING_SCHEDULER=true');
-    }
-
     // Register interval tasks
     lifecycle.registerInterval('cleanStalePresence', async () => {
         const cleaned = await PresenceService.cleanupStaleEntries();

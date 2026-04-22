@@ -7,6 +7,7 @@ export interface MessagesUIState {
   showArchived: boolean;
   notificationsEnabled: boolean;
   blockAll: boolean;
+  supportAssistantOpen: boolean;
 }
 
 const initialState: MessagesUIState = {
@@ -16,6 +17,7 @@ const initialState: MessagesUIState = {
   showArchived: false,
   notificationsEnabled: true,
   blockAll: false,
+  supportAssistantOpen: false,
 };
 
 const messagesSlice = createSlice({
@@ -50,6 +52,9 @@ const messagesSlice = createSlice({
       if (action.payload.showArchived !== undefined) state.showArchived = action.payload.showArchived;
       if (action.payload.notificationsEnabled !== undefined) state.notificationsEnabled = action.payload.notificationsEnabled;
       if (action.payload.blockAll !== undefined) state.blockAll = action.payload.blockAll;
+    },
+    setSupportAssistantOpen(state, action: PayloadAction<boolean>) {
+      state.supportAssistantOpen = action.payload;
     }
   },
 });
@@ -62,7 +67,7 @@ export const {
   selectUser, 
   toggleShowArchived, 
   setShowArchived,
-  setMessagingConfig
+  setMessagingConfig,
+  setSupportAssistantOpen
 } = messagesSlice.actions;
 export default messagesSlice.reducer;
-

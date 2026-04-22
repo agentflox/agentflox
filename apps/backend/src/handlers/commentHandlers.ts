@@ -13,10 +13,23 @@ export function registerCommentHandlers(io: any, socket: Socket) {
   // Initialize standard limiter
   try { getFanoutRateLimiter(io); } catch (e) { }
 
-  socket.on('comment:create', async (data: CreateCommentData) => {
+  socket.on('post:subscribe', ({ postId }: { postId: string }) => {
+    if (!postId) return;
+    socket.join(`post:${postId}`);
+  });
+
+  socket.on('post:unsubscribe', ({ postId }: { postId: string }) => {
+    if (!postId) return;
+    socket.leave(`post:${postId}`);
+  });
+
+  socket.on('comment:create', async (data: CreateCommentData, callback?: (err: any, payload?: any) => void) => {
     try {
       const userId = socket.data.userId;
-      if (!userId) return;
+      if (!userId) {
+        callback?.({ message: 'Unauthorized' });
+        return;
+      }
 
       const comment = await prisma.$transaction(async (tx) => {
         // 1. Create Comment
@@ -45,6 +58,7 @@ export function registerCommentHandlers(io: any, socket: Socket) {
 
       // Broadcast to post room
       io.to(`post:${data.postId}`).emit('comment:created', { comment: comment.newComment });
+      callback?.(null, { comment: comment.newComment });
 
       // Notify Post Author
       if (comment.postAuthorId !== userId) {
@@ -80,13 +94,18 @@ export function registerCommentHandlers(io: any, socket: Socket) {
 
     } catch (error) {
       console.error('Error creating comment:', error);
+      callback?.({ message: error instanceof Error ? error.message : 'Failed to create comment' });
       socket.emit('error', { message: 'Failed to create comment' });
     }
   });
 
-  socket.on('comment:update', async (data: UpdateCommentData) => {
+  socket.on('comment:update', async (data: UpdateCommentData, callback?: (err: any, payload?: any) => void) => {
     try {
       const userId = socket.data.userId;
+      if (!userId) {
+        callback?.({ message: 'Unauthorized' });
+        return;
+      }
 
       const comment = await prisma.postComment.update({
         where: {
@@ -108,16 +127,27 @@ export function registerCommentHandlers(io: any, socket: Socket) {
         isEdited: true,
         editedAt: comment.editedAt,
       });
+      callback?.(null, {
+        commentId: data.commentId,
+        content: data.content,
+        isEdited: true,
+        editedAt: comment.editedAt,
+      });
 
     } catch (error) {
       console.error('Error updating comment:', error);
+      callback?.({ message: error instanceof Error ? error.message : 'Failed to update comment' });
       socket.emit('error', { message: 'Failed to update comment' });
     }
   });
 
-  socket.on('comment:delete', async (data: DeleteCommentData) => {
+  socket.on('comment:delete', async (data: DeleteCommentData, callback?: (err: any, payload?: any) => void) => {
     try {
       const userId = socket.data.userId;
+      if (!userId) {
+        callback?.({ message: 'Unauthorized' });
+        return;
+      }
 
       const comment = await prisma.$transaction(async (tx) => {
         const deleted = await tx.postComment.delete({
@@ -141,16 +171,25 @@ export function registerCommentHandlers(io: any, socket: Socket) {
         commentId: data.commentId,
         postId: comment.postId,
       });
+      callback?.(null, {
+        commentId: data.commentId,
+        postId: comment.postId,
+      });
 
     } catch (error) {
       console.error('Error deleting comment:', error);
+      callback?.({ message: error instanceof Error ? error.message : 'Failed to delete comment' });
       socket.emit('error', { message: 'Failed to delete comment' });
     }
   });
 
-  socket.on('comment:vote', async (data: VoteCommentData) => {
+  socket.on('comment:vote', async (data: VoteCommentData, callback?: (err: any, payload?: any) => void) => {
     try {
       const userId = socket.data.userId;
+      if (!userId) {
+        callback?.({ message: 'Unauthorized' });
+        return;
+      }
 
       await prisma.postCommentVote.upsert({
         where: {
@@ -190,6 +229,13 @@ export function registerCommentHandlers(io: any, socket: Socket) {
         upvotes,
         downvotes,
       });
+      callback?.(null, {
+        commentId: data.commentId,
+        userId,
+        voteType: data.voteType,
+        upvotes,
+        downvotes,
+      });
 
       // Notify if useful (e.g. upvote threshold)
       if (data.voteType === 'UPVOTE' && comment.userId !== userId) {
@@ -205,6 +251,7 @@ export function registerCommentHandlers(io: any, socket: Socket) {
 
     } catch (error) {
       console.error('Error voting on comment:', error);
+      callback?.({ message: error instanceof Error ? error.message : 'Failed to vote on comment' });
       socket.emit('error', { message: 'Failed to vote on comment' });
     }
   });

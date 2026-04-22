@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useState } from "react";
 
 type Props = {
   projectId: string;
@@ -39,23 +39,6 @@ export function AnalyticsView({ projectId }: Props) {
     }
   }, [base, projectId]);
 
-  const runMatching = useCallback(async () => {
-    if (!base) {
-      setError("Service URL is not configured");
-      return;
-    }
-    setError(null);
-    try {
-      await fetch(`${base}/v1/matching/run`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type: "full" }),
-      });
-    } catch (e: any) {
-      setError(e?.message || "Failed to trigger matching");
-    }
-  }, [base]);
-
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2">
@@ -65,12 +48,6 @@ export function AnalyticsView({ projectId }: Props) {
           disabled={loading}
         >
           {loading ? "Computing..." : "Compute Analytics"}
-        </button>
-        <button
-          onClick={runMatching}
-          className="px-3 py-2 rounded bg-gray-800 text-white"
-        >
-          Run Matching
         </button>
       </div>
 

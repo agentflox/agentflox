@@ -22,4 +22,12 @@ export const protectedProcedure = t.procedure.use(async ({ ctx, next }) => {
 	return next({ ctx: { session: ctx.session } });
 });
 
+export const adminProcedure = protectedProcedure.use(async ({ ctx, next }) => {
+	const role = String(ctx.session?.user?.userType ?? "");
+	if (role.toUpperCase() !== "ADMIN") {
+		throw new TRPCError({ code: "FORBIDDEN" });
+	}
+	return next();
+});
+
 

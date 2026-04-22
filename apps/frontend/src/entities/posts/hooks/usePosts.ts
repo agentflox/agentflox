@@ -274,11 +274,32 @@ export function usePosts(feedType: 'global' | 'user' | 'project' | 'team', feedI
     },
   });
 
+  const bookmarkPost = trpc.posts.bookmark.useMutation({
+    onSuccess: (data) => {
+      toast({ title: data.bookmarked ? "Post bookmarked" : "Bookmark removed" });
+    },
+  });
+
+  const followPost = trpc.posts.follow.useMutation({
+    onSuccess: (data) => {
+      toast({ title: data.followed ? "Following post" : "Unfollowed post" });
+    },
+  });
+
+  const reportPost = trpc.posts.report.useMutation({
+    onSuccess: () => {
+      toast({ title: "Post reported", description: "Thank you for helping us keep the community safe." });
+    },
+  });
+
   return {
     posts,
     isLoading,
     createPost,
     likePost,
     unlikePost,
+    bookmarkPost,
+    followPost,
+    reportPost,
   };
 }

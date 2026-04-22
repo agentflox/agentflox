@@ -1,0 +1,1 @@
+here in group you click on card group enter group then have discussion so don;t show the post/discussion composer here instead display inside community/group/[id] page  aslo with filter, creae post and post composer modal 

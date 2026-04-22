@@ -6,15 +6,24 @@ import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
 import Image from "@tiptap/extension-image";
 import Link from "@tiptap/extension-link";
-import { TableKit as Table } from "@tiptap/extension-table";
-import { TableRow } from "@tiptap/extension-table/row";
-import { TableCell } from "@tiptap/extension-table/cell";
-import { TableHeader } from "@tiptap/extension-table/header";
+import { TableKit } from "@tiptap/extension-table";
 import TaskList from "@tiptap/extension-task-list";
 import TaskItem from "@tiptap/extension-task-item";
-import { useCallback, useEffect, useRef } from "react";
+import { BulletList, ListItem, OrderedList } from '@tiptap/extension-list';
+import FileHandler from '@tiptap/extension-file-handler';
+import TextAlign from '@tiptap/extension-text-align';
+import Underline from '@tiptap/extension-underline';
+import Mention from '@tiptap/extension-mention';
+import Color from '@tiptap/extension-color';
+import { TextStyleKit as TextStyle } from '@tiptap/extension-text-style';
+import Highlight from '@tiptap/extension-highlight';
+import Youtube from '@tiptap/extension-youtube';
+import { Selection } from '@tiptap/extensions';
+import { SlashCommand } from './SlashCommand';
+import { useCallback, useEffect, useRef, useState } from "react";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
+import DragHandle from '@tiptap/extension-drag-handle-react';
 import {
   Bold,
   Italic,
@@ -29,6 +38,7 @@ import {
   Image as ImageIcon,
   Table as TableIcon,
   CheckSquare,
+  GripHorizontal,
 } from "lucide-react";
 import './editor.css';
 
@@ -39,6 +49,8 @@ interface EditorProps {
   editable?: boolean;
   onContentChange?: (content: string) => void;
   editorClassName?: string;
+  minHeight?: number;
+  placeholder?: string;
 }
 
 export function Editor({
@@ -48,9 +60,37 @@ export function Editor({
   editable = true,
   onContentChange,
   editorClassName,
+  minHeight = 300,
+  placeholder = "Start writing or type / for commands...",
 }: EditorProps) {
   const utils = trpc.useUtils();
   const timeoutRef = useRef<NodeJS.Timeout>();
+
+  const [height, setHeight] = useState(minHeight);
+  const isResizing = useRef(false);
+  const editorRef = useRef<HTMLDivElement>(null);
+
+  const startResizing = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    isResizing.current = true;
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", stopResizing);
+    document.body.style.cursor = "ns-resize";
+  }, []);
+
+  const stopResizing = useCallback(() => {
+    isResizing.current = false;
+    document.removeEventListener("mousemove", handleMouseMove);
+    document.removeEventListener("mouseup", stopResizing);
+    document.body.style.cursor = "default";
+  }, []);
+
+  const handleMouseMove = useCallback((e: MouseEvent) => {
+    if (!isResizing.current) return;
+    const editorTop = editorRef.current?.getBoundingClientRect().top || 0;
+    const newHeight = Math.max(minHeight, e.clientY - editorTop);
+    setHeight(newHeight);
+  }, [minHeight]);
 
   const updateDocument = trpc.document.update.useMutation({
     onSuccess: () => {
@@ -68,22 +108,110 @@ export function Editor({
     immediatelyRender: false,
     extensions: [
       StarterKit.configure({
-        heading: { levels: [1, 2, 3] },
+        heading: { levels: [1, 2, 3, 4] },
       }),
       Placeholder.configure({
-        placeholder: "Start writing or type / for commands...",
+        placeholder,
       }),
-      Image.configure({ inline: true }),
+      Image.configure({
+        inline: true,
+        allowBase64: true,
+        HTMLAttributes: {
+          class: 'rounded-lg max-w-full h-auto',
+        },
+      }),
       Link.configure({
         openOnClick: false,
-        HTMLAttributes: { class: "text-primary underline" },
+        HTMLAttributes: { class: "text-blue-600 underline hover:text-blue-800" },
       }),
-      Table.configure({ table: { resizable: true } }),
-      TableRow,
-      TableCell,
-      TableHeader,
+      TableKit.configure({
+        table: { resizable: true },
+      }),
       TaskList,
+      BulletList,
+      OrderedList,
+      ListItem,
+      Selection.configure({
+        className: 'selection',
+      }),
       TaskItem.configure({ nested: true }),
+      FileHandler.configure({
+        allowedMimeTypes: ['image/png', 'image/jpeg', 'image/gif', 'image/webp', 'image/svg+xml'],
+        onDrop: (currentEditor, files, pos) => {
+          files.forEach(file => {
+            const fileReader = new FileReader();
+            fileReader.readAsDataURL(file);
+            fileReader.onload = () => {
+              currentEditor
+                .chain()
+                .insertContentAt(pos, {
+                  type: 'image',
+                  attrs: {
+                    src: fileReader.result,
+                  },
+                })
+                .focus()
+                .run();
+            };
+          });
+        },
+        onPaste: (currentEditor, files, htmlContent) => {
+          files.forEach(file => {
+            if (htmlContent) return false;
+            const fileReader = new FileReader();
+            fileReader.readAsDataURL(file);
+            fileReader.onload = () => {
+              currentEditor
+                .chain()
+                .insertContentAt(currentEditor.state.selection.anchor, {
+                  type: 'image',
+                  attrs: {
+                    src: fileReader.result,
+                  },
+                })
+                .focus()
+                .run();
+            };
+          });
+        },
+      }),
+      TextAlign.configure({
+        types: ['heading', 'paragraph'],
+      }),
+      Underline,
+      TextStyle,
+      Color,
+      Highlight.configure({
+        multicolor: true,
+      }),
+      Youtube.configure({
+        controls: false,
+        modestBranding: true,
+      }),
+      Mention.configure({
+        HTMLAttributes: {
+          class: 'mention',
+        },
+        suggestion: {
+          char: '@',
+          render() {
+            return {
+              onStart(props) {
+                const mention = (props.editor as any).storage?.mention;
+                if (mention) {
+                  mention.open('people', props.range);
+                }
+              },
+              onExit() {
+              },
+              onKeyDown() {
+                return false;
+              },
+            };
+          },
+        },
+      }),
+      SlashCommand,
     ],
     content: initialContent || "",
     editable,
@@ -91,32 +219,23 @@ export function Editor({
       attributes: {
         class:
           editorClassName ||
-          "prose prose-sm sm:prose lg:prose-lg xl:prose-xl dark:prose-invert focus:outline-none max-w-none min-h-[500px] px-4 py-4",
+          "prose prose-sm dark:prose-invert focus:outline-none max-w-none px-4 py-3",
       },
     },
     onUpdate: ({ editor }) => {
       const content = editor.getHTML();
       onContentChange?.(content);
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
+
+      if (documentId || agentId) {
+        if (timeoutRef.current) clearTimeout(timeoutRef.current);
+        timeoutRef.current = setTimeout(() => {
+          if (documentId) updateDocument.mutate({ id: documentId, content });
+          if (agentId) updateAgent.mutate({ id: agentId, description: content });
+        }, 1000);
       }
-      timeoutRef.current = setTimeout(() => {
-        if (documentId) {
-          updateDocument.mutate({ id: documentId, content });
-        } else if (agentId) {
-          updateAgent.mutate({ id: agentId, systemPrompt: content });
-        }
-      }, 2000);
     },
   });
 
-  useEffect(() => {
-    if (editor && initialContent && editor.getHTML() !== initialContent) {
-      editor.commands.setContent(initialContent);
-    }
-  }, [initialContent, editor]);
-
-  // Track active formatting states efficiently via useEditorState
   const {
     isBold, isItalic, isStrike, isCode,
     isBulletList, isOrderedList, isTaskList,
@@ -165,19 +284,17 @@ export function Editor({
   const Sep = () => <div className="w-px h-4 bg-border mx-0.5 shrink-0" />;
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col">
       {editable && (
         <BubbleMenu
           editor={editor}
           appendTo={() => document.body}
           options={{ placement: "top", offset: 8, flip: true }}
         >
-          <div className="bubble-menu shadow-md border rounded-md" style={{ zIndex: 99999 }}>
-            {/* Inline marks */}
+          <div className="bubble-menu shadow-md border rounded-md bg-white flex items-center p-1" style={{ zIndex: 99999 }}>
             <Button
               variant="ghost" size="sm"
               onClick={() => editor.chain().focus().toggleBold().run()}
-              disabled={!editor.can().toggleBold()}
               className={isBold ? "bg-muted" : ""}
             >
               <Bold className="h-3.5 w-3.5" />
@@ -185,7 +302,6 @@ export function Editor({
             <Button
               variant="ghost" size="sm"
               onClick={() => editor.chain().focus().toggleItalic().run()}
-              disabled={!editor.can().toggleItalic()}
               className={isItalic ? "bg-muted" : ""}
             >
               <Italic className="h-3.5 w-3.5" />
@@ -193,7 +309,6 @@ export function Editor({
             <Button
               variant="ghost" size="sm"
               onClick={() => editor.chain().focus().toggleStrike().run()}
-              disabled={!editor.can().toggleStrike()}
               className={isStrike ? "bg-muted" : ""}
             >
               <Strikethrough className="h-3.5 w-3.5" />
@@ -201,7 +316,6 @@ export function Editor({
             <Button
               variant="ghost" size="sm"
               onClick={() => editor.chain().focus().toggleCode().run()}
-              disabled={!editor.can().toggleCode()}
               className={isCode ? "bg-muted" : ""}
             >
               <Code className="h-3.5 w-3.5" />
@@ -209,7 +323,6 @@ export function Editor({
 
             <Sep />
 
-            {/* Lists */}
             <Button
               variant="ghost" size="sm"
               onClick={() => editor.chain().focus().toggleBulletList().run()}
@@ -234,7 +347,6 @@ export function Editor({
 
             <Sep />
 
-            {/* Block-level */}
             <Button
               variant="ghost" size="sm"
               onClick={() => editor.chain().focus().toggleBlockquote().run()}
@@ -245,7 +357,6 @@ export function Editor({
 
             <Sep />
 
-            {/* Insert */}
             <Button variant="ghost" size="sm" onClick={setLink}>
               <LinkIcon className="h-3.5 w-3.5" />
             </Button>
@@ -263,7 +374,6 @@ export function Editor({
 
             <Sep />
 
-            {/* History */}
             <Button
               variant="ghost" size="sm"
               onClick={() => editor.chain().focus().undo().run()}
@@ -282,9 +392,35 @@ export function Editor({
         </BubbleMenu>
       )}
 
-      <div className="flex-1 overflow-y-auto">
+      <div
+        ref={editorRef}
+        className="flex-1 overflow-y-auto custom-scrollbar border border-slate-200 rounded-md bg-white"
+        style={{ height: `${height}px` }}
+      >
         <EditorContent editor={editor} />
       </div>
+
+      {/* Refined drag handle */}
+      {editable && editor && (
+        <DragHandle editor={editor}>
+          <div className="group flex items-center justify-center w-6 h-8 rounded-md hover:bg-zinc-100 transition-colors cursor-grab active:cursor-grabbing">
+            <svg
+              width="12"
+              height="12"
+              viewBox="0 0 12 12"
+              fill="none"
+              className="text-zinc-300 group-hover:text-zinc-500 transition-colors"
+            >
+              <circle cx="4" cy="2" r="1" fill="currentColor" />
+              <circle cx="8" cy="2" r="1" fill="currentColor" />
+              <circle cx="4" cy="6" r="1" fill="currentColor" />
+              <circle cx="8" cy="6" r="1" fill="currentColor" />
+              <circle cx="4" cy="10" r="1" fill="currentColor" />
+              <circle cx="8" cy="10" r="1" fill="currentColor" />
+            </svg>
+          </div>
+        </DragHandle>
+      )}
     </div>
   );
 }

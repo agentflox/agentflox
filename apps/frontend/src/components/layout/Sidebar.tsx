@@ -24,12 +24,15 @@ import {
   MessagesSquare,
   HelpCircle,
   LogOut,
-  Grid3x3
+  Grid3x3,
+  CreditCard
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useInterfaceSettings } from '@/hooks/useInterfaceSettings';
 import { AppSidebar, SidebarItem } from './AppSidebar';
 import { DASHBOARD_ROUTES, MARKETPLACE_ROUTES } from '@/constants/routes.config';
+import { useAppDispatch } from '@/hooks/useReduxStore';
+import { setSupportAssistantOpen } from '@/stores/slices/messages.slice';
 import {
   Popover,
   PopoverContent,
@@ -39,6 +42,7 @@ import {
 export default function MainSidebar({ mode = "inline", onClose }: { mode?: "inline" | "overlay"; onClose?: () => void }) {
   const { data: session } = useSession();
   const { t } = useInterfaceSettings();
+  const dispatch = useAppDispatch();
 
   const mainNav: SidebarItem[] = [
     { label: t("sidebar.home"), href: "/", icon: Home },
@@ -56,21 +60,20 @@ export default function MainSidebar({ mode = "inline", onClose }: { mode?: "inli
     { label: t("sidebar.projects"), href: DASHBOARD_ROUTES.PROJECTS, icon: FolderOpen },
     { label: t("sidebar.tasks"), href: DASHBOARD_ROUTES.TASKS, icon: FileText },
     { label: t("sidebar.documents"), href: DASHBOARD_ROUTES.DOCUMENTS, icon: FileText },
-    { label: t("sidebar.proposals"), href: DASHBOARD_ROUTES.PROPOSALS, icon: FileText },
     { label: t("sidebar.tools"), href: DASHBOARD_ROUTES.TOOLS, icon: Settings },
     { label: t("sidebar.integrations"), href: DASHBOARD_ROUTES.INTEGRATIONS, icon: Link2 },
   ];
 
   const accountNav = [
     { label: "Settings", href: "/dashboard/settings", icon: Settings },
+    { label: "Billing", href: "/dashboard/billing", icon: CreditCard },
     { label: "Analytics", href: "/dashboard/analytics", icon: LineChart },
   ];
 
   const supportNav = [
-    { label: "Support Hub", href: "/help", icon: LifeBuoy },
     { label: "Documentation", href: "https://docs.agentflox.com", icon: BookOpen },
     { label: "Community", href: "/community", icon: MessagesSquare },
-    { label: "Help", href: "/help/faq", icon: HelpCircle },
+    { label: "Help", onClick: () => dispatch(setSupportAssistantOpen(true)), icon: HelpCircle },
   ];
 
   const [isMainCollapsed, setIsMainCollapsed] = useState(false);
@@ -119,7 +122,7 @@ export default function MainSidebar({ mode = "inline", onClose }: { mode?: "inli
     </div>
   );
 
-  const renderNavSection = (items: typeof accountNav, title: string) => (
+  const renderNavSection = (items: any[], title: string) => (
     <div className="space-y-1 mt-6">
       {!isMainCollapsed && (
         <div className="px-2 pb-2 text-[10px] font-semibold tracking-wider text-zinc-400 uppercase">
@@ -128,27 +131,52 @@ export default function MainSidebar({ mode = "inline", onClose }: { mode?: "inli
       )}
       {items.map((item) => {
         const Icon = item.icon;
-        const isActive = pathname === item.href;
-        return (
-          <Link
-            key={item.href}
-            href={item.href}
-            onClick={handleItemClick}
-            className={cn(
-              "group flex w-full items-center gap-3 rounded-md px-2 py-2 text-sm font-medium transition-all duration-200 outline-none cursor-pointer",
-              isActive ? "bg-primary/10 text-primary" : "text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900",
-              isMainCollapsed && "flex-col justify-center gap-1.5 px-1 py-2.5 text-[10px] leading-tight"
-            )}
-            title={isMainCollapsed ? item.label : undefined}
-          >
+        const isActive = item.href ? pathname === item.href : false;
+        
+        const content = (
+          <>
             <Icon size={18} className={cn("shrink-0", isActive ? "text-primary" : "text-zinc-400 group-hover:text-zinc-900")} />
             {isMainCollapsed ? (
               <span className="text-center max-w-[68px] break-words leading-tight">{item.label}</span>
             ) : (
               <span>{item.label}</span>
             )}
-          </Link>
-        )
+          </>
+        );
+
+        const className = cn(
+          "group flex w-full items-center gap-3 rounded-md px-2 py-2 text-sm font-medium transition-all duration-200 outline-none cursor-pointer",
+          isActive ? "bg-primary/10 text-primary" : "text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900",
+          isMainCollapsed && "flex-col justify-center gap-1.5 px-1 py-2.5 text-[10px] leading-tight"
+        );
+
+        if (item.href) {
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              onClick={handleItemClick}
+              className={className}
+              title={isMainCollapsed ? item.label : undefined}
+            >
+              {content}
+            </Link>
+          );
+        }
+
+        return (
+          <button
+            key={item.label}
+            onClick={() => {
+              item.onClick?.();
+              handleItemClick();
+            }}
+            className={className}
+            title={isMainCollapsed ? item.label : undefined}
+          >
+            {content}
+          </button>
+        );
       })}
     </div>
   );
@@ -235,7 +263,7 @@ export default function MainSidebar({ mode = "inline", onClose }: { mode?: "inli
                         )}
                       >
                         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white shadow-sm ring-1 ring-zinc-200">
-                           <Icon size={20} className={cn(active ? "text-primary" : "text-zinc-600")} />
+                          <Icon size={20} className={cn(active ? "text-primary" : "text-zinc-600")} />
                         </div>
                         <span className="text-[11px] font-medium text-zinc-700 text-center">{item.label}</span>
                       </Link>

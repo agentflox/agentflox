@@ -85,10 +85,7 @@ export function useComments(postId: string, entityType: CommentEntityType = 'pos
     if (entityType === 'listing') {
       socket.emit('listing:comment:subscribe', { listingId: postId });
     } else {
-      socket.emit('feed:subscribe', {
-        feedType: 'project',
-        feedId: postId
-      });
+      socket.emit('post:subscribe' as any, { postId });
     }
     subscribedRef.current = true;
 
@@ -97,10 +94,7 @@ export function useComments(postId: string, entityType: CommentEntityType = 'pos
         if (entityType === 'listing') {
           socket.emit('listing:comment:unsubscribe', { listingId: postId });
         } else {
-          socket.emit('feed:unsubscribe', {
-            feedType: 'project',
-            feedId: postId
-          });
+          socket.emit('post:unsubscribe' as any, { postId });
         }
         subscribedRef.current = false;
       }

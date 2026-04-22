@@ -12,12 +12,15 @@ import { useAppDispatch, useAppSelector } from "@/hooks/useReduxStore";
 import { openLauncher, closeLauncher, openModalWithUser, closeModal } from "@/stores/slices/messages.slice";
 import { CommandInterface } from "@/entities/command/CommandInterface";
 import { useSocketScopeSync } from "@/hooks/useSocketScopeSync";
+import { SupportAssistantModal } from "@/components/assistant/SupportAssistantModal";
+import { setSupportAssistantOpen } from "@/stores/slices/messages.slice";
 
 export default function AppFrame({ children }: { children: React.ReactNode }) {
   useSocketScopeSync();
   const dispatch = useAppDispatch();
   const launcherOpen = useAppSelector((s) => s.messagesUI.launcherOpen);
   const modalUserId = useAppSelector((s) => s.messagesUI.modalUserId);
+  const supportAssistantOpen = useAppSelector((s) => s.messagesUI.supportAssistantOpen);
   const { data } = trpc.messages.listConversations.useQuery({ page: 1, pageSize: 50 });
 
   const conversations = useMemo(() => {
@@ -57,8 +60,11 @@ export default function AppFrame({ children }: { children: React.ReactNode }) {
       {/* Global Command Interface */}
       <CommandInterface />
 
+      <SupportAssistantModal 
+        isOpen={supportAssistantOpen} 
+        onClose={() => dispatch(setSupportAssistantOpen(false))} 
+      />
+
     </div>
   );
 }
-
-

@@ -13,12 +13,13 @@ export const profileRouter = router({
         lastName: true,
         username: true,
         avatar: true,
+        headline: true,
+        linkedinUrl: true,
+        twitterUrl: true,
+        facebookUrl: true,
+        instagramUrl: true,
         bio: true,
         website: true,
-        userType: true,
-        memberProfile: true,
-        founderProfile: true,
-        investorProfile: true,
       },
     });
     return user;
@@ -36,11 +37,14 @@ export const profileRouter = router({
           lastName: true,
           username: true,
           avatar: true,
+          headline: true,
           linkedinUrl: true,
+          twitterUrl: true,
+          facebookUrl: true,
+          instagramUrl: true,
           bio: true,
           website: true,
           location: true,
-          userType: true,
           isActive: true,
           likesReceived: true,
           settings: {
@@ -80,13 +84,7 @@ export const profileRouter = router({
           { bio: { contains: input.query, mode: "insensitive" } },
         ];
       }
-      if (input.skills && input.skills.length > 0) {
-        where.memberProfile = { skills: { hasSome: input.skills } };
-      }
       if (input.country) where.location = { contains: input.country, mode: "insensitive" };
-      if (input.commitment) {
-        where.memberProfile = { ...(where.memberProfile || {}), availability: input.commitment };
-      }
       const skip = (input.page - 1) * input.pageSize;
       const take = input.pageSize;
       const [total, items] = await Promise.all([
@@ -102,12 +100,14 @@ export const profileRouter = router({
             lastName: true,
             username: true,
             avatar: true,
+            headline: true,
             linkedinUrl: true,
+            twitterUrl: true,
+            facebookUrl: true,
+            instagramUrl: true,
             bio: true,
             website: true,
             location: true,
-            userType: true,
-            memberProfile: true,
             likesReceived: true,
           },
         }),

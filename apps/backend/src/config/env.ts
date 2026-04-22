@@ -36,20 +36,6 @@ const envSchema = z.object({
   SMTP_PASS: z.string().optional(),
   EMAIL_FROM: z.string().optional(),
 
-  // Matching system
-  MATCHING_INTERVAL_DAYS: z.string().default('3'),
-  MATCHING_SCORE_THRESHOLD: z.string().default('0.85'),
-  MATCHING_BATCH_SIZE: z.string().default('200'),
-  MATCHING_NOTIFICATION_CONCURRENCY: z.string().default('10'),
-  MATCHING_WORKER_CONCURRENCY: z.string().default('5'),
-  MATCHING_WORKER_LIMITER_MAX: z.string().default('200'),
-  MATCHING_WORKER_LIMITER_DURATION_MS: z.string().default('60000'),
-  MATCHING_DB_POOL_MAX: z.string().default('100'),
-  MATCHING_DB_POOL_MIN: z.string().default('10'),
-  MATCHING_DB_POOL_IDLE_TIMEOUT_MS: z.string().default('30000'),
-  MATCHING_DB_POOL_CONNECTION_TIMEOUT_MS: z.string().default('10000'),
-  MATCHING_DB_STATEMENT_TIMEOUT_MS: z.string().default('30000'),
-  MATCHING_DB_QUERY_TIMEOUT_MS: z.string().default('30000'),
   DATABASE_URL: z.string(),
 
   // Inngest (optional)
@@ -60,7 +46,6 @@ const envSchema = z.object({
   // Worker configuration
   WORKER_HEALTH_PORT: z.string().optional(),
   DISABLE_MESSAGE_DELIVERY_WORKER: z.string().optional(),
-  DISABLE_MATCHING_SCHEDULER: z.string().optional(),
   DISABLE_API_SINGLETON_HOOKS: z.string().optional(),
   DISABLE_REDIS_REALTIME: z.string().optional(),
   IGNORE_REDIS_UNHANDLED_REJECTION: z.string().optional(),

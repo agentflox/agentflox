@@ -65,7 +65,7 @@ export const authOptions: NextAuthConfig = {
             where: { id: token.id as string },
             select: {
               id: true,
-              userType: true,
+              role: true,
               isVerified: true,
               onboardingCompleted: true,
               onboardingStep: true,
@@ -77,7 +77,7 @@ export const authOptions: NextAuthConfig = {
         }
 
         if (dbUser) {
-          token.userType = dbUser.userType;
+          token.userType = dbUser.role ?? undefined;
           token.isVerified = dbUser.isVerified;
           token.onboardingCompleted = dbUser.onboardingCompleted;
           token.onboardingStep = dbUser.onboardingStep;

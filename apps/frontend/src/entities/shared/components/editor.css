@@ -31,7 +31,9 @@
   /* Slightly larger for readability */
   line-height: 1.7;
   color: var(--text-main);
-  padding: 2rem;
+  padding-inline: 0.5rem;
+  padding-top: 1.0rem;
+  padding-bottom: 1.0rem;
   outline: none;
 }
 
@@ -40,7 +42,7 @@
   margin-top: 1.25em !important;
 }
 
-/* Alignment logic: Headers and Paragraphs */
+/* Alignment logic: Headers ad Paragraphs */
 .ProseMirror>p,
 .ProseMirror>h1,
 .ProseMirror>h2,

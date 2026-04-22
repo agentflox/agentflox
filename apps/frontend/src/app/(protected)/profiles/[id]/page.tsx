@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { useAppDispatch } from "@/hooks/useReduxStore";
 import { openModalWithUser } from "@/stores/slices/messages.slice";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Link as LinkIcon, Share2, UserPlus, Globe, Shield, Pencil, LockKeyhole, Mail, Linkedin } from "lucide-react";
+import { Link as LinkIcon, Share2, UserPlus, Globe, Shield, Pencil, LockKeyhole, Mail, Linkedin, Twitter, Facebook, Instagram } from "lucide-react";
 import { useToast } from "@/hooks/useToast";
 import Link from "next/link";
 import { renderHtml } from "@/utils/renderHtml";
@@ -78,11 +78,17 @@ export default function ProfilePage() {
         {isLoading ? (
           <div className="space-y-6 animate-pulse">
             <div className="overflow-hidden rounded-3xl border border-zinc-200/80 bg-white">
+              {/* Banner skeleton */}
               <div className="h-48 w-full bg-zinc-100/50" />
               <div className="px-6 pb-6 sm:px-10 sm:pb-10">
                 <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between">
-                  <div className="-mt-16 sm:-mt-20 flex flex-col sm:flex-row sm:items-end gap-5">
-                    <div className="h-32 w-32 rounded-full ring-4 ring-white bg-zinc-100 sm:h-40 sm:w-40" />
+                  {/*
+                    Avatar skeleton: half the avatar height above the banner edge.
+                    Avatar is h-32 (128px) on mobile, h-40 (160px) on sm+.
+                    So we pull up by half: -mt-16 (64px) on mobile, -mt-20 (80px) on sm+.
+                  */}
+                  <div className="flex flex-col sm:flex-row sm:items-end gap-5">
+                    <div className="-mt-16 sm:-mt-20 h-32 w-32 rounded-full ring-4 ring-white bg-zinc-100 sm:h-40 sm:w-40" />
                     <div className="mb-1 space-y-3">
                       <div className="h-8 w-64 bg-zinc-100 rounded-md" />
                       <div className="h-6 w-32 bg-zinc-100 rounded-full" />
@@ -133,22 +139,31 @@ export default function ProfilePage() {
               <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-6">
                 {/* Header Card */}
                 <div className="group relative overflow-hidden rounded-3xl border border-zinc-200/80 bg-white shadow-sm transition-all hover:shadow-md">
+                  {/* Banner */}
                   <div className={`h-48 w-full bg-gradient-to-tr ${coverGradient} opacity-90 transition-opacity group-hover:opacity-100`} />
 
                   <div className="relative px-6 pb-6 sm:px-10 sm:pb-8">
-                    <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between">
+                    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-6">
                       {/* Avatar & Name Info */}
-                      <div className="-mt-16 sm:-mt-20 flex flex-col sm:flex-row sm:items-end gap-6">
-                        <Avatar className="h-32 w-32 rounded-full ring-4 ring-white shadow-xl transition-transform duration-300 hover:scale-[1.02] sm:h-40 sm:w-40 bg-white">
-                          <AvatarImage src={profile.avatar ?? undefined} className="object-cover" />
-                          <AvatarFallback className="text-4xl font-light text-zinc-600 bg-zinc-50">{initials}</AvatarFallback>
-                        </Avatar>
+                      <div className="flex flex-col sm:flex-row sm:items-start gap-4 sm:gap-6 w-full">
+                        {/* Avatar */}
+                        <div className="-mt-16 sm:-mt-20 flex-shrink-0 relative z-10">
+                          <Avatar className="h-32 w-32 sm:h-40 sm:w-40 rounded-full ring-4 ring-white shadow-xl transition-transform duration-300 hover:scale-[1.02] bg-white">
+                            <AvatarImage src={profile.avatar ?? undefined} className="object-cover" />
+                            <AvatarFallback className="text-4xl font-light text-zinc-600 bg-zinc-50">{initials}</AvatarFallback>
+                          </Avatar>
+                        </div>
 
-                        <div className="mb-1 space-y-1.5">
-                          {/* Name and Links Row */}
-                          <div className="flex items-center gap-3">
-                            <h1 className="text-3xl font-bold tracking-tight text-zinc-900 sm:text-4xl">{fullName}</h1>
-                            <div className="flex items-center gap-1 mt-1 sm:mt-1.5">
+                        {/* Name Info & Actions container */}
+                        <div className="flex flex-col sm:flex-row sm:items-start justify-between flex-1 min-w-0 pt-2 sm:pt-4 gap-4">
+                          <div className="min-w-0 space-y-2">
+                            <h1 className="break-words text-3xl font-bold tracking-tight text-zinc-900 sm:text-4xl">{fullName}</h1>
+
+                            {profile.headline && (
+                              <p className="text-sm font-medium text-zinc-600">{profile.headline}</p>
+                            )}
+
+                            <div className="flex flex-wrap items-center gap-1">
                               <TooltipProvider>
                                 {profile.website && (
                                   <Tooltip>
@@ -184,37 +199,86 @@ export default function ProfilePage() {
                                     </TooltipContent>
                                   </Tooltip>
                                 )}
+                                {profile.twitterUrl && (
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <a
+                                        href={profile.twitterUrl}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="p-1.5 rounded-full text-zinc-400 hover:text-sky-600 hover:bg-sky-50 transition-all"
+                                      >
+                                        <Twitter className="h-5 w-5" />
+                                      </a>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="bottom" className="text-xs bg-zinc-900 text-white border-none">
+                                      Twitter/X Profile
+                                    </TooltipContent>
+                                  </Tooltip>
+                                )}
+                                {profile.facebookUrl && (
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <a
+                                        href={profile.facebookUrl}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="p-1.5 rounded-full text-zinc-400 hover:text-blue-600 hover:bg-blue-50 transition-all"
+                                      >
+                                        <Facebook className="h-5 w-5" />
+                                      </a>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="bottom" className="text-xs bg-zinc-900 text-white border-none">
+                                      Facebook Profile
+                                    </TooltipContent>
+                                  </Tooltip>
+                                )}
+                                {profile.instagramUrl && (
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <a
+                                        href={profile.instagramUrl}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="p-1.5 rounded-full text-zinc-400 hover:text-pink-600 hover:bg-pink-50 transition-all"
+                                      >
+                                        <Instagram className="h-5 w-5" />
+                                      </a>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="bottom" className="text-xs bg-zinc-900 text-white border-none">
+                                      Instagram Profile
+                                    </TooltipContent>
+                                  </Tooltip>
+                                )}
                               </TooltipProvider>
+                            </div>
+
+                            <div className="flex flex-wrap items-center gap-3 pt-2">
+                              {profile.username && (
+                                <span className="text-base font-medium text-zinc-500">@{profile.username}</span>
+                              )}
+                              <Badge
+                                variant="secondary"
+                                className={`rounded-full px-2.5 py-1 text-xs font-medium ${isPublic ? 'bg-emerald-50 text-emerald-700' : 'bg-zinc-100 text-zinc-700'}`}
+                              >
+                                {isPublic ? <Globe className="mr-1.5 h-3.5 w-3.5" /> : <Shield className="mr-1.5 h-3.5 w-3.5" />}
+                                {isPublic ? "Public Profile" : "Private Profile"}
+                              </Badge>
                             </div>
                           </div>
 
-                          <div className="flex flex-wrap items-center gap-3">
-                            {profile.username && (
-                              <span className="text-lg font-medium text-zinc-500">@{profile.username}</span>
-                            )}
-                            <Badge
-                              variant="secondary"
-                              className={`rounded-full px-3 py-1.5 text-xs font-medium ${isPublic ? 'bg-emerald-50 text-emerald-700' : 'bg-zinc-100 text-zinc-700'}`}
-                            >
-                              {isPublic ? <Globe className="mr-1.5 h-3.5 w-3.5" /> : <Shield className="mr-1.5 h-3.5 w-3.5" />}
-                              {isPublic ? "Public Profile" : "Private Profile"}
-                            </Badge>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Header Actions */}
-                      <div className="mt-6 flex flex-wrap items-center gap-3 sm:mt-0 sm:pb-2">
-                        {isMe ? (
-                          <>
-                            <Button
-                              variant="outline"
-                              className="rounded-full shadow-sm bg-white border-zinc-200 text-zinc-600 hover:bg-zinc-50"
-                              onClick={handleShare}
-                              disabled={!isPublic}
-                            >
-                              <Share2 className="mr-2 h-4 w-4" /> Share
-                            </Button>
+                          {/* Header Actions */}
+                          <div className="flex items-start gap-3 mt-2 sm:mt-0 flex-shrink-0">
+                            {isMe ? (
+                              <>
+                                <Button
+                                  variant="outline"
+                                  className="rounded-full shadow-sm bg-white border-zinc-200 text-zinc-600 hover:bg-zinc-50"
+                                  onClick={handleShare}
+                                  disabled={!isPublic}
+                                >
+                                  <Share2 className="mr-2 h-4 w-4" /> Share
+                                </Button>
                             <Button asChild className="rounded-full bg-zinc-900 text-white shadow-sm hover:bg-zinc-800">
                               <Link href="/dashboard/personal?tab=profile">
                                 <Pencil className="mr-2 h-4 w-4" /> Edit Profile
@@ -247,6 +311,8 @@ export default function ProfilePage() {
                     </div>
                   </div>
                 </div>
+                </div>
+              </div>
 
                 {/* About Content - Full Width */}
                 <div className="rounded-3xl border border-zinc-200/80 bg-white p-8 shadow-sm">

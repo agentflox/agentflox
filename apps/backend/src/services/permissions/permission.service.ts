@@ -51,13 +51,13 @@ export class PermissionService {
     ): Promise<string[]> {
         const roles: string[] = [];
 
-        // Global User Type (e.g. Platform Admin)
+        // Global platform role (e.g. Platform Admin)
         const user = await prisma.user.findUnique({
             where: { id: userId },
-            select: { userType: true }
+            select: { role: true }
         });
 
-        if (user?.userType === 'ADMIN') {
+        if (user?.role === 'ADMIN') {
             roles.push('SUPER_ADMIN');
         }
 

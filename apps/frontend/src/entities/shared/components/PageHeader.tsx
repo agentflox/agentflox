@@ -1,22 +1,25 @@
 "use client";
 
 import { ReactNode } from 'react';
+import { cn } from '@/lib/utils';
 
 interface PageHeaderProps {
   title: string;
   subtitle?: string;
   actions?: ReactNode;
   description?: string;
+  className?: string;
 }
 
 export function PageHeader({
   title,
   subtitle,
   actions,
-  description
+  description,
+  className,
 }: PageHeaderProps) {
   return (
-    <div className="border-b border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950">
+    <div className={cn("border-b border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950", className)}>
       <div className="pb-6">
         <div className="flex items-start justify-between gap-6">
           {/* Left: Title & Subtitle */}

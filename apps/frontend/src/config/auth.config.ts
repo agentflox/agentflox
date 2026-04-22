@@ -70,7 +70,7 @@ export const authConfig: NextAuthConfig = {
           name,
           image: user.avatar || undefined,
           emailVerified: user.emailVerified ?? undefined,
-          userType: user.userType,
+          userType: user.role ?? undefined,
           isVerified: user.isVerified,
           onboardingCompleted: user.onboardingCompleted,
           onboardingStep: user.onboardingStep,

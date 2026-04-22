@@ -4,12 +4,32 @@ import { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Heart, MessageCircle, Share2, X } from 'lucide-react';
+import { 
+  Heart, 
+  MessageCircle, 
+  Share2, 
+  X, 
+  MoreVertical, 
+  Bookmark, 
+  Flag, 
+  Bell 
+} from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Badge } from "@/components/ui/badge";
 import { usePosts } from '../hooks/usePosts';
 import { useComments } from '@/entities/comments/hooks/useComments';
 import { CommentSection } from '../../comments/components/CommentSection';
 import { useFormattedTime } from '@/hooks/useFormattedTime';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { useToast } from "@/hooks/useToast";
 import type { Post } from '@agentflox/database/src/generated/prisma/client';
 
 // --- Define type that matches your actual attachment shape ---
@@ -35,9 +55,20 @@ interface PostCardProps {
 
 export function PostCard({ post, feedType, feedId }: PostCardProps) {
   const formattedTime = useFormattedTime(post.createdAt);
+  const { toast } = useToast();
   const [showComments, setShowComments] = useState(false);
   const [selectedMedia, setSelectedMedia] = useState<{ url: string; type: string } | null>(null);
-  const { likePost, unlikePost } = usePosts(feedType, feedId);
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+  const [reportReason, setReportReason] = useState("");
+  const [reportExplanation, setReportExplanation] = useState("");
+
+  const { 
+    likePost, 
+    unlikePost, 
+    bookmarkPost, 
+    followPost, 
+    reportPost 
+  } = usePosts(feedType, feedId);
   const { comments } = useComments(post.id);
   const [isLiked, setIsLiked] = useState(false); // TODO: Get from user's likes
 
@@ -126,6 +157,40 @@ export function PostCard({ post, feedType, feedId }: PostCardProps) {
     );
   };
 
+  const handleBookmark = () => {
+    bookmarkPost.mutate({ postId: post.id });
+  };
+
+  const handleFollow = () => {
+    followPost.mutate({ postId: post.id });
+  };
+
+  const handleReport = async () => {
+    if (!reportReason) {
+      toast({ title: "Please select a reason", variant: "destructive" });
+      return;
+    }
+    try {
+      await reportPost.mutateAsync({ 
+        postId: post.id, 
+        reason: `${reportReason}${reportExplanation ? `: ${reportExplanation}` : ''}` 
+      });
+      setIsReportModalOpen(false);
+      setReportReason("");
+      setReportExplanation("");
+      toast({ title: "Post reported", description: "Our moderators will review this content." });
+    } catch (error) {
+      toast({ 
+        title: "Failed to report post", 
+        description: error instanceof Error ? error.message : "Please try again.",
+        variant: "destructive" 
+      });
+    }
+  };
+
+  // --- Strip legacy community markers if present ---
+  const cleanedContent = post.content.replace(/^\[\[COMMUNITY_SECTION\]\].*?\n/s, '');
+
   return (
     <>
       <Card className="p-6">
@@ -137,18 +202,60 @@ export function PostCard({ post, feedType, feedId }: PostCardProps) {
           </Avatar>
 
           <div className="flex-1">
-            <div className="flex items-center gap-2">
-              <h3 className="font-semibold">{post.user?.name || 'User'}</h3>
-              <span className="text-sm text-muted-foreground">
-                {formattedTime || new Date(post.createdAt).toLocaleString()}
-              </span>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <h3 className="font-semibold text-slate-900">{post.user?.name || 'User'}</h3>
+                <span className="text-sm text-slate-500">
+                  {formattedTime || new Date(post.createdAt).toLocaleString()}
+                </span>
+              </div>
+
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0 cursor-pointer text-slate-400 hover:text-slate-600">
+                    <MoreVertical className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuItem onClick={handleBookmark} className="cursor-pointer">
+                    <Bookmark className="mr-2 h-4 w-4" />
+                    <span>Bookmark post</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleFollow} className="cursor-pointer">
+                    <Bell className="mr-2 h-4 w-4" />
+                    <span>Follow post</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setIsReportModalOpen(true)} className="cursor-pointer text-red-600 focus:text-red-600">
+                    <Flag className="mr-2 h-4 w-4" />
+                    <span>Report post</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
         </div>
 
+        {/* Cover Image */}
+        {post.coverImage && (
+          <div className="mb-4 rounded-xl overflow-hidden border border-slate-100 aspect-[21/9]">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={post.coverImage} alt="Cover" className="w-full h-full object-cover" />
+          </div>
+        )}
+
+        {/* Title */}
+        {post.title && (
+          <h2 className="text-xl font-bold text-slate-900 mb-2 leading-tight">
+            {post.title}
+          </h2>
+        )}
+
         {/* Content */}
         <div className="mb-4">
-          <p className="whitespace-pre-wrap">{renderStyledContent(post.content)}</p>
+          <div 
+            className="prose prose-sm max-w-none dark:prose-invert"
+            dangerouslySetInnerHTML={{ __html: cleanedContent }} 
+          />
         </div>
 
         {/* Media Attachments */}
@@ -194,6 +301,22 @@ export function PostCard({ post, feedType, feedId }: PostCardProps) {
                 )}
               </div>
             ))}
+          </div>
+        )}
+
+        {/* Topics/Tags */}
+        {post.tags && post.tags.some((tag: string) => tag.startsWith('topic:')) && (
+          <div className="flex flex-wrap gap-2 mb-4">
+            {post.tags
+              .filter((tag: string) => tag.startsWith('topic:'))
+              .map((tag: string) => {
+                const topic = tag.replace('topic:', '').replace(/-/g, ' ');
+                return (
+                  <Badge key={tag} variant="secondary" className="capitalize text-[10px] py-0 px-2 font-normal text-slate-500 bg-slate-100 border-none">
+                    {topic}
+                  </Badge>
+                );
+              })}
           </div>
         )}
 
@@ -262,6 +385,63 @@ export function PostCard({ post, feedType, feedId }: PostCardProps) {
           </DialogContent>
         </Dialog>
       )}
+
+      <Dialog open={isReportModalOpen} onOpenChange={setIsReportModalOpen}>
+        <DialogContent className="sm:max-w-[450px] p-0 overflow-hidden rounded-2xl border-none shadow-2xl">
+          <div className="p-6">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-bold text-slate-900">Report post</h2>
+            </div>
+
+            <div className="space-y-6">
+              <div className="space-y-2">
+                <Label className="text-sm font-semibold text-slate-700">Reason</Label>
+                <p className="text-xs text-slate-500 mb-2">Please select a reason for reporting this content.</p>
+                <Select value={reportReason} onValueChange={setReportReason}>
+                  <SelectTrigger className="h-11 rounded-xl border-slate-200 cursor-pointer focus:ring-indigo-100">
+                    <SelectValue placeholder="Select a reason" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Harassment" className="cursor-pointer">Harassment</SelectItem>
+                    <SelectItem value="Spam" className="cursor-pointer">Spam</SelectItem>
+                    <SelectItem value="Incorrect space/post" className="cursor-pointer">Incorrect space/post</SelectItem>
+                    <SelectItem value="Against community guidelines" className="cursor-pointer">Against community guidelines</SelectItem>
+                    <SelectItem value="Other" className="cursor-pointer">Other</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-sm font-semibold text-slate-700">Explanation</Label>
+                <p className="text-xs text-slate-500 mb-2">Optionally, provide an explanation.</p>
+                <Textarea
+                  value={reportExplanation}
+                  onChange={(e) => setReportExplanation(e.target.value)}
+                  placeholder="Provide additional context for the moderators..."
+                  className="min-h-[120px] rounded-xl border-slate-200 focus:ring-indigo-100 resize-none p-3"
+                />
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <Button
+                  variant="outline"
+                  className="flex-1 rounded-full cursor-pointer h-11 border-slate-200 hover:bg-slate-50"
+                  onClick={() => setIsReportModalOpen(false)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  className="flex-1 rounded-full bg-slate-900 hover:bg-slate-800 text-white cursor-pointer h-11 shadow-lg"
+                  onClick={handleReport}
+                  disabled={reportPost.isPending}
+                >
+                  {reportPost.isPending ? "Reporting..." : "Report"}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

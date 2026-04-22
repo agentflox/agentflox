@@ -22,6 +22,10 @@ export const redisBreaker = new CircuitBreaker(
         name: 'redis',
     }
 );
+(redisBreaker as any).execute = <T>(op: () => Promise<T>, fallback?: () => T | Promise<T>) => {
+    const b = fallback ? redisBreaker.fallback(fallback) : redisBreaker;
+    return b.fire(op);
+};
 
 // Database Circuit Breaker
 export const dbBreaker = new CircuitBreaker(
@@ -37,6 +41,10 @@ export const dbBreaker = new CircuitBreaker(
         name: 'database',
     }
 );
+(dbBreaker as any).execute = <T>(op: () => Promise<T>, fallback?: () => T | Promise<T>) => {
+    const b = fallback ? dbBreaker.fallback(fallback) : dbBreaker;
+    return b.fire(op);
+};
 
 // Supabase Circuit Breaker
 export const supabaseBreaker = new CircuitBreaker(
@@ -52,6 +60,10 @@ export const supabaseBreaker = new CircuitBreaker(
         name: 'supabase',
     }
 );
+(supabaseBreaker as any).execute = <T>(op: () => Promise<T>, fallback?: () => T | Promise<T>) => {
+    const b = fallback ? supabaseBreaker.fallback(fallback) : supabaseBreaker;
+    return b.fire(op);
+};
 
 // Event handlers for circuit breakers
 redisBreaker.on('open', () => {
@@ -193,6 +205,12 @@ export class CircuitBreakerManager {
                 console.log(`🟢 Circuit breaker ${name} CLOSED`);
                 metrics.circuitBreakerState.set({ service: name }, 0);
             });
+
+            // Add alias for compatibility with custom breaker interface
+            breaker.execute = (op: any, fallback?: any) => {
+                if (fallback) return breaker.fallback(fallback).fire(op);
+                return breaker.fire(op);
+            };
         }
         return breaker;
     }

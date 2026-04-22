@@ -85,6 +85,60 @@ export const postsRouter = router({
 
       return discussion;
     }),
+
+  bookmark: protectedProcedure
+    .input(z.object({ postId: z.string().uuid() }))
+    .mutation(async ({ ctx, input }) => {
+      const userId = ctx.session!.user!.id;
+      const existing = await prisma.postBookmark.findUnique({
+        where: { postId_userId: { postId: input.postId, userId } },
+      });
+
+      if (existing) {
+        await prisma.postBookmark.delete({ where: { id: existing.id } });
+        return { bookmarked: false };
+      }
+
+      await prisma.postBookmark.create({
+        data: { postId: input.postId, userId },
+      });
+      return { bookmarked: true };
+    }),
+
+  follow: protectedProcedure
+    .input(z.object({ postId: z.string().uuid() }))
+    .mutation(async ({ ctx, input }) => {
+      const userId = ctx.session!.user!.id;
+      const existing = await prisma.postFollow.findUnique({
+        where: { postId_userId: { postId: input.postId, userId } },
+      });
+
+      if (existing) {
+        await prisma.postFollow.delete({ where: { id: existing.id } });
+        return { followed: false };
+      }
+
+      await prisma.postFollow.create({
+        data: { postId: input.postId, userId },
+      });
+      return { followed: true };
+    }),
+
+  report: protectedProcedure
+    .input(z.object({ postId: z.string().uuid(), reason: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const userId = ctx.session!.user!.id;
+      await prisma.postReport.create({
+        data: { postId: input.postId, userId, reason: input.reason },
+      });
+
+      await prisma.post.update({
+        where: { id: input.postId },
+        data: { reportCount: { increment: 1 } },
+      });
+
+      return { success: true };
+    }),
 });
 
 export type PostsRouter = typeof postsRouter;

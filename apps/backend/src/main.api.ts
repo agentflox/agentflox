@@ -25,8 +25,6 @@ import { PresenceService } from './services/socket/presenceService';
 import { getFriendIds, getTeamMemberIds } from './utils/socket/authorization';
 import { AppModule } from './app.module';
 import { inngestHandler } from './inngest/serve';
-import { createHealthRouter } from './services/matching/routes/health';
-import { Pool } from 'pg';
 import { createLifecycleManager } from './lib/lifecycleManager';
 import { PRESENCE_CONFIG } from './lib/presenceConfig';
 import type {
@@ -133,14 +131,6 @@ async function bootstrapApiServer() {
         res.set('Content-Type', contentType);
         res.end(await getMetrics());
     });
-
-    const matchingDbPool = new Pool({
-        connectionString: env.DATABASE_URL,
-        max: 20,
-        idleTimeoutMillis: 30000,
-        connectionTimeoutMillis: 5000,
-    });
-    app.use('/api', createHealthRouter(matchingDbPool));
 
     // Redis pub/sub for notifications
     if (!redisRealtimeDisabled) {
@@ -344,11 +334,6 @@ async function bootstrapApiServer() {
             console.error('[metrics] Error collecting metrics', error);
         }
     }, 30000);
-
-    lifecycle.onShutdown('closeMatchingPool', async () => {
-        await matchingDbPool.end();
-        console.log('[api-server] Database pool closed');
-    }, 10);
 
     // Start lifecycle (background jobs, singletons) without blocking port binding
     lifecycle.start().catch((err) => {

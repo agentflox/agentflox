@@ -40,6 +40,10 @@ import { compositeToolRouter } from "@/trpc/routers/compositeTool";
 import { templateRouter } from "@/trpc/routers/template";
 import { taskStatusRouter } from "@/trpc/routers/taskStatus";
 import { settingsRouter } from "@/trpc/routers/settings";
+import { communityGroupRouter } from "@/trpc/routers/communityGroup";
+import { adminRouter } from "@/trpc/routers/admin";
+import { editorAssistantRouter } from "@/trpc/routers/editorAssistant";
+import { supportAssistantRouter } from "@/trpc/routers/supportAssistant";
 
 export const appRouter = router({
   proposal: proposalRouter,
@@ -83,6 +87,10 @@ export const appRouter = router({
   template: templateRouter,
   taskStatus: taskStatusRouter,
   settings: settingsRouter,
+  communityGroup: communityGroupRouter,
+  admin: adminRouter,
+  editorAssistant: editorAssistantRouter,
+  supportAssistant: supportAssistantRouter,
 });
 
 export type AppRouter = typeof appRouter;

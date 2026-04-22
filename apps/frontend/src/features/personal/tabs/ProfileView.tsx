@@ -14,6 +14,9 @@ import {
     ShieldCheck,
     Camera,
     Linkedin,
+    Twitter,
+    Facebook,
+    Instagram,
     AtSign,
     Pencil
 } from 'lucide-react';
@@ -36,6 +39,10 @@ export function ProfileView() {
     const [bio, setBio] = useState('');
     const [website, setWebsite] = useState('');
     const [linkedinUrl, setLinkedinUrl] = useState('');
+    const [twitterUrl, setTwitterUrl] = useState('');
+    const [facebookUrl, setFacebookUrl] = useState('');
+    const [instagramUrl, setInstagramUrl] = useState('');
+    const [headline, setHeadline] = useState('');
     const [avatar, setAvatar] = useState('');
     const [avatarPath, setAvatarPath] = useState('');
     const [isPublic, setIsPublic] = useState(true);
@@ -54,6 +61,10 @@ export function ProfileView() {
         setBio(session.bio || '');
         setWebsite(session.website || '');
         setLinkedinUrl(session.linkedinUrl || '');
+        setTwitterUrl(session.twitterUrl || '');
+        setFacebookUrl(session.facebookUrl || '');
+        setInstagramUrl(session.instagramUrl || '');
+        setHeadline(session.headline || '');
         setAvatar(session.avatar || '');
     }, [session]);
 
@@ -111,6 +122,10 @@ export function ProfileView() {
             bio,
             website: website.trim() || null,
             linkedinUrl: linkedinUrl.trim() || null,
+            twitterUrl: twitterUrl.trim() || null,
+            facebookUrl: facebookUrl.trim() || null,
+            instagramUrl: instagramUrl.trim() || null,
+            headline: headline.trim() || null,
             avatar: avatar || null,
         });
     };
@@ -353,6 +368,23 @@ export function ProfileView() {
                             </div>
                         </div>
 
+                        <div className="space-y-2 max-w-2xl">
+                            <Label htmlFor="headline" className="text-sm font-medium text-zinc-700">
+                                Headline
+                            </Label>
+                            <div className="relative flex items-center rounded-lg border-2 border-zinc-200 bg-zinc-50/50 transition-all focus-within:border-indigo-400 focus-within:bg-white">
+                                <Input
+                                    id="headline"
+                                    placeholder="e.g. Product Designer | Building useful things"
+                                    variant="ghost"
+                                    className="w-full h-11 px-1 focus:outline-none focus:ring-0 focus-visible:ring-0 border-0 bg-transparent text-[15px]"
+                                    value={headline}
+                                    onChange={e => setHeadline(e.target.value)}
+                                    maxLength={200}
+                                />
+                            </div>
+                        </div>
+
                         {/* Bio Editor */}
                         <div className="space-y-2">
                             <Label htmlFor="bio" className="text-sm font-medium text-zinc-700">
@@ -426,6 +458,48 @@ export function ProfileView() {
                                         className="w-full h-11 pl-10 focus:outline-none focus:ring-0 focus-visible:ring-0 border-0 bg-transparent text-[15px]"
                                         value={linkedinUrl}
                                         onChange={e => setLinkedinUrl(e.target.value)}
+                                    />
+                                </div>
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="twitter" className="text-sm font-medium text-zinc-700">Twitter/X</Label>
+                                <div className="relative flex items-center rounded-lg border-2 border-zinc-200 bg-zinc-50/50 transition-all focus-within:border-indigo-400 focus-within:bg-white">
+                                    <Twitter className="absolute left-3.5 h-4 w-4 text-zinc-400 pointer-events-none" />
+                                    <Input
+                                        id="twitter"
+                                        placeholder="https://x.com/handle"
+                                        variant="ghost"
+                                        className="w-full h-11 pl-10 focus:outline-none focus:ring-0 focus-visible:ring-0 border-0 bg-transparent text-[15px]"
+                                        value={twitterUrl}
+                                        onChange={e => setTwitterUrl(e.target.value)}
+                                    />
+                                </div>
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="facebook" className="text-sm font-medium text-zinc-700">Facebook</Label>
+                                <div className="relative flex items-center rounded-lg border-2 border-zinc-200 bg-zinc-50/50 transition-all focus-within:border-indigo-400 focus-within:bg-white">
+                                    <Facebook className="absolute left-3.5 h-4 w-4 text-zinc-400 pointer-events-none" />
+                                    <Input
+                                        id="facebook"
+                                        placeholder="https://facebook.com/username"
+                                        variant="ghost"
+                                        className="w-full h-11 pl-10 focus:outline-none focus:ring-0 focus-visible:ring-0 border-0 bg-transparent text-[15px]"
+                                        value={facebookUrl}
+                                        onChange={e => setFacebookUrl(e.target.value)}
+                                    />
+                                </div>
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="instagram" className="text-sm font-medium text-zinc-700">Instagram</Label>
+                                <div className="relative flex items-center rounded-lg border-2 border-zinc-200 bg-zinc-50/50 transition-all focus-within:border-indigo-400 focus-within:bg-white">
+                                    <Instagram className="absolute left-3.5 h-4 w-4 text-zinc-400 pointer-events-none" />
+                                    <Input
+                                        id="instagram"
+                                        placeholder="https://instagram.com/username"
+                                        variant="ghost"
+                                        className="w-full h-11 pl-10 focus:outline-none focus:ring-0 focus-visible:ring-0 border-0 bg-transparent text-[15px]"
+                                        value={instagramUrl}
+                                        onChange={e => setInstagramUrl(e.target.value)}
                                     />
                                 </div>
                             </div>
