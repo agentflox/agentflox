@@ -76,7 +76,7 @@ export function SupportAssistantModal({ isOpen, onClose }: SupportAssistantModal
     <Card 
       className={cn(
         "fixed bottom-6 right-6 z-50 flex flex-col shadow-2xl transition-all duration-300 border-slate-200/60 overflow-hidden",
-        isMinimized ? "h-14 w-64" : "h-[600px] w-[400px] rounded-2xl"
+        isMinimized ? "h-14 w-64" : "h-[600px] w-[440px] rounded-2xl"
       )}
     >
       {/* Header */}
@@ -96,13 +96,13 @@ export function SupportAssistantModal({ isOpen, onClose }: SupportAssistantModal
         <div className="flex items-center gap-1">
           <button 
             onClick={() => setIsMinimized(!isMinimized)}
-            className="p-1.5 rounded-md hover:bg-white/10 transition-colors text-slate-400 hover:text-white"
+            className="p-1.5 rounded-md hover:bg-white/10 transition-colors text-slate-400 hover:text-white cursor-pointer"
           >
             <Minus className="h-4 w-4" />
           </button>
           <button 
             onClick={onClose}
-            className="p-1.5 rounded-md hover:bg-white/10 transition-colors text-slate-400 hover:text-white"
+            className="p-1.5 rounded-md hover:bg-white/10 transition-colors text-slate-400 hover:text-white cursor-pointer"
           >
             <X className="h-4 w-4" />
           </button>
@@ -180,6 +180,9 @@ export function SupportAssistantModal({ isOpen, onClose }: SupportAssistantModal
               isSending={messageMutation.isPending}
               disabled={!conversationId}
               placeholder="Ask anything..."
+              hideMentions={true}
+              hideContext={true}
+              hideWebSearch={true}
               className="rounded-xl border-slate-200 focus-within:ring-2 focus-within:ring-indigo-500/20 transition-all"
             />
             <div className="mt-2 text-[10px] text-center text-slate-400">

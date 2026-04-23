@@ -34,6 +34,10 @@ interface ChatComposerProps {
   }
   className?: string
   inputClassName?: string
+  placeholder?: string
+  hideMentions?: boolean
+  hideContext?: boolean
+  hideWebSearch?: boolean
 }
 
 export const ChatComposer = memo(forwardRef<ChatComposerRef, ChatComposerProps>(function ChatComposer({
@@ -49,7 +53,11 @@ export const ChatComposer = memo(forwardRef<ChatComposerRef, ChatComposerProps>(
   selectedMentions = [],
   mentionsData = { agents: [], tasks: [] },
   className,
-  inputClassName
+  inputClassName,
+  placeholder,
+  hideMentions,
+  hideContext,
+  hideWebSearch
 }, ref) {
   const [value, setValue] = useState('')
   const [attachments, setAttachments] = useState<ParsedFile[]>([])
@@ -213,7 +221,7 @@ export const ChatComposer = memo(forwardRef<ChatComposerRef, ChatComposerProps>(
 
     // Detect @ typing
     const lastChar = newValue[newValue.length - 1]
-    if (lastChar === '@') {
+    if (lastChar === '@' && !hideMentions) {
       setMentionPopoverOpen(true)
       setMentionSearch('')
     }
@@ -293,7 +301,7 @@ export const ChatComposer = memo(forwardRef<ChatComposerRef, ChatComposerProps>(
               overlayRef.current.scrollTop = e.currentTarget.scrollTop
             }
           }}
-          placeholder="Type a message or use @ to mention..."
+          placeholder={placeholder || "Type a message..."}
           className={cn(
             'min-h-[44px] w-full resize-none border-0 bg-transparent p-0 text-[15px] font-normal leading-relaxed placeholder:text-zinc-400 focus-visible:ring-0',
             'text-transparent caret-zinc-900 selection:bg-blue-200/50 selection:text-transparent',
@@ -354,164 +362,166 @@ export const ChatComposer = memo(forwardRef<ChatComposerRef, ChatComposerProps>(
         <div className="flex items-center gap-1">
           <input ref={fileInputRef} type="file" multiple className="hidden" onChange={handleFileSelect} />
 
-          <Popover open={mentionPopoverOpen} onOpenChange={setMentionPopoverOpen}>
-            <PopoverTrigger asChild>
-              <ToolbarButton
-                onClick={() => {
-                  setMentionPopoverOpen(true)
-                }}
-                active={false}
-                tooltip="Mention Agent or Task (@)"
+          {!hideMentions && (
+            <Popover open={mentionPopoverOpen} onOpenChange={setMentionPopoverOpen}>
+              <PopoverTrigger asChild>
+                <ToolbarButton
+                  onClick={() => {
+                    setMentionPopoverOpen(true)
+                  }}
+                  active={false}
+                  tooltip="Mention Agent or Task (@)"
+                >
+                  <AtSign className="h-4 w-4" />
+                </ToolbarButton>
+              </PopoverTrigger>
+              <PopoverContent
+                side="top"
+                align="start"
+                sideOffset={12}
+                className="w-80 p-0 overflow-hidden rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.15)] border-zinc-200/50 bg-white/95 backdrop-blur-xl z-[100] animate-in fade-in zoom-in-95 slide-in-from-bottom-2 duration-200"
               >
-                <AtSign className="h-4 w-4" />
-              </ToolbarButton>
-            </PopoverTrigger>
-            <PopoverContent
-              side="top"
-              align="start"
-              sideOffset={12}
-              className="w-80 p-0 overflow-hidden rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.15)] border-zinc-200/50 bg-white/95 backdrop-blur-xl z-[100] animate-in fade-in zoom-in-95 slide-in-from-bottom-2 duration-200"
-            >
-              <div className="flex flex-col h-[420px]">
-                {/* Search Header */}
-                <div className="p-3 border-b border-zinc-100 bg-zinc-50/50">
-                  <div className="flex items-center gap-2 px-2.5 h-9 rounded-xl bg-white border border-zinc-200 shadow-sm focus-within:ring-2 focus-within:ring-purple-500/20 focus-within:border-purple-500/50 transition-all">
-                    <Search className="h-3.5 w-3.5 text-zinc-400" />
-                    <Input
-                      variant="ghost"
-                      placeholder="Search tasks or agents..."
-                      value={mentionSearch}
-                      onChange={(e) => setMentionSearch(e.target.value)}
-                      className="w-full h-full border-0 bg-transparent p-0 text-[13px] font-normal focus:outline-none focus:ring-0 focus-visible:ring-0 placeholder:text-zinc-400"
-                      autoFocus
-                    />
-                    <div className="flex items-center gap-1 opacity-40">
-                      <Command className="h-3 w-3" />
-                      <span className="text-[10px] font-bold">K</span>
+                <div className="flex flex-col h-[420px]">
+                  {/* Search Header */}
+                  <div className="p-3 border-b border-zinc-100 bg-zinc-50/50">
+                    <div className="flex items-center gap-2 px-2.5 h-9 rounded-xl bg-white border border-zinc-200 shadow-sm focus-within:ring-2 focus-within:ring-purple-500/20 focus-within:border-purple-500/50 transition-all">
+                      <Search className="h-3.5 w-3.5 text-zinc-400" />
+                      <Input
+                        variant="ghost"
+                        placeholder="Search tasks or agents..."
+                        value={mentionSearch}
+                        onChange={(e) => setMentionSearch(e.target.value)}
+                        className="w-full h-full border-0 bg-transparent p-0 text-[13px] font-normal focus:outline-none focus:ring-0 focus-visible:ring-0 placeholder:text-zinc-400"
+                        autoFocus
+                      />
+                      <div className="flex items-center gap-1 opacity-40">
+                        <Command className="h-3 w-3" />
+                        <span className="text-[10px] font-bold">K</span>
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                <Tabs defaultValue="tasks" className="flex-1 flex flex-col min-h-0">
-                  <div className="px-3 pt-3 pb-1">
-                    <TabsList className="w-full grid grid-cols-2 rounded-xl bg-zinc-100/80 p-1 h-9 border-0 gap-1">
-                      <TabsTrigger value="tasks" className="rounded-lg border-0 data-[state=active]:bg-white data-[state=active]:text-indigo-600 data-[state=active]:shadow-sm text-[11px] font-bold uppercase tracking-wider text-zinc-500 transition-all cursor-pointer">
-                        <Files className="h-3.5 w-3.5 mr-2" />
-                        Tasks
-                      </TabsTrigger>
-                      <TabsTrigger value="agents" className="rounded-lg border-0 data-[state=active]:bg-white data-[state=active]:text-purple-600 data-[state=active]:shadow-sm text-[11px] font-bold uppercase tracking-wider text-zinc-500 transition-all cursor-pointer">
-                        <Bot className="h-3.5 w-3.5 mr-2" />
-                        Agents
-                      </TabsTrigger>
-                    </TabsList>
-                  </div>
+                  <Tabs defaultValue="tasks" className="flex-1 flex flex-col min-h-0">
+                    <div className="px-3 pt-3 pb-1">
+                      <TabsList className="w-full grid grid-cols-2 rounded-xl bg-zinc-100/80 p-1 h-9 border-0 gap-1">
+                        <TabsTrigger value="tasks" className="rounded-lg border-0 data-[state=active]:bg-white data-[state=active]:text-indigo-600 data-[state=active]:shadow-sm text-[11px] font-bold uppercase tracking-wider text-zinc-500 transition-all cursor-pointer">
+                          <Files className="h-3.5 w-3.5 mr-2" />
+                          Tasks
+                        </TabsTrigger>
+                        <TabsTrigger value="agents" className="rounded-lg border-0 data-[state=active]:bg-white data-[state=active]:text-purple-600 data-[state=active]:shadow-sm text-[11px] font-bold uppercase tracking-wider text-zinc-500 transition-all cursor-pointer">
+                          <Bot className="h-3.5 w-3.5 mr-2" />
+                          Agents
+                        </TabsTrigger>
+                      </TabsList>
+                    </div>
 
-                  <div className="flex-1 overflow-y-auto">
-                    <TabsContent value="tasks" className="m-0 p-2">
-                      {filteredTasks.length === 0 ? (
-                        <div className="py-12 flex flex-col items-center justify-center opacity-40">
-                          <Files className="h-8 w-8 mb-3" />
-                          <div className="text-[12px] font-bold tracking-tight">No tasks found</div>
-                          <div className="text-[10px] mt-1">Try a different search</div>
-                        </div>
-                      ) : (
-                        <div className="space-y-1">
-                          {filteredTasks.map((task: any) => {
-                            const title = task.data?.label || task.data?.title || task.title || "Task";
-                            const taskId = task.data?.taskId || task.id;
-                            return (
-                              <button
-                                key={task.id}
-                                onClick={() => {
-                                  const mentionStr = `[@${title}]\u200B `;
-                                  setValue(prev => prev.endsWith('@') ? prev.slice(0, -1) + mentionStr.replace('[@', '@').replace(']', '') : prev + mentionStr.replace('[@', '@').replace(']', ''));
-                                  setMentionPopoverOpen(false);
-                                  textareaRef.current?.focus();
-                                  onMentionSelect?.({ id: taskId, name: title, type: 'task' });
-                                }}
-                                className="w-full flex items-center gap-3 p-2.5 rounded-xl hover:bg-indigo-50 group transition-all text-left border border-transparent hover:border-indigo-100 shadow-none hover:shadow-sm cursor-pointer"
-                              >
-                                <div className="h-9 w-9 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shadow-sm shrink-0 group-hover:bg-indigo-600 group-hover:text-white transition-all duration-300">
-                                  <Files size={16} />
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                  <div className="text-[13px] font-medium text-zinc-800 group-hover:text-indigo-900 truncate">{title}</div>
-                                  <div className="text-[10px] text-zinc-500 group-hover:text-indigo-600/70 truncate mt-0.5 flex items-center gap-1">
-                                    <Sparkles className="h-2.5 w-2.5" />
-                                    Active Task
+                    <div className="flex-1 overflow-y-auto">
+                      <TabsContent value="tasks" className="m-0 p-2">
+                        {filteredTasks.length === 0 ? (
+                          <div className="py-12 flex flex-col items-center justify-center opacity-40">
+                            <Files className="h-8 w-8 mb-3" />
+                            <div className="text-[12px] font-bold tracking-tight">No tasks found</div>
+                            <div className="text-[10px] mt-1">Try a different search</div>
+                          </div>
+                        ) : (
+                          <div className="space-y-1">
+                            {filteredTasks.map((task: any) => {
+                              const title = task.data?.label || task.data?.title || task.title || "Task";
+                              const taskId = task.data?.taskId || task.id;
+                              return (
+                                <button
+                                  key={task.id}
+                                  onClick={() => {
+                                    const mentionStr = `[@${title}]\u200B `;
+                                    setValue(prev => prev.endsWith('@') ? prev.slice(0, -1) + mentionStr.replace('[@', '@').replace(']', '') : prev + mentionStr.replace('[@', '@').replace(']', ''));
+                                    setMentionPopoverOpen(false);
+                                    textareaRef.current?.focus();
+                                    onMentionSelect?.({ id: taskId, name: title, type: 'task' });
+                                  }}
+                                  className="w-full flex items-center gap-3 p-2.5 rounded-xl hover:bg-indigo-50 group transition-all text-left border border-transparent hover:border-indigo-100 shadow-none hover:shadow-sm cursor-pointer"
+                                >
+                                  <div className="h-9 w-9 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shadow-sm shrink-0 group-hover:bg-indigo-600 group-hover:text-white transition-all duration-300">
+                                    <Files size={16} />
                                   </div>
-                                </div>
-                              </button>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </TabsContent>
-
-                    <TabsContent value="agents" className="m-0 p-2">
-                      {filteredAgents.length === 0 ? (
-                        <div className="py-12 flex flex-col items-center justify-center opacity-40">
-                          <Bot className="h-8 w-8 mb-3" />
-                          <div className="text-[12px] font-bold tracking-tight">No agents found</div>
-                          <div className="text-[10px] mt-1">Try a different search</div>
-                        </div>
-                      ) : (
-                        <div className="space-y-1">
-                          {filteredAgents.map((agent: any) => {
-                            const name = agent.data?.label || agent.data?.name || agent.name || "Agent";
-                            const agentId = agent.data?.agentId || agent.id;
-                            const isCoordinator = agent.data?.isCoordinator || agent.agentType === 'WORKFLOW_MANAGER';
-                            return (
-                              <button
-                                key={agent.id}
-                                onClick={() => {
-                                  const mentionStr = `[@${name}]\u200B `;
-                                  setValue(prev => prev.endsWith('@') ? prev.slice(0, -1) + mentionStr.replace('[@', '@').replace(']', '') : prev + mentionStr.replace('[@', '@').replace(']', ''));
-                                  setMentionPopoverOpen(false);
-                                  textareaRef.current?.focus();
-                                  onMentionSelect?.({ id: agentId, name, type: 'agent' });
-                                }}
-                                className={cn(
-                                  "w-full flex items-center gap-3 p-2.5 rounded-xl transition-all text-left border border-transparent shadow-none hover:shadow-sm cursor-pointer",
-                                  isCoordinator ? "hover:bg-purple-50 hover:border-purple-100 group" : "hover:bg-blue-50 hover:border-blue-100 group"
-                                )}
-                              >
-                                <div className="relative">
-                                  <Avatar className={cn('h-10 w-10 rounded-xl shadow-sm border shrink-0 transition-transform duration-300 group-hover:scale-105',
-                                    isCoordinator ? 'border-purple-200 bg-purple-100' : 'border-zinc-200 bg-blue-50/50'
-                                  )}>
-                                    <AvatarImage src={agent.data?.avatar || agent.avatar} />
-                                    <AvatarFallback className={cn('rounded-xl font-bold', isCoordinator ? 'bg-purple-100 text-purple-600' : 'bg-blue-50/50 text-blue-600')}>
-                                      {isCoordinator ? <BrainCircuit className="h-5 w-5 opacity-80" /> : <Bot className="h-5 w-5 opacity-80" />}
-                                    </AvatarFallback>
-                                  </Avatar>
-                                  <div className={cn("absolute -bottom-1 -right-1 h-3.5 w-3.5 rounded-full border-2 border-white", isCoordinator ? "bg-purple-500" : "bg-emerald-500")} />
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                  <div className={cn('text-[13px] font-medium truncate transition-colors',
-                                    isCoordinator ? 'text-purple-900 group-hover:text-purple-700' : 'text-zinc-900 group-hover:text-blue-700'
-                                  )}>{name}</div>
-                                  <div className={cn('text-[10px] truncate mt-0.5 font-medium', isCoordinator ? 'text-purple-600/70' : 'text-zinc-500')}>
-                                    {agent.data?.description || agent.description || (isCoordinator ? 'Swarm Coordinator' : 'Active Swarm Member')}
+                                  <div className="flex-1 min-w-0">
+                                    <div className="text-[13px] font-medium text-zinc-800 group-hover:text-indigo-900 truncate">{title}</div>
+                                    <div className="text-[10px] text-zinc-500 group-hover:text-indigo-600/70 truncate mt-0.5 flex items-center gap-1">
+                                      <Sparkles className="h-2.5 w-2.5" />
+                                      Active Task
+                                    </div>
                                   </div>
-                                </div>
-                              </button>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </TabsContent>
-                  </div>
-                </Tabs>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </TabsContent>
 
-                {/* Footer hint */}
-                <div className="p-2.5 bg-zinc-50 border-t border-zinc-100 flex items-center justify-center gap-2">
-                  <div className="flex items-center gap-1 px-1.5 py-0.5 rounded border border-zinc-200 bg-white text-[9px] font-black text-zinc-400">ESC</div>
-                  <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-tighter">to close</span>
+                      <TabsContent value="agents" className="m-0 p-2">
+                        {filteredAgents.length === 0 ? (
+                          <div className="py-12 flex flex-col items-center justify-center opacity-40">
+                            <Bot className="h-8 w-8 mb-3" />
+                            <div className="text-[12px] font-bold tracking-tight">No agents found</div>
+                            <div className="text-[10px] mt-1">Try a different search</div>
+                          </div>
+                        ) : (
+                          <div className="space-y-1">
+                            {filteredAgents.map((agent: any) => {
+                              const name = agent.data?.label || agent.data?.name || agent.name || "Agent";
+                              const agentId = agent.data?.agentId || agent.id;
+                              const isCoordinator = agent.data?.isCoordinator || agent.agentType === 'WORKFLOW_MANAGER';
+                              return (
+                                <button
+                                  key={agent.id}
+                                  onClick={() => {
+                                    const mentionStr = `[@${name}]\u200B `;
+                                    setValue(prev => prev.endsWith('@') ? prev.slice(0, -1) + mentionStr.replace('[@', '@').replace(']', '') : prev + mentionStr.replace('[@', '@').replace(']', ''));
+                                    setMentionPopoverOpen(false);
+                                    textareaRef.current?.focus();
+                                    onMentionSelect?.({ id: agentId, name, type: 'agent' });
+                                  }}
+                                  className={cn(
+                                    "w-full flex items-center gap-3 p-2.5 rounded-xl transition-all text-left border border-transparent shadow-none hover:shadow-sm cursor-pointer",
+                                    isCoordinator ? "hover:bg-purple-50 hover:border-purple-100 group" : "hover:bg-blue-50 hover:border-blue-100 group"
+                                  )}
+                                >
+                                  <div className="relative">
+                                    <Avatar className={cn('h-10 w-10 rounded-xl shadow-sm border shrink-0 transition-transform duration-300 group-hover:scale-105',
+                                      isCoordinator ? 'border-purple-200 bg-purple-100' : 'border-zinc-200 bg-blue-50/50'
+                                    )}>
+                                      <AvatarImage src={agent.data?.avatar || agent.avatar} />
+                                      <AvatarFallback className={cn('rounded-xl font-bold', isCoordinator ? 'bg-purple-100 text-purple-600' : 'bg-blue-50/50 text-blue-600')}>
+                                        {isCoordinator ? <BrainCircuit className="h-5 w-5 opacity-80" /> : <Bot className="h-5 w-5 opacity-80" />}
+                                      </AvatarFallback>
+                                    </Avatar>
+                                    <div className={cn("absolute -bottom-1 -right-1 h-3.5 w-3.5 rounded-full border-2 border-white", isCoordinator ? "bg-purple-500" : "bg-emerald-500")} />
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <div className={cn('text-[13px] font-medium truncate transition-colors',
+                                      isCoordinator ? 'text-purple-900 group-hover:text-purple-700' : 'text-zinc-900 group-hover:text-blue-700'
+                                    )}>{name}</div>
+                                    <div className={cn('text-[10px] truncate mt-0.5 font-medium', isCoordinator ? 'text-purple-600/70' : 'text-zinc-500')}>
+                                      {agent.data?.description || agent.description || (isCoordinator ? 'Swarm Coordinator' : 'Active Swarm Member')}
+                                    </div>
+                                  </div>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </TabsContent>
+                    </div>
+                  </Tabs>
+
+                  {/* Footer hint */}
+                  <div className="p-2.5 bg-zinc-50 border-t border-zinc-100 flex items-center justify-center gap-2">
+                    <div className="flex items-center gap-1 px-1.5 py-0.5 rounded border border-zinc-200 bg-white text-[9px] font-black text-zinc-400">ESC</div>
+                    <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-tighter">to close</span>
+                  </div>
                 </div>
-              </div>
-            </PopoverContent>
-          </Popover>
+              </PopoverContent>
+            </Popover>
+          )}
 
           <ToolbarButton
             onClick={() => fileInputRef.current?.click()}
@@ -521,26 +531,30 @@ export const ChatComposer = memo(forwardRef<ChatComposerRef, ChatComposerProps>(
             <Paperclip className="h-4 w-4" />
           </ToolbarButton>
 
-          <ToolbarButton
-            onClick={onContextClick}
-            active={contextCount > 0}
-            tooltip="Project Context"
-          >
-            <Layers className="h-4 w-4" />
-            {contextCount > 0 && (
-              <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-zinc-900 text-[10px] font-black text-white ring-2 ring-white">
-                {contextCount}
-              </span>
-            )}
-          </ToolbarButton>
+          {!hideContext && (
+            <ToolbarButton
+              onClick={onContextClick}
+              active={contextCount > 0}
+              tooltip="Project Context"
+            >
+              <Layers className="h-4 w-4" />
+              {contextCount > 0 && (
+                <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-zinc-900 text-[10px] font-black text-white ring-2 ring-white">
+                  {contextCount}
+                </span>
+              )}
+            </ToolbarButton>
+          )}
 
-          <ToolbarButton
-            onClick={() => setWebSearch(!webSearch)}
-            active={webSearch}
-            tooltip="Web Search"
-          >
-            <Search className="h-4 w-4" />
-          </ToolbarButton>
+          {!hideWebSearch && (
+            <ToolbarButton
+              onClick={() => setWebSearch(!webSearch)}
+              active={webSearch}
+              tooltip="Web Search"
+            >
+              <Search className="h-4 w-4" />
+            </ToolbarButton>
+          )}
 
           <div className="ml-2 hidden items-center gap-2 px-2.5 py-1.5 text-[10px] font-bold text-zinc-400 sm:flex opacity-60">
             <kbd className="flex h-5 min-w-[20px] items-center justify-center rounded border border-zinc-200 bg-white px-1 shadow-sm">Shift</kbd>
