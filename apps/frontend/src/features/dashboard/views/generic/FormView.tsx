@@ -1243,7 +1243,7 @@ interface FormViewProps {
     entity?: any;
 }
 
-export default function FormView({
+export function FormView({
     workspaceId,
     folderId,
     listId,

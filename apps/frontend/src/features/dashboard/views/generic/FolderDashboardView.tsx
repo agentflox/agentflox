@@ -13,7 +13,7 @@ import { TableView } from "@/features/dashboard/views/generic/TableView";
 import { CalendarView } from "@/features/dashboard/views/generic/CalendarView";
 import { GanttView } from "@/features/dashboard/views/generic/GanttView";
 import { TimelineView } from "@/features/dashboard/views/generic/TimelineView";
-import FormView from "@/features/dashboard/views/generic/FormView";
+import { FormView } from "@/features/dashboard/views/generic/FormView";
 import { MindMapView } from "@/features/dashboard/views/generic/MindMapView";
 import { WorkloadView } from "@/features/dashboard/views/generic/WorkloadView";
 import WhiteboardView from "@/features/dashboard/views/generic/WhiteboardView";
