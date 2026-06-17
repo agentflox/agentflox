@@ -126,7 +126,7 @@ export function TaskCard({ item, onOpen, onConvert, className, isSelected, onSel
 								<span className="text-zinc-300 px-0.5 shrink-0">/</span>
 								<div className="flex items-center gap-1 shrink-0" title={item.parent.title}>
 									<GitBranch className="h-3 w-3" />
-									<span className="truncate max-w-[80px]">Parent</span>
+									<span className="truncate max-w-[80px]">{item.parent.title}</span>
 								</div>
 							</>
 						)}

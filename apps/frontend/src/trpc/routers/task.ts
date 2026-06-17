@@ -304,6 +304,7 @@ export const taskRouter = router({
             workspace: { select: { id: true, name: true } },
             space: { select: { id: true, name: true, color: true } },
             channel: { select: { id: true, name: true } },
+            parent: { select: { id: true, title: true } },
             attachments: { include: { uploader: { select: { id: true, name: true, image: true } } } },
             list: {
               select: {
