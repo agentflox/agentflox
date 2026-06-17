@@ -13,8 +13,8 @@ export const agentBackgroundDlq = inngest.createFunction(
     id: 'agent-background-dlq',
     name: 'Agent Background Task DLQ',
     retries: 5,
+    triggers: [{ event: 'agent/background.failed'  }],
   },
-  { event: 'agent/background.failed' },
   async ({ event, step }) => {
     const { label, error, service, occurredAt } = event.data as {
       label: string;

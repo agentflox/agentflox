@@ -138,7 +138,7 @@ export const teamRouter = router({
                 name: input.name,
                 description: input.description,
                 avatar: input.avatar,
-                teamType: input.teamType,
+                teamType: input.teamType ?? "GENERAL",
                 industry: input.industry,
                 skills: input.skills,
                 location: input.location,

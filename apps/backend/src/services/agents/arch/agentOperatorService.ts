@@ -220,11 +220,64 @@ export class AgentOperatorService {
     });
   }
 
-  private async runCompletion(request: any, context: { operation: string; agentId: string; userId: string }) {
+  private async runCompletion(
+    request: any,
+    context: { operation: string; agentId: string; userId: string },
+    onChunk?: (text: string, delta: string) => void
+  ) {
+    if (this.circuitBreaker.isOpen()) {
+      const errorId = randomUUID();
+      throw new AgentBuilderError(
+        'AGENT_OPERATOR_COMPLETION_FAILED',
+        `Circuit breaker OPEN for operation ${context.operation}`,
+        'Service is temporarily unavailable. Please try again in a moment.',
+        { ...context, errorId }
+      );
+    }
+
     try {
-      return await this.retryHandler.retry(
-        () => this.circuitBreaker.execute(() => openai.chat.completions.create(request)),
-        { maxAttempts: 3, baseDelay: 800 }
+      return await this.circuitBreaker.execute(() =>
+        this.retryHandler.retry(
+          async () => {
+            if (onChunk) {
+              const stream = await openai.chat.completions.create({ ...request, stream: true, stream_options: { include_usage: true } }) as any;
+              let content = '';
+              const tool_calls: any[] = [];
+              let completionUsage: any = undefined;
+
+              for await (const chunk of stream) {
+                if (chunk.usage) completionUsage = chunk.usage;
+                const delta = chunk.choices[0]?.delta;
+                if (!delta) continue;
+
+                if (delta.content) {
+                  content += delta.content;
+                  onChunk(content, delta.content);
+                }
+
+                if (delta.tool_calls) {
+                  for (const tc of delta.tool_calls) {
+                    if (!tool_calls[tc.index]) {
+                      tool_calls[tc.index] = { id: tc.id, type: tc.type, function: { name: '', arguments: '' } };
+                    }
+                    if (tc.id) tool_calls[tc.index].id = tc.id;
+                    if (tc.type) tool_calls[tc.index].type = tc.type;
+                    if (tc.function?.name) tool_calls[tc.index].function.name += tc.function.name;
+                    if (tc.function?.arguments) tool_calls[tc.index].function.arguments += tc.function.arguments;
+                  }
+                }
+              }
+
+              const message: any = { role: 'assistant', content: content || null };
+              if (tool_calls.length > 0) message.tool_calls = tool_calls;
+
+              return { choices: [{ message }], usage: completionUsage } as any;
+            } else {
+              return await openai.chat.completions.create({ ...request, stream: false });
+            }
+          },
+          { maxAttempts: 3, baseDelay: 800 }
+        )
       );
     } catch (error) {
       const classification = this.errorClassifier.classify(error as Error);
@@ -769,6 +822,7 @@ Return strictly JSON with shape: { "welcomeMessage": string }.`,
     const onProgress = (stepDesc: string, node?: string) => {
       console.log(`[AgentOperator ReAct] Progress: ${stepDesc}`);
       redis.setex(runKey, 3600, JSON.stringify({ status: 'running', step: stepDesc })).catch(() => { });
+      redis.publish(runKey, JSON.stringify({ type: 'thinking', message: stepDesc, node })).catch(() => { });
     };
 
     // CRIT-14: Idempotency check 
@@ -788,8 +842,8 @@ Return strictly JSON with shape: { "welcomeMessage": string }.`,
     // Sanitize user input to prevent prompt injection
     const sanitizedMessage = this.inputSanitizer.sanitize(message);
     const turnStartMs = Date.now(); // Phase 5: wall-clock timer for metrics
-
-    onProgress?.('Understanding your request...');
+    const shortMsg = message.length > 70 ? message.substring(0, 70).replace(/\n/g, ' ') + '...' : message.replace(/\n/g, ' ');
+    onProgress?.(`Processing request: "${shortMsg}"`);
 
     // Acquire lock to prevent concurrent processing (fail-closed, namespaced key)
     const processingLockKey = `${this.LOCK_KEY_PREFIX}${conversationId}`;
@@ -1126,7 +1180,7 @@ ${guardrails}${semanticMemoryBlock}`;
                 temperature: agent.temperature,
                 maxTokens: agent.maxTokens,
               },
-              tools: agent.availableTools,
+              tools: agent.tools?.map((t: any) => t.name) || [],
               stats: {
                 totalExecutions: agent.totalExecutions,
                 successfulRuns: agent.successfulRuns,
@@ -1155,10 +1209,11 @@ ${guardrails}${semanticMemoryBlock}`;
 
       const { getToolByName } = await import('../registry/toolRegistry');
       const agentTools: any[] = [];
-      if (agent.availableTools && agent.availableTools.length > 0) {
+      const agentToolNames = agent.tools?.map((t: any) => t.name) || [];
+      if (agentToolNames.length > 0) {
         const selectedToolNames = await this.toolDiscoveryService.selectRelevantTools(
           sanitizedMessage,
-          agent.availableTools,
+          agentToolNames,
           async (name) => {
             const tool = await getToolByName(name);
             if (!tool) return null;
@@ -1193,15 +1248,22 @@ ${guardrails}${semanticMemoryBlock}`;
       let loopTokensUsed = 0; // Sliding token budget tracker
       const loopBudget = AGENT_CONSTANTS.LOOP_TOKEN_BUDGET;
       const toolsInvoked: string[] = []; // Phase 5: track for span + metrics
+      // Baseline: measure the context size BEFORE the loop so we only track
+      // incremental cost per iteration (new output + tool results), not the
+      // full ever-growing messages array which would front-load all cost onto
+      // iteration 1 and falsely exhaust the budget before any work is done.
+      const baseContextTokens = this.tokenBudgetManager.estimateTokens(JSON.stringify(messages));
 
       while (iterations < AGENT_CONSTANTS.REACT_MAX_ITERATIONS && !isFinalAnswer) {
         iterations++;
 
         // ── Sliding budget check ───────────────────────────────────────────
-        const iterEstimate = this.tokenBudgetManager.estimateTokens(
-          JSON.stringify(messages)
-        ) + AGENT_CONSTANTS.LOOP_TOKEN_COST_PER_ITER;
-        loopTokensUsed += iterEstimate;
+        // Count only the INCREMENTAL tokens added this iteration (new messages
+        // pushed since the last check), not the entire messages array.
+        // The base context was already paid once before the loop started.
+        const currentContextTokens = this.tokenBudgetManager.estimateTokens(JSON.stringify(messages));
+        const incrementalCost = Math.max(0, currentContextTokens - baseContextTokens) + AGENT_CONSTANTS.LOOP_TOKEN_COST_PER_ITER;
+        loopTokensUsed += incrementalCost;
 
         if (loopTokensUsed > loopBudget) {
           console.warn(
@@ -1257,8 +1319,13 @@ ${guardrails}${semanticMemoryBlock}`;
 
         const completion = await step.run(`operator-llm-${runId}-${iterations}`, async () => {
           return await this.runCompletion(
-            { ...completionParams, stream: false },
-            { operation: 'operator_chat', agentId: agent.id, userId }
+            { ...completionParams, stream: true },
+            { operation: 'operator_chat', agentId: agent.id, userId },
+            (textSoFar, delta) => {
+              if (delta) {
+                redis.publish(runKey, JSON.stringify({ type: 'token', message: delta })).catch(() => { });
+              }
+            }
           );
         });
 
@@ -1552,10 +1619,12 @@ ${guardrails}${semanticMemoryBlock}`;
       }
 
       await redis.setex(runKey, 3600, JSON.stringify({ status: 'completed', payload: result }));
+      redis.publish(runKey, JSON.stringify({ type: 'complete', payload: result })).catch(() => { });
       return result;
 
     } catch (e: any) {
       await redis.setex(runKey, 3600, JSON.stringify({ status: 'error', message: e.message || 'Error occurred' }));
+      redis.publish(runKey, JSON.stringify({ type: 'error', message: e.message || 'Error occurred' })).catch(() => { });
       throw e;
     } finally {
       await this.releaseLock(processingLockKey);

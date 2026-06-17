@@ -68,6 +68,15 @@ export class AuditLogger {
    * Log an audit event with integrity hash
    */
   async log(entry: AuditLogEntry): Promise<void> {
+    // Guard: skip if required fields are missing to avoid Prisma validation errors
+    if (!entry.action || !entry.agentId) {
+      console.warn('[AuditLogger] Skipping audit log — missing required fields:', {
+        agentId: entry.agentId,
+        action: entry.action,
+      });
+      return;
+    }
+
     try {
       const sanitizedEntry = this.sanitizeEntry(entry);
       const integrity = this.generateIntegrityHash(sanitizedEntry);
@@ -116,7 +125,13 @@ export class AuditLogger {
    */
   async logBatch(entries: AuditLogEntry[]): Promise<void> {
     try {
-      const sanitizedEntries = entries.map(entry => {
+      const validEntries = entries.filter(e => !!e.action && !!e.agentId);
+      if (validEntries.length < entries.length) {
+        console.warn(`[AuditLogger] Filtered ${entries.length - validEntries.length} invalid audit entries from batch.`);
+      }
+      if (validEntries.length === 0) return;
+
+      const sanitizedEntries = validEntries.map(entry => {
         const sanitized = this.sanitizeEntry(entry);
         const integrity = this.generateIntegrityHash(sanitized);
         const diff = this.generateDiff(entry.changes?.before, entry.changes?.after);

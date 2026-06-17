@@ -299,73 +299,73 @@ async function bootstrapApiServer() {
     });
 
     // Singleton lifecycle hooks
-    if (!apiSingletonsDisabled) {
-        lifecycle.onSingleton('syncTools', async () => {
-            const { syncSkillsAndTools } = await import('./services/agents/registry/sync');
-            await syncSkillsAndTools();
-        }, 10);
-    } else {
-        console.warn('[api-server] API singleton hooks disabled (DISABLE_API_SINGLETON_HOOKS=true)');
-    }
+    //if (!apiSingletonsDisabled) {
+    //    lifecycle.onSingleton('syncTools', async () => {
+    //        const { syncSkillsAndTools } = await import('./services/agents/registry/sync');
+    //        await syncSkillsAndTools();
+    //    }, 10);
+    //} else {
+    //    console.warn('[api-server] API singleton hooks disabled (DISABLE_API_SINGLETON_HOOKS=true)');
+    // }
 
     lifecycle.registerInterval('cleanStalePresence', async () => {
-        const cleaned = await PresenceService.cleanupStaleEntries();
-        if (cleaned > 0) {
-            console.log(`[api-server] Cleaned ${cleaned} stale presence entries`);
-        }
-    }, PRESENCE_CONFIG.CLEANUP_INTERVAL_MS);
-
-    lifecycle.registerInterval('logMetrics', async () => {
-        try {
-            const snapshot = {
-                connections: io.sockets.sockets.size,
-                redisMemory: await redis.info('memory').then((info) => {
-                    const match = info.match(/used_memory_human:(\S+)/);
-                    return match ? match[1] : 'unknown';
-                }).catch(() => 'error'),
-                uptime: process.uptime(),
-                memoryUsage: `${(process.memoryUsage().rss / 1024 / 1024).toFixed(1)} MB`,
-            };
-            console.log('[metrics]', JSON.stringify(snapshot));
-            if (snapshot.connections > 5400) {
-                console.warn('⚠️ Approaching connection limit!');
-            }
-        } catch (error) {
-            console.error('[metrics] Error collecting metrics', error);
-        }
-    }, 30000);
-
-    // Start lifecycle (background jobs, singletons) without blocking port binding
-    lifecycle.start().catch((err) => {
-        console.error('[api-server] Lifecycle startup error:', err);
-    });
-
-    const PORT = parseInt(env.PORT, 10);
-
-    // In development on Windows, tsx watch can leave zombie processes holding the port.
-    if (env.NODE_ENV === 'development' && process.platform === 'win32') {
-        try {
-            const stdout = execSync(
-                `netstat -ano | findstr :${PORT} | findstr LISTENING`,
-                { stdio: ['pipe', 'pipe', 'ignore'] }
-            ).toString();
-            const pid = stdout.split('\n')[0].trim().split(/\s+/).pop();
-            if (pid && pid !== process.pid.toString()) {
-                console.log(`[api-server] 🔫 Killing zombie process ${pid} on port ${PORT}`);
-                execSync(`taskkill /F /PID ${pid}`, { stdio: 'ignore' });
-                await new Promise((r) => setTimeout(r, 200));
-            }
-        } catch {
-            // Port not in use — safe to proceed
-        }
+    const cleaned = await PresenceService.cleanupStaleEntries();
+    if (cleaned > 0) {
+        console.log(`[api-server] Cleaned ${cleaned} stale presence entries`);
     }
+}, PRESENCE_CONFIG.CLEANUP_INTERVAL_MS);
 
-    // Bind the port FIRST so the socket server accepts connections immediately,
-    // before lifecycle hooks (tool sync, etc.) have finished warming up.
-    await app.listen(PORT, '0.0.0.0');
-    console.log(`[api-server] 🚀 Server running on port ${PORT}`);
-    console.log(`[api-server] 📡 Environment: ${env.NODE_ENV}`);
-    console.log(`[api-server] 🕐 Presence TTL: ${PRESENCE_CONFIG.TTL_SECONDS}s | Heartbeat: ${PRESENCE_CONFIG.HEARTBEAT_MS}ms`);
+lifecycle.registerInterval('logMetrics', async () => {
+    try {
+        const snapshot = {
+            connections: io.sockets.sockets.size,
+            redisMemory: await redis.info('memory').then((info) => {
+                const match = info.match(/used_memory_human:(\S+)/);
+                return match ? match[1] : 'unknown';
+            }).catch(() => 'error'),
+            uptime: process.uptime(),
+            memoryUsage: `${(process.memoryUsage().rss / 1024 / 1024).toFixed(1)} MB`,
+        };
+        console.log('[metrics]', JSON.stringify(snapshot));
+        if (snapshot.connections > 5400) {
+            console.warn('⚠️ Approaching connection limit!');
+        }
+    } catch (error) {
+        console.error('[metrics] Error collecting metrics', error);
+    }
+}, 30000);
+
+// Start lifecycle (background jobs, singletons) without blocking port binding
+lifecycle.start().catch((err) => {
+    console.error('[api-server] Lifecycle startup error:', err);
+});
+
+const PORT = parseInt(env.PORT, 10);
+
+// In development on Windows, tsx watch can leave zombie processes holding the port.
+if (env.NODE_ENV === 'development' && process.platform === 'win32') {
+    try {
+        const stdout = execSync(
+            `netstat -ano | findstr :${PORT} | findstr LISTENING`,
+            { stdio: ['pipe', 'pipe', 'ignore'] }
+        ).toString();
+        const pid = stdout.split('\n')[0].trim().split(/\s+/).pop();
+        if (pid && pid !== process.pid.toString()) {
+            console.log(`[api-server] 🔫 Killing zombie process ${pid} on port ${PORT}`);
+            execSync(`taskkill /F /PID ${pid}`, { stdio: 'ignore' });
+            await new Promise((r) => setTimeout(r, 200));
+        }
+    } catch {
+        // Port not in use — safe to proceed
+    }
+}
+
+// Bind the port FIRST so the socket server accepts connections immediately,
+// before lifecycle hooks (tool sync, etc.) have finished warming up.
+await app.listen(PORT, '0.0.0.0');
+console.log(`[api-server] 🚀 Server running on port ${PORT}`);
+console.log(`[api-server] 📡 Environment: ${env.NODE_ENV}`);
+console.log(`[api-server] 🕐 Presence TTL: ${PRESENCE_CONFIG.TTL_SECONDS}s | Heartbeat: ${PRESENCE_CONFIG.HEARTBEAT_MS}ms`);
 }
 
 bootstrapApiServer().catch((error) => {

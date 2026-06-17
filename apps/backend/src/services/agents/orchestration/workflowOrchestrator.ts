@@ -6,6 +6,10 @@ import { inngest } from '@/lib/inngest';
 import logger from '@/lib/logger';
 import { agentRegistryService } from './agentRegistry';
 import { agentCommunicationService } from './agentCommunication';
+import { executeTool } from '../core/toolExecutor';
+import { getAllToolsSync } from '../registry/toolRegistry';
+import { agentExecutorService } from '../arch/agentExecutorService';
+import { openai } from '@/lib/openai';
 
 /**
  * Workflow Orchestration Service
@@ -51,6 +55,44 @@ export interface StepResult {
 
 @Injectable()
 export class WorkflowOrchestrationService {
+    /**
+     * Map arbitrary workflow context to tool input schema using AI
+     */
+    private async mapContextToSchemaWithAI(context: any, schema: any, toolName: string): Promise<any> {
+        if (!schema || !schema.parameters) return context;
+
+        try {
+            const prompt = `You are an intelligent data mapper. Your job is to extract and map data from the provided context into the required JSON schema for the tool "${toolName}".
+1. YOU MUST EXTRACT THE DATA FROM THE CONTEXT provided below.
+2. DO NOT use 'default' values from the schema if the context provides a relevant topic, task, or description.
+3. Only if the context is completely empty or completely irrelevant should you fallback to inferring or using a default.
+4. Return ONLY valid JSON matching the schema.
+
+Target JSON Schema:
+${JSON.stringify(schema.parameters, null, 2)}
+
+Available Context Data:
+${typeof context === 'object' ? JSON.stringify(context, null, 2) : context}
+`;
+            const completion = await openai.chat.completions.create({
+                model: 'gpt-4o-mini',
+                messages: [{ role: 'user', content: prompt }],
+                response_format: { type: 'json_object' }
+            });
+
+            const content = completion.choices[0]?.message?.content;
+            if (content) {
+                const mapped = JSON.parse(content);
+                // Return mapped object merged with any raw context the tool might need natively 
+                // but prioritizing the AI mapped fields.
+                return { ...context, ...mapped };
+            }
+        } catch (error) {
+            logger.warn({ event: 'AI_MAPPING_FAILED', toolName, error: String(error) });
+        }
+        return context; // fallback to original
+    }
+
     /**
      * Start a workflow execution
      */
@@ -103,7 +145,7 @@ export class WorkflowOrchestrationService {
         stepId: string,
         input: any,
         userId: string
-    ): Promise<{ messageId: string; agentId: string }> {
+    ): Promise<{ messageId: string; agentId: string; nativeResult?: any }> {
         const execution = await prisma.agentWorkflowExecution.findUnique({
             where: { id: executionId },
             include: { workflow: true }
@@ -140,6 +182,196 @@ export class WorkflowOrchestrationService {
                 // fall through and recompute dispatch
             }
         }
+
+        // Native Task Node Execution: taskId with no agentId → activate task, log activity, forward as context
+        if (!step.agentId && (step as any).taskId && (step.executionMode as string | undefined) !== 'PLACEHOLDER') {
+            const taskId = (step as any).taskId;
+            const syntheticMessageId = `native-task-activate-${executionId}-${stepId}`;
+
+            logger.info({
+                traceId: executionId,
+                executionId,
+                workflowId: execution.workflowId,
+                stepId,
+                event: 'NATIVE_TASK_ACTIVATION',
+                taskId,
+            });
+
+            // Fetch the full task record from DB
+            const taskRecord = await prisma.task.findUnique({
+                where: { id: taskId },
+                select: {
+                    id: true,
+                    title: true,
+                    description: true,
+                    priority: true,
+                    dueDate: true,
+                    createdAt: true,
+                    status: { select: { name: true, color: true } },
+                    assignees: {
+                        select: {
+                            user: { select: { id: true, name: true } },
+                        },
+                    },
+                },
+            });
+
+            // Build a structured context payload that the next agent can use
+            const previousOutput = typeof input === 'object' && input !== null ? input : { raw: input };
+            const taskContext = taskRecord
+                ? {
+                    taskId: taskRecord.id,
+                    title: taskRecord.title,
+                    description: taskRecord.description ?? '',
+                    priority: taskRecord.priority,
+                    dueDate: taskRecord.dueDate?.toISOString() ?? null,
+                    status: taskRecord.status?.name ?? null,
+                    assignees: taskRecord.assignees
+                        .map((a) => a.user?.name)
+                        .filter(Boolean),
+                    // Include upstream output so the downstream agent has full context
+                    upstreamOutput: previousOutput,
+                }
+                : { taskId, upstreamOutput: previousOutput };
+
+            // Write a TaskActivity entry so the task's activity feed shows the workflow ran through it
+            if (taskRecord) {
+                try {
+                    const activityNote =
+                        `Workforce node activated this task.\n\n` +
+                        `**Upstream output:**\n${typeof previousOutput.result === 'string'
+                            ? previousOutput.result.slice(0, 3000)
+                            : JSON.stringify(previousOutput, null, 2).slice(0, 3000)
+                        }`;
+
+                    await (prisma as any).taskActivity.create({
+                        data: {
+                            taskId,
+                            userId,
+                            action: 'COMMENTED',
+                            newValue: activityNote,
+                        },
+                    });
+                } catch (actErr) {
+                    logger.warn({ event: 'TASK_ACTIVITY_WRITE_FAILED', taskId, error: String(actErr) });
+                }
+            }
+
+            const nativeResponse = {
+                result: taskContext,
+                status: 'COMPLETED',
+                stepId,
+                taskId,
+            };
+
+            await redis.set(
+                dispatchKey,
+                JSON.stringify({ messageId: syntheticMessageId, agentId: '' }),
+                'EX',
+                60 * 60 * 24
+            );
+            return { messageId: syntheticMessageId, agentId: '', nativeResult: nativeResponse };
+        }
+
+        // Native Tool Execution (bypassing AI agent)
+        if (!step.agentId && (step as any).toolId && (step.executionMode as string | undefined) !== 'PLACEHOLDER') {
+            const toolId = (step as any).toolId;
+            const syntheticMessageId = `native-tool-execute-${executionId}-${stepId}`;
+
+            // Parse parameters from input
+            let parameters: any = {};
+            if (typeof input === 'string') {
+                try { parameters = JSON.parse(input); }
+                catch { parameters = { input }; }
+            } else if (typeof input === 'object' && input !== null) {
+                parameters = input;
+            }
+
+            // Unwrap response envelope from the previous workflow step.
+            // Each step's output is wrapped as { result: <actual data>, status: "COMPLETED", stepId: "..." }.
+            // We strip that wrapper so the tool's {{inputs.*}} variables resolve against the actual upstream data
+            // (e.g. task description, title, etc.) rather than the envelope.
+            if (
+                parameters &&
+                typeof parameters === 'object' &&
+                'result' in parameters &&
+                'status' in parameters &&
+                typeof parameters.status === 'string' &&
+                parameters.result !== undefined &&
+                parameters.result !== null
+            ) {
+                parameters = parameters.result;
+            }
+
+            // First: try system tool registry (built-in tools by name/id)
+            const tools = getAllToolsSync();
+            const toolDef = tools.find(t => t.name === toolId || t.id === toolId);
+
+            if (toolDef) {
+                logger.info({
+                    traceId: executionId,
+                    executionId,
+                    workflowId: execution.workflowId,
+                    stepId,
+                    event: 'NATIVE_SYSTEM_TOOL_EXECUTION',
+                    toolName: toolDef.name,
+                });
+
+                // Use AI to map upstream data into exactly what the tool needs
+                const mappedParameters = await this.mapContextToSchemaWithAI(parameters, toolDef.functionSchema, toolDef.name);
+
+                const result = await executeTool(
+                    { toolName: toolDef.name, parameters: mappedParameters },
+                    userId
+                );
+
+                const nativeResponse = {
+                    result: result.success ? result.result : undefined,
+                    error: result.error,
+                    status: result.success ? 'COMPLETED' : 'FAILED',
+                    stepId,
+                };
+
+                await redis.set(dispatchKey, JSON.stringify({ messageId: syntheticMessageId, agentId: '' }), 'EX', 60 * 60 * 24);
+                return { messageId: syntheticMessageId, agentId: '', nativeResult: nativeResponse };
+            }
+
+            // Second: try CompositeTool (database-stored tools by UUID)
+            const compositeTool = await prisma.compositeTool.findUnique({
+                where: { id: toolId },
+                select: { id: true, name: true, functionSchema: true },
+            });
+
+            if (compositeTool) {
+                logger.info({
+                    traceId: executionId,
+                    executionId,
+                    workflowId: execution.workflowId,
+                    stepId,
+                    event: 'NATIVE_COMPOSITE_TOOL_EXECUTION',
+                    toolId: compositeTool.id,
+                    toolName: compositeTool.name,
+                });
+
+                // Use AI to map upstream data into what the composite tool needs
+                const mappedParameters = await this.mapContextToSchemaWithAI(parameters, compositeTool.functionSchema, compositeTool.name);
+
+                await inngest.send({
+                    name: 'tool/composite.execute',
+                    data: {
+                        toolId: compositeTool.id,
+                        input: mappedParameters,
+                        userId,
+                        messageId: syntheticMessageId,
+                        stepId,
+                    }
+                });
+
+                await redis.set(dispatchKey, JSON.stringify({ messageId: syntheticMessageId, agentId: '' }), 'EX', 60 * 60 * 24);
+                return { messageId: syntheticMessageId, agentId: '' };
+            }
+        }
+
 
         // Use explicit agentId when present (e.g. from workforce graph)
         let selectedAgent: any = null;
@@ -224,30 +456,76 @@ export class WorkflowOrchestrationService {
             status: 'pending',
         });
 
-        // Send message to agent (Asynchronous)
-        const response = await agentCommunicationService.sendMessage(
-            'system', // From system
+        // Build a rich prompt so the agent receives task context in a readable format
+        let agentContent = `Workflow Step: ${step.name}`;
+        const inputObj = typeof input === 'object' && input !== null ? input : {};
+
+        if (inputObj.taskId && inputObj.title) {
+            // Upstream was a task node — format a structured brief for the agent
+            const lines: string[] = [
+                `## Task: ${inputObj.title}`,
+            ];
+            if (inputObj.description) lines.push(`\n${inputObj.description}`);
+            lines.push('');
+            if (inputObj.status) lines.push(`**Status:** ${inputObj.status}`);
+            if (inputObj.priority) lines.push(`**Priority:** ${inputObj.priority}`);
+            if (inputObj.dueDate) lines.push(`**Due:** ${new Date(inputObj.dueDate).toLocaleDateString()}`);
+            if (inputObj.assignees?.length) lines.push(`**Assignees:** ${inputObj.assignees.join(', ')}`);
+
+            const upstream = inputObj.upstreamOutput;
+            if (upstream) {
+                const upText =
+                    typeof upstream.result === 'string'
+                        ? upstream.result
+                        : JSON.stringify(upstream.result ?? upstream, null, 2);
+                if (upText && upText.length > 2) {
+                    lines.push('');
+                    lines.push('---');
+                    lines.push('**Context from previous step:**');
+                    lines.push(upText.slice(0, 6000));
+                }
+            }
+
+            agentContent = lines.join('\n');
+        } else if (inputObj.result !== undefined || inputObj.response !== undefined) {
+            // Generic upstream result — handle both FSM output shape {response} and legacy {result}
+            const rawValue = inputObj.result ?? inputObj.response;
+            const resultText =
+                typeof rawValue === 'string'
+                    ? rawValue
+                    : JSON.stringify(rawValue ?? inputObj, null, 2);
+            agentContent = `Workflow Step: ${step.name}\n\n**Input from previous step:**\n${resultText.slice(0, 6000)}`;
+        } else if (typeof input === 'string' && input.length > 0) {
+            agentContent = `Workflow Step: ${step.name}\n\n**Input from previous step:**\n${input.slice(0, 6000)}`;
+        }
+
+        // Send message to agent via Inngest durable execution
+        const messageId = randomUUID();
+        const response = await agentExecutorService.triggerExecution(
             selectedAgent.id,
+            userId, // Use original userId
             {
-                type: 'REQUEST',
-                content: `Workflow Step: ${step.name}`,
-                data: { step, input, context: execution.context, executionId }
+                message: agentContent,
+                fromAgent: 'system',
             },
             {
-                synchronous: false,
-                priority: 'HIGH'
+                step,
+                input,
+                context: execution.context,
+                executionId,
+                messageId // So the executor can emit the processed event back to us
             }
         );
 
         // Record idempotent dispatch record
         await redis.set(
             dispatchKey,
-            JSON.stringify({ messageId: response.messageId, agentId: selectedAgent.id }),
+            JSON.stringify({ messageId, agentId: selectedAgent.id }),
             'EX',
             60 * 60 * 24
         );
 
-        return { messageId: response.messageId, agentId: selectedAgent.id };
+        return { messageId, agentId: selectedAgent.id };
     }
 
     /**
@@ -371,9 +649,10 @@ export class WorkflowOrchestrationService {
 
         try {
             if (condition === 'success') {
-                // Consider success when step did not explicitly error or mark as skipped
+                // Consider success when step did not explicitly error
                 if (!safeResult) return false;
                 if (safeResult.status && typeof safeResult.status === 'string') {
+                    if (safeResult.status === 'PLACEHOLDER_SKIPPED') return true;
                     return safeResult.status.toLowerCase() !== 'error' && safeResult.skipped !== true;
                 }
                 return true;

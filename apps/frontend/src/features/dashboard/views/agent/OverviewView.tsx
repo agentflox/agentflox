@@ -60,11 +60,11 @@ export function OverviewView({ agent }: { agent: any }) {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <div className="text-4xl">{agent.avatar || '🤖'}</div>
+        <div className="flex items-center gap-3">
+          <div className="text-3xl">{agent.avatar || '🤖'}</div>
         <div>
-            <h1 className="text-3xl font-bold">{agent.name}</h1>
-            <p className="text-muted-foreground mt-1">{agent.description || 'No description'}</p>
+            <h1 className="text-2xl font-bold">{agent.name}</h1>
+            <p className="text-muted-foreground mt-0.5">{agent.description || 'No description'}</p>
           </div>
         </div>
         <div className="flex items-center gap-2">

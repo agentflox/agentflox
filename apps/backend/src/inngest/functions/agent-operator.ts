@@ -8,10 +8,25 @@ export const agentOperatorWorkflow = inngest.createFunction(
         retries: 2,
         concurrency: {
             limit: 10,
-        }
-    },
-    { event: 'agent/operator.requested' },
-    async ({ event, step }) => {
-        return await agentOperatorService.executeWorkflow(step, event.data);
+        },
+        triggers: [{ event: 'agent/operator.requested'  }],
+        cancelOn: [
+            {
+                event: 'agent/operator.cancel',
+                match: 'data.sessionId',
+            }
+        ],
+  },
+  async ({ event, step }) => {
+        const data = event.data as {
+            runId: string;
+            conversationId: string;
+            agentId: string;
+            message: string;
+            userId: string;
+            idempotencyKey?: string;
+            sessionId?: string;
+        };
+        return await agentOperatorService.executeWorkflow(step, data);
     }
 );

@@ -218,12 +218,12 @@ export default function SpacesPage() {
                         description="Manage your team spaces across all workspaces."
                         actions={
                             <Button
-								onClick={handleCreateSpace}
-								className="group flex items-center gap-2 bg-zinc-900 hover:bg-zinc-700 text-white dark:bg-zinc-50 dark:text-zinc-900 dark:hover:bg-zinc-200 px-4 py-2 h-9 rounded-md transition-all duration-300 shadow-sm hover:shadow-md active:scale-[0.98]"
-							>
-								<Plus className="h-4 w-4 transition-transform duration-300 group-hover:rotate-90" />
-								<span className="font-medium text-sm">New Space</span>
-							</Button>
+                                onClick={handleCreateSpace}
+                                className="group flex items-center gap-2 bg-zinc-900 hover:bg-zinc-700 text-white dark:bg-zinc-50 dark:text-zinc-900 dark:hover:bg-zinc-200 px-4 py-2 h-9 rounded-md transition-all duration-300 shadow-sm hover:shadow-md active:scale-[0.98]"
+                            >
+                                <Plus className="h-4 w-4 transition-transform duration-300 group-hover:rotate-90" />
+                                <span className="font-medium text-sm">New Space</span>
+                            </Button>
                         }
                     />
 
@@ -431,7 +431,7 @@ export default function SpacesPage() {
 
                     {isLoading ? (
                         viewMode === "grid" ? (
-                            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                                 {Array.from({ length: 6 }).map((_, index) => (
                                     <div key={index} className="h-[200px] animate-pulse rounded-lg border border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900" />
                                 ))}
@@ -442,7 +442,7 @@ export default function SpacesPage() {
                     ) : data?.items && data.items.length > 0 ? (
                         viewMode === "grid" ? (
                             <>
-                                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                                     {data.items.map((item) => (
                                         <SpaceCard
                                             key={item.id}

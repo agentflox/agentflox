@@ -24,13 +24,7 @@ export const CONTENT_CREATION_TOOLS: ToolDefinition[] = [
         deterministic: false,
         requiresAuth: false,
         timeout: 60,
-        examples: [
-            {
-                input: { topic: 'The Future of AI', tone: 'Inspirational' },
-                output: { title: 'The Future of AI', content: '...' },
-                description: 'Generate a blog post about AI',
-            },
-        ],
+        examples: [],
     },
     {
         name: 'writeScript',

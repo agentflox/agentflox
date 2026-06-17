@@ -43,8 +43,8 @@ export function ActivitiesView({ agentId }: ActivitiesViewProps) {
     return (
       <div className="space-y-6">
         <div>
-          <h1 className="text-3xl font-bold flex items-center gap-2">
-            <Activity className="h-8 w-8" />
+          <h1 className="text-2xl font-bold flex items-center gap-2">
+            <Activity className="h-6 w-6" />
             Execution History
           </h1>
           <p className="text-muted-foreground mt-1">No executions yet</p>
@@ -69,8 +69,8 @@ export function ActivitiesView({ agentId }: ActivitiesViewProps) {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold flex items-center gap-2">
-          <Activity className="h-8 w-8" />
+        <h1 className="text-2xl font-bold flex items-center gap-2">
+          <Activity className="h-6 w-6" />
           Execution History
         </h1>
         <p className="text-muted-foreground mt-1">

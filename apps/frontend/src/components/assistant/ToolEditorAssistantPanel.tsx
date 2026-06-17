@@ -143,7 +143,28 @@ export function ToolEditorAssistantPanel({
   const send = async (message: string) => {
     setError(null);
     if (!conversationId) return;
-    await sendStreamMessage({ conversationId, message, context });
+
+    setProposedOps([]);
+    setProposalText("");
+
+    setMessages((prev) => {
+      const updated = prev.map(m => ({ ...m, followups: undefined, actions: undefined }));
+      return [
+        ...updated,
+        {
+          id: `temp-${Date.now()}`,
+          role: MessageRole.USER,
+          content: message,
+          createdAt: new Date().toISOString(),
+        } as RenderedMessage
+      ];
+    });
+
+    try {
+      await sendStreamMessage({ conversationId, message, context });
+    } catch (e: any) {
+      setError(e?.message || "Failed to send message.");
+    }
   };
 
   return (
@@ -179,9 +200,9 @@ export function ToolEditorAssistantPanel({
                   {proposedOps.map((op, idx) => <li key={idx}>{formatOp(op)}</li>)}
                 </ul>
                 <div className="flex items-center gap-2">
-                  <Button size="sm" className="h-8 text-xs bg-indigo-600" onClick={() => onApplyOps(proposedOps)}>Apply</Button>
+                  <Button size="sm" className="h-8 text-xs bg-indigo-600" onClick={() => { onApplyOps(proposedOps); setProposedOps([]); setProposalText(""); }}>Apply</Button>
                   {onPersist ? (
-                    <Button size="sm" variant="outline" className="h-8 text-xs" onClick={async () => { onApplyOps(proposedOps); await onPersist(); }}>Apply &amp; Save</Button>
+                    <Button size="sm" variant="outline" className="h-8 text-xs" onClick={async () => { onApplyOps(proposedOps); await onPersist(); setProposedOps([]); setProposalText(""); }}>Apply &amp; Save</Button>
                   ) : null}
                   <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => { setProposedOps([]); setProposalText(""); }}>Discard</Button>
                 </div>

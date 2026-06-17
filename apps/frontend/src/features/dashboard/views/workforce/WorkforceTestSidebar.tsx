@@ -81,6 +81,7 @@ export default function WorkforceTestSidebar({
           </div>
           <div className="flex-1 min-h-0 overflow-hidden">
             <WorkforceRunView
+              key={selectedTrigger!.id}
               workforceId={workforceId}
               workforceName={workforceName}
               triggerLabel={selectedTrigger!.label}

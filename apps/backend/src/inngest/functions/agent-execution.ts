@@ -45,8 +45,8 @@ export const executeAgent = inngest.createFunction(
     // Cancel any run that exceeds 10 minutes wall-clock.
     // The FSM's transitionCount cap (50) should terminate it well before this.
     timeouts: { finish: '10m' } as any,
+    triggers: [{ event: 'agent/execute' }],
   },
-  { event: 'agent/execute' },
   async ({ event, step }) => {
     const { executionId, agentId, userId, inputData, executionContext } = event.data;
 
@@ -55,13 +55,15 @@ export const executeAgent = inngest.createFunction(
     const tenantId = userId; // Single-tenant: userId is the tenant boundary
 
     // ── Step 1: Validate agent access ─────────────────────────────────────
-    const { agent, conversationId } = await step.run('fsm-validate-agent', async () => {
+    const { agent, conversationId, agentSystemPrompt, agentName } = await step.run('fsm-validate-agent', async () => {
       const agent = await prisma.aiAgent.findUnique({
         where: { id: agentId },
         include: {
           aiModel: true,
           tools: { where: { isActive: true } },
         },
+        // Also select systemPrompt and description for FSM planning context
+        // (include doesn't support extra selects; we fetch separately)
       });
 
       if (!agent) throw new Error(`Agent ${agentId} not found`);
@@ -76,19 +78,34 @@ export const executeAgent = inngest.createFunction(
         if (!collaborator) throw new Error('Access denied: you do not have execute permission');
       }
 
+      // Load systemPrompt and description separately to pass to FSM
+      const agentDetails = await prisma.aiAgent.findUnique({
+        where: { id: agentId },
+        select: { systemPrompt: true, description: true, name: true },
+      });
+
       const convId = executionContext?.conversationId ?? null;
-      return { agent, conversationId: convId };
+      return { agent, conversationId: convId, agentSystemPrompt: agentDetails?.systemPrompt || agentDetails?.description || '', agentName: agentDetails?.name || '' };
     });
 
     // ── Step 2: Mark execution as RUNNING ─────────────────────────────────
     await step.run('fsm-mark-running', async () => {
       await Promise.all([
-        prisma.agentExecution.update({
+        prisma.agentExecution.upsert({
           where: { id: runId },
-          data: { status: 'RUNNING' },
-        }).catch(() => {
-          // Execution record may already exist from triggerExecution — update if found
-          console.warn(`[ExecuteAgent] Execution ${runId} not found for status update — may be pre-created`);
+          update: { status: 'RUNNING' },
+          create: {
+            id: runId,
+            agentId,
+            status: 'RUNNING',
+            triggeredBy: 'MANUAL',
+            triggerUserId: userId ?? null,
+            inputData: (inputData as any) ?? {},
+            executionContext: (executionContext as any) ?? {},
+            startedAt: new Date(),
+          },
+        }).catch((err) => {
+          console.error(`[ExecuteAgent] Failed to upsert AgentExecution ${runId}:`, err);
         }),
         prisma.aiAgent.update({
           where: { id: agentId },
@@ -127,6 +144,9 @@ export const executeAgent = inngest.createFunction(
         workspaceId: agent.workspaceId ?? undefined,
         message: (inputData as any)?.message ?? 'Execute',
         conversationId: conversationId ?? undefined,
+        executionContext,
+        agentSystemPrompt: agentSystemPrompt ?? undefined,
+        agentName: agentName ?? undefined,
       },
       step
     );
@@ -187,6 +207,29 @@ export const executeAgent = inngest.createFunction(
           },
         }),
       ]);
+
+      // ── Emit workforce continuation event ────────────────────────────────
+      // If this execution was triggered by the workforce orchestrator, emit
+      // agent/message.processed so the waiting workforce step can proceed.
+      const workforceMessageId = executionContext?.messageId as string | undefined;
+      if (workforceMessageId) {
+        await inngest.send({
+          name: 'agent/message.processed',
+          data: {
+            messageId: workforceMessageId,
+            agentId,
+            response: {
+              result: result.response,
+              output: result.stepResults,
+              status: isSuccess ? 'COMPLETED' : 'FAILED',
+              finalState: result.finalState,
+              stepId: (executionContext as any)?.step?.id,
+            },
+            status: isSuccess ? 'COMPLETED' : 'FAILED',
+            timestamp: new Date(),
+          },
+        });
+      }
     });
 
     return {

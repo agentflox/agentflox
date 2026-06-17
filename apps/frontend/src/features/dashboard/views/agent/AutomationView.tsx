@@ -49,8 +49,8 @@ export function AutomationView({ agent }: AutomationViewProps) {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold flex items-center gap-2">
-            <Zap className="h-8 w-8 text-primary" />
+          <h1 className="text-2xl font-bold flex items-center gap-2">
+            <Zap className="h-6 w-6 text-primary" />
             Automation
           </h1>
           <p className="text-muted-foreground mt-1">
@@ -67,8 +67,8 @@ export function AutomationView({ agent }: AutomationViewProps) {
       {/* Automation Builder */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="triggers">Triggers</TabsTrigger>
-          <TabsTrigger value="actions">Actions</TabsTrigger>
+          <TabsTrigger className="cursor-pointer" value="triggers">Triggers</TabsTrigger>
+          <TabsTrigger className="cursor-pointer" value="actions">Actions</TabsTrigger>
         </TabsList>
 
         <TabsContent value="triggers" className="space-y-4 mt-6">

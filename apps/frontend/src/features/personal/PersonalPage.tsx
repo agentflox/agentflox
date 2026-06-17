@@ -8,9 +8,10 @@ import {
     Bell, Inbox, Activity, FileText, CheckSquare, User,
     BriefcaseBusiness, Package, Mail, Sparkles, LayoutDashboard,
     SquareArrowOutUpRight, ChevronLeft, ChevronRight, ChevronDown,
-    UserCheck, ListTodo, Briefcase
+    UserCheck, ListTodo, Briefcase, ArrowLeft
 } from 'lucide-react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
+import { Button } from "@/components/ui/button";
 import { NotificationsView } from './tabs/NotificationsView';
 import { RequestsView } from './tabs/RequestsView';
 import { InvitationsView } from './tabs/InvitationsView';
@@ -256,13 +257,15 @@ export function PersonalPage() {
                             );
                         })()}
                     </div>
-                    <button
+                    <Button
+                        variant="ghost"
                         onClick={() => router.push('/')}
-                        className="p-2 -mr-2 rounded-md text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 transition-colors cursor-pointer"
+                        className="text-muted-foreground hover:text-foreground"
                         title="Exit Personal Space"
                     >
-                        <SquareArrowOutUpRight size={18} />
-                    </button>
+                        <ArrowLeft className="w-4 h-4 mr-2" />
+                        Back to Home
+                    </Button>
                 </header>
                 <div className="flex-1 min-h-0 relative">
                     {activeTab === 'tasks' ? (

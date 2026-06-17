@@ -17,8 +17,8 @@ export const agentBuilderWorkflow = inngest.createFunction(
     concurrency: {
       limit: 10,
     },
+    triggers: [{ event: 'agent/builder.requested'  }],
   },
-  { event: 'agent/builder.requested' },
   async ({ event }) => {
     const { runId, conversationId, message, userId, idempotencyKey } = event.data as {
       runId: string;

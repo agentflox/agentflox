@@ -34,6 +34,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
   const [followupsMap, setFollowupsMap] = useState<Map<string, MessageFollowup[]>>(new Map());
   const [agentDraft, setAgentDraft] = useState<AgentDraft | null>(null);
   const [isSending, setIsSending] = useState(false);
+  const isSendingRef = useRef(false);
   const [isInitializing, setIsInitializing] = useState(true);
   const [showAgentProfile, setShowAgentProfile] = useState(false);
   const resolvedAgentId = agentId ?? agent?.id;
@@ -69,6 +70,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
 
   // Complete callback — receives metadata from SSE `complete` event
   const handleMessageComplete = useCallback(async (data: any) => {
+    isSendingRef.current = false;
     setIsSending(false);
     if (data?.conversationState) setConversationState(data.conversationState);
     if (data?.agentDraft) setAgentDraft(data.agentDraft);
@@ -103,6 +105,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
   }, [resolvedAgentId, refetchAgent, refetchMessages, buildDbMessages, agentData, showAgentProfile]);
 
   const handleMessageError = useCallback((errorMessage: string) => {
+    isSendingRef.current = false;
     setIsSending(false);
     setMessages(prev => prev.filter(msg => !optimisticMessageIds.current.has(msg.id)));
     optimisticMessageIds.current.clear();
@@ -167,7 +170,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
   });
 
   useEffect(() => {
-    if (messagesData?.messages && conversationId && !isSending) {
+    if (messagesData?.messages && conversationId && !isSendingRef.current) {
       const dbMessages = buildDbMessages(messagesData.messages);
       if (dbMessages.length > 0) {
         setMessages(dbMessages);
@@ -177,7 +180,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
         setFollowupsMap(newFollowupsMap);
       }
     }
-  }, [messagesData, conversationId, isSending, buildDbMessages]);
+  }, [messagesData, conversationId, buildDbMessages]);
 
   useEffect(() => {
     if (agentData && agentData.status === 'ACTIVE' && agentData.isActive && !showAgentProfile) {
@@ -209,20 +212,24 @@ export const ChatView: React.FC<ChatViewProps> = ({
   const handleSendMessage = useCallback(async (message: string) => {
     if (!message.trim() || isSending || !conversationId || !resolvedAgentId) return;
 
-    setMessages(prev => prev.map(msg => ({ ...msg, followups: undefined })));
+    const optimisticId = `optimistic_${Date.now()}`;
+    optimisticMessageIds.current.add(optimisticId);
+    isSendingRef.current = true;
+    setMessages(prev => [
+      ...prev.map(msg => ({ ...msg, followups: undefined })),
+      { id: optimisticId, role: 'USER' as MessageRole, content: message, createdAt: new Date() }
+    ]);
     setFollowupsMap(new Map());
+    setIsSending(true);
 
     const consumePromises = messages
       .filter(msg => msg.role === 'ASSISTANT')
       .map(msg => markFollowupsConsumedMutation.mutateAsync({ messageId: msg.id }).catch(err => {
         console.error('Failed to mark follow-ups as consumed:', err);
       }));
-    await Promise.all(consumePromises);
 
-    const optimisticId = `optimistic_${Date.now()}`;
-    optimisticMessageIds.current.add(optimisticId);
-    setMessages(prev => [...prev, { id: optimisticId, role: 'USER' as MessageRole, content: message, createdAt: new Date() }]);
-    setIsSending(true);
+    Promise.all(consumePromises).catch(() => { });
+
     await sendStreamMessage({ agentId: resolvedAgentId, conversationId, message });
   }, [sendStreamMessage, conversationId, resolvedAgentId, isSending, messages, markFollowupsConsumedMutation]);
 

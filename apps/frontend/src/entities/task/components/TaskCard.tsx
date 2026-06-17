@@ -30,6 +30,9 @@ type TaskSummary = {
 	project?: { id: string; name: string | null } | null;
 	team?: { id: string; name: string | null } | null;
 	channel?: { id: string; name: string | null } | null;
+	workspace?: { id: string; name: string | null } | null;
+	space?: { id: string; name: string | null } | null;
+	list?: { id: string; name: string | null; locationType?: string | null; folder?: { id: string; name: string | null } | null } | null;
 	assignee?: { id: string; name: string | null; email: string | null; image?: string | null } | null;
 	assignees?: Array<{
 		id: string;
@@ -100,21 +103,28 @@ export function TaskCard({ item, onOpen, onConvert, className, isSelected, onSel
 				<div className="absolute left-0 top-0 bottom-0 w-1 bg-red-500" />
 			)}
 
-			<div className="p-3 flex flex-col gap-2">
+			<div className="p-3 pt-10 flex flex-col gap-2">
 				{/* Header: Project/Context & Actions */}
 				<div className="flex items-center justify-between text-[10px] text-zinc-500 font-medium uppercase tracking-wider">
-					<div className="flex items-center gap-2">
-						{item.project ? (
-							<span className="truncate max-w-[100px]">{item.project.name}</span>
-						) : item.team ? (
-							<span className="truncate max-w-[100px]">{item.team.name}</span>
-						) : (
-							<span>Task</span>
-						)}
+					<div className="flex items-center gap-2 min-w-0">
+						<span className="truncate text-[10px] text-zinc-500 mt-0.5 font-medium italic normal-case">
+							{item.list?.locationType === 'PERSONAL' ? (
+								`My personal / ${item.list.name}`
+							) : (
+								[
+									item.workspace?.name,
+									item.space?.name,
+									item.team?.name,
+									item.project?.name,
+									item.list?.folder?.name,
+									item.list?.name
+								].filter(Boolean).join(' / ') || 'Task'
+							)}
+						</span>
 						{item.parent && (
 							<>
-								<span className="text-zinc-300 px-0.5">/</span>
-								<div className="flex items-center gap-1" title={item.parent.title}>
+								<span className="text-zinc-300 px-0.5 shrink-0">/</span>
+								<div className="flex items-center gap-1 shrink-0" title={item.parent.title}>
 									<GitBranch className="h-3 w-3" />
 									<span className="truncate max-w-[80px]">Parent</span>
 								</div>
@@ -122,49 +132,57 @@ export function TaskCard({ item, onOpen, onConvert, className, isSelected, onSel
 						)}
 					</div>
 
-			{/* Checkbox — top left, visible on hover or when selected */}
-			<div
-				className={cn(
-					"absolute top-2 left-2 z-10 transition-opacity",
-					isSelected ? "opacity-100" : "opacity-0 group-hover:opacity-100"
-				)}
-				onClick={(e) => { e.stopPropagation(); onSelect?.(item.id, !isSelected); }}
-			>
-				<Checkbox
-					checked={isSelected}
-					onCheckedChange={(checked) => onSelect?.(item.id, !!checked)}
-					className="h-4 w-4 border-zinc-300 bg-white shadow-sm cursor-pointer"
-				/>
-			</div>
+					{/* Checkbox — top left, visible on hover or when selected */}
+					<div
+						className={cn(
+							"absolute top-2 left-2 z-10 transition-opacity",
+							isSelected ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+						)}
+						onClick={(e) => { e.stopPropagation(); onSelect?.(item.id, !isSelected); }}
+					>
+						<Checkbox
+							checked={isSelected}
+							onCheckedChange={(checked) => onSelect?.(item.id, !!checked)}
+							className="h-4 w-4 border-zinc-300 bg-white shadow-sm cursor-pointer"
+						/>
+					</div>
 
-			{/* Actions — top right, vertical dots */}
-			<div className="opacity-0 group-hover:opacity-100 transition-opacity absolute top-2 right-2">
-				<DropdownMenu>
-					<DropdownMenuTrigger asChild>
-						<Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => e.stopPropagation()}>
-							<MoreVertical className="h-4 w-4 text-zinc-400" />
-						</Button>
-					</DropdownMenuTrigger>
-					<DropdownMenuContent align="end">
-						<DropdownMenuItem onClick={(e) => { e.stopPropagation(); onOpen?.(item.id); }}>View Details</DropdownMenuItem>
-						<DropdownMenuItem onClick={(e) => { e.stopPropagation(); onConvert?.(item.id); }}>Convert to Proposal</DropdownMenuItem>
-					</DropdownMenuContent>
-				</DropdownMenu>
-			</div>
+					{/* Actions — top right, vertical dots */}
+					<div className="opacity-0 group-hover:opacity-100 transition-opacity absolute top-2 right-2">
+						<DropdownMenu>
+							<DropdownMenuTrigger asChild>
+								<Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => e.stopPropagation()}>
+									<MoreVertical className="h-4 w-4 text-zinc-400" />
+								</Button>
+							</DropdownMenuTrigger>
+							<DropdownMenuContent align="end">
+								<DropdownMenuItem onClick={(e) => { e.stopPropagation(); onOpen?.(item.id); }}>View Details</DropdownMenuItem>
+								<DropdownMenuItem onClick={(e) => { e.stopPropagation(); onConvert?.(item.id); }}>Convert to Proposal</DropdownMenuItem>
+							</DropdownMenuContent>
+						</DropdownMenu>
+					</div>
 				</div>
 
-				{/* Title */}
-				<div className="flex items-start gap-2">
-					<div className={cn("mt-1.5 h-3.5 w-3.5 flex-shrink-0")}>
-						{item.taskType ? (
-							<TaskTypeIcon type={item.taskType} className="h-3.5 w-3.5" />
-						) : (
-							<div className={cn("mt-1 h-3 w-3 rounded-full border flex-shrink-0", getStatusColor(statusLabel))} />
-						)}
+				{/* Title & Description */}
+				<div className="flex flex-col gap-1">
+					<div className="flex items-center gap-2">
+						<div className="h-3.5 w-3.5 flex items-center justify-center flex-shrink-0">
+							{item.taskType ? (
+								<TaskTypeIcon type={item.taskType} className="h-3.5 w-3.5" />
+							) : (
+								<div className={cn("h-3 w-3 rounded-full border flex-shrink-0", getStatusColor(statusLabel))} />
+							)}
+						</div>
+						<h3 className="text-sm font-medium text-zinc-900 leading-snug truncate">
+							{item.title}
+						</h3>
 					</div>
-					<h3 className="text-sm font-medium text-zinc-900 leading-snug line-clamp-2">
-						{item.title}
-					</h3>
+					{item.description && (
+						<div
+							className="text-xs text-zinc-500 line-clamp-2"
+							dangerouslySetInnerHTML={{ __html: item.description }}
+						/>
+					)}
 				</div>
 
 				{/* Tags Section */}

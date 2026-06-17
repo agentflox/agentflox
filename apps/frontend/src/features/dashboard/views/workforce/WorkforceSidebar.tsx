@@ -4,14 +4,14 @@ import React, { useState, useMemo, useEffect } from 'react';
 import {
     X, Search, Bot, Plus, ChevronRight, Loader2,
     Wrench, Zap, GitBranch, ShoppingBag, ExternalLink,
-    Slack, Mail, Calendar, Hash, Globe, MessageSquareText,
+    Slack, Mail, Calendar, Hash, Globe, MessageSquareText, Wand2,
     Clock, Trash2, ArrowRight, Settings, Filter, Files, ListTree, List, History,
     MessageCircle, MoreVertical, Play, Pencil, Github, RefreshCw, Flag, Circle, FileText
 } from 'lucide-react';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { toast } from 'sonner';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { ToolBuilderView } from '../tools/ToolBuilderView';
 import { useWorkforceStore } from './store/useWorkforceStore';
 import type { ConditionGroup, ConditionRule, ConditionOperator } from './store/useWorkforceStore';
@@ -547,6 +547,12 @@ export default function WorkforceSidebar({ workspaceId }: { workspaceId?: string
         { enabled: isSidebarOpen && sidebarType === 'AGENT' && !!activeNode?.data?.agentId && !showAgentList }
     );
 
+    // Fetch full tool details when editing to get steps (list strips them)
+    const { data: editingToolData } = trpc.compositeTool.get.useQuery(
+        { id: editingToolId || '' },
+        { enabled: !!editingToolId }
+    );
+
     // Auto-sync node data with latest agent details from DB
     useEffect(() => {
         if (agentDetails && activeNode && activeNodeId && sidebarType === 'AGENT') {
@@ -789,11 +795,17 @@ export default function WorkforceSidebar({ workspaceId }: { workspaceId?: string
         tasks.items.forEach((task: any) => {
             const path: any[] = [];
 
-            if (task.workspaceId) path.push({ id: `ws-${task.workspaceId}`, type: 'workspace', name: task.workspace?.name || 'Workspace', color: task.workspace?.color });
-            if (task.spaceId) path.push({ id: `sp-${task.spaceId}`, type: 'space', name: task.space?.name || 'Space', color: task.space?.color });
-            if (task.projectId) path.push({ id: `pj-${task.projectId}`, type: 'project', name: task.project?.name || 'Project' });
-            if (task.teamId) path.push({ id: `tm-${task.teamId}`, type: 'team', name: task.team?.name || 'Team' });
-            if (task.listId) path.push({ id: `ls-${task.listId}`, type: 'list', name: task.list?.name || 'List' });
+            if (task.list?.locationType === 'PERSONAL') {
+                path.push({ id: 'personal', type: 'workspace', name: 'My personal', color: '#a855f7' });
+                path.push({ id: `ls-${task.listId}`, type: 'list', name: task.list?.name || 'List' });
+            } else {
+                if (task.workspaceId) path.push({ id: `ws-${task.workspaceId}`, type: 'workspace', name: task.workspace?.name || 'Workspace', color: task.workspace?.color });
+                if (task.spaceId) path.push({ id: `sp-${task.spaceId}`, type: 'space', name: task.space?.name || 'Space', color: task.space?.color });
+                if (task.projectId) path.push({ id: `pj-${task.projectId}`, type: 'project', name: task.project?.name || 'Project' });
+                if (task.teamId) path.push({ id: `tm-${task.teamId}`, type: 'team', name: task.team?.name || 'Team' });
+                if (task.list?.folderId) path.push({ id: `fd-${task.list.folderId}`, type: 'folder', name: task.list.folder?.name || 'Folder' });
+                if (task.listId) path.push({ id: `ls-${task.listId}`, type: 'list', name: task.list?.name || 'List' });
+            }
 
             if (path.length === 0) {
                 orphanTasks.push(task);
@@ -836,7 +848,7 @@ export default function WorkforceSidebar({ workspaceId }: { workspaceId?: string
     }, [tasks?.items]);
 
     const renderTreeNode = (node: any) => {
-        let icon = null;
+        let icon: React.ReactNode = null;
         if (node.type === 'workspace') icon = <div className="h-2 w-2 rounded-full" style={{ backgroundColor: node.color || '#4f46e5' }} />;
         else if (node.type === 'list') icon = <div className="flex items-center justify-center h-4 w-4 bg-zinc-100 rounded-sm shadow-sm"><List className="h-2.5 w-2.5 text-zinc-500" /></div>;
         else icon = <div className="h-1.5 w-1.5 rounded-[2px] bg-zinc-300 transition-colors" />;
@@ -922,94 +934,99 @@ export default function WorkforceSidebar({ workspaceId }: { workspaceId?: string
 
                 {/* Premium Header - Hidden when showing Agent Profile or Tool Details to avoid redundancy */}
                 {!(sidebarType === 'AGENT' && activeNode?.data?.agentId && agentDetails && !showAgentList) &&
-                 !(sidebarType === 'TOOL' && activeNode?.data?.toolId && !showToolList) &&
-                 !(sidebarType === 'TASK' && activeNode?.data?.taskId) && (
-                    <div className="relative p-6 border-b border-zinc-100 bg-white shadow-sm flex-shrink-0 z-10 overflow-hidden">
-                        {/* Decorative subtle ambient glow */}
-                        <div className="absolute top-0 right-0 left-0 bottom-0 pointer-events-none z-0 overflow-hidden">
-                            <div className={cn(
-                                "absolute -top-12 -left-12 w-48 h-48 rounded-full blur-[40px] opacity-[0.15]",
-                                sidebarType === 'AGENT' ? "bg-sky-500" :
-                                sidebarType === 'TOOL' ? "bg-emerald-500" :
-                                sidebarType === 'TRIGGER' ? "bg-orange-500" :
-                                sidebarType === 'CONDITION' ? "bg-purple-500" :
-                                sidebarType === 'TASK' ? "bg-indigo-500" :
-                                sidebarType === 'VERSIONS' ? "bg-indigo-500" :
-                                "bg-zinc-400"
-                            )} />
-                        </div>
-
-                        <div className="relative z-10 flex items-center justify-between">
-                            <div className="flex items-center gap-4">
+                    !(sidebarType === 'TOOL' && activeNode?.data?.toolId && !showToolList) &&
+                    !(sidebarType === 'TASK' && activeNode?.data?.taskId) && (
+                        <div className="relative p-6 border-b border-zinc-100 bg-white shadow-sm flex-shrink-0 z-10 overflow-hidden">
+                            {/* Decorative subtle ambient glow */}
+                            <div className="absolute top-0 right-0 left-0 bottom-0 pointer-events-none z-0 overflow-hidden">
                                 <div className={cn(
-                                    "flex items-center justify-center h-[52px] w-[52px] rounded-2xl shadow-sm border",
-                                    sidebarType === 'AGENT' ? "bg-sky-50/80 text-sky-600 border-sky-100 shadow-sky-100" :
-                                    sidebarType === 'TOOL' ? "bg-emerald-50/80 text-emerald-600 border-emerald-100 shadow-emerald-100" :
-                                    sidebarType === 'TRIGGER' ? "bg-orange-50/80 text-orange-600 border-orange-100 shadow-orange-100" :
-                                    sidebarType === 'CONDITION' ? "bg-purple-50/80 text-purple-600 border-purple-100 shadow-purple-100" :
-                                    sidebarType === 'TASK' ? "bg-indigo-50/80 text-indigo-600 border-indigo-100 shadow-indigo-100" :
-                                    sidebarType === 'VERSIONS' ? "bg-indigo-50/80 text-indigo-600 border-indigo-100 shadow-indigo-100" :
-                                    "bg-zinc-50/80 text-zinc-600 border-zinc-200"
-                                )}>
-                                    {sidebarType === 'AGENT' && <Bot size={24} strokeWidth={2} />}
-                                    {sidebarType === 'TOOL' && <Wrench size={24} strokeWidth={2} />}
-                                    {sidebarType === 'TRIGGER' && (!activeNode ? <Zap size={24} strokeWidth={2} /> : <MessageSquareText size={24} strokeWidth={2} />)}
-                                    {sidebarType === 'CONDITION' && <GitBranch size={24} strokeWidth={2} />}
-                                    {sidebarType === 'TASK' && <Files size={24} strokeWidth={2} />}
-                                    {sidebarType === 'EDGE' && <Settings size={24} strokeWidth={2} />}
-                                    {sidebarType === 'VERSIONS' && <History size={24} strokeWidth={2} />}
-                                </div>
-                                <div className="flex flex-col justify-center">
-                                    <h3 className="text-[19px] font-bold text-slate-800 tracking-tight leading-none">
-                                        {sidebarType === 'AGENT' && (activeNode?.data?.agentId && agentDetails && !showAgentList ? agentDetails.name : 'Select Agent')}
-                                        {sidebarType === 'TOOL' && 'Add capability'}
-                                        {sidebarType === 'TRIGGER' && (!activeNode ? 'Select a trigger' : (activeNode.data?.label || 'Trigger'))}
-                                        {sidebarType === 'CONDITION' && 'Condition Settings'}
-                                        {sidebarType === 'TASK' && 'Select an Objective'}
-                                        {sidebarType === 'EDGE' && 'Connection Details'}
-                                        {sidebarType === 'VERSIONS' && 'Version History'}
-                                    </h3>
-                                    <p className={cn(
-                                        "text-[10px] font-bold uppercase tracking-widest mt-2.5 leading-none block",
-                                        sidebarType === 'AGENT' ? "text-sky-500" :
-                                        sidebarType === 'TOOL' ? "text-emerald-500" :
-                                        sidebarType === 'TRIGGER' ? "text-orange-500" :
-                                        sidebarType === 'CONDITION' ? "text-purple-500" :
-                                        sidebarType === 'TASK' ? "text-indigo-500" :
-                                        sidebarType === 'VERSIONS' ? "text-indigo-500" :
-                                        "text-zinc-400"
-                                    )}>
-                                        {sidebarType === 'AGENT' && (activeNode?.data?.agentId && agentDetails && !showAgentList ? agentDetails.agentType?.replace(/_/g, ' ') : 'Workforce Participant')}
-                                        {sidebarType === 'TOOL' && 'Integration Tool'}
-                                        {sidebarType === 'TRIGGER' && 'Workflow Entry Point'}
-                                        {sidebarType === 'CONDITION' && 'Logic & Branching'}
-                                        {sidebarType === 'TASK' && 'Agent Assignment'}
-                                        {sidebarType === 'EDGE' && 'Communication Protocol'}
-                                        {sidebarType === 'VERSIONS' && 'Restore points'}
-                                    </p>
-                                </div>
+                                    "absolute -top-12 -left-12 w-48 h-48 rounded-full blur-[40px] opacity-[0.15]",
+                                    sidebarType === 'AGENT' ? "bg-sky-500" :
+                                        sidebarType === 'TOOL' ? "bg-emerald-500" :
+                                            sidebarType === 'TRIGGER' ? "bg-orange-500" :
+                                                sidebarType === 'CONDITION' ? "bg-purple-500" :
+                                                    sidebarType === 'TASK' ? "bg-indigo-500" :
+                                                        sidebarType === 'VERSIONS' ? "bg-indigo-500" :
+                                                            "bg-zinc-400"
+                                )} />
                             </div>
 
-                            <div className="flex items-center gap-1.5 z-10">
-                                {/* Header Actions - e.g. Delete */}
-                                {activeNode && sidebarType !== 'VERSIONS' && (
-                                    <button
-                                        className="h-8 w-8 flex items-center justify-center rounded-full text-zinc-400 hover:text-red-500 hover:bg-red-50 transition-colors shrink-0 cursor-pointer"
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            if (activeNode.id === 'trigger-1') return;
-                                            setNodes(nodes.filter(n => n.id !== activeNode.id));
-                                            setEdges(edges.filter(e => e.source !== activeNode.id && e.target !== activeNode.id));
-                                            setSidebarOpen(false, sidebarType);
-                                        }}
-                                    >
-                                        <Trash2 size={16} />
-                                    </button>
-                                )}
+                            <div className="relative z-10 flex items-center justify-between">
+                                <div className="flex items-center gap-4">
+                                    <div className={cn(
+                                        "flex items-center justify-center h-[52px] w-[52px] rounded-2xl shadow-sm border",
+                                        sidebarType === 'AGENT' ? "bg-sky-50/80 text-sky-600 border-sky-100 shadow-sky-100" :
+                                            sidebarType === 'TOOL' ? "bg-emerald-50/80 text-emerald-600 border-emerald-100 shadow-emerald-100" :
+                                                sidebarType === 'TRIGGER' ? "bg-orange-50/80 text-orange-600 border-orange-100 shadow-orange-100" :
+                                                    sidebarType === 'CONDITION' ? "bg-purple-50/80 text-purple-600 border-purple-100 shadow-purple-100" :
+                                                        sidebarType === 'TASK' ? "bg-indigo-50/80 text-indigo-600 border-indigo-100 shadow-indigo-100" :
+                                                            sidebarType === 'VERSIONS' ? "bg-indigo-50/80 text-indigo-600 border-indigo-100 shadow-indigo-100" :
+                                                                "bg-zinc-50/80 text-zinc-600 border-zinc-200"
+                                    )}>
+                                        {sidebarType === 'AGENT' && <Bot size={24} strokeWidth={2} />}
+                                        {sidebarType === 'TOOL' && <Wrench size={24} strokeWidth={2} />}
+                                        {sidebarType === 'TRIGGER' && (!activeNode ? <Zap size={24} strokeWidth={2} /> : <MessageSquareText size={24} strokeWidth={2} />)}
+                                        {sidebarType === 'CONDITION' && <GitBranch size={24} strokeWidth={2} />}
+                                        {sidebarType === 'TASK' && <Files size={24} strokeWidth={2} />}
+                                        {sidebarType === 'EDGE' && <Settings size={24} strokeWidth={2} />}
+                                        {sidebarType === 'VERSIONS' && <History size={24} strokeWidth={2} />}
+                                    </div>
+                                    <div className="flex flex-col justify-center">
+                                        <h3 className="text-[19px] font-bold text-slate-800 tracking-tight leading-none">
+                                            {sidebarType === 'AGENT' && (activeNode?.data?.agentId && agentDetails && !showAgentList ? agentDetails.name : 'Select Agent')}
+                                            {sidebarType === 'TOOL' && 'Add capability'}
+                                            {sidebarType === 'TRIGGER' && (!activeNode ? 'Select a trigger' : (activeNode.data?.label || 'Trigger'))}
+                                            {sidebarType === 'CONDITION' && 'Condition Settings'}
+                                            {sidebarType === 'TASK' && 'Select an Objective'}
+                                            {sidebarType === 'EDGE' && 'Connection Details'}
+                                            {sidebarType === 'VERSIONS' && 'Version History'}
+                                        </h3>
+                                        <p className={cn(
+                                            "text-[10px] font-bold uppercase tracking-widest mt-2.5 leading-none block",
+                                            sidebarType === 'AGENT' ? "text-sky-500" :
+                                                sidebarType === 'TOOL' ? "text-emerald-500" :
+                                                    sidebarType === 'TRIGGER' ? "text-orange-500" :
+                                                        sidebarType === 'CONDITION' ? "text-purple-500" :
+                                                            sidebarType === 'TASK' ? "text-indigo-500" :
+                                                                sidebarType === 'VERSIONS' ? "text-indigo-500" :
+                                                                    "text-zinc-400"
+                                        )}>
+                                            {sidebarType === 'AGENT' && (activeNode?.data?.agentId && agentDetails && !showAgentList ? agentDetails.agentType?.replace(/_/g, ' ') : 'Workforce Participant')}
+                                            {sidebarType === 'TOOL' && 'Integration Tool'}
+                                            {sidebarType === 'TRIGGER' && 'Workflow Entry Point'}
+                                            {sidebarType === 'CONDITION' && 'Logic & Branching'}
+                                            {sidebarType === 'TASK' && 'Agent Assignment'}
+                                            {sidebarType === 'EDGE' && 'Communication Protocol'}
+                                            {sidebarType === 'VERSIONS' && 'Restore points'}
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <div className="flex items-center gap-1.5 z-10">
+                                    {/* Header Actions - e.g. Delete */}
+                                    {((activeNode && sidebarType !== 'VERSIONS' && sidebarType !== 'EDGE') || (sidebarType === 'EDGE' && activeEdge)) && (
+                                        <button
+                                            className="h-8 w-8 flex items-center justify-center rounded-full text-zinc-400 hover:text-red-500 hover:bg-red-50 transition-colors shrink-0 cursor-pointer"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                if (sidebarType === 'EDGE' && activeEdge) {
+                                                    setEdges(edges.filter(edge => edge.id !== activeEdge.id));
+                                                    setSidebarOpen(false, sidebarType);
+                                                } else if (activeNode) {
+                                                    if (activeNode.id === 'trigger-1') return;
+                                                    setNodes(nodes.filter(n => n.id !== activeNode.id));
+                                                    setEdges(edges.filter(edge => edge.source !== activeNode.id && edge.target !== activeNode.id));
+                                                    setSidebarOpen(false, sidebarType);
+                                                }
+                                            }}
+                                        >
+                                            <Trash2 size={16} />
+                                        </button>
+                                    )}
+                                </div>
                             </div>
                         </div>
-                    </div>
-                )}
+                    )}
 
                 <div className="flex-1 flex flex-col min-h-0 bg-white">
 
@@ -1077,7 +1094,7 @@ export default function WorkforceSidebar({ workspaceId }: { workspaceId?: string
                                             </div>
                                         ) : (
                                             <div className="space-y-2">
-                                                {(agents?.items || agents || [])?.map((agent: any) => (
+                                                {(Array.isArray(agents) ? agents : (agents?.items || [])).map((agent: any) => (
                                                     <button key={agent.id} onClick={() => { handleSelect(agent); setShowAgentList(false); }} className="w-full flex items-center gap-4 p-3.5 rounded-2xl hover:bg-blue-50/50 group transition-all text-left border border-transparent hover:border-blue-100 cursor-pointer">
                                                         <Avatar className="h-12 w-12 rounded-xl shadow-sm border border-zinc-200">
                                                             <AvatarImage src={agent.avatar} />
@@ -1146,7 +1163,7 @@ export default function WorkforceSidebar({ workspaceId }: { workspaceId?: string
                                                                 </TooltipTrigger>
                                                                 <TooltipContent>Test tool</TooltipContent>
                                                             </Tooltip>
-                                                            
+
                                                             <Tooltip>
                                                                 <TooltipTrigger asChild>
                                                                     <button
@@ -1253,56 +1270,58 @@ export default function WorkforceSidebar({ workspaceId }: { workspaceId?: string
                                     </div>
                                     <ScrollArea className="flex-1 min-h-0 p-4">
                                         <div className="space-y-6">
-                                            <div className="bg-purple-50/50 border border-purple-100 rounded-2xl p-4 flex items-center justify-between group cursor-pointer hover:bg-purple-50 transition-all">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="h-10 w-10 rounded-xl bg-purple-100 flex items-center justify-center text-purple-600"><ShoppingBag className="h-5 w-5" /></div>
-                                                    <div>
-                                                        <div className="text-sm font-bold text-purple-900">Browse Marketplace</div>
-                                                        <div className="text-xs text-purple-600 font-medium">1000+ Tools available</div>
-                                                    </div>
+                                            <button
+                                                onClick={() => setEditingToolId('new')}
+                                                className="w-full flex items-center gap-3 p-2 rounded-xl hover:bg-zinc-50 transition-colors text-left cursor-pointer"
+                                            >
+                                                <div className="h-10 w-10 rounded-lg border border-zinc-200 bg-white flex items-center justify-center shrink-0 shadow-sm">
+                                                    <Wand2 className="h-4 w-4 text-zinc-700" />
                                                 </div>
-                                                <ExternalLink className="h-4 w-4 text-purple-400 group-hover:text-purple-600 transition-colors" />
-                                            </div>
-                                            <Button variant="outline" className="w-full h-12 rounded-xl border-zinc-200 text-zinc-600 font-bold gap-2" onClick={() => setEditingToolId('new')}>
-                                                <Plus className="h-4 w-4" /> Create new tool
-                                            </Button>
+                                                <span className="text-[13px] font-medium text-zinc-700">Create a tool with AI</span>
+                                            </button>
+
                                             {isLoadingTools ? (
                                                 <div className="flex flex-col items-center justify-center py-20 gap-3">
                                                     <Loader2 className="h-8 w-8 animate-spin text-emerald-500" />
                                                     <span className="text-xs font-bold text-zinc-400 uppercase tracking-widest">Loading Tools...</span>
                                                 </div>
                                             ) : (
-                                                <div className="space-y-1">
-                                                    {(dbTools as any[]).map((tool) => (
-                                                        <div
-                                                            key={tool.id}
-                                                            className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-emerald-50/50 group transition-all text-left border border-transparent hover:border-emerald-100 cursor-pointer"
-                                                        >
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => handleSelect({ ...tool, category: tool.category?.replace(/_/g, ' ') })}
-                                                                className="flex items-center gap-3 flex-1 min-w-0"
-                                                            >
-                                                                <div className="h-10 w-10 rounded-lg bg-emerald-50 border border-emerald-100 flex items-center justify-center overflow-hidden shadow-sm">
-                                                                    <Wrench className="h-4 w-4 text-emerald-600" />
+                                                <div>
+                                                    {(() => {
+                                                        const groupedTools = (dbTools as any[]).reduce((acc, tool) => {
+                                                            const cat = tool.category?.replace(/_/g, ' ') || 'Your Tools';
+                                                            const titleCaseCat = cat.split(' ').map((word: string) => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+                                                            if (!acc[titleCaseCat]) acc[titleCaseCat] = [];
+                                                            acc[titleCaseCat].push(tool);
+                                                            return acc;
+                                                        }, {} as Record<string, any[]>);
+
+                                                        return (Object.entries(groupedTools) as [string, any[]][]).map(([category, tools]) => (
+                                                            <div key={category} className="mb-6">
+                                                                <div className="flex items-center justify-between mb-2 px-1">
+                                                                    <h3 className="text-[14px] font-semibold text-zinc-900">{category}</h3>
+                                                                    {category.toLowerCase() === 'popular' && (
+                                                                        <button className="text-[12px] text-zinc-500 hover:text-zinc-700">View more &gt;</button>
+                                                                    )}
                                                                 </div>
-                                                                <div className="flex-1 min-w-0 text-left">
-                                                                    <div className="text-sm font-bold text-zinc-900 group-hover:text-emerald-600 transition-colors truncate">
-                                                                        {tool.name}
-                                                                    </div>
-                                                                    <div className="text-[11px] text-zinc-500 font-medium flex items-center gap-1">
-                                                                        <span>{tool.category?.replace(/_/g, ' ')}</span>
-                                                                        {tool.isComposite && (
-                                                                            <span className="inline-flex items-center rounded-full bg-emerald-50 px-1.5 py-0.5 text-[9px] font-semibold text-emerald-600 border border-emerald-100">
-                                                                                Builder
-                                                                            </span>
-                                                                        )}
-                                                                    </div>
+                                                                <div className={cn("grid gap-1", sidebarWidth > 450 ? "grid-cols-2" : "grid-cols-1")}>
+                                                                    {tools.map(tool => (
+                                                                        <button
+                                                                            key={tool.id}
+                                                                            onClick={() => handleSelect({ ...tool, category: tool.category?.replace(/_/g, ' ') })}
+                                                                            className="w-full flex items-center gap-3 p-2 rounded-xl hover:bg-zinc-50 transition-colors text-left group cursor-pointer"
+                                                                        >
+                                                                            <div className="h-10 w-10 rounded-lg border border-zinc-200 bg-white flex items-center justify-center shrink-0 shadow-sm overflow-hidden">
+                                                                                {/* Custom icon mapping could go here if available, fallback to Wrench */}
+                                                                                <Wrench className="h-4 w-4 text-zinc-500" />
+                                                                            </div>
+                                                                            <span className="text-[13px] font-medium text-zinc-700 truncate">{tool.name}</span>
+                                                                        </button>
+                                                                    ))}
                                                                 </div>
-                                                                <ChevronRight className="h-4 w-4 text-zinc-300 group-hover:text-emerald-400 translate-x-0 group-hover:translate-x-1 transition-all shrink-0" />
-                                                            </button>
-                                                        </div>
-                                                    ))}
+                                                            </div>
+                                                        ));
+                                                    })()}
                                                 </div>
                                             )}
                                         </div>
@@ -1406,7 +1425,7 @@ export default function WorkforceSidebar({ workspaceId }: { workspaceId?: string
                                         <p className="text-[13px] text-zinc-600">Connect this to another node to set up your condition.</p>
                                         <div className="space-y-1.5">
                                             <label className="text-[13px] font-semibold text-zinc-700">LLM Model</label>
-                                            <Select value={activeNode?.data?.llmModel || 'claude-opus-4-6'} onValueChange={val => activeNode && updateNodeData(activeNode.id, { llmModel: val })}>
+                                            <Select value={(activeNode?.data?.llmModel as string) || 'claude-opus-4-6'} onValueChange={val => activeNode && updateNodeData(activeNode.id, { llmModel: val })}>
                                                 <SelectTrigger className="h-10 text-[13px] bg-white border-violet-400 border-2 rounded-lg">
                                                     <SelectValue />
                                                 </SelectTrigger>
@@ -1597,13 +1616,13 @@ export default function WorkforceSidebar({ workspaceId }: { workspaceId?: string
                                         <div className="flex items-center justify-between p-4 bg-zinc-50 rounded-2xl border border-zinc-100">
                                             <div className="flex flex-col items-center gap-2 flex-1 min-w-0">
                                                 <div className="h-10 w-10 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600 shadow-sm border border-blue-100"><Bot className="h-5 w-5" /></div>
-                                                <span className="text-[11px] font-bold text-zinc-600 truncate w-full text-center px-2">{sourceNode?.data?.label || 'Parent agent'}</span>
+                                                <span className="text-[11px] font-bold text-zinc-600 truncate w-full text-center px-2">{(sourceNode?.data?.label as string) || 'Parent agent'}</span>
                                                 <span className="text-[9px] text-zinc-400 font-medium uppercase tracking-tighter">Parent agent</span>
                                             </div>
                                             <ArrowRight className="h-5 w-5 text-zinc-300 mx-2" />
                                             <div className="flex flex-col items-center gap-2 flex-1 min-w-0">
                                                 <div className="h-10 w-10 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-600 shadow-sm border border-indigo-100"><Bot className="h-5 w-5" /></div>
-                                                <span className="text-[11px] font-bold text-zinc-600 truncate w-full text-center px-2">{targetNode?.data?.label || 'Subagent'}</span>
+                                                <span className="text-[11px] font-bold text-zinc-600 truncate w-full text-center px-2">{(targetNode?.data?.label as string) || 'Subagent'}</span>
                                                 <span className="text-[9px] text-zinc-400 font-medium uppercase tracking-tighter">Subagent</span>
                                             </div>
                                         </div>
@@ -1611,11 +1630,11 @@ export default function WorkforceSidebar({ workspaceId }: { workspaceId?: string
                                         <div className="space-y-5">
                                             <div className="space-y-2">
                                                 <label className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest">Default label</label>
-                                                <Input value={activeEdge.data?.label || ''} onChange={(e) => updateEdgeData(activeEdge.id, { label: e.target.value })} className="h-11 rounded-xl bg-white border-zinc-200" placeholder="AI connection..." />
+                                                <Input value={(activeEdge.data?.label as string) || ''} onChange={(e) => updateEdgeData(activeEdge.id, { label: e.target.value })} className="h-11 rounded-xl bg-white border-zinc-200" placeholder="AI connection..." />
                                             </div>
                                             <div className="space-y-2">
                                                 <label className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest">Task behavior</label>
-                                                <Select value={activeEdge.data?.taskBehavior || 'CONTINUE_SAME_TASK'} onValueChange={(val) => updateEdgeData(activeEdge.id, { taskBehavior: val })}>
+                                                <Select value={(activeEdge.data?.taskBehavior as string) || 'CONTINUE_SAME_TASK'} onValueChange={(val) => updateEdgeData(activeEdge.id, { taskBehavior: val })}>
                                                     <SelectTrigger className="h-11 rounded-xl bg-white border-zinc-200"><SelectValue /></SelectTrigger>
                                                     <SelectContent>
                                                         <SelectItem value="CONTINUE_SAME_TASK">Continue same task</SelectItem>
@@ -1626,7 +1645,7 @@ export default function WorkforceSidebar({ workspaceId }: { workspaceId?: string
                                             </div>
                                             <div className="space-y-2">
                                                 <label className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest">Connection type</label>
-                                                <Select value={activeEdge.data?.connectionType || 'AI_CONNECTION'} onValueChange={(val) => updateEdgeData(activeEdge.id, { connectionType: val })}>
+                                                <Select value={(activeEdge.data?.connectionType as string) || 'AI_CONNECTION'} onValueChange={(val) => updateEdgeData(activeEdge.id, { connectionType: val })}>
                                                     <SelectTrigger className="h-11 rounded-xl bg-white border-zinc-200"><SelectValue /></SelectTrigger>
                                                     <SelectContent>
                                                         <SelectItem value="AI_CONNECTION">AI connection</SelectItem>
@@ -1637,11 +1656,11 @@ export default function WorkforceSidebar({ workspaceId }: { workspaceId?: string
                                             </div>
                                             <div className="space-y-2">
                                                 <label className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest">Prompt</label>
-                                                <Textarea placeholder="Describe when and what to send between agents..." value={activeEdge.data?.prompt || ''} onChange={(e) => updateEdgeData(activeEdge.id, { prompt: e.target.value })} className="min-h-[100px] rounded-xl border-zinc-200 resize-none py-3" />
+                                                <Textarea placeholder="Describe when and what to send between agents..." value={(activeEdge.data?.prompt as string) || ''} onChange={(e) => updateEdgeData(activeEdge.id, { prompt: e.target.value })} className="min-h-[100px] rounded-xl border-zinc-200 resize-none py-3" />
                                             </div>
                                             <div className="space-y-2">
                                                 <label className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest">Message template</label>
-                                                <Select value={activeEdge.data?.messageTemplate || 'FULL_AUTONOMY'} onValueChange={(val) => updateEdgeData(activeEdge.id, { messageTemplate: val })}>
+                                                <Select value={(activeEdge.data?.messageTemplate as string) || 'FULL_AUTONOMY'} onValueChange={(val) => updateEdgeData(activeEdge.id, { messageTemplate: val })}>
                                                     <SelectTrigger className="h-11 rounded-xl bg-white border-zinc-200"><SelectValue /></SelectTrigger>
                                                     <SelectContent>
                                                         <SelectItem value="FULL_AUTONOMY">Full agent autonomy</SelectItem>
@@ -1653,7 +1672,7 @@ export default function WorkforceSidebar({ workspaceId }: { workspaceId?: string
                                             <div className="grid grid-cols-2 gap-4">
                                                 <div className="space-y-2">
                                                     <label className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest">Approval mode</label>
-                                                    <Select value={activeEdge.data?.approvalMode || 'AUTO_RUN'} onValueChange={(val) => updateEdgeData(activeEdge.id, { approvalMode: val })}>
+                                                    <Select value={(activeEdge.data?.approvalMode as string) || 'AUTO_RUN'} onValueChange={(val) => updateEdgeData(activeEdge.id, { approvalMode: val })}>
                                                         <SelectTrigger className="h-11 rounded-xl bg-white border-zinc-200"><SelectValue /></SelectTrigger>
                                                         <SelectContent>
                                                             <SelectItem value="AUTO_RUN">Auto run</SelectItem>
@@ -1664,7 +1683,7 @@ export default function WorkforceSidebar({ workspaceId }: { workspaceId?: string
                                                 <div className="space-y-2">
                                                     <label className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest">Max auto-runs</label>
                                                     <Input type="text" placeholder="No limit" className="h-11 rounded-xl bg-white border-zinc-200"
-                                                        value={activeEdge.data?.maxAutoRuns === null ? '' : activeEdge.data?.maxAutoRuns}
+                                                        value={activeEdge.data?.maxAutoRuns == null ? '' : (activeEdge.data?.maxAutoRuns as string | number)}
                                                         onChange={(e) => updateEdgeData(activeEdge.id, { maxAutoRuns: e.target.value === '' ? null : parseInt(e.target.value) })} />
                                                 </div>
                                             </div>
@@ -1690,68 +1709,68 @@ export default function WorkforceSidebar({ workspaceId }: { workspaceId?: string
                                                 <div className="text-[11px] text-zinc-400 font-semibold uppercase tracking-widest mt-0.5 truncate pr-2">TASK NODE</div>
                                             </div>
                                             <div className="flex flex-shrink-0 items-center justify-end gap-0.5">
-                                              <TooltipProvider delayDuration={300}>
-                                                <Popover open={taskPopoverOpen} onOpenChange={setTaskPopoverOpen}>
-                                                    <Tooltip>
-                                                        <TooltipTrigger asChild>
-                                                            <PopoverTrigger asChild>
-                                                                <button className="h-8 w-8 flex items-center justify-center text-zinc-500 hover:text-zinc-800 hover:bg-zinc-100 rounded-lg transition-colors cursor-pointer">
-                                                                    <MoreVertical className="h-4 w-4" />
-                                                                </button>
-                                                            </PopoverTrigger>
-                                                        </TooltipTrigger>
-                                                        <TooltipContent>More options</TooltipContent>
-                                                    </Tooltip>
-                                                    <PopoverContent align="end" className="w-44 p-1 rounded-xl shadow-lg border-zinc-200">
-                                                        <div
-                                                            className="flex items-center gap-2 px-3 py-2 hover:bg-zinc-50 rounded-lg cursor-pointer text-sm text-zinc-700 font-medium transition-colors group"
-                                                            onClick={() => {
-                                                                setTaskPopoverOpen(false);
-                                                                window.open(`/dashboard/tasks/${activeNode.data.taskId}`, "_blank", "noopener,noreferrer");
-                                                            }}
-                                                        >
-                                                            <ExternalLink className="h-3.5 w-3.5 text-zinc-500 group-hover:text-zinc-700 transition-colors" />
-                                                            View task
-                                                        </div>
-                                                        <div
-                                                            className="flex items-center gap-2 px-3 py-2 hover:bg-zinc-50 rounded-lg cursor-pointer text-sm text-zinc-700 font-medium transition-colors group"
-                                                            onClick={(e) => {
-                                                                e.preventDefault();
-                                                                e.stopPropagation();
-                                                                setTaskPopoverOpen(false);
-                                                                useWorkforceStore.getState().setEditNodeModal({ nodeId: activeNode.id, type: 'task' });
-                                                            }}
-                                                        >
-                                                            <Pencil className="h-3.5 w-3.5 text-zinc-500 group-hover:text-zinc-700 transition-colors" />
-                                                            Edit task
-                                                        </div>
-                                                        <div
-                                                            className="flex items-center gap-2 px-3 py-2 hover:bg-zinc-50 rounded-lg cursor-pointer text-sm text-zinc-700 font-medium transition-colors group"
-                                                            onClick={() => {
-                                                                setTaskPopoverOpen(false);
-                                                                updateNodeData(activeNode.id, { taskId: '', label: 'Select a task...', description: '', status: '', priority: '', dueDate: '' });
-                                                            }}
-                                                        >
-                                                            <RefreshCw className="h-3.5 w-3.5 text-zinc-500 group-hover:text-zinc-700 transition-colors" />
-                                                            Change task
-                                                        </div>
-                                                        <div
-                                                            className="flex items-center gap-2 px-3 py-2 hover:bg-red-50 rounded-lg cursor-pointer text-sm text-zinc-700 hover:text-red-600 font-medium transition-colors group"
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                setTaskPopoverOpen(false);
-                                                                if (activeNode.id === 'trigger-1') return;
-                                                                setNodes(nodes.filter(n => n.id !== activeNode.id));
-                                                                setEdges(edges.filter(e => e.source !== activeNode.id && e.target !== activeNode.id));
-                                                                setSidebarOpen(false, sidebarType);
-                                                            }}
-                                                        >
-                                                            <Trash2 className="h-3.5 w-3.5 text-zinc-500 group-hover:text-red-600 transition-colors" />
-                                                            Delete node
-                                                        </div>
-                                                    </PopoverContent>
-                                                </Popover>
-                                              </TooltipProvider>
+                                                <TooltipProvider delayDuration={300}>
+                                                    <Popover open={taskPopoverOpen} onOpenChange={setTaskPopoverOpen}>
+                                                        <Tooltip>
+                                                            <TooltipTrigger asChild>
+                                                                <PopoverTrigger asChild>
+                                                                    <button className="h-8 w-8 flex items-center justify-center text-zinc-500 hover:text-zinc-800 hover:bg-zinc-100 rounded-lg transition-colors cursor-pointer">
+                                                                        <MoreVertical className="h-4 w-4" />
+                                                                    </button>
+                                                                </PopoverTrigger>
+                                                            </TooltipTrigger>
+                                                            <TooltipContent>More options</TooltipContent>
+                                                        </Tooltip>
+                                                        <PopoverContent align="end" className="w-44 p-1 rounded-xl shadow-lg border-zinc-200">
+                                                            <div
+                                                                className="flex items-center gap-2 px-3 py-2 hover:bg-zinc-50 rounded-lg cursor-pointer text-sm text-zinc-700 font-medium transition-colors group"
+                                                                onClick={() => {
+                                                                    setTaskPopoverOpen(false);
+                                                                    window.open(`/dashboard/tasks/${activeNode.data.taskId}`, "_blank", "noopener,noreferrer");
+                                                                }}
+                                                            >
+                                                                <ExternalLink className="h-3.5 w-3.5 text-zinc-500 group-hover:text-zinc-700 transition-colors" />
+                                                                View task
+                                                            </div>
+                                                            <div
+                                                                className="flex items-center gap-2 px-3 py-2 hover:bg-zinc-50 rounded-lg cursor-pointer text-sm text-zinc-700 font-medium transition-colors group"
+                                                                onClick={(e) => {
+                                                                    e.preventDefault();
+                                                                    e.stopPropagation();
+                                                                    setTaskPopoverOpen(false);
+                                                                    useWorkforceStore.getState().setEditNodeModal({ nodeId: activeNode.id, type: 'task' });
+                                                                }}
+                                                            >
+                                                                <Pencil className="h-3.5 w-3.5 text-zinc-500 group-hover:text-zinc-700 transition-colors" />
+                                                                Edit task
+                                                            </div>
+                                                            <div
+                                                                className="flex items-center gap-2 px-3 py-2 hover:bg-zinc-50 rounded-lg cursor-pointer text-sm text-zinc-700 font-medium transition-colors group"
+                                                                onClick={() => {
+                                                                    setTaskPopoverOpen(false);
+                                                                    updateNodeData(activeNode.id, { taskId: '', label: 'Select a task...', description: '', status: '', priority: '', dueDate: '' });
+                                                                }}
+                                                            >
+                                                                <RefreshCw className="h-3.5 w-3.5 text-zinc-500 group-hover:text-zinc-700 transition-colors" />
+                                                                Change task
+                                                            </div>
+                                                            <div
+                                                                className="flex items-center gap-2 px-3 py-2 hover:bg-red-50 rounded-lg cursor-pointer text-sm text-zinc-700 hover:text-red-600 font-medium transition-colors group"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setTaskPopoverOpen(false);
+                                                                    if (activeNode.id === 'trigger-1') return;
+                                                                    setNodes(nodes.filter(n => n.id !== activeNode.id));
+                                                                    setEdges(edges.filter(e => e.source !== activeNode.id && e.target !== activeNode.id));
+                                                                    setSidebarOpen(false, sidebarType);
+                                                                }}
+                                                            >
+                                                                <Trash2 className="h-3.5 w-3.5 text-zinc-500 group-hover:text-red-600 transition-colors" />
+                                                                Delete node
+                                                            </div>
+                                                        </PopoverContent>
+                                                    </Popover>
+                                                </TooltipProvider>
                                             </div>
                                         </div>
 
@@ -1760,9 +1779,16 @@ export default function WorkforceSidebar({ workspaceId }: { workspaceId?: string
                                                 <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest flex items-center gap-1.5">
                                                     <FileText className="w-3.5 h-3.5" /> Description
                                                 </label>
-                                                <p className="text-[13px] text-zinc-600 leading-relaxed">
-                                                    {activeNode.data.description || 'No description provided.'}
-                                                </p>
+                                                {activeNode.data.description ? (
+                                                    <div
+                                                        className="text-[13px] text-zinc-600 leading-relaxed [&>p]:mb-2 last:[&>p]:mb-0"
+                                                        dangerouslySetInnerHTML={{ __html: activeNode.data.description }}
+                                                    />
+                                                ) : (
+                                                    <p className="text-[13px] text-zinc-600 leading-relaxed">
+                                                        No description provided.
+                                                    </p>
+                                                )}
                                             </div>
                                             <div className="grid grid-cols-2 gap-4">
                                                 <div className="space-y-1.5 bg-zinc-50/50 border border-zinc-100 p-3 rounded-xl">
@@ -1839,9 +1865,20 @@ export default function WorkforceSidebar({ workspaceId }: { workspaceId?: string
                                                             <div className="flex-1 min-w-0">
                                                                 <div className="text-sm font-bold text-zinc-900 group-hover:text-indigo-600 transition-colors truncate">{task.title}</div>
                                                                 <div className="text-[10px] text-zinc-500 truncate mt-0.5 flex items-center gap-1 font-medium italic">
-                                                                    {task.workspace?.name && <span>{task.workspace.name}</span>}
-                                                                    {task.space?.name && <span>/ {task.space.name}</span>}
-                                                                    {task.list?.name && <span>/ {task.list.name}</span>}
+                                                                    {task.list?.locationType === 'PERSONAL' ? (
+                                                                        <span>My personal / {task.list.name}</span>
+                                                                    ) : (
+                                                                        <span>
+                                                                            {[
+                                                                                task.workspace?.name,
+                                                                                task.space?.name,
+                                                                                task.team?.name,
+                                                                                task.project?.name,
+                                                                                task.list?.folder?.name,
+                                                                                task.list?.name
+                                                                            ].filter(Boolean).join(' / ') || 'Personal Tasks'}
+                                                                        </span>
+                                                                    )}
                                                                 </div>
                                                             </div>
                                                             <ChevronRight className="h-4 w-4 text-zinc-300 group-hover:text-indigo-400 translate-x-0 group-hover:translate-x-1 transition-all shrink-0" />
@@ -1926,10 +1963,11 @@ export default function WorkforceSidebar({ workspaceId }: { workspaceId?: string
             {/* Tool Builder Modal */}
             <Dialog open={!!editingToolId} onOpenChange={(val) => !val && setEditingToolId(null)}>
                 <DialogContent className="sm:max-w-[1400px] sm:w-[95vw] w-[95vw] h-[95vh] p-0 flex flex-col overflow-hidden bg-zinc-50 border-0 rounded-2xl shadow-2xl [&>button]:hidden">
-                    {editingToolId && (
+                    <DialogTitle className="sr-only">Edit Tool</DialogTitle>
+                    {editingToolId && editingToolData && (
                         <ToolBuilderView
                             workspaceId={workspaceId!}
-                            initialTool={dbTools.find(t => t.id === editingToolId)}
+                            initialTool={editingToolData}
                             onClose={() => setEditingToolId(null)}
                         />
                     )}

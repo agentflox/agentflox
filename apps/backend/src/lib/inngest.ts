@@ -1,11 +1,15 @@
 import { Inngest } from 'inngest';
-import { AgentExecutorRequestedEvent, AgentOperatorRequestedEvent } from './services/agents/execution/agentEvents';
+import { AgentExecutorRequestedEvent, AgentOperatorRequestedEvent, AgentExecutorCancelEvent, AgentOperatorCancelEvent } from './services/agents/execution/agentEvents';
 
 type Events = {
   'agent/execute': AgentExecuteEvent;
   'agent/scheduled': AgentScheduledEvent;
   'agent/executor.requested': AgentExecutorRequestedEvent;
   'agent/operator.requested': AgentOperatorRequestedEvent;
+  'agent/executor.cancel': AgentExecutorCancelEvent;
+  'agent/operator.cancel': AgentOperatorCancelEvent;
+  'agent/message.processed': AgentMessageProcessedEvent;
+  'tool/composite.execute': ToolCompositeExecuteEvent;
 };
 
 // Initialize Inngest client
@@ -35,3 +39,30 @@ export type AgentScheduledEvent = {
   };
 };
 
+export type AgentMessageProcessedEvent = {
+  name: 'agent/message.processed';
+  data: {
+    messageId: string;
+    agentId: string;
+    response: {
+      result?: string;
+      status: 'COMPLETED' | 'FAILED';
+      finalState?: string;
+      stepId?: string;
+      [key: string]: unknown;
+    };
+    status: 'COMPLETED' | 'FAILED';
+    timestamp: Date | string;
+  };
+};
+
+export type ToolCompositeExecuteEvent = {
+  name: 'tool/composite.execute';
+  data: {
+    toolId: string;
+    input: any;
+    userId: string;
+    messageId?: string;
+    stepId?: string;
+  };
+};

@@ -22,6 +22,7 @@ import WorkforceSidebar from "@/features/dashboard/views/workforce/WorkforceSide
 import WorkforceRunView from "@/features/dashboard/views/workforce/WorkforceRunView";
 import WorkforceTestSidebar from "@/features/dashboard/views/workforce/WorkforceTestSidebar";
 import WorkforceRunSidebar from "@/features/dashboard/views/workforce/WorkforceRunSidebar";
+import SwarmRunView from "@/features/dashboard/views/workforce/swarm/SwarmRunView";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 function WorkforceDetailContent() {
@@ -48,8 +49,8 @@ function WorkforceDetailContent() {
 
     // Workforce conversations for this workforce (for sidebar + init)
     const { data: workforceConversations, isFetched: workforceConversationsFetched } = trpc.chat.listWorkforceConversations.useQuery(
-        { workforceId: params.id ?? "" },
-        { enabled: !!params.id && activeTab === "run" }
+        { workforceId: params.id ?? "", mode: (workforce?.mode as "FLOW" | "SWARM") || "FLOW" },
+        { enabled: !!params.id && activeTab === "run" && !!workforce }
     );
     const createWorkforceConversation = trpc.chat.createWorkforceConversation.useMutation();
     const [pendingConversation, setPendingConversation] = React.useState<{
@@ -118,6 +119,7 @@ function WorkforceDetailContent() {
             createWorkforceConversation.mutateAsync({
                 workforceId: workforce.id,
                 workforceName: name || workforce.name,
+                mode: (workforce.mode as "FLOW" | "SWARM") || "FLOW",
             }).then((conv) => {
                 setPendingConversation(null);
                 const newConv = {
@@ -128,7 +130,7 @@ function WorkforceDetailContent() {
                     messageCount: 0,
                 };
                 utils.chat.listWorkforceConversations.setData(
-                    { workforceId: workforce.id },
+                    { workforceId: workforce.id, mode: (workforce.mode as "FLOW" | "SWARM") || "FLOW" },
                     (old) => (old ? [newConv, ...old] : [newConv])
                 );
                 setActiveConversationId(conv.id);
@@ -143,7 +145,18 @@ function WorkforceDetailContent() {
         }
     }, [activeTab, workforce?.id, workforce?.name, name, workforceConversationsFetched, workforceConversations, searchParams, router, createWorkforceConversation, utils]);
 
-    const switchTab = (tab: "build" | "run") => {
+    const switchTab = async (tab: "build" | "run") => {
+        if (tab === "run" && hasChanges && workforce) {
+            await updateWorkforce.mutateAsync({
+                id: workforce.id,
+                name: name,
+                nodes,
+                edges,
+            });
+            setHasChanges(false);
+            utils.workforce.get.invalidate({ id: workforce.id });
+        }
+
         setActiveTab(tab);
         const url = new URL(window.location.href);
         url.searchParams.set("tab", tab);
@@ -333,7 +346,17 @@ function WorkforceDetailContent() {
                         </div>
 
                         <button
-                            onClick={() => {
+                            onClick={async () => {
+                                if (hasChanges && workforce) {
+                                    await updateWorkforce.mutateAsync({
+                                        id: workforce.id,
+                                        name: name,
+                                        nodes,
+                                        edges,
+                                    });
+                                    setHasChanges(false);
+                                    utils.workforce.get.invalidate({ id: workforce.id });
+                                }
                                 setTestSidebarOpen(true);
                             }}
                             className="flex items-center gap-2 px-3 py-1.5 rounded-md border border-zinc-200 text-xs font-semibold text-zinc-600 hover:bg-zinc-50"
@@ -424,60 +447,62 @@ function WorkforceDetailContent() {
 
             {/* ── Main canvas / swarm view / run view ───────────────────────────── */}
             <div className="flex-1 w-full relative overflow-hidden flex">
-                {mode === "FLOW" ? (
-                    activeTab === "run" ? (
-                        <>
-                            <WorkforceRunSidebar
-                                workforceName={name || workforce!.name}
-                                conversations={workforceConversations ?? []}
-                                pendingConversation={pendingConversation}
-                                selectedConversationId={activeConversationId}
-                                onSelectConversation={(id) => {
-                                    setActiveConversationId(id);
-                                    const url = new URL(window.location.href);
-                                    url.searchParams.set("tab", "run");
-                                    url.searchParams.set("conversationId", id);
-                                    router.replace(url.pathname + url.search, { scroll: false });
-                                }}
-                                onNewTask={async () => {
-                                    const title = `${name || workforce!.name} – run`;
-                                    setPendingConversation({
-                                        id: "pending",
-                                        title,
+                {activeTab === "run" ? (
+                    <>
+                        <WorkforceRunSidebar
+                            workforceName={name || workforce!.name}
+                            conversations={workforceConversations ?? []}
+                            pendingConversation={pendingConversation}
+                            selectedConversationId={activeConversationId}
+                            onSelectConversation={(id) => {
+                                setActiveConversationId(id);
+                                const url = new URL(window.location.href);
+                                url.searchParams.set("tab", "run");
+                                url.searchParams.set("conversationId", id);
+                                router.replace(url.pathname + url.search, { scroll: false });
+                            }}
+                            onNewTask={async () => {
+                                const title = `${name || workforce!.name} – run`;
+                                setPendingConversation({
+                                    id: "pending",
+                                    title,
+                                    createdAt: new Date(),
+                                    lastMessageAt: null,
+                                    messageCount: 0,
+                                });
+                                try {
+                                    const conv = await createWorkforceConversation.mutateAsync({
+                                        workforceId: workforce!.id,
+                                        workforceName: name || workforce!.name,
+                                        mode: (workforce!.mode as "FLOW" | "SWARM") || "FLOW",
+                                    });
+                                    setPendingConversation(null);
+                                    const newConv = {
+                                        id: conv.id,
+                                        title: conv.title,
                                         createdAt: new Date(),
                                         lastMessageAt: null,
                                         messageCount: 0,
-                                    });
-                                    try {
-                                        const conv = await createWorkforceConversation.mutateAsync({
-                                            workforceId: workforce!.id,
-                                            workforceName: name || workforce!.name,
-                                        });
-                                        setPendingConversation(null);
-                                        const newConv = {
-                                            id: conv.id,
-                                            title: conv.title,
-                                            createdAt: new Date(),
-                                            lastMessageAt: null,
-                                            messageCount: 0,
-                                        };
-                                        utils.chat.listWorkforceConversations.setData(
-                                            { workforceId: workforce!.id },
-                                            (old) => (old ? [newConv, ...old] : [newConv])
-                                        );
-                                        setActiveConversationId(conv.id);
-                                        const url = new URL(window.location.href);
-                                        url.searchParams.set("tab", "run");
-                                        url.searchParams.set("conversationId", conv.id);
-                                        router.replace(url.pathname + url.search, { scroll: false });
-                                    } catch (err) {
-                                        setPendingConversation(null);
-                                        console.error("[Workforce] Failed to create conversation", err);
-                                    }
-                                }}
-                            />
-                            <div className="flex-1 h-full min-w-0 flex flex-col overflow-hidden">
+                                    };
+                                    utils.chat.listWorkforceConversations.setData(
+                                        { workforceId: workforce!.id, mode: (workforce!.mode as "FLOW" | "SWARM") || "FLOW" },
+                                        (old) => (old ? [newConv, ...old] : [newConv])
+                                    );
+                                    setActiveConversationId(conv.id);
+                                    const url = new URL(window.location.href);
+                                    url.searchParams.set("tab", "run");
+                                    url.searchParams.set("conversationId", conv.id);
+                                    router.replace(url.pathname + url.search, { scroll: false });
+                                } catch (err) {
+                                    setPendingConversation(null);
+                                    console.error("[Workforce] Failed to create conversation", err);
+                                }
+                            }}
+                        />
+                        <div className="flex-1 h-full min-w-0 flex flex-col overflow-hidden">
+                            {mode === "FLOW" ? (
                                 <WorkforceRunView
+                                    key={activeConversationId || 'new'}
                                     workforceId={workforce!.id}
                                     workforceName={name || workforce!.name}
                                     initialConversationId={activeConversationId}
@@ -489,27 +514,43 @@ function WorkforceDetailContent() {
                                         router.replace(url.pathname + url.search, { scroll: false });
                                     }}
                                 />
-                            </div>
-                        </>
-                    ) : (
-                        <div className="flex-1 h-full w-full min-w-0">
-                            <WorkforceCanvas workspaceId={workforce?.workspaceId} />
+                            ) : (
+                                <SwarmRunView
+                                    key={activeConversationId || 'new'}
+                                    workforceId={workforce!.id}
+                                    workforceName={name || workforce!.name}
+                                    initialConversationId={activeConversationId}
+                                    onConversationReady={(conversationId) => {
+                                        setActiveConversationId(conversationId);
+                                        const url = new URL(window.location.href);
+                                        url.searchParams.set("tab", "run");
+                                        url.searchParams.set("conversationId", conversationId);
+                                        router.replace(url.pathname + url.search, { scroll: false });
+                                    }}
+                                />
+                            )}
                         </div>
-                    )
+                    </>
                 ) : (
-                    <SwarmView 
-                        activeTab={activeTab}
-                        workforceId={workforce!.id}
-                        workforceName={name || workforce!.name}
-                        initialConversationId={activeConversationId}
-                        onConversationReady={(conversationId) => {
-                            setActiveConversationId(conversationId);
-                            const url = new URL(window.location.href);
-                            url.searchParams.set("tab", "run");
-                            url.searchParams.set("conversationId", conversationId);
-                            router.replace(url.pathname + url.search, { scroll: false });
-                        }}
-                    />
+                    mode === "FLOW" ? (
+                        <div className="flex-1 h-full w-full min-w-0">
+                            <WorkforceCanvas workforceId={workforce!.id} workforceName={name || workforce!.name} workspaceId={workforce?.workspaceId} />
+                        </div>
+                    ) : (
+                        <SwarmView
+                            activeTab="build"
+                            workforceId={workforce!.id}
+                            workforceName={name || workforce!.name}
+                            initialConversationId={activeConversationId}
+                            onConversationReady={(conversationId) => {
+                                setActiveConversationId(conversationId);
+                                const url = new URL(window.location.href);
+                                url.searchParams.set("tab", "run");
+                                url.searchParams.set("conversationId", conversationId);
+                                router.replace(url.pathname + url.search, { scroll: false });
+                            }}
+                        />
+                    )
                 )}
                 {activeTab === "build" && <WorkforceSidebar workspaceId={workforce?.workspaceId} />}
                 {activeTab === "build" && (

@@ -20,7 +20,7 @@ interface LoopDetailModalProps {
   open: boolean;
   step: BuilderStep | null;
   onClose: () => void;
-  onUpdateStepConfig: (stepId: string, newConfig: string) => void;
+  onUpdateStepConfig: (stepId: string, updater: (cfg: any) => any) => void;
 }
 
 export function LoopDetailModal({
@@ -41,8 +41,7 @@ export function LoopDetailModal({
   }
 
   const updateCfg = (updater: (prev: any) => any) => {
-    const next = updater(parsed);
-    onUpdateStepConfig(step.id, JSON.stringify(next));
+    onUpdateStepConfig(step.id, updater);
   };
 
   const outputsList = [

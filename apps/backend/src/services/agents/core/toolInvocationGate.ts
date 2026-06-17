@@ -20,34 +20,9 @@ import Ajv, { type ValidateFunction } from 'ajv';
 import { randomUUID } from 'crypto';
 import { RateLimiterRedis } from 'rate-limiter-flexible';
 import { getToolById, getToolByName } from '../registry/toolRegistry';
+import { agentSkillService } from './agentSkillService';
 import { metrics } from '@/monitoring/metrics';
 import { GuardrailService } from '../safety/guardrailService';
-import {
-  CONTENT_CREATION_TOOLS,
-  CODE_OPERATION_TOOLS,
-  BROWSER_AUTOMATION_TOOLS,
-  MEDIA_GENERATION_TOOLS,
-  FILE_OPERATION_TOOLS
-} from '../registry/skillTools';
-
-// Map specific tools to required skills
-const TOOL_SKILL_MAP: Record<string, string> = {};
-
-function registerToolSkills(tools: any[], skillName: string) {
-  tools.forEach(tool => {
-    TOOL_SKILL_MAP[tool.name] = skillName;
-  });
-}
-
-registerToolSkills(CONTENT_CREATION_TOOLS, 'content_creation');
-registerToolSkills(CODE_OPERATION_TOOLS, 'code_operations');
-registerToolSkills(BROWSER_AUTOMATION_TOOLS, 'browser_automation');
-registerToolSkills(MEDIA_GENERATION_TOOLS, 'media_generation');
-registerToolSkills(FILE_OPERATION_TOOLS, 'file_operations');
-// Task management tools map to task_management
-['createTask', 'updateTask', 'deleteTask', 'listTasks', 'getTask', 'assignTask'].forEach(tool => {
-  TOOL_SKILL_MAP[tool] = 'task_management';
-});
 
 const ajv = new Ajv({ allErrors: true, strict: false });
 
@@ -133,7 +108,7 @@ export class ToolInvocationGate {
    * Determine if a tool is destructive/write operation
    */
   private isDestructiveTool(toolName: string): boolean {
-    const destructiveTools = ['deleteTask', 'updateTask', 'createTask', 'deleteProject', 'updateProject'];
+    const destructiveTools = ['deleteTask', 'updateTask', 'deleteProject', 'updateProject'];
     return destructiveTools.includes(toolName);
   }
 
@@ -198,30 +173,11 @@ export class ToolInvocationGate {
           collaborators: {
             where: { userId: request.userId },
           },
-          agentSkills: {
-            include: { skill: true }
-          }
         },
       });
 
       if (!agent) {
         return { allowed: false, reason: 'Agent not found' };
-      }
-
-      // Check if tool requires specific skill
-      const requiredSkill = TOOL_SKILL_MAP[request.toolName];
-      let hasSkill = false;
-      if (requiredSkill) {
-        hasSkill = (agent as any).agentSkills?.some(
-          (as: any) => as.isEnabled && (as.skill?.name === requiredSkill || as.skillId === requiredSkill)
-        );
-
-        if (!hasSkill) {
-          return {
-            allowed: false,
-            reason: `Agent lacks required skill: ${requiredSkill}`
-          };
-        }
       }
 
       // Check if user is owner or collaborator with execute permission
@@ -234,10 +190,23 @@ export class ToolInvocationGate {
         return { allowed: false, reason: 'User does not have execute permission on this agent' };
       }
 
-      // Check if tool is allowlisted for agent
-      const isAllowedBySkill = requiredSkill && hasSkill;
-      if (agent.availableTools && agent.availableTools.length > 0) {
-        if (!agent.availableTools.includes(request.toolName) && !isAllowedBySkill) {
+      // ── Unified tool allowlist check ────────────────────────────────────────
+      // A tool is allowed if it exists as an active AgentTool record OR is
+      // granted via the DB-level AgentToSkill → Skill → ToolSkill chain.
+      const agentToolRecord = await prisma.agentTool.findFirst({
+        where: {
+          agentId: request.agentId,
+          name: request.toolName,
+          isActive: true,
+        },
+      });
+
+      if (!agentToolRecord) {
+        // Not a directly assigned tool — check skill-granted access via DB
+        const agentToolsFromSkills = await agentSkillService.getAvailableTools(request.agentId);
+        const isSkillGranted = agentToolsFromSkills.some(t => t.name === request.toolName);
+
+        if (!isSkillGranted) {
           return { allowed: false, reason: 'Tool not allowlisted for this agent' };
         }
       }
@@ -281,24 +250,6 @@ export class ToolInvocationGate {
     request: ToolInvocationRequest,
     agent: any
   ): Promise<{ required: boolean; reason?: string }> {
-    // Destructive operations always require approval
-    if (this.isDestructiveTool(request.toolName)) {
-      return { required: true, reason: `Destructive operation: ${request.toolName}` };
-    }
-
-    // Check if agent has requiresApproval flag and approval threshold
-    if (agent.requiresApproval) {
-      // Could add more sophisticated logic here (e.g., approval threshold)
-      return { required: true, reason: 'Agent requires approval for all actions' };
-    }
-
-    // Check for bulk operations (e.g., createTask with many tasks)
-    if (request.toolName === 'createTask' && Array.isArray(request.parameters.tasks)) {
-      if (request.parameters.tasks.length > 5) {
-        return { required: true, reason: `Bulk operation: creating ${request.parameters.tasks.length} tasks` };
-      }
-    }
-
     return { required: false };
   }
 

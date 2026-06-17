@@ -31,7 +31,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             {/* Desktop layout with inline sidebar */}
             <div className="hidden md:grid md:grid-cols-[var(--main-sidebar-width,_16rem)_1fr] flex-1 min-h-0">
                 <Sidebar />
-                <div className={`${isChatView ? 'h-full overflow-hidden flex flex-col min-h-0' : 'p-6 h-full overflow-y-auto'}`}>
+                <div className={`${isChatView ? 'h-full overflow-hidden flex flex-col min-h-0' : 'h-full overflow-y-auto'}`}>
                     {children}
                 </div>
             </div>

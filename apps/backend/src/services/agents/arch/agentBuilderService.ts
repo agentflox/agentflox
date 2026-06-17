@@ -1152,7 +1152,8 @@ Follow the flow guide principles: AI-generated messages, numbered options, dynam
       // ─── Step 1: context load ──────────────────────────────────────────────────
       // Emit before the async work so the UI shows the step immediately.
       const turnCount = conversationState.conversationHistory.length;
-      emit(`Loading workspace context… (turn ${turnCount + 1})`, undefined);
+      const draftName = conversationState.agentDraft?.name;
+      emit(draftName ? `Loading workspace context for ${draftName}… (turn ${turnCount + 1})` : `Loading workspace context… (turn ${turnCount + 1})`, undefined);
       const userContext = await agentBuilderContextService.fetchUserContext(userId);
 
 
@@ -1594,6 +1595,7 @@ ${enrichedPrompt}`,
 
       let response = 'I apologize, but I encountered an error processing your message.';
       let followups: Array<{ id: string; label: string }> = [];
+      let completionUsage: any = undefined;
 
       if (onToken) {
         // ─── STREAMING PATH ─────────────────────────────────────────────────────
@@ -1629,7 +1631,7 @@ ${enrichedPrompt}`,
 
         const stream = await cb.execute(() =>
           this.retryHandler.retry(
-            () => openai.chat.completions.create({ ...completionParams, stream: true }),
+            () => openai.chat.completions.create({ ...completionParams, stream: true, stream_options: { include_usage: true } }),
             {
               maxAttempts: 2,
               baseDelay: 500,
@@ -1640,6 +1642,7 @@ ${enrichedPrompt}`,
         );
 
         for await (const chunk of stream as any) {
+          if (chunk.usage) completionUsage = chunk.usage;
           const delta = chunk.choices?.[0]?.delta;
           if (!delta) continue;
 
@@ -1726,6 +1729,7 @@ ${enrichedPrompt}`,
           { operation: 'builder_response', conversationId, userId }
         );
 
+        completionUsage = completion.usage;
         const toolCall = completion.choices[0]?.message?.tool_calls?.[0];
         if (toolCall?.function?.name === 'generate_response_with_followups') {
           try {
@@ -1759,7 +1763,7 @@ ${enrichedPrompt}`,
           messages as Array<{ role: string; content: string }>,
           response,
           model.name,
-          undefined
+          completionUsage
         );
         const user = await prisma.user.findUnique({
           where: { id: userId },
@@ -1920,6 +1924,7 @@ ${enrichedPrompt}`,
             include: {
               triggers: true,
               automations: true,
+              tools: true,
             },
           },
         },
@@ -1957,38 +1962,60 @@ ${enrichedPrompt}`,
         else if (agent.status === 'DRAFT') newStatus = 'BUILDING';
         else if (shouldActivate) newStatus = 'ACTIVE';
 
-        let availableTools = agent.availableTools;
+        let agentToolsToCreate: any[] = [];
 
         if (draft.tools?.length) {
           const systemTools = await prisma.systemTool.findMany({
             where: { isActive: true },
-            select: { id: true, name: true },
+            select: { id: true, name: true, description: true, category: true, functionSchema: true },
           });
 
           if (systemTools.length > 0) {
-            const knownByName = new Map(systemTools.map(t => [t.name, t.name]));
-            const knownById = new Map(systemTools.map(t => [t.id, t.name]));
+            const knownByName = new Map(systemTools.map(t => [t.name, t]));
+            const knownById = new Map(systemTools.map(t => [t.id, t]));
 
-            const validToolNames = draft.tools
+            const validTools = draft.tools
               .map(t => {
                 // Prefer matching by name (the stable key from the extractor).
                 // Fall back to matching by id in case the draft was seeded with a UUID.
                 return knownByName.get(t.name) ?? knownById.get(t.id) ?? knownByName.get(t.id) ?? null;
               })
-              .filter(Boolean) as string[];
+              .filter(Boolean) as Array<{ id: string; name: string; description: string; category: string; functionSchema: any }>;
 
-            if (validToolNames.length > 0) {
-              availableTools = validToolNames;
+            if (validTools.length > 0) {
+              agentToolsToCreate = validTools.map(t => ({
+                id: this.generateId(),
+                name: t.name,
+                description: t.description || `Tool ${t.name}`,
+                category: t.category || 'general',
+                toolType: 'API',
+                functionSchema: t.functionSchema || {},
+                parameters: t.functionSchema && typeof t.functionSchema === 'object' && 'parameters' in t.functionSchema ? (t.functionSchema as any).parameters : {},
+                returns: t.functionSchema && typeof t.functionSchema === 'object' && 'returns' in t.functionSchema ? (t.functionSchema as any).returns : {},
+              }));
             }
-            // If none resolved (hallucinated names), leave availableTools unchanged
+            // If none resolved (hallucinated names), leave tools unchanged
           }
-          // If systemTool table is empty (not yet seeded), leave availableTools unchanged
+          // If systemTool table is empty (not yet seeded), leave tools unchanged
           // rather than wiping whatever the agent already had configured.
-        } else {
+        } else if (!agent.tools?.length) {
           const defaultTools = await prisma.systemTool.findMany({
             where: { isActive: true, isDefault: true },
+            select: { id: true, name: true, description: true, category: true, functionSchema: true },
           });
-          availableTools = defaultTools.map(t => t.name);
+
+          if (defaultTools.length > 0) {
+            agentToolsToCreate = defaultTools.map(t => ({
+              id: this.generateId(),
+              name: t.name,
+              description: t.description || `Tool ${t.name}`,
+              category: t.category || 'general',
+              toolType: 'API',
+              functionSchema: t.functionSchema || {},
+              parameters: t.functionSchema && typeof t.functionSchema === 'object' && 'parameters' in t.functionSchema ? (t.functionSchema as any).parameters : {},
+              returns: t.functionSchema && typeof t.functionSchema === 'object' && 'returns' in t.functionSchema ? (t.functionSchema as any).returns : {},
+            }));
+          }
         }
 
         let systemPrompt = draft.systemPrompt || agent.systemPrompt;
@@ -2013,7 +2040,10 @@ ${enrichedPrompt}`,
             modelId: draft.modelConfig?.modelId || agent.modelId,
             temperature: draft.modelConfig?.temperature ?? agent.temperature,
             maxTokens: draft.modelConfig?.maxTokens ?? agent.maxTokens,
-            availableTools,
+            tools: agentToolsToCreate.length > 0 ? {
+              deleteMany: {},
+              create: agentToolsToCreate,
+            } : undefined,
             status: newStatus,
             isActive: shouldActivate || agent.isActive,
             metadata: {
@@ -2326,4 +2356,3 @@ export const agentBuilderService = new AgentBuilderService({
   simulationService: new SimulationService(),
   intentInferenceService: intentInferenceService,
 });
-

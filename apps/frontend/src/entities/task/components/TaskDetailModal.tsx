@@ -315,7 +315,8 @@ export function TaskDetailContent({
     const [isEditingTitle, setIsEditingTitle] = React.useState(false);
     const [title, setTitle] = React.useState('');
     const descriptionEditorRef = React.useRef<DescriptionEditorRef>(null);
-    const isSavingRef = React.useRef(false);
+    // Only autosave when the user has actually typed — prevents saving empty on modal open
+    const hasUserEditedRef = React.useRef(false);
 
     // Debounced description for autosave
     const debouncedDescription = useDebounce(description, 1000);
@@ -435,12 +436,14 @@ export function TaskDetailContent({
 
     React.useEffect(() => {
         if (task) {
+            // Reset user-edit flag whenever task data changes externally
+            hasUserEditedRef.current = false;
             // Use optimistic description if available, otherwise use task description
-            const content = optimisticDescription ?? task.description || '';
+            const content = optimisticDescription ?? (task.description || '');
             setDescription(content);
             setTitle(task.title || '');
         }
-    }, [task, optimisticDescription]);
+    }, [task?.id, optimisticDescription]);
 
     const handleSaveTitle = () => {
         if (!task || !title.trim()) return;
@@ -448,25 +451,23 @@ export function TaskDetailContent({
         setIsEditingTitle(false);
     };
 
-    // Autosave description with optimistic update
+    // Called by DescriptionEditor when the user actually types
+    const handleDescriptionChange = React.useCallback((content: string) => {
+        hasUserEditedRef.current = true;
+        setDescription(content);
+    }, []);
+
+    // Autosave: only fires when the user has actually edited
     React.useEffect(() => {
-        if (!task || isSavingRef.current) return;
+        if (!task || !hasUserEditedRef.current || description !== debouncedDescription) return;
 
         const currentDescription = task.description || '';
         if (debouncedDescription === currentDescription) return;
 
-        isSavingRef.current = true;
         setOptimisticDescription(debouncedDescription);
 
-        updateTask.mutate(
-            { id: task.id, description: debouncedDescription },
-            {
-                onSettled: () => {
-                    isSavingRef.current = false;
-                }
-            }
-        );
-    }, [debouncedDescription, task]);
+        updateTask.mutate({ id: task.id, description: debouncedDescription });
+    }, [debouncedDescription]);
 
     const handleCreateSubtask = () => {
         if (!task || !subtaskTitle.trim()) return;
@@ -921,7 +922,6 @@ export function TaskDetailContent({
                                                                 onChange={(e) => setTitle(e.target.value)}
                                                                 onMouseDown={(e) => e.stopPropagation()}
                                                                 onPointerDown={(e) => e.stopPropagation()}
-                                                                onBlur={handleSaveTitle}
                                                                 onKeyDown={(e) => {
                                                                     if (e.key === 'Enter') handleSaveTitle();
                                                                     if (e.key === 'Escape') {
@@ -1372,14 +1372,14 @@ export function TaskDetailContent({
                                                             <DescriptionEditor
                                                                 ref={descriptionEditorRef}
                                                                 content={description}
-                                                                onChange={setDescription}
+                                                                onChange={handleDescriptionChange}
                                                                 editable={true}
                                                                 onOpenAskAI={() => setIsAskAIOpen(true)}
                                                                 spaceId={task.spaceId ?? (task.list as { spaceId?: string } | null | undefined)?.spaceId ?? null}
                                                                 workspaceId={task.workspaceId ?? null}
                                                                 projectId={task.projectId ?? (task.list as { projectId?: string } | null | undefined)?.projectId ?? null}
                                                                 collaboration={{
-                                                                    enabled: true,
+                                                                    enabled: false,
                                                                     documentId: task.id,
                                                                     documentType: 'task',
                                                                     user: {
@@ -1803,6 +1803,7 @@ export function TaskDetailModal({
                         {/* Main Task Modal */}
                         <div className="bg-white rounded-lg shadow-xl border border-zinc-200 w-full max-w-7xl h-full flex flex-col overflow-hidden transition-all duration-300 ease-in-out">
                             <TaskDetailContent
+                                key={taskId}
                                 taskId={taskId}
                                 onClose={() => onOpenChange(false)}
                                 layoutMode={layoutMode}

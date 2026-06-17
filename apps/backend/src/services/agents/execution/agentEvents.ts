@@ -40,6 +40,7 @@ export type AgentExecutorRequestedEvent = {
         userId: string; // Acts as tenant_id in user-scoped scenarios
         message: string;
         idempotencyKey?: string;
+        sessionId?: string;
     };
 };
 
@@ -52,5 +53,20 @@ export type AgentOperatorRequestedEvent = {
         userId: string;
         message: string;
         idempotencyKey?: string;
+        sessionId?: string;
+    };
+};
+
+export type AgentExecutorCancelEvent = {
+    name: 'agent/executor.cancel';
+    data: {
+        sessionId: string;
+    };
+};
+
+export type AgentOperatorCancelEvent = {
+    name: 'agent/operator.cancel';
+    data: {
+        sessionId: string;
     };
 };

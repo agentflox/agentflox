@@ -6,11 +6,11 @@ import { ExternalLinkIcon, MoreVertical, Eye, Share2, PenSquare, Wrench } from "
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-  DropdownMenuSeparator,
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuTrigger,
+	DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 
 type ToolSummary = {
@@ -27,8 +27,8 @@ type Props = {
 	item: ToolSummary;
 	onOpen?: (id: string) => void;
 	onManage?: (id: string) => void;
-    isSelected?: boolean;
-    onSelect?: (id: string, selected: boolean) => void;
+	isSelected?: boolean;
+	onSelect?: (id: string, selected: boolean) => void;
 };
 
 export function ToolCard({ item, onOpen, onManage, isSelected, onSelect }: Props) {
@@ -78,7 +78,7 @@ export function ToolCard({ item, onOpen, onManage, isSelected, onSelect }: Props
 				</DropdownMenu>
 			</div>
 
-			<div className="p-4 flex flex-col gap-3 flex-1 pt-7">
+			<div className="p-4 flex flex-col gap-3 flex-1 pt-10">
 				<div className="flex items-start justify-between gap-4">
 					<div className="min-w-0 space-y-1">
 						<h3 className="flex items-center gap-2 font-semibold text-[15px] leading-snug line-clamp-2 text-zinc-900 group-hover:text-blue-600 transition-colors">
@@ -94,37 +94,37 @@ export function ToolCard({ item, onOpen, onManage, isSelected, onSelect }: Props
 
 				<div className="mt-auto pt-4 flex flex-col gap-3">
 					<div className="flex flex-wrap items-center gap-2">
-                        {item.category && (
-                        <span className="rounded border border-zinc-200 bg-zinc-50 px-1.5 py-0.5 text-[10px] font-medium text-zinc-600 uppercase">
-                            {item.category}
-                        </span>
-                        )}
-                        <span className={cn(
-                            "rounded border px-1.5 py-0.5 text-[10px] font-medium uppercase",
-                            item.isPublic ? "border-green-200 bg-green-50 text-green-700" : "border-zinc-200 bg-zinc-50 text-zinc-600"
-                        )}>
-                            {item.isPublic ? "Public" : "Private"}
-                        </span>
-                    </div>
+						{item.category && (
+							<span className="rounded border border-zinc-200 bg-zinc-50 px-1.5 py-0.5 text-[10px] font-medium text-zinc-600 uppercase">
+								{item.category}
+							</span>
+						)}
+						<span className={cn(
+							"rounded border px-1.5 py-0.5 text-[10px] font-medium uppercase",
+							item.isPublic ? "border-green-200 bg-green-50 text-green-700" : "border-zinc-200 bg-zinc-50 text-zinc-600"
+						)}>
+							{item.isPublic ? "Public" : "Private"}
+						</span>
+					</div>
 
-                    <div className="flex items-center justify-between text-xs text-zinc-400 mt-2">
-                        {item.productUrl && (
-                            <a
-                                className="inline-flex items-center gap-1.5 text-xs font-medium text-blue-600 hover:text-blue-700 hover:underline transition-colors"
-                                href={item.productUrl}
-                                target="_blank"
-                                rel="noreferrer"
-                                onClick={(e) => e.stopPropagation()}
-                            >
-                                Visit product <ExternalLinkIcon className="h-3 w-3" />
-                            </a>
-                        )}
-                        {updatedAt && (
-                            <span className="ml-auto text-xs text-zinc-400">
-                                Updated {updatedAt.toLocaleDateString()}
-                            </span>
-                        )}
-                    </div>
+					<div className="flex items-center justify-between text-xs text-zinc-400 mt-2">
+						{item.productUrl && (
+							<a
+								className="inline-flex items-center gap-1.5 text-xs font-medium text-blue-600 hover:text-blue-700 hover:underline transition-colors"
+								href={item.productUrl}
+								target="_blank"
+								rel="noreferrer"
+								onClick={(e) => e.stopPropagation()}
+							>
+								Visit product <ExternalLinkIcon className="h-3 w-3" />
+							</a>
+						)}
+						{updatedAt && (
+							<span className="ml-auto text-xs text-zinc-400">
+								Updated {updatedAt.toLocaleDateString()}
+							</span>
+						)}
+					</div>
 				</div>
 			</div>
 		</div>

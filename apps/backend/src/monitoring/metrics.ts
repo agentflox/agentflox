@@ -172,7 +172,26 @@ export const metrics = {
         help: 'Number of fields extracted during builder sessions',
         labelNames: ['stage'],
         buckets: [0, 1, 2, 5, 10, 20]
-    })
+    }),
+
+    // Swarm Metrics
+    swarmSessionsActive: new Gauge({
+        name: 'swarm_sessions_active',
+        help: 'Number of currently active swarm sessions',
+    }),
+
+    swarmTaskBacklog: new Gauge({
+        name: 'swarm_task_backlog',
+        help: 'Number of tasks in the swarm backlog by status',
+        labelNames: ['workspace_id', 'status'],
+    }),
+
+    swarmCycleDuration: new Histogram({
+        name: 'swarm_cycle_duration_seconds',
+        help: 'Duration of each swarm coordinator cycle',
+        labelNames: ['coordinator_id'],
+        buckets: [0.1, 0.5, 1, 2, 5, 10, 30],
+    }),
 };
 
 // Health check endpoint helper

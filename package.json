@@ -16,7 +16,7 @@
     "db:push": "cd packages/database && pnpm prisma db push",
     "db:studio": "cd packages/database && pnpm prisma studio",
     "db:migrate": "cd packages/database && pnpm prisma migrate dev",
-    "clean": "turbo run clean && rm -rf node_modules",
+    "clean": "turbo run clean && npx rimraf node_modules",
     "lint": "turbo run lint",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
     "webhook-processor": "ts-node scripts/webhook-processor.ts"

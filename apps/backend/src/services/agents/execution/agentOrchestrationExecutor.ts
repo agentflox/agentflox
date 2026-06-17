@@ -102,6 +102,14 @@ async function executeAssignTaskToAgent(params: any, userId: string, callerAgent
         }
     }
 
+    // Dynamic Cycle Validation Check
+    if (params.dependsOn && params.dependsOn.length > 0) {
+        const isCyclic = !(await agentTaskOrchestrator.validateNoDependencyCycles(taskId, params.dependsOn));
+        if (isCyclic) {
+            throw new Error(`Circular dependency detected for task: "${taskId}"`);
+        }
+    }
+
     // 2. Task Update
     const task = await prisma.agentTask.update({
         where: { id: taskId },
@@ -117,6 +125,15 @@ async function executeAssignTaskToAgent(params: any, userId: string, callerAgent
     // 3. Trigger Orchestration via internal service
     // This will handle Inngest event emission to actually wake up the worker agent.
     await agentTaskOrchestrator.triggerTaskProcessing(taskId);
+
+    if (task.workspaceId) {
+        try {
+            const { swarmOrchestrationService } = await import('../orchestration/swarmOrchestrationService');
+            swarmOrchestrationService.wakeupSessionForWorkspace(task.workspaceId);
+        } catch (e) {
+            console.error(`[AgentExecutor] Failed to wakeup swarm session on task assignment for workspace ${task.workspaceId}`, e);
+        }
+    }
 
     return {
         success: true,
@@ -144,6 +161,19 @@ async function executeSendMessageToAgent(params: any, userId: string, callerAgen
             synchronous: false // Async by default for tools to avoid blocking the ReAct loop
         }
     );
+
+    if (response.status !== 'FAILED') {
+        try {
+            const { swarmOrchestrationService } = await import('../orchestration/swarmOrchestrationService');
+            await swarmOrchestrationService.broadcastInterAgentMessage(
+                callerAgentId || 'system',
+                agentId,
+                message
+            );
+        } catch (e) {
+            console.error('[AgentExecutor] Failed to broadcast inter-agent message', e);
+        }
+    }
 
     return {
         success: response.status !== 'FAILED',

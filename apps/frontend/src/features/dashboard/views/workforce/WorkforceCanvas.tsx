@@ -47,7 +47,8 @@ import { EditorAssistantPanel } from '@/components/assistant/EditorAssistantPane
 import type { WorkforceOp } from '@/components/assistant/editorOps';
 import { AgentSettingsModal } from '@/entities/agents/components/AgentSettingsModal';
 import { ToolBuilderView } from '../tools/ToolBuilderView';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
+import { TaskDetailModal } from '@/entities/task/components/TaskDetailModal';
 import { trpc } from '@/lib/trpc';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -97,20 +98,11 @@ function WorkforceFlow({ workforceId, workforceName, workspaceId }: { workforceI
         { enabled: editNodeModal?.type === 'agent' && !!editModalNode?.data?.agentId }
     );
 
-    // Load tool details for ToolBuilderView
-    const { data: compositeToolsData } = trpc.compositeTool.list.useQuery(
-        workspaceId ? { workspaceId } : undefined,
-        { enabled: !!workspaceId && editNodeModal?.type === 'tool' }
-    );
-    const editTool = React.useMemo(() => {
-        if (!editModalNode?.data?.toolId || !compositeToolsData) return null;
-        return (compositeToolsData as any[]).find(t => t.id === editModalNode.data.toolId) || null;
-    }, [compositeToolsData, editModalNode]);
-
-    // Load task details for task modal
-    const { data: editTaskData } = trpc.task.get.useQuery(
-        { id: editModalNode?.data?.taskId || '' },
-        { enabled: editNodeModal?.type === 'task' && !!editModalNode?.data?.taskId }
+    // Load full tool details (including steps) for ToolBuilderView via get, not list (list strips steps)
+    const editToolId = editNodeModal?.type === 'tool' ? (editModalNode?.data?.toolId || '') : '';
+    const { data: editTool } = trpc.compositeTool.get.useQuery(
+        { id: editToolId },
+        { enabled: !!editToolId }
     );
 
     const applyWorkforceOps = React.useCallback((ops: WorkforceOp[]) => {
@@ -287,249 +279,187 @@ function WorkforceFlow({ workforceId, workforceName, workspaceId }: { workforceI
 
     return (
         <div className="relative h-full w-full">
-        <ReactFlow
-            nodes={nodes}
-            edges={edges}
-            onNodesChange={onNodesChange}
-            onEdgesChange={onEdgesChange}
-            onConnect={onConnect}
-            onNodeClick={onNodeClick}
-            onEdgeClick={onEdgeClick}
-            onPaneClick={onPaneClick}
-            onDragOver={onDragOver}
-            onDrop={onDrop}
-            nodeTypes={nodeTypes}
-            edgeTypes={edgeTypes}
-            colorMode={colorMode}
-            fitView
-            className="bg-[#fafafa]"
-        >
-            <Background variant={BackgroundVariant.Dots} gap={24} size={1} color="#64748b" className="opacity-10" />
+            <ReactFlow
+                nodes={nodes}
+                edges={edges}
+                onNodesChange={onNodesChange}
+                onEdgesChange={onEdgesChange}
+                onConnect={onConnect}
+                onNodeClick={onNodeClick}
+                onEdgeClick={onEdgeClick}
+                onPaneClick={onPaneClick}
+                onDragOver={onDragOver}
+                onDrop={onDrop}
+                nodeTypes={nodeTypes}
+                edgeTypes={edgeTypes}
+                colorMode={colorMode}
+                fitView
+                className="bg-[#fafafa]"
+            >
+                <Background variant={BackgroundVariant.Dots} gap={24} size={1} color="#64748b" className="opacity-10" />
 
-            <MiniMap
-                pannable
-                zoomable
-                position="top-left"
-                className="!bg-white !border-zinc-200 !shadow-sm !rounded-xl !m-4"
-                maskColor="rgba(0, 0, 0, 0.05)"
-            />
+                <MiniMap
+                    pannable
+                    zoomable
+                    position="top-left"
+                    className="!bg-white !border-zinc-200 !shadow-sm !rounded-xl !m-4"
+                    maskColor="rgba(0, 0, 0, 0.05)"
+                />
 
-            <Panel position="top-right" className="m-4">
-                <button
-                    type="button"
-                    onClick={() => setAssistantOpen((v) => !v)}
-                    className="rounded-lg border border-zinc-200 bg-white px-3 py-2 text-xs font-medium text-zinc-700 hover:bg-zinc-50 shadow-sm flex items-center gap-2"
-                >
-                    <MessageCircle className="h-4 w-4" />
-                    Assistant
-                </button>
-            </Panel>
+                <Panel position="top-right" className="m-4">
+                    <button
+                        type="button"
+                        onClick={() => setAssistantOpen((v) => !v)}
+                        className="rounded-lg border border-zinc-200 bg-white px-3 py-2 text-xs font-medium text-zinc-700 hover:bg-zinc-50 shadow-sm flex items-center gap-2"
+                    >
+                        <MessageCircle className="h-4 w-4" />
+                        Assistant
+                    </button>
+                </Panel>
 
-            {/* Floating Sidebar Controls */}
-            <Panel position="bottom-left" className="m-4">
-                <div className="flex flex-col gap-1 bg-white border border-zinc-200 rounded-lg shadow-sm p-1">
-                    {[
-                        { icon: Plus, label: 'Zoom In' },
-                        { icon: Minus, label: 'Zoom Out' },
-                        { icon: Maximize2, label: 'Fit View' },
-                        { icon: Lock, label: 'Lock' },
-                        { icon: Undo2, label: 'Undo' },
-                        { icon: Redo2, label: 'Redo' },
-                        { icon: MousePointer2, label: 'Select' },
-                    ].map((btn, i) => (
-                        <button key={i} className="h-8 w-8 flex items-center justify-center rounded-md text-zinc-400 hover:bg-zinc-50 hover:text-zinc-600 transition-colors">
-                            <btn.icon className="h-4 w-4" />
-                        </button>
-                    ))}
-                </div>
-            </Panel>
-
-            {/* Bottom Node Tray */}
-            <Panel position="bottom-center" className="w-full max-w-6xl px-4 mb-24 pointer-events-none">
-                <div className="bg-white/80 backdrop-blur-2xl border border-white/50 rounded-[40px] shadow-[0_25px_80px_-20px_rgba(0,0,0,0.15),0_0_0_1px_rgba(0,0,0,0.02)] py-4 px-10 flex items-center justify-center pointer-events-auto w-fit mx-auto transition-all duration-700 hover:bg-white/90 hover:shadow-[0_30px_100px_-25px_rgba(0,0,0,0.2)]">
-                    <div className="flex items-center gap-10 px-4">
+                {/* Floating Sidebar Controls */}
+                <Panel position="bottom-left" className="m-4">
+                    <div className="flex flex-col gap-1 bg-white border border-zinc-200 rounded-lg shadow-sm p-1">
                         {[
-                            { icon: User, label: 'Agent', type: 'agentNode', color: 'text-blue-500', bg: 'bg-blue-50', border: 'border-blue-100' },
-                            { icon: Wrench, label: 'Tool', type: 'toolNode', color: 'text-emerald-500', bg: 'bg-emerald-50', border: 'border-emerald-100' },
-                            { icon: Zap, label: 'Trigger', type: 'eventNode', color: 'text-orange-500', bg: 'bg-orange-50', border: 'border-orange-100' },
-                            { icon: GitBranch, label: 'Condition', type: 'conditionNode', color: 'text-purple-500', bg: 'bg-purple-50', border: 'border-purple-100' },
-                            { icon: Files, label: 'Task', type: 'taskNode', color: 'text-indigo-600', bg: 'bg-indigo-50', border: 'border-indigo-200' },
-                            { icon: StickyNote, label: 'Note', type: 'stickyNoteNode', color: 'text-yellow-600', bg: 'bg-yellow-50', border: 'border-yellow-200' },
-                        ].map((item, i) => (
-                            <div
-                                key={i}
-                                draggable
-                                onDragStart={(e) => onDragStart(e, item.type)}
-                                onClick={() => onAddNode(item.type, `New ${item.label}`)}
-                                className="relative flex flex-col items-center group cursor-grab active:cursor-grabbing transition-all duration-500 hover:-translate-y-12 px-2"
-                            >
-                                {/* Stacked background cards effect - Dynamic rotation on hover */}
-                                <div className="absolute inset-x-3 inset-y-0 bg-white/30 border border-zinc-200/40 rounded-[28px] -z-30 translate-x-3 -translate-y-1 rotate-[3deg] transition-all duration-500 group-hover:translate-x-5 group-hover:-translate-y-2 group-hover:rotate-[6deg] group-hover:opacity-40" />
-                                <div className="absolute inset-x-1.5 inset-y-0 bg-white/50 border border-zinc-200/60 rounded-[28px] -z-20 translate-x-1 rotate-[1deg] transition-all duration-500 group-hover:translate-x-2 group-hover:-translate-y-1 group-hover:rotate-[3deg] group-hover:opacity-70" />
-
-                                {/* Main card body */}
-                                <div className="w-[140px] h-[110px] bg-white border border-zinc-200/80 rounded-[28px] shadow-sm flex flex-col items-start justify-between p-4 transition-all duration-500 group-hover:shadow-[0_15px_30px_rgba(0,0,0,0.1)] group-hover:border-zinc-300 relative overflow-hidden">
-
-                                    {/* Task Fold Effect - Visualized as a peel-off corner */}
-                                    {item.type === 'taskNode' && (
-                                        <div className="absolute top-0 right-0 w-12 h-12 pointer-events-none overflow-hidden">
-                                            <div className="absolute top-0 right-0 w-full h-full bg-[#fcfcfc] border-l border-b border-zinc-200/80 rounded-bl-3xl shadow-[-4px_4px_12px_rgba(0,0,0,0.03)] z-10" />
-                                            <div className="absolute top-0 right-0 w-0 h-0 border-[24px] border-transparent border-t-white border-r-white z-20" />
-                                        </div>
-                                    )}
-
-                                    {/* Top Label Badge */}
-                                    <div className={cn(
-                                        "flex items-center gap-2.5 px-3 py-1.5 rounded-2xl border transition-colors",
-                                        item.bg,
-                                        item.border
-                                    )}>
-                                        <item.icon className={cn("h-4 w-4", item.color)} />
-                                        <span className={cn("text-[11px] font-bold uppercase tracking-widest", item.color)}>
-                                            {item.label}
-                                        </span>
-                                    </div>
-
-                                    {/* Interactive Hover Prompt */}
-                                    <div className="flex items-center gap-2 opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-500 delay-75 ease-out">
-                                        <span className="text-[13px] font-semibold text-zinc-500">Drag to add</span>
-                                        <MousePointer2 className="h-4 w-4 text-zinc-400 rotate-[-15deg] group-hover:animate-pulse" />
-                                    </div>
-                                </div>
-                            </div>
+                            { icon: Plus, label: 'Zoom In' },
+                            { icon: Minus, label: 'Zoom Out' },
+                            { icon: Maximize2, label: 'Fit View' },
+                            { icon: Lock, label: 'Lock' },
+                            { icon: Undo2, label: 'Undo' },
+                            { icon: Redo2, label: 'Redo' },
+                            { icon: MousePointer2, label: 'Select' },
+                        ].map((btn, i) => (
+                            <button key={i} className="h-8 w-8 flex items-center justify-center rounded-md text-zinc-400 hover:bg-zinc-50 hover:text-zinc-600 transition-colors">
+                                <btn.icon className="h-4 w-4" />
+                            </button>
                         ))}
                     </div>
-                </div>
-            </Panel>
-        </ReactFlow>
+                </Panel>
 
-        {/* Left assistant sidebar */}
-        {assistantOpen ? (
-            <div className="absolute top-0 left-0 h-full w-[420px] border-r border-zinc-200 bg-white shadow-xl z-50">
-                <div className="h-full flex flex-col">
-                    <div className="px-4 py-3 border-b border-zinc-200 flex items-center justify-between">
-                        <div className="text-sm font-semibold text-zinc-900">Assistant</div>
-                        <button
-                            type="button"
-                            onClick={() => setAssistantOpen(false)}
-                            className="h-8 w-8 rounded-md hover:bg-zinc-50 text-zinc-500"
-                            aria-label="Close assistant"
-                        >
-                            ×
-                        </button>
-                    </div>
-                    <div className="flex-1 min-h-0">
-                        <EditorAssistantPanel
-                            mode="workforce"
-                            title="Workforce Assistant"
-                            entityId={workforceId}
-                            entityName={workforceName || "Workforce"}
-                            context={{
-                                nodes,
-                                edges,
-                                activeNodeId: useWorkforceStore.getState().activeNodeId,
-                                activeEdgeId: useWorkforceStore.getState().activeEdgeId,
-                            }}
-                            onApplyOps={(ops) => applyWorkforceOps(ops as any)}
-                            className="h-full"
-                        />
-                    </div>
-                </div>
-            </div>
-        ) : null}
+                {/* Bottom Node Tray */}
+                <Panel position="bottom-center" className="w-full max-w-6xl px-4 mb-24 pointer-events-none">
+                    <div className="bg-white/80 backdrop-blur-2xl border border-white/50 rounded-[40px] shadow-[0_25px_80px_-20px_rgba(0,0,0,0.15),0_0_0_1px_rgba(0,0,0,0.02)] py-4 px-10 flex items-center justify-center pointer-events-auto w-fit mx-auto transition-all duration-700 hover:bg-white/90 hover:shadow-[0_30px_100px_-25px_rgba(0,0,0,0.2)]">
+                        <div className="flex items-center gap-10 px-4">
+                            {[
+                                { icon: User, label: 'Agent', type: 'agentNode', color: 'text-blue-500', bg: 'bg-blue-50', border: 'border-blue-100' },
+                                { icon: Wrench, label: 'Tool', type: 'toolNode', color: 'text-emerald-500', bg: 'bg-emerald-50', border: 'border-emerald-100' },
+                                { icon: Zap, label: 'Trigger', type: 'eventNode', color: 'text-orange-500', bg: 'bg-orange-50', border: 'border-orange-100' },
+                                { icon: GitBranch, label: 'Condition', type: 'conditionNode', color: 'text-purple-500', bg: 'bg-purple-50', border: 'border-purple-100' },
+                                { icon: Files, label: 'Task', type: 'taskNode', color: 'text-indigo-600', bg: 'bg-indigo-50', border: 'border-indigo-200' },
+                                { icon: StickyNote, label: 'Note', type: 'stickyNoteNode', color: 'text-yellow-600', bg: 'bg-yellow-50', border: 'border-yellow-200' },
+                            ].map((item, i) => (
+                                <div
+                                    key={i}
+                                    draggable
+                                    onDragStart={(e) => onDragStart(e, item.type)}
+                                    onClick={() => onAddNode(item.type, `New ${item.label}`)}
+                                    className="relative flex flex-col items-center group cursor-grab active:cursor-grabbing transition-all duration-500 hover:-translate-y-12 px-2"
+                                >
+                                    {/* Stacked background cards effect - Dynamic rotation on hover */}
+                                    <div className="absolute inset-x-3 inset-y-0 bg-white/30 border border-zinc-200/40 rounded-[28px] -z-30 translate-x-3 -translate-y-1 rotate-[3deg] transition-all duration-500 group-hover:translate-x-5 group-hover:-translate-y-2 group-hover:rotate-[6deg] group-hover:opacity-40" />
+                                    <div className="absolute inset-x-1.5 inset-y-0 bg-white/50 border border-zinc-200/60 rounded-[28px] -z-20 translate-x-1 rotate-[1deg] transition-all duration-500 group-hover:translate-x-2 group-hover:-translate-y-1 group-hover:rotate-[3deg] group-hover:opacity-70" />
 
-        {/* ── Agent Settings Modal ─────────────────────────────────── */}
-        {editNodeModal?.type === 'agent' && editAgentData && (
-            <AgentSettingsModal
-                open={true}
-                onOpenChange={(open) => !open && setEditNodeModal(null)}
-                agent={editAgentData}
-                onUpdate={() => refetchAgent()}
-            />
-        )}
+                                    {/* Main card body */}
+                                    <div className="w-[140px] h-[110px] bg-white border border-zinc-200/80 rounded-[28px] shadow-sm flex flex-col items-start justify-between p-4 transition-all duration-500 group-hover:shadow-[0_15px_30px_rgba(0,0,0,0.1)] group-hover:border-zinc-300 relative overflow-hidden">
 
-        {/* ── Tool Builder Dialog ───────────────────────────────────── */}
-        <Dialog open={editNodeModal?.type === 'tool' && !!editTool} onOpenChange={(val) => !val && setEditNodeModal(null)}>
-            <DialogContent className="sm:max-w-[1400px] sm:w-[95vw] w-[95vw] h-[95vh] p-0 flex flex-col overflow-hidden bg-zinc-50 border-0 rounded-2xl shadow-2xl [&>button]:hidden">
-                {editTool && (
-                    <ToolBuilderView
-                        workspaceId={workspaceId!}
-                        initialTool={editTool}
-                        onClose={() => setEditNodeModal(null)}
-                    />
-                )}
-            </DialogContent>
-        </Dialog>
+                                        {/* Task Fold Effect - Visualized as a peel-off corner */}
+                                        {item.type === 'taskNode' && (
+                                            <div className="absolute top-0 right-0 w-12 h-12 pointer-events-none overflow-hidden">
+                                                <div className="absolute top-0 right-0 w-full h-full bg-[#fcfcfc] border-l border-b border-zinc-200/80 rounded-bl-3xl shadow-[-4px_4px_12px_rgba(0,0,0,0.03)] z-10" />
+                                                <div className="absolute top-0 right-0 w-0 h-0 border-[24px] border-transparent border-t-white border-r-white z-20" />
+                                            </div>
+                                        )}
 
-        {/* ── Task Detail Dialog ────────────────────────────────────── */}
-        <Dialog open={editNodeModal?.type === 'task' && !!editTaskData} onOpenChange={(val) => !val && setEditNodeModal(null)}>
-            <DialogContent className="sm:max-w-[720px] w-[95vw] max-h-[85vh] p-0 overflow-hidden rounded-2xl shadow-2xl border-zinc-200">
-                {editTaskData && (
-                    <div className="flex flex-col h-full">
-                        <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-100 bg-white">
-                            <div className="flex items-center gap-3">
-                                <div className="h-9 w-9 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-600 border border-indigo-100">
-                                    <Files className="h-5 w-5" />
+                                        {/* Top Label Badge */}
+                                        <div className={cn(
+                                            "flex items-center gap-2.5 px-3 py-1.5 rounded-2xl border transition-colors",
+                                            item.bg,
+                                            item.border
+                                        )}>
+                                            <item.icon className={cn("h-4 w-4", item.color)} />
+                                            <span className={cn("text-[11px] font-bold uppercase tracking-widest", item.color)}>
+                                                {item.label}
+                                            </span>
+                                        </div>
+
+                                        {/* Interactive Hover Prompt */}
+                                        <div className="flex items-center gap-2 opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-500 delay-75 ease-out">
+                                            <span className="text-[13px] font-semibold text-zinc-500">Drag to add</span>
+                                            <MousePointer2 className="h-4 w-4 text-zinc-400 rotate-[-15deg] group-hover:animate-pulse" />
+                                        </div>
+                                    </div>
                                 </div>
-                                <div>
-                                    <h2 className="text-base font-bold text-zinc-900 leading-tight">{(editTaskData as any).title}</h2>
-                                    <p className="text-[11px] text-indigo-500 font-bold uppercase tracking-widest mt-0.5">Task</p>
-                                </div>
-                            </div>
-                            <Button variant="ghost" size="sm" className="gap-1.5 text-zinc-500 text-xs" asChild>
-                                <a href={`/dashboard/tasks/${(editTaskData as any).id}`} target="_blank" rel="noopener noreferrer">
-                                    <ExternalLink className="h-3.5 w-3.5" />
-                                    Open full view
-                                </a>
-                            </Button>
+                            ))}
                         </div>
-                        <ScrollArea className="flex-1 p-6">
-                            <div className="space-y-5">
-                                {(editTaskData as any).description && (
-                                    <div>
-                                        <p className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest mb-1.5">Description</p>
-                                        <p className="text-sm text-zinc-700 leading-relaxed">{(editTaskData as any).description}</p>
-                                    </div>
-                                )}
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <p className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest mb-1.5">Status</p>
-                                        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-zinc-100 text-zinc-700 text-xs font-semibold">
-                                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                                            {(editTaskData as any).status?.name || (editTaskData as any).status || 'No status'}
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <p className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest mb-1.5">Priority</p>
-                                        <div className="text-sm font-semibold text-zinc-700 capitalize">
-                                            {(editTaskData as any).priority?.name || (editTaskData as any).priority || '—'}
-                                        </div>
-                                    </div>
-                                    {(editTaskData as any).dueDate && (
-                                        <div>
-                                            <p className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest mb-1.5">Due Date</p>
-                                            <div className="text-sm font-semibold text-zinc-700">
-                                                {new Date((editTaskData as any).dueDate).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
-                                            </div>
-                                        </div>
-                                    )}
-                                    {(editTaskData as any).assignees?.length > 0 && (
-                                        <div>
-                                            <p className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest mb-1.5">Assignees</p>
-                                            <div className="flex flex-wrap gap-1">
-                                                {(editTaskData as any).assignees.map((a: any) => (
-                                                    <span key={a.id} className="text-xs bg-zinc-100 text-zinc-700 px-2 py-0.5 rounded-full font-medium">{a.name || a.email}</span>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        </ScrollArea>
                     </div>
-                )}
-            </DialogContent>
-        </Dialog>
+                </Panel>
+            </ReactFlow>
+
+            {/* Left assistant sidebar */}
+            {assistantOpen ? (
+                <div className="absolute top-0 left-0 h-full w-[420px] border-r border-zinc-200 bg-white shadow-xl z-50">
+                    <div className="h-full flex flex-col">
+                        <div className="px-4 py-3 border-b border-zinc-200 flex items-center justify-between">
+                            <div className="text-sm font-semibold text-zinc-900">Assistant</div>
+                            <button
+                                type="button"
+                                onClick={() => setAssistantOpen(false)}
+                                className="h-8 w-8 rounded-md hover:bg-zinc-50 text-zinc-500"
+                                aria-label="Close assistant"
+                            >
+                                ×
+                            </button>
+                        </div>
+                        <div className="flex-1 min-h-0">
+                            <EditorAssistantPanel
+                                mode="workforce"
+                                title="Workforce Assistant"
+                                entityId={workforceId}
+                                entityName={workforceName || "Workforce"}
+                                context={{
+                                    nodes,
+                                    edges,
+                                    activeNodeId: useWorkforceStore.getState().activeNodeId,
+                                    activeEdgeId: useWorkforceStore.getState().activeEdgeId,
+                                }}
+                                onApplyOps={(ops) => applyWorkforceOps(ops as any)}
+                                className="h-full"
+                            />
+                        </div>
+                    </div>
+                </div>
+            ) : null}
+
+            {/* ── Agent Settings Modal ─────────────────────────────────── */}
+            {editNodeModal?.type === 'agent' && editAgentData && (
+                <AgentSettingsModal
+                    open={true}
+                    onOpenChange={(open) => !open && setEditNodeModal(null)}
+                    agent={editAgentData}
+                    onUpdate={() => refetchAgent()}
+                />
+            )}
+
+            {/* ── Tool Builder Dialog ───────────────────────────────────── */}
+            <Dialog open={editNodeModal?.type === 'tool' && !!editTool} onOpenChange={(val) => !val && setEditNodeModal(null)}>
+                <DialogContent className="sm:max-w-[1400px] sm:w-[95vw] w-[95vw] h-[95vh] p-0 flex flex-col overflow-hidden bg-zinc-50 border-0 rounded-2xl shadow-2xl [&>button]:hidden">
+                    <DialogTitle className="sr-only">Edit Tool</DialogTitle>
+                    {editTool && (
+                        <ToolBuilderView
+                            workspaceId={workspaceId!}
+                            initialTool={editTool}
+                            onClose={() => setEditNodeModal(null)}
+                        />
+                    )}
+                </DialogContent>
+            </Dialog>
+
+            {/* ── Task Detail Modal ─────────────────────────────────────── */}
+            <TaskDetailModal
+                taskId={editNodeModal?.type === 'task' ? (editModalNode?.data?.taskId || null) : null}
+                open={editNodeModal?.type === 'task'}
+                onOpenChange={(val) => !val && setEditNodeModal(null)}
+            />
         </div>
     );
 }

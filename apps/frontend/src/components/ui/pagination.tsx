@@ -26,7 +26,7 @@ export function Pagination({
       <button
         className={cn(
           "flex items-center gap-1 rounded-md border px-3 py-2 text-sm transition-colors",
-          "hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+          "hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
         )}
         disabled={!hasPreviousPage || isLoading}
         onClick={() => onPageChange(currentPage - 1)}
@@ -47,7 +47,7 @@ export function Pagination({
       <button
         className={cn(
           "flex items-center gap-1 rounded-md border px-3 py-2 text-sm transition-colors",
-          "hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+          "hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
         )}
         disabled={!hasNextPage || isLoading}
         onClick={() => onPageChange(currentPage + 1)}

@@ -8,8 +8,11 @@ import { agentTaskOrchestrator } from '@/services/agents/orchestration/agentTask
  * This handles cases where a worker claimed a task but crashed before completion.
  */
 export const agentZombieReaper = inngest.createFunction(
-    { id: 'agent-zombie-reaper', name: 'Agent Zombie Reaper' },
-    { cron: '*/15 * * * *' }, // Every 15 minutes
+    { 
+      id: 'agent-zombie-reaper', 
+      name: 'Agent Zombie Reaper',
+      triggers: [{ cron: '*/15 * * * *' }] // Every 15 minutes
+    },
     async ({ step }) => {
         const reapedCount = await step.run('reap-zombies', async () => {
             return agentTaskOrchestrator.reapZombieTasks();

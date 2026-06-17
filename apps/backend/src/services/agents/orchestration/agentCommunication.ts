@@ -1,5 +1,5 @@
 import { Injectable, OnModuleInit } from '@nestjs/common';
-import { randomUUID } from 'crypto';
+import { randomUUID, createHmac } from 'crypto';
 import CircuitBreaker from 'opossum';
 import { redisPub, redisSub, redis } from '@/lib/redis';
 import { inngest } from '@/lib/inngest';
@@ -422,8 +422,7 @@ export class AgentCommunicationService implements OnModuleInit {
     private signMessage(envelope: MessageEnvelope): string {
         const secret = process.env.AGENT_COMM_SECRET || 'top-secret-agent-key';
         const data = `${envelope.id}:${envelope.from}:${envelope.to}:${JSON.stringify(envelope.message)}`;
-        const crypto = require('crypto');
-        return crypto.createHmac('sha256', secret).update(data).digest('hex');
+        return createHmac('sha256', secret).update(data).digest('hex');
     }
 
     private verifySignature(envelope: MessageEnvelope): boolean {

@@ -14,6 +14,7 @@ export interface SwarmTask {
   completedAt?: string;
   error?: string;
   metadata?: any;
+  blockedBy?: string[];
 }
 
 const TASK_COLS: { key: string; label: string; color: string }[] = [

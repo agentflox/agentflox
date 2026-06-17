@@ -6,10 +6,14 @@ import os from 'os';
 import * as vm from 'node:vm';
 
 let ivm: any;
-try {
-  ivm = await import('isolated-vm');
-} catch (e) {
-  console.warn('[CodeExecutor] isolated-vm not available, falling back to node:vm. SECURITY WARNING: Reduced isolation.');
+async function initIvm() {
+  if (ivm !== undefined) return;
+  try {
+    ivm = await import('isolated-vm');
+  } catch (e) {
+    ivm = null;
+    console.warn('[CodeExecutor] isolated-vm not available, falling back to node:vm. SECURITY WARNING: Reduced isolation.');
+  }
 }
 
 export interface CodeExecutionResult {
@@ -69,6 +73,7 @@ export class CodeExecutorService {
     context: any,
     helpers: any
   ): Promise<CodeExecutionResult> {
+    await initIvm();
     if (ivm) {
       return this.executeJavascriptIsolated(code, params, steps, context, helpers);
     } else {
@@ -176,15 +181,15 @@ export class CodeExecutorService {
     try {
       // Create a context and run inside it
       vm.createContext(sandbox);
-      
+
       const fullCode = `(async () => { 
         ${code} 
       })()`;
 
       // Use a timeout to prevent infinite loops (non-perfect in sync node:vm but better than nothing)
-      const result = await vm.runInContext(fullCode, sandbox, { 
+      const result = await vm.runInContext(fullCode, sandbox, {
         timeout: this.JS_TIMEOUT,
-        displayErrors: true 
+        displayErrors: true
       });
 
       return {
@@ -276,31 +281,17 @@ if __name__ == "__main__":
 
         let resultFound = false;
         let resultData = '';
+        let stdoutBuffer = '';
 
         py.stdout.on('data', (data) => {
           if (logOverflow) return;
           const chunk = data.toString();
-          
-          if (chunk.includes('---RESULT_START---')) {
-            const parts = chunk.split('---RESULT_START---');
-            const resultPart = parts[1].split('---RESULT_END---')[0];
-            resultData = resultPart.trim();
-            resultFound = true;
-            
-            // Clean up logs from result delimiters
-            const logsBefore = parts[0].split('\n').filter(Boolean);
-            const logsAfter = parts[1].split('---RESULT_END---')[1]?.split('\n').filter(Boolean) || [];
-            logs.push(...logsBefore, ...logsAfter);
-            return;
-          }
+          stdoutBuffer += chunk;
+
           if (logs.length >= this.MAX_LOG_LINES || logSize + chunk.length > this.MAX_LOG_BYTES) {
             logOverflow = true;
             logs.push('--- LOG LIMIT EXCEEDED ---');
-            return;
           }
-          // We might receive multiple lines at once
-          const lines = chunk.split('\n').filter(Boolean);
-          logs.push(...lines);
           logSize += chunk.length;
         });
 
@@ -320,6 +311,20 @@ if __name__ == "__main__":
         py.on('close', (code) => {
           if (code === 0) {
             let finalResult = null;
+
+            if (stdoutBuffer.includes('---RESULT_START---')) {
+              const parts = stdoutBuffer.split('---RESULT_START---');
+              const resultPart = parts[1].split('---RESULT_END---')[0];
+              resultData = resultPart.trim();
+              resultFound = true;
+
+              const logsBefore = parts[0].split('\n').filter(Boolean);
+              const logsAfter = parts[1].split('---RESULT_END---')[1]?.split('\n').filter(Boolean) || [];
+              logs.push(...logsBefore, ...logsAfter);
+            } else {
+              logs.push(...stdoutBuffer.split('\n').filter(Boolean));
+            }
+
             if (resultFound && resultData) {
               try {
                 finalResult = JSON.parse(resultData);
@@ -362,7 +367,7 @@ if __name__ == "__main__":
       };
     } finally {
       // Cleanup
-      await fs.rm(workDir, { recursive: true, force: true }).catch(() => {});
+      await fs.rm(workDir, { recursive: true, force: true }).catch(() => { });
     }
   }
 }

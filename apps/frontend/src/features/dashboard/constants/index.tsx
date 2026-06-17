@@ -54,7 +54,6 @@ export const projectMenuItems = [
 
 export const agentMenuItems = [
   { label: "Overview", value: "overview", icon: LayoutDashboard },
-  { label: "Team", value: "team", icon: Users },
   { label: "Builder", value: "builder", icon: Users },
   { label: "Automation", value: "automation", icon: Users },
   { label: "Chat", value: "chat", icon: Bot },

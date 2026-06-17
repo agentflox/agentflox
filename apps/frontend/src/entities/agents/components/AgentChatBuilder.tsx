@@ -44,6 +44,7 @@ export const AgentChatBuilder: React.FC<AgentChatBuilderProps> = ({
   const [followupsMap, setFollowupsMap] = useState<Map<string, MessageFollowup[]>>(new Map());
   const [agentDraft, setAgentDraft] = useState<AgentDraft | null>(null);
   const [isSending, setIsSending] = useState(false);
+  const isSendingRef = useRef(false);
   const [isInitializing, setIsInitializing] = useState(true);
   const [showAgentProfile, setShowAgentProfile] = useState(false);
 
@@ -147,6 +148,7 @@ export const AgentChatBuilder: React.FC<AgentChatBuilderProps> = ({
         return { id: msg.id, role: msg.role as MessageRole, content: msg.content, createdAt: msg.createdAt, followups };
       });
       // Batch: hide streaming indicator + show DB messages in one paint
+      isSendingRef.current = false;
       setIsSending(false);
       setMessages(dbMessages);
       const newFollowupsMap = new Map<string, MessageFollowup[]>();
@@ -154,6 +156,7 @@ export const AgentChatBuilder: React.FC<AgentChatBuilderProps> = ({
       setFollowupsMap(newFollowupsMap);
     } else {
       // Fallback: no data returned — still need to clear sending state
+      isSendingRef.current = false;
       setIsSending(false);
     }
 
@@ -185,6 +188,7 @@ export const AgentChatBuilder: React.FC<AgentChatBuilderProps> = ({
   }, [refetchMessages, agentData, showAgentProfile, agentId, refetchAgent, onProgressUpdate]);
 
   const handleMessageError = useCallback((errorMessage: string) => {
+    isSendingRef.current = false;
     setIsSending(false);
     setMessages(prev => prev.filter(msg => !optimisticMessageIds.current.has(msg.id)));
     optimisticMessageIds.current.clear();
@@ -230,7 +234,7 @@ export const AgentChatBuilder: React.FC<AgentChatBuilderProps> = ({
 
   // Sync messages from database (only when not sending to avoid conflicts)
   useEffect(() => {
-    if (messagesData?.messages && conversationId && !isSending) {
+    if (messagesData?.messages && conversationId && !isSendingRef.current) {
       const allMessages = messagesData.messages;
 
       const dbMessages: RenderedMessage[] = allMessages.map((msg, index) => {
@@ -281,7 +285,7 @@ export const AgentChatBuilder: React.FC<AgentChatBuilderProps> = ({
         setFollowupsMap(newFollowupsMap);
       }
     }
-  }, [messagesData, conversationId, isSending]);
+  }, [messagesData, conversationId]);
 
   // Show AgentProfile when agent is ACTIVE
   useEffect(() => {
@@ -332,26 +336,9 @@ export const AgentChatBuilder: React.FC<AgentChatBuilderProps> = ({
   // Mutation to mark follow-ups as consumed
   const markFollowupsConsumedMutation = trpc.chat.markFollowupsConsumed.useMutation();
 
-  // ✅ Update handleSendMessage to wait for mutation before clearing
+  // ✅ Update handleSendMessage to update UI optimistically before mutation
   const handleSendMessage = useCallback(async (message: string) => {
     if (!message.trim() || isSending || !conversationId) return;
-
-    // ✅ IMMEDIATELY clear follow-ups from UI (optimistic update)
-    setMessages(prev => prev.map(msg => ({ ...msg, followups: undefined })));
-    setFollowupsMap(new Map()); // Clear all followups from state
-
-    // Mark all existing assistant messages' follow-ups as consumed in the database (background operation)
-    const assistantMessages = messages.filter(msg => msg.role === 'ASSISTANT');
-
-    // ✅ Wait for all follow-up consumption mutations to complete
-    const consumePromises = assistantMessages.map(msg =>
-      markFollowupsConsumedMutation.mutateAsync({ messageId: msg.id }).catch(err => {
-        console.error('Failed to mark follow-ups as consumed:', err);
-      })
-    );
-
-    // Wait for all to complete before sending message
-    await Promise.all(consumePromises);
 
     const optimisticId = `optimistic_${Date.now()}`;
     const userMessage: RenderedMessage = {
@@ -363,9 +350,28 @@ export const AgentChatBuilder: React.FC<AgentChatBuilderProps> = ({
 
     // Track this optimistic message
     optimisticMessageIds.current.add(optimisticId);
+    isSendingRef.current = true;
 
-    setMessages(prev => [...prev, userMessage]);
+    // ✅ IMMEDIATELY clear follow-ups from UI and show user message (optimistic update)
+    setMessages(prev => [
+      ...prev.map(msg => ({ ...msg, followups: undefined })),
+      userMessage
+    ]);
+    setFollowupsMap(new Map()); // Clear all followups from state
     setIsSending(true);
+
+    // Mark all existing assistant messages' follow-ups as consumed in the database (background operation)
+    const assistantMessages = messages.filter(msg => msg.role === 'ASSISTANT');
+
+    const consumePromises = assistantMessages.map(msg =>
+      markFollowupsConsumedMutation.mutateAsync({ messageId: msg.id }).catch(err => {
+        console.error('Failed to mark follow-ups as consumed:', err);
+      })
+    );
+
+    // Run follow-up mutations in background without blocking
+    Promise.all(consumePromises).catch(() => { });
+
     const resolvedAgentId = agentId || (agentDraft as any)?.id || agentData?.id;
     await sendStreamMessage({
       conversationId,

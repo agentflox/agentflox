@@ -88,9 +88,9 @@ export class ToolEditorAssistant extends BaseEditorAssistant {
         );
 
         const textRef = { value: '' };
-        await this.streamResponse(stream, onToken, textRef, signal);
+        const streamUsage = await this.streamResponse(stream, onToken, textRef, signal);
         rawText = textRef.value;
-        this.trackTokenUsage(messages, rawText, model, undefined, userId);
+        this.trackTokenUsage(messages, rawText, model, streamUsage, userId);
       } else {
         const completion = await this.runCompletion(
           { model, temperature: 0.2, messages, response_format: { type: 'json_object' } },

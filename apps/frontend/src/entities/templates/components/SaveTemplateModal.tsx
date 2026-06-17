@@ -29,7 +29,7 @@ import {
 	TEMPLATE_SHARE_OPTIONS,
 	type TemplateShareValue,
 } from "@/entities/templates/constants/templateTypes";
-import type { TemplateEntityType } from "@agentflox/database";
+import type { TemplateEntityType } from "@agentflox/database/src/generated/prisma";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 

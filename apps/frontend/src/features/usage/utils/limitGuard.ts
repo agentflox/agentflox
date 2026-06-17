@@ -56,10 +56,10 @@ export class LimitGuard {
 
   static async getResourceCounts(userId: string): Promise<ResourceCounts> {
     const [projectsOwned, teamsOwned, proposalsOwned, requestsSent] = await Promise.all([
-      prisma.project.count({ where: { ownerId: userId } }),
-      prisma.team.count({ where: { ownerId: userId } }),
-      prisma.proposal.count({ where: { userId } }),
-      prisma.request.count({ where: { senderId: userId } }),
+      prisma.project?.count({ where: { ownerId: userId } }) ?? Promise.resolve(0),
+      prisma.team?.count({ where: { ownerId: userId } }) ?? Promise.resolve(0),
+      (prisma as any).proposal?.count({ where: { userId } }) ?? Promise.resolve(0),
+      prisma.request?.count({ where: { senderId: userId } }) ?? Promise.resolve(0),
     ]);
     return { projectsOwned, teamsOwned, proposalsOwned, requestsSent };
   }

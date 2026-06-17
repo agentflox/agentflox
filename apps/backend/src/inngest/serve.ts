@@ -6,6 +6,7 @@ import { agentExecutorWorkflow } from './functions/agent-executor';
 import { agentOperatorWorkflow } from './functions/agent-operator';
 import { agentZombieReaper } from './functions/agent-maintenance';
 import { agentBackgroundDlq } from './functions/agent-background-dlq';
+import { executeCompositeTool } from './functions/composite-tool-executor';
 
 // Create Inngest serve handler
 export const inngestHandler = serve({
@@ -18,6 +19,7 @@ export const inngestHandler = serve({
     agentOperatorWorkflow,
     agentZombieReaper,
     agentBackgroundDlq,
+    executeCompositeTool,
   ],
 });
 

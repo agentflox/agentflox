@@ -89,7 +89,7 @@ export const DASHBOARD_ROUTES = {
     AGENT: (id: string) => `/dashboard/agents/${id}`,
 
     WORKFORCES: '/dashboard/workforces',
-    WORKFORCE_CREATE: (id: string) => `/dashboard/workforces/create/${id}`,
+    WORKFORCE_CREATE: (id: string) => `/dashboard/workforces/${id}`,
 
     BILLING: '/dashboard/billing',
     SETTINGS: '/dashboard/settings',

@@ -2,9 +2,8 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { protectedProcedure, router } from "@/trpc/init";
 import { prisma } from "@/lib/prisma";
-import type { Prisma } from "@agentflox/database";
-import { Visibility, WorkspaceRole } from "@agentflox/database";
-import { PermissionLevel } from "@agentflox/database/src/generated/prisma";
+import type { Prisma } from "@agentflox/database/src/generated/prisma";
+import { Visibility, WorkspaceRole, PermissionLevel } from "@agentflox/database/src/generated/prisma";
 import { permissionsService } from "@/services/permissions.service";
 import { generateKeyBetween } from "fractional-indexing";
 import { randomUUID } from "crypto";
@@ -31,46 +30,46 @@ const TEMPLATE_AUDIT_STATUSES = ["SUCCESS", "FAILED", "PARTIAL"] as const;
 // ─── Selects ─────────────────────────────────────────────────────────────────
 
 const TEMPLATE_SELECT = {
-	id: true,
-	name: true,
-	description: true,
-	icon: true,
-	coverImage: true,
-	color: true,
-	tags: true,
-	category: true,
-	complexity: true,
-	entityType: true,
-	isPublic: true,
-	isFeatured: true,
-	isSystem: true,
-	isArchived: true,
-	useCount: true,
-	viewCount: true,
-	version: true,
-	workspaceId: true,
-	organizationId: true,
-	createdBy: true,
-	createdAt: true,
-	updatedAt: true,
+  id: true,
+  name: true,
+  description: true,
+  icon: true,
+  coverImage: true,
+  color: true,
+  tags: true,
+  category: true,
+  complexity: true,
+  entityType: true,
+  isPublic: true,
+  isFeatured: true,
+  isSystem: true,
+  isArchived: true,
+  useCount: true,
+  viewCount: true,
+  version: true,
+  workspaceId: true,
+  organizationId: true,
+  createdBy: true,
+  createdAt: true,
+  updatedAt: true,
   visibility: true,
   shareUserIds: true,
   shareTeamIds: true,
-	creator: { select: { id: true, name: true, image: true } },
+  creator: { select: { id: true, name: true, image: true } },
 } as const;
 
 const AUDIT_LOG_SELECT = {
-	id: true,
-	event: true,
-	status: true,
-	targetEntityType: true,
-	targetEntityId: true,
-	targetEntityName: true,
-	metadata: true,
-	errorMessage: true,
-	createdAt: true,
-	template: { select: { id: true, name: true, entityType: true, icon: true } },
-	actor: { select: { id: true, name: true, image: true } },
+  id: true,
+  event: true,
+  status: true,
+  targetEntityType: true,
+  targetEntityId: true,
+  targetEntityName: true,
+  metadata: true,
+  errorMessage: true,
+  createdAt: true,
+  template: { select: { id: true, name: true, entityType: true, icon: true } },
+  actor: { select: { id: true, name: true, image: true } },
 } as const;
 
 // ─── Zod Schemas ─────────────────────────────────────────────────────────────
@@ -80,36 +79,36 @@ const templateSharesSchema = z.array(
 );
 
 const createTemplateSchema = z.object({
-	name: z.string().min(1, "Template name is required").max(150),
-	description: z.string().max(1000).optional(),
+  name: z.string().min(1, "Template name is required").max(150),
+  description: z.string().max(1000).optional(),
   tags: z.array(z.string().max(50)).max(20).optional().default([]),
   category: z.string().max(100).optional(),
-	complexity: z.enum(COMPLEXITY_TYPES).optional(),
-	entityType: z.enum(ENTITY_TYPES),
-	shareWith: z.enum(SHARE_SCOPE_TYPES).default("me"),
-	publicSharing: z.boolean().default(false),
-	captureConfig: z.record(z.string(), z.unknown()).optional(),
-	content: z.record(z.string(), z.unknown()).optional().default({}),
-	shares: templateSharesSchema.optional().default([]),
+  complexity: z.enum(COMPLEXITY_TYPES).optional(),
+  entityType: z.enum(ENTITY_TYPES),
+  shareWith: z.enum(SHARE_SCOPE_TYPES).default("me"),
+  publicSharing: z.boolean().default(false),
+  captureConfig: z.record(z.string(), z.unknown()).optional(),
+  content: z.record(z.string(), z.unknown()).optional().default({}),
+  shares: templateSharesSchema.optional().default([]),
   workspaceId: z.string().cuid().optional(),
 });
 
 const updateTemplateSchema = z.object({
   id: z.string().cuid(),
   name: z.string().min(1).max(150).optional(),
-	description: z.string().max(1000).optional(),
+  description: z.string().max(1000).optional(),
   icon: z.string().max(2048).nullable().optional(),
   coverImage: z.string().max(2048).nullable().optional(),
   color: z.string().max(50).nullable().optional(),
   tags: z.array(z.string().max(50)).max(20).optional(),
   category: z.string().max(100).optional(),
-	complexity: z.enum(COMPLEXITY_TYPES).optional(),
-	entityType: z.enum(ENTITY_TYPES).optional(),
-	shareWith: z.enum(SHARE_SCOPE_TYPES).optional(),
-	publicSharing: z.boolean().optional(),
-	captureConfig: z.record(z.string(), z.unknown()).optional(),
-	content: z.record(z.string(), z.unknown()).optional(),
-	shares: templateSharesSchema.optional(),
+  complexity: z.enum(COMPLEXITY_TYPES).optional(),
+  entityType: z.enum(ENTITY_TYPES).optional(),
+  shareWith: z.enum(SHARE_SCOPE_TYPES).optional(),
+  publicSharing: z.boolean().optional(),
+  captureConfig: z.record(z.string(), z.unknown()).optional(),
+  content: z.record(z.string(), z.unknown()).optional(),
+  shares: templateSharesSchema.optional(),
 });
 
 // ─── Permission Helpers ───────────────────────────────────────────────────────
@@ -330,11 +329,11 @@ async function overwriteTaskFromTemplateNode(params: {
           items: {
             create: Array.isArray(c.items)
               ? c.items.map((i: any) => ({
-                  name: i.name ?? "Item",
-                  isCompleted: !!i.isCompleted,
-                  position: i.position ?? 0,
-                  assigneeId: i.assigneeId ?? null,
-                }))
+                name: i.name ?? "Item",
+                isCompleted: !!i.isCompleted,
+                position: i.position ?? 0,
+                assigneeId: i.assigneeId ?? null,
+              }))
               : [],
           },
         },
@@ -629,7 +628,7 @@ async function assertCanEdit(userId: string, templateId: string): Promise<void> 
 // ─── Router ──────────────────────────────────────────────────────────────────
 
 export const templateRouter = router({
-	/**
+  /**
    * List templates by scope.
    * Scopes:
    *   featured  – isFeatured = true
@@ -637,35 +636,35 @@ export const templateRouter = router({
    *   global    – workspaceId IS NULL, isSystem = false, isPublic = true
    *   builtin   – isSystem = true
    *   all       – no scope filter (global + builtin visible to all)
-	 */
-	list: protectedProcedure
-		.input(
-			z.object({
+   */
+  list: protectedProcedure
+    .input(
+      z.object({
         workspaceId: z.string().cuid().optional(),
         scope: z
           .enum(["featured", "workspace", "global", "builtin", "all"])
           .optional()
           .default("all"),
         editableOnly: z.boolean().optional().default(false),
-				entityTypes: z.array(z.enum(ENTITY_TYPES)).optional(),
-				tags: z.array(z.string()).optional(),
+        entityTypes: z.array(z.enum(ENTITY_TYPES)).optional(),
+        tags: z.array(z.string()).optional(),
         createdByIds: z.array(z.string().cuid()).optional(),
-				categories: z.array(z.string()).optional(),
-				complexity: z.enum(COMPLEXITY_TYPES).optional(),
+        categories: z.array(z.string()).optional(),
+        complexity: z.enum(COMPLEXITY_TYPES).optional(),
         search: z.string().max(200).optional(),
-				page: z.number().int().min(1).optional().default(1),
-				pageSize: z.number().int().min(1).max(100).optional().default(50),
-			})
-		)
-		.query(async ({ ctx, input }) => {
-			const userId = ctx.session!.user!.id;
+        page: z.number().int().min(1).optional().default(1),
+        pageSize: z.number().int().min(1).max(100).optional().default(50),
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      const userId = ctx.session!.user!.id;
       const { scope, workspaceId, editableOnly, entityTypes, tags, createdByIds, categories, complexity, search } = input;
 
       const andParts: Prisma.TemplateWhereInput[] = [{ isArchived: false }];
 
-			if (scope === "featured") {
+      if (scope === "featured") {
         andParts.push({ isFeatured: true });
-			} else if (scope === "workspace") {
+      } else if (scope === "workspace") {
         if (!workspaceId) {
           throw new TRPCError({ code: "BAD_REQUEST", message: "workspaceId required for workspace scope" });
         }
@@ -674,9 +673,9 @@ export const templateRouter = router({
           : await buildViewAccessOr(userId, workspaceId);
         andParts.push({ workspaceId });
         andParts.push({ OR: accessOr });
-			} else if (scope === "global") {
+      } else if (scope === "global") {
         andParts.push({ workspaceId: null, isSystem: false, isPublic: true });
-			} else if (scope === "builtin") {
+      } else if (scope === "builtin") {
         andParts.push({ isSystem: true });
       }
 
@@ -685,213 +684,213 @@ export const templateRouter = router({
       if (createdByIds?.length) andParts.push({ createdBy: { in: createdByIds } });
       if (categories?.length) andParts.push({ category: { in: categories } });
       if (complexity) andParts.push({ complexity });
-			if (search?.trim()) {
-				const q = search.trim();
+      if (search?.trim()) {
+        const q = search.trim();
         andParts.push({
           OR: [
-					{ name: { contains: q, mode: "insensitive" } },
-					{ description: { contains: q, mode: "insensitive" } },
-					{ category: { contains: q, mode: "insensitive" } },
+            { name: { contains: q, mode: "insensitive" } },
+            { description: { contains: q, mode: "insensitive" } },
+            { category: { contains: q, mode: "insensitive" } },
           ],
         });
-			}
+      }
 
       const where: Prisma.TemplateWhereInput =
         andParts.length === 1 ? andParts[0]! : { AND: andParts };
 
-			const skip = (input.page - 1) * input.pageSize;
+      const skip = (input.page - 1) * input.pageSize;
 
-			const [total, items] = await Promise.all([
-				prisma.template.count({ where }),
-				prisma.template.findMany({
-					where,
-					select: TEMPLATE_SELECT,
-					orderBy: [{ isFeatured: "desc" }, { useCount: "desc" }, { createdAt: "desc" }],
-					skip,
-					take: input.pageSize,
-				}),
-			]);
+      const [total, items] = await Promise.all([
+        prisma.template.count({ where }),
+        prisma.template.findMany({
+          where,
+          select: TEMPLATE_SELECT,
+          orderBy: [{ isFeatured: "desc" }, { useCount: "desc" }, { createdAt: "desc" }],
+          skip,
+          take: input.pageSize,
+        }),
+      ]);
 
-			return { items, total, page: input.page, pageSize: input.pageSize };
-		}),
+      return { items, total, page: input.page, pageSize: input.pageSize };
+    }),
 
-	/**
-	 * Counts per section for sidebar badges.
-	 */
-	counts: protectedProcedure
+  /**
+   * Counts per section for sidebar badges.
+   */
+  counts: protectedProcedure
     .input(z.object({ workspaceId: z.string().cuid().optional() }))
-		.query(async ({ ctx, input }) => {
+    .query(async ({ ctx, input }) => {
       const userId = ctx.session!.user!.id;
 
       const workspaceWhere =
         input.workspaceId != null
           ? {
-              isArchived: false,
-              workspaceId: input.workspaceId,
-              OR: await buildViewAccessOr(userId, input.workspaceId),
-            }
+            isArchived: false,
+            workspaceId: input.workspaceId,
+            OR: await buildViewAccessOr(userId, input.workspaceId),
+          }
           : null;
 
-			const [featured, workspace, global, builtin] = await Promise.all([
-				prisma.template.count({ where: { isFeatured: true, isArchived: false } }),
+      const [featured, workspace, global, builtin] = await Promise.all([
+        prisma.template.count({ where: { isFeatured: true, isArchived: false } }),
         workspaceWhere ? prisma.template.count({ where: workspaceWhere }) : Promise.resolve(0),
-				prisma.template.count({ where: { workspaceId: null, isSystem: false, isPublic: true, isArchived: false } }),
-				prisma.template.count({ where: { isSystem: true, isArchived: false } }),
-			]);
+        prisma.template.count({ where: { workspaceId: null, isSystem: false, isPublic: true, isArchived: false } }),
+        prisma.template.count({ where: { isSystem: true, isArchived: false } }),
+      ]);
 
-			return { featured, workspace, global, builtin };
-		}),
+      return { featured, workspace, global, builtin };
+    }),
 
-	/**
-	 * All unique tags across templates the user can access.
-	 */
-	tags: protectedProcedure
+  /**
+   * All unique tags across templates the user can access.
+   */
+  tags: protectedProcedure
     .input(z.object({ workspaceId: z.string().cuid().optional() }))
-		.query(async ({ ctx, input }) => {
+    .query(async ({ ctx, input }) => {
       const userId = ctx.session!.user!.id;
 
       const workspaceClause =
         input.workspaceId != null
           ? {
-              AND: [
-                { workspaceId: input.workspaceId },
-                { OR: await buildViewAccessOr(userId, input.workspaceId) },
-              ],
-            }
+            AND: [
+              { workspaceId: input.workspaceId },
+              { OR: await buildViewAccessOr(userId, input.workspaceId) },
+            ],
+          }
           : null;
 
-			const rows = await prisma.template.findMany({
-				where: {
-					isArchived: false,
-					OR: [
-						{ isPublic: true },
-						{ isSystem: true },
+      const rows = await prisma.template.findMany({
+        where: {
+          isArchived: false,
+          OR: [
+            { isPublic: true },
+            { isSystem: true },
             ...(workspaceClause ? [workspaceClause] : []),
-					],
-				},
-				select: { tags: true },
-			});
+          ],
+        },
+        select: { tags: true },
+      });
 
-			const tagSet = new Set<string>();
-			for (const row of rows) {
-				for (const tag of row.tags) tagSet.add(tag);
-			}
-			return Array.from(tagSet).sort();
-		}),
+      const tagSet = new Set<string>();
+      for (const row of rows) {
+        for (const tag of row.tags) tagSet.add(tag);
+      }
+      return Array.from(tagSet).sort();
+    }),
 
-	/**
-	 * Users who have created templates in this workspace + all workspace members.
-	 */
-	createdByUsers: protectedProcedure
+  /**
+   * Users who have created templates in this workspace + all workspace members.
+   */
+  createdByUsers: protectedProcedure
     .input(z.object({ workspaceId: z.string().cuid() }))
-		.query(async ({ ctx, input }) => {
+    .query(async ({ ctx, input }) => {
       const userId = ctx.session!.user!.id;
       const accessOr = await buildViewAccessOr(userId, input.workspaceId);
 
-			const [creators, members] = await Promise.all([
-				prisma.template.findMany({
-					where: {
-						isArchived: false,
+      const [creators, members] = await Promise.all([
+        prisma.template.findMany({
+          where: {
+            isArchived: false,
             OR: [
               { isPublic: true },
               { isSystem: true },
               { AND: [{ workspaceId: input.workspaceId }, { OR: accessOr }] },
             ],
-					},
-					select: { creator: { select: { id: true, name: true, image: true } } },
-					distinct: ["createdBy"],
-				}),
-				prisma.workspaceMember.findMany({
-					where: { workspaceId: input.workspaceId },
-					select: { user: { select: { id: true, name: true, image: true } } },
-				}),
-			]);
+          },
+          select: { creator: { select: { id: true, name: true, image: true } } },
+          distinct: ["createdBy"],
+        }),
+        prisma.workspaceMember.findMany({
+          where: { workspaceId: input.workspaceId },
+          select: { user: { select: { id: true, name: true, image: true } } },
+        }),
+      ]);
 
-			const userMap = new Map<string, { id: string; name: string | null; image: string | null }>();
-			for (const t of creators) {
-				if (t.creator) userMap.set(t.creator.id, t.creator);
-			}
-			for (const m of members) {
-				if (m.user) userMap.set(m.user.id, m.user);
-			}
+      const userMap = new Map<string, { id: string; name: string | null; image: string | null }>();
+      for (const t of creators) {
+        if (t.creator) userMap.set(t.creator.id, t.creator);
+      }
+      for (const m of members) {
+        if (m.user) userMap.set(m.user.id, m.user);
+      }
 
-			return Array.from(userMap.values());
-		}),
+      return Array.from(userMap.values());
+    }),
 
-	/**
+  /**
    * Audit logs for templates in this workspace.
-	 */
-	auditLogs: protectedProcedure
-		.input(
-			z.object({
+   */
+  auditLogs: protectedProcedure
+    .input(
+      z.object({
         workspaceId: z.string().cuid().optional(),
         templateId: z.string().cuid().optional(),
         events: z.array(z.enum(TEMPLATE_AUDIT_EVENTS)).optional(),
         status: z.enum(TEMPLATE_AUDIT_STATUSES).optional(),
         search: z.string().max(200).optional(),
-				page: z.number().int().min(1).optional().default(1),
-				pageSize: z.number().int().min(1).max(100).optional().default(50),
-			})
-		)
+        page: z.number().int().min(1).optional().default(1),
+        pageSize: z.number().int().min(1).max(100).optional().default(50),
+      })
+    )
     .query(async ({ input }) => {
       const where: Prisma.TemplateAuditLogWhereInput = {};
 
-			if (input.templateId) {
-				where.templateId = input.templateId;
-			} else if (input.workspaceId) {
-				where.template = {
-					OR: [
-						{ workspaceId: input.workspaceId },
-						{ isPublic: true },
-						{ isSystem: true },
-					],
-				};
-			}
+      if (input.templateId) {
+        where.templateId = input.templateId;
+      } else if (input.workspaceId) {
+        where.template = {
+          OR: [
+            { workspaceId: input.workspaceId },
+            { isPublic: true },
+            { isSystem: true },
+          ],
+        };
+      }
 
-			if (input.events?.length) where.event = { in: input.events };
-			if (input.status) where.status = input.status;
+      if (input.events?.length) where.event = { in: input.events };
+      if (input.status) where.status = input.status;
 
-			if (input.search?.trim()) {
-				where.template = {
+      if (input.search?.trim()) {
+        where.template = {
           ...(where.template as any),
-					name: { contains: input.search.trim(), mode: "insensitive" },
-				};
-			}
+          name: { contains: input.search.trim(), mode: "insensitive" },
+        };
+      }
 
-			const skip = (input.page - 1) * input.pageSize;
+      const skip = (input.page - 1) * input.pageSize;
 
-			const [total, items] = await Promise.all([
-				prisma.templateAuditLog.count({ where }),
-				prisma.templateAuditLog.findMany({
-					where,
-					select: AUDIT_LOG_SELECT,
-					orderBy: { createdAt: "desc" },
-					skip,
-					take: input.pageSize,
-				}),
-			]);
+      const [total, items] = await Promise.all([
+        prisma.templateAuditLog.count({ where }),
+        prisma.templateAuditLog.findMany({
+          where,
+          select: AUDIT_LOG_SELECT,
+          orderBy: { createdAt: "desc" },
+          skip,
+          take: input.pageSize,
+        }),
+      ]);
 
-			return { items, total, page: input.page, pageSize: input.pageSize };
-		}),
+      return { items, total, page: input.page, pageSize: input.pageSize };
+    }),
 
-	/**
+  /**
    * Record an audit event (e.g. when a template is applied/merged).
-	 */
-	recordAuditEvent: protectedProcedure
-		.input(
-			z.object({
+   */
+  recordAuditEvent: protectedProcedure
+    .input(
+      z.object({
         templateId: z.string().cuid(),
         event: z.enum(TEMPLATE_AUDIT_EVENTS),
-				targetEntityType: z.enum(ENTITY_TYPES).optional(),
-				targetEntityId: z.string().optional(),
+        targetEntityType: z.enum(ENTITY_TYPES).optional(),
+        targetEntityId: z.string().optional(),
         targetEntityName: z.string().max(255).optional(),
         status: z.enum(TEMPLATE_AUDIT_STATUSES).optional().default("SUCCESS"),
         errorMessage: z.string().max(1000).optional(),
-				metadata: z.record(z.string(), z.unknown()).optional(),
-			})
-		)
-		.mutation(async ({ ctx, input }) => {
-			const actorId = ctx.session!.user!.id;
+        metadata: z.record(z.string(), z.unknown()).optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const actorId = ctx.session!.user!.id;
 
       // Verify template exists
       const template = await prisma.template.findUnique({
@@ -902,34 +901,34 @@ export const templateRouter = router({
         throw new TRPCError({ code: "NOT_FOUND", message: "Template not found" });
       }
 
-			const [log] = await Promise.all([
-				prisma.templateAuditLog.create({
-					data: {
-						templateId: input.templateId,
-						actorId,
-						event: input.event,
-						targetEntityType: input.targetEntityType,
-						targetEntityId: input.targetEntityId,
-						targetEntityName: input.targetEntityName,
-						status: input.status,
-						errorMessage: input.errorMessage,
+      const [log] = await Promise.all([
+        prisma.templateAuditLog.create({
+          data: {
+            templateId: input.templateId,
+            actorId,
+            event: input.event,
+            targetEntityType: input.targetEntityType,
+            targetEntityId: input.targetEntityId,
+            targetEntityName: input.targetEntityName,
+            status: input.status,
+            errorMessage: input.errorMessage,
             ...(input.metadata !== undefined && {
               metadata: input.metadata as Prisma.InputJsonValue,
             }),
-					},
-					select: AUDIT_LOG_SELECT,
-				}),
+          },
+          select: AUDIT_LOG_SELECT,
+        }),
         // Increment use count only on APPLIED / MERGED
-				...(["APPLIED", "MERGED"].includes(input.event)
+        ...(["APPLIED", "MERGED"].includes(input.event)
           ? [prisma.template.update({
-              where: { id: input.templateId },
-              data: { useCount: { increment: 1 } },
-            })]
-					: []),
-			]);
+            where: { id: input.templateId },
+            data: { useCount: { increment: 1 } },
+          })]
+          : []),
+      ]);
 
-			return log;
-		}),
+      return log;
+    }),
 
   applyToTask: protectedProcedure
     .input(
@@ -1262,13 +1261,13 @@ export const templateRouter = router({
         const isPaid = content.pricingType === "paid" || content.isFree === false;
         const resolvedCredits = isPaid
           ? Math.max(
-              1,
-              Number(
-                content.creditAmount ??
-                content.priceCredits ??
-                1
-              ) || 1
-            )
+            1,
+            Number(
+              content.creditAmount ??
+              content.priceCredits ??
+              1
+            ) || 1
+          )
           : null;
         const resolvedAllowClone = content.allowCloning ?? content.allowClone ?? true;
         const resolvedAllowRepublish = content.allowRepublishing ?? content.allowRepublish ?? false;
@@ -1276,18 +1275,18 @@ export const templateRouter = router({
           (typeof content.intent === "string" && content.intent.trim()) ? content.intent : null;
         const resolvedApplicationSchema = Array.isArray(content.customFields)
           ? {
-              fields: content.customFields
-                .filter((field: any) => typeof field?.label === "string" && field.label.trim())
-                .map((field: any) => ({
-                  id: String(field.id ?? ""),
-                  type: String(field.type ?? "text"),
-                  label: String(field.label ?? ""),
-                  required: !!field.required,
-                  placeholder: typeof field.placeholder === "string" ? field.placeholder : undefined,
-                  description: typeof field.description === "string" ? field.description : undefined,
-                  options: Array.isArray(field.options) ? field.options : undefined,
-                })),
-            }
+            fields: content.customFields
+              .filter((field: any) => typeof field?.label === "string" && field.label.trim())
+              .map((field: any) => ({
+                id: String(field.id ?? ""),
+                type: String(field.type ?? "text"),
+                label: String(field.label ?? ""),
+                required: !!field.required,
+                placeholder: typeof field.placeholder === "string" ? field.placeholder : undefined,
+                description: typeof field.description === "string" ? field.description : undefined,
+                options: Array.isArray(field.options) ? field.options : undefined,
+              })),
+          }
           : null;
         const slug = await generateUniqueListingSlug(name);
 
@@ -1341,11 +1340,11 @@ export const templateRouter = router({
 
   /**
    * Create a new template.
-	 */
-	create: protectedProcedure
-		.input(createTemplateSchema)
-		.mutation(async ({ ctx, input }) => {
-			const userId = ctx.session!.user!.id;
+   */
+  create: protectedProcedure
+    .input(createTemplateSchema)
+    .mutation(async ({ ctx, input }) => {
+      const userId = ctx.session!.user!.id;
 
       // If scoped to a workspace, verify access.
       // Owners may not always have an explicit workspace_members row in drifted/legacy data,
@@ -1376,27 +1375,27 @@ export const templateRouter = router({
         input.shares
       );
 
-			const template = await prisma.template.create({
-				data: {
-					name: input.name,
-					description: input.description,
-					tags: input.tags,
-					category: input.category,
-					complexity: input.complexity,
-					entityType: input.entityType,
-					workspaceId: input.workspaceId,
-					createdBy: userId,
+      const template = await prisma.template.create({
+        data: {
+          name: input.name,
+          description: input.description,
+          tags: input.tags,
+          category: input.category,
+          complexity: input.complexity,
+          entityType: input.entityType,
+          workspaceId: input.workspaceId,
+          createdBy: userId,
           isPublic: !!input.publicSharing,
           visibility,
           shareUserIds,
           shareTeamIds,
           captureConfig: (input.captureConfig ?? {}) as Prisma.InputJsonValue,
           content: (input.content ?? {}) as Prisma.InputJsonValue,
-				},
-				select: TEMPLATE_SELECT,
-			});
+        },
+        select: TEMPLATE_SELECT,
+      });
 
-			await prisma.templateAuditLog.create({
+      await prisma.templateAuditLog.create({
         data: {
           templateId: template.id,
           actorId: userId,
@@ -1414,21 +1413,21 @@ export const templateRouter = router({
               null,
           } as Prisma.InputJsonValue,
         },
-			});
+      });
 
-			return template;
-		}),
+      return template;
+    }),
 
-	/**
+  /**
    * Update an existing template.
    * Uses edit-specific permission check (stricter than view).
-	 */
-	update: protectedProcedure
-		.input(updateTemplateSchema)
-		.mutation(async ({ ctx, input }) => {
+   */
+  update: protectedProcedure
+    .input(updateTemplateSchema)
+    .mutation(async ({ ctx, input }) => {
       const userId = ctx.session!.user!.id;
-			const { id, ...data } = input;
-			
+      const { id, ...data } = input;
+
       // Gate: throws FORBIDDEN / NOT_FOUND if user cannot edit
       await assertCanEdit(userId, id);
 
@@ -1437,19 +1436,19 @@ export const templateRouter = router({
           ? resolveShareFields(data.shareWith, data.shares ?? [])
           : null;
 
-			const template = await prisma.template.update({
-				where: { id },
-				data: {
-					...(data.name !== undefined && { name: data.name }),
-					...(data.description !== undefined && { description: data.description }),
+      const template = await prisma.template.update({
+        where: { id },
+        data: {
+          ...(data.name !== undefined && { name: data.name }),
+          ...(data.description !== undefined && { description: data.description }),
           ...(data.icon !== undefined && { icon: data.icon }),
           ...(data.coverImage !== undefined && { coverImage: data.coverImage }),
           ...(data.color !== undefined && { color: data.color }),
-					...(data.tags !== undefined && { tags: data.tags }),
-					...(data.category !== undefined && { category: data.category }),
-					...(data.complexity !== undefined && { complexity: data.complexity }),
-					...(data.entityType !== undefined && { entityType: data.entityType }),
-					...(data.publicSharing !== undefined && { isPublic: !!data.publicSharing }),
+          ...(data.tags !== undefined && { tags: data.tags }),
+          ...(data.category !== undefined && { category: data.category }),
+          ...(data.complexity !== undefined && { complexity: data.complexity }),
+          ...(data.entityType !== undefined && { entityType: data.entityType }),
+          ...(data.publicSharing !== undefined && { isPublic: !!data.publicSharing }),
           ...(sharePatch && {
             visibility: sharePatch.visibility,
             shareUserIds: sharePatch.shareUserIds,
@@ -1461,11 +1460,11 @@ export const templateRouter = router({
           ...(data.content !== undefined && {
             content: data.content as Prisma.InputJsonValue,
           }),
-				},
-				select: TEMPLATE_SELECT,
-			});
+        },
+        select: TEMPLATE_SELECT,
+      });
 
-			await prisma.templateAuditLog.create({
+      await prisma.templateAuditLog.create({
         data: { templateId: id, actorId: userId, event: "UPDATED", status: "SUCCESS" },
       });
 
@@ -1492,8 +1491,8 @@ export const templateRouter = router({
         data: { templateId: input.id, actorId: userId, event: "ARCHIVED", status: "SUCCESS" },
       });
 
-			return template;
-		}),
+      return template;
+    }),
 
   /**
    * Restore an archived template.

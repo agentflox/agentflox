@@ -69,7 +69,7 @@ export async function storeMemory(
   if (embedding && embedding.length > 0) {
     await prisma.$executeRaw`
       UPDATE agent_memories
-      SET embedding = ${JSON.stringify(embedding)}::vector
+      SET embedding = ${JSON.stringify(embedding)}::text::vector
       WHERE id = ${memory.id}
     `;
   }
@@ -126,24 +126,24 @@ export async function retrieveMemories(
     if (memoryTypes && memoryTypes.length > 0) {
       memories = await prisma.$queryRaw<any[]>`
         SELECT *,
-               1 - (embedding <=> ${JSON.stringify(queryEmbedding)}::vector) as similarity
+               1 - (embedding <=> ${JSON.stringify(queryEmbedding)}::text::vector) as similarity
         FROM agent_memories
         WHERE agent_id = ${agentId}::uuid
           AND is_active = true
           AND (expires_at IS NULL OR expires_at > ${now})
           AND memory_type = ANY(ARRAY[${memoryTypes.join(',')}]::"AgentMemoryType"[])
-        ORDER BY embedding <=> ${JSON.stringify(queryEmbedding)}::vector
+        ORDER BY embedding <=> ${JSON.stringify(queryEmbedding)}::text::vector
         LIMIT ${topK * 2}
       `;
     } else {
       memories = await prisma.$queryRaw<any[]>`
           SELECT *,
-                 1 - (embedding <=> ${JSON.stringify(queryEmbedding)}::vector) as similarity
+                 1 - (embedding <=> ${JSON.stringify(queryEmbedding)}::text::vector) as similarity
           FROM agent_memories
           WHERE agent_id = ${agentId}::uuid
             AND is_active = true
             AND (expires_at IS NULL OR expires_at > ${now})
-          ORDER BY embedding <=> ${JSON.stringify(queryEmbedding)}::vector
+          ORDER BY embedding <=> ${JSON.stringify(queryEmbedding)}::text::vector
           LIMIT ${topK * 2}
         `;
     }

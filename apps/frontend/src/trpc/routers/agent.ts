@@ -284,7 +284,6 @@ export const agentRouter = router({
       autonomyLevel: autonomyLevelEnum.optional(),
       requiresApproval: z.boolean().optional(),
       approvalThreshold: z.number().min(0).max(1).optional(),
-      availableTools: z.array(z.string()).optional(),
       permissionLevel: permissionLevelEnum.optional(),
       triggerType: triggerTypeEnum.optional(),
       triggerConfig: z.any().optional(),
@@ -297,15 +296,6 @@ export const agentRouter = router({
     }))
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.session!.user!.id;
-
-      // Get default system tools from database (only tools with isDefault: true)
-      const systemTools = await prisma.systemTool.findMany({
-        where: {
-          isActive: true,
-          isDefault: true, // Only get default tools
-        },
-      });
-
       // Create agent
       const agent = await prisma.aiAgent.create({
         data: {
@@ -347,7 +337,6 @@ export const agentRouter = router({
           autonomyLevel: input.autonomyLevel || 'SEMI_AUTONOMOUS',
           requiresApproval: input.requiresApproval ?? true,
           approvalThreshold: input.approvalThreshold ?? 0.8,
-          availableTools: input.availableTools || systemTools.map(t => t.name),
           permissionLevel: input.permissionLevel || 'RESTRICTED',
           schedule: input.schedule || undefined,
           isScheduleActive: input.isScheduleActive ?? false,
@@ -356,25 +345,6 @@ export const agentRouter = router({
           tags: input.tags || [],
           status: input.status || 'DRAFT',
           updatedAt: new Date(),
-          // Create default agent tools from system tools (only default tools)
-          tools: {
-            create: systemTools.map(systemTool => ({
-              id: randomUUID(),
-              name: systemTool.name,
-              description: systemTool.description,
-              toolType: 'INTEGRATION' as any, // Default type - can be customized later
-              category: systemTool.category,
-              functionSchema: systemTool.functionSchema as any,
-              parameters: (systemTool.functionSchema as any)?.parameters || {},
-              returns: (systemTool.functionSchema as any)?.returns || {},
-              requiresAuth: systemTool.requiresAuth,
-              rateLimit: systemTool.rateLimit,
-              timeout: systemTool.timeout,
-              tags: systemTool.tags || [],
-              updatedAt: new Date()
-            })),
-          },
-          // Create default triggers
           triggers: {
             create: DEFAULT_TRIGGERS.map(trigger => ({
               id: randomUUID(),
@@ -428,7 +398,6 @@ export const agentRouter = router({
       autonomyLevel: autonomyLevelEnum.optional(),
       requiresApproval: z.boolean().optional(),
       approvalThreshold: z.number().min(0).max(1).optional(),
-      availableTools: z.array(z.string()).optional(),
       permissionLevel: permissionLevelEnum.optional(),
       triggerType: triggerTypeEnum.optional().nullable(),
       triggerConfig: z.any().optional().nullable(),
@@ -1269,18 +1238,6 @@ export const agentRouter = router({
             },
           });
         }
-
-        // Remove tools from allowlist if present
-        const updatedAvailableTools = (agent.availableTools || []).filter(
-          (name) => !toolNamesToDisable.includes(name)
-        );
-
-        await prisma.aiAgent.update({
-          where: { id: input.agentId },
-          data: {
-            availableTools: updatedAvailableTools,
-          },
-        });
       }
 
       return { success: true };
@@ -1458,19 +1415,6 @@ export const agentRouter = router({
         }
       }
 
-      // Ensure tools are allowlisted for this agent
-      const newNames = systemTools.map(t => t.name);
-      const currentAllowlist = agent.availableTools || [];
-      const allowlistSet = new Set<string>(currentAllowlist);
-      newNames.forEach(name => allowlistSet.add(name));
-
-      await prisma.aiAgent.update({
-        where: { id: input.agentId },
-        data: {
-          availableTools: Array.from(allowlistSet),
-        },
-      });
-
       return { success: true };
     }),
 
@@ -1516,17 +1460,6 @@ export const agentRouter = router({
         data: {
           isActive: false,
           isEnabled: false,
-        },
-      });
-
-      const updatedAvailableTools = (agent.availableTools || []).filter(
-        (name) => name !== tool.name
-      );
-
-      await prisma.aiAgent.update({
-        where: { id: input.agentId },
-        data: {
-          availableTools: updatedAvailableTools,
         },
       });
 

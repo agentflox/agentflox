@@ -21,6 +21,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
+import { TaskDetailModal } from '@/entities/task/components/TaskDetailModal';
 
 // ──── Debounce hook ────────────────────────────────────────────────────────────
 function useDebounce<T>(value: T, delay: number): T {
@@ -185,9 +186,9 @@ function AgentSelector({
                                     key={agent.id}
                                     className={cn('w-full flex items-center gap-3 p-2.5 rounded-xl border transition-all',
                                         isAlreadySelected ? 'opacity-50 cursor-not-allowed border-transparent bg-white' :
-                                        isCoordinator
-                                            ? 'bg-purple-50/30 hover:bg-purple-50 cursor-pointer border-transparent hover:border-purple-200 group'
-                                            : 'bg-white hover:bg-blue-50 cursor-pointer border-transparent hover:border-blue-100 group'
+                                            isCoordinator
+                                                ? 'bg-purple-50/30 hover:bg-purple-50 cursor-pointer border-transparent hover:border-purple-200 group'
+                                                : 'bg-white hover:bg-blue-50 cursor-pointer border-transparent hover:border-blue-100 group'
                                     )}
                                 >
                                     <Checkbox
@@ -207,7 +208,7 @@ function AgentSelector({
                                     <div className="flex-1 min-w-0">
                                         <div className={cn('text-xs font-bold transition-colors truncate',
                                             isAlreadySelected ? 'text-zinc-500' :
-                                            isCoordinator ? 'text-purple-900 group-hover:text-purple-700' : 'text-zinc-900 group-hover:text-blue-700'
+                                                isCoordinator ? 'text-purple-900 group-hover:text-purple-700' : 'text-zinc-900 group-hover:text-blue-700'
                                         )}>{agent.name}</div>
                                         <div className={cn('text-[10px] truncate mt-0.5', isCoordinator ? 'text-purple-600/70' : 'text-zinc-500')}>
                                             {agent.description || (isCoordinator ? 'Swarm Coordinator' : 'Ready for assignments')}
@@ -343,23 +344,31 @@ function TaskSelector({
         const isAlreadySelected = alreadySelectedTaskIds.includes(task.id);
         const isChecked = isAlreadySelected || selectedTaskIds.has(task.id);
         return (
-            <label className={cn('w-full flex items-center gap-2.5 p-1.5 rounded-lg border transition-all',
-                isAlreadySelected ? 'opacity-50 cursor-not-allowed border-transparent bg-zinc-50/50' : 'hover:bg-indigo-50 group cursor-pointer border-transparent hover:border-indigo-100'
+            <div className={cn('w-full flex items-center gap-2.5 p-1.5 rounded-lg border transition-all',
+                isAlreadySelected ? 'opacity-50 cursor-not-allowed border-transparent bg-zinc-50/50' : 'hover:bg-indigo-50 group border-transparent hover:border-indigo-100'
             )}>
                 <Checkbox
                     checked={isChecked}
                     disabled={isAlreadySelected}
                     onCheckedChange={() => !isAlreadySelected && toggleTask(task)}
                 />
-                <div className={cn('h-6 w-6 rounded-md flex items-center justify-center shadow-sm flex-shrink-0 transition-colors',
-                    isAlreadySelected ? 'bg-zinc-100 text-zinc-400 border border-zinc-200' : 'bg-zinc-50 border border-zinc-100 text-zinc-400 group-hover:bg-indigo-50 group-hover:text-indigo-600'
-                )}><Files size={12} /></div>
-                <div className="flex-1 min-w-0">
-                    <div className={cn('text-[11px] font-semibold truncate transition-colors',
-                        isAlreadySelected ? 'text-zinc-500' : 'text-zinc-800 group-hover:text-indigo-700'
-                    )}>{task.title}</div>
+                <div
+                    onClick={() => {
+                        const event = new CustomEvent('open-task-modal', { detail: { taskId: task.id } });
+                        window.dispatchEvent(event);
+                    }}
+                    className="flex-1 flex items-center gap-2.5 min-w-0 cursor-pointer"
+                >
+                    <div className={cn('h-6 w-6 rounded-md flex items-center justify-center shadow-sm flex-shrink-0 transition-colors',
+                        isAlreadySelected ? 'bg-zinc-100 text-zinc-400 border border-zinc-200' : 'bg-zinc-50 border border-zinc-100 text-zinc-400 group-hover:bg-indigo-50 group-hover:text-indigo-600'
+                    )}><Files size={12} /></div>
+                    <div className="flex-1 min-w-0">
+                        <div className={cn('text-[11px] font-semibold truncate transition-colors',
+                            isAlreadySelected ? 'text-zinc-500' : 'text-zinc-800 group-hover:text-indigo-700'
+                        )}>{task.title}</div>
+                    </div>
                 </div>
-            </label>
+            </div>
         );
     };
 
@@ -449,6 +458,20 @@ export default function SwarmConfigSidebar() {
 
     const [agentPopoverOpen, setAgentPopoverOpen] = useState(false);
     const [taskPopoverOpen, setTaskPopoverOpen] = useState(false);
+
+    // Modal state
+    const [selectedTaskIdForModal, setSelectedTaskIdForModal] = useState<string | null>(null);
+
+    // Listen for custom event from TaskItem
+    useEffect(() => {
+        const handleOpenTaskModal = (e: any) => {
+            if (e.detail?.taskId) {
+                setSelectedTaskIdForModal(e.detail.taskId);
+            }
+        };
+        window.addEventListener('open-task-modal', handleOpenTaskModal);
+        return () => window.removeEventListener('open-task-modal', handleOpenTaskModal);
+    }, []);
 
     // Search state — hoisted here so popover doesn't reset when toggled
     const [agentSearch, setAgentSearch] = useState('');
@@ -552,11 +575,10 @@ export default function SwarmConfigSidebar() {
             <div className="flex border-b border-zinc-200 bg-white shadow-sm z-10 flex-shrink-0">
                 <button
                     onClick={() => setActiveTab('tasks')}
-                    className={`flex-1 flex items-center justify-center gap-2 py-3.5 text-[11px] font-bold uppercase tracking-widest transition-all border-b-2 ${
-                        activeTab === 'tasks'
-                            ? 'border-indigo-600 text-indigo-700 bg-indigo-50/50'
-                            : 'border-transparent text-zinc-500 hover:text-zinc-800 hover:bg-zinc-50'
-                    }`}
+                    className={`flex-1 flex items-center justify-center gap-2 py-3.5 text-[11px] font-bold uppercase tracking-widest transition-all border-b-2 ${activeTab === 'tasks'
+                        ? 'border-indigo-600 text-indigo-700 bg-indigo-50/50'
+                        : 'border-transparent text-zinc-500 hover:text-zinc-800 hover:bg-zinc-50'
+                        }`}
                 >
                     <Files className="h-4 w-4" />
                     Tasks
@@ -568,11 +590,10 @@ export default function SwarmConfigSidebar() {
                 </button>
                 <button
                     onClick={() => setActiveTab('agents')}
-                    className={`flex-1 flex items-center justify-center gap-2 py-3.5 text-[11px] font-bold uppercase tracking-widest transition-all border-b-2 ${
-                        activeTab === 'agents'
-                            ? 'border-blue-600 text-blue-700 bg-blue-50/50'
-                            : 'border-transparent text-zinc-500 hover:text-zinc-800 hover:bg-zinc-50'
-                    }`}
+                    className={`flex-1 flex items-center justify-center gap-2 py-3.5 text-[11px] font-bold uppercase tracking-widest transition-all border-b-2 ${activeTab === 'agents'
+                        ? 'border-blue-600 text-blue-700 bg-blue-50/50'
+                        : 'border-transparent text-zinc-500 hover:text-zinc-800 hover:bg-zinc-50'
+                        }`}
                 >
                     <Users className="h-4 w-4" />
                     Agents
@@ -614,8 +635,12 @@ export default function SwarmConfigSidebar() {
                         ) : (
                             <>
                                 {selectedTasks.map((node: any) => (
-                                    <div key={node.id} className="relative group flex items-center gap-4 p-3.5 rounded-2xl bg-white border border-zinc-200 shadow-sm transition-all hover:border-indigo-200">
-                                        <button onClick={() => handleRemoveNode(node.id)} className="absolute top-2 right-2 p-1.5 rounded-lg text-zinc-300 hover:text-red-500 hover:bg-red-50 transition-colors opacity-0 group-hover:opacity-100">
+                                    <div
+                                        key={node.id}
+                                        onClick={() => setSelectedTaskIdForModal(node.data.taskId)}
+                                        className="cursor-pointer relative group flex items-center gap-4 p-3.5 rounded-2xl bg-white border border-zinc-200 shadow-sm transition-all hover:border-indigo-200"
+                                    >
+                                        <button onClick={(e) => { e.stopPropagation(); handleRemoveNode(node.id); }} className="absolute top-2 right-2 p-1.5 rounded-lg text-zinc-300 hover:text-red-500 hover:bg-red-50 transition-colors opacity-0 group-hover:opacity-100 z-10">
                                             <X className="h-3.5 w-3.5" />
                                         </button>
                                         <div className="h-10 w-10 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shadow-sm shrink-0">
@@ -748,6 +773,13 @@ export default function SwarmConfigSidebar() {
                     </div>
                 )}
             </ScrollArea>
+            <TaskDetailModal
+                taskId={selectedTaskIdForModal}
+                open={!!selectedTaskIdForModal}
+                onOpenChange={(open) => {
+                    if (!open) setSelectedTaskIdForModal(null);
+                }}
+            />
         </div>
     );
 }

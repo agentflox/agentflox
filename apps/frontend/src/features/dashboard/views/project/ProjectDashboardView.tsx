@@ -114,7 +114,13 @@ import { toast } from "sonner";
 type LayoutMode = "sidebar" | "top";
 
 interface ProjectDashboardViewProps {
-    projectId: string;
+    listId: string;
+    spaceId?: string;
+    projectId?: string;
+    teamId?: string;
+    workspaceId?: string;
+    selectedTaskIdFromParent?: string | null;
+    onTaskSelect?: (taskId: string | null) => void;
 }
 
 const viewConfig: Record<
@@ -179,7 +185,7 @@ const viewConfig: Record<
     VIEWS: { label: "Views", icon: LayoutDashboard, description: "Views" },
 };
 
-export default function ProjectDashboardView({ projectId }: ProjectDashboardViewProps) {
+export default function ProjectDashboardView({ listId, spaceId, projectId, teamId, workspaceId, selectedTaskIdFromParent, onTaskSelect }: ProjectDashboardViewProps) {
     const searchParams = useSearchParams();
     const router = useRouter();
     const utils = trpc.useUtils();
@@ -212,7 +218,7 @@ export default function ProjectDashboardView({ projectId }: ProjectDashboardView
     const { data: project, isLoading: isProjectLoading } = trpc.project.get.useQuery({ id: projectId });
 
     const isLoading = isProjectLoading;
-    const workspaceId = project?.workspaceId || undefined;
+    const resolvedWorkspaceId = project?.workspaceId || workspaceId;
 
     // Mutations
     const createViewMutation = trpc.view.create.useMutation({
@@ -474,7 +480,7 @@ export default function ProjectDashboardView({ projectId }: ProjectDashboardView
             case "FORM":
                 return (
                     <FormView
-                        workspaceId={workspaceId}
+                        workspaceId={resolvedWorkspaceId}
                         listId={listId}
                         spaceId={spaceId}
                         projectId={projectId}
@@ -665,7 +671,7 @@ export default function ProjectDashboardView({ projectId }: ProjectDashboardView
                         {isListsTab ? (
                             <ProjectListView
                                 projectId={projectId}
-                                workspaceId={workspaceId}
+                                workspaceId={resolvedWorkspaceId}
                                 selectedListId={selectedListId || undefined}
                                 onListSelect={handleListSelect}
                                 selectedTaskIdFromParent={selectedTaskId}
@@ -701,7 +707,7 @@ export default function ProjectDashboardView({ projectId }: ProjectDashboardView
                                                     onClick: () => { },
                                                     render: () => (
                                                         <ProjectActionsMenu
-                                                            workspaceId={workspaceId!}
+                                                            workspaceId={resolvedWorkspaceId!}
                                                             projectId={projectId}
                                                             trigger={
                                                                 <Button variant="ghost" size="sm" className="h-8 relative group transition-all duration-200 ease-in-out w-8 hover:w-auto px-0 hover:px-3 justify-center hover:justify-start">
@@ -866,7 +872,7 @@ export default function ProjectDashboardView({ projectId }: ProjectDashboardView
                                                                                                 <span className="inline-block max-w-[120px] truncate align-bottom">{view.name || viewConfig[viewType]?.label || viewType}</span>
                                                                                                 {view.isPinned && <Pin className="h-3 w-3 shrink-0 rotate-45 text-muted-foreground" />}
                                                                                                 {view.isPrivate && <Lock className="h-3 w-3 shrink-0 text-muted-foreground" />}
-                                                                                                
+
                                                                                                 {activeTab === view.id && (
                                                                                                     <div className="absolute left-0 right-0 h-0.5 bg-primary rounded-t-full" style={{ bottom: "-5px" }} />
                                                                                                 )}
@@ -876,21 +882,22 @@ export default function ProjectDashboardView({ projectId }: ProjectDashboardView
                                                                                     <TooltipContent>{view.name || viewConfig[viewType]?.label || viewType}</TooltipContent>
                                                                                 </Tooltip>
                                                                             </ContextMenuTrigger>
-                                                                        <ProjectViewContextMenu
-                                                                            view={view}
-                                                                            onRename={() => setViewToRename({ id: view.id, name: view.name || "" })}
-                                                                            onDelete={() => setViewToDelete({ id: view.id, name: view.name || "" })}
-                                                                            onShare={() => setViewToShare({ id: view.id, name: view.name || "" })}
-                                                                            onPin={() => updateViewMutation.mutate({ id: view.id, isPinned: !view.isPinned })}
-                                                                            onDuplicate={() => duplicateViewMutation.mutate({
-                                                                                name: `${view.name} (Copy)`,
-                                                                                type: view.type,
-                                                                                projectId: projectId,
-                                                                                config: view.config || {}
-                                                                            })}
-                                                                            onCopyLink={() => handleCopyViewLink(view)}
-                                                                            onSaveAsTemplate={() => setViewToTemplate(view)}
-                                                                        />
+                                                                            <ProjectViewContextMenu
+                                                                                view={view}
+                                                                                onRename={() => setViewToRename({ id: view.id, name: view.name || "" })}
+                                                                                onDelete={() => setViewToDelete({ id: view.id, name: view.name || "" })}
+                                                                                onShare={() => setViewToShare({ id: view.id, name: view.name || "" })}
+                                                                                onPin={() => updateViewMutation.mutate({ id: view.id, isPinned: !view.isPinned })}
+                                                                                onDuplicate={() => duplicateViewMutation.mutate({
+                                                                                    name: `${view.name} (Copy)`,
+                                                                                    type: view.type,
+                                                                                    projectId: projectId,
+                                                                                    config: view.config || {}
+                                                                                })}
+                                                                                onCopyLink={() => handleCopyViewLink(view)}
+                                                                                onSaveAsTemplate={() => setViewToTemplate(view)}
+                                                                            />
+                                                                        </ContextMenu>
                                                                     );
                                                                 }}
                                                                 renderMeasureTab={(view) => {
@@ -946,8 +953,8 @@ export default function ProjectDashboardView({ projectId }: ProjectDashboardView
                                                             onSettingsClick={openSettingsSidebar}
                                                             className="right-0"
                                                         />
-                                                        <ProjectItemSidebar projectId={projectId} workspaceId={workspaceId!} type={activeView?.type as any} open={itemSidebarOpen} onClose={() => setItemSidebarOpen(false)} inline />
-                                                        <ProjectSettingsSidebar projectId={projectId} workspaceId={workspaceId!} open={settingsSidebarOpen} onClose={() => setSettingsSidebarOpen(false)} inline />
+                                                        <ProjectItemSidebar projectId={projectId} workspaceId={resolvedWorkspaceId!} type={activeView?.type as any} open={itemSidebarOpen} onClose={() => setItemSidebarOpen(false)} inline />
+                                                        <ProjectSettingsSidebar projectId={projectId} workspaceId={resolvedWorkspaceId!} open={settingsSidebarOpen} onClose={() => setSettingsSidebarOpen(false)} inline />
                                                     </div>
                                                 </Tabs>
                                             </div>
@@ -1046,7 +1053,7 @@ export default function ProjectDashboardView({ projectId }: ProjectDashboardView
                 itemType="project"
                 itemId={projectId}
                 itemName={project.name || "Project"}
-                workspaceId={workspaceId!}
+                workspaceId={resolvedWorkspaceId!}
             />
 
             <Dialog open={!!viewToRename} onOpenChange={(open) => !open && setViewToRename(null)}>
@@ -1086,7 +1093,7 @@ export default function ProjectDashboardView({ projectId }: ProjectDashboardView
             {viewToShare && (
                 <ShareViewPermissionModal
                     viewId={viewToShare.id}
-                    workspaceId={workspaceId as string}
+                    workspaceId={resolvedWorkspaceId as string}
                     open={!!viewToShare}
                     onOpenChange={(open) => !open && setViewToShare(null)}
                 />

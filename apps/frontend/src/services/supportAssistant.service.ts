@@ -1,7 +1,7 @@
 import { TRPCError } from "@trpc/server";
 import { initializeOpenAI } from "@/lib/openai";
 import { prisma } from "@/lib/prisma";
-import { ConversationType } from "@agentflox/database";
+import { ConversationType } from "@agentflox/database/src/generated/prisma";
 
 export async function initializeSupportAssistant(userId: string, title?: string) {
   const db: any = prisma as any;

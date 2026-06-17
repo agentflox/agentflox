@@ -7,6 +7,8 @@ import ViewSwitcher from '@/features/dashboard/views/agent/ViewSwitcher';
 import PageHeader from '@/entities/shared/components/PageHeader';
 import { useToast } from "@/hooks/useToast";
 import { useAgentContext } from "./layout";
+import { Button } from "@/components/ui/button";
+import { ArrowLeft } from "lucide-react";
 
 export default function agentDetailPage() {
   const searchParams = useSearchParams();
@@ -35,7 +37,7 @@ export default function agentDetailPage() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-full py-20">
+      <div className="flex items-center justify-center h-full min-h-screen py-20">
         <div className="text-center space-y-4">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto" />
           <p className="text-muted-foreground">Loading agent details...</p>
@@ -59,16 +61,20 @@ export default function agentDetailPage() {
 
   return (
     <div className="flex flex-col h-full">
-      {!isChatView && (
-        <PageHeader
-          title={headerProps.title}
-          subtitle={headerProps.subtitle}
-          description={headerProps.description}
-        />
-      )}
+      {/* Top Header Section */}
+      <div className="px-6 pt-2 flex-shrink-0 border-b-1">
+        <Button
+          variant="ghost"
+          onClick={() => router.push('/dashboard/agents')}
+          className="text-muted-foreground hover:text-foreground mb-2 -ml-4"
+        >
+          <ArrowLeft className="w-4 h-4 mr-2" />
+          Back to Agents
+        </Button>
+      </div>
 
       <div className={`flex-1 ${isChatView ? 'overflow-hidden' : 'overflow-auto'}`}>
-        <div className={`w-full mx-auto ${isChatView ? 'h-full' : 'px-6 py-8'}`}>
+        <div className={`w-full mx-auto ${isChatView ? 'h-full' : ''}`}>
           <ViewSwitcher
             activeTab={activeTab}
             agent={agent}

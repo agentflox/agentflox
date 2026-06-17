@@ -100,12 +100,32 @@ export function transformWorkforceGraphToDefinition(
   const stepMap = new Map<string, any>();
   const executableNodeIds = new Set<string>();
 
-  for (const node of nodes) {
-    const outgoing = edges.filter((e) => e.source_node_id === node.node_id);
-    const next = outgoing.map((e) => ({
-      to: e.target_node_id,
-      condition: 'success',
-    }));
+    for (const node of nodes) {
+      const outgoing = edges.filter((e) => e.source_node_id === node.node_id);
+      const next = outgoing.map((e) => {
+        let condition = 'success';
+        const sourceHandle = e.metadata?.label || (e.config?.config as any)?.sourceHandle || e.source_type; // Fallback mapping
+        // The frontend saves sourceHandle into metadata in the recent TRPC update.
+        // Let's use it dynamically.
+        if (node.type === 'condition') {
+          // Condition nodes will evaluate to a result that matches the handle name
+          // For now, since ConditionNode doesn't have an executor, we map it to 'always' 
+          // to unblock it or we can map it to evaluate the context if we have one.
+          // To make it simple, we check if the result's branch matches the sourceHandle.
+          // But since it's PLACEHOLDER, both edges might get executed if we just use 'success'.
+          // We will use a dynamic condition 'data.branch_X' or just 'success' for now since we haven't implemented condition executor yet.
+          // For a true fix, we need to map the condition correctly. Let's map it to 'success' for non-conditions
+          // and for conditions, map it to evaluate `data.matched_branch === 'true'` (placeholder implementation).
+          const handle = (e as any).metadata?.sourceHandle || e.metadata?.label?.toLowerCase();
+          if (handle) {
+             condition = `data.matched_branch === '${handle}'`;
+          }
+        }
+        return {
+          to: e.target_node_id,
+          condition,
+        };
+      });
 
     if (node.type === 'trigger') {
       stepMap.set(node.node_id, {
@@ -135,7 +155,9 @@ export function transformWorkforceGraphToDefinition(
         agentId: node.config?.agentId,
         toolId: node.config?.toolId,
         taskId: node.config?.taskId,
-        executionMode: (node.config as any)?.executionMode ?? 'PLACEHOLDER',
+        executionMode:
+          (node.config as any)?.executionMode ??
+          (node.config?.toolId || node.config?.taskId ? 'LIVE' : 'PLACEHOLDER'),
         required: true,
         next,
       });
@@ -205,7 +227,7 @@ export async function syncWorkflowFromWorkforce(workforceId: string): Promise<st
 
   const existing = await prisma.agentWorkflow.findFirst({
     where: {
-      workspaceId: workforce.workspaceId,
+      workspaceId: workforce.workspaceId ?? undefined,
       name: `[Workforce] ${workforce.name}`,
     },
   });
@@ -225,7 +247,7 @@ export async function syncWorkflowFromWorkforce(workforceId: string): Promise<st
   const created = await prisma.agentWorkflow.create({
     data: {
       id: randomUUID(),
-      workspaceId: workforce.workspaceId,
+      workspaceId: workforce.workspaceId ?? undefined,
       name: `[Workforce] ${workforce.name}`,
       description: workforce.description ?? undefined,
       definition: definition as any,

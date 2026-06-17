@@ -90,24 +90,22 @@ Be helpful but firm on the boundary.
      * Prevents runaway loops that churn tokens when the LLM cannot converge.
      * Both Executor and Operator share this ceiling.
      */
-    REACT_MAX_ITERATIONS: 5,
+    REACT_MAX_ITERATIONS: 8,
 
     /**
      * Soft token budget for the entire ReAct loop within a single turn.
-     * Estimated tokens are accumulated per iteration; when the running total
-     * exceeds this value the loop is terminated early and a partial answer
-     * is returned — preventing runaway cost blowouts mid-loop.
-     *
-     * Set to ~60% of MAX_MODEL_TOKENS so there is headroom for the final
-     * response and conversation context.
+     * Only INCREMENTAL tokens per iteration are accumulated (not the base context
+     * which is counted once before the loop). Raised to 40k to accommodate
+     * swarm tasks that carry a large system prompt + agent JSON context.
      */
-    LOOP_TOKEN_BUDGET: 10_000,
+    LOOP_TOKEN_BUDGET: 40_000,
 
     /**
      * Estimated tokens consumed per ReAct iteration for the loop-budget check.
-     * Acts as a floor when the real estimate is unavailable (fast path).
+     * Represents the incremental cost of each LLM round-trip (output tokens +
+     * tool result tokens), not the full message context (which is baselined once).
      */
-    LOOP_TOKEN_COST_PER_ITER: 800,
+    LOOP_TOKEN_COST_PER_ITER: 1_200,
 
     // Safety — Prompt Injection Detection
     /**

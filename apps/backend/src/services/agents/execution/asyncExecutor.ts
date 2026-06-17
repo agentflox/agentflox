@@ -10,6 +10,8 @@ import { redis } from '@/lib/redis';
 import { prisma } from '@/lib/prisma';
 import { metrics } from '@/monitoring/metrics';
 import { createAgentGraph, type AgentGraphState } from '../orchestration/agentGraph';
+import { GuardrailService } from '../safety/guardrailService';
+import { PermissionService } from '../../permissions/permission.service';
 
 export interface AgentExecutionJobData {
   executionId: string;
@@ -32,7 +34,7 @@ export interface AgentExecutionResult {
 // Queue configuration
 const QUEUE_NAME = 'agent-executions';
 const QUEUE_OPTIONS = {
-  connection: redis,
+  connection: redis as any,
   defaultJobOptions: {
     attempts: 3,
     backoff: {
@@ -54,7 +56,7 @@ export const executionQueue = new Queue<AgentExecutionJobData>(QUEUE_NAME, QUEUE
 
 // Create queue events for monitoring
 export const executionQueueEvents = new QueueEvents(QUEUE_NAME, {
-  connection: redis,
+  connection: redis as any,
 });
 
 /**
@@ -105,8 +107,7 @@ async function processExecution(job: Job<AgentExecutionJobData>): Promise<AgentE
       agentId,
       userId,
       workspaceId,
-      messages: [],
-      intent: inputData?.intent,
+      intent: inputData?.intent as any,
       plan: executionContext?.plan || undefined,
       status: 'RUNNING',
     };
@@ -121,7 +122,9 @@ async function processExecution(job: Job<AgentExecutionJobData>): Promise<AgentE
     }
 
     // Execute the agent graph
-    const graph = createAgentGraph();
+    const permissionService = new PermissionService();
+    const guardrailService = new GuardrailService(permissionService);
+    const graph = createAgentGraph(guardrailService);
     const result = await graph.invoke(initialState);
 
     // Handle different outcomes
@@ -225,7 +228,7 @@ export const executionWorker = new Worker<AgentExecutionJobData, AgentExecutionR
   QUEUE_NAME,
   processExecution,
   {
-    connection: redis,
+    connection: redis as any,
     concurrency: 5, // Process up to 5 jobs concurrently
     limiter: {
       max: 10, // Max 10 jobs
@@ -256,7 +259,7 @@ executionWorker.on('error', (error) => {
 export async function enqueueExecution(
   data: AgentExecutionJobData
 ): Promise<{ jobId: string; executionId: string }> {
-  const job = await executionQueue.add('execute-agent', data, {
+  const job = await executionQueue.add('execute-agent' as any, data, {
     jobId: `exec-${data.executionId}`, // Use execution ID as job ID for idempotency
   });
 

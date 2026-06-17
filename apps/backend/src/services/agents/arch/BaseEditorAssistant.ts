@@ -188,7 +188,7 @@ export abstract class BaseEditorAssistant {
     try {
       return await cb.execute(() =>
         this.retryHandler.retry(
-          () => this.openai.chat.completions.create({ ...request, stream: true } as any, { signal }),
+          () => this.openai.chat.completions.create({ ...request, stream: true, stream_options: { include_usage: true } } as any, { signal }),
           {
             maxAttempts: 2,
             baseDelay: 500,
@@ -221,8 +221,9 @@ export abstract class BaseEditorAssistant {
     onToken: (text: string) => void,
     rawTextRef: { value: string },
     signal?: AbortSignal
-  ): Promise<void> {
+  ): Promise<any> {
     let parseState: 'before' | 'in_value' | 'done' = 'before';
+    let streamUsage: any = undefined;
     let responseValueBuf = '';
     let responseContentBuf = '';
     let inEscape = false;
@@ -231,6 +232,7 @@ export abstract class BaseEditorAssistant {
 
     for await (const chunk of stream) {
       if (signal?.aborted) break;
+      if (chunk.usage) streamUsage = chunk.usage;
       const delta = chunk.choices?.[0]?.delta;
       const argsDelta: string = delta?.content ?? '';
       if (!argsDelta) continue;
@@ -273,6 +275,7 @@ export abstract class BaseEditorAssistant {
         }
       }
     }
+    return streamUsage;
   }
 
   abstract processMessage(input: EditorAssistantMessageInput): Promise<EditorAssistantResponse>;

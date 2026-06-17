@@ -4,7 +4,6 @@
  */
 import { openai } from '@/lib/openai';
 import { fetchModel } from '@/utils/ai/fetchModel';
-import { prisma } from '@/lib/prisma';
 
 export async function executeContentCreationTool(toolName: string, params: any, userId: string, workspaceId?: string): Promise<any> {
     try {
@@ -12,11 +11,11 @@ export async function executeContentCreationTool(toolName: string, params: any, 
 
         switch (toolName) {
             case 'generateBlogPost':
-                return executeGenerateBlogPost(params, model, userId, workspaceId);
+                return executeGenerateBlogPost(params, model);
             case 'writeScript':
-                return executeWriteScript(params, model, userId, workspaceId);
+                return executeWriteScript(params, model);
             case 'createDocumentation':
-                return executeCreateDocumentation(params, model, userId, workspaceId);
+                return executeCreateDocumentation(params, model);
             default:
                 throw new Error(`Unknown content creation tool: ${toolName}`);
         }
@@ -25,7 +24,7 @@ export async function executeContentCreationTool(toolName: string, params: any, 
     }
 }
 
-async function executeGenerateBlogPost(params: any, model: any, userId: string, workspaceId?: string) {
+async function executeGenerateBlogPost(params: any, model: any) {
     const prompt = `Write a comprehensive blog post about "${params.topic}".
     
     Requirements:
@@ -55,34 +54,14 @@ async function executeGenerateBlogPost(params: any, model: any, userId: string, 
     const content = completion.choices[0].message.content;
     if (!content) throw new Error("No content generated");
 
-    let generatedData;
     try {
-        generatedData = JSON.parse(content);
-    } catch (e) {
-        generatedData = { title: params.topic, content };
+        return JSON.parse(content);
+    } catch {
+        return { title: params.topic, content };
     }
-
-    // Save to database
-    const document = await prisma.document.create({
-        data: {
-            title: generatedData.title || params.topic,
-            content: generatedData.content || content,
-            workspace: { connect: { id: workspaceId || params.workspaceId } },
-            creator: { connect: { id: userId } },
-            icon: '📝',
-            isPublished: false,
-            version: 1,
-        },
-    });
-
-    return {
-        ...generatedData,
-        documentId: document.id,
-        savedAt: document.createdAt,
-    };
 }
 
-async function executeWriteScript(params: any, model: any, userId: string, workspaceId?: string) {
+async function executeWriteScript(params: any, model: any) {
     const prompt = `Write a ${params.format || 'VIDEO'} script about "${params.topic}".
     
     Requirements:
@@ -110,29 +89,10 @@ async function executeWriteScript(params: any, model: any, userId: string, works
     const content = completion.choices[0].message.content;
     if (!content) throw new Error("No script generated");
 
-    const generatedData = JSON.parse(content);
-
-    // Save to database
-    const document = await prisma.document.create({
-        data: {
-            title: generatedData.title || `${params.topic} - ${params.format || 'VIDEO'} Script`,
-            content: generatedData.script || content,
-            workspace: { connect: { id: workspaceId || params.workspaceId } },
-            creator: { connect: { id: userId } },
-            icon: '🎬',
-            isPublished: false,
-            version: 1,
-        },
-    });
-
-    return {
-        ...generatedData,
-        documentId: document.id,
-        savedAt: document.createdAt,
-    };
+    return JSON.parse(content);
 }
 
-async function executeCreateDocumentation(params: any, model: any, userId: string, workspaceId?: string) {
+async function executeCreateDocumentation(params: any, model: any) {
     const prompt = `Create ${params.type || 'TECHNICAL'} documentation for: "${params.subject}".
     
     Details/Code to Document:
@@ -153,40 +113,11 @@ async function executeCreateDocumentation(params: any, model: any, userId: strin
         model: model.name,
         messages: [{ role: 'user', content: prompt }],
         response_format: { type: 'json_object' },
-        temperature: 0.3, // Lower temperature for technical docs
+        temperature: 0.3,
     });
 
     const content = completion.choices[0].message.content;
     if (!content) throw new Error("No documentation generated");
 
-    const generatedData = JSON.parse(content);
-
-    // Determine icon based on documentation type
-    const iconMap: Record<string, string> = {
-        'USER_GUIDE': '📖',
-        'API_REFERENCE': '🔌',
-        'TECHNICAL_SPEC': '📋',
-        'README': '📄',
-    };
-    const icon = iconMap[params.type] || '📚';
-
-    // Save to database
-    const document = await prisma.document.create({
-        data: {
-            title: `${params.subject} - ${params.type || 'Documentation'}`,
-            content: generatedData.content || content,
-            workspace: { connect: { id: workspaceId || params.workspaceId } },
-            creator: { connect: { id: userId } },
-            icon,
-            isPublished: false,
-            version: 1,
-        },
-    });
-
-    return {
-        ...generatedData,
-        documentId: document.id,
-        savedAt: document.createdAt,
-    };
+    return JSON.parse(content);
 }
-

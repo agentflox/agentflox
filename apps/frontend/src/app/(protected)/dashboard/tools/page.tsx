@@ -9,7 +9,7 @@ import { Pagination } from "@/components/ui/pagination";
 import { PageHeader } from "@/entities/shared/components/PageHeader";
 import { SearchSection } from "@/entities/shared/components/SearchSection";
 import { useToast } from "@/hooks/useToast";
-import { ToolCard, ToolFilterSidebar, useToolList } from "@/entities/tools";
+import { ToolCard, ToolCreationModal, useToolList } from "@/entities/tools";
 import { DASHBOARD_ROUTES } from "@/constants/routes.config";
 import { Filter, MoreHorizontal, Eye, Trash } from "lucide-react";
 import { DataTable } from "@/components/ui/data-table";
@@ -226,12 +226,12 @@ export default function ToolsPage() {
               description="Manage workspace tools and integrations."
               actions={
                 <Button
-								onClick={handleCreateTool}
-								className="group flex items-center gap-2 bg-zinc-900 hover:bg-zinc-700 text-white dark:bg-zinc-50 dark:text-zinc-900 dark:hover:bg-zinc-200 px-4 py-2 h-9 rounded-md transition-all duration-300 shadow-sm hover:shadow-md active:scale-[0.98]"
-							>
-								<Plus className="h-4 w-4 transition-transform duration-300 group-hover:rotate-90" />
-								<span className="font-medium text-sm">New Tool</span>
-							</Button>
+                  onClick={handleCreateTool}
+                  className="group flex items-center gap-2 bg-zinc-900 hover:bg-zinc-700 text-white dark:bg-zinc-50 dark:text-zinc-900 dark:hover:bg-zinc-200 px-4 py-2 h-9 rounded-md transition-all duration-300 shadow-sm hover:shadow-md active:scale-[0.98]"
+                >
+                  <Plus className="h-4 w-4 transition-transform duration-300 group-hover:rotate-90" />
+                  <span className="font-medium text-sm">New Tool</span>
+                </Button>
               }
             />
 
@@ -508,14 +508,7 @@ export default function ToolsPage() {
           </div>
         </div>
 
-        <ToolFilterSidebar
-          scope={scope}
-          onScopeChange={setScope as any}
-          values={filters}
-          onChange={setFilters}
-          categories={categories}
-          isOverlay={false}
-        />
+
       </div>
 
       <ToolCreationModal

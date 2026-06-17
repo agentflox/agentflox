@@ -1,6 +1,6 @@
 "use client";
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import {
     Panel,
     Group,
@@ -33,9 +33,37 @@ export function ResizableSplitLayout({
     sidePanelDefaultSize?: number | string;
     sidePanelMinSize?: number | string;
 }) {
+    
+    // NATIVE FIX: Forcefully overrides the global body 'user-select: none' 
+    // injected by the resizable library back to normal text selection.
+    useEffect(() => {
+        const style = document.createElement("style");
+        style.innerHTML = `
+            body, html {
+                user-select: text !important;
+                -webkit-user-select: text !important;
+            }
+            /* Keep the cursor pointer locked properly on the active handle */
+            [data-panel-resize-handle] {
+                user-select: none !important;
+                -webkit-user-select: none !important;
+            }
+        `;
+        document.head.appendChild(style);
+        return () => {
+            document.head.removeChild(style);
+        };
+    }, []);
+
     return (
         <Group orientation="horizontal" className="h-full w-full" id="task-ai-split">
-            <Panel defaultSize={isPanelOpen ? (mainPanelDefaultSize as any) : "100%"} minSize={mainPanelMinSize as any}>
+            {/* STOP PROPAGATION: Prevents drag/click bubble leaks into the layout manager */}
+            <Panel 
+                defaultSize={isPanelOpen ? (mainPanelDefaultSize as any) : "100%"} 
+                minSize={mainPanelMinSize as any}
+                className="select-text"
+                onMouseDown={(e) => e.stopPropagation()}
+            >
                 {MainContent}
             </Panel>
 
@@ -50,9 +78,12 @@ export function ResizableSplitLayout({
                             aria-hidden
                         />
                     </Separator>
+                    
                     <Panel
                         defaultSize={sidePanelDefaultSize as any}
                         minSize={sidePanelMinSize as any}
+                        className="select-text"
+                        onMouseDown={(e) => e.stopPropagation()}
                         onResize={(size) => onResize?.(typeof size === "object" && "asPercentage" in size ? (size as { asPercentage: number }).asPercentage : size)}
                     >
                         {SidePanelContent}
@@ -91,7 +122,11 @@ export function SidePanelContainer({
                     <X className="h-4 w-4" />
                 </Button>
             </div>
-            <div className="flex-1 overflow-hidden">
+            {/* STOP PROPAGATION: Isolates the editor viewport wrapper from clicking side effects */}
+            <div 
+                className="flex-1 overflow-hidden select-text"
+                onMouseDown={(e) => e.stopPropagation()}
+            >
                 {children}
             </div>
         </div>

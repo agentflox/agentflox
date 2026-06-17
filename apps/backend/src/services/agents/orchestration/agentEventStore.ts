@@ -193,3 +193,17 @@ export async function reconstructRunState(runId: string): Promise<{
 
     return { lastFsmState, totalCostUsd, totalTokens, stepCount, isTerminated };
 }
+
+/**
+ * Recover the saved response from the final terminal event
+ */
+export async function reconstructSavedResponse(runId: string): Promise<{ savedResponse: string | null }> {
+    const events = await replayRun(runId);
+    let savedResponse: string | null = null;
+    for (const e of events) {
+        if (e.event_type === 'RUN_COMPLETED' && e.payload?.response) {
+            savedResponse = String(e.payload.response);
+        }
+    }
+    return { savedResponse };
+}

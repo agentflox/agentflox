@@ -62,7 +62,7 @@ export default function ProjectCard({
         </DropdownMenu>
       </div>
 
-      <div className="p-4 flex flex-col gap-3 flex-1 pt-7">
+      <div className="p-4 flex flex-col gap-3 flex-1 pt-10">
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0 space-y-1">
             <h3 className="font-semibold text-[15px] leading-snug line-clamp-2 text-zinc-900 group-hover:text-blue-600 transition-colors">

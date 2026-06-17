@@ -1042,7 +1042,7 @@ model GoalUpdate {
 
 model Document {
   id            String                 @id @default(cuid())
-  workspaceId   String                 @map("workspace_id")
+  workspaceId   String?                @map("workspace_id")
   parentId      String?                @map("parent_id")
   createdBy     String                 @map("created_by")
   title         String
@@ -1062,7 +1062,7 @@ model Document {
   creator       User                   @relation(fields: [createdBy], references: [id], onDelete: Cascade)
   parent        Document?              @relation("DocumentHierarchy", fields: [parentId], references: [id])
   children      Document[]             @relation("DocumentHierarchy")
-  workspace     Workspace              @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workspace     Workspace?             @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
   @@index([workspaceId])
   @@index([createdBy])
@@ -3954,12 +3954,14 @@ model AgentTask {
   @@index([scheduledFor])
   @@index([status])
   @@index([workflowExecutionId])
+  @@index([workspaceId, status, priority, createdAt])
+  @@index([status, updatedAt])
   @@map("agent_tasks")
 }
 
 model AgentWorkflow {
   id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  workspaceId String   @map("workspace_id")
+  workspaceId String?  @map("workspace_id")
   name        String
   description String?
   definition  Json // ReactFlow graph or custom DAG definition
@@ -3967,7 +3969,7 @@ model AgentWorkflow {
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
-  workspace  Workspace                @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workspace  Workspace?               @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   executions AgentWorkflowExecution[]
 
   @@index([workspaceId])

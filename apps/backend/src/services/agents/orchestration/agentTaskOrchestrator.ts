@@ -23,10 +23,55 @@ export class AgentTaskOrchestrator {
     private readonly logger = new Logger(AgentTaskOrchestrator.name);
 
     /**
+     * Check if a task has circular dependencies
+     */
+    async validateNoDependencyCycles(taskId: string, proposedDependencies: string[]): Promise<boolean> {
+        const visited = new Set<string>();
+        const recStack = new Set<string>();
+
+        const dfs = async (currentId: string): Promise<boolean> => {
+            if (recStack.has(currentId)) return true; // Cycle detected!
+            if (visited.has(currentId)) return false;
+
+            visited.add(currentId);
+            recStack.add(currentId);
+
+            // Proposed dependencies apply for the target task; otherwise fetch from DB
+            let dependencies: string[] = [];
+            if (currentId === taskId) {
+                dependencies = proposedDependencies;
+            } else {
+                const task = await prisma.agentTask.findUnique({
+                    where: { id: currentId },
+                    select: { dependsOn: true }
+                });
+                dependencies = (task?.dependsOn as string[]) || [];
+            }
+
+            for (const depId of dependencies) {
+                if (await dfs(depId)) return true;
+            }
+
+            recStack.delete(currentId);
+            return false;
+        };
+
+        return !(await dfs(taskId));
+    }
+
+    /**
      * Create a new task for an agent or a swarm
      */
     async createTask(params: CreateAgentTaskParams): Promise<any> {
         const id = randomUUID();
+
+        // Check for circular dependencies before creation
+        if (params.dependsOn && params.dependsOn.length > 0) {
+            const isCyclic = !(await this.validateNoDependencyCycles(id, params.dependsOn));
+            if (isCyclic) {
+                throw new Error(`Circular dependency detected for task: "${params.title}"`);
+            }
+        }
 
         // Determine initial status based on dependencies
         const status = params.dependsOn && params.dependsOn.length > 0
@@ -57,6 +102,14 @@ export class AgentTaskOrchestrator {
         // If not blocked, trigger processing
         if (status === AgentTaskStatus.PENDING) {
             await this.triggerTaskProcessing(task.id);
+            if (task.workspaceId) {
+                try {
+                    const { swarmOrchestrationService } = await import('./swarmOrchestrationService');
+                    swarmOrchestrationService.wakeupSessionForWorkspace(task.workspaceId);
+                } catch (e) {
+                    this.logger.error(`Failed to wakeup swarm session on task creation for workspace ${task.workspaceId}`, e);
+                }
+            }
         }
 
         return task;
@@ -90,6 +143,16 @@ export class AgentTaskOrchestrator {
 
         for (const dep of dependents) {
             const remainingBlockedBy = (dep.blockedBy as string[]).filter(id => id !== taskId);
+            
+            // Append the upstream result to the dependent task's inputData context
+            const currentInputData = (dep.inputData as any) || {};
+            const upstreamResults = currentInputData.upstreamResults || {};
+            upstreamResults[taskId] = typeof result === 'string' ? result : JSON.stringify(result);
+            
+            const updatedInputData = {
+                ...currentInputData,
+                upstreamResults
+            };
 
             if (remainingBlockedBy.length === 0) {
                 // UNBLOCKED!
@@ -98,21 +161,94 @@ export class AgentTaskOrchestrator {
                     data: {
                         status: AgentTaskStatus.PENDING,
                         blockedBy: [],
+                        inputData: updatedInputData,
                         updatedAt: new Date()
                     }
                 });
 
                 this.logger.log(`Unblocked dependent task ${dep.id}`);
                 await this.triggerTaskProcessing(dep.id);
+
+                // Wake up the swarm coordinator so it picks up the newly unblocked task immediately
+                if (dep.workspaceId) {
+                    try {
+                        const { swarmOrchestrationService } = await import('./swarmOrchestrationService');
+                        await swarmOrchestrationService.wakeupSessionForWorkspace(dep.workspaceId);
+                        this.logger.log(`Woke up swarm session for workspace ${dep.workspaceId} after unblocking task ${dep.id}`);
+                    } catch (wakeupErr) {
+                        this.logger.error(`Failed to wakeup swarm session after unblocking task ${dep.id}: ${wakeupErr}`);
+                    }
+                }
             } else {
                 // Still blocked by others
                 await prisma.agentTask.update({
                     where: { id: dep.id },
                     data: {
                         blockedBy: remainingBlockedBy,
+                        inputData: updatedInputData,
                         updatedAt: new Date()
                     }
                 });
+            }
+        }
+    }
+
+    /**
+     * Mark a task as failed and cascade fail all downstream dependents using iterative BFS
+     */
+    async failTask(taskId: string, errorDetail: string): Promise<void> {
+        await prisma.agentTask.update({
+            where: { id: taskId },
+            data: {
+                status: AgentTaskStatus.FAILED,
+                updatedAt: new Date(),
+                metadata: {
+                    error: errorDetail
+                }
+            }
+        });
+
+        this.logger.log(`Task ${taskId} failed. Cascading failure/cancellation to all downstream dependents...`);
+
+        const visited = new Set<string>();
+        const queue: string[] = [taskId];
+
+        while (queue.length > 0) {
+            const currentTaskId = queue.shift()!;
+            if (visited.has(currentTaskId)) continue;
+            visited.add(currentTaskId);
+
+            // Find all tasks that depend directly on the current failed task
+            const dependents = await prisma.agentTask.findMany({
+                where: {
+                    blockedBy: {
+                        has: currentTaskId
+                    },
+                    status: {
+                        notIn: [AgentTaskStatus.FAILED, AgentTaskStatus.CANCELLED, AgentTaskStatus.FAILED_PERMANENTLY]
+                    }
+                },
+                select: { id: true, metadata: true }
+            });
+
+            for (const dep of dependents) {
+                const updatedMetadata = {
+                    ...(dep.metadata as object || {}),
+                    failureOrigin: taskId,
+                    error: `Upstream dependency task ${currentTaskId} failed: ${errorDetail}`
+                };
+
+                await prisma.agentTask.update({
+                    where: { id: dep.id },
+                    data: {
+                        status: AgentTaskStatus.CANCELLED,
+                        metadata: updatedMetadata,
+                        updatedAt: new Date()
+                    }
+                });
+
+                this.logger.log(`Cascaded cancellation to task ${dep.id} due to parent failure ${currentTaskId}`);
+                queue.push(dep.id);
             }
         }
     }
@@ -123,30 +259,52 @@ export class AgentTaskOrchestrator {
     public async triggerTaskProcessing(taskId: string): Promise<void> {
         const task = await prisma.agentTask.findUnique({
             where: { id: taskId }
-            // Removed include block
         });
 
         if (!task || task.status !== AgentTaskStatus.PENDING) return;
 
         // If assigned to a specific agent, trigger that agent
-        if (task.agentId) { // Changed condition from 'task.agentId && task.agentId !== 'swarm_pool'' to 'task.agentId'
-            await inngest.send({
-                name: 'agent/execute',
-                data: {
-                    agentId: task.agentId,
-                    userId: task.assignedBy || 'system',
-                    executionId: randomUUID(), // New execution for this task
-                    inputData: {
-                        message: `Task Assignment: ${task.title}\nDescription: ${task.description}\nData: ${JSON.stringify(task.inputData)}`,
-                        taskId: task.id
+        if (task.agentId) {
+            try {
+                await inngest.send({
+                    name: 'agent/execute',
+                    data: {
+                        agentId: task.agentId,
+                        userId: task.assignedBy || 'system',
+                        executionId: randomUUID(), // New execution for this task
+                        inputData: {
+                            message: `Task Assignment: ${task.title}\nDescription: ${task.description}\nData: ${JSON.stringify(task.inputData)}`,
+                            taskId: task.id
+                        }
                     }
-                }
-            });
+                });
 
-            await prisma.agentTask.update({
-                where: { id: taskId },
-                data: { status: AgentTaskStatus.QUEUED }
-            });
+                await prisma.agentTask.update({
+                    where: { id: taskId },
+                    data: { status: AgentTaskStatus.QUEUED }
+                });
+            } catch (inngestError) {
+                const isDevFallbackAllowed = 
+                    process.env.NODE_ENV === 'development' && 
+                    process.env.ALLOW_LOCAL_SWARM_FALLBACK === 'true';
+
+                if (isDevFallbackAllowed) {
+                    this.logger.warn(`[SwarmFallback] Inngest unavailable. Invoking local in-memory fallback runner for task ${taskId}.`);
+                    await prisma.agentTask.update({
+                        where: { id: taskId },
+                        data: { 
+                            status: AgentTaskStatus.QUEUED,
+                            metadata: {
+                                ...(task.metadata as object || {}),
+                                fallbackMode: true
+                            }
+                        }
+                    });
+                } else {
+                    this.logger.error(`[SwarmError] Failed to dispatch task ${taskId} to Inngest. Outage detected.`, inngestError);
+                    throw new Error(`Orchestrator dispatch failed: Inngest queue is unavailable.`);
+                }
+            }
         } else {
             // Task is in the pool (agentId is null). Manager agents or idle workers will pick it up via tools.
             this.logger.log(`Task ${taskId} is in the pool, awaiting pick up.`);
@@ -156,21 +314,30 @@ export class AgentTaskOrchestrator {
     /**
      * Get unblocked tasks for an agent or swarm
      */
-    async getAvailableTasks(agentId?: string, workspaceId?: string): Promise<any[]> { // Changed agentId to optional
+    async getAvailableTasks(agentId?: string, workspaceId?: string): Promise<any[]> {
+        const where: any = {
+            status: AgentTaskStatus.PENDING,
+            ...(workspaceId ? { workspaceId } : {}),
+        };
+
+        // When a specific agent is requesting tasks, only return tasks assigned to
+        // that agent or unassigned tasks. When called from the swarm coordinator
+        // (no agentId), return ALL pending tasks for the workspace so the
+        // coordinator can inspect and assign them.
+        if (agentId) {
+            where.OR = [
+                { agentId },
+                { agentId: null },
+            ];
+        }
+
         return prisma.agentTask.findMany({
-            where: {
-                status: AgentTaskStatus.PENDING,
-                workspaceId: workspaceId || undefined, // Added workspaceId filtering
-                OR: [
-                    { agentId: agentId || null }, // Changed 'swarm_pool' to null
-                    { agentId: null } // Changed 'swarm_pool' to null
-                ],
-                // Removed comment about metadata filtering
-            },
+            where,
             orderBy: [
                 { priority: 'desc' },
-                { createdAt: 'asc' }
-            ]
+                { createdAt: 'asc' },
+            ],
+            take: 50,
         });
     }
 
@@ -210,45 +377,67 @@ export class AgentTaskOrchestrator {
             return false;
         }
     }
+
     /**
-     * Reclaim tasks that have been stuck in QUEUED for too long (Zombie reaver)
+     * Reclaim tasks that have been stuck in QUEUED for too long (Zombie reaver with retry limits)
      */
     async reapZombieTasks(timeoutMs: number = 1000 * 60 * 15): Promise<number> {
         const threshold = new Date(Date.now() - timeoutMs);
 
-        const result = await prisma.agentTask.updateMany({
+        // Fetch zombie tasks
+        const zombies = await prisma.agentTask.findMany({
             where: {
                 status: AgentTaskStatus.QUEUED,
                 updatedAt: {
                     lt: threshold
                 }
             },
-            data: {
-                status: AgentTaskStatus.PENDING,
-                updatedAt: new Date()
-            }
+            take: 100,
         });
 
-        if (result.count > 0) {
-            this.logger.log(`Reclaimed ${result.count} zombie tasks stuck in QUEUED state.`);
+        if (zombies.length === 0) return 0;
 
-            // Trigger processing for these tasks again
-            const reapedTasks = await prisma.agentTask.findMany({
-                where: {
-                    status: AgentTaskStatus.PENDING,
-                    updatedAt: {
-                        gte: new Date(Date.now() - 1000) // Tasks we just updated
+        let reapedCount = 0;
+
+        for (const zombie of zombies) {
+            const metadata = (zombie.metadata as Record<string, any>) || {};
+            const retryCount = (metadata.retryCount || 0) + 1;
+
+            if (retryCount > 3) {
+                // DLQ - Fail permanently
+                await prisma.agentTask.update({
+                    where: { id: zombie.id },
+                    data: {
+                        status: AgentTaskStatus.FAILED_PERMANENTLY,
+                        metadata: {
+                            ...metadata,
+                            retryCount,
+                            error: 'Task execution failed permanently after 3 retry attempts (Zombie Reaped).'
+                        },
+                        updatedAt: new Date()
                     }
-                },
-                select: { id: true }
-            });
-
-            for (const task of reapedTasks) {
-                await this.triggerTaskProcessing(task.id);
+                });
+                this.logger.warn(`Zombie task ${zombie.id} failed permanently after 3 retries.`);
+            } else {
+                // Re-queue
+                await prisma.agentTask.update({
+                    where: { id: zombie.id },
+                    data: {
+                        status: AgentTaskStatus.PENDING,
+                        metadata: {
+                            ...metadata,
+                            retryCount
+                        },
+                        updatedAt: new Date()
+                    }
+                });
+                this.logger.log(`Reclaimed zombie task ${zombie.id} stuck in QUEUED state (attempt ${retryCount}/3).`);
+                await this.triggerTaskProcessing(zombie.id);
+                reapedCount++;
             }
         }
 
-        return result.count;
+        return reapedCount;
     }
 }
 

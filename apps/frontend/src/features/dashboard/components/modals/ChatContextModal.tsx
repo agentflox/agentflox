@@ -25,7 +25,7 @@ export type ContextEntity = {
 };
 
 interface ChatContextModalProps {
-	workspaceId: string;
+	workspaceId?: string;
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
 	selectedContexts: ContextEntity[];
@@ -46,7 +46,7 @@ export function ChatContextModal({
 
 	const { data: workspace } = trpc.workspace.get.useQuery({ id: workspaceId }, { enabled: open && !!workspaceId });
 	const { data: spaces } = trpc.space.list.useQuery(
-		{ workspaceId, page: 1, pageSize: 100 },
+		{ workspaceId: workspaceId || "", page: 1, pageSize: 100 },
 		{ enabled: open && activeTab === "spaces" }
 	);
 	// Use workspace data for projects and teams since they're already included

@@ -75,9 +75,10 @@ export const TaskNode = memo(({ id, data, isConnectable }: NodeProps<WorkforceNo
                                     {data?.label || 'Select a task...'}
                                 </div>
                                 {data?.description && (
-                                    <div className="text-[11.5px] text-zinc-500 mt-1 leading-relaxed line-clamp-2">
-                                        {data.description}
-                                    </div>
+                                    <div
+                                        className="text-[11.5px] text-zinc-500 mt-1 leading-relaxed line-clamp-2 [&>p]:inline"
+                                        dangerouslySetInnerHTML={{ __html: data.description }}
+                                    />
                                 )}
                             </div>
                             <div className="flex items-center gap-1 mt-2 pt-1 border-t border-zinc-50 shrink-0">
@@ -88,7 +89,7 @@ export const TaskNode = memo(({ id, data, isConnectable }: NodeProps<WorkforceNo
                     </>
                 )}
 
-                <Handle type="target" position={Position.Top} isConnectable={isConnectable} className="!opacity-0 !w-[150%] !h-[150%] !top-[-25%] !left-[-25%] !border-none !bg-transparent pointer-events-auto rounded-none" />
+                <Handle type="target" position={Position.Top} isConnectable={isConnectable} className="!opacity-0 !w-5 !h-5 pointer-events-auto" />
                 <GlowHandle isConnectable={isConnectable} />
             </div>
         </div>

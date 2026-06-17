@@ -3,7 +3,7 @@
  */
 
 import { prisma } from '@agentflox/database';
-import type { AgentSkill, SystemTool } from '@agentflox/database/generated/prisma';
+import type { AgentSkill, SystemTool } from '@agentflox/database';
 
 export class AgentSkillService {
     /**
@@ -78,18 +78,20 @@ export class AgentSkillService {
      * Get tools available to an agent based on their enabled skills
      */
     async getAvailableTools(agentId: string): Promise<SystemTool[]> {
-        // Get agent's enabled skills
-        const agentSkills = await prisma.agentToSkill.findMany({
-            where: {
-                agentId,
-                isEnabled: true,
-            },
+        // Get agent's enabled skills AND explicitly allowlisted tools
+        const agent = await prisma.aiAgent.findUnique({
+            where: { id: agentId },
             include: {
-                skill: {
+                agentSkills: {
+                    where: { isEnabled: true },
                     include: {
-                        toolSkills: {
+                        skill: {
                             include: {
-                                tool: true,
+                                toolSkills: {
+                                    include: {
+                                        tool: true,
+                                    },
+                                },
                             },
                         },
                     },
@@ -97,14 +99,39 @@ export class AgentSkillService {
             },
         });
 
+        if (!agent) return [];
+
         // Collect unique tools from all skills
         const toolSet = new Map<string, SystemTool>();
 
-        for (const agentSkill of agentSkills) {
-            for (const skillTool of agentSkill.skill.toolSkills) {
-                if (!toolSet.has(skillTool.tool.id)) {
-                    toolSet.set(skillTool.tool.id, skillTool.tool);
+        if (agent.agentSkills) {
+            for (const agentSkill of agent.agentSkills) {
+                for (const skillTool of agentSkill.skill.toolSkills) {
+                    if (!toolSet.has(skillTool.tool.id)) {
+                        toolSet.set(skillTool.tool.id, skillTool.tool);
+                    }
                 }
+            }
+        }
+
+        // Add explicitly assigned AgentTool records and default tools
+        const agentToolRecords = await prisma.agentTool.findMany({
+            where: {
+                agentId,
+                isActive: true,
+            },
+            select: { name: true },
+        });
+        const agentToolNames = agentToolRecords.map(t => t.name);
+
+        const explicitTools = await prisma.systemTool.findMany({
+            where: {
+                name: { in: agentToolNames }
+            }
+        });
+        for (const tool of explicitTools) {
+            if (!toolSet.has(tool.id)) {
+                toolSet.set(tool.id, tool);
             }
         }
 

@@ -34,7 +34,7 @@ export const AgentChatSkeleton = () => {
                 }
                 SidePanelContent={
                     <div className="h-full border-l bg-gradient-to-b from-background to-muted/20 overflow-hidden">
-                        <div className="h-full flex flex-col items-center justify-center p-6 space-y-8">
+                        <div className="h-full flex flex-col items-center justify-start p-6 space-y-8">
                             <div className="w-full max-w-sm h-64 bg-slate-200 rounded-2xl animate-pulse" />
                             <div className="w-full max-w-sm space-y-4">
                                 <div className="h-4 w-3/4 bg-slate-200 rounded animate-pulse" />

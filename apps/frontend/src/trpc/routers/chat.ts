@@ -354,6 +354,51 @@ export const chatRouter = router({
       return conversation
     }),
 
+  pin: protectedProcedure
+    .input(
+      z.object({
+        conversationId: z.string(),
+        isPinned: z.boolean(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const db = prisma as any
+
+      const existing = await db.aiConversation.findFirst({
+        where: {
+          id: input.conversationId,
+          userId: ctx.session.user.id,
+        },
+        select: {
+          id: true,
+          metadata: true,
+        },
+      })
+
+      if (!existing) {
+        throw new Error('Conversation not found')
+      }
+
+      const currentMetadata = (existing.metadata as any) || {}
+
+      const conversation = await db.aiConversation.update({
+        where: {
+          id: input.conversationId,
+        },
+        data: {
+          metadata: {
+            ...currentMetadata,
+            isPinned: input.isPinned
+          }
+        },
+        select: {
+          id: true,
+        },
+      })
+
+      return conversation
+    }),
+
   delete: protectedProcedure
     .input(
       z.object({
@@ -533,16 +578,21 @@ export const chatRouter = router({
     .input(
       z.object({
         workforceId: z.string(),
+        mode: z.enum(['FLOW', 'SWARM']).optional(),
       })
     )
     .query(async ({ ctx, input }) => {
       const db = prisma as any
       const userId = ctx.session.user.id
 
+      const conversationType = input.mode === 'SWARM'
+        ? ConversationType.WORKFORCE_SWARM_EXECUTION
+        : ConversationType.WORKFORCE_EXECUTION;
+
       const conversations = await db.aiConversation.findMany({
         where: {
           userId,
-          conversationType: ConversationType.WORKFORCE_EXECUTION,
+          conversationType,
           metadata: {
             path: ['workforceId'],
             equals: input.workforceId,
@@ -557,10 +607,21 @@ export const chatRouter = router({
           createdAt: true,
           lastMessageAt: true,
           messageCount: true,
+          metadata: true,
         },
       })
 
-      return conversations
+      // Sort by pinned first, then by updatedAt desc
+      return conversations.sort((a, b) => {
+        const aPinned = (a.metadata as any)?.isPinned ? 1 : 0;
+        const bPinned = (b.metadata as any)?.isPinned ? 1 : 0;
+        if (aPinned !== bPinned) return bPinned - aPinned;
+
+        // If both are pinned or neither is, sort by lastMessageAt or createdAt
+        const aDate = a.lastMessageAt || a.createdAt;
+        const bDate = b.lastMessageAt || b.createdAt;
+        return new Date(bDate).getTime() - new Date(aDate).getTime();
+      });
     }),
 
   /** Create a fresh WORKFORCE_EXECUTION conversation for a workforce run. */
@@ -570,6 +631,7 @@ export const chatRouter = router({
         workforceId: z.string(),
         workforceName: z.string().optional(),
         modelId: z.string().optional(),
+        mode: z.enum(['FLOW', 'SWARM']).optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -583,11 +645,15 @@ export const chatRouter = router({
         modelId = defaultModel?.id ?? undefined
       }
 
+      const conversationType = input.mode === 'SWARM'
+        ? ConversationType.WORKFORCE_SWARM_EXECUTION
+        : ConversationType.WORKFORCE_EXECUTION;
+
       const conversation = await db.aiConversation.create({
         data: {
           userId,
           title: input.workforceName ? `${input.workforceName} – run` : 'Workforce run',
-          conversationType: ConversationType.WORKFORCE_EXECUTION,
+          conversationType,
           modelId: modelId ?? null,
           metadata: { workforceId: input.workforceId },
         },
@@ -597,14 +663,53 @@ export const chatRouter = router({
       return conversation
     }),
 
-  /** Persist a user task + execution result as messages in a WORKFORCE_EXECUTION conversation. */
+  /** Append a user message to a conversation immediately to prevent data loss if stream drops. */
+  appendUserMessage: protectedProcedure
+    .input(
+      z.object({
+        conversationId: z.string(),
+        userMessage: z.string(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const db = prisma as any
+      const userId = ctx.session.user.id
+
+      const conv = await db.aiConversation.findFirst({
+        where: { id: input.conversationId, userId },
+      })
+      if (!conv) throw new Error('Conversation not found')
+
+      const now = new Date()
+
+      await db.aiMessage.create({
+        data: {
+          conversationId: input.conversationId,
+          role: 'USER',
+          content: input.userMessage,
+        },
+      })
+
+      await db.aiConversation.update({
+        where: { id: input.conversationId },
+        data: {
+          messageCount: { increment: 1 },
+          lastMessageAt: now,
+          updatedAt: now,
+        },
+      })
+
+      return { success: true }
+    }),
+
+  /** Persist an assistant message in a WORKFORCE_EXECUTION conversation. */
   persistWorkforceMessages: protectedProcedure
     .input(
       z.object({
         conversationId: z.string(),
         userMessage: z.string(),
         assistantContent: z.string(),  // e.g. "Execution started (ID: …)"
-        metadata: z.record(z.unknown()).optional(), // e.g. { executionId, workflowId, status }
+        metadata: z.any().optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -620,15 +725,6 @@ export const chatRouter = router({
 
       const now = new Date()
 
-      // Insert user message
-      await db.aiMessage.create({
-        data: {
-          conversationId: input.conversationId,
-          role: 'USER',
-          content: input.userMessage,
-        },
-      })
-
       // Insert assistant message
       await db.aiMessage.create({
         data: {
@@ -643,7 +739,7 @@ export const chatRouter = router({
       await db.aiConversation.update({
         where: { id: input.conversationId },
         data: {
-          messageCount: { increment: 2 },
+          messageCount: { increment: 1 },
           lastMessageAt: now,
           updatedAt: now,
         },

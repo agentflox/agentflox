@@ -6,8 +6,6 @@ import { ActivitiesView } from './ActivitiesView';
 import { TasksView } from './TasksView';
 import { LogsView } from './LogsView';
 
-import { TeamView } from './TeamView';
-
 interface ViewSwitcherProps {
   activeTab: string;
   agent?: any;
@@ -19,8 +17,6 @@ export default function ViewSwitcher({ activeTab, agent }: ViewSwitcherProps) {
     switch (activeTab) {
       case 'overview':
         return <OverviewView agent={agent} />;
-      case 'team':
-        return <TeamView agent={agent} />;
       case 'builder':
         return <OperatorView agent={agent} />;
       case 'automation':
@@ -41,7 +37,7 @@ export default function ViewSwitcher({ activeTab, agent }: ViewSwitcherProps) {
   const isChatView = activeTab === 'chat' || activeTab === 'builder';
 
   return (
-    <div className={`flex-1 ${isChatView ? 'h-full overflow-hidden' : 'overflow-auto bg-slate-50'}`}>
+    <div className={`flex-1 ${isChatView ? 'h-full overflow-hidden' : 'overflow-auto bg-white p-6'}`}>
       {renderView()}
     </div>
   );

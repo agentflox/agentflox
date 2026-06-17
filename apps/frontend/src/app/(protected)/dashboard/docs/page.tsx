@@ -206,12 +206,12 @@ export default function DocsPage() {
           description="Create and organize your documentation"
           actions={
             <Button
-								onClick={handleCreateDocument}
-								className="group flex items-center gap-2 bg-zinc-900 hover:bg-zinc-700 text-white dark:bg-zinc-50 dark:text-zinc-900 dark:hover:bg-zinc-200 px-4 py-2 h-9 rounded-md transition-all duration-300 shadow-sm hover:shadow-md active:scale-[0.98]"
-							>
-								<Plus className="h-4 w-4 transition-transform duration-300 group-hover:rotate-90" />
-								<span className="font-medium text-sm">New Document</span>
-							</Button>
+              onClick={handleCreateDocument}
+              className="group flex items-center gap-2 bg-zinc-900 hover:bg-zinc-700 text-white dark:bg-zinc-50 dark:text-zinc-900 dark:hover:bg-zinc-200 px-4 py-2 h-9 rounded-md transition-all duration-300 shadow-sm hover:shadow-md active:scale-[0.98]"
+            >
+              <Plus className="h-4 w-4 transition-transform duration-300 group-hover:rotate-90" />
+              <span className="font-medium text-sm">New Document</span>
+            </Button>
           }
         />
 
@@ -377,12 +377,12 @@ export default function DocsPage() {
           viewMode === "grid" ? (
             <>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {documents.items.map((doc) => (
+                {documents.items.map((doc: any) => (
                   <div
                     key={doc.id}
                     onClick={() => router.push(`/dashboard/docs/${doc.id}`)}
                     className={cn(
-                      "group relative flex flex-col bg-white rounded-lg border shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer overflow-hidden p-6",
+                      "group relative flex flex-col bg-white rounded-lg border shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer overflow-hidden p-6 pt-10",
                       selectedGridIds.has(doc.id) ? "border-blue-400 ring-1 ring-blue-200 bg-blue-50/20" : "border-zinc-200 hover:border-zinc-300"
                     )}
                   >
@@ -428,10 +428,10 @@ export default function DocsPage() {
                           <FileText className="h-6 w-6 text-muted-foreground" />
                         )}
                         <div className="flex-1 min-w-0">
-                          <h3 className="text-lg font-semibold text-zinc-900 leading-snug group-hover:text-blue-600 transition-colors truncate">
+                          <h3 className="font-semibold text-[15px] leading-snug line-clamp-2 text-zinc-900 group-hover:text-blue-600 transition-colors dark:text-zinc-50">
                             {doc.title}
                           </h3>
-                          <p className="text-sm text-muted-foreground mt-1">
+                          <p className="mt-1 line-clamp-2 text-[13px] text-zinc-500 dark:text-zinc-400">
                             Updated{" "}
                             {formatDistanceToNow(new Date(doc.updatedAt), {
                               addSuffix: true,

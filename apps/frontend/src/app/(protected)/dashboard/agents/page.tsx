@@ -19,7 +19,6 @@ import {
 } from "@/components/ui/select";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/entities/shared/components/PageHeader";
-import { AgentCreationModal } from "@/entities/agents/components/AgentCreationModal";
 import { DataTableSkeleton } from "@/components/ui/data-table-skeleton";
 import { SearchSection } from "@/entities/shared/components/SearchSection";
 import { Pagination } from "@/components/ui/pagination";
@@ -42,7 +41,6 @@ import {
 import { MoreHorizontal, Edit, Trash, Eye, ArrowUpDown, ChevronUp, ChevronDown, Check, Settings2, X, MoreVertical } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-import { Checkbox } from "@/components/ui/checkbox";
 
 export default function AgentsPage() {
   const router = useRouter();
@@ -129,8 +127,8 @@ export default function AgentsPage() {
         const agent = row.original;
         return (
           <div className="flex items-center gap-3">
-            <div className="text-2xl">{agent.avatar || "🤁E}</div>
-              < div className="flex flex-col">
+            <div className="text-2xl">{agent.avatar || "Me"}</div>
+            < div className="flex flex-col">
               <span className="font-medium text-foreground hover:underline cursor-pointer" onClick={() => router.push(`/dashboard/agents/${agent.id}`)}>{agent.name}</span>
               <span className="text-xs text-muted-foreground truncate max-w-[200px]">{agent.description || "No description"}</span>
             </div>
@@ -216,12 +214,12 @@ export default function AgentsPage() {
           description="Create and manage autonomous AI agents"
           actions={
             <Button
-								onClick={handleCreateAgent}
-								className="group flex items-center gap-2 bg-zinc-900 hover:bg-zinc-700 text-white dark:bg-zinc-50 dark:text-zinc-900 dark:hover:bg-zinc-200 px-4 py-2 h-9 rounded-md transition-all duration-300 shadow-sm hover:shadow-md active:scale-[0.98]"
-							>
-								<Plus className="h-4 w-4 transition-transform duration-300 group-hover:rotate-90" />
-								<span className="font-medium text-sm">New item</span>
-							</Button>
+              onClick={handleCreateAgent}
+              className="group flex items-center gap-2 bg-zinc-900 hover:bg-zinc-700 text-white dark:bg-zinc-50 dark:text-zinc-900 dark:hover:bg-zinc-200 px-4 py-2 h-9 rounded-md transition-all duration-300 shadow-sm hover:shadow-md active:scale-[0.98]"
+            >
+              <Plus className="h-4 w-4 transition-transform duration-300 group-hover:rotate-90" />
+              <span className="font-medium text-sm">New item</span>
+            </Button>
           }
         />
 
@@ -484,7 +482,7 @@ export default function AgentsPage() {
                 <div
                   key={agent.id}
                   className={cn(
-                    "group relative flex flex-col bg-white rounded-lg border shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer overflow-hidden p-6",
+                    "group relative flex flex-col bg-white rounded-lg border shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer overflow-hidden p-6 pt-10",
                     selectedGridIds.has(agent.id) ? "border-blue-400 ring-1 ring-blue-200 bg-blue-50/20" : "border-zinc-200 hover:border-zinc-300"
                   )}
                   onClick={() => router.push(`/dashboard/agents/${agent.id}`)}
@@ -525,10 +523,9 @@ export default function AgentsPage() {
 
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-3">
-                      <div className="text-3xl">{agent.avatar || "🤁E}</div>
-                        < div className="flex-1">
-                        <h3 className="text-lg font-semibold text-zinc-900 leading-snug group-hover:text-blue-600 transition-colors">{agent.name}</h3>
-                        <p className="mt-1 text-sm text-zinc-500 line-clamp-2">
+                      < div className="flex-1">
+                        <h3 className="font-semibold text-[15px] leading-snug line-clamp-2 text-zinc-900 group-hover:text-blue-600 transition-colors dark:text-zinc-50">{agent.name}</h3>
+                        <p className="mt-1 line-clamp-2 text-[13px] text-zinc-500 dark:text-zinc-400">
                           {agent.description || "No description"}
                         </p>
                       </div>
@@ -537,18 +534,21 @@ export default function AgentsPage() {
 
                   <div className="mt-6 flex flex-col gap-3">
                     <div className="flex flex-wrap gap-2">
-                      <Badge variant="outline">{agent.agentType}</Badge>
-                      <Badge
-                        variant={
+                      <span className="rounded border border-zinc-200 bg-zinc-50 px-1.5 py-0.5 text-[10px] font-medium text-zinc-600 uppercase">
+                        {agent.agentType}
+                      </span>
+                      <span
+                        className={cn(
+                          "rounded border px-1.5 py-0.5 text-[10px] font-medium uppercase",
                           agent.status === "ACTIVE"
-                            ? "default"
+                            ? "border-green-200 bg-green-50 text-green-700"
                             : agent.status === "DRAFT"
-                              ? "secondary"
-                              : "destructive"
-                        }
+                              ? "border-zinc-200 bg-zinc-50 text-zinc-600"
+                              : "border-red-200 bg-red-50 text-red-700"
+                        )}
                       >
                         {agent.status}
-                      </Badge>
+                      </span>
                     </div>
                     {'_count' in agent && (
                       <div className="flex items-center justify-between text-sm text-muted-foreground mt-4 border-t pt-4">
@@ -562,15 +562,15 @@ export default function AgentsPage() {
                     )}
                     {agent.tags && agent.tags.length > 0 && (
                       <div className="flex flex-wrap gap-1 mt-2">
-                        {agent.tags.slice(0, 3).map((tag) => (
-                          <Badge key={tag} variant="secondary" className="text-xs">
+                        {agent.tags.slice(0, 3).map((tag: string) => (
+                          <span key={tag} className="rounded border border-zinc-200 bg-zinc-50 px-1.5 py-0.5 text-[10px] font-medium text-zinc-600 uppercase">
                             {tag}
-                          </Badge>
+                          </span>
                         ))}
                         {agent.tags.length > 3 && (
-                          <Badge variant="secondary" className="text-xs">
+                          <span className="rounded border border-zinc-200 bg-zinc-50 px-1.5 py-0.5 text-[10px] font-medium text-zinc-600 uppercase">
                             +{agent.tags.length - 3}
-                          </Badge>
+                          </span>
                         )}
                       </div>
                     )}

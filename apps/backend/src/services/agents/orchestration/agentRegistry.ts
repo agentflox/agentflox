@@ -150,7 +150,37 @@ export class AgentRegistryService {
      */
     async getAgent(agentId: string): Promise<AgentRegistryEntry | null> {
         const agentData = await redis.hgetall(`agent:registry:${agentId}`);
-        if (!agentData || Object.keys(agentData).length === 0) return null;
+        if (!agentData || Object.keys(agentData).length === 0) {
+            // "system" or other virtual IDs will crash prisma since the field is UUID
+            const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+            if (!uuidRegex.test(agentId)) return null;
+
+            // Fallback to database if not in Redis
+            const dbAgent = await prisma.aiAgent.findUnique({
+                where: { id: agentId, isActive: true },
+            });
+            if (!dbAgent) return null;
+
+            // Sync it back to redis for future reads
+            await this.registerAgent({
+                id: dbAgent.id,
+                name: dbAgent.name,
+                type: dbAgent.agentType,
+                capabilities: dbAgent.capabilities as string[] || [],
+                status: dbAgent.status,
+                workspaceId: dbAgent.workspaceId || undefined,
+            });
+
+            return {
+                id: dbAgent.id,
+                name: dbAgent.name,
+                type: dbAgent.agentType,
+                capabilities: dbAgent.capabilities as string[] || [],
+                status: dbAgent.status,
+                workspaceId: dbAgent.workspaceId || undefined,
+                metadata: {},
+            };
+        }
 
         return {
             id: agentId,

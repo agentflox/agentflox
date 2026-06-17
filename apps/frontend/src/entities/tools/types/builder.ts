@@ -96,6 +96,9 @@ export type ToolCanvasNodeData = {
   toolName?: string;
   stepId?: string;
   stepIndex?: number;
+  stepConfig?: any;
+  systemTool?: any;
+  onUpdateStepConfig?: (patch: any) => void;
   varName?: string;
   onOpen?: () => void;
   onOpenModal?: () => void;
@@ -105,13 +108,17 @@ export type ToolCanvasNodeData = {
   onCopySnippet?: () => void;
   onDeleteBranch?: () => void;
   onUpdateBranchLabel?: (newLabel: string) => void;
+  onUpdateBranchConfig?: (patch: any) => void;
+  branchConfig?: any;
+  branchIdx?: number;
+  otherHasFallback?: boolean;
   onRunStep?: () => void;
   viewMode: "flow" | "notebook";
   isExpanded?: boolean;
   onToggleExpand?: () => void;
   onMeasureHeight?: (h: number) => void;
   inputs?: any[];
-  onAddInput?: (uiType: string) => void;
+  onAddInput?: (uiType: InputUiType) => void;
   onUpdateInput?: (idx: number, patch: Record<string, any>) => void;
   onDeleteInput?: (idx: number) => void;
   onReorderInputs?: (newOrder: any[]) => void;

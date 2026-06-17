@@ -3,7 +3,7 @@ import { TRPCError } from "@trpc/server";
 import { protectedProcedure, router } from "@/trpc/init";
 import { initializeOpenAI } from "@/lib/openai";
 import { prisma } from "@/lib/prisma";
-import { ConversationType } from "@agentflox/database";
+import { ConversationType } from "@agentflox/database/src/generated/prisma";
 import {
   EditorAssistantResponseSchema,
   ToolOpSchema,

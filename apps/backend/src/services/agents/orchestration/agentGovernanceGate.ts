@@ -15,6 +15,7 @@
 import { redis } from '@/lib/redis';
 import { prisma } from '@/lib/prisma';
 import type { FSMState } from './agentArchitecture';
+import { agentSkillService } from '../core/agentSkillService';
 
 // ── Tenant Budget Config ──────────────────────────────────────────────────────
 
@@ -170,24 +171,31 @@ export class AgentGovernanceGate {
             };
         }
 
-        // Check tool allowlist for this agent
-        const agentTool = await prisma.aiAgentTool.findFirst({
+        // Check tool allowlist: AgentTool relation first, then skill-granted access
+        const agentTool = await prisma.agentTool.findFirst({
             where: {
                 agentId: params.agentId,
-                tool: { name: params.toolName },
+                name: params.toolName,
                 isActive: true,
             },
         }).catch(() => null);
 
-        if (!agentTool) {
-            return {
-                allowed: false,
-                reason: `Tool "${params.toolName}" is not enabled for agent ${params.agentId}`,
-                category: 'POLICY',
-            };
+        if (agentTool) {
+            return { allowed: true };
         }
 
-        return { allowed: true };
+        // Check against skill-granted tools
+        const availableToolNames = await agentSkillService.getAvailableToolNames(params.agentId);
+
+        if (availableToolNames.includes(params.toolName)) {
+            return { allowed: true };
+        }
+
+        return {
+            allowed: false,
+            reason: `Tool "${params.toolName}" is not enabled for agent ${params.agentId} via AgentTool records or skills.`,
+            category: 'POLICY',
+        };
     }
 
     /**

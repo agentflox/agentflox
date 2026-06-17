@@ -50,7 +50,32 @@ export class WorkforceEditorAssistant extends BaseEditorAssistant {
       'If the user is vague, ask a clarifying question in assistantText and return an empty array.',
     ].join('\n');
 
+    const conversation = await prisma.aiConversation.findUnique({
+      where: { id: conversationId },
+      include: { workforce: true },
+    });
+
+    let availableContext = '';
+    if (conversation?.workforce?.workspaceId) {
+      const workspaceId = conversation.workforce.workspaceId;
+      const [agents, tools, tasks] = await Promise.all([
+        prisma.aiAgent.findMany({ where: { workspaceId }, select: { id: true, name: true, description: true } }),
+        prisma.compositeTool.findMany({ where: { workspaceId }, select: { id: true, name: true, description: true } }),
+        prisma.task.findMany({ where: { workspaceId }, select: { id: true, title: true, description: true } })
+      ]);
+
+      availableContext = [
+        '### AVAILABLE RESOURCES',
+        'You can use the following available resources to add nodes:',
+        'Available Agents: ' + JSON.stringify(agents),
+        'Available Tools: ' + JSON.stringify(tools),
+        'Available Tasks: ' + JSON.stringify(tasks),
+        '',
+      ].join('\n');
+    }
+
     const userContent = [
+      availableContext,
       'Context represents the workforce canvas state (nodes, edges, selection).',
       'Context JSON:',
       JSON.stringify(context),
@@ -91,9 +116,9 @@ export class WorkforceEditorAssistant extends BaseEditorAssistant {
         );
 
         const textRef = { value: '' };
-        await this.streamResponse(stream, onToken, textRef, signal);
+        const streamUsage = await this.streamResponse(stream, onToken, textRef, signal);
         rawText = textRef.value;
-        this.trackTokenUsage(messages, rawText, model, undefined, userId);
+        this.trackTokenUsage(messages, rawText, model, streamUsage, userId);
       } else {
         const completion = await this.runCompletion(
           { model, temperature: 0.2, messages, response_format: { type: 'json_object' } },

@@ -1,6 +1,6 @@
-
 import { inngest } from '@/lib/inngest';
 import { prisma } from '@/lib/prisma';
+import { redisPub } from '@/lib/redis';
 import { workflowOrchestrationService } from '../../services/agents/orchestration/workflowOrchestrator';
 
 /**
@@ -8,8 +8,9 @@ import { workflowOrchestrationService } from '../../services/agents/orchestratio
  * Handles Model 2 (Event-Graph/Flow) execution
  */
 export const executeWorkflow = inngest.createFunction(
-    { id: 'execute-workflow', name: 'Execute Agent Workflow', retries: 3 },
-    { event: 'agent/workflow.execute' },
+    {
+        id: 'execute-workflow', name: 'Execute Agent Workflow', retries: 3, triggers: [{ event: 'agent/workflow.execute' }],
+    },
     async ({ event, step }) => {
         const { executionId, workflowId, userId, input } = event.data;
 
@@ -28,6 +29,10 @@ export const executeWorkflow = inngest.createFunction(
         if (!startStepId) throw new Error(`No starting step found for workflow ${workflowId}`);
 
         // 2. Queue the first step
+        await step.run('emit-start', async () => {
+            await redisPub.publish(`workforce:run:${executionId}`, JSON.stringify({ type: 'thinking', message: `Initializing workflow...`, node: startStepId }));
+        });
+
         await step.sendEvent('trigger-first-step', {
             name: 'agent/workflow.step.execute',
             data: {
@@ -48,8 +53,9 @@ const STEP_TIMEOUT = '10m';
 const MAX_FANOUT = 10;
 
 export const executeWorkflowStep = inngest.createFunction(
-    { id: 'execute-workflow-step', name: 'Execute Workflow Step', retries: 2 },
-    { event: 'agent/workflow.step.execute' },
+    {
+        id: 'execute-workflow-step', name: 'Execute Workflow Step', retries: 2, triggers: [{ event: 'agent/workflow.step.execute' }],
+    },
     async ({ event, step }) => {
         const { executionId, workflowId, stepId, userId, input, depth = 0 } = event.data;
 
@@ -64,25 +70,50 @@ export const executeWorkflowStep = inngest.createFunction(
                         error: `Workflow recursion depth exceeded (max ${MAX_DEPTH} steps)`
                     }
                 });
+                await redisPub.publish(`workforce:run:${executionId}`, JSON.stringify({ type: 'error', message: `Workflow recursion depth exceeded (max ${MAX_DEPTH} steps)` }));
             });
             // Graceful termination instead of throwing (to avoid retry storms)
             return { stepId, status: 'TERMINATED_MAX_DEPTH' };
         }
 
         // 2. Dispatch the step (non-blocking)
-        const dispatch = await step.run('dispatch-step', async () => {
+        await step.run(`emit-start-[${stepId}]`, async () => {
+            await redisPub.publish(`workforce:run:${executionId}`, JSON.stringify({ type: 'thinking', message: `Executing step ${stepId}...`, node: stepId }));
+        });
+
+        const dispatch = await step.run(`dispatch-[${stepId}]`, async () => {
             return workflowOrchestrationService.dispatchWorkflowStep(executionId, stepId, input, userId);
         });
 
-        // 3. Wait for the agent response event (Durable wait) with explicit timeout
-        const responseEvent = await step.waitForEvent('wait-for-agent-response', {
-            event: 'agent/message.processed',
-            timeout: STEP_TIMEOUT,
-            match: 'data.messageId'
-        });
+        let responseEvent;
+        if (dispatch.messageId.startsWith('placeholder-skip-')) {
+            responseEvent = {
+                data: {
+                    response: {
+                        skipped: true,
+                        status: 'PLACEHOLDER_SKIPPED',
+                        reason: 'NO_EXECUTOR_PLACEHOLDER',
+                        stepId,
+                    }
+                }
+            };
+        } else if (dispatch.nativeResult) {
+            responseEvent = {
+                data: {
+                    response: dispatch.nativeResult
+                }
+            };
+        } else {
+            // 3. Wait for the agent response event (Durable wait) with explicit timeout
+            responseEvent = await step.waitForEvent(`wait-agent-[${stepId}]`, {
+                event: 'agent/message.processed',
+                timeout: STEP_TIMEOUT,
+                if: `async.data.messageId == '${dispatch.messageId}'`
+            });
+        }
 
         if (!responseEvent) {
-            await step.run('handle-step-timeout', async () => {
+            await step.run(`timeout-[${stepId}]`, async () => {
                 await prisma.agentWorkflowExecution.update({
                     where: { id: executionId },
                     data: {
@@ -91,6 +122,7 @@ export const executeWorkflowStep = inngest.createFunction(
                         error: `Step ${stepId} timed out waiting for agent response`
                     }
                 });
+                await redisPub.publish(`workforce:run:${executionId}`, JSON.stringify({ type: 'error', message: `Step ${stepId} timed out waiting for agent response` }));
             });
             return { stepId, status: 'TIMEOUT', messageId: dispatch.messageId };
         }
@@ -98,12 +130,16 @@ export const executeWorkflowStep = inngest.createFunction(
         const result = responseEvent.data.response;
 
         // 4. Finalize the step (update context)
-        await step.run('finalize-step-logic', async () => {
+        await step.run(`emit-completed-[${stepId}]`, async () => {
+            await redisPub.publish(`workforce:run:${executionId}`, JSON.stringify({ type: 'thinking', message: `Completed step ${stepId}.`, node: stepId }));
+        });
+
+        await step.run(`finalize-[${stepId}]`, async () => {
             return workflowOrchestrationService.finalizeStepExecution(executionId, stepId, result);
         });
 
         // 5. Find next steps based on definition
-        const nextSteps = await step.run('evaluate-next-steps', async () => {
+        const nextSteps = await step.run(`evaluate-next-[${stepId}]`, async () => {
             const workflow = await prisma.agentWorkflow.findUnique({
                 where: { id: workflowId }
             });
@@ -145,10 +181,15 @@ export const executeWorkflowStep = inngest.createFunction(
         } else {
             // Workflow complete or reached leaf node
             await step.run('finalize-execution', async () => {
-                await prisma.agentWorkflowExecution.update({
+                const updated = await prisma.agentWorkflowExecution.update({
                     where: { id: executionId },
                     data: { status: 'COMPLETED', endTime: new Date() }
                 });
+                await redisPub.publish(`workforce:run:${executionId}`, JSON.stringify({ 
+                    type: 'complete', 
+                    status: 'COMPLETED',
+                    context: updated.context
+                }));
             });
         }
 

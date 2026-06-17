@@ -21,7 +21,7 @@ export function PageHeader({
   return (
     <div className={cn("border-b border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950", className)}>
       <div className="pb-6">
-        <div className="flex items-start justify-between gap-6">
+        <div className="flex items-start justify-between gap-4">
           {/* Left: Title & Subtitle */}
           <div className="flex-1 min-w-0 space-y-1">
             {subtitle && (

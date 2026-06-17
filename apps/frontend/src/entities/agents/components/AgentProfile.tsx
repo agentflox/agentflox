@@ -12,6 +12,11 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
   Bot,
   Settings,
   CheckCircle2,
@@ -216,84 +221,81 @@ export function AgentProfile({
     <div className="space-y-6 h-full flex flex-col">
 
       {/* Agent Header Card */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-start gap-4">
-            <div className="flex-shrink-0 relative">
-              {agent.avatar ? (
-                <div className={`w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center text-2xl ${isActuallyReconfiguring ? 'animate-pulse' : ''
-                  }`}>
-                  {agent.avatar}
-                </div>
-              ) : (
-                <div className={`w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center ${isActuallyReconfiguring ? 'animate-pulse' : ''
-                  }`}>
-                  <Bot className="w-8 h-8 text-primary" />
-                </div>
-              )}
-              {isActuallyReconfiguring && (
-                <div className="absolute -top-1 -right-1 w-4 h-4 bg-amber-500 rounded-full flex items-center justify-center">
-                  <Loader2 className="w-2.5 h-2.5 text-white animate-spin" />
-                </div>
-              )}
-            </div>
-            <div className="flex-1 min-w-0 space-y-2">
-              <div className="flex items-center gap-3 flex-wrap">
-                <CardTitle className="text-2xl">{agent.name}</CardTitle>
-                {getStatusBadge()}
-              </div>
-              {agent.description && (
-                <CardDescription className="text-sm">
-                  {agent.description}
-                </CardDescription>
-              )}
-              <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                {agent.agentType && (
-                  <div className="flex items-center gap-1.5">
-                    <Sparkles className="w-4 h-4" />
-                    <span className="capitalize">{agent.agentType.replace(/_/g, ' ').toLowerCase()}</span>
+      <Card className="rounded-none border-none">
+        <CardHeader className="space-y-4">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex items-start gap-4 min-w-0 flex-1">
+              <div className="flex-shrink-0 relative">
+                {agent.avatar ? (
+                  <div className={`w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center text-2xl ${isActuallyReconfiguring ? 'animate-pulse' : ''
+                    }`}>
+                    {agent.avatar}
+                  </div>
+                ) : (
+                  <div className={`w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center ${isActuallyReconfiguring ? 'animate-pulse' : ''
+                    }`}>
+                    <Bot className="w-8 h-8 text-primary" />
                   </div>
                 )}
-                {agent.triggers && agent.triggers.length > 0 && (
-                  <div className="flex items-center gap-1.5">
-                    {getTriggerIcon(agent.triggers[0].triggerType)}
-                    <span>{agent.triggers.length} trigger{agent.triggers.length !== 1 ? 's' : ''}</span>
-                  </div>
-                )}
-                {agent.createdAt && (
-                  <div className="flex items-center gap-1.5">
-                    <Calendar className="w-4 h-4" />
-                    <span>
-                      Created {new Date(agent.createdAt).toLocaleDateString()}
-                    </span>
+                {isActuallyReconfiguring && (
+                  <div className="absolute -top-1 -right-1 w-4 h-4 bg-amber-500 rounded-full flex items-center justify-center">
+                    <Loader2 className="w-2.5 h-2.5 text-white animate-spin" />
                   </div>
                 )}
               </div>
+              <div className="flex-1 min-w-0 space-y-2">
+                <div className="flex items-center gap-3 flex-wrap">
+                  <CardTitle className="text-xl truncate">{agent.name}</CardTitle>
+                  {getStatusBadge()}
+                </div>
+                <div className="flex items-center gap-4 text-sm text-muted-foreground flex-wrap">
+                  {agent.createdAt && (
+                    <div className="flex items-center gap-1.5">
+                      <Calendar className="w-4 h-4" />
+                      <span>
+                        Created {new Date(agent.createdAt).toLocaleDateString()}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-shrink-0">
               {/* Message Button */}
-              <Button
-                variant="default"
-                onClick={handleMessage}
-                disabled={isActuallyReconfiguring}
-                className="gap-2"
-              >
-                <MessageSquare className="w-4 h-4" />
-                Message
-              </Button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="primary"
+                    size="icon"
+                    onClick={handleMessage}
+                    disabled={isActuallyReconfiguring}
+                  >
+                    <MessageSquare className="w-4 h-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Message</p>
+                </TooltipContent>
+              </Tooltip>
 
               {/* Run Agent Dropdown */}
               <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="outline"
-                    disabled={isActuallyReconfiguring}
-                    className="gap-2"
-                  >
-                    <Play className="w-4 h-4" />
-                    Run agent
-                  </Button>
-                </DropdownMenuTrigger>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        disabled={isActuallyReconfiguring}
+                      >
+                        <Play className="w-4 h-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Run agent</p>
+                  </TooltipContent>
+                </Tooltip>
                 <DropdownMenuContent align="end" className="w-48">
                   <DropdownMenuItem onClick={handleSendDM} className="gap-2">
                     <Send className="w-4 h-4" />
@@ -349,43 +351,50 @@ export function AgentProfile({
               />
             </div>
           </div>
+          {agent.description && (
+            <div className="pt-2">
+              <CardDescription className="text-sm leading-relaxed">
+                {agent.description}
+              </CardDescription>
+            </div>
+          )}
         </CardHeader>
       </Card>
 
       {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0 px-1.5">
         <div className="overflow-x-auto pb-4 scrollbar-hide">
           <TabsList className="inline-flex w-full min-w-max border-b border-zinc-100/0 rounded-none bg-transparent h-auto p-0 justify-start gap-1.5">
-            <TabsTrigger 
-              value="instructions" 
+            <TabsTrigger
+              value="instructions"
               className="px-3.5 py-2.5 rounded-xl cursor-pointer outline-none data-[state=active]:bg-indigo-50/80 data-[state=active]:text-indigo-600 hover:bg-zinc-50 hover:text-zinc-700 font-semibold text-zinc-500 transition-colors flex items-center gap-2 whitespace-nowrap"
             >
               <FileText className="w-4 h-4" />
               Instructions
             </TabsTrigger>
-            <TabsTrigger 
-              value="skills" 
+            <TabsTrigger
+              value="skills"
               className="px-3.5 py-2.5 rounded-xl cursor-pointer outline-none data-[state=active]:bg-indigo-50/80 data-[state=active]:text-indigo-600 hover:bg-zinc-50 hover:text-zinc-700 font-semibold text-zinc-500 transition-colors flex items-center gap-2 whitespace-nowrap"
             >
               <Sparkles className="w-4 h-4" />
               Skills
             </TabsTrigger>
-            <TabsTrigger 
-              value="triggers" 
+            <TabsTrigger
+              value="triggers"
               className="px-3.5 py-2.5 rounded-xl cursor-pointer outline-none data-[state=active]:bg-indigo-50/80 data-[state=active]:text-indigo-600 hover:bg-zinc-50 hover:text-zinc-700 font-semibold text-zinc-500 transition-colors flex items-center gap-2 whitespace-nowrap"
             >
               <Zap className="w-4 h-4" />
               Triggers
             </TabsTrigger>
-            <TabsTrigger 
-              value="tools" 
+            <TabsTrigger
+              value="tools"
               className="px-3.5 py-2.5 rounded-xl cursor-pointer outline-none data-[state=active]:bg-indigo-50/80 data-[state=active]:text-indigo-600 hover:bg-zinc-50 hover:text-zinc-700 font-semibold text-zinc-500 transition-colors flex items-center gap-2 whitespace-nowrap"
             >
               <Wrench className="w-4 h-4" />
               Tools
             </TabsTrigger>
-            <TabsTrigger 
-              value="knowledge" 
+            <TabsTrigger
+              value="knowledge"
               className="px-3.5 py-2.5 rounded-xl cursor-pointer outline-none data-[state=active]:bg-indigo-50/80 data-[state=active]:text-indigo-600 hover:bg-zinc-50 hover:text-zinc-700 font-semibold text-zinc-500 transition-colors flex items-center gap-2 whitespace-nowrap"
             >
               <Brain className="w-4 h-4" />

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { ChatComposer } from "@/entities/chats/components/ChatComposer";
 import { cn } from "@/lib/utils";
 import type { ToolOp, WorkforceOp } from "./editorOps";
+import { useAgentStream, BACKEND_URL } from "@/entities/agents/hooks/useAgentStream";
 
 type AssistantMessage = { id: string; role: "user" | "assistant"; content: string };
 
@@ -116,19 +117,40 @@ export function EditorAssistantPanel({
     });
   }, [messages.length]);
 
+  const {
+    streamingContent,
+    isSending,
+    isStreaming,
+    sendMessage: sendStreamMessage,
+  } = useAgentStream({
+    onComplete: (payload: any) => {
+      void refetchMessages();
+      setProposedOps(payload?.proposedOps || []);
+      setProposalText(payload?.assistantText || "");
+    },
+    onError: (msg: string) => setError(msg || "Failed to process assistant request."),
+  });
+
   const send = async (message: string) => {
     setError(null);
     if (!conversationId) return;
+
+    // Clear action card when sending a new message
+    setProposedOps([]);
+    setProposalText("");
+
+    // Optimistically add user message so it appears immediately
+    setMessages((prev) => [...prev, { id: 'temp-' + Date.now(), role: 'user', content: message }]);
+
+    const path = mode === "tool"
+      ? "/v1/agents/tools/editor-assistant/message-stream"
+      : "/v1/agents/workforces/editor-assistant/message-stream";
+
     try {
-      const res = await messageMutation.mutateAsync({
-        mode,
-        conversationId,
-        message,
-        context,
+      await sendStreamMessage({
+        url: `${BACKEND_URL}${path}`,
+        body: { conversationId, message, context },
       });
-      await refetchMessages();
-      setProposedOps(res.proposedOps as any);
-      setProposalText(res.assistantText);
     } catch (e: any) {
       setError(e?.message || "Failed to send message.");
     }
@@ -169,6 +191,12 @@ export function EditorAssistantPanel({
           </div>
         ))}
 
+        {isSending && (
+          <div className="rounded-2xl px-4 py-3 text-sm leading-relaxed bg-white border border-zinc-200 text-zinc-900 max-w-[85%]">
+            {streamingContent || (isStreaming ? "Thinking…" : "Sending…")}
+          </div>
+        )}
+
         {error ? (
           <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800">
             {error}
@@ -191,7 +219,11 @@ export function EditorAssistantPanel({
                 <Button
                   size="sm"
                   className="h-8 text-xs bg-indigo-600 hover:bg-indigo-700"
-                  onClick={() => onApplyOps(proposedOps)}
+                  onClick={() => {
+                    onApplyOps(proposedOps);
+                    setProposedOps([]);
+                    setProposalText("");
+                  }}
                 >
                   Apply
                 </Button>
@@ -203,6 +235,8 @@ export function EditorAssistantPanel({
                     onClick={async () => {
                       onApplyOps(proposedOps);
                       await onPersist();
+                      setProposedOps([]);
+                      setProposalText("");
                     }}
                   >
                     Apply &amp; Save
@@ -231,7 +265,7 @@ export function EditorAssistantPanel({
       <div className="border-t border-zinc-200 p-3">
         <ChatComposer
           onSend={async (m) => send(m)}
-          isSending={initMutation.isPending || messageMutation.isPending}
+          isSending={initMutation.isPending || isSending}
           disabled={!conversationId}
           className="rounded-xl"
           inputClassName="text-sm"

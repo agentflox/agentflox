@@ -71,7 +71,7 @@ export class SharedMemoryService {
                 ${content}, 
                 ${contentHash}, 
                 ${metadata}::jsonb, 
-                ${JSON.stringify(embedding)}::vector, 
+                ${JSON.stringify(embedding)}::jsonb, 
                 0, 
                 ${timestamp}, 
                 ${timestamp}
@@ -96,7 +96,7 @@ export class SharedMemoryService {
         const queryEmbedding = await this.embed(query);
         const scopeJson = JSON.stringify(scopes);
 
-        // Vector search using pgvector
+        const vectorLiteral = JSON.stringify(queryEmbedding);
         const results = await prisma.$queryRaw<any[]>`
             SELECT 
                 id,
@@ -105,13 +105,11 @@ export class SharedMemoryService {
                 metadata,
                 use_count as "accessCount",
                 created_at as "timestamp",
-                1 - (embedding <=> ${JSON.stringify(queryEmbedding)}::vector) as similarity
+                1 - (embedding::text::vector <=> ${Prisma.raw(`'${vectorLiteral}'::vector`)}) as similarity
             FROM vector_embeddings
             WHERE source_type = 'CUSTOM'::"VectorSourceType"
-              AND metadata->>'scope' = ANY (
-                SELECT jsonb_array_elements_text(${scopeJson}::jsonb)
-              )
-            ORDER BY embedding <=> ${JSON.stringify(queryEmbedding)}::vector
+              AND metadata->>'scope' = ANY (${scopes}::text[])
+            ORDER BY embedding::text::vector <=> ${Prisma.raw(`'${vectorLiteral}'::vector`)}
             LIMIT ${topK * 2}
         `;
 

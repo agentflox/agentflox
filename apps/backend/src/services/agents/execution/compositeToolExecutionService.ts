@@ -42,30 +42,31 @@ export class CompositeToolExecutionService {
     onProgress?.({ type: 'thinking', content: `Starting composite tool execution: ${tool.name}` });
 
     try {
+      let stepIndex = 1;
       for (const step of steps) {
         onProgress?.({ type: 'thinking', content: `Executing step: ${step.name} (${step.type})`, metadata: { stepId: step.id } });
 
         let result: any;
-
-        switch (step.type) {
-          case 'LLM' as any:
-            result = await this.executeLlmStep(step, context);
-            break;
-          case 'PYTHON' as any:
-            result = await this.executePythonStep(step, context, userId);
-            break;
-          case 'JAVASCRIPT' as any:
-            result = await this.executeJavascriptStep(step, context, userId);
-            break;
-          case 'API' as any:
-            result = await this.executeApiStep(step, context, userId);
-            break;
-          default:
-            throw new Error(`Unknown step type: ${step.type}`);
-        }
+        result = await this.executeOneStep(step, context, userId);
 
         stepResults[step.id] = result;
         context[step.id] = result;
+
+        // Alias by positional index (e.g., step_1)
+        const positionalAlias = `step_${stepIndex}`;
+        stepResults[positionalAlias] = result;
+        context[positionalAlias] = result;
+
+        // Alias by name and safe name
+        if (step.name) {
+          stepResults[step.name] = result;
+          context[step.name] = result;
+          const safeName = step.name.replace(/[^a-zA-Z0-9_]/g, '_');
+          stepResults[safeName] = result;
+          context[safeName] = result;
+        }
+
+        stepIndex++;
 
         // If step defines specific output mapping
         if (step.config?.outputMapping) {
@@ -120,6 +121,22 @@ export class CompositeToolExecutionService {
     }
   }
 
+  public async executeOneStep(step: CompositeToolStep, context: any, userId: string): Promise<any> {
+    switch (step.type) {
+      case 'LLM' as any:
+        return await this.executeLlmStep(step, context);
+      case 'PYTHON' as any:
+        return await this.executePythonStep(step, context, userId);
+      case 'JAVASCRIPT' as any:
+        return await this.executeJavascriptStep(step, context, userId);
+      case 'API' as any:
+        return await this.executeApiStep(step, context, userId);
+      case 'SYSTEM_TOOL' as any:
+        return await this.executeSystemToolStep(step, context, userId);
+      default:
+        throw new Error(`Unknown step type: ${step.type}`);
+    }
+  }
 
   private resolveVariables(text: string, context: any): string {
     if (typeof text !== 'string') return text;
@@ -130,12 +147,19 @@ export class CompositeToolExecutionService {
   }
 
   private async executeLlmStep(step: CompositeToolStep, context: any) {
-    const { prompt, model = 'gpt-4o-mini', temperature = 0.7, maxTokens = 1000 } = step.config || {};
-    const resolvedPrompt = this.resolveVariables(prompt, context);
+    const { prompt, systemPrompt, model = 'gpt-4o-mini', temperature = 0.7, maxTokens = 1000 } = step.config || {};
+    const resolvedPrompt = this.resolveVariables(prompt || '', context);
+    
+    const messages: any[] = [];
+    if (systemPrompt) {
+      const resolvedSystemPrompt = this.resolveVariables(systemPrompt, context);
+      messages.push({ role: 'system', content: resolvedSystemPrompt });
+    }
+    messages.push({ role: 'user', content: resolvedPrompt });
 
     const completion = await openai.chat.completions.create({
       model,
-      messages: [{ role: 'user', content: resolvedPrompt }],
+      messages,
       temperature,
       max_tokens: maxTokens,
     });
@@ -148,7 +172,7 @@ export class CompositeToolExecutionService {
     // Resolve variables in code if needed, but usually Python code fetches from `params` or `steps`
     // The current CodeExecutorService doesn't support easy variable injection into code string, 
     // but we can pass them in `params`.
-    
+
     // For now, we pass the entire context as params
     const result = await this.codeExecutor.execute(
       { kind: 'PYTHON', code },
@@ -167,6 +191,8 @@ export class CompositeToolExecutionService {
     if (!result.success) {
       throw new Error(`Python step failed: ${result.error?.message || 'Unknown error'}`);
     }
+
+    console.log(`[Python Logs for ${step.name}]:`, result.logs);
 
     return result.result;
   }
@@ -196,7 +222,7 @@ export class CompositeToolExecutionService {
 
   private async executeApiStep(step: CompositeToolStep, context: any, userId: string) {
     const { method, url, headers, query, body } = step.config || {};
-    
+
     // Resolve variables in URL, headers, and body
     const resolvedUrl = this.resolveVariables(url, context);
     const resolvedHeaders: Record<string, string> = {};
@@ -205,7 +231,7 @@ export class CompositeToolExecutionService {
         resolvedHeaders[k] = this.resolveVariables(v as string, context);
       }
     }
-    
+
     let resolvedBody = body;
     if (typeof body === 'string') {
       resolvedBody = this.resolveVariables(body, context);
@@ -226,6 +252,36 @@ export class CompositeToolExecutionService {
     );
 
     return result.body;
+  }
+
+  private async executeSystemToolStep(step: CompositeToolStep, context: any, userId: string) {
+    const { toolId, input } = step.config || {};
+    if (!toolId) throw new Error('Missing toolId for SYSTEM_TOOL step');
+
+    // Parse input, resolve variables
+    let parameters: any = {};
+    if (typeof input === 'object' && input !== null) {
+      parameters = JSON.parse(this.resolveVariables(JSON.stringify(input), context));
+    } else if (typeof input === 'string') {
+      try {
+        parameters = JSON.parse(this.resolveVariables(input, context));
+      } catch {
+        // Not JSON
+      }
+    }
+
+    const { executeTool } = await import('../core/toolExecutor');
+    const { getAllToolsSync } = await import('../registry/toolRegistry');
+    const tools = getAllToolsSync();
+    const toolDef = tools.find((t: any) => t.id === toolId || t.name === toolId);
+
+    if (!toolDef) {
+      throw new Error(`System tool not found: ${toolId}`);
+    }
+
+    const res = await executeTool({ toolName: toolDef.name, parameters }, userId);
+    if (!res.success) throw new Error(`System tool error: ${res.error}`);
+    return res.result;
   }
 }
 

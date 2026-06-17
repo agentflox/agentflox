@@ -309,6 +309,8 @@ export const taskRouter = router({
               select: {
                 id: true,
                 name: true,
+                locationType: true,
+                folder: { select: { id: true, name: true } },
                 statuses: { select: { id: true, name: true, color: true } },
               },
             },
@@ -383,7 +385,7 @@ export const taskRouter = router({
           project: { select: { id: true, name: true } },
           team: { select: { id: true, name: true } },
           space: { select: { id: true, name: true } },
-          list: { select: { id: true, name: true, statuses: { select: { id: true, name: true, color: true } } } },
+          list: { select: { id: true, name: true, locationType: true, folder: { select: { id: true, name: true } }, statuses: { select: { id: true, name: true, color: true } } } },
           watchers: { where: { userId }, select: { id: true } },
           checklists: { include: { items: { include: { assignee: true }, orderBy: { position: 'asc' } } } },
           comments: { include: { user: { select: { id: true, name: true, image: true } } } },

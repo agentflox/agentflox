@@ -132,7 +132,7 @@ export default function MainSidebar({ mode = "inline", onClose }: { mode?: "inli
       {items.map((item) => {
         const Icon = item.icon;
         const isActive = item.href ? pathname === item.href : false;
-        
+
         const content = (
           <>
             <Icon size={18} className={cn("shrink-0", isActive ? "text-primary" : "text-zinc-400 group-hover:text-zinc-900")} />
@@ -246,7 +246,13 @@ export default function MainSidebar({ mode = "inline", onClose }: { mode?: "inli
                 )}
               </button>
             </PopoverTrigger>
-            <PopoverContent side="right" align="start" sideOffset={12} className="w-[300px] bg-white border-zinc-200 text-zinc-900 p-0 overflow-hidden shadow-lg rounded-xl">
+            <PopoverContent
+              side="right"
+              align="start"
+              sideOffset={12}
+              className="w-[300px] bg-white border-zinc-200 text-zinc-900 p-0 overflow-hidden shadow-lg rounded-xl"
+              onInteractOutside={() => setIsMoreOpen(false)}
+            >
               <div className="p-4">
                 <div className="grid grid-cols-3 gap-2">
                   {hiddenSecondary.map((item) => {

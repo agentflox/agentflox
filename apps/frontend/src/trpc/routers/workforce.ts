@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { protectedProcedure, router } from "../init";
 import { TRPCError } from "@trpc/server";
-import { Prisma } from "@agentflox/database";
+import { Prisma } from "@agentflox/database/src/generated/prisma";
 import { prisma } from "@/lib/prisma";
 
 export const workforceRouter = router({
@@ -184,7 +184,9 @@ export const workforceRouter = router({
                         }
                     },
                     metadata: {
-                        label: edge.data?.label || ""
+                        label: edge.data?.label || "",
+                        sourceHandle: edge.sourceHandle || null,
+                        targetHandle: edge.targetHandle || null
                     }
                 };
             }) || [];

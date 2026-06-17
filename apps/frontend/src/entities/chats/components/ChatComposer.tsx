@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect, memo, useImperativeHandle, forwardRef, useMemo } from 'react'
-import { SendHorizontal, Loader2, Paperclip, Search, X, Layers, AtSign, Bot, BrainCircuit, Files, Sparkles, Command } from 'lucide-react'
+import { SendHorizontal, Loader2, Paperclip, Search, X, Layers, AtSign, Bot, BrainCircuit, Files, Sparkles, Command, Square } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import type { ParsedFile } from '../utils/fileParser'
@@ -19,6 +19,7 @@ export interface ChatComposerRef {
 
 interface ChatComposerProps {
   onSend: (message: string, options?: { attachments?: ParsedFile[]; webSearch?: boolean; contexts?: Array<{ type: string; id: string }> }) => Promise<void> | void
+  onStop?: () => void
   conversationId?: string
   isSending?: boolean
   disabled?: boolean
@@ -42,6 +43,7 @@ interface ChatComposerProps {
 
 export const ChatComposer = memo(forwardRef<ChatComposerRef, ChatComposerProps>(function ChatComposer({
   onSend,
+  onStop,
   conversationId,
   isSending,
   disabled,
@@ -139,9 +141,6 @@ export const ChatComposer = memo(forwardRef<ChatComposerRef, ChatComposerProps>(
       const scrollHeight = textareaRef.current.scrollHeight
       const newHeight = `${Math.min(scrollHeight, 200)}px`
       textareaRef.current.style.height = newHeight
-      if (overlayRef.current) {
-        overlayRef.current.style.height = newHeight
-      }
     }
   }, [value])
 
@@ -190,7 +189,7 @@ export const ChatComposer = memo(forwardRef<ChatComposerRef, ChatComposerProps>(
   }
 
   const handleSubmit = async () => {
-    if (!value.trim() || isSending || disabled) return
+    if (!value.trim() || disabled) return
     let message = value.trim()
 
     // Parse the zero-width space format back into the bracket format the backend expects
@@ -207,9 +206,6 @@ export const ChatComposer = memo(forwardRef<ChatComposerRef, ChatComposerProps>(
     // Reset textarea height
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto'
-      if (overlayRef.current) {
-        overlayRef.current.style.height = 'auto'
-      }
     }
 
     await onSend(message, { attachments: currentAttachments, webSearch: currentWebSearch, contexts: currentContexts })
@@ -249,7 +245,8 @@ export const ChatComposer = memo(forwardRef<ChatComposerRef, ChatComposerProps>(
         className,
         isFocused
           ? 'border-zinc-300 ring-4 ring-zinc-900/5 shadow-[0_12px_40px_rgb(0,0,0,0.08)]'
-          : 'border-zinc-200 hover:border-zinc-300'
+          : 'border-zinc-200 hover:border-zinc-300',
+        disabled && 'opacity-50 pointer-events-none bg-zinc-50/80 grayscale-[0.5]'
       )}
     >
       {/* File Preview Area */}
@@ -281,7 +278,7 @@ export const ChatComposer = memo(forwardRef<ChatComposerRef, ChatComposerProps>(
         <div
           ref={overlayRef}
           className={cn(
-            "absolute inset-0 px-4 pt-4 pb-2 pointer-events-none whitespace-pre-wrap overflow-hidden",
+            "absolute inset-0 px-4 pt-4 pb-2 pointer-events-none whitespace-pre-wrap break-words overflow-hidden",
             "text-[15px] font-normal leading-relaxed",
             inputClassName
           )}
@@ -353,7 +350,7 @@ export const ChatComposer = memo(forwardRef<ChatComposerRef, ChatComposerProps>(
               }
             }
           }}
-          disabled={disabled || isSending}
+          disabled={disabled}
         />
       </div>
 
@@ -527,6 +524,7 @@ export const ChatComposer = memo(forwardRef<ChatComposerRef, ChatComposerProps>(
             onClick={() => fileInputRef.current?.click()}
             active={false}
             tooltip="Attach files"
+            disabled={disabled}
           >
             <Paperclip className="h-4 w-4" />
           </ToolbarButton>
@@ -536,6 +534,7 @@ export const ChatComposer = memo(forwardRef<ChatComposerRef, ChatComposerProps>(
               onClick={onContextClick}
               active={contextCount > 0}
               tooltip="Project Context"
+              disabled={disabled}
             >
               <Layers className="h-4 w-4" />
               {contextCount > 0 && (
@@ -551,6 +550,7 @@ export const ChatComposer = memo(forwardRef<ChatComposerRef, ChatComposerProps>(
               onClick={() => setWebSearch(!webSearch)}
               active={webSearch}
               tooltip="Web Search"
+              disabled={disabled}
             >
               <Search className="h-4 w-4" />
             </ToolbarButton>
@@ -566,27 +566,27 @@ export const ChatComposer = memo(forwardRef<ChatComposerRef, ChatComposerProps>(
 
         {/* WORLD CLASS SEND BUTTON */}
         <Button
-          onClick={handleSubmit}
-          disabled={disabled || isSending || !value.trim()}
+          onClick={isSending ? onStop : handleSubmit}
+          disabled={(disabled && !isSending) || (!isSending && !value.trim())}
           className={cn(
-            "relative h-10 min-w-[100px] rounded-xl px-5 font-bold transition-all duration-300 overflow-hidden",
-            "flex items-center justify-center gap-2.5 select-none active:scale-[0.95] group/send",
-            "bg-zinc-900 text-zinc-50 hover:bg-zinc-800 hover:shadow-[0_10px_20px_-10px_rgba(0,0,0,0.5)]",
-            "shadow-[0_4px_12px_rgba(0,0,0,0.1),inset_0_1px_0_rgba(255,255,255,0.1)]",
-            "disabled:bg-zinc-100 disabled:text-zinc-300 disabled:shadow-none disabled:active:scale-100",
-            isSending && "text-transparent pointer-events-none"
+            "relative h-10 w-10 shrink-0 rounded-xl p-0 transition-all duration-300 overflow-hidden",
+            "flex items-center justify-center select-none active:scale-[0.95] group/send",
+            isSending
+              ? "bg-white border border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300 shadow-sm"
+              : "bg-zinc-900 text-zinc-50 hover:bg-zinc-800 hover:shadow-[0_10px_20px_-10px_rgba(0,0,0,0.5)]",
+            !isSending && "shadow-[0_4px_12px_rgba(0,0,0,0.1),inset_0_1px_0_rgba(255,255,255,0.1)]",
+            "disabled:bg-zinc-100 disabled:text-zinc-300 disabled:shadow-none disabled:active:scale-100"
           )}
         >
           {isSending ? (
-            <div className="absolute inset-0 flex items-center justify-center">
-              <Loader2 className="h-5 w-5 animate-spin text-zinc-400" />
+            <div className="flex items-center justify-center text-red-600">
+              <Square className="h-4 w-4 fill-current" />
             </div>
           ) : (
             <>
-              <span className="text-[13px] tracking-tight">Send Message</span>
               <SendHorizontal className={cn(
                 "h-4 w-4 transition-all duration-500 ease-out",
-                value.trim() ? "translate-x-0 opacity-100 scale-110" : "translate-x-2 opacity-0 scale-50"
+                value.trim() ? "translate-x-0 opacity-100 scale-100" : "opacity-70 scale-90"
               )} />
 
               {/* Inner highlight effect */}
@@ -600,8 +600,8 @@ export const ChatComposer = memo(forwardRef<ChatComposerRef, ChatComposerProps>(
 }))
 
 // Sub-component for Toolbar Buttons to keep code DRY
-const ToolbarButton = forwardRef<HTMLButtonElement, { children: React.ReactNode, onClick?: () => void, active?: boolean, tooltip: string }>(
-  ({ children, onClick, active, tooltip }, ref) => {
+const ToolbarButton = forwardRef<HTMLButtonElement, { children: React.ReactNode, onClick?: () => void, active?: boolean, tooltip: string, disabled?: boolean }>(
+  ({ children, onClick, active, tooltip, disabled }, ref) => {
     return (
       <Button
         ref={ref}
@@ -609,11 +609,13 @@ const ToolbarButton = forwardRef<HTMLButtonElement, { children: React.ReactNode,
         variant="ghost"
         onClick={onClick}
         title={tooltip}
+        disabled={disabled}
         className={cn(
           "relative h-9 w-9 rounded-xl p-0 transition-all duration-300 ease-in-out",
           active
             ? "bg-zinc-900 text-white shadow-md hover:bg-zinc-800 hover:shadow-lg"
-            : "text-zinc-500 hover:bg-white hover:text-zinc-900 hover:shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-transparent hover:border-zinc-200"
+            : "text-zinc-500 hover:bg-white hover:text-zinc-900 hover:shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-transparent hover:border-zinc-200",
+          "disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:shadow-none disabled:hover:border-transparent"
         )}
       >
         {children}

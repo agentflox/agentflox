@@ -91,7 +91,7 @@ Capabilities: ${template.capabilities.map(c => c.name).join(', ')}
                 const vectorString = `[${embedding.join(',')}]`;
                 await prisma.$executeRaw`
                     UPDATE agent_templates 
-                    SET embedding = ${vectorString}::vector
+                    SET embedding = ${vectorString}::text::vector
                     WHERE id = ${templateId}
                 `;
             }
