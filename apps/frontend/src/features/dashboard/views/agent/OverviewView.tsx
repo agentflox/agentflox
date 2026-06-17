@@ -2,11 +2,25 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { 
   Bot, 
   Play, 
   Pause, 
   Edit,
+  Sparkles,
+  Wrench,
   Archive,
   Activity,
   Zap,
@@ -48,46 +62,127 @@ export function OverviewView({ agent }: { agent: any }) {
     ? ((agent.successfulRuns / agent.totalExecutions) * 100).toFixed(1)
     : '0';
 
-  const handleToggleActive = () => {
+  const handleToggleActive = (checked: boolean) => {
     updateAgent.mutate({
       id: agent.id,
-      isActive: !agent.isActive,
-      status: !agent.isActive ? 'ACTIVE' : 'PAUSED',
+      isActive: checked,
+      status: checked ? 'ACTIVE' : 'PAUSED',
     });
   };
 
+  const handleRun = () => {
+    router.push(`/dashboard/agents/${agent.id}?tab=chat`);
+  };
+
+  const handleEditWithAI = () => {
+    router.push(`/dashboard/agents/${agent.id}?tab=ai-builder`);
+  };
+
+  const handleEditManually = () => {
+    router.push(`/dashboard/agents/${agent.id}?tab=settings`);
+  };
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="text-3xl">{agent.avatar || '🤖'}</div>
         <div>
-            <h1 className="text-2xl font-bold">{agent.name}</h1>
+            <div className="flex items-center gap-2.5">
+              <h1 className="text-2xl font-bold">{agent.name}</h1>
+              <Badge variant={agent.status === 'ACTIVE' ? 'default' : agent.status === 'DRAFT' ? 'secondary' : 'destructive'}>
+                {agent.status}
+              </Badge>
+            </div>
             <p className="text-muted-foreground mt-0.5">{agent.description || 'No description'}</p>
           </div>
         </div>
+
         <div className="flex items-center gap-2">
-          <Badge variant={agent.status === 'ACTIVE' ? 'default' : agent.status === 'DRAFT' ? 'secondary' : 'destructive'}>
-            {agent.status}
-          </Badge>
-          <Button variant="outline" onClick={() => router.push(`/dashboard/agents/${agent.id}?tab=builder`)}>
-            <Edit className="h-4 w-4 mr-2" />
-            Edit
-          </Button>
-          <Button variant="outline" onClick={handleToggleActive}>
-            {agent.isActive ? (
-              <>
-                <Pause className="h-4 w-4 mr-2" />
-                Pause
-              </>
-            ) : (
-              <>
-                <Play className="h-4 w-4 mr-2" />
-                Activate
-              </>
-            )}
-          </Button>
+          {/* Edit Dropdown */}
+          <DropdownMenu>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-9 w-9 border-zinc-200 text-zinc-700 hover:bg-zinc-50 hover:text-zinc-900 dark:border-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-900 shadow-none"
+                  >
+                    <Edit className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Edit this agent</p>
+              </TooltipContent>
+            </Tooltip>
+            <DropdownMenuContent align="end" className="w-64 p-1.5">
+              <div className="px-2 py-1.5 text-xs font-medium uppercase tracking-wide text-zinc-400">
+                Edit options
+              </div>
+              <DropdownMenuItem onClick={handleEditWithAI} className="gap-2.5 rounded-md px-2 py-2">
+                <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400">
+                  <Sparkles className="w-4 h-4" />
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-sm font-medium leading-tight">Edit with AI</span>
+                  <span className="text-xs text-muted-foreground">
+                    Describe changes and let AI update the agent
+                  </span>
+                </div>
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleEditManually} className="gap-2.5 rounded-md px-2 py-2">
+                <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
+                  <Wrench className="w-4 h-4" />
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-sm font-medium leading-tight">Edit manually</span>
+                  <span className="text-xs text-muted-foreground">
+                    Adjust settings and configuration yourself
+                  </span>
+                </div>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          {/* Run */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={handleRun}
+                className="h-9 w-9 border-zinc-200 text-zinc-700 hover:bg-zinc-50 hover:text-zinc-900 dark:border-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-900 shadow-none"
+              >
+                <Play className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Run this agent</p>
+            </TooltipContent>
+          </Tooltip>
+
+          {/* Activate toggle */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className="flex items-center gap-2 h-9 rounded-md border border-zinc-200 bg-white px-3 dark:border-zinc-800 dark:bg-zinc-950">
+                <span className="text-sm font-medium text-zinc-700 dark:text-zinc-200">
+                  {agent.isActive ? 'Active' : 'Inactive'}
+                </span>
+                <Switch
+                  className="cursor-pointer"
+                  checked={agent.isActive}
+                  onCheckedChange={handleToggleActive}
+                  disabled={updateAgent.isPending}
+                />
+              </div>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>{agent.isActive ? 'Pause this agent' : 'Activate this agent'}</p>
+            </TooltipContent>
+          </Tooltip>
         </div>
       </div>
 

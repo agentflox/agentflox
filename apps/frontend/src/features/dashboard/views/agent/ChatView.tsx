@@ -249,7 +249,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
   }, [handleSendMessage, launchMutation, conversationId, agentDraft]);
 
   if (isInitializing) {
-    return <AgentChatSkeleton />;
+    return <div className="h-full w-full"><AgentChatSkeleton /></div>;
   }
 
   const messagesWithFollowups = messages.map(msg => ({

@@ -304,7 +304,7 @@ export const taskRouter = router({
             workspace: { select: { id: true, name: true } },
             space: { select: { id: true, name: true, color: true } },
             channel: { select: { id: true, name: true } },
-            parent: { select: { id: true, title: true } },
+            tasks: { select: { id: true, title: true } },
             attachments: { include: { uploader: { select: { id: true, name: true, image: true } } } },
             list: {
               select: {
@@ -338,7 +338,7 @@ export const taskRouter = router({
       ]);
 
       const items = (itemsRaw as any[]).map((task) => {
-        const { watchers, ...rest } = task;
+        const { watchers, tasks: parentTask, ...rest } = task;
         const isStarred = (watchers?.length ?? 0) > 0;
         const normalizedAssignees = input.includeRelations
           ? (task.assignees ?? []).map(normalizeAiAgentImage)
@@ -347,7 +347,7 @@ export const taskRouter = router({
         // Don't leak the watchers rows to the client; expose `isStarred` instead.
         return {
           ...rest,
-          ...(input.includeRelations ? { assignees: normalizedAssignees } : {}),
+          ...(input.includeRelations ? { assignees: normalizedAssignees, parent: parentTask } : {}),
           isStarred,
         };
       });

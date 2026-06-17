@@ -5,6 +5,8 @@ import { ChatView } from './ChatView';
 import { ActivitiesView } from './ActivitiesView';
 import { TasksView } from './TasksView';
 import { LogsView } from './LogsView';
+import { SettingsView } from './SettingsView';
+
 
 interface ViewSwitcherProps {
   activeTab: string;
@@ -17,7 +19,7 @@ export default function ViewSwitcher({ activeTab, agent }: ViewSwitcherProps) {
     switch (activeTab) {
       case 'overview':
         return <OverviewView agent={agent} />;
-      case 'builder':
+      case 'ai-builder':
         return <OperatorView agent={agent} />;
       case 'automation':
         return <AutomationView agent={agent} />;
@@ -25,6 +27,8 @@ export default function ViewSwitcher({ activeTab, agent }: ViewSwitcherProps) {
         return <ChatView agent={agent} />;
       case 'activities':
         return <ActivitiesView agentId={agent?.id} />;
+      case 'settings':
+        return <SettingsView agent={agent} />;
       case 'tasks':
         return <TasksView agentId={agent?.id} />;
       case 'logs':
@@ -34,10 +38,10 @@ export default function ViewSwitcher({ activeTab, agent }: ViewSwitcherProps) {
     }
   };
 
-  const isChatView = activeTab === 'chat' || activeTab === 'builder';
+  const isChatView = activeTab === 'chat' || activeTab === 'ai-builder';
 
   return (
-    <div className={`flex-1 ${isChatView ? 'h-full overflow-hidden' : 'overflow-auto bg-white p-6'}`}>
+    <div className={`flex-1 flex flex-col ${isChatView ? 'h-full overflow-hidden' : 'overflow-auto bg-white'}`}>
       {renderView()}
     </div>
   );

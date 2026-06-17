@@ -222,7 +222,7 @@ export function AgentProfile({
 
       {/* Agent Header Card */}
       <Card className="rounded-none border-none">
-        <CardHeader className="space-y-4">
+        <CardHeader className="space-y-4 px-4 py-6">
           <div className="flex items-start justify-between gap-4">
             <div className="flex items-start gap-4 min-w-0 flex-1">
               <div className="flex-shrink-0 relative">
@@ -260,25 +260,80 @@ export function AgentProfile({
                 </div>
               </div>
             </div>
-            <div className="flex items-center gap-2 flex-shrink-0">
-              {/* Message Button */}
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="primary"
-                    size="icon"
-                    onClick={handleMessage}
-                    disabled={isActuallyReconfiguring}
-                  >
-                    <MessageSquare className="w-4 h-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Message</p>
-                </TooltipContent>
-              </Tooltip>
+            <div className="flex items-center gap-2.5 flex-shrink-0">
+              {/* Message + Run, grouped into a single segmented control */}
+              <div className="flex items-center rounded-lg border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={handleMessage}
+                      disabled={isActuallyReconfiguring}
+                      className="h-9 w-9 rounded-none rounded-l-lg text-zinc-700 hover:bg-zinc-50 hover:text-zinc-900 disabled:opacity-40 dark:text-zinc-200 dark:hover:bg-zinc-900"
+                    >
+                      <MessageSquare className="w-4 h-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Message this agent</p>
+                  </TooltipContent>
+                </Tooltip>
 
-              {/* Run Agent Dropdown */}
+                <div className="h-9 w-px bg-zinc-200 dark:bg-zinc-800" />
+
+                {/* Run Agent Dropdown */}
+                <DropdownMenu>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          disabled={isActuallyReconfiguring}
+                          className="h-9 w-9 rounded-none rounded-r-lg text-zinc-700 hover:bg-zinc-50 hover:text-zinc-900 disabled:opacity-40 dark:text-zinc-200 dark:hover:bg-zinc-900"
+                        >
+                          <Play className="w-4 h-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Run this agent</p>
+                    </TooltipContent>
+                  </Tooltip>
+                  <DropdownMenuContent align="end" className="w-64 p-1.5">
+                    <div className="px-2 py-1.5 text-xs font-medium uppercase tracking-wide text-zinc-400">
+                      Run options
+                    </div>
+                    <DropdownMenuItem onClick={handleSendDM} className="gap-2.5 rounded-md px-2 py-2">
+                      <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400">
+                        <Send className="w-4 h-4" />
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-sm font-medium leading-tight">Send a direct message</span>
+                        <span className="text-xs text-muted-foreground">
+                          Open a live chat with the agent
+                        </span>
+                      </div>
+                    </DropdownMenuItem>
+                    {hasSchedules && (
+                      <DropdownMenuItem onClick={handleScheduleRun} className="gap-2.5 rounded-md px-2 py-2">
+                        <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
+                          <Calendar className="w-4 h-4" />
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="text-sm font-medium leading-tight">Preview scheduled run</span>
+                          <span className="text-xs text-muted-foreground">
+                            See how the next scheduled run will behave
+                          </span>
+                        </div>
+                      </DropdownMenuItem>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+
+              {/* More Options — kept visually separate since it's not a "run" action */}
               <DropdownMenu>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -287,58 +342,30 @@ export function AgentProfile({
                         variant="outline"
                         size="icon"
                         disabled={isActuallyReconfiguring}
+                        className="h-9 w-9 border-zinc-200 text-zinc-500 hover:bg-zinc-50 hover:text-zinc-700 disabled:opacity-40 dark:border-zinc-800 dark:hover:bg-zinc-900"
                       >
-                        <Play className="w-4 h-4" />
+                        <MoreVertical className="w-4 h-4" />
                       </Button>
                     </DropdownMenuTrigger>
                   </TooltipTrigger>
                   <TooltipContent>
-                    <p>Run agent</p>
+                    <p>More options</p>
                   </TooltipContent>
                 </Tooltip>
-                <DropdownMenuContent align="end" className="w-48">
-                  <DropdownMenuItem onClick={handleSendDM} className="gap-2">
-                    <Send className="w-4 h-4" />
-                    <div className="flex flex-col">
-                      <span className="font-medium">Send DM</span>
-                      <span className="text-xs text-muted-foreground">
-                        Start a direct chat with the agent
-                      </span>
-                    </div>
-                  </DropdownMenuItem>
-                  {hasSchedules && (
-                    <DropdownMenuItem onClick={handleScheduleRun} className="gap-2">
-                      <Calendar className="w-4 h-4" />
-                      <div className="flex flex-col">
-                        <span className="font-medium">Scheduled run</span>
-                        <span className="text-xs text-muted-foreground">
-                          Preview how the agent will run at its scheduled time
-                        </span>
-                      </div>
-                    </DropdownMenuItem>
-                  )}
-                </DropdownMenuContent>
-              </DropdownMenu>
-
-              {/* More Options Button */}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    disabled={isActuallyReconfiguring}
+                <DropdownMenuContent align="end" className="w-48 p-1.5">
+                  <DropdownMenuItem
+                    onClick={() => toast.info('View feature coming soon!')}
+                    className="gap-2 rounded-md px-2 py-1.5"
                   >
-                    <MoreVertical className="w-4 h-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={() => toast.info('View feature coming soon!')}>
-                    <Eye className="w-4 h-4 mr-2" />
-                    View
+                    <Eye className="w-4 h-4 text-zinc-500" />
+                    <span className="text-sm">View details</span>
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setSettingsOpen(true)}>
-                    <Settings className="w-4 h-4 mr-2" />
-                    Settings
+                  <DropdownMenuItem
+                    onClick={() => setSettingsOpen(true)}
+                    className="gap-2 rounded-md px-2 py-1.5"
+                  >
+                    <Settings className="w-4 h-4 text-zinc-500" />
+                    <span className="text-sm">Settings</span>
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>

@@ -121,16 +121,15 @@ export function TaskCard({ item, onOpen, onConvert, className, isSelected, onSel
 								].filter(Boolean).join(' / ') || 'Task'
 							)}
 						</span>
-						{item.parent && (
-							<>
-								<span className="text-zinc-300 px-0.5 shrink-0">/</span>
-								<div className="flex items-center gap-1 shrink-0" title={item.parent.title}>
-									<GitBranch className="h-3 w-3" />
-									<span className="truncate max-w-[80px]">{item.parent.title}</span>
-								</div>
-							</>
-						)}
 					</div>
+
+					{item.parent && (
+						<div className="flex items-center gap-1 shrink-0 ml-2 mr-8 text-zinc-400" title={item.parent.title}>
+							<GitBranch className="h-3 w-3" />
+							<span className="truncate text-[10px] max-w-[80px]">{item.parent.title}</span>
+						</div>
+					)}
+
 
 					{/* Checkbox — top left, visible on hover or when selected */}
 					<div

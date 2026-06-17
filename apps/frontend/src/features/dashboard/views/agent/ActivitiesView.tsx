@@ -3,8 +3,15 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Activity, CheckCircle2, XCircle, Clock, Loader2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import { Activity, CheckCircle2, XCircle, Clock, Loader2, Download } from 'lucide-react';
 import { trpc } from '@/lib/trpc';
+import { toast } from 'sonner';
 // Date formatting helper
 const formatTimeAgo = (date: Date | string) => {
   const d = typeof date === 'string' ? new Date(date) : date;
@@ -31,6 +38,35 @@ export function ActivitiesView({ agentId }: ActivitiesViewProps) {
     { enabled: !!agentId }
   );
 
+  const handleExportLogs = () => {
+    if (!executions || executions.items.length === 0) return;
+
+    const rows = executions.items.map((execution: any) => ({
+      id: execution.id,
+      status: execution.status,
+      startedAt: execution.startedAt || '',
+      duration: execution.duration ?? '',
+      error: execution.error || '',
+    }));
+
+    const header = Object.keys(rows[0]);
+    const csv = [
+      header.join(','),
+      ...rows.map((row: any) =>
+        header.map((key) => `"${String(row[key]).replace(/"/g, '""')}"`).join(',')
+      ),
+    ].join('\n');
+
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `execution-logs-${agentId || 'agent'}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+    toast.success('Logs exported');
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -41,7 +77,7 @@ export function ActivitiesView({ agentId }: ActivitiesViewProps) {
 
   if (!executions || executions.items.length === 0) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-6 p-6">
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2">
             <Activity className="h-6 w-6" />
@@ -67,15 +103,33 @@ export function ActivitiesView({ agentId }: ActivitiesViewProps) {
   };
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold flex items-center gap-2">
-          <Activity className="h-6 w-6" />
-          Execution History
-        </h1>
-        <p className="text-muted-foreground mt-1">
-          {executions.total} total executions
-        </p>
+    <div className="space-y-6 p-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold flex items-center gap-2">
+            <Activity className="h-6 w-6" />
+            Execution History
+          </h1>
+          <p className="text-muted-foreground mt-1">
+            {executions.total} total executions
+          </p>
+        </div>
+
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={handleExportLogs}
+              className="h-9 w-9 border-zinc-200 text-zinc-500 hover:bg-zinc-50 hover:text-zinc-700 dark:border-zinc-800 dark:hover:bg-zinc-900"
+            >
+              <Download className="h-4 w-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>Export logs as CSV</p>
+          </TooltipContent>
+        </Tooltip>
       </div>
 
       <div className="space-y-4">

@@ -57,16 +57,16 @@ export default function agentDetailPage() {
     );
   }
 
-  const isChatView = activeTab === 'chat' || activeTab === 'builder';
+  const isChatView = activeTab === 'chat' || activeTab === 'ai-builder';
 
   return (
     <div className="flex flex-col h-full">
       {/* Top Header Section */}
-      <div className="px-6 pt-2 flex-shrink-0 border-b-1">
+      <div className="px-6 pt-2 flex-shrink-0 border-b-1 sticky">
         <Button
           variant="ghost"
           onClick={() => router.push('/dashboard/agents')}
-          className="text-muted-foreground hover:text-foreground mb-2 -ml-4"
+          className="text-muted-foreground hover:text-foreground mb-[8px] -ml-4"
         >
           <ArrowLeft className="w-4 h-4 mr-2" />
           Back to Agents

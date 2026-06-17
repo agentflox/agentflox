@@ -24,7 +24,7 @@ export default function Sidebar({ mode = "inline", onClose }: { mode?: "inline" 
       title="Agent Menu"
       mode={mode}
       onClose={onClose}
-      cssVarName="--project-sidebar-width"
+      cssVarName="--agent-sidebar-width"
       activeItem={activeTab}
       onItemClick={handleItemClick}
     />

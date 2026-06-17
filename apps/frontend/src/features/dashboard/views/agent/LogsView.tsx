@@ -1,26 +1,25 @@
 "use client";
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { FileText, Search, Download, AlertCircle, CheckCircle2, Info, AlertTriangle } from 'lucide-react';
-
 interface LogsViewProps {
   agentId?: string;
 }
-
 type LogLevel = 'success' | 'error' | 'warning' | 'info' | 'debug' | 'all';
-
 export const LogsView = ({ agentId }: LogsViewProps) => {
   const [logLevel, setLogLevel] = useState<LogLevel>('all');
   const [searchQuery, setSearchQuery] = useState('');
-
   // TODO: Implement agent logs query when backend endpoint is available
   // For now, show placeholder with filters
-
   const logLevels: { value: LogLevel; label: string; icon: any }[] = [
     { value: 'all', label: 'All Logs', icon: FileText },
     { value: 'success', label: 'Success', icon: CheckCircle2 },
@@ -29,9 +28,8 @@ export const LogsView = ({ agentId }: LogsViewProps) => {
     { value: 'info', label: 'Info', icon: Info },
     { value: 'debug', label: 'Debug', icon: FileText },
   ];
-
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-6">
       <div className="flex items-center justify-between">
       <div>
           <h1 className="text-2xl font-bold flex items-center gap-2">
@@ -42,12 +40,21 @@ export const LogsView = ({ agentId }: LogsViewProps) => {
             View agent execution logs and system events
         </p>
       </div>
-        <Button variant="outline">
-          <Download className="h-4 w-4 mr-2" />
-          Export Logs
-        </Button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-9 w-9 border-zinc-200 text-zinc-500 hover:bg-zinc-50 hover:text-zinc-700 dark:border-zinc-800 dark:hover:bg-zinc-900"
+            >
+              <Download className="h-4 w-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>Export logs</p>
+          </TooltipContent>
+        </Tooltip>
       </div>
-
       {/* Filters */}
       <Card>
         <CardContent className="pt-6">
@@ -83,7 +90,6 @@ export const LogsView = ({ agentId }: LogsViewProps) => {
           </div>
         </CardContent>
       </Card>
-
       {/* Logs List */}
       <Card>
         <CardHeader>

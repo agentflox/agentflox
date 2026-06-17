@@ -14,7 +14,7 @@ export const TasksView = ({ agentId }: TasksViewProps) => {
   // For now, show placeholder
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-6">
       <div>
         <h1 className="text-2xl font-bold flex items-center gap-2">
           <CheckSquare className="h-6 w-6" />

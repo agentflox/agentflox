@@ -8,7 +8,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     const [open, setOpen] = useState(false); // mobile main sidebar drawer
     const searchParams = useSearchParams();
     const activeTab = searchParams.get('tab') || 'overview';
-    const isChatView = activeTab === 'chat' || activeTab === 'builder';
+    const isChatView = activeTab === 'chat' || activeTab === 'ai-builder';
 
     return (
         <div className="relative mx-auto w-full max-w-8xl h-full flex flex-col">
@@ -29,7 +29,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             </div>
 
             {/* Desktop layout with inline sidebar */}
-            <div className="hidden md:grid md:grid-cols-[var(--main-sidebar-width,_16rem)_1fr] flex-1 min-h-0">
+            <div className="hidden md:grid md:grid-cols-[var(--agent-sidebar-width,_16rem)_1fr] flex-1 min-h-0">
                 <Sidebar />
                 <div className={`${isChatView ? 'h-full overflow-hidden flex flex-col min-h-0' : 'h-full overflow-y-auto'}`}>
                     {children}

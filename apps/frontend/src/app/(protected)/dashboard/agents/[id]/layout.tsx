@@ -42,7 +42,7 @@ export default function AgentLayout({ children }: AgentLayoutProps) {
 
   const conversationType = useMemo(() => {
     switch (activeTab) {
-      case 'builder': return 'AGENT_OPERATOR';
+      case 'ai-builder': return 'AGENT_OPERATOR';
       case 'chat': return 'AGENT_EXECUTOR';
       default: return 'AGENT_BUILDER';
     }
@@ -90,7 +90,7 @@ export default function AgentLayout({ children }: AgentLayoutProps) {
     isOwner,
   };
 
-  const isChatView = activeTab === 'chat' || activeTab === 'builder';
+  const isChatView = activeTab === 'chat' || activeTab === 'ai-builder';
 
   return (
     <AgentContext.Provider value={contextValue}>
