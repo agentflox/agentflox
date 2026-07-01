@@ -2,10 +2,10 @@
 
 import React, { useEffect, useState } from 'react';
 import { Shield, Check, X, Clock, AlertTriangle } from 'lucide-react';
-import { useWorkforceStore } from '../store/useWorkforceStore';
+import { useWorkforceStore } from '../../../../../entities/workforce/hooks/useWorkforceStore';
 import { toast } from 'sonner';
 import { fetchAuthToken } from '@/utils/backend-request';
-import { BACKEND_URL } from '@/entities/agents/hooks/useAgentStream';
+import { BACKEND_URL } from '@/hooks/useSSEStream';
 
 export default function SwarmApprovalDrawer() {
     const { swarmSessionId, pendingApprovals, setPendingApprovals } = useWorkforceStore();
@@ -18,7 +18,7 @@ export default function SwarmApprovalDrawer() {
     const fetchApprovals = async () => {
         try {
             const token = await fetchAuthToken();
-            const url = new URL(`${BACKEND_URL}/v1/agents/swarm/tasks`);
+            const url = new URL(`${BACKEND_URL}/v1/workforces/swarm/tasks`);
             url.searchParams.set('status', 'PENDING_APPROVAL');
             if (swarmSessionId) {
                 url.searchParams.set('sessionId', swarmSessionId);
@@ -39,12 +39,12 @@ export default function SwarmApprovalDrawer() {
         setIsProcessing(taskId);
         try {
             const token = await fetchAuthToken();
-            const resp = await fetch(`${BACKEND_URL}/v1/agents/swarm/tasks/${taskId}/approve`, {
+            const resp = await fetch(`${BACKEND_URL}/v1/workforces/swarm/tasks/${taskId}/approve`, {
                 method: 'POST',
                 headers: token ? { Authorization: `Bearer ${token}` } : {},
             });
             if (!resp.ok) throw new Error('Approval failed');
-            
+
             toast.success('Task approved and released to swarm');
             setPendingApprovals(pendingApprovals.filter((t: any) => t.id !== taskId));
         } catch (err) {
@@ -77,7 +77,7 @@ export default function SwarmApprovalDrawer() {
                                     Awaiting Approval
                                 </span>
                             </div>
-                            
+
                             <div className="flex items-center gap-2 mb-3">
                                 <AlertTriangle className="h-3 w-3 text-yellow-600" />
                                 <p className="text-[11px] text-muted-foreground italic">

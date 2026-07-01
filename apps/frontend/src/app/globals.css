@@ -4,170 +4,103 @@
 @source '../../node_modules/@llamaindex/chat-ui/**/*.{ts,tsx}';
 
 @keyframes fadeIn {
-  0% {
-    opacity: 0;
-  }
-
-  100% {
-    opacity: 1;
-  }
+  0% { opacity: 0; }
+  100% { opacity: 1; }
 }
 
 @keyframes fadeInUp {
-  0% {
-    opacity: 0;
-    transform: translateY(30px);
-  }
-
-  100% {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-
-  to {
-    opacity: 1;
-  }
+  0% { opacity: 0; transform: translateY(30px); }
+  100% { opacity: 1; transform: translateY(0); }
 }
 
 @keyframes fadeInDown {
-  0% {
-    opacity: 0;
-    transform: translateY(-30px);
-  }
-
-  100% {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  0% { opacity: 0; transform: translateY(-30px); }
+  100% { opacity: 1; transform: translateY(0); }
 }
 
 @keyframes blob {
-  0% {
-    transform: translate(0px, 0px) scale(1);
-  }
-
-  33% {
-    transform: translate(30px, -50px) scale(1.1);
-  }
-
-  66% {
-    transform: translate(-20px, 20px) scale(0.9);
-  }
-
-  100% {
-    transform: translate(0px, 0px) scale(1);
-  }
+  0% { transform: translate(0px, 0px) scale(1); }
+  33% { transform: translate(30px, -50px) scale(1.1); }
+  66% { transform: translate(-20px, 20px) scale(0.9); }
+  100% { transform: translate(0px, 0px) scale(1); }
 }
 
 @keyframes flipInFromTop {
-  0% {
-    transform: perspective(400px) rotateX(-90deg);
-    opacity: 0;
-    transform-origin: top;
-  }
-
-  40% {
-    transform: perspective(400px) rotateX(10deg);
-    transform-origin: top;
-  }
-
-  70% {
-    transform: perspective(400px) rotateX(-5deg);
-    transform-origin: top;
-  }
-
-  100% {
-    transform: perspective(400px) rotateX(0deg);
-    opacity: 1;
-    transform-origin: top;
-  }
+  0% { transform: perspective(400px) rotateX(-90deg); opacity: 0; transform-origin: top; }
+  40% { transform: perspective(400px) rotateX(10deg); transform-origin: top; }
+  70% { transform: perspective(400px) rotateX(-5deg); transform-origin: top; }
+  100% { transform: perspective(400px) rotateX(0deg); opacity: 1; transform-origin: top; }
 }
 
 @keyframes loading-progress {
-  0% {
-    transform: translateX(-100%);
-  }
-
-  50% {
-    transform: translateX(200%);
-  }
-
-  100% {
-    transform: translateX(-100%);
-  }
+  0% { transform: translateX(-100%); }
+  50% { transform: translateX(200%); }
+  100% { transform: translateX(-100%); }
 }
 
-/* Streaming cursor blink used by StreamingMessage */
 @keyframes blink {
-
-  0%,
-  100% {
-    opacity: 1;
-  }
-
-  50% {
-    opacity: 0;
-  }
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
 }
 
-/* Thin, modern horizontal scrollbar (toolbars) */
-.toolbar-scroll-x {
-  scrollbar-width: thin; /* Firefox */
-  scrollbar-color: rgba(139, 92, 246, 0.3) transparent;
+/* ─── Global Scrollbar ─── */
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #d4d4d8 transparent;
 }
 
-.toolbar-scroll-x::-webkit-scrollbar {
-  height: 5px;
-  width: 5px;
+/* Chrome / Safari / Edge */
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
 }
 
-.toolbar-scroll-x::-webkit-scrollbar-track {
+::-webkit-scrollbar-track {
   background: transparent;
 }
 
-.toolbar-scroll-x::-webkit-scrollbar-thumb {
-  background: rgba(139, 92, 246, 0.2);
+::-webkit-scrollbar-thumb {
+  background: #d4d4d8;
   border-radius: 999px;
-  border: 1px solid transparent;
-  background-clip: padding-box;
 }
 
-.toolbar-scroll-x::-webkit-scrollbar-thumb:hover {
-  background: rgba(139, 92, 246, 0.4);
+::-webkit-scrollbar-thumb:hover {
+  background: #a1a1aa;
 }
 
-/* Thin, modern custom scrollbar */
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* ─── Utility scrollbar classes (keep for opt-in purple variant) ─── */
+.toolbar-scroll-x,
 .custom-scrollbar {
   scrollbar-width: thin;
   scrollbar-color: rgba(139, 92, 246, 0.3) transparent;
 }
 
+.toolbar-scroll-x::-webkit-scrollbar,
 .custom-scrollbar::-webkit-scrollbar {
-  width: 5px;
-  height: 5px;
+  width: 4px;
+  height: 4px;
 }
 
+.toolbar-scroll-x::-webkit-scrollbar-track,
 .custom-scrollbar::-webkit-scrollbar-track {
   background: transparent;
 }
 
+.toolbar-scroll-x::-webkit-scrollbar-thumb,
 .custom-scrollbar::-webkit-scrollbar-thumb {
   background: rgba(139, 92, 246, 0.2);
   border-radius: 999px;
-  border: 1px solid transparent;
-  background-clip: padding-box;
 }
 
+.toolbar-scroll-x::-webkit-scrollbar-thumb:hover,
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background: rgba(139, 92, 246, 0.4);
 }
-
 
 @custom-variant dark (&:is(.dark *));
 
@@ -219,33 +152,31 @@
   gap: .5rem;
   border-radius: .5rem;
   padding: .625rem 1rem;
-  font-weight: 600
+  font-weight: 600;
 }
 
 .btn-primary {
   background-color: #111827;
-  color: #fff
+  color: #fff;
 }
 
 .btn-primary:hover {
-  background-color: #0b1220
+  background-color: #0b1220;
 }
 
 .btn-outline {
   border: 1px solid #e5e7eb;
   color: #111827;
-  background: #fff
+  background: #fff;
 }
 
 .btn-outline:hover {
-  background-color: #f9fafb
+  background-color: #f9fafb;
 }
 
-/* Re-enable text selection within your panels */
 .Panel.selectable-content {
   user-select: text !important;
   -webkit-user-select: text !important;
-  /* For compatibility */
 }
 
 .input {
@@ -266,21 +197,21 @@
   display: block;
   font-size: .875rem;
   font-weight: 600;
-  margin-bottom: .375rem
+  margin-bottom: .375rem;
 }
 
 .card {
   border: 1px solid #e5e7eb;
   border-radius: .75rem;
-  background: #fff
+  background: #fff;
 }
 
 .card-body {
-  padding: 1rem
+  padding: 1rem;
 }
 
 .muted {
-  color: #6b7280
+  color: #6b7280;
 }
 
 :root {
@@ -372,13 +303,12 @@
     text-rendering: auto;
   }
 
-  /* Smooth scrolling */
   html {
     scroll-behavior: smooth;
   }
 }
 
-/* View Transitions for Marketplace */
+/* View Transitions */
 ::view-transition-group(*),
 ::view-transition-old(*),
 ::view-transition-new(*) {
@@ -395,4 +325,26 @@
 
 .preview-html br {
   display: block;
+}
+
+/* Focus Mode Block */
+.focus-mode-block .ProseMirror > * {
+  opacity: 0.35;
+  transition: opacity 0.2s ease;
+}
+.focus-mode-block .ProseMirror > *:hover,
+.focus-mode-block .ProseMirror > *:focus-within {
+  opacity: 1;
+}
+.focus-mode-block .ProseMirror:focus-within > * {
+  opacity: 0.35;
+}
+.focus-mode-block .ProseMirror:focus-within > *:focus-within {
+  opacity: 1;
+}
+
+/* Page Focus Mode */
+.focus-mode-page .floating-sidebar {
+  opacity: 0;
+  pointer-events: none;
 }

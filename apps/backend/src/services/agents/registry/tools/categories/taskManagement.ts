@@ -1,4 +1,4 @@
-import { ToolDefinition } from '../core/ToolRegistryManager';
+import { ToolDefinition } from '../../core/ToolRegistryManager';
 
 // Includes DEFAULT_TOOLS and TASK_MANAGEMENT_TOOLS from original toolRegistry.ts
 export const TASK_MANAGEMENT_TOOLS: ToolDefinition[] = [

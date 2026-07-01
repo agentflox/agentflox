@@ -19,7 +19,7 @@ export class UsageTrackingService {
         const { userId, modelId, inputTokens, outputTokens, context, conversationId, metadata } = params;
 
         // Normalize model ID
-        const normalizedModelId = convertModelName(modelId) || modelId;
+        const normalizedModelId = convertModelName(modelId as any) || modelId;
 
         // Calculate cost
         const rate = MODEL_RATES[normalizedModelId] || MODEL_RATES[modelId] || DEFAULT_RATE;

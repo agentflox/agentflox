@@ -12,7 +12,7 @@ import { randomUUID } from "crypto";
 
 const ENTITY_TYPES = [
   "SPACE", "FOLDER", "LIST", "TASK", "DOC",
-  "VIEW", "AGENT", "WORKFORCE", "PROPOSAL", "LISTING",
+  "VIEW", "AGENT", "WORKFORCE", "LISTING",
 ] as const;
 
 const COMPLEXITY_TYPES = ["BEGINNER", "INTERMEDIATE", "ADVANCED"] as const;
@@ -55,6 +55,8 @@ const TEMPLATE_SELECT = {
   visibility: true,
   shareUserIds: true,
   shareTeamIds: true,
+  content: true,
+  sourceEntityId: true,
   creator: { select: { id: true, name: true, image: true } },
 } as const;
 
@@ -677,6 +679,43 @@ export const templateRouter = router({
         andParts.push({ workspaceId: null, isSystem: false, isPublic: true });
       } else if (scope === "builtin") {
         andParts.push({ isSystem: true });
+      } else if (scope === "all") {
+        const or: Prisma.TemplateWhereInput[] = [
+          { workspaceId: null, isSystem: false, isPublic: true },
+          { isSystem: true },
+          { createdBy: userId },
+          {
+            AND: [
+              { visibility: "PRIVATE" },
+              { shareUserIds: { has: userId } }
+            ]
+          }
+        ];
+        
+        const allTeamMembers = await prisma.teamMember.findMany({
+          where: { userId },
+          select: { teamId: true }
+        });
+        const allTeamIds = allTeamMembers.map(t => t.teamId);
+        if (allTeamIds.length > 0) {
+          or.push({
+            AND: [
+              { visibility: "PRIVATE" },
+              { shareTeamIds: { hasSome: allTeamIds } }
+            ]
+          });
+        }
+
+        if (workspaceId) {
+          const accessOr = editableOnly
+            ? await buildEditAccessOr(userId, workspaceId)
+            : await buildViewAccessOr(userId, workspaceId);
+          or.push({
+            workspaceId,
+            OR: accessOr
+          });
+        }
+        andParts.push({ OR: or });
       }
 
       if (entityTypes?.length) andParts.push({ entityType: { in: entityTypes } });
@@ -1050,7 +1089,7 @@ export const templateRouter = router({
 
       const destination = input.destination;
       const entityType = String(template.entityType).toUpperCase();
-      const workspaceOnlyTypes = new Set(["AGENT", "WORKFORCE", "PROPOSAL", "LISTING"]);
+      const workspaceOnlyTypes = new Set(["AGENT", "WORKFORCE", "LISTING"]);
       if (workspaceOnlyTypes.has(entityType) && !["workspace", "standalone"].includes(destination.kind)) {
         throw new TRPCError({ code: "BAD_REQUEST", message: `${entityType} templates can only target workspace or standalone` });
       }
@@ -1209,25 +1248,7 @@ export const templateRouter = router({
           select: { id: true },
         });
         createdId = created.id;
-      } else if (entityType === "PROPOSAL") {
-        const created = await (prisma as any).proposal.create({
-          data: {
-            workspaceId: destination.kind === "standalone" ? undefined : resolvedWorkspaceId,
-            userId,
-            createdBy: userId,
-            title: name,
-            shortSummary: content.shortSummary ?? "Created from template",
-            detailedDesc: content.detailedDesc ?? content.description ?? "",
-            category: content.category ?? "INVESTMENT",
-            intent: content.intent ?? "OFFERING",
-            status: "DRAFT",
-            industry: Array.isArray(content.industry) ? content.industry : [],
-            keywords: Array.isArray(content.keywords) ? content.keywords : [],
-            tags: Array.isArray(content.tags) ? content.tags : [],
-          } as any,
-          select: { id: true },
-        });
-        createdId = created.id;
+
       } else if (entityType === "LISTING") {
         const listingTypeCandidates = new Set([
           "TASK",

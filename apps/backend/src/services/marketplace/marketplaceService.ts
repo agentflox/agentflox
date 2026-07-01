@@ -116,7 +116,8 @@ export class MarketplaceService {
                 serviceId: service.id,
                 projectId,
                 buyerId: userId,
-                amount: service.price,
+                creditAmount: 0,
+                // amount: service.price,
                 status: 'PENDING'
             }
         });

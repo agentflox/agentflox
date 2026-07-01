@@ -284,3 +284,56 @@ export function extractAuthContext(socket: Socket, data: Record<string, any>): A
         teamId: data?.teamId,
     };
 }
+
+/**
+ * HTTP-friendly project access check (owner, active member, or public project).
+ */
+export async function checkProjectAccessForUser(
+    userId: string,
+    projectId: string,
+): Promise<{ authorized: boolean; reason?: string }> {
+    if (!projectId) {
+        return { authorized: false, reason: 'Project ID is required' };
+    }
+
+    try {
+        const project = await executeDbOperation(() =>
+            prisma.project.findUnique({
+                where: { id: projectId },
+                select: {
+                    id: true,
+                    ownerId: true,
+                    visibility: true,
+                    members: {
+                        where: { userId, status: 'ACTIVE' },
+                        select: { id: true },
+                    },
+                },
+            })
+        );
+
+        if (!project) {
+            return { authorized: false, reason: 'Project not found' };
+        }
+
+        const isOwner = project.ownerId === userId;
+        const isMember = project.members.length > 0;
+        const isPublic = project.visibility === 'PUBLIC';
+
+        if (isOwner || isMember || isPublic) {
+            return { authorized: true };
+        }
+
+        return { authorized: false, reason: 'No access to this project' };
+    } catch (error) {
+        console.error('[Auth] Error validating project access:', error);
+        return { authorized: false, reason: 'Authorization check failed' };
+    }
+}
+
+export async function assertProjectAccessForUser(userId: string, projectId: string): Promise<void> {
+    const result = await checkProjectAccessForUser(userId, projectId);
+    if (!result.authorized) {
+        throw new Error(result.reason || 'Access denied');
+    }
+}

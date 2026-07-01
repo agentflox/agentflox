@@ -15,20 +15,21 @@ import {
     FileText,
     Calendar,
     List,
+    User,
+    Sparkles,
+    FolderKanban
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 export type TeamView =
     | "overview"
-    | "lists"
+    | "personal"
     | "projects"
-    | "members"
-    | "activities"
-    | "discussions"
-    | "calendar"
-    | "documents"
-    | "settings";
+    | "lists"
+    | "docs"
+    | "chats"
+    | "ai-chat";
 
 interface TeamNavigationSidebarProps {
     teamId: string;
@@ -47,14 +48,12 @@ const navigationItems: Array<{
     href?: string;
 }> = [
         { id: "overview", label: "Overview", icon: LayoutDashboard },
+        { id: "personal", label: "Personal", icon: User },
+        { id: "projects", label: "Projects", icon: FolderKanban },
         { id: "lists", label: "Lists", icon: List },
-        { id: "members", label: "Members", icon: Users },
-        // { id: "projects", label: "Projects", icon: FolderKanban }, // If Teams have their own project view
-        { id: "activities", label: "Activities", icon: Activity },
-        { id: "discussions", label: "Discussions", icon: MessageSquare },
-        { id: "calendar", label: "Calendar", icon: Calendar },
-        { id: "documents", label: "Documents", icon: FileText },
-        // { id: "settings", label: "Settings", icon: Settings },
+        { id: "docs", label: "Docs", icon: FileText },
+        { id: "chats", label: "Chats", icon: MessageSquare },
+        { id: "ai-chat", label: "AI Chat", icon: Sparkles },
     ];
 
 export default function TeamNavigationSidebar({
@@ -100,7 +99,7 @@ export default function TeamNavigationSidebar({
             </div>
 
             {/* Navigation */}
-            <ScrollArea className="flex-1 px-3 py-4">
+            <ScrollArea className="flex-1 px-1.5 py-4">
                 <div className="space-y-1">
                     {navigationItems.map((item) => {
                         const Icon = item.icon;

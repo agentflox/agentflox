@@ -24,6 +24,9 @@ const envSchema = z.object({
 
   // Security
   JWT_SECRET: z.string().optional(),
+  METRICS_TOKEN: z.string().optional(),
+  SKIP_PAYPAL_WEBHOOK_VERIFY: z.string().optional(),
+  HTTP_REQUEST_TIMEOUT_MS: z.string().optional(),
 
   // OpenAI for embeddings
   OPENAI_API_KEY: z.string().optional(),

@@ -67,7 +67,7 @@ export default function BillingStatusPage() {
   const handleDismissModal = async () => {
     if (statusData) {
       try {
-        await billingApi.status.update({
+        await billingService.status.update({
           type: statusData.method === 'subscription' ? 'subscription' : 'order',
           id: statusData.id,
           metadata: { modalDismissed: true }

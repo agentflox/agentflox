@@ -196,7 +196,7 @@ export function AddViewModal({ open, onOpenChange, existingViews, onAddViews, on
 														onClick={() => toggleView(view.id)}
 														className={cn(
 															"relative flex items-center p-3 rounded-xl border bg-white transition-all duration-200 text-left hover:shadow-md hover:border-primary/20 hover:scale-[1.02] cursor-pointer",
-															isSelected ? "ring-2 ring-primary border-primary/50 shadow-sm" : "border-slate-200"
+															isSelected ? "ring-1 ring-primary border-primary/50 shadow-sm" : "border-slate-200"
 														)}
 													>
 														<div className={cn("h-10 w-10 shrink-0 rounded-lg flex items-center justify-center mr-3", view.color || "bg-slate-100 text-slate-600")}>

@@ -4,11 +4,13 @@ import { protectedProcedure, router } from "@/trpc/init";
 import { initializeOpenAI } from "@/lib/openai";
 import { prisma } from "@/lib/prisma";
 import { ConversationType } from "@agentflox/database/src/generated/prisma";
-import {
-  EditorAssistantResponseSchema,
-  ToolOpSchema,
-  WorkforceOpSchema,
-} from "@/components/assistant/editorOps";
+import { ToolOpSchema } from "@/entities/tools/components/assistant/types";
+import { WorkforceOpSchema } from "@/entities/workforce/components/assistant/types";
+
+export const EditorAssistantResponseSchema = z.object({
+  assistantText: z.string(),
+  proposedOps: z.array(z.union([ToolOpSchema, WorkforceOpSchema])).default([]),
+});
 
 const initializeSchema = z.object({
   mode: z.enum(["tool", "workforce"]),

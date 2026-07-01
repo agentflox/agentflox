@@ -77,7 +77,7 @@ export class StageOrchestrator {
 
     // Compress conversation history to reduce token usage
     const compressedHistory = await this.tokenBudgetManager.compressIfNeeded(
-      conversationHistory,
+      conversationHistory as any,
       this.tokenBudgetManager.getBudget('stageProgression') * 0.3 // Use 30% of budget for history
     );
 

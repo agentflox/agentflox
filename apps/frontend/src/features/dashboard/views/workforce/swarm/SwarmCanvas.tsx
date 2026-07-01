@@ -12,11 +12,11 @@ import {
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { Plus, Minus, Maximize2, Undo2, Redo2, MousePointer2 } from 'lucide-react';
-import { useWorkforceStore } from '../store/useWorkforceStore';
-import { AgentNode } from '../nodes/AgentNode';
-import { TaskNode } from '../nodes/TaskNode';
-import { PoolTaskNode } from '../nodes/PoolTaskNode';
-import FlowEdge from '../edges/FlowEdge';
+import { useWorkforceStore } from '../../../../../entities/workforce/hooks/useWorkforceStore';
+import { AgentNode } from '../../../../../entities/workforce/components/nodes/AgentNode';
+import { TaskNode } from '../../../../../entities/workforce/components/nodes/TaskNode';
+import { PoolTaskNode } from '../../../../../entities/workforce/components/nodes/PoolTaskNode';
+import FlowEdge from '../../../../../entities/workforce/components/edges/FlowEdge';
 import SwarmCoordinatorInspector from './SwarmCoordinatorInspector';
 
 const nodeTypes = {

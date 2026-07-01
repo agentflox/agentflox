@@ -37,7 +37,7 @@ export default function AgentCreationPage() {
   if (isLoading) {
     return (
       <Shell hideSidebar noPadding>
-        <div className="flex flex-col h-screen w-full">
+      <div className="flex flex-col h-full w-full min-h-0">
           <div className="px-6 pt-2 flex-shrink-0 border-b-1">
             <Button
               variant="ghost"
@@ -59,7 +59,7 @@ export default function AgentCreationPage() {
 
   return (
     <Shell hideSidebar noPadding>
-      <div className="flex flex-col h-screen w-full">
+      <div className="flex flex-col h-full w-full min-h-0">
         <div className="px-6 pt-2 flex-shrink-0 border-b-1">
           <Button
             variant="ghost"

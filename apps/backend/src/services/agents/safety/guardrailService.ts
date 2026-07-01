@@ -6,7 +6,7 @@
 
 import { Injectable } from '@nestjs/common';
 import { prisma } from '@/lib/prisma';
-import { ExecutionPlan } from './types';
+import { ExecutionPlan } from '../types/types';
 import { PermissionService } from '../../permissions/permission.service';
 import { Capability } from '../../permissions/capabilities.constant';
 

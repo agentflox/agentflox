@@ -7,6 +7,7 @@ import { Textarea } from '@/components/ui/textarea'
 import type { ParsedFile } from '../utils/fileParser'
 import { cn } from '@/lib/utils'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Input } from '@/components/ui/input'
@@ -18,7 +19,7 @@ export interface ChatComposerRef {
 }
 
 interface ChatComposerProps {
-  onSend: (message: string, options?: { attachments?: ParsedFile[]; webSearch?: boolean; contexts?: Array<{ type: string; id: string }> }) => Promise<void> | void
+  onSend: (message: string, options?: { attachments?: ParsedFile[]; webSearch?: boolean; contexts?: Array<{ type: string; id: string }>; mentions?: Array<{ id: string; name: string; type: 'agent' | 'task' }> }) => Promise<void> | void
   onStop?: () => void
   conversationId?: string
   isSending?: boolean
@@ -39,6 +40,7 @@ interface ChatComposerProps {
   hideMentions?: boolean
   hideContext?: boolean
   hideWebSearch?: boolean
+  minHeight?: number | string
 }
 
 export const ChatComposer = memo(forwardRef<ChatComposerRef, ChatComposerProps>(function ChatComposer({
@@ -59,7 +61,8 @@ export const ChatComposer = memo(forwardRef<ChatComposerRef, ChatComposerProps>(
   placeholder,
   hideMentions,
   hideContext,
-  hideWebSearch
+  hideWebSearch,
+  minHeight,
 }, ref) {
   const [value, setValue] = useState('')
   const [attachments, setAttachments] = useState<ParsedFile[]>([])
@@ -158,9 +161,14 @@ export const ChatComposer = memo(forwardRef<ChatComposerRef, ChatComposerProps>(
         }
 
         const BACKEND_URL = process.env.NEXT_PUBLIC_SERVER_URL || process.env.SERVER_URL || 'http://127.0.0.1:3002';
+        const { fetchAuthToken } = await import('@/utils/backend-request');
+        const token = await fetchAuthToken();
         const response = await fetch(`${BACKEND_URL}/chat/upload`, {
           method: 'POST',
           credentials: 'include',
+          headers: {
+            ...(token && { Authorization: `Bearer ${token}` }),
+          },
           body: formData,
         })
 
@@ -208,7 +216,9 @@ export const ChatComposer = memo(forwardRef<ChatComposerRef, ChatComposerProps>(
       textareaRef.current.style.height = 'auto'
     }
 
-    await onSend(message, { attachments: currentAttachments, webSearch: currentWebSearch, contexts: currentContexts })
+    const currentMentions = selectedMentions.length > 0 ? selectedMentions.map(m => ({ id: m.id ?? m.data?.id, name: m.name ?? m.data?.name ?? m.data?.label, type: (m.type ?? 'agent') as 'agent' | 'task' })) : undefined
+
+    await onSend(message, { attachments: currentAttachments, webSearch: currentWebSearch, contexts: currentContexts, mentions: currentMentions })
   }
 
   const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -299,6 +309,7 @@ export const ChatComposer = memo(forwardRef<ChatComposerRef, ChatComposerProps>(
             }
           }}
           placeholder={placeholder || "Type a message..."}
+          style={minHeight !== undefined ? { minHeight: typeof minHeight === 'number' ? `${minHeight}px` : minHeight } : undefined}
           className={cn(
             'min-h-[44px] w-full resize-none border-0 bg-transparent p-0 text-[15px] font-normal leading-relaxed placeholder:text-zinc-400 focus-visible:ring-0',
             'text-transparent caret-zinc-900 selection:bg-blue-200/50 selection:text-transparent',
@@ -533,7 +544,7 @@ export const ChatComposer = memo(forwardRef<ChatComposerRef, ChatComposerProps>(
             <ToolbarButton
               onClick={onContextClick}
               active={contextCount > 0}
-              tooltip="Project Context"
+              tooltip="Context"
               disabled={disabled}
             >
               <Layers className="h-4 w-4" />
@@ -603,23 +614,29 @@ export const ChatComposer = memo(forwardRef<ChatComposerRef, ChatComposerProps>(
 const ToolbarButton = forwardRef<HTMLButtonElement, { children: React.ReactNode, onClick?: () => void, active?: boolean, tooltip: string, disabled?: boolean }>(
   ({ children, onClick, active, tooltip, disabled }, ref) => {
     return (
-      <Button
-        ref={ref}
-        type="button"
-        variant="ghost"
-        onClick={onClick}
-        title={tooltip}
-        disabled={disabled}
-        className={cn(
-          "relative h-9 w-9 rounded-xl p-0 transition-all duration-300 ease-in-out",
-          active
-            ? "bg-zinc-900 text-white shadow-md hover:bg-zinc-800 hover:shadow-lg"
-            : "text-zinc-500 hover:bg-white hover:text-zinc-900 hover:shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-transparent hover:border-zinc-200",
-          "disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:shadow-none disabled:hover:border-transparent"
-        )}
-      >
-        {children}
-      </Button>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            ref={ref}
+            type="button"
+            variant="ghost"
+            onClick={onClick}
+            disabled={disabled}
+            className={cn(
+              "relative h-9 w-9 rounded-xl p-0 transition-all duration-300 ease-in-out",
+              active
+                ? "bg-zinc-900 text-white shadow-md hover:bg-zinc-800 hover:shadow-lg"
+                : "text-zinc-500 hover:bg-white hover:text-zinc-900 hover:shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-transparent hover:border-zinc-200",
+              "disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:shadow-none disabled:hover:border-transparent"
+            )}
+          >
+            {children}
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="top" sideOffset={6} className="text-[11px] font-semibold px-2.5 py-1.5 rounded-lg">
+          {tooltip}
+        </TooltipContent>
+      </Tooltip>
     )
   }
 )

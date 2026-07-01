@@ -106,7 +106,7 @@ const NODE_CONTRACTS: Record<string, CompletionContract> = {
         requiredFields: ['name', 'scopeType'],
         validators: [
             (d) => (d.name?.length ?? 0) >= 2,
-            (d) => d.scopeType === 'portable' || !!d.entityId, // entityId required for non-portable scopes
+            (d: any) => d.scopeType === 'portable' || !!d.entityId, // entityId required for non-portable scopes
         ],
         minTurns: 1,
         stableTurnsRequired: 1,
@@ -939,7 +939,7 @@ Return JSON only: { "target": "<NODE>", "reason": "..." }`;
 
             // All gates passed → APPROVAL (fast-forward through VERIFICATION + REFLECTION nodes)
             console.log('[GraphOrchestrator] SYSTEM_PROMPT pipeline complete → APPROVAL.');
-            await this.fastForwardToNode(conversationId, 'SYSTEM_PROMPT', 'APPROVAL');
+            await this.fastForwardToNode(conversationId!, 'SYSTEM_PROMPT', 'APPROVAL');
             return {
                 nextStage: this.mapNodeToStage('APPROVAL'),
                 reasoning: '[SYSTEM_PROMPT→VERIFICATION→REFLECTION PASSED] Prompt generated — awaiting user confirmation.',
@@ -1084,7 +1084,7 @@ Return JSON only: { "target": "<NODE>", "reason": "..." }`;
 
             // Both gates passed — route to APPROVAL for user confirmation.
             console.log('[GraphOrchestrator] Inline gates passed — entering APPROVAL for confirmation.');
-            await this.fastForwardToNode(conversationId, currentNode, 'APPROVAL');
+            await this.fastForwardToNode(conversationId!, currentNode, 'APPROVAL');
             return { nextStage: this.mapNodeToStage('APPROVAL'), reasoning: '[LAUNCH INTENT] Gates passed — awaiting user confirmation.', updatedDraft: mutableDraft, currentNode: 'APPROVAL' };
         }
 
@@ -1142,7 +1142,7 @@ Return JSON only: { "target": "<NODE>", "reason": "..." }`;
             }
 
             console.log('[GraphOrchestrator] Inline pipeline complete → APPROVAL.');
-            await this.fastForwardToNode(conversationId, currentNode, 'APPROVAL');
+            await this.fastForwardToNode(conversationId!, currentNode, 'APPROVAL');
             return {
                 nextStage: this.mapNodeToStage('APPROVAL'),
                 reasoning: '[SYSTEM_PROMPT→VERIFICATION→REFLECTION PASSED] Prompt generated — awaiting confirmation.',

@@ -19,7 +19,7 @@ export default function Sidebar({ mode = "inline", onClose }: { mode?: "inline" 
 
   return (
     <AppSidebar
-      items={projectMenuItems}
+      items={projectMenuItems as any}
       title="Project Menu"
       mode={mode}
       onClose={onClose}

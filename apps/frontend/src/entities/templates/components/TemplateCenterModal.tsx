@@ -69,6 +69,11 @@ type Props = {
 		teamId?: string;
 		folderId?: string;
 		listId?: string;
+		targetDocId?: string;
+		/** Whether the target document has children */
+		targetDocHasChildren?: boolean;
+		/** The parent doc ID — used when creating a child doc from a template */
+		parentDocId?: string;
 	};
 	initialTemplate?: any | null;
 	initialView?: "detail" | "useTemplate";
@@ -86,8 +91,7 @@ const ENTITY_TYPES: { id: string; label: string }[] = [
 	{ id: TemplateEntityType.DOC, label: "Doc" },
 	{ id: TemplateEntityType.VIEW, label: "View" },
 	{ id: TemplateEntityType.AGENT, label: "Agent" },
-	{ id: TemplateEntityType.WORKFORCE, label: "Workforce" },
-	{ id: TemplateEntityType.PROPOSAL, label: "Proposal" },
+	{ id: TemplateEntityType.WORKFORCE, label: "Workforce" }
 ];
 
 // ─── Helper: entity icon ─────────────────────────────────────────────────────
@@ -359,6 +363,7 @@ export function TemplateCenterModal({
 	// ── Shared query args ──
 	const baseQueryArgs = {
 		workspaceId,
+		entityTypes: selectedTypes.size > 0 ? Array.from(selectedTypes) as any[] : undefined,
 		tags: selectedTags.length > 0 ? selectedTags : undefined,
 		createdByIds: selectedUsers.size > 0 ? Array.from(selectedUsers) : undefined,
 		categories: selectedCategories.size > 0 ? Array.from(selectedCategories) : undefined,
@@ -387,6 +392,11 @@ export function TemplateCenterModal({
 		{ ...baseQueryArgs, scope: "builtin" }
 	);
 
+	// Catches user-created / directly-shared templates (DOC etc.) not in other scopes
+	const allScopeQuery = trpc.template.list.useQuery(
+		{ ...baseQueryArgs, scope: "all", pageSize: 100 }
+	);
+
 	const tagsQuery = trpc.template.tags.useQuery({ workspaceId });
 
 	const usersQuery = trpc.template.createdByUsers.useQuery(
@@ -400,10 +410,14 @@ export function TemplateCenterModal({
 		pageSize: 50,
 	});
 	const applyTaskTemplateMutation = trpc.template.applyToTask.useMutation();
+	const applyDocTemplateMutation = trpc.document.applyTemplate.useMutation();
+	const createDocMutation = trpc.document.create.useMutation();
+	const updateDocMutation = trpc.document.update.useMutation();
 	const createFromTemplateMutation = trpc.template.createEntityFromTemplate.useMutation();
 	const updateTemplateMutation = trpc.template.update.useMutation();
 	const deleteTemplateMutation = trpc.template.delete.useMutation();
 	const { toast } = useToast();
+	const utils = trpc.useUtils();
 	const fileInputRef = React.useRef<HTMLInputElement>(null);
 	const [isEditMode, setIsEditMode] = React.useState(false);
 	const [showDeleteConfirm, setShowDeleteConfirm] = React.useState(false);
@@ -462,13 +476,13 @@ export function TemplateCenterModal({
 	// Unique categories across all loaded templates
 	const allCategories = React.useMemo(() => {
 		const cats = new Set<string>();
-		for (const q of [featuredQuery, workspaceQuery, globalQuery, builtinQuery]) {
+		for (const q of [featuredQuery, workspaceQuery, globalQuery, builtinQuery, allScopeQuery]) {
 			for (const t of q.data?.items ?? []) {
 				if (t.category) cats.add(t.category);
 			}
 		}
 		return Array.from(cats).sort();
-	}, [featuredQuery.data, workspaceQuery.data, globalQuery.data, builtinQuery.data]);
+	}, [featuredQuery.data, workspaceQuery.data, globalQuery.data, builtinQuery.data, allScopeQuery.data]);
 
 	const filteredCategories = allCategories.filter((c) =>
 		c.toLowerCase().includes(categorySearch.toLowerCase())
@@ -479,16 +493,29 @@ export function TemplateCenterModal({
 	const workspaceItems = workspaceQuery.data?.items ?? [];
 	const globalItems = globalQuery.data?.items ?? [];
 	const builtinItems = builtinQuery.data?.items ?? [];
+
+	// De-duplicate allScope items: exclude any that already appear in other scoped sections
+	const allScopeRaw = allScopeQuery.data?.items ?? [];
+	const dedupedAllIds = new Set([
+		...featuredItems.map((t: any) => t.id),
+		...workspaceItems.map((t: any) => t.id),
+		...globalItems.map((t: any) => t.id),
+		...builtinItems.map((t: any) => t.id),
+	]);
+	const allScopeItems = allScopeRaw.filter((t: any) => !dedupedAllIds.has(t.id));
+
 	const applyEntityFilter = (items: any[]) =>
 		selectedTypes.size === 0 ? items : items.filter((t) => selectedTypes.has(String(t.entityType)));
 	const filteredFeatured = applyEntityFilter(featuredItems);
 	const filteredWorkspace = applyEntityFilter(workspaceItems);
 	const filteredGlobal = applyEntityFilter(globalItems);
 	const filteredBuiltin = applyEntityFilter(builtinItems);
+	const filteredAll = applyEntityFilter(allScopeItems);
 	const canShowFeatured = featuredQuery.isLoading || filteredFeatured.length > 0;
 	const canShowWorkspace = workspaceQuery.isLoading || filteredWorkspace.length > 0;
 	const canShowGlobal = globalQuery.isLoading || filteredGlobal.length > 0;
 	const canShowBuiltin = builtinQuery.isLoading || filteredBuiltin.length > 0;
+	const canShowAll = allScopeQuery.isLoading || filteredAll.length > 0;
 
 	const handleUploadCoverImage = async (file?: File) => {
 		if (!file || !selectedTemplate) return;
@@ -866,6 +893,18 @@ export function TemplateCenterModal({
 							{/* Scrollable content */}
 							<div ref={scrollRef} className="flex-1 overflow-y-auto p-6">
 								<div className="max-w-[1000px] mx-auto space-y-10 pb-10">
+									{canShowAll && (
+										<TemplateSection
+											id="featured"
+											title="My Templates"
+											templates={filteredAll}
+											isLoading={allScopeQuery.isLoading}
+											filters={filters}
+											onSelectTemplate={handleSelectTemplate}
+											groupByType={true}
+										/>
+									)}
+
 									{canShowFeatured && (
 										<TemplateSection
 											id="featured"
@@ -1076,8 +1115,73 @@ export function TemplateCenterModal({
 												</Popover>
 												<Button
 													className="h-8.5 px-5 bg-indigo-600 text-white hover:bg-indigo-500 shadow-sm cursor-pointer"
-													onClick={() => setView("useTemplate")}
+													disabled={createDocMutation.isPending || applyDocTemplateMutation.isPending}
+													onClick={() => {
+														if (selectedTemplate.entityType === "DOC") {
+															const tContent = (selectedTemplate.content || {}) as any;
+															const contentToUse = typeof tContent === "string" ? tContent : (tContent.body ?? tContent.content ?? "");
+
+															if (targetContext?.targetDocId && !targetContext?.targetDocHasChildren) {
+																applyDocTemplateMutation.mutate(
+																	{
+																		templateId: selectedTemplate.id,
+																		targetDocId: targetContext.targetDocId,
+																	},
+																	{
+																		onSuccess: () => {
+																			toast({ title: "Template applied to document successfully" });
+																			utils.document.get.invalidate({ id: targetContext.targetDocId! });
+																			utils.document.list.invalidate();
+																			onOpenChange?.(false);
+																		},
+																		onError: (error) => {
+																			toast({
+																				title: "Could not apply template",
+																				description: error.message,
+																				variant: "destructive",
+																			});
+																		},
+																	}
+																);
+															} else {
+																createDocMutation.mutate(
+																	{
+																		workspaceId: targetContext?.workspaceId || workspaceId,
+																		spaceId: targetContext?.spaceId,
+																		projectId: targetContext?.projectId,
+																		listId: targetContext?.listId,
+																		parentId: (targetContext?.targetDocId && targetContext?.targetDocHasChildren) ? targetContext.targetDocId : (targetContext?.parentDocId ?? undefined),
+																		title: tContent.title || selectedTemplate.name,
+																		content: contentToUse,
+																		coverImage: tContent.coverImage || null,
+																		icon: tContent.icon || null,
+																		// Use only the stored children snapshot — never sourceDocId live-fetch
+																		children: Array.isArray(tContent.children) ? tContent.children : undefined,
+																	},
+																	{
+																		onSuccess: () => {
+																			toast({ title: "Document created from template" });
+																			utils.document.list.invalidate();
+																			onOpenChange?.(false);
+																		},
+																		onError: (error) => {
+																			toast({
+																				title: "Could not create document",
+																				description: error.message,
+																				variant: "destructive",
+																			});
+																		},
+																	}
+																);
+															}
+														} else {
+															setView("useTemplate");
+														}
+													}}
 												>
+													{(createDocMutation.isPending || applyDocTemplateMutation.isPending) && selectedTemplate.entityType === "DOC" ? (
+														<Loader2 className="mr-2 size-3.5 animate-spin" />
+													) : null}
 													Use Template
 												</Button>
 											</>
@@ -1194,9 +1298,9 @@ export function TemplateCenterModal({
 										</div>
 									</aside>
 								</div>
-								</div>
 							</div>
 						</div>
+					</div>
 				) : view === "useTemplate" && selectedTemplate ? (
 					<UseTemplateModal
 						open={true}
@@ -1230,6 +1334,41 @@ export function TemplateCenterModal({
 									remapDueDate: config.remapDueDate,
 									archivedTasks: config.archivedTasks,
 								});
+								return;
+							}
+
+							if (selectedTemplate.entityType === "DOC") {
+								const tContent = (selectedTemplate.content || {}) as any;
+								const contentToUse = typeof tContent === "string" ? tContent : (tContent.body ?? tContent.content ?? "");
+								createDocMutation.mutate(
+									{
+										workspaceId: targetContext?.workspaceId || workspaceId,
+										spaceId: targetContext?.spaceId,
+										projectId: targetContext?.projectId,
+										listId: targetContext?.listId,
+										parentId: targetContext?.parentDocId ?? undefined,
+										title: config.entityName || tContent.title || selectedTemplate.name,
+										content: contentToUse,
+										coverImage: tContent.coverImage || null,
+										icon: tContent.icon || null,
+										sourceDocId: tContent.sourceDocId || null,
+										children: tContent.children || undefined,
+									},
+									{
+										onSuccess: () => {
+											toast({ title: "Template document created successfully" });
+											utils.document.list.invalidate();
+											onOpenChange?.(false);
+										},
+										onError: (error) => {
+											toast({
+												title: "Could not create document from template",
+												description: error.message,
+												variant: "destructive",
+											});
+										}
+									}
+								);
 								return;
 							}
 

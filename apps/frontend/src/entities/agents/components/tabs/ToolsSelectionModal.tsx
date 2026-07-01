@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -13,7 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Search, Loader2, Grid3x3, Users } from 'lucide-react';
-import { trpc } from '@/lib/trpc';
+import { toolService } from '@/services/tool.service';
 
 interface Tool {
   id: string;
@@ -41,11 +41,16 @@ export function ToolsSelectionModal({
   const [activeCategory, setActiveCategory] = useState<'all' | 'apps'>('all');
   const [localSelected, setLocalSelected] = useState<Set<string>>(new Set(selectedToolIds));
 
-  // Fetch system tools
-  const { data: systemTools, isLoading: loadingTools } = trpc.agent.getSystemTools.useQuery(
-    undefined,
-    { enabled: open }
-  );
+  const [systemTools, setSystemTools] = useState<Tool[] | null>(null);
+  const [loadingTools, setLoadingTools] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    setLoadingTools(true);
+    toolService.tools.getSystemTools().then(async (res) => {
+      if (res.ok) setSystemTools(await res.json());
+    }).finally(() => setLoadingTools(false));
+  }, [open]);
 
   // Group tools by category
   const groupedTools = useMemo(() => {

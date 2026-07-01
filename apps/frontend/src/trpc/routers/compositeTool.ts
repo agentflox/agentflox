@@ -9,6 +9,7 @@ const baseSchema = z.object({
   category: z.string().optional().nullable(),
   functionSchema: z.any(),
   steps: z.any(),
+  mode: z.enum(["MANUAL", "AI"]).optional(),
   isPublic: z.boolean().default(true),
 });
 
@@ -53,6 +54,7 @@ export const compositeToolRouter = router({
         workspaceId: t.workspaceId,
         ownerId: t.ownerId,
         isPublic: t.isPublic,
+        mode: t.mode,
         updatedAt: t.updatedAt,
       }));
     }),
@@ -102,6 +104,7 @@ export const compositeToolRouter = router({
           category: input.category ?? undefined,
           functionSchema: input.functionSchema as any,
           steps: input.steps as any,
+          mode: input.mode,
           isPublic: input.isPublic,
           createdAt: now,
           updatedAt: now,
@@ -150,5 +153,130 @@ export const compositeToolRouter = router({
       await prisma.compositeTool.delete({ where: { id: input.id } });
       return { success: true };
     }),
+
+  deleteMany: protectedProcedure
+    .input(z.object({ ids: z.array(z.string()) }))
+    .mutation(async ({ ctx, input }) => {
+      const userId = ctx.session!.user!.id;
+      await prisma.compositeTool.deleteMany({
+        where: {
+          id: { in: input.ids },
+          ownerId: userId,
+        },
+      });
+      return { success: true };
+    }),
+
+  clone: protectedProcedure
+    .input(z.object({ id: z.string(), name: z.string().optional() }))
+    .mutation(async ({ ctx, input }) => {
+      const userId = ctx.session!.user!.id;
+      const source = await prisma.compositeTool.findFirst({
+        where: { id: input.id, ownerId: userId },
+      });
+      if (!source) throw new TRPCError({ code: "NOT_FOUND", message: "Tool not found or permission denied" });
+
+      const clone = await prisma.compositeTool.create({
+        data: {
+          workspaceId: source.workspaceId,
+          ownerId: userId,
+          name: input.name ?? `${source.name} (copy)`,
+          description: source.description ?? undefined,
+          category: source.category ?? undefined,
+          functionSchema: source.functionSchema as any,
+          steps: source.steps as any,
+          mode: source.mode,
+          isPublic: false, // clones start as private
+        },
+      });
+      return clone;
+    }),
+
+  listVersions: protectedProcedure
+    .input(z.object({ toolId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      const userId = ctx.session!.user!.id;
+      // Ensure user has access
+      const tool = await prisma.compositeTool.findFirst({
+        where: { id: input.toolId, ownerId: userId },
+      });
+      if (!tool) throw new TRPCError({ code: "NOT_FOUND" });
+
+      return prisma.compositeToolVersion.findMany({
+        where: { compositeToolId: input.toolId },
+        orderBy: { version: "desc" },
+        include: { createdBy: { select: { name: true, image: true, email: true } } },
+      });
+    }),
+
+  createVersion: protectedProcedure
+    .input(z.object({ toolId: z.string(), name: z.string().optional(), description: z.string().optional() }))
+    .mutation(async ({ ctx, input }) => {
+      const userId = ctx.session!.user!.id;
+      const tool = await prisma.compositeTool.findFirst({
+        where: { id: input.toolId, ownerId: userId },
+      });
+      if (!tool) throw new TRPCError({ code: "NOT_FOUND" });
+
+      const count = await prisma.compositeToolVersion.count({
+        where: { compositeToolId: tool.id }
+      });
+
+      return prisma.compositeToolVersion.create({
+        data: {
+          compositeToolId: tool.id,
+          version: count + 1,
+          name: input.name ?? `v${count + 1}`,
+          description: input.description,
+          functionSchema: tool.functionSchema as any,
+          steps: tool.steps as any,
+          createdById: userId,
+        },
+      });
+    }),
+
+  setLiveVersion: protectedProcedure
+    .input(z.object({ toolId: z.string(), versionId: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const userId = ctx.session!.user!.id;
+      const tool = await prisma.compositeTool.findFirst({
+        where: { id: input.toolId, ownerId: userId },
+      });
+      if (!tool) throw new TRPCError({ code: "NOT_FOUND" });
+
+      // transaction to set all to false then one to true
+      await prisma.$transaction([
+        prisma.compositeToolVersion.updateMany({
+          where: { compositeToolId: tool.id },
+          data: { isLive: false },
+        }),
+        prisma.compositeToolVersion.update({
+          where: { id: input.versionId },
+          data: { isLive: true },
+        }),
+      ]);
+      return { success: true };
+    }),
+
+  listExecutionLogs: protectedProcedure
+    .input(z.object({ toolId: z.string(), limit: z.number().default(50) }))
+    .query(async ({ ctx, input }) => {
+      const userId = ctx.session!.user!.id;
+      const tool = await prisma.compositeTool.findFirst({
+        where: { id: input.toolId, ownerId: userId },
+      });
+      if (!tool) throw new TRPCError({ code: "NOT_FOUND" });
+
+      return prisma.compositeToolExecutionLog.findMany({
+        where: { compositeToolId: tool.id },
+        orderBy: { createdAt: "desc" },
+        take: input.limit,
+        include: {
+          user: { select: { name: true, image: true, email: true } },
+          version: { select: { version: true, name: true } },
+        }
+      });
+    }),
 });
+
 

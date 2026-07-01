@@ -49,7 +49,7 @@ export default function StepManage({ onNext, onBack, isLoading, defaultValues }:
                         <button
                             key={opt}
                             onClick={() => handleToggle(opt)}
-                            className={`px-4 py-2 rounded-full text-sm font-medium border transition-all ${selected.includes(opt)
+                            className={`px-4 py-2 rounded-full text-sm font-medium border transition-all cursor-pointer ${selected.includes(opt)
                                     ? "bg-black text-white border-black"
                                     : "bg-white text-gray-700 border-gray-200 hover:border-gray-300 hover:bg-gray-50"
                                 }`}
@@ -79,14 +79,14 @@ export default function StepManage({ onNext, onBack, isLoading, defaultValues }:
             <div className="flex items-center justify-between mt-8">
                 <button
                     onClick={onBack}
-                    className="text-sm font-medium text-gray-500 hover:text-black transition-colors"
+                    className="text-sm font-medium text-gray-500 hover:text-black transition-colors cursor-pointer"
                 >
                     Back
                 </button>
                 <button
                     onClick={handleNext}
                     disabled={isLoading}
-                    className="bg-black hover:bg-gray-800 text-white px-8 py-3 rounded-full font-medium text-sm transition-all hover:scale-105 active:scale-95 disabled:opacity-50"
+                    className="bg-black hover:bg-gray-800 text-white px-8 py-3 rounded-full font-medium text-sm transition-all hover:scale-105 active:scale-95 disabled:opacity-50 cursor-pointer"
                 >
                     {isLoading ? "Saving..." : "Continue"}
                 </button>

@@ -1,7 +1,7 @@
 "use client"
 import { ListTodo } from 'lucide-react';
 import { MyWorkView } from './MyWorkView';
-import ListDashboardView from "@/features/dashboard/views/generic/ListDashboardView";
+import DashboardListView from "@/features/dashboard/views/generic/DashboardListView";
 import ListView from "@/features/dashboard/views/generic/ListView";
 import { trpc } from "@/lib/trpc";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -48,7 +48,7 @@ function PersonalListView() {
 
     return (
         <div className="h-full flex flex-col bg-white overflow-hidden">
-            <ListDashboardView listId={personalList.id} />
+            <DashboardListView listId={personalList.id} />
         </div>
     );
 }

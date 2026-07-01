@@ -1,15 +1,15 @@
-import { 
-  Prisma, 
-  PrismaClient, 
-  Usage, 
-  PaymentStatus, 
-  BillingType, 
-  BillingEventType, 
+import {
+  Prisma,
+  PrismaClient,
+  Usage,
+  PaymentStatus,
+  BillingType,
+  BillingEventType,
   Promotion,
   Discount,
-  PurchaseStatus, 
-  CreditPurchase, 
-  Payment, 
+  PurchaseStatus,
+  CreditPurchase,
+  Payment,
   NotificationType,
   CreditPackage
 } from '@agentflox/database';
@@ -35,12 +35,12 @@ export class CreditManager {
     feature: true,
     promotions: {
       include: {
-        promotion: true, 
+        promotion: true,
       },
     },
     discounts: {
       include: {
-        discount: true, 
+        discount: true,
       },
     },
     purchases: {
@@ -177,7 +177,7 @@ export class CreditManager {
       return {
         totalActivePackages: packageDetails?.length ?? 0,
         packages: packageDetails,
-        totalCreditsAvailable: packageDetails.reduce((sum, pkg) => 
+        totalCreditsAvailable: packageDetails.reduce((sum, pkg) =>
           sum + pkg.usage.remainingCredits, 0),
       };
     } catch (error) {
@@ -222,9 +222,9 @@ export class CreditManager {
   ): Promise<{ creditPurchase: CreditPurchase; payment: Payment }> {
     try {
       const now = DateTime.utc().toJSDate();
-  
+
       if (!userId) throw new Error(this.Errors.USER_NOT_FOUND);
-  
+
       const { packageId, orderId, status, payment, metadata } = details;
 
       // Idempotency: skip if purchase with same orderId exists
@@ -239,25 +239,25 @@ export class CreditManager {
           return { creditPurchase: existing as any, payment: existingPayment as any };
         }
       }
-  
+
       // ✅ Validate package
       const creditPackage = await this.getPackageById(packageId);
       if (!creditPackage) throw new Error(this.Errors.PACKAGE_NOT_FOUND);
-  
+
       // ✅ Payment & status logic
       const paymentTime = payment.paymentTime
         ? DateTime.fromISO(payment.paymentTime)
         : DateTime.utc();
-  
+
       const paymentStatus = this.getPaymentStatus(payment.paymentStatus || status);
       const purchaseStatus = this.getPurchaseStatus(status);
-  
+
       if (paymentStatus !== PaymentStatus.SUCCEEDED) {
         throw new Error(
           "Payment was not successful. Please try again or contact support."
         );
       }
-  
+
       // ✅ Transaction: Create credit purchase + payment + usage + notification
       return await prisma.$transaction(
         async (tx) => {
@@ -277,14 +277,14 @@ export class CreditManager {
               purchasedAt: now,
               expiresAt: creditPackage.validityDays
                 ? DateTime.fromJSDate(now)
-                    .plus({ days: creditPackage.validityDays })
-                    .toJSDate()
+                  .plus({ days: creditPackage.validityDays })
+                  .toJSDate()
                 : undefined,
               metadata: details.metadata ?? {},
             },
             include: this.purchaseInclude,
           });
-  
+
           // Usage tracking
           const feature = creditPackage.feature;
           await tx.usage.create({
@@ -298,13 +298,11 @@ export class CreditManager {
               remainingProjects: feature?.maxProjects,
               maxTeams: feature?.maxTeams,
               remainingTeams: feature?.maxTeams,
-              maxProposals: feature?.maxProposals,
-              remainingProposals: feature?.maxProposals,
               maxRequests: feature?.maxRequests,
               remainingRequests: feature?.maxRequests,
             },
           });
-  
+
           // Create payment record
           const paymentRecord = await tx.payment.create({
             data: {
@@ -324,17 +322,22 @@ export class CreditManager {
               metadata: details.metadata ?? {},
             },
           });
-  
+
           // Notify user
           await tx.notification.create({
             data: {
               userId,
               type: NotificationType.BILLING,
               title: `Package Purchased: ${creditPackage.name}`,
-              content: `Thank you for purchasing the ${creditPackage.name} package! Your package is now active with ${creditPurchase.totalCredits} total credits.`,
+              message: `Thank you for purchasing the ${creditPackage.name} package! Your package is now active with ${creditPurchase.totalCredits} total credits.`,
+              actorIds: [],
+              entityType: 'CREDIT_PURCHASE',
+              entityId: creditPurchase.id,
+              metadata: {},
+              aggregateKey: `billing:${userId}`,
             },
           });
-  
+
           return { creditPurchase, payment: paymentRecord };
         },
         {
@@ -345,17 +348,17 @@ export class CreditManager {
       );
     } catch (error) {
       console.error("Credit purchase error:", error);
-  
+
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
         if (error.code === "P2002") {
           throw new Error(`Unique constraint failed: ${error.meta?.target}`);
         }
       }
-  
+
       throw error;
     }
-  }  
-  
+  }
+
   /**
    * Get package by ID
    */
@@ -428,7 +431,7 @@ export class CreditManager {
    * Get expired packages for a user
    */
   static async getExpiredPackages(
-    userName: string, 
+    userName: string,
     filters: ExpiredPackageFilters = {}
   ): Promise<{ packages: CreditPurchase[]; total: number }> {
     const user = await prisma.user.findUnique({
@@ -519,8 +522,6 @@ export class CreditManager {
         remainingProjects: 0,
         teamsUsed: 0,
         remainingTeams: 0,
-        proposalsUsed: 0,
-        remainingProposals: 0,
         requestsUsed: 0,
         remainingRequests: 0
       };
@@ -533,8 +534,6 @@ export class CreditManager {
       remainingProjects: usage.remainingProjects,
       teamsUsed: usage.maxTeams - usage.remainingTeams,
       remainingTeams: usage.remainingTeams,
-      proposalsUsed: usage.maxProposals - usage.remainingProposals,
-      remainingProposals: usage.remainingProposals,
       requestsUsed: usage.maxRequests - usage.remainingRequests,
       remainingRequests: usage.remainingRequests
     };
@@ -566,9 +565,9 @@ export class CreditManager {
 
       if (payment.purchase) {
         const newStatus = status === PaymentStatus.SUCCEEDED ? PurchaseStatus.ACTIVE :
-                         status === PaymentStatus.CANCELED ? PurchaseStatus.CANCELLED :
-                         status === PaymentStatus.FAILED ? PurchaseStatus.FROZEN :
-                         PurchaseStatus.EXPIRED;
+          status === PaymentStatus.CANCELED ? PurchaseStatus.CANCELLED :
+            status === PaymentStatus.FAILED ? PurchaseStatus.FROZEN :
+              PurchaseStatus.EXPIRED;
 
         await tx.creditPurchase.update({
           where: { id: payment.purchase.id },
@@ -587,7 +586,7 @@ export class CreditManager {
     });
 
     if (!user) throw new Error(this.Errors.USER_NOT_FOUND);
-    
+
     return await prisma.creditPurchase.findMany({
       where: {
         userId: user.id
@@ -626,7 +625,7 @@ export class CreditManager {
     await prisma.$transaction(async (tx) => {
       for (const pkg of activePackages) {
         const usage = pkg.usage;
-        
+
         if (!usage) continue;
 
         // Check if package is depleted or expired
@@ -634,11 +633,11 @@ export class CreditManager {
         const isDepleted = usage.remainingCredits <= 0;
 
         if (isExpired || isDepleted) {
-        await tx.creditPurchase.update({
+          await tx.creditPurchase.update({
             where: { id: pkg.id },
-          data: { 
-            status: PurchaseStatus.CANCELLED
-          }
+            data: {
+              status: PurchaseStatus.CANCELLED
+            }
           });
         }
       }

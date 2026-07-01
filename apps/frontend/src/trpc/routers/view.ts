@@ -41,28 +41,34 @@ const listViewConfigSchema = z
 		filterGroups: filterGroupSchema.optional(),
 		savedFilterPresets: z.array(z.object({ id: z.string(), name: z.string(), config: filterGroupSchema })).optional(),
 	})
-	.passthrough();
+	.catchall(z.any());
 
 const viewConfigSchema = z
 	.object({
 		listView: listViewConfigSchema.optional(),
 	})
-	.passthrough()
+	.catchall(z.any())
 	.optional()
 	.nullable();
 
 const createViewSchema = z.object({
 	name: z.string().min(1),
-	type: z.nativeEnum(ViewType),
+	description: z.string().optional(),
+	type: z.enum(Object.keys(ViewType) as [keyof typeof ViewType, ...(keyof typeof ViewType)[]]),
+	workspaceId: z.string().optional(),
 	spaceId: z.string().optional(),
 	projectId: z.string().optional(),
 	teamId: z.string().optional(),
 	listId: z.string().optional(),
+	folderId: z.string().optional(),
+	locationType: z.enum(["WORKSPACE", "SPACE", "PROJECT", "TEAM", "FOLDER", "LIST", "PERSONAL"]).optional(),
 	isDefault: z.boolean().optional(),
 	isShared: z.boolean().optional(),
 	isPrivate: z.boolean().optional(),
 	isPinned: z.boolean().optional(),
 	isLocked: z.boolean().optional(),
+	sidebarView: z.boolean().optional(),
+	sidebarOrder: z.number().optional(),
 	config: viewConfigSchema,
 	filters: z.any().optional(),
 	grouping: z.any().optional(),
@@ -73,6 +79,7 @@ const createViewSchema = z.object({
 const updateViewSchema = z.object({
 	id: z.string(),
 	name: z.string().min(1).optional(),
+	description: z.string().optional().nullable(),
 	config: viewConfigSchema,
 	filters: z.any().optional().nullable(),
 	grouping: z.any().optional().nullable(),
@@ -83,19 +90,39 @@ const updateViewSchema = z.object({
 	isPrivate: z.boolean().optional(),
 	isPinned: z.boolean().optional(),
 	isLocked: z.boolean().optional(),
+	sidebarView: z.boolean().optional(),
+	sidebarOrder: z.number().optional(),
 	position: z.number().optional(),
 });
 
 export const viewRouter = router({
 	create: protectedProcedure.input(createViewSchema).mutation(async ({ ctx, input }) => {
-		// Basic validation: ensure at least one container is provided
-		if (!input.spaceId && !input.projectId && !input.teamId && !input.listId) {
-			throw new Error("View must be associated with a space, project, team, or list");
+		// Basic validation: ensure at least one container is provided unless it's PERSONAL
+		if (input.locationType !== "PERSONAL" && !input.workspaceId && !input.spaceId && !input.projectId && !input.teamId && !input.listId && !input.folderId) {
+			throw new Error("View must be associated with a workspace, space, project, team, list, or folder");
 		}
 
 		// Basic access control should be here (e.g. check if user has access to spaceId) 
 		// For now we assume the UI handles calling this correctly for accessible items, 
 		// but ideally we'd fetch the container and check permissions.
+
+		let workspaceId: string | null = null;
+		if (input.spaceId) {
+			const space = await prisma.space.findUnique({ where: { id: input.spaceId }, select: { workspaceId: true } });
+			workspaceId = space?.workspaceId || null;
+		} else if (input.projectId) {
+			const project = await prisma.project.findUnique({ where: { id: input.projectId }, select: { workspaceId: true } });
+			workspaceId = project?.workspaceId || null;
+		} else if (input.listId) {
+			const list = await prisma.list.findUnique({ where: { id: input.listId }, select: { workspaceId: true } });
+			workspaceId = list?.workspaceId || null;
+		} else if (input.teamId) {
+			const team = await prisma.team.findUnique({ where: { id: input.teamId }, select: { workspaceId: true } });
+			workspaceId = team?.workspaceId || null;
+		} else if (input.folderId) {
+			const folder = await prisma.folder.findUnique({ where: { id: input.folderId }, select: { workspaceId: true } });
+			workspaceId = folder?.workspaceId || null;
+		}
 
 		const lastView = await prisma.view.findFirst({
 			where: {
@@ -103,25 +130,31 @@ export const viewRouter = router({
 				projectId: input.projectId,
 				teamId: input.teamId,
 				listId: input.listId,
+				folderId: input.folderId,
 			},
 			orderBy: { position: "desc" },
 		});
 
 		const position = (lastView?.position ?? 0) + 1000;
 
-		return prisma.view.create({
+		const view = await prisma.view.create({
 			data: {
 				name: input.name,
+				description: input.description,
 				type: input.type,
+				workspaceId: input.workspaceId || workspaceId,
 				spaceId: input.spaceId,
 				projectId: input.projectId,
 				teamId: input.teamId,
 				listId: input.listId,
+				folderId: input.folderId,
 				isDefault: input.isDefault ?? false,
 				isShared: input.isShared ?? false,
 				isPrivate: input.isPrivate ?? false,
 				isPinned: input.isPinned ?? false,
 				isLocked: input.isLocked ?? false,
+				sidebarView: input.sidebarView ?? false,
+				sidebarOrder: input.sidebarOrder,
 				config: input.config as any,
 				filters: input.filters as any,
 				grouping: input.grouping as any,
@@ -131,6 +164,26 @@ export const viewRouter = router({
 				position,
 			},
 		});
+
+		if (view.type === "DOC") {
+			await prisma.document.create({
+				data: {
+					title: "Untitled",
+					content: "[]",
+					workspaceId: input.workspaceId || workspaceId || null,
+					viewId: view.id,
+					spaceId: input.spaceId ?? null,
+					projectId: input.projectId ?? null,
+					listId: input.listId ?? null,
+					teamId: input.teamId ?? null,
+					folderId: input.folderId ?? null,
+					locationType: (input.locationType as any) || "PERSONAL",
+					createdBy: ctx.session!.user!.id,
+				}
+			});
+		}
+
+		return view;
 	}),
 
 	update: protectedProcedure.input(updateViewSchema).mutation(async ({ input }) => {
@@ -145,6 +198,7 @@ export const viewRouter = router({
 			where: { id },
 			data: {
 				name: data.name ?? undefined,
+				description: data.description !== undefined ? data.description : undefined,
 				config: data.config as any,
 				filters: data.filters as any,
 				grouping: data.grouping as any,
@@ -155,6 +209,8 @@ export const viewRouter = router({
 				isPrivate: data.isPrivate ?? undefined,
 				isPinned: data.isPinned ?? undefined,
 				isLocked: data.isLocked ?? undefined,
+				sidebarView: data.sidebarView ?? undefined,
+				sidebarOrder: data.sidebarOrder ?? undefined,
 				position: data.position ?? undefined,
 			},
 		});
@@ -198,26 +254,39 @@ export const viewRouter = router({
 	}),
 
 	list: protectedProcedure.input(z.object({
+		workspaceId: z.string().optional(),
 		spaceId: z.string().optional(),
 		projectId: z.string().optional(),
 		teamId: z.string().optional(),
 		listId: z.string().optional(),
+		type: z.enum(Object.keys(ViewType) as [keyof typeof ViewType, ...(keyof typeof ViewType)[]]).optional(),
+		sidebarView: z.boolean().optional(),
 	})).query(async ({ input }) => {
-		if (!input.spaceId && !input.projectId && !input.teamId && !input.listId) {
-			throw new Error("Must provide a container ID");
-		}
-
-		// Construct where clause carefully to avoid fetching all views if multiple inputs are somehow empty strings/undefined
-		// The check above handles all undefined.
 		const where: any = {};
+		if (input.workspaceId) where.workspaceId = input.workspaceId;
 		if (input.spaceId) where.spaceId = input.spaceId;
 		if (input.projectId) where.projectId = input.projectId;
 		if (input.teamId) where.teamId = input.teamId;
 		if (input.listId) where.listId = input.listId;
+		if (input.type) where.type = input.type;
+		if (input.sidebarView !== undefined) where.sidebarView = input.sidebarView;
+
+		if (Object.keys(where).length === 0) {
+			throw new Error("Must provide at least one filter");
+		}
 
 		return prisma.view.findMany({
 			where,
 			orderBy: { position: "asc" },
+			include: {
+				creator: {
+					select: {
+						id: true,
+						name: true,
+						image: true,
+					}
+				}
+			}
 		});
 	}),
 
@@ -265,7 +334,7 @@ export const viewRouter = router({
 	})).mutation(async ({ ctx, input }) => {
 		const template = await prisma.template.findUnique({ where: { id: input.templateId } });
 		if (!template) throw new Error("Template not found");
-		if (template.type !== "VIEW") throw new Error("Invalid template type");
+		if (template.entityType !== "VIEW") throw new Error("Invalid template type");
 
 		const content = template.content as any;
 
@@ -379,4 +448,23 @@ export const viewRouter = router({
 			where: { id: input.shareId },
 		});
 	}),
+	submitPublicFormResponse: protectedProcedure // TODO: Make public when ready
+		.input(z.object({ viewId: z.string(), values: z.any() }))
+		.mutation(async ({ input }) => {
+			const view = await prisma.view.findUnique({ where: { id: input.viewId } });
+			if (!view || !view.isShared) throw new Error("View not found or not public");
+			// Store submission somewhere...
+			return { success: true };
+		}),
+
+	getPublicForm: protectedProcedure // TODO: Make public when ready
+		.input(z.object({ viewId: z.string() }))
+		.query(async ({ input }) => {
+			const view = await prisma.view.findUnique({
+				where: { id: input.viewId },
+				select: { id: true, name: true, config: true, isShared: true }
+			});
+			if (!view || !view.isShared) throw new Error("View not found or not public");
+			return view;
+		}),
 });

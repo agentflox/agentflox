@@ -257,8 +257,8 @@ export class StripePaymentService {
                 const subscription = await stripe.subscriptions.retrieve(session.subscription as string);
 
                 if (subscription) {
-                    const currentPeriodStartTimestamp = subscription.current_period_start;
-                    const currentPeriodEndTimestamp = subscription.current_period_end;
+                    const currentPeriodStartTimestamp = (subscription as any).current_period_start;
+                    const currentPeriodEndTimestamp = (subscription as any).current_period_end;
 
                     const currentPeriodStartDateObject = currentPeriodStartTimestamp
                         ? new Date(currentPeriodStartTimestamp * 1000)

@@ -45,7 +45,7 @@ interface ChatMessageListProps {
   onActionClick?: (messageId: string, action: MessageAction) => void
   onFeedbackChange?: (messageId: string, isHelpful: boolean | null) => void
   /** Label shown on all agent response headers (e.g. "Agentflox Agent Builder") */
-  agentLabel?: string
+  label?: string
 }
 
 /** Colorful multi-petal sparkle SVG matching the brand header style */
@@ -85,7 +85,7 @@ const MessageItem = memo(function MessageItem({
   message,
   isUser,
   isLast,
-  agentLabel,
+  label,
   onFollowupClick,
   onActionClick,
   onFeedbackChange,
@@ -93,7 +93,7 @@ const MessageItem = memo(function MessageItem({
   message: RenderedMessage
   isUser: boolean
   isLast: boolean
-  agentLabel?: string
+  label?: string
   onFollowupClick?: (messageId: string, followup: MessageFollowup) => void
   onActionClick?: (messageId: string, action: MessageAction) => void
   onFeedbackChange?: (messageId: string, isHelpful: boolean | null) => void
@@ -163,7 +163,7 @@ const MessageItem = memo(function MessageItem({
       <div className="mb-2 flex items-center gap-2">
         <AgentfloxSparkleIcon className="h-4 w-4 flex-shrink-0" />
         <span className="text-sm font-semibold text-foreground/90 tracking-tight">
-          {agentLabel ?? 'Agentflox Agent'}
+          {label ?? 'Agentflox Agent'}
         </span>
       </div>
 
@@ -187,7 +187,7 @@ const MessageItem = memo(function MessageItem({
             <button
               key={followup.id}
               onClick={() => onFollowupClick?.(message.id, followup)}
-              className="group/fu flex items-start gap-3 rounded-2xl border border-black/5 bg-white p-4 text-left shadow-sm transition-all hover:bg-slate-50 hover:border-black/10 active:scale-[0.99]"
+              className="group/fu flex items-start gap-3 rounded-2xl border border-black/5 bg-white p-4 text-left shadow-sm transition-all hover:bg-slate-50 hover:border-black/10 active:scale-[0.99] cursor-pointer"
             >
               <CornerDownRight className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground/50 group-hover/fu:text-primary" />
               <span className="text-[14px] leading-relaxed text-slate-700">{followup.label}</span>
@@ -225,7 +225,7 @@ const MessageItem = memo(function MessageItem({
             onClick={handleLike}
             disabled={feedbackMutation.isPending}
             className={cn(
-              'inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-medium transition-all hover:bg-slate-100 disabled:opacity-50',
+              'inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-medium transition-all hover:bg-slate-100 disabled:opacity-50 cursor-pointer',
               isLiked ? 'text-blue-600 bg-blue-50 hover:bg-blue-100' : 'text-slate-500'
             )}
           >
@@ -236,7 +236,7 @@ const MessageItem = memo(function MessageItem({
             onClick={handleDislike}
             disabled={feedbackMutation.isPending}
             className={cn(
-              'inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-medium transition-all hover:bg-slate-100 disabled:opacity-50',
+              'inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-medium transition-all hover:bg-slate-100 disabled:opacity-50 cursor-pointer',
               isDisliked ? 'text-red-600 bg-red-50 hover:bg-red-100' : 'text-slate-500'
             )}
           >
@@ -245,7 +245,7 @@ const MessageItem = memo(function MessageItem({
           <button
             type="button"
             onClick={handleCopy}
-            className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-medium text-slate-500 transition-all hover:bg-slate-100"
+            className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-medium text-slate-500 transition-all hover:bg-slate-100 cursor-pointer"
           >
             {copied ? <Check className="h-3.5 w-3.5 text-green-600" /> : <Copy className="h-3.5 w-3.5" />}
           </button>
@@ -274,7 +274,7 @@ export const ChatMessageList = memo(function ChatMessageList({
   onFollowupClick,
   onActionClick,
   onFeedbackChange,
-  agentLabel,
+  label,
 }: ChatMessageListProps) {
   const scrollAreaRef = useRef<HTMLDivElement | null>(null)
   const prevMessagesLengthRef = useRef(messages.length)
@@ -341,7 +341,7 @@ export const ChatMessageList = memo(function ChatMessageList({
               message={message}
               isUser={isUser}
               isLast={isLast}
-              agentLabel={agentLabel}
+              label={label}
               onFollowupClick={onFollowupClick}
               onActionClick={onActionClick}
               onFeedbackChange={onFeedbackChange}

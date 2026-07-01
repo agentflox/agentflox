@@ -1,9 +1,8 @@
 "use client";
 
 import React, { useEffect } from "react";
-import { Sparkles } from "lucide-react";
+import { Sparkles, FolderKanban } from "lucide-react";
 import { useParams } from "next/navigation";
-
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -156,12 +155,25 @@ export function ProjectCreationModal({ open, onOpenChange, onCreated, defaultSpa
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
 			<DialogContent className="sm:max-w-xl gap-6">
-				<DialogHeader className="gap-1.5">
-					<DialogTitle className="text-2xl font-semibold tracking-tight">Launch a new project</DialogTitle>
-					<DialogDescription className="text-base text-muted-foreground">
-						Capture the essentials now, refine the rest later.
-					</DialogDescription>
-				</DialogHeader>
+				<div className="pb-2">
+		          <div className="flex items-start gap-5">
+		            <div className={cn(
+		              "mt-1 p-3 rounded-2xl border transition-all duration-300",
+		              "bg-primary/5 border-primary/10 text-primary shadow-[0_0_15px_-3px_rgba(0,0,0,0.1)]",
+		              "group-hover:scale-105"
+		            )}>
+		              <FolderKanban className="w-5 h-5 md:w-6 md:h-6" strokeWidth={1.5} />
+		            </div>
+		            <div className="pt-1">
+		              <DialogTitle className="text-xl font-bold tracking-tight text-foreground/95">
+		                Create a project
+		              </DialogTitle>
+		              <DialogDescription className="text-muted-foreground text-sm leading-relaxed">
+		                Organize team members.
+		              </DialogDescription>
+		            </div>
+		          </div>
+		        </div>
 
 				<form className="flex flex-col gap-5" onSubmit={handleSubmit}>
 					{/* Location Selectors */}
@@ -173,7 +185,7 @@ export function ProjectCreationModal({ open, onOpenChange, onCreated, defaultSpa
 									value={form.workspaceId}
 									onValueChange={(val) => setForm(prev => ({ ...prev, workspaceId: val, spaceId: "" }))} // Reset space on workspace change
 								>
-									<SelectTrigger className="w-full rounded-xl bg-white">
+									<SelectTrigger className="w-full rounded-md bg-white">
 										<SelectValue placeholder="Select Workspace" />
 									</SelectTrigger>
 									<SelectContent>
@@ -191,7 +203,7 @@ export function ProjectCreationModal({ open, onOpenChange, onCreated, defaultSpa
 								onValueChange={(val) => setForm(prev => ({ ...prev, spaceId: val }))}
 								disabled={!form.workspaceId}
 							>
-								<SelectTrigger className="w-full rounded-xl bg-white">
+								<SelectTrigger className="w-full rounded-md bg-white">
 									<SelectValue placeholder={form.workspaceId ? "Select Space" : "Select Workspace First"} />
 								</SelectTrigger>
 								<SelectContent>
@@ -230,7 +242,7 @@ export function ProjectCreationModal({ open, onOpenChange, onCreated, defaultSpa
 								placeholder="Ex: Horizon AI Workbench"
 								value={form.name}
 								onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))}
-								className="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-900 shadow-xs placeholder:text-slate-400 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200"
+								className="flex-1 rounded-md border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-900 shadow-xs placeholder:text-slate-400 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200"
 								required
 							/>
 						</div>
@@ -248,7 +260,7 @@ export function ProjectCreationModal({ open, onOpenChange, onCreated, defaultSpa
 							placeholder="Share the vision, mission, or the problem you're about to solve..."
 							value={form.description}
 							onChange={(event) => setForm((prev) => ({ ...prev, description: event.target.value }))}
-							className="min-h-[100px] rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 shadow-xs placeholder:text-slate-400 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200"
+							className="min-h-[100px] rounded-md border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 shadow-xs placeholder:text-slate-400 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200"
 							required
 						/>
 					</div>
@@ -259,18 +271,20 @@ export function ProjectCreationModal({ open, onOpenChange, onCreated, defaultSpa
 								Status
 							</Label>
 							<Select value={form.status} onValueChange={(value) => setForm((prev) => ({ ...prev, status: value }))}>
-								<SelectTrigger id="project-status" className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-left text-sm text-slate-900 shadow-xs focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200">
-									<SelectValue placeholder="Choose status" />
+								<SelectTrigger id="project-status" className="w-full rounded-md border border-slate-200 bg-white px-4 py-2.5 text-left text-sm text-slate-900 shadow-xs focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200">
+								  <SelectValue placeholder="Choose status">
+								    {STATUS_OPTIONS.find(o => o.value === form.status)?.label ?? "Choose status"}
+								  </SelectValue>
 								</SelectTrigger>
 								<SelectContent className="rounded-2xl border border-slate-100 shadow-xl">
-									{STATUS_OPTIONS.map((option) => (
-										<SelectItem key={option.value} value={option.value} className="rounded-lg px-3 py-2.5">
-											<span className="flex flex-col items-start gap-0.5">
-												<span className="text-sm font-semibold text-slate-900">{option.label}</span>
-												<span className="text-xs text-muted-foreground">{option.helper}</span>
-											</span>
-										</SelectItem>
-									))}
+								  {STATUS_OPTIONS.map((option) => (
+								    <SelectItem key={option.value} value={option.value} className="rounded-lg px-3 py-2.5">
+								      <span className="flex flex-col items-start gap-0.5">
+								        <span className="text-sm font-normal text-slate-900">{option.label}</span>
+								        <span className="text-xs text-muted-foreground">{option.helper}</span>
+								      </span>
+								    </SelectItem>
+								  ))}
 								</SelectContent>
 							</Select>
 						</div>
@@ -279,7 +293,7 @@ export function ProjectCreationModal({ open, onOpenChange, onCreated, defaultSpa
 								Visibility
 							</Label>
 							<Select value={form.visibility} onValueChange={(value: any) => setForm((prev) => ({ ...prev, visibility: value }))}>
-								<SelectTrigger id="project-visibility" className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-left text-sm text-slate-900 shadow-xs focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200">
+								<SelectTrigger id="project-visibility" className="w-full rounded-md border border-slate-200 bg-white px-4 py-2.5 text-left text-sm text-slate-900 shadow-xs focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200">
 									<SelectValue placeholder="Choose visibility" />
 								</SelectTrigger>
 								<SelectContent className="rounded-2xl border border-slate-100 shadow-xl">

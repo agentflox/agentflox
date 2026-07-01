@@ -3,6 +3,7 @@ import { protectedProcedure, router } from "../init";
 import { TRPCError } from "@trpc/server";
 import { Prisma } from "@agentflox/database/src/generated/prisma";
 import { prisma } from "@/lib/prisma";
+import { assertWorkforceAccess } from "@/lib/resourceAccess";
 
 export const workforceRouter = router({
     create: protectedProcedure
@@ -113,7 +114,10 @@ export const workforceRouter = router({
 
     get: protectedProcedure
         .input(z.object({ id: z.string() }))
-        .query(async ({ input }) => {
+        .query(async ({ ctx, input }) => {
+            const userId = ctx.session.user.id;
+            await assertWorkforceAccess(userId, input.id);
+
             const workforce = await prisma.workforce.findUnique({
                 where: { id: input.id },
             });
@@ -138,7 +142,10 @@ export const workforceRouter = router({
             nodes: z.array(z.any()).optional(),
             edges: z.array(z.any()).optional(),
         }))
-        .mutation(async ({ input }) => {
+        .mutation(async ({ ctx, input }) => {
+            const userId = ctx.session.user.id;
+            await assertWorkforceAccess(userId, input.id);
+
             const { id, nodes, edges, ...rest } = input;
 
             // Mapping for node types to match user's requested format
@@ -224,5 +231,15 @@ export const workforceRouter = router({
             });
 
             return updatedWorkforce;
+        }),
+
+    delete: protectedProcedure
+        .input(z.object({ id: z.string() }))
+        .mutation(async ({ ctx, input }) => {
+            const userId = ctx.session.user.id;
+            const workforce = await prisma.workforce.findUnique({ where: { id: input.id } });
+            if (!workforce) throw new TRPCError({ code: "NOT_FOUND", message: "Workforce not found" });
+            await assertWorkforceAccess(userId, input.id);
+            return prisma.workforce.delete({ where: { id: input.id } });
         }),
 });

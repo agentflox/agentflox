@@ -128,7 +128,7 @@ function ApplicationCard({
                 </div>
                 <p className="text-sm text-slate-600 flex items-start gap-1.5">
                   <span className="text-slate-500 flex-shrink-0">Re:</span>
-                  <span 
+                  <span
                     className="relative z-10 font-medium text-slate-900 truncate hover:underline hover:text-indigo-600 cursor-pointer transition-colors"
                     onClick={(e) => {
                       e.stopPropagation();
@@ -187,7 +187,7 @@ function EmptyState({ mode }: { mode: "inbox" | "sent" }) {
 
       {mode === "sent" && (
         <Button
-          variant="default"
+          variant="primary"
           size="sm"
           className="bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white shadow-md hover:shadow-lg transition-all duration-200 font-medium"
           onClick={() => window.location.href = '/marketplace'}

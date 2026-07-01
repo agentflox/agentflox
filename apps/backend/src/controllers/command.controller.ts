@@ -8,10 +8,9 @@ import {
     HttpStatus,
     Logger,
 } from '@nestjs/common';
+import { JwtAuthGuard, AuthenticatedRequest } from '@/middleware/httpAuth';
+import { commandRateLimiter, consumeRateLimit } from '@/lib/rateLimiter';
 import { CommandService, CommandContext } from '../services/command/command.service';
-
-// Assuming you have an auth guard - adjust path as needed
-// import { AuthGuard } from '../guards/auth.guard';
 
 interface CommandRequest {
     input: string;
@@ -19,7 +18,7 @@ interface CommandRequest {
 }
 
 @Controller('command')
-// @UseGuards(AuthGuard) // Uncomment when auth guard is available
+@UseGuards(JwtAuthGuard)
 export class CommandController {
     private readonly logger = new Logger(CommandController.name);
 
@@ -30,8 +29,13 @@ export class CommandController {
      * POST /command/parse
      */
     @Post('parse')
-    async parse(@Body() body: CommandRequest, @Request() req?: any) {
+    async parse(@Body() body: CommandRequest, @Request() req?: AuthenticatedRequest) {
         try {
+            const userId = this.requireUserId(req);
+            const rl = await consumeRateLimit(commandRateLimiter, userId, 'command:parse');
+            if (!rl.allowed) {
+                throw new HttpException(rl.error ?? 'Rate limit exceeded', HttpStatus.TOO_MANY_REQUESTS);
+            }
             const context = this.buildContext(body.context, req);
 
             if (!body.input || body.input.trim().length === 0) {
@@ -46,7 +50,7 @@ export class CommandController {
                 success: true,
                 data: result,
             };
-        } catch (error) {
+        } catch (error: any) {
             this.logger.error(`Parse error: ${error.message}`, error.stack);
             throw new HttpException(
                 error.message || 'Failed to parse command',
@@ -60,8 +64,13 @@ export class CommandController {
      * POST /command/suggest
      */
     @Post('suggest')
-    async suggest(@Body() body: CommandRequest, @Request() req?: any) {
+    async suggest(@Body() body: CommandRequest, @Request() req?: AuthenticatedRequest) {
         try {
+            const userId = this.requireUserId(req);
+            const rl = await consumeRateLimit(commandRateLimiter, userId, 'command:suggest');
+            if (!rl.allowed) {
+                throw new HttpException(rl.error ?? 'Rate limit exceeded', HttpStatus.TOO_MANY_REQUESTS);
+            }
             const context = this.buildContext(body.context, req);
 
             const suggestions = await this.commandService.getSuggestions(
@@ -77,7 +86,7 @@ export class CommandController {
                     query: body.input,
                 },
             };
-        } catch (error) {
+        } catch (error: any) {
             this.logger.error(`Suggest error: ${error.message}`, error.stack);
             throw new HttpException(
                 error.message || 'Failed to get suggestions',
@@ -91,8 +100,13 @@ export class CommandController {
      * POST /command/execute
      */
     @Post('execute')
-    async execute(@Body() body: CommandRequest, @Request() req?: any) {
+    async execute(@Body() body: CommandRequest, @Request() req?: AuthenticatedRequest) {
         try {
+            const userId = this.requireUserId(req);
+            const rl = await consumeRateLimit(commandRateLimiter, userId, 'command:execute');
+            if (!rl.allowed) {
+                throw new HttpException(rl.error ?? 'Rate limit exceeded', HttpStatus.TOO_MANY_REQUESTS);
+            }
             const context = this.buildContext(body.context, req);
 
             if (!body.input || body.input.trim().length === 0) {
@@ -109,7 +123,7 @@ export class CommandController {
                 data: result.data,
                 followUpActions: result.followUpActions,
             };
-        } catch (error) {
+        } catch (error: any) {
             this.logger.error(`Execute error: ${error.message}`, error.stack);
             throw new HttpException(
                 error.message || 'Failed to execute command',
@@ -123,20 +137,24 @@ export class CommandController {
      */
     private buildContext(
         providedContext?: Partial<CommandContext>,
-        req?: any,
+        req?: AuthenticatedRequest,
     ): CommandContext {
-        // Extract user from request (adjust based on your auth implementation)
-        const userId = req?.user?.id || providedContext?.userId || 'anonymous';
-
         return {
-            userId,
+            userId: this.requireUserId(req),
             workspaceId: providedContext?.workspaceId,
             projectId: providedContext?.projectId,
             teamId: providedContext?.teamId,
             organizationId: providedContext?.organizationId,
             url: providedContext?.url,
-            userRole: providedContext?.userRole || req?.user?.role,
-            permissions: providedContext?.permissions || req?.user?.permissions || [],
+            userRole: providedContext?.userRole,
+            permissions: Array.isArray(providedContext?.permissions) ? providedContext.permissions : [],
         };
+    }
+
+    private requireUserId(req?: AuthenticatedRequest): string {
+        if (!req?.userId) {
+            throw new HttpException('Unauthorized', HttpStatus.UNAUTHORIZED);
+        }
+        return req.userId;
     }
 }

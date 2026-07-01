@@ -59,6 +59,8 @@ interface WorkloadViewProps {
     teamId?: string;
     listId?: string;
     viewId?: string;
+    initialConfig?: any;
+    selectedTaskIdFromParent?: string | null;
     onTaskSelect?: (taskId: string | null) => void;
 }
 
@@ -112,7 +114,7 @@ const CREATE_FIELD_TYPES = [
 type WorkloadMetric = "tasks" | "time_estimate" | "sprint_points";
 type Timeframe = "7" | "14" | "30";
 
-export function WorkloadView({ spaceId, projectId, teamId, listId, viewId, onTaskSelect }: WorkloadViewProps) {
+export function WorkloadView({ spaceId, projectId, teamId, listId, viewId, initialConfig, onTaskSelect }: WorkloadViewProps) {
     const router = useRouter();
     const searchParams = useSearchParams();
     const utils = trpc.useUtils();

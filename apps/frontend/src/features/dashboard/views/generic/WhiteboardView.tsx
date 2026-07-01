@@ -271,14 +271,17 @@ function DraggableElement({ element, onUpdate, onDelete, isSelected, onSelect, m
 }
 
 interface WhiteboardViewProps {
+    listId?: string;
     spaceId?: string;
     projectId?: string;
     teamId?: string;
     viewId?: string;
     initialConfig?: any;
+    selectedTaskIdFromParent?: string | null;
+    onTaskSelect?: (taskId: string | null) => void;
 }
 
-export default function WhiteboardView({ spaceId, projectId, teamId, viewId, initialConfig }: WhiteboardViewProps) {
+export default function WhiteboardView({ listId, spaceId, projectId, teamId, viewId, initialConfig, selectedTaskIdFromParent, onTaskSelect }: WhiteboardViewProps) {
     const [elements, setElements] = useState<WhiteboardElement[]>([]);
     const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
     const [zoom, setZoom] = useState(100);

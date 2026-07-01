@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Shell from "@/components/layout/Shell";
 import { Button } from "@/components/ui/button";
 import { Pagination } from "@/components/ui/pagination";
-import { SpaceCard, SpaceFilterSidebar, useSpaceList, SpaceCreationModal } from "@/entities/spaces";
+import { SpaceCard, useSpaceList, SpaceCreationModal } from "@/entities/spaces";
 import { PageHeader } from "@/entities/shared/components/PageHeader";
 import { SearchSection } from "@/entities/shared/components/SearchSection";
 import { useToast } from "@/hooks/useToast";
@@ -17,13 +17,15 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-import { Filter, MoreHorizontal, Eye, Trash, ArrowUpDown, ChevronUp, ChevronDown, Check, Settings2 } from "lucide-react";
+import { Filter, MoreHorizontal, Eye, Trash, Trash2, Folder, ArrowUpDown, ChevronUp, ChevronDown, Check, Settings2, LayoutGrid, PenSquare } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { DataTable } from "@/components/ui/data-table";
 import { DataTableColumnHeader } from "@/components/ui/data-table-column-header";
 import { ColumnDef } from "@tanstack/react-table";
 import { Checkbox } from "@/components/ui/checkbox";
+import { DataTableSkeleton } from "@/components/ui/data-table-skeleton";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -38,6 +40,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
 import { formatDistanceToNow } from "date-fns";
+import { trpc } from "@/lib/trpc";
+import { ConfirmDeleteModal } from "@/components/modals/ConfirmDeleteModal";
 
 export default function SpacesPage() {
     const router = useRouter();
@@ -45,7 +49,6 @@ export default function SpacesPage() {
     const {
         data,
         isLoading,
-        isFetching,
         page,
         pageSize,
         setPage,
@@ -66,6 +69,11 @@ export default function SpacesPage() {
     const [table, setTable] = useState<import("@tanstack/react-table").Table<any> | null>(null);
     const [selectedGridIds, setSelectedGridIds] = useState<Set<string>>(new Set());
 
+    // Delete modal state
+    const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+    const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
+    const [bulkDeleteRows, setBulkDeleteRows] = useState<any[]>([]);
+
     const handleGridSelect = (id: string, selected: boolean) => {
         setSelectedGridIds((prev) => {
             const next = new Set(prev);
@@ -74,8 +82,39 @@ export default function SpacesPage() {
         });
     };
 
+    const utils = trpc.useUtils();
+    const deleteMutation = trpc.space.delete.useMutation({
+        onSuccess: () => {
+            toast({ title: "Space deleted successfully" });
+            utils.space.list.invalidate();
+        },
+        onError: (error) => {
+            toast({ title: "Failed to delete space", description: error.message, variant: "destructive" });
+        }
+    });
+
+    const handleDelete = (id: string) => {
+        const item = data?.items?.find((s) => s.id === id);
+        setDeleteTarget({ id, name: item?.name ?? "Untitled Space" });
+        setBulkDeleteRows([]);
+        setDeleteModalOpen(true);
+    };
+
     const handleBulkDelete = (rows: any[]) => {
-        console.log("Delete spaces: ", rows.map((r: any) => r.id));
+        setBulkDeleteRows(rows);
+        setDeleteTarget(null);
+        setDeleteModalOpen(true);
+    };
+
+    const handleConfirmDelete = async () => {
+        if (bulkDeleteRows.length > 0) {
+            for (const row of bulkDeleteRows) {
+                await deleteMutation.mutateAsync({ id: row.id });
+            }
+            setSelectedGridIds(new Set());
+        } else if (deleteTarget) {
+            await deleteMutation.mutateAsync({ id: deleteTarget.id });
+        }
     };
 
     const columns: ColumnDef<any>[] = [
@@ -161,16 +200,15 @@ export default function SpacesPage() {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                             <DropdownMenuItem onClick={() => router.push(`/dashboard/spaces/${space.id}`)}>
-                                <Eye className="mr-2 h-4 w-4" />
-                                View
+                                <PenSquare className="mr-1 h-4 w-4" />
+                                Edit Space
                             </DropdownMenuItem>
-                            <DropdownMenuSeparator />
                             <DropdownMenuItem
-                                className="text-destructive focus:text-destructive"
-                                onClick={() => console.log("Delete", space.id)}
+                                className="text-red-600 focus:text-red-600 dark:text-red-500 dark:focus:text-red-500"
+                                onClick={() => handleDelete(space.id)}
                             >
-                                <Trash className="mr-2 h-4 w-4" />
-                                Delete
+                                <Trash2 className="mr-1 h-4 w-4" />
+                                Delete Space
                             </DropdownMenuItem>
                         </DropdownMenuContent>
                     </DropdownMenu>
@@ -431,9 +469,24 @@ export default function SpacesPage() {
 
                     {isLoading ? (
                         viewMode === "grid" ? (
-                            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                                {Array.from({ length: 6 }).map((_, index) => (
-                                    <div key={index} className="h-[200px] animate-pulse rounded-lg border border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900" />
+                            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 pb-4">
+                                {[...Array(8)].map((_, i) => (
+                                    <div key={i} className="relative flex flex-col bg-white rounded-xl border border-slate-200 shadow-sm p-6 pt-10 overflow-hidden">
+                                        <div className="flex items-start gap-3 mb-4">
+                                            <Skeleton className="h-10 w-10 rounded-xl shrink-0" />
+                                            <div className="flex-1 space-y-2 pt-1">
+                                                <Skeleton className="h-4 w-[60%] rounded-md" />
+                                                <Skeleton className="h-3 w-[40%] rounded-md opacity-60" />
+                                            </div>
+                                        </div>
+                                        <Skeleton className="h-3.5 w-full rounded-md" />
+                                        <Skeleton className="h-3.5 w-[75%] rounded-md mt-1.5" />
+                                        <div className="flex items-center gap-2 mt-5 pt-4 border-t border-slate-100">
+                                            <Skeleton className="h-5 w-16 rounded-full" />
+                                            <Skeleton className="h-5 w-14 rounded-full" />
+                                            <Skeleton className="h-5 w-12 rounded-full ml-auto" />
+                                        </div>
+                                    </div>
                                 ))}
                             </div>
                         ) : (
@@ -442,13 +495,14 @@ export default function SpacesPage() {
                     ) : data?.items && data.items.length > 0 ? (
                         viewMode === "grid" ? (
                             <>
-                                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                                <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 pb-4">
                                     {data.items.map((item) => (
                                         <SpaceCard
                                             key={item.id}
                                             item={item}
                                             isSelected={selectedGridIds.has(item.id)}
                                             onSelect={handleGridSelect}
+                                            onDelete={handleDelete}
                                         />
                                     ))}
                                 </div>
@@ -462,7 +516,7 @@ export default function SpacesPage() {
                                             <X className="h-3.5 w-3.5" />
                                             Deselect
                                         </Button>
-                                        <Button variant="destructive" size="sm" onClick={() => { console.log("Delete:", [...selectedGridIds]); setSelectedGridIds(new Set()); }} className="h-8 gap-1.5 px-3 cursor-pointer">
+                                        <Button variant="destructive" size="sm" onClick={() => handleBulkDelete(Array.from(selectedGridIds).map(id => ({ id })))} className="h-8 gap-1.5 px-3 cursor-pointer">
                                             <Trash className="h-3.5 w-3.5" />
                                             Delete Selected
                                         </Button>
@@ -473,17 +527,29 @@ export default function SpacesPage() {
                             <DataTable columns={columns} data={data.items} onDeleteSelected={handleBulkDelete} onTableReady={setTable} hideToolbar columnVisibility={columnVisibility} onColumnVisibilityChange={setColumnVisibility} />
                         )
                     ) : (
-                        <div className="flex min-h-[320px] flex-col items-center justify-center rounded-xl border border-dashed border-zinc-200 bg-zinc-50/50 p-8 text-center dark:border-zinc-800 dark:bg-zinc-900/50">
-                            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-zinc-100 dark:bg-zinc-800">
-                                <Plus className="h-6 w-6 text-zinc-400" />
+                        <div className="flex min-h-[400px] flex-col items-center justify-center rounded-2xl border border-slate-200/80 bg-gradient-to-b from-slate-50/50 to-white shadow-sm">
+                            <div className="text-center px-6 py-8 max-w-xs">
+                                <div className="mx-auto h-16 w-16 rounded-2xl bg-gradient-to-br from-indigo-50 to-indigo-100 border border-indigo-100 shadow-sm flex items-center justify-center mb-6">
+                                    <LayoutGrid className="h-7 w-7 text-indigo-500" />
+                                </div>
+                                <h3 className="text-base font-semibold text-slate-900">
+                                    {query ? "No results found" : "No spaces yet"}
+                                </h3>
+                                <p className="mt-2 text-sm text-slate-500 leading-relaxed">
+                                    {query
+                                        ? "Try adjusting your search or clearing filters to find what you're looking for."
+                                        : "Create and manage your spaces to start organizing your work."}
+                                </p>
+                                {!query && (
+                                    <button
+                                        onClick={handleCreateSpace}
+                                        className="mt-6 inline-flex items-center gap-2 rounded-xl px-4 h-10 text-sm font-semibold bg-gradient-to-b from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 text-white shadow-md shadow-indigo-200 hover:shadow-lg hover:shadow-indigo-300 transition-all cursor-pointer"
+                                    >
+                                        <Plus className="h-4 w-4" />
+                                        Create new space
+                                    </button>
+                                )}
                             </div>
-                            <h3 className="mt-4 text-base font-medium text-zinc-900 dark:text-zinc-50">No spaces found</h3>
-                            <p className="mt-1 text-sm text-zinc-500">
-                                {query ? "Try adjusting your search or filters." : "Get started by creating a new space."}
-                            </p>
-                            <Button onClick={handleCreateSpace} size="sm" variant="outline" className="mt-8 border-zinc-200 bg-white hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-950 max-w-40">
-                                Create space
-                            </Button>
                         </div>
                     )}
 
@@ -493,7 +559,7 @@ export default function SpacesPage() {
                             hasNextPage={hasNextPage}
                             hasPreviousPage={hasPreviousPage}
                             onPageChange={setPage}
-                            isLoading={isFetching}
+                            isLoading={isLoading}
                         />
                     )}
                 </div>
@@ -506,6 +572,15 @@ export default function SpacesPage() {
                     toast({ title: "Space created", description: "Space successfully created." });
                     // The list should auto-refresh due to invalidation in modal
                 }}
+            />
+            <ConfirmDeleteModal
+                open={deleteModalOpen}
+                onOpenChange={setDeleteModalOpen}
+                itemName={deleteTarget?.name}
+                count={bulkDeleteRows.length > 0 ? bulkDeleteRows.length : 1}
+                entityLabel="space"
+                onConfirm={handleConfirmDelete}
+                isLoading={deleteMutation.isPending}
             />
         </Shell>
     );

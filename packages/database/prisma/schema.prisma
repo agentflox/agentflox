@@ -181,6 +181,7 @@ model User {
   taskComments                   TaskComment[]
 
   taskWatchers         TaskWatcher[]
+  documentWatchers     DocumentWatcher[]
   tasksCreated         Task[]                @relation("TaskCreator")
   teamComments         TeamComment[]
   teamLikes            TeamLike[]
@@ -218,6 +219,32 @@ model User {
 
   customFieldsCreated CustomField[] @relation("CustomFieldCreator")
 
+  documentComments         DocumentComment[]        @relation("DocumentCommentAuthor")
+  documentCommentsAssigned DocumentComment[]        @relation("DocumentCommentAssignee")
+  documentCommentsResolved DocumentComment[]        @relation("DocumentCommentResolver")
+  documentCommentReactions DocumentCommentReaction[] @relation("DocCommentReactions")
+
+  reportedBugs             BugReport[]              @relation("ReportedBugs")
+  assignedBugs             BugReport[]              @relation("AssignedBugs")
+  bugReportAttachments     BugReportAttachment[]
+  bugReportComments        BugReportComment[]
+  bugReportStatusChanges   BugReportStatusHistory[]
+
+  toolVersionsCreated      CompositeToolVersion[]
+  toolExecutions           CompositeToolExecutionLog[]
+
+  // --- soft delete fields ---
+  deletedAt       DateTime?        @map("deleted_at")
+  deletedById     String?          @map("deleted_by_id")
+  
+  @@index([deletedAt])
+  @@index([isActive])
+  @@index([isActive, deletedAt])
+  @@index([role])
+  @@index([verificationLevel])
+  @@index([createdAt])
+  @@index([lastActiveAt])
+  @@index([isVerified])
   @@map("users")
 }
 
@@ -241,6 +268,10 @@ model Organization {
   teams       Team[]
   workspaces  Workspace[]
   templates   Template[]
+
+  // --- soft delete fields ---
+  deletedAt       DateTime?        @map("deleted_at")
+  deletedById     String?          @map("deleted_by_id")
 
   @@map("organizations")
 }
@@ -330,6 +361,10 @@ model Workspace {
   organization          Organization?          @relation(fields: [organizationId], references: [id])
   owner                 User                   @relation("WorkspaceOwner", fields: [ownerId], references: [id], onDelete: Cascade)
   workforces            Workforce[]
+
+  // --- soft delete fields ---
+  deletedAt       DateTime?        @map("deleted_at")
+  deletedById     String?          @map("deleted_by_id")
 
   @@index([ownerId])
   @@index([organizationId])
@@ -421,6 +456,11 @@ model Space {
   tools              Tool[]
   views              View[]
   workforces         Workforce[]
+  documents          Document[]
+
+  // --- soft delete fields ---
+  deletedAt       DateTime?        @map("deleted_at")
+  deletedById     String?          @map("deleted_by_id")
 
   @@index([workspaceId])
   @@index([isActive])
@@ -511,6 +551,10 @@ model Task {
   team                Team?              @relation(fields: [teamId], references: [id])
   workspace   Workspace?    @relation(fields: [workspaceId], references: [id])
   timeEntries TimeEntry[]
+
+  // --- soft delete fields ---
+  deletedAt       DateTime?        @map("deleted_at")
+  deletedById     String?          @map("deleted_by_id")
 
   @@index([workspaceId])
   @@index([listId])
@@ -833,6 +877,11 @@ model Folder {
   taskStatuses    TaskStatus[]
   taskTypes       TaskType[]
   views           View[]
+  documents       Document[]
+
+  // --- soft delete fields ---
+  deletedAt       DateTime?        @map("deleted_at")
+  deletedById     String?          @map("deleted_by_id")
 
   @@index([workspaceId])
   @@index([spaceId])
@@ -840,6 +889,7 @@ model Folder {
   @@index([teamId])
   @@index([parentId])
   @@index([isArchived])
+  @@index([deletedAt])
   @@map("folders")
 }
 
@@ -875,11 +925,17 @@ model List {
   locationType    LocationType       @default(WORKSPACE) @map("location_type")
   createdBy       String?            @map("created_by")
   creator         User?              @relation("ListCreator", fields: [createdBy], references: [id], onDelete: SetNull)
+  documents       Document[]
+
+  // --- soft delete fields ---
+  deletedAt       DateTime?        @map("deleted_at")
+  deletedById     String?          @map("deleted_by_id")
 
   @@index([workspaceId])
   @@index([spaceId])
   @@index([folderId])
   @@index([isArchived])
+  @@index([deletedAt])
   @@map("lists")
 }
 
@@ -908,6 +964,8 @@ model View {
   visibility    Visibility     @default(ADMINS)
   isAutosave    Boolean        @default(false) @map("is_autosave")
   position      Int            @default(0)
+  sidebarView   Boolean        @default(false) @map("sidebar_view")
+  sidebarOrder  Int?           @map("sidebar_order")
   createdAt     DateTime       @default(now()) @map("created_at")
   updatedAt     DateTime       @updatedAt @map("updated_at")
   shares        ViewShare[]
@@ -918,6 +976,11 @@ model View {
   space         Space?         @relation(fields: [spaceId], references: [id], onDelete: Cascade)
   team          Team?          @relation(fields: [teamId], references: [id], onDelete: Cascade)
   formResponses FormResponse[]
+  documents     Document[]
+
+  // --- soft delete fields ---
+  deletedAt       DateTime?        @map("deleted_at")
+  deletedById     String?          @map("deleted_by_id")
 
   @@index([listId])
   @@index([folderId])
@@ -925,6 +988,7 @@ model View {
   @@index([projectId])
   @@index([teamId])
   @@index([createdBy])
+  @@index([deletedAt])
   @@map("views")
 }
 
@@ -1044,30 +1108,148 @@ model Document {
   id            String                 @id @default(cuid())
   workspaceId   String?                @map("workspace_id")
   parentId      String?                @map("parent_id")
+  spaceId       String?                @map("space_id")
+  projectId     String?                @map("project_id")
+  listId        String?                @map("list_id")
+  folderId      String?                @map("folder_id")
+  teamId        String?                @map("team_id")
+  viewId        String?                @map("view_id")
   createdBy     String                 @map("created_by")
   title         String
+  description   String?
   content       String
   icon          String?
   coverImage    String?                @map("cover_image")
   isPublished   Boolean                @default(false) @map("is_published")
   isArchived    Boolean                @default(false) @map("is_archived")
   isTemplate    Boolean                @default(false) @map("is_template")
-  position      Int                    @default(0)
+  position      String             @default("a0")
   version       Int                    @default(1)
   createdAt     DateTime               @default(now()) @map("created_at")
   updatedAt     DateTime               @updatedAt @map("updated_at")
   publishedAt   DateTime?              @map("published_at")
+  settings      Json?
   collaborators DocumentCollaborator[]
   versions      DocumentVersion[]
+  relationships DocumentRelationship[]
   creator       User                   @relation(fields: [createdBy], references: [id], onDelete: Cascade)
   parent        Document?              @relation("DocumentHierarchy", fields: [parentId], references: [id])
   children      Document[]             @relation("DocumentHierarchy")
   workspace     Workspace?             @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  space         Space?                 @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  project       Project?               @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  list          List?                  @relation(fields: [listId], references: [id], onDelete: Cascade)
+  folder        Folder?                @relation(fields: [folderId], references: [id], onDelete: Cascade)
+  team          Team?                  @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  view          View?                  @relation(fields: [viewId], references: [id], onDelete: Cascade)
+  comments      DocumentComment[]
+  watchers      DocumentWatcher[]
+  locationType  LocationType           @default(PERSONAL)  @map("location_type")
+
+  // --- soft delete fields ---
+  deletedAt       DateTime?        @map("deleted_at")
+  deletedById     String?          @map("deleted_by_id")
 
   @@index([workspaceId])
+  @@index([spaceId])
+  @@index([projectId])
+  @@index([listId])
+  @@index([folderId])
+  @@index([teamId])
+  @@index([viewId])
   @@index([createdBy])
   @@index([parentId])
+  @@index([deletedAt])
   @@map("documents")
+}
+
+model DocumentRelationship {
+  id              String   @id @default(cuid())
+  documentId      String   @map("document_id")
+  targetType      String   // "TASK" or "DOCUMENT"
+  targetId        String   @map("target_id")
+  createdAt       DateTime @default(now()) @map("created_at")
+  document        Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@unique([documentId, targetType, targetId])
+  @@index([documentId])
+  @@map("document_relationships")
+}
+
+model DocumentComment {
+  id           String                @id @default(cuid())
+  documentId   String                @map("document_id")
+  userId       String                @map("user_id")
+  parentId     String?               @map("parent_id")
+  content      String
+  isEdited     Boolean               @default(false) @map("is_edited")
+  isResolved   Boolean               @default(false) @map("is_resolved")
+  resolvedById String?               @map("resolved_by_id")
+  resolvedAt   DateTime?             @map("resolved_at")
+  assigneeId   String?               @map("assignee_id")
+  editedAt     DateTime?             @map("edited_at")
+  createdAt    DateTime              @default(now()) @map("created_at")
+  updatedAt    DateTime              @updatedAt @map("updated_at")
+  document     Document              @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  user         User                  @relation("DocumentCommentAuthor", fields: [userId], references: [id], onDelete: Cascade)
+  assignee     User?                 @relation("DocumentCommentAssignee", fields: [assigneeId], references: [id])
+  resolvedBy   User?                 @relation("DocumentCommentResolver", fields: [resolvedById], references: [id])
+  parent       DocumentComment?      @relation("DocCommentReplies", fields: [parentId], references: [id])
+  replies      DocumentComment[]     @relation("DocCommentReplies")
+  attachments  DocumentCommentAttachment[]
+  reactions    DocumentCommentReaction[]
+
+  @@index([documentId])
+  @@index([userId])
+  @@index([parentId])
+  @@map("document_comments")
+}
+
+model DocumentWatcher {
+  id         String   @id @default(cuid())
+  documentId String   @map("document_id")
+  userId     String?  @map("user_id")
+  teamId     String?  @map("team_id")
+  addedAt    DateTime @default(now()) @map("added_at")
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  user       User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  team       Team?    @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  // Prisma handles nullable unique fields properly (enforces uniqueness for non-null tuples)
+  @@unique([documentId, userId])
+  @@unique([documentId, teamId])
+  
+  @@index([userId])
+  @@index([teamId])
+  @@map("document_watchers")
+}
+
+model DocumentCommentAttachment {
+  id        String          @id @default(cuid())
+  commentId String          @map("comment_id")
+  filename  String
+  url       String
+  mimeType  String          @map("mime_type")
+  size      BigInt
+  createdAt DateTime        @default(now()) @map("created_at")
+  comment   DocumentComment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+
+  @@index([commentId])
+  @@map("document_comment_attachments")
+}
+
+model DocumentCommentReaction {
+  id        String          @id @default(cuid())
+  commentId String          @map("comment_id")
+  userId    String          @map("user_id")
+  emoji     String
+  createdAt DateTime        @default(now()) @map("created_at")
+  comment   DocumentComment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  user      User            @relation("DocCommentReactions", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([commentId, userId, emoji])
+  @@index([commentId])
+  @@map("document_comment_reactions")
 }
 
 model DocumentVersion {
@@ -1121,9 +1303,14 @@ model Channel {
   workspace       Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   tasks           Task[]
 
+  // --- soft delete fields ---
+  deletedAt       DateTime?        @map("deleted_at")
+  deletedById     String?          @map("deleted_by_id")
+
   @@index([workspaceId])
   @@index([type])
   @@index([isArchived])
+  @@index([deletedAt])
   @@map("channels")
 }
 
@@ -1467,6 +1654,10 @@ model MarketplaceListing {
   downloads    ListingDownload[]        @relation("listingDownloads")
   versions     ListingVersion[]         @relation("listingVersions")
 
+  // --- soft delete fields ---
+  deletedAt       DateTime?        @map("deleted_at")
+  deletedById     String?          @map("deleted_by_id")
+
   // ─── Indexes ────────────────────────────────────────────────────────────────
   @@index([slug])
   @@index([type, status])
@@ -1478,6 +1669,7 @@ model MarketplaceListing {
   @@index([likeCount])
   @@index([publishedAt])
   @@index([createdAt])
+  @@index([deletedAt])
   @@map("marketplace_listings")
 }
 
@@ -1801,8 +1993,14 @@ model Project {
   taskTypes          TaskType[]
   tasks              Task[]
   views              View[]
+  documents          Document[]
+
+  // --- soft delete fields ---
+  deletedAt       DateTime?        @map("deleted_at")
+  deletedById     String?          @map("deleted_by_id")
 
   @@index([spaceId])
+  @@index([deletedAt])
   @@map("projects")
 }
 
@@ -1915,6 +2113,7 @@ model Post {
   createdAt    DateTime       @default(now()) @map("created_at")
   updatedAt    DateTime       @updatedAt @map("updated_at")
   deletedAt    DateTime?      @map("deleted_at")
+  deletedById  String?        @map("deleted_by_id")
   editedAt     DateTime?      @map("edited_at")
   isHidden     Boolean        @default(false) @map("is_hidden")
   reportCount  Int            @default(0)     @map("report_count")
@@ -2219,6 +2418,7 @@ model Team {
   taskStatuses TaskStatus[]
   taskTypes    TaskType[]
   tasks        Task[]
+  documentWatchers DocumentWatcher[]
   comments     TeamComment[]
   likes        TeamLike[]
   members      TeamMember[]  @relation("TeamMemberTeam")
@@ -2229,8 +2429,14 @@ model Team {
   workspace    Workspace?    @relation(fields: [workspaceId], references: [id])
   viewShares   ViewShare[]
   views        View[]
+  documents    Document[]
+
+  // --- soft delete fields ---
+  deletedAt       DateTime?        @map("deleted_at")
+  deletedById     String?          @map("deleted_by_id")
 
   @@index([spaceId])
+  @@index([deletedAt])
   @@map("teams")
 }
 
@@ -2844,7 +3050,7 @@ model Subscription {
   createdAt          DateTime           @default(now()) @map("created_at")
   updatedAt          DateTime           @updatedAt @map("updated_at")
   billingEvents      BillingEvent[]     @relation("subscriptionBillingEvents")
-  payments           Payment?           @relation("subscriptionPayment")
+  payments           Payment[]          @relation("subscriptionPayment")
   plan               Plan               @relation("planSubscriptions", fields: [planId], references: [id], onDelete: Cascade)
   user               User               @relation("userSubscriptions", fields: [userId], references: [id], onDelete: Cascade)
   usage              Usage?             @relation("subscriptionUsage")
@@ -2937,7 +3143,7 @@ model Feature {
 
 model Payment {
   id                 String          @id @default(cuid())
-  subscriptionId     String?         @unique @map("subscription_id")
+  subscriptionId     String?         @map("subscription_id")
   purchaseId         String?         @unique @map("purchase_id")
   userId             String          @map("user_id")
   billingType        BillingType
@@ -4194,6 +4400,10 @@ model AiAgent {
   automations       Automation[]
   taskAssignees     TaskAssignee[]
 
+  // --- soft delete fields ---
+  deletedAt       DateTime?        @map("deleted_at")
+  deletedById     String?          @map("deleted_by_id")
+
   @@index([agentType])
   @@index([createdAt])
   @@index([createdBy])
@@ -4205,6 +4415,7 @@ model AiAgent {
   @@index([spaceId])
   @@index([projectId])
   @@index([teamId])
+  @@index([deletedAt])
   @@map("ai_agents")
 }
 
@@ -4250,23 +4461,118 @@ model CompositeTool {
   category        String?
   functionSchema  Json
   steps           Json
+  mode            ToolCreationMode @default(MANUAL)
   isPublic        Boolean          @default(true) @map("is_public")
   createdAt       DateTime         @default(now()) @map("created_at")
   updatedAt       DateTime         @updatedAt @map("updated_at")
+
   workspace       Workspace?       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   owner           User             @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   space           Space?           @relation(fields: [spaceId], references: [id], onDelete: Cascade)
   project         Project?         @relation(fields: [projectId], references: [id], onDelete: Cascade)
   team            Team?            @relation(fields: [teamId], references: [id], onDelete: Cascade)
   aiConversations AiConversation[]
+  versions        CompositeToolVersion[]
+  executionLogs   CompositeToolExecutionLog[]
+
+  // soft delete — for consistency with User and audit trail integrity
+  deletedAt       DateTime?        @map("deleted_at")
+  deletedById     String?          @map("deleted_by_id")
 
   @@index([workspaceId])
   @@index([spaceId])
   @@index([projectId])
   @@index([teamId])
   @@index([ownerId])
+  @@index([ownerId, createdAt])      // "my tools, newest first"
+  @@index([isPublic, category])      // public marketplace browsing by category
+  @@index([createdAt])               // global recency sort
+  @@index([deletedAt])
   @@map("composite_tools")
 }
+
+model CompositeToolVersion {
+  id              String         @id @default(cuid())
+  compositeToolId String         @map("composite_tool_id")
+  version         Int
+  name            String?
+  description     String?
+  functionSchema  Json
+  steps           Json
+  isLive          Boolean        @default(false) @map("is_live")
+  createdAt       DateTime       @default(now()) @map("created_at")
+  createdById     String         @map("created_by_id")
+
+  compositeTool   CompositeTool  @relation(fields: [compositeToolId], references: [id], onDelete: Cascade)
+  createdBy       User           @relation(fields: [createdById], references: [id], onDelete: Cascade)
+
+  executionLogs   CompositeToolExecutionLog[]
+
+  @@unique([compositeToolId, version])              // prevent duplicate version numbers
+  @@index([compositeToolId, isLive])                 // fast "get live version" lookup
+  @@index([createdById])
+  @@map("composite_tool_versions")
+}
+
+// In a migration (Prisma doesn't support partial unique indexes natively):
+// CREATE UNIQUE INDEX one_live_version_per_tool
+//   ON composite_tool_versions (composite_tool_id)
+//   WHERE is_live = true;
+
+enum ExecutionStatus {
+  PENDING
+  RUNNING
+  SUCCESS
+  FAILED
+  TIMEOUT
+  CANCELLED
+}
+
+model CompositeToolExecutionLog {
+  id              String           @id @default(cuid())
+  compositeToolId String           @map("composite_tool_id")
+  versionId       String?          @map("version_id")
+  userId          String?          @map("user_id")
+  status          ExecutionStatus  @default(PENDING)
+  input           Json?
+  output          Json?
+  steps           Json?
+  error           String?
+  executionTimeMs Int?             @map("execution_time_ms")
+  createdAt       DateTime         @default(now()) @map("created_at")
+  finishedAt      DateTime?        @map("finished_at")
+
+  compositeTool   CompositeTool         @relation(fields: [compositeToolId], references: [id], onDelete: Cascade)
+  version         CompositeToolVersion? @relation(fields: [versionId], references: [id], onDelete: SetNull)
+  user            User?                 @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([compositeToolId, createdAt])  // tool's execution history, time-ordered
+  @@index([versionId])
+  @@index([userId, createdAt])
+  @@index([status])                       // dashboards filtering failed/pending runs
+  @@map("composite_tool_execution_logs")
+}
+
+/// Idempotency store for Inngest composite tool step execution.
+/// Key format: "{runId}:{stepId}"  — one record per step per run attempt.
+/// Ensures Inngest retries never re-execute side-effectful steps (DB writes,
+/// emails, Stripe charges) and never return large payloads through Inngest
+/// step output (result is read from here on retry).
+model ToolStepResult {
+  id              String   @id @default(cuid())
+  idempotencyKey  String   @unique @map("idempotency_key")
+  toolId          String   @map("tool_id")
+  runId           String   @map("run_id")
+  stepId          String   @map("step_id")
+  stepName        String?  @map("step_name")
+  result          Json?
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  @@index([runId])           // look up all steps for a given run
+  @@index([toolId, runId])   // per-tool run history
+  @@map("tool_step_results")
+}
+
 
 model AgentSkill {
   id          String         @id @default(cuid())
@@ -4931,6 +5237,7 @@ enum LogAction {
   SECURITY_2FA_ENABLE
   SECURITY_SUSPICIOUS_ACTIVITY
   PLAN_HEALED
+  DOCUMENT_VIEW
 }
 
 enum LogCategory {
@@ -5711,12 +6018,17 @@ model Workforce {
   creator         User             @relation(fields: [createdBy], references: [id])
   aiConversations AiConversation[]
 
+  // --- soft delete fields ---
+  deletedAt       DateTime?        @map("deleted_at")
+  deletedById     String?          @map("deleted_by_id")
+
   @@index([workspaceId])
   @@index([spaceId])
   @@index([projectId])
   @@index([teamId])
   @@index([createdBy])
   @@index([status])
+  @@index([deletedAt])
   @@map("workforces")
 }
 
@@ -5813,6 +6125,10 @@ model Template {
   auditLogs TemplateAuditLog[]
   versions  TemplateVersion[]
 
+  // --- soft delete fields ---
+  deletedAt       DateTime?        @map("deleted_at")
+  deletedById     String?          @map("deleted_by_id")
+
   @@index([workspaceId])
   @@index([organizationId])
   @@index([createdBy])
@@ -5822,6 +6138,7 @@ model Template {
   @@index([isSystem])
   @@index([isArchived])
   @@index([createdAt])
+  @@index([deletedAt])
   @@map("templates")
 }
 
@@ -5989,4 +6306,198 @@ enum ListingCommentStatus {
   HIDDEN // hidden by author or staff
   REMOVED // moderated-removed
   SPAM
+}
+
+enum ToolCreationMode {
+  MANUAL
+  AI
+}
+
+// ============================================================
+// ENUMS
+// ============================================================
+
+enum BugReportCategory {
+  UI
+  PERFORMANCE
+  FUNCTIONALITY
+  SECURITY
+  DATA
+  INTEGRATION
+  OTHER
+}
+
+enum BugReportSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum BugReportPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum BugReportStatus {
+  OPEN
+  TRIAGED
+  IN_PROGRESS
+  ON_HOLD
+  RESOLVED
+  CLOSED
+  DUPLICATE
+  WONT_FIX
+}
+
+enum Reproducibility {
+  ALWAYS
+  SOMETIMES
+  RARELY
+  UNABLE
+}
+
+// ============================================================
+// CORE MODEL
+// ============================================================
+
+model BugReport {
+  id          String   @id @default(cuid())
+  userId      String   @map("user_id")
+
+  // Global entity reference – links a report to any entity in the platform
+  entityType  String?  @map("entity_type") // "tool" | "agent" | "workspace" | "task" | "marketplace" | "platform"
+  entityId    String?  @map("entity_id")
+
+  // Report content
+  title             String
+  description       String
+  stepsToReproduce  String?           @map("steps_to_reproduce")
+  expectedBehavior  String?           @map("expected_behavior")
+  actualBehavior    String?           @map("actual_behavior")
+  reproducibility   Reproducibility?
+
+  // Classification
+  category    BugReportCategory
+  severity    BugReportSeverity @default(MEDIUM)
+  priority    BugReportPriority @default(NORMAL)
+  status      BugReportStatus   @default(OPEN)
+  tags        String[]          @default([])
+
+  // Automatically captured context
+  pageUrl     String?  @map("page_url")
+  region      String?
+  locale      String?
+  userAgent   String?  @map("user_agent")
+  appVersion  String?  @map("app_version")
+  os          String?
+  deviceType  String?  @map("device_type")
+
+  // Admin / support resolution fields
+  assignedToId  String?   @map("assigned_to_id")
+  resolution    String?
+  resolvedAt    DateTime? @map("resolved_at")
+  closedAt      DateTime? @map("closed_at")
+  adminNotes    String?   @map("admin_notes")
+
+  // Duplicate tracking & external issue linking
+  duplicateOfId String?  @map("duplicate_of_id")
+  externalRef   String?  @map("external_ref") // e.g. "GH-123", "JIRA-456"
+
+  // Lifecycle
+  createdAt   DateTime  @default(now())   @map("created_at")
+  updatedAt   DateTime  @updatedAt        @map("updated_at")
+  deletedAt   DateTime? @map("deleted_at")
+
+  // Relations
+  user         User      @relation("ReportedBugs", fields: [userId], references: [id], onDelete: Cascade)
+  assignedTo   User?     @relation("AssignedBugs", fields: [assignedToId], references: [id], onDelete: SetNull)
+
+  duplicateOf  BugReport?  @relation("DuplicateReports", fields: [duplicateOfId], references: [id], onDelete: SetNull)
+  duplicates   BugReport[] @relation("DuplicateReports")
+
+  attachments  BugReportAttachment[]
+  comments     BugReportComment[]
+  statusLog    BugReportStatusHistory[]
+
+  @@index([userId])
+  @@index([assignedToId])
+  @@index([status])
+  @@index([severity])
+  @@index([priority])
+  @@index([category])
+  @@index([entityType, entityId])
+  @@index([createdAt])
+  @@index([status, priority])
+  @@index([duplicateOfId])
+  @@map("bug_reports")
+}
+
+// ============================================================
+// ATTACHMENTS
+// ============================================================
+
+model BugReportAttachment {
+  id          String   @id @default(cuid())
+  bugReportId String   @map("bug_report_id")
+
+  fileKey      String   @map("file_key")  // storage key/path
+  fileName     String   @map("file_name")
+  mimeType     String   @map("mime_type")
+  fileSize     Int      @map("file_size") // bytes
+
+  uploadedById String  @map("uploaded_by_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  bugReport   BugReport @relation(fields: [bugReportId], references: [id], onDelete: Cascade)
+  uploadedBy  User      @relation(fields: [uploadedById], references: [id], onDelete: Cascade)
+
+  @@index([bugReportId])
+  @@map("bug_report_attachments")
+}
+
+// ============================================================
+// COMMENTS / RESOLUTION THREAD
+// ============================================================
+
+model BugReportComment {
+  id          String   @id @default(cuid())
+  bugReportId String   @map("bug_report_id")
+  authorId    String   @map("author_id")
+
+  body        String
+  isInternal  Boolean  @default(false) @map("is_internal") // admin-only note vs. visible to reporter
+
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt      @map("updated_at")
+
+  bugReport   BugReport @relation(fields: [bugReportId], references: [id], onDelete: Cascade)
+  author      User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([bugReportId])
+  @@map("bug_report_comments")
+}
+
+// ============================================================
+// STATUS / AUDIT TRAIL
+// ============================================================
+
+model BugReportStatusHistory {
+  id          String   @id @default(cuid())
+  bugReportId String   @map("bug_report_id")
+
+  fromStatus  BugReportStatus? @map("from_status")
+  toStatus    BugReportStatus  @map("to_status")
+  changedById String           @map("changed_by_id")
+  note        String?
+
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  bugReport   BugReport @relation(fields: [bugReportId], references: [id], onDelete: Cascade)
+  changedBy   User      @relation(fields: [changedById], references: [id], onDelete: Cascade)
+
+  @@index([bugReportId])
+  @@map("bug_report_status_history")
 }

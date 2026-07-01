@@ -31,7 +31,7 @@ interface StreamingMessageProps {
     /** True once first token received — switches from thinking to streaming mode */
     isStreaming: boolean;
     /** Optional display name for the agent brand label */
-    agentLabel?: string;
+    label?: string;
     className?: string;
 }
 
@@ -143,7 +143,7 @@ export const StreamingMessage: React.FC<StreamingMessageProps> = ({
     currentNode,
     streamingContent,
     isStreaming,
-    agentLabel,
+    label,
     className,
 }) => {
     const CurrentIcon = pickIcon(currentNode ?? undefined, currentStep ?? undefined);
@@ -154,7 +154,7 @@ export const StreamingMessage: React.FC<StreamingMessageProps> = ({
             <div className="flex items-center gap-2 mb-0.5">
                 <AgentfloxSparkleIcon className="h-4 w-4 flex-shrink-0" />
                 <span className="text-sm font-semibold text-foreground/90 tracking-tight">
-                    {agentLabel ?? 'Agentflox Agent'}
+                    {label ?? 'Agentflox Agent'}
                 </span>
             </div>
 

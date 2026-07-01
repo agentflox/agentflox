@@ -10,11 +10,12 @@ import {
     Briefcase,
     User,
     List as ListIcon,
+    FileText,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
-export type SpaceView = "overview" | "views" | "personal" | "projects" | "teams" | "lists" | "chats" | "ai-chat";
+export type SpaceView = "overview" | "personal" | "projects" | "teams" | "lists" | "docs" | "chats" | "ai-chat";
 
 interface SpaceNavigationSidebarProps {
     spaceId: string;
@@ -32,11 +33,12 @@ const navigationItems: Array<{
     icon: React.ComponentType<{ className?: string; size?: number }>;
     href?: string;
 }> = [
-        { id: "views", label: "Views", icon: Menu },
+        { id: "overview", label: "Overview", icon: LayoutDashboard },
         { id: "personal", label: "Personal", icon: User },
         { id: "projects", label: "Projects", icon: Briefcase },
         { id: "teams", label: "Teams", icon: Users },
         { id: "lists", label: "Lists", icon: ListIcon },
+        { id: "docs", label: "Docs", icon: FileText },
         { id: "chats", label: "Chats", icon: MessageSquare },
         { id: "ai-chat", label: "AI Chat", icon: Sparkles },
     ];
@@ -66,7 +68,7 @@ export default function SpaceNavigationSidebar({
                         <button
                             aria-label="Close sidebar"
                             onClick={onClose}
-                            className="cursor-pointer rounded-md p-1.5 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900"
+                            className="cursor-pointer rounded-md p-1.5 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 cursor-pointer"
                         >
                             <Menu size={16} />
                         </button>
@@ -75,7 +77,7 @@ export default function SpaceNavigationSidebar({
                         <button
                             aria-label="Toggle sidebar"
                             onClick={onToggleCollapse}
-                            className="cursor-pointer flex h-8 w-8 items-center justify-center rounded-md text-zinc-400 hover:bg-zinc-100 hover:text-zinc-900 transition-colors"
+                            className="cursor-pointer flex h-8 w-8 items-center justify-center rounded-md text-zinc-400 hover:bg-zinc-100 hover:text-zinc-900 transition-colors cursor-pointer"
                         >
                             {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
                         </button>
@@ -84,7 +86,7 @@ export default function SpaceNavigationSidebar({
             </div>
 
             {/* Navigation */}
-            <ScrollArea className="flex-1 px-3 py-4">
+            <ScrollArea className="flex-1 px-1.5 py-4">
                 <div className="space-y-1">
                     {navigationItems.map((item) => {
                         const Icon = item.icon;
@@ -106,7 +108,7 @@ export default function SpaceNavigationSidebar({
                                     className={commonClassName}
                                     title={collapsed ? item.label : undefined}
                                 >
-                                    <Icon size={18} className={cn("shrink-0", isActive ? "text-primary" : "text-zinc-400 group-hover:text-zinc-900")} />
+                                    <Icon size={18} className={cn("shrink-0", isActive ? "text-primary" : "text-zinc-400 group-hover:text-zinc-900 cursor-pointer")} />
                                     {collapsed ? (
                                         <span className="text-center max-w-[52px] truncate">{item.label}</span>
                                     ) : (

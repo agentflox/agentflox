@@ -281,18 +281,18 @@ export class AgentHiringService {
         const agent = await prisma.aiAgent.create({
             data: {
                 name: agentName,
-                agentType: roleDef.defaultType,
+                agentType: roleDef.defaultType as any,
                 description: roleDef.description,
                 status: 'ACTIVE',
                 capabilities: roleDef.capabilities,
-                workspaceId: project.workspaceId,
-                isActive: true, // Ensuring it's active
+                workspaceId: project.workspaceId ?? undefined,
+                isActive: true,
                 metadata: {
                     projectId: projectId,
                     department: department,
                     hiredBy: userId,
                     systemPromptMixin: roleDef.systemPromptMixin
-                }
+                } as any
             }
         });
 
@@ -303,7 +303,7 @@ export class AgentHiringService {
             type: agent.agentType,
             capabilities: agent.capabilities as string[],
             status: agent.status,
-            workspaceId: agent.workspaceId,
+            workspaceId: agent.workspaceId ?? undefined,
             metadata: agent.metadata as any
         });
 

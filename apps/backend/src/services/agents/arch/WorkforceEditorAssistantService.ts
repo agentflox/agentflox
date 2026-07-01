@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { checkAgentTokenLimit, estimateTokens } from '@/utils/ai/agentUsageTracking';
 import { EditorAssistantResponseSchema, WorkforceOpSchema } from './editorOps';
+import { explicitContextResolver } from '@/utils/utilities/explicitContextResolver';
 import { BaseEditorAssistant, type EditorAssistantMessageInput, type EditorAssistantResponse, EditorAssistantError } from './BaseEditorAssistant';
 
 /**
@@ -8,11 +9,11 @@ import { BaseEditorAssistant, type EditorAssistantMessageInput, type EditorAssis
  */
 export class WorkforceEditorAssistant extends BaseEditorAssistant {
   async processMessage(input: EditorAssistantMessageInput): Promise<EditorAssistantResponse> {
-    const { userId, conversationId, message, context, onToken, signal } = input;
+    const { userId, conversationId, message, context, onToken, signal, options } = input;
     const model = process.env.OPENAI_MODEL || 'gpt-4o-mini';
 
     await prisma.aiMessage.create({
-      data: { conversationId, role: 'USER', content: message },
+      data: { conversationId, role: 'USER', content: message, attachments: options?.attachments },
     });
 
     const system = [
@@ -74,17 +75,20 @@ export class WorkforceEditorAssistant extends BaseEditorAssistant {
       ].join('\n');
     }
 
+    const explicitContextStr = await explicitContextResolver.resolve(userId, options);
+
     const userContent = [
       availableContext,
       'Context represents the workforce canvas state (nodes, edges, selection).',
       'Context JSON:',
       JSON.stringify(context),
       '',
+      explicitContextStr,
       'User message:',
       message,
       '',
       'Return JSON only.',
-    ].join('\n');
+    ].filter(Boolean).join('\n');
 
     const messages = [
       { role: 'system' as const, content: system },

@@ -2,6 +2,11 @@ import { Injectable } from '@nestjs/common';
 import { ModelService } from './model.service';
 import { prisma } from '@/lib/prisma';
 import { UsageManager } from '@/services/billing/managers/usage.manager';
+import {
+    assertListAccess,
+    assertProjectAccessForUser,
+    assertSpaceAccess,
+} from '@/utils/http/resourceAccess';
 
 const SYSTEM_PROMPTS: Record<string, string> = {
     enhance:
@@ -119,6 +124,7 @@ export class AiTextService {
             for (const ctx of contextIds) {
                 try {
                     if (ctx.type === 'list') {
+                        await assertListAccess(ctx.id, userId);
                         const list = await prisma.list.findUnique({
                             where: { id: ctx.id },
                             include: { tasks: { take: 10 } },
@@ -130,6 +136,7 @@ export class AiTextService {
                             contextParts.push(`List "${list.name}":\n${taskPreviews || '(no tasks)'}`);
                         }
                     } else if (ctx.type === 'project') {
+                        await assertProjectAccessForUser(userId, ctx.id);
                         const project = await prisma.project.findUnique({
                             where: { id: ctx.id },
                             select: { name: true, description: true },
@@ -138,6 +145,7 @@ export class AiTextService {
                             contextParts.push(`Project "${project.name}": ${project.description || '(no description)'}`);
                         }
                     } else if (ctx.type === 'space') {
+                        await assertSpaceAccess(ctx.id, userId);
                         const space = await prisma.space.findUnique({
                             where: { id: ctx.id },
                             select: { name: true, description: true },

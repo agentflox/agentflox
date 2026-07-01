@@ -4,6 +4,8 @@ import { SubscriptionManager } from '@/services/billing/managers/subscription.ma
 import { CreditManager } from '@/services/billing/managers/credit.manager';
 import { DateTime } from 'luxon';
 import { PAYMENT_METHOD, PAYMENT_GATEWAY } from '@/services/billing/types';
+import { env } from '@/config/env';
+import { getPayPalAccessToken, getPayPalApiBase } from '@/lib/paypal/api';
 
 interface PayPalWebhookEvent {
   id: string;
@@ -42,27 +44,41 @@ export class PaypalWebhookManager {
         return false;
       }
 
-      // For production, verify with PayPal API
-      // const response = await fetch(`${PAYPAL_API_BASE}/v1/notifications/verify-webhook-signature`, {
-      //   method: 'POST',
-      //   headers: {
-      //     'Content-Type': 'application/json',
-      //     'Authorization': `Bearer ${accessToken}`
-      //   },
-      //   body: JSON.stringify({
-      //     transmission_id: transmissionId,
-      //     transmission_time: transmissionTime,
-      //     cert_url: certUrl,
-      //     auth_algo: authAlgo,
-      //     transmission_sig: transmissionSig,
-      //     webhook_id: webhookId,
-      //     webhook_event: JSON.parse(body)
-      //   })
-      // });
-      // const verification = await response.json();
-      // return verification.verification_status === 'SUCCESS';
+      const skipVerify =
+        env.NODE_ENV !== 'production' &&
+        String(process.env.SKIP_PAYPAL_WEBHOOK_VERIFY || '').toLowerCase() === 'true';
+      if (skipVerify) {
+        console.warn('[PayPal] Webhook signature verification skipped (SKIP_PAYPAL_WEBHOOK_VERIFY)');
+        return true;
+      }
 
-      return true; // Skip verification in dev
+      const accessToken = await getPayPalAccessToken();
+      const webhookEvent = JSON.parse(body);
+      const response = await fetch(`${getPayPalApiBase()}/v1/notifications/verify-webhook-signature`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({
+          transmission_id: transmissionId,
+          transmission_time: transmissionTime,
+          cert_url: certUrl,
+          auth_algo: authAlgo,
+          transmission_sig: transmissionSig,
+          webhook_id: webhookId,
+          webhook_event: webhookEvent,
+        }),
+      });
+
+      if (!response.ok) {
+        const err = await response.text();
+        console.error('PayPal webhook verification request failed:', err);
+        return false;
+      }
+
+      const verification = await response.json() as { verification_status?: string };
+      return verification.verification_status === 'SUCCESS';
     } catch (error) {
       console.error('Webhook signature verification failed:', error);
       return false;

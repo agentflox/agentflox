@@ -1,12 +1,12 @@
 'use client';
 
 import React from 'react';
-import { useWorkforceStore } from '../store/useWorkforceStore';
+import { useWorkforceStore } from '../../../../../entities/workforce/hooks/useWorkforceStore';
 import { Activity, Brain, CheckSquare, Clock } from 'lucide-react';
 
 export default function SwarmCoordinatorInspector() {
     const { swarmEvents } = useWorkforceStore();
-    
+
     // Get last 5 relevant orchestration events
     const latestEvents = [...swarmEvents]
         .filter(e => ['CYCLE_STARTED', 'CYCLE_INSPECT', 'CYCLE_COMPLETED', 'SESSION_STARTED', 'CYCLE_IDLE'].includes(e.type))
@@ -34,10 +34,10 @@ export default function SwarmCoordinatorInspector() {
                 <div className="p-3 bg-secondary/30 rounded-xl border border-border/40">
                     <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-tighter mb-1">Current Focus</p>
                     <p className="text-xs font-medium text-foreground leading-tight">
-                        {currentCycle?.type === 'CYCLE_STARTED' ? 'Scanning backlog for high-priority units...' : 
-                         currentCycle?.type === 'CYCLE_INSPECT' ? `Inspecting ${currentCycle.payload.taskCount} candidate tasks...` :
-                         currentCycle?.type === 'CYCLE_IDLE' ? `Backoff engaged: Next tick in ${currentCycle.payload.nextTickIn / 1000}s` :
-                         'Awaiting next synchronization tick...'}
+                        {currentCycle?.type === 'CYCLE_STARTED' ? 'Scanning backlog for high-priority units...' :
+                            currentCycle?.type === 'CYCLE_INSPECT' ? `Inspecting ${currentCycle.payload.taskCount} candidate tasks...` :
+                                currentCycle?.type === 'CYCLE_IDLE' ? `Backoff engaged: Next tick in ${currentCycle.payload.nextTickIn / 1000}s` :
+                                    'Awaiting next synchronization tick...'}
                     </p>
                 </div>
 
@@ -48,16 +48,16 @@ export default function SwarmCoordinatorInspector() {
                         {latestEvents.map((event, i) => (
                             <div key={i} className="flex gap-2 group">
                                 <div className="mt-1">
-                                    {event.type === 'CYCLE_INSPECT' ? <CheckSquare className="h-2.5 w-2.5 text-blue-500" /> : 
-                                     event.type === 'CYCLE_IDLE' ? <Clock className="h-2.5 w-2.5 text-yellow-500" /> :
-                                     <Clock className="h-2.5 w-2.5 text-muted-foreground" />}
+                                    {event.type === 'CYCLE_INSPECT' ? <CheckSquare className="h-2.5 w-2.5 text-blue-500" /> :
+                                        event.type === 'CYCLE_IDLE' ? <Clock className="h-2.5 w-2.5 text-yellow-500" /> :
+                                            <Clock className="h-2.5 w-2.5 text-muted-foreground" />}
                                 </div>
                                 <div className="flex-1">
                                     <p className="text-[10px] font-medium text-foreground group-hover:text-primary transition-colors leading-tight">
-                                        {event.type === 'CYCLE_INSPECT' ? `Analyzed ${event.payload.taskCount} units` : 
-                                         event.type === 'CYCLE_COMPLETED' ? 'Cycle finalized successfully' :
-                                         event.type === 'CYCLE_IDLE' ? 'No actionable tasks found' :
-                                         event.type === 'SESSION_STARTED' ? 'Swarm kernel initialized' : event.type}
+                                        {event.type === 'CYCLE_INSPECT' ? `Analyzed ${event.payload.taskCount} units` :
+                                            event.type === 'CYCLE_COMPLETED' ? 'Cycle finalized successfully' :
+                                                event.type === 'CYCLE_IDLE' ? 'No actionable tasks found' :
+                                                    event.type === 'SESSION_STARTED' ? 'Swarm kernel initialized' : event.type}
                                     </p>
                                     <span className="text-[8px] text-muted-foreground tabular-nums">
                                         {new Date(event.timestamp).toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' })}

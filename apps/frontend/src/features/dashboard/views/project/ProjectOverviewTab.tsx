@@ -1,258 +1,571 @@
 "use client";
 
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
+import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
-import Link from "next/link";
+import { Button } from "@/components/ui/button";
 import {
-  Users,
-  Settings,
-  TrendingUp,
-  Activity,
-  Calendar,
-  MoreHorizontal,
-  ArrowUpRight,
-  Clock,
-  Target,
-  Zap,
-  CheckCircle2,
-  AlertCircle
+  Activity, Clock, Settings2, Users, Target,
+  Plus, ExternalLink, Link2, Check, FolderKanban,
+  FolderOpen, List, MessageSquare, ChevronRight, Hash,
 } from "lucide-react";
+import { formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
+import { useRouter } from "next/navigation";
+import { UserProfileHoverCard } from "@/entities/users/components/UserProfileHoverCard";
+import { TeamCreationModal } from "@/entities/teams/components/TeamCreationModal";
+import { FolderCreationModal } from "@/entities/task/components/FolderCreationModal";
+import { ListCreationModal } from "@/entities/task/components/ListCreationModal";
+import { ChatCreationModal } from "@/entities/channels/components/ChatCreationModal";
+import { ShareModal } from "@/components/permissions/ShareModal";
 
-// Mock data for UI demonstration if project data is missing
-const mockActivities = [
-  { id: 1, user: "Alex Chen", action: "deployed to", target: "production", time: "2h ago", icon: Zap, color: "text-amber-500 bg-amber-50" },
-  { id: 2, user: "Sarah Jones", action: "completed task", target: "User Authentication", time: "4h ago", icon: CheckCircle2, color: "text-green-500 bg-green-50" },
-  { id: 3, user: "System", action: "alerted", target: "High Memory Usage", time: "5h ago", icon: AlertCircle, color: "text-red-500 bg-red-50" },
-];
+// ── Tooltip ────────────────────────────────────────────────────────────────
+function Tooltip({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="relative group/tip">
+      {children}
+      <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-50 opacity-0 group-hover/tip:opacity-100 transition-opacity duration-150">
+        <div className="bg-slate-900 text-white text-[11px] font-medium px-2.5 py-1.5 rounded-lg whitespace-nowrap shadow-lg">
+          {label}
+          <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-900" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Row action buttons ────────────────────────────────────────────────────
+function RowActions({ url }: { url: string }) {
+  const [copied, setCopied] = useState(false);
+
+  function handleOpenNewTab(e: React.MouseEvent) {
+    e.stopPropagation();
+    window.open(url, "_blank", "noopener,noreferrer");
+  }
+
+  async function handleCopyLink(e: React.MouseEvent) {
+    e.stopPropagation();
+    try {
+      await navigator.clipboard.writeText(window.location.origin + url);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      // fallback
+    }
+  }
+
+  return (
+    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-150 shrink-0">
+      <Tooltip label="Open in new tab">
+        <button
+          onClick={handleOpenNewTab}
+          className="flex h-6 w-6 items-center justify-center rounded border border-slate-200 bg-white text-slate-500 hover:text-slate-800 hover:border-slate-300 hover:shadow-sm hover:bg-slate-100 transition-all duration-150 cursor-pointer"
+        >
+          <ExternalLink className="h-4 w-4" />
+        </button>
+      </Tooltip>
+      <Tooltip label={copied ? "Copied!" : "Copy link"}>
+        <button
+          onClick={handleCopyLink}
+          className="flex h-6 w-6 items-center justify-center rounded border border-slate-200 bg-white text-slate-500 hover:text-slate-800 hover:border-slate-300 hover:bg-slate-100 hover:shadow-sm transition-all duration-150 cursor-pointer"
+        >
+          {copied ? (
+            <Check className="h-4 w-4 text-emerald-500" />
+          ) : (
+            <Link2 className="h-4 w-4" />
+          )}
+        </button>
+      </Tooltip>
+    </div>
+  );
+}
+
+// ── Stat card ──────────────────────────────────────────────────────────────
+function StatCard({
+  icon: Icon,
+  label,
+  value,
+  accent,
+}: {
+  icon: React.ElementType;
+  label: string;
+  value: React.ReactNode;
+  accent: string;
+}) {
+  return (
+    <div className="group relative flex flex-col gap-3 rounded-xl border border-slate-200/80 bg-white px-5 py-4 shadow-sm transition-all duration-200 hover:shadow-md hover:border-slate-300 overflow-hidden">
+      <div className={cn("absolute top-0 left-0 h-0.5 w-full rounded-t-xl", accent)} />
+      <div className="flex items-center justify-between">
+        <div className={cn(
+          "flex h-8 w-8 items-center justify-center rounded-lg border border-slate-100",
+          accent.replace("bg-", "bg-").replace("-500", "-50")
+        )}>
+          <Icon className={cn("h-4 w-4", accent.replace("bg-", "text-"))} />
+        </div>
+      </div>
+      <div>
+        <p className="text-2xl font-bold tracking-tight text-slate-900">{value}</p>
+        <p className="text-xs font-medium text-slate-500 mt-0.5">{label}</p>
+      </div>
+    </div>
+  );
+}
+
+// ── Section header ─────────────────────────────────────────────────────────
+function SectionHeader({
+  icon: Icon,
+  title,
+  count,
+  onAdd,
+  addLabel,
+}: {
+  icon: React.ElementType;
+  title: string;
+  count?: number;
+  onAdd?: () => void;
+  addLabel?: string;
+}) {
+  return (
+    <div className="flex items-center justify-between">
+      <div className="flex items-center gap-2">
+        <Icon className="h-4 w-4 text-slate-400" />
+        <h3 className="text-sm font-semibold text-slate-700">{title}</h3>
+        {count !== undefined && (
+          <span className="inline-flex items-center justify-center h-4 min-w-4 px-1 rounded text-[10px] font-semibold bg-slate-100 text-slate-500">
+            {count}
+          </span>
+        )}
+      </div>
+      {onAdd && (
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onAdd}
+          className="h-7 px-2 text-xs text-slate-500 hover:text-slate-800 hover:bg-slate-100"
+        >
+          <Plus className="h-3.5 w-3.5 mr-1" />
+          {addLabel || "Add"}
+        </Button>
+      )}
+    </div>
+  );
+}
+
+// ── Empty state ────────────────────────────────────────────────────────────
+function EmptyState({
+  icon: Icon,
+  title,
+  description,
+  actionLabel,
+  onAction,
+}: {
+  icon: React.ElementType;
+  title: string;
+  description: string;
+  actionLabel?: string;
+  onAction?: () => void;
+}) {
+  return (
+    <div className="flex flex-col items-center justify-center py-10 text-center px-4">
+      <div className="h-12 w-12 rounded-full bg-slate-50 border border-slate-200 flex items-center justify-center mb-3">
+        <Icon className="h-5 w-5 text-slate-300" />
+      </div>
+      <p className="text-sm font-semibold text-slate-700">{title}</p>
+      <p className="text-xs text-slate-400 mt-1 mb-4 max-w-[220px] leading-relaxed">{description}</p>
+      {actionLabel && onAction && (
+        <button
+          onClick={onAction}
+          className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-600 border border-slate-200 rounded-lg px-4 py-1.5 bg-white hover:bg-slate-50 hover:border-slate-300 hover:text-slate-800 transition-all duration-150 shadow-sm"
+        >
+          <Plus className="h-3.5 w-3.5" />
+          {actionLabel}
+        </button>
+      )}
+    </div>
+  );
+}
 
 export function ProjectOverviewTab({ project }: { project: any }) {
+  const router = useRouter();
+
+  const [teamModalOpen, setTeamModalOpen] = useState(false);
+  const [folderModalOpen, setFolderModalOpen] = useState(false);
+  const [listModalOpen, setListModalOpen] = useState(false);
+  const [chatModalOpen, setChatModalOpen] = useState(false);
+  const [shareModalOpen, setShareModalOpen] = useState(false);
+
+  const members = useMemo(() => project?.members ?? [], [project]);
+  const teams = useMemo(() => project?.teams ?? [], [project]);
+  const folders = useMemo(() => project?.folders ?? [], [project]);
+  const lists = useMemo(() => project?.lists ?? [], [project]);
+  const channels = useMemo(() => project?.channels ?? [], [project]);
+
   if (!project) {
     return (
       <div className="flex h-[50vh] flex-col items-center justify-center gap-4 text-center">
-        <div className="rounded-full bg-zinc-100 p-4">
-          <Activity className="h-8 w-8 text-zinc-400" />
+        <div className="rounded-full bg-slate-50 border border-slate-200 p-4">
+          <Activity className="h-8 w-8 text-slate-400" />
         </div>
         <div className="space-y-1">
-          <h3 className="text-lg font-medium text-zinc-900">No project selected</h3>
-          <p className="text-sm text-zinc-500">Select a project to view its overview.</p>
+          <h3 className="text-lg font-medium text-slate-900">No project selected</h3>
+          <p className="text-sm text-slate-500">Select a project to view its overview.</p>
         </div>
       </div>
     );
   }
 
+  const taskCount = project._count?.tasks || 0;
+
   return (
-    <div className="space-y-8 pb-10">
-      {/* Header Section */}
-      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-        <div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-3xl font-bold tracking-tight text-zinc-900">{project.name || "Untitled Project"}</h1>
-            <Badge variant="outline" className="border-green-200 bg-green-50 text-green-700">
-              Active
-            </Badge>
+    <>
+      <div className="h-full w-full overflow-y-auto fade-in-up animate-in slide-in-from-bottom-5 duration-500">
+        <div className="w-full px-6 py-6 space-y-5">
+
+          {/* ── Hero ─────────────────────────────────────────── */}
+          <div className="relative rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+            <div
+              className="absolute inset-0 opacity-[0.04] pointer-events-none"
+              style={{ background: `radial-gradient(ellipse 80% 60% at 70% 50%, #8b5cf6, transparent)` }}
+            />
+            <div
+              className="absolute top-0 left-0 right-0 h-0.5"
+              style={{ background: `linear-gradient(90deg, #8b5cf6cc, transparent)` }}
+            />
+
+            <div className="relative z-10 flex flex-col sm:flex-row gap-5 items-start p-6">
+              <div className="h-12 w-12 rounded-xl flex items-center justify-center border shrink-0 bg-purple-50 border-purple-200 text-purple-500">
+                <FolderKanban className="h-6 w-6" />
+              </div>
+
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h1 className="text-lg font-bold text-slate-900 tracking-tight truncate">
+                    {project.name || "Untitled Project"}
+                  </h1>
+                  <Badge variant="outline" className="text-xs capitalize border-emerald-200 bg-emerald-50 text-emerald-700">
+                    Active
+                  </Badge>
+                </div>
+                <p className="mt-1 text-sm text-slate-500 max-w-2xl leading-relaxed line-clamp-2">
+                  {project.description || "Enter a description for this project to help your team understand its goals and scope."}
+                </p>
+                <div className="flex flex-wrap gap-3 mt-2">
+                  {project.createdAt && (
+                    <span className="flex items-center gap-1.5 text-xs text-slate-400">
+                      <Clock className="h-3.5 w-3.5" />
+                      Created {formatDistanceToNow(new Date(project.createdAt), { addSuffix: true })}
+                    </span>
+                  )}
+                  {project.updatedAt && (
+                    <span className="flex items-center gap-1.5 text-xs text-slate-400">
+                      <Activity className="h-3.5 w-3.5" />
+                      Updated {formatDistanceToNow(new Date(project.updatedAt), { addSuffix: true })}
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              <button
+                onClick={() => router.push(`?tab=settings`)}
+                className={cn(
+                  "shrink-0 inline-flex items-center gap-2 rounded-lg border px-3 py-1.5",
+                  "text-xs font-medium text-slate-600",
+                  "border-slate-200 bg-white/80 backdrop-blur-sm shadow-sm",
+                  "hover:bg-slate-50 hover:border-slate-300 hover:text-slate-900 hover:shadow",
+                  "transition-all duration-150 active:scale-[0.98] cursor-pointer"
+                )}
+              >
+                <Settings2 className="h-3.5 w-3.5 text-slate-400" />
+                Settings
+              </button>
+            </div>
           </div>
-          <p className="mt-2 max-w-2xl text-base text-zinc-500">
-            {project.description || "Enter a description for this project to help your team understand its goals and scope."}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" className="gap-2">
-            <Settings className="h-4 w-4" />
-            Settings
-          </Button>
-          <Button className="gap-2 bg-zinc-900 text-white hover:bg-zinc-800">
-            <Zap className="h-4 w-4" />
-            Deploy
-          </Button>
-        </div>
-      </div>
 
-      <div className="space-y-8">
-        {/* Stats Grid */}
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <Card className="border-zinc-200 shadow-sm">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-zinc-600">Total Revenue</CardTitle>
-              <TrendingUp className="h-4 w-4 text-zinc-400" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-zinc-900">$45,231.89</div>
-              <p className="text-xs text-zinc-500 flex items-center gap-1 mt-1">
-                <span className="text-green-600 font-medium flex items-center">
-                  <ArrowUpRight className="h-3 w-3 mr-0.5" />
-                  +20.1%
-                </span>
-                from last month
-              </p>
-            </CardContent>
-          </Card>
-          <Card className="border-zinc-200 shadow-sm">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-zinc-600">Active Tasks</CardTitle>
-              <Target className="h-4 w-4 text-zinc-400" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-zinc-900">{project._count?.tasks || 0}</div>
-              <p className="text-xs text-zinc-500 flex items-center gap-1 mt-1">
-                <span className="text-zinc-600 font-medium">{project.members?.length || 0}</span> project members
-              </p>
-            </CardContent>
-          </Card>
-          <Card className="border-zinc-200 shadow-sm">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-zinc-600">Team Velocity</CardTitle>
-              <Activity className="h-4 w-4 text-zinc-400" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-zinc-900">84.5</div>
-              <p className="text-xs text-zinc-500 mt-1">Story points per sprint</p>
-            </CardContent>
-          </Card>
-          <Card className="border-zinc-200 shadow-sm">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-zinc-600">Deadline</CardTitle>
-              <Calendar className="h-4 w-4 text-zinc-400" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-zinc-900">14 Days</div>
-              <p className="text-xs text-zinc-500 mt-1">Until next release</p>
-            </CardContent>
-          </Card>
-        </div>
+          {/* ── Stats ────────────────────────────────────────── */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <StatCard icon={Target} label="Active Tasks" value={taskCount} accent="bg-blue-500" />
+            <StatCard icon={Users} label="Members" value={members.length} accent="bg-purple-500" />
+            <StatCard icon={Hash} label="Teams" value={teams.length} accent="bg-pink-500" />
+            <StatCard icon={List} label="Lists" value={lists.length} accent="bg-emerald-500" />
+          </div>
 
-        <div className="grid gap-8 lg:grid-cols-3">
-          {/* Main Content Area */}
-          <div className="lg:col-span-2 space-y-8">
-            {/* Project Progress */}
-            <Card className="border-zinc-200 shadow-sm">
-              <CardHeader>
-                <CardTitle className="text-lg font-semibold text-zinc-900">Project Progress</CardTitle>
-                <CardDescription>Overall completion status across all milestones.</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-6">
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="font-medium text-zinc-700">Frontend Development</span>
-                      <span className="text-zinc-500">75%</span>
-                    </div>
-                    <Progress value={75} className="h-2 bg-zinc-100" indicatorClassName="bg-blue-600" />
-                  </div>
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="font-medium text-zinc-700">Backend API</span>
-                      <span className="text-zinc-500">45%</span>
-                    </div>
-                    <Progress value={45} className="h-2 bg-zinc-100" indicatorClassName="bg-indigo-600" />
-                  </div>
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="font-medium text-zinc-700">Design System</span>
-                      <span className="text-zinc-500">90%</span>
-                    </div>
-                    <Progress value={90} className="h-2 bg-zinc-100" indicatorClassName="bg-emerald-600" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Recent Activity */}
-            <Card className="border-zinc-200 shadow-sm">
-              <CardHeader className="flex flex-row items-center justify-between">
-                <div>
-                  <CardTitle className="text-lg font-semibold text-zinc-900">Recent Activity</CardTitle>
-                  <CardDescription>What's happening in your project right now.</CardDescription>
-                </div>
-                <Button variant="ghost" size="sm" className="text-zinc-500 hover:text-zinc-900">View All</Button>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-6">
-                  {mockActivities.map((activity) => (
-                    <div key={activity.id} className="flex gap-4">
-                      <div className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-full border", activity.color.replace('text-', 'border-').replace('bg-', 'bg-opacity-10 '))}>
-                        <activity.icon className={cn("h-4 w-4", activity.color.split(' ')[0])} />
-                      </div>
-                      <div className="flex flex-col gap-1">
-                        <p className="text-sm text-zinc-700">
-                          <span className="font-medium text-zinc-900">{activity.user}</span>{" "}
-                          {activity.action}{" "}
-                          <span className="font-medium text-zinc-900">{activity.target}</span>
-                        </p>
-                        <span className="flex items-center gap-1 text-xs text-zinc-500">
-                          <Clock className="h-3 w-3" />
-                          {activity.time}
+          {/* ── Teams + Channels ─────────────────────────────── */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Teams */}
+            <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+              <div className="px-5 pt-4 pb-3 border-b border-slate-100">
+                <SectionHeader icon={Users} title="Teams" count={teams.length} onAdd={() => setTeamModalOpen(true)} addLabel="New Team" />
+              </div>
+              {teams.length === 0 ? (
+                <EmptyState
+                  icon={Users}
+                  title="No teams yet"
+                  description="Teams let you group members and assign work together."
+                  actionLabel="Add Team"
+                  onAction={() => setTeamModalOpen(true)}
+                />
+              ) : (
+                <div className="divide-y divide-slate-50">
+                  {teams.slice(0, 6).map((team: any) => {
+                    const url = `/dashboard/teams/${team.id}`;
+                    const memberCount = team._count?.members ?? team.members?.length ?? 0;
+                    return (
+                      <div
+                        key={team.id}
+                        onClick={() => router.push(url)}
+                        className="group flex items-center gap-3 px-5 py-2.5 hover:bg-slate-50/70 transition-colors cursor-pointer"
+                      >
+                        <div
+                          className="h-6 w-6 rounded-md flex items-center justify-center shrink-0 text-white text-[10px] font-bold"
+                          style={{ backgroundColor: team.color || "#8b5cf6" }}
+                        >
+                          {(team.name || "T")[0].toUpperCase()}
+                        </div>
+                        <span className="flex-1 text-sm text-slate-700 font-medium truncate group-hover:text-indigo-600 transition-colors">
+                          {team.name}
                         </span>
+                        <span className="flex items-center gap-1 text-xs text-slate-400 shrink-0">
+                          <Users className="h-3 w-3" />
+                          {memberCount}
+                        </span>
+                        <RowActions url={url} />
                       </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Sidebar Information */}
-          <div className="space-y-6">
-            {/* Team Snapshot */}
-            <Card className="border-zinc-200 shadow-sm">
-              <CardHeader>
-                <CardTitle className="text-base font-semibold text-zinc-900">Team Members</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex flex-col gap-4">
-                  {(project.members || []).slice(0, 4).map((m: any) => (
-                    <div key={m.id} className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="h-8 w-8 rounded-full bg-zinc-100 flex items-center justify-center text-xs font-medium text-zinc-600 border border-zinc-200">
-                          {m.user?.name?.charAt(0) || "?"}
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-zinc-900 leading-none">{m.user?.name || "Unknown"}</p>
-                          <p className="text-xs text-zinc-500 mt-1">{m.role || "Member"}</p>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                  {(!project.members || project.members.length === 0) && (
-                    <div className="flex flex-col items-center justify-center py-4 text-center">
-                      <Users className="h-8 w-8 text-zinc-200 mb-2" />
-                      <p className="text-sm text-zinc-500">No members yet</p>
+                    );
+                  })}
+                  {teams.length > 6 && (
+                    <div className="px-5 py-2 text-xs text-slate-400 hover:text-slate-600 cursor-pointer hover:bg-slate-50 transition-colors">
+                      +{teams.length - 6} more teams
                     </div>
                   )}
-
-                  <Button variant="outline" size="sm" className="w-full mt-2">
-                    <Link href="?tab=members">Manage Team</Link>
-                  </Button>
                 </div>
-              </CardContent>
-            </Card>
+              )}
+            </div>
 
-            {/* Quick Links */}
-            <Card className="border-zinc-200 shadow-sm">
-              <CardHeader>
-                <CardTitle className="text-base font-semibold text-zinc-900">Quick Links</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                <Link href="#" className="flex items-center justify-between rounded-md p-2 text-sm text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900 transition-colors">
-                  <span>Repository</span>
-                  <ArrowUpRight className="h-3 w-3 text-zinc-400" />
-                </Link>
-                <Link href="#" className="flex items-center justify-between rounded-md p-2 text-sm text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900 transition-colors">
-                  <span>Documentation</span>
-                  <ArrowUpRight className="h-3 w-3 text-zinc-400" />
-                </Link>
-                <Link href="#" className="flex items-center justify-between rounded-md p-2 text-sm text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900 transition-colors">
-                  <span>Design Assets</span>
-                  <ArrowUpRight className="h-3 w-3 text-zinc-400" />
-                </Link>
-              </CardContent>
-            </Card>
+            {/* Channels */}
+            <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+              <div className="px-5 pt-4 pb-3 border-b border-slate-100">
+                <SectionHeader icon={MessageSquare} title="Channels" count={channels.length} onAdd={() => setChatModalOpen(true)} addLabel="New Channel" />
+              </div>
+              {channels.length === 0 ? (
+                <EmptyState
+                  icon={MessageSquare}
+                  title="No channels yet"
+                  description="Hubs for team conversation."
+                  actionLabel="Add Channel"
+                  onAction={() => setChatModalOpen(true)}
+                />
+              ) : (
+                <div className="divide-y divide-slate-50">
+                  {channels.slice(0, 8).map((channel: any) => {
+                    const url = `/dashboard/channels/${channel.id}`;
+                    return (
+                      <div
+                        key={channel.id}
+                        onClick={() => router.push(url)}
+                        className="group flex items-center gap-3 px-5 py-2.5 hover:bg-slate-50/70 transition-colors cursor-pointer"
+                      >
+                        <MessageSquare className="h-4 w-4 text-slate-400 shrink-0" />
+                        <span className="flex-1 text-sm text-slate-700 font-medium truncate group-hover:text-indigo-600 transition-colors">
+                          #{channel.name}
+                        </span>
+                        <RowActions url={url} />
+                        <ChevronRight className="h-3.5 w-3.5 text-slate-300 group-hover:text-slate-500 transition-colors shrink-0" />
+                      </div>
+                    );
+                  })}
+                  {channels.length > 8 && (
+                    <div className="px-5 py-2 text-xs text-slate-400 hover:text-slate-600 cursor-pointer hover:bg-slate-50 transition-colors">
+                      +{channels.length - 8} more channels
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
+
+          {/* ── Folders + Lists ──────────────────────────────── */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Folders */}
+            <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+              <div className="px-5 pt-4 pb-3 border-b border-slate-100">
+                <SectionHeader icon={FolderOpen} title="Folders" count={folders.length} onAdd={() => setFolderModalOpen(true)} addLabel="New Folder" />
+              </div>
+              {folders.length === 0 ? (
+                <EmptyState
+                  icon={FolderOpen}
+                  title="No folders yet"
+                  description="Folders help organize lists inside this project."
+                  actionLabel="Add Folder"
+                  onAction={() => setFolderModalOpen(true)}
+                />
+              ) : (
+                <div className="divide-y divide-slate-50">
+                  {folders.slice(0, 8).map((folder: any) => {
+                    const url = `/dashboard/folders/${folder.id}`;
+                    return (
+                      <div
+                        key={folder.id}
+                        onClick={() => router.push(url)}
+                        className="group flex items-center gap-3 px-5 py-2.5 hover:bg-slate-50/70 transition-colors cursor-pointer"
+                      >
+                        <FolderOpen className="h-4 w-4 text-slate-400 shrink-0" />
+                        <span className="flex-1 text-sm text-slate-700 font-medium truncate group-hover:text-indigo-600 transition-colors">
+                          {folder.name}
+                        </span>
+                        <RowActions url={url} />
+                        <ChevronRight className="h-3.5 w-3.5 text-slate-300 group-hover:text-slate-500 transition-colors shrink-0" />
+                      </div>
+                    );
+                  })}
+                  {folders.length > 8 && (
+                    <div className="px-5 py-2 text-xs text-slate-400 hover:text-slate-600 cursor-pointer hover:bg-slate-50 transition-colors">
+                      +{folders.length - 8} more folders
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Lists */}
+            <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+              <div className="px-5 pt-4 pb-3 border-b border-slate-100">
+                <SectionHeader icon={List} title="Lists" count={lists.length} onAdd={() => setListModalOpen(true)} addLabel="New List" />
+              </div>
+              {lists.length === 0 ? (
+                <EmptyState
+                  icon={List}
+                  title="No lists yet"
+                  description="Lists are where tasks live — create your first one."
+                  actionLabel="Add List"
+                  onAction={() => setListModalOpen(true)}
+                />
+              ) : (
+                <div className="divide-y divide-slate-50">
+                  {lists.slice(0, 8).map((list: any) => {
+                    const url = `/dashboard/lists/${list.id}`;
+                    return (
+                      <div
+                        key={list.id}
+                        onClick={() => router.push(url)}
+                        className="group flex items-center gap-3 px-5 py-2.5 hover:bg-slate-50/70 transition-colors cursor-pointer"
+                      >
+                        {list.color ? (
+                          <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: list.color }} />
+                        ) : (
+                          <List className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                        )}
+                        <span className="flex-1 text-sm text-slate-700 font-medium truncate group-hover:text-indigo-600 transition-colors">
+                          {list.name}
+                        </span>
+                        <RowActions url={url} />
+                        <ChevronRight className="h-3.5 w-3.5 text-slate-300 group-hover:text-slate-500 transition-colors shrink-0" />
+                      </div>
+                    );
+                  })}
+                  {lists.length > 8 && (
+                    <div className="px-5 py-2 text-xs text-slate-400 hover:text-slate-600 cursor-pointer hover:bg-slate-50 transition-colors">
+                      +{lists.length - 8} more lists
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* ── Members ──────────────────────────────────────── */}
+          <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+            <div className="px-5 pt-4 pb-3 border-b border-slate-100">
+              <SectionHeader icon={Users} title="Members" count={members.length} onAdd={() => setShareModalOpen(true)} addLabel="Invite" />
+            </div>
+            {members.length === 0 ? (
+              <EmptyState
+                icon={Users}
+                title="No members yet"
+                description="Invite people to collaborate in this project."
+                actionLabel="Invite Members"
+                onAction={() => setShareModalOpen(true)}
+              />
+            ) : (
+              <div className="px-5 py-4 flex flex-wrap gap-2">
+                {members.map((m: any) => {
+                  const user = m.user ?? m;
+                  const name = user.name || user.email || "Unknown";
+                  const firstName = name.split(" ")[0];
+                  const initials = name.slice(0, 2).toUpperCase();
+                  const userId = user.id ?? m.userId;
+
+                  return (
+                    <UserProfileHoverCard key={m.id ?? userId} userId={userId}>
+                      <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 hover:bg-white hover:border-slate-300 hover:shadow-sm transition-all duration-150 px-2.5 py-1.5 cursor-pointer group">
+                        <div
+                          className="h-6 w-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0 ring-1 ring-white"
+                          style={{ backgroundColor: user.color || "#8b5cf6" }}
+                        >
+                          {user.avatarUrl || user.image ? (
+                            <img
+                              src={user.avatarUrl || user.image}
+                              alt={name}
+                              className="h-full w-full rounded-full object-cover"
+                            />
+                          ) : initials}
+                        </div>
+                        <span className="text-xs font-medium text-slate-600 group-hover:text-slate-900 transition-colors">
+                          {firstName}
+                        </span>
+                        {m.role && (
+                          <span className="text-[10px] text-slate-400 capitalize hidden sm:inline">
+                            · {m.role.toLowerCase()}
+                          </span>
+                        )}
+                      </div>
+                    </UserProfileHoverCard>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
         </div>
       </div>
-    </div>
+
+      {/* ── Modals ───────────────────────────────────────── */}
+      <TeamCreationModal
+        open={teamModalOpen}
+        onOpenChange={setTeamModalOpen}
+        defaultProjectId={project.id}
+      />
+
+      <FolderCreationModal
+        context="PROJECT"
+        contextId={project.id}
+        workspaceId={project.workspaceId}
+        open={folderModalOpen}
+        onOpenChange={setFolderModalOpen}
+      />
+
+      <ListCreationModal
+        context="PROJECT"
+        contextId={project.id}
+        workspaceId={project.workspaceId}
+        open={listModalOpen}
+        onOpenChange={setListModalOpen}
+      />
+
+      <ChatCreationModal
+        open={chatModalOpen}
+        onOpenChange={setChatModalOpen}
+        onCreate={async () => {
+          setChatModalOpen(false);
+        }}
+      />
+
+      <ShareModal
+        isOpen={shareModalOpen}
+        onClose={() => setShareModalOpen(false)}
+        itemType="project"
+        itemId={project.id}
+        itemName={project.name}
+        workspaceId={project.workspaceId}
+      />
+    </>
   );
 }

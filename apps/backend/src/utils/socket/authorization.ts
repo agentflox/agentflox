@@ -48,12 +48,12 @@ export async function canSendMessage(senderId: string, receiverId: string, marke
         // 4. Fallback: check receiver's privacy settings
         const receiver = await prisma.user.findUnique({
             where: { id: receiverId },
-            select: { privacySettings: true },
+            select: { settings: true },
         });
 
         if (!receiver) return false;
 
-        const privacySettings = receiver.privacySettings as any;
+        const privacySettings = receiver.settings as any;
         if (privacySettings?.allowMessagesFrom === 'NONE') return false;
         
         // If not explicitly blocked and settings are open, allow.

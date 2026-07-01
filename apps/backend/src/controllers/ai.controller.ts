@@ -4,6 +4,7 @@ import { AuthenticatedRequest, JwtAuthGuard } from '@/middleware/httpAuth';
 import { ListingService } from '@/services/ai/listing.service';
 import { AiTextService } from '@/services/ai/aiText.service';
 import { z } from 'zod';
+import { aiFeaturesRateLimiter, consumeRateLimit } from '@/lib/rateLimiter';
 
 const aiTextBodySchema = z.object({
     text: z.string().min(1),
@@ -56,6 +57,11 @@ export class AiController {
             const body = schema.parse(req.body);
             const userId = req.userId!;
 
+            const rl = await consumeRateLimit(aiFeaturesRateLimiter, userId, 'ai:listing:generate');
+            if (!rl.allowed) {
+                return res.status(429).json({ error: rl.error, retryAfter: rl.retryAfter });
+            }
+
             const result = await this.listingService.generate(
                 {
                     entityType: body.entityType,
@@ -94,6 +100,11 @@ export class AiController {
         try {
             const body = aiTextBodySchema.parse(req.body);
             const userId = req.userId!;
+
+            const rl = await consumeRateLimit(aiFeaturesRateLimiter, userId, 'ai:text');
+            if (!rl.allowed) {
+                return res.status(429).json({ error: rl.error, retryAfter: rl.retryAfter });
+            }
             const result = await this.aiTextService.processText(userId, {
                 text: body.text,
                 operation: body.operation ?? 'enhance',

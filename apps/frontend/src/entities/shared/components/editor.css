@@ -42,6 +42,21 @@
   margin-top: 1.25em !important;
 }
 
+/* Editor height is controlled via CSS custom properties set inline by
+   DescriptionEditor (see editorSizeStyle in the component). This lets
+   minHeight/maxHeight be passed as numbers or any CSS unit string without
+   needing Tailwind to generate arbitrary-value classes at build time. */
+.tiptap .ProseMirror {
+    min-height: var(--editor-min-height, 300px);
+}
+ 
+/* Only applied when a maxHeight prop is passed (EditorContent gets the
+   data-has-max-height attribute in that case). */
+.tiptap[data-has-max-height] .ProseMirror {
+    max-height: var(--editor-max-height);
+    overflow-y: auto;
+}
+ 
 /* Alignment logic: Headers ad Paragraphs */
 .ProseMirror>p,
 .ProseMirror>h1,

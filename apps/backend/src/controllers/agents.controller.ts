@@ -7,6 +7,7 @@ import { prisma } from '@/lib/prisma';
 import { openai } from '@/lib/openai';
 import { inngest } from '@/lib/inngest';
 import { checkRateLimit } from '@/utils/ai/checkRateLimit';
+import { agentBuilderRateLimiter, consumeRateLimit } from '@/lib/rateLimiter';
 import { createAgentGraph, type AgentGraphState } from '@/services/agents/orchestration/agentGraph';
 import { agentBuilderService } from '@/services/agents/arch/agentBuilderService';
 import { BuilderProgressEmitter } from '@/services/agents/arch/builderProgressEmitter';
@@ -15,26 +16,19 @@ import { agentBuilderContextService } from '@/services/agents/state/agentBuilder
 import { agentBuilderAssistantService } from '@/services/agents/core/agentBuilderAssistantService';
 import { agentOperatorService } from '@/services/agents/arch/agentOperatorService';
 import { agentExecutorService } from '@/services/agents/arch/agentExecutorService';
-import { getAllTools } from '@/services/agents/registry/toolRegistry';
 import { metrics } from '@/monitoring/metrics';
 import { agentHiringService } from '@/services/agents/orchestration/agentHiringService';
 import { AgentDepartment } from '@/services/agents/types/types';
 import { agentSimulationService } from '@/services/agents/simulation/agentSimulationService';
-import { runWorkforce } from '@/services/agents/orchestration/workforceExecutionService';
-import { swarmOrchestrationService } from '@/services/agents/orchestration/swarmOrchestrationService';
-import { routeSwarmMessage } from '@/services/agents/orchestration/swarmMessageRouter';
-import { toolEditorAssistant } from '@/services/agents/arch/ToolEditorAssistantService';
-import { workforceEditorAssistant } from '@/services/agents/arch/WorkforceEditorAssistantService';
 import { GuardrailService } from '@/services/agents/safety/guardrailService';
 import { PermissionService } from '@/services/permissions/permission.service';
-
-const runEditorAssistantMessage = async (params: { mode: 'tool' | 'workforce'; userId: string; conversationId: string; message: string; context: any; onToken?: (text: string) => void }) => {
-  if (params.mode === 'tool') {
-    return toolEditorAssistant.processMessage(params);
-  } else {
-    return workforceEditorAssistant.processMessage(params);
-  }
-};
+import {
+  assertProjectAccessForUser,
+  assertSimulationAccess,
+  assertAgentRunAccess,
+  registerAgentRunOwner,
+  assertAgentAccess,
+} from '@/utils/http/resourceAccess';
 
 @Controller('v1/agents')
 @UseGuards(JwtAuthGuard)
@@ -82,6 +76,11 @@ export class AgentsController {
       const body = schema.parse(req.body);
       const userId = req.userId!;
 
+      await assertProjectAccessForUser(userId, body.projectId);
+      for (const agentId of body.agentIds) {
+        await assertAgentAccess(agentId, userId, 'execute');
+      }
+
       const conversation = await agentSimulationService.startSimulation(
         body.projectId,
         userId,
@@ -102,6 +101,8 @@ export class AgentsController {
   @Get('simulations/:simulationId')
   async getSimulation(@Param('simulationId') simulationId: string, @Req() req: AuthenticatedRequest, @Res() res: ExpressResponse) {
     try {
+      const userId = req.userId!;
+      await assertSimulationAccess(simulationId, userId);
       const simulation = await agentSimulationService.getSimulation(simulationId);
       if (!simulation) return res.status(404).json({ error: 'Simulation not found' });
       return res.json(simulation);
@@ -115,6 +116,7 @@ export class AgentsController {
   async stepSimulation(@Param('simulationId') simulationId: string, @Req() req: AuthenticatedRequest, @Res() res: ExpressResponse) {
     try {
       const userId = req.userId!;
+      await assertSimulationAccess(simulationId, userId);
       const message = await agentSimulationService.stepSimulation(simulationId, userId);
       return res.json(message);
     } catch (error) {
@@ -127,6 +129,7 @@ export class AgentsController {
   async summarizeSimulation(@Param('simulationId') simulationId: string, @Req() req: AuthenticatedRequest, @Res() res: ExpressResponse) {
     try {
       const userId = req.userId!;
+      await assertSimulationAccess(simulationId, userId);
       const summary = await agentSimulationService.summarizeSimulation(simulationId, userId);
       return res.json(summary);
     } catch (error) {
@@ -135,998 +138,7 @@ export class AgentsController {
     }
   }
 
-  // ─── Swarm Endpoints ────────────────────────────────────────────────────────
 
-  /**
-   * POST /v1/agents/swarm/start
-   * Starts a new swarm session for a given workforce + conversation.
-   */
-  @Post('swarm/start')
-  async startSwarm(@Req() req: AuthenticatedRequest, @Res() res: ExpressResponse) {
-    try {
-      const schema = z.object({
-        workforceId: z.string().min(1),
-        sessionId: z.string().min(1),
-      });
-      const { workforceId, sessionId } = schema.parse(req.body);
-      const userId = req.userId!;
-
-      // Resolve workspaceId from the workforce record
-      const workforce = await prisma.workforce.findFirst({
-        where: { id: workforceId, createdBy: userId },
-        select: { id: true, workspaceId: true, graph: true, data: true },
-      });
-      if (!workforce) {
-        return res.status(404).json({ error: 'Workforce not found or access denied' });
-      }
-
-      // Extract nodes from graph
-      const data = (workforce.data as any) || {};
-      const nodes: any[] = data.react_flow_graph?.nodes || data.workforce_graph?.nodes || (workforce.graph as any)?.nodes || [];
-      const agentNodes = nodes.filter((n: any) => n.type === 'agentNode' || n.type === 'agent');
-      const taskNodes = nodes.filter((n: any) => n.type === 'taskNode' || n.type === 'task');
-
-      const coordinatorId = agentNodes[0]?.data?.agentId || agentNodes[0]?.config?.agentId || agentNodes[0]?.id || agentNodes[0]?.node_id || 'coordinator';
-      const agentIds = agentNodes.map((n: any) => n.data?.agentId || n.config?.agentId || n.id || n.node_id).filter(Boolean);
-
-      // ── Seed AgentTask rows from the real Task records linked to graph task nodes ──
-      // Each taskNode stores data.taskId  Ethe ID of the real Task in the tasks table.
-      // We look up those Tasks and create AgentTask entries so the swarm coordinator
-      // has work to pick up on the very first cycle.
-      const taskIds = taskNodes
-        .map((n: any) => n.data?.taskId)
-        .filter(Boolean) as string[];
-
-      if (taskIds.length > 0) {
-        // Fetch the real Task records
-        const realTasks = await prisma.task.findMany({
-          where: { id: { in: taskIds } },
-          include: {
-            status: true,
-            list: true,
-            project: true,
-            space: true,
-            assignees: { include: { user: { select: { name: true, email: true } } } },
-            attachments: true,
-            checklists: { include: { items: true } },
-            dependencies: true,
-          },
-        });
-
-        // Only create AgentTask rows that don't already exist for this session
-        const existing = await (prisma.agentTask as any).findMany({
-          where: {
-            workspaceId: workforce.workspaceId,
-            metadata: { path: ['sessionId'], equals: sessionId },
-          },
-          select: { metadata: true },
-        });
-        const alreadySeededTaskIds = new Set(
-          existing.map((e: any) => e.metadata?.originalTaskId).filter(Boolean)
-        );
-
-        let toCreate = realTasks.filter(t => !alreadySeededTaskIds.has(t.id));
-
-        // Topologically sort toCreate based on dependencies so upstream tasks execute first
-        const sortedToCreate: any[] = [];
-        const visited = new Set<string>();
-        const visiting = new Set<string>();
-
-        const visit = (taskId: string) => {
-          if (visited.has(taskId)) return;
-          if (visiting.has(taskId)) return; // Cycle detected, ignore
-          visiting.add(taskId);
-
-          const task = toCreate.find(t => t.id === taskId);
-          if (task && task.dependencies) {
-            for (const dep of task.dependencies) {
-              if (toCreate.some(t => t.id === dep.dependsOnId)) {
-                visit(dep.dependsOnId); // Visit dependencies first
-              }
-            }
-          }
-
-          visiting.delete(taskId);
-          visited.add(taskId);
-          if (task) {
-            sortedToCreate.push(task);
-          }
-        };
-
-        for (const t of toCreate) {
-          visit(t.id);
-        }
-        toCreate = sortedToCreate;
-
-        if (toCreate.length > 0) {
-          const now = Date.now();
-
-          // Generate deterministic IDs for the AgentTasks mapping from the original Task ID
-          // to preserve dependency relationships
-          const idMap = new Map<string, string>();
-          for (const t of toCreate) {
-            idMap.set(t.id, randomUUID());
-          }
-
-          await Promise.all(
-            toCreate.map((t, idx) => {
-              const agentTaskId = idMap.get(t.id)!;
-
-              // Only consider dependencies that are ALSO being seeded in this session
-              const dependsOn = t.dependencies
-                ?.map((d: any) => idMap.get(d.dependsOnId))
-                .filter(Boolean) as string[] || [];
-
-              const status = dependsOn.length > 0 ? 'BLOCKED' : 'PENDING';
-
-              return (prisma.agentTask as any).create({
-                data: {
-                  id: agentTaskId,
-                  title: t.title.slice(0, 255),
-                  description: t.description || t.title,
-                  taskType: 'CUSTOM',
-                  status,
-                  priority: (t.priority || 'MEDIUM').toUpperCase(),
-                  assignedBy: userId,
-                  workspaceId: workforce.workspaceId,
-                  inputData: { originalTask: t },
-                  metadata: { sessionId, source: 'task_node', originalTaskId: t.id, description: t.description || t.title },
-                  requirements: [],
-                  dependsOn,
-                  blockedBy: dependsOn,
-                  createdAt: new Date(now + idx * 1000), // Stagger by 1s to enforce execution order among peers
-                },
-              });
-            })
-          );
-          console.log(`[SwarmStart] Seeded ${toCreate.length} AgentTask(s) from Task table for session ${sessionId}`);
-        }
-      } else {
-        console.log(`[SwarmStart] No linked tasks found in graph for workforce ${workforceId}  Ecoordinator will wait for user messages`);
-      }
-
-      const sid = await swarmOrchestrationService.startSwarm(
-        workforce.workspaceId ?? '',
-        coordinatorId,
-        sessionId,
-        { agentIds, userId },
-      );
-
-      return res.json({ sessionId: sid, workspaceId: workforce.workspaceId });
-    } catch (error) {
-      console.error('[SwarmStart] Error:', error);
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ error: 'Invalid request', details: error.errors });
-      }
-      return res.status(500).json({ error: 'Internal server error', message: error instanceof Error ? error.message : 'Unknown' });
-    }
-  }
-
-  /**
-   * POST /v1/agents/swarm/:sessionId/stop
-   * Gracefully stops a running swarm session.
-   */
-  @Post('swarm/:sessionId/stop')
-  async stopSwarm(
-    @Param('sessionId') sessionId: string,
-    @Req() req: AuthenticatedRequest,
-    @Res() res: ExpressResponse,
-  ) {
-    try {
-      const userId = req.userId!;
-      const session = await swarmOrchestrationService.getSession(sessionId);
-      if (session?.workspaceId) {
-        const [isOwner, isMember] = await Promise.all([
-          prisma.workspace.findFirst({ where: { id: session.workspaceId, ownerId: userId }, select: { id: true } }),
-          prisma.workspaceMember.findFirst({ where: { workspaceId: session.workspaceId, userId }, select: { id: true } }),
-        ]);
-        if (!isOwner && !isMember) return res.status(403).json({ error: 'Access denied' });
-      }
-      await swarmOrchestrationService.stopSwarm(sessionId);
-      return res.json({ ok: true });
-    } catch (error) {
-      console.error('[SwarmStop] Error:', error);
-      return res.status(500).json({ error: 'Internal server error' });
-    }
-  }
-
-  /**
-   * GET /v1/agents/swarm/:sessionId/status
-   * Returns the current status of the swarm session.
-   */
-  @Get('swarm/:sessionId/status')
-  async getSwarmStatus(
-    @Param('sessionId') sessionId: string,
-    @Req() req: AuthenticatedRequest,
-    @Res() res: ExpressResponse,
-  ) {
-    try {
-      const userId = req.userId!;
-      const session = await swarmOrchestrationService.getSession(sessionId);
-      if (session?.workspaceId) {
-        const [isOwner, isMember] = await Promise.all([
-          prisma.workspace.findFirst({ where: { id: session.workspaceId, ownerId: userId }, select: { id: true } }),
-          prisma.workspaceMember.findFirst({ where: { workspaceId: session.workspaceId, userId }, select: { id: true } }),
-        ]);
-        if (!isOwner && !isMember) return res.status(403).json({ error: 'Access denied' });
-      }
-      if (session) {
-        return res.json({ status: session.status, workspaceId: session.workspaceId });
-      }
-      return res.json({ status: 'idle' });
-    } catch (error) {
-      console.error('[SwarmStatus] Error:', error);
-      return res.status(500).json({ error: 'Internal server error' });
-    }
-  }
-
-  /**
-   * GET /v1/agents/swarm/:sessionId/events
-   * SSE stream  Epushes swarm cycle events to the browser in real-time.
-   */
-  @Get('swarm/:sessionId/events')
-  async swarmEvents(
-    @Param('sessionId') sessionId: string,
-    @Req() req: AuthenticatedRequest,
-    @Res() res: ExpressResponse,
-  ) {
-    // Auth check before opening SSE stream
-    const userId = req.userId!;
-    const session = await swarmOrchestrationService.getSession(sessionId);
-    if (session?.workspaceId) {
-      const [isOwner, isMember] = await Promise.all([
-        prisma.workspace.findFirst({ where: { id: session.workspaceId, ownerId: userId }, select: { id: true } }),
-        prisma.workspaceMember.findFirst({ where: { workspaceId: session.workspaceId, userId }, select: { id: true } }),
-      ]);
-      if (!isOwner && !isMember) {
-        res.status(403).json({ error: 'Access denied' });
-        return;
-      }
-    }
-
-    res.setHeader('Content-Type', 'text/event-stream');
-    res.setHeader('Cache-Control', 'no-cache, no-transform');
-    res.setHeader('Connection', 'keep-alive');
-    res.setHeader('X-Accel-Buffering', 'no');
-    res.flushHeaders();
-
-    const send = (evt: any) => {
-      if (evt.sessionId !== sessionId) return;
-      try {
-        res.write(`data: ${JSON.stringify(evt)}\n\n`);
-        if (typeof (res as any).flush === 'function') {
-          (res as any).flush();
-        }
-      } catch { }
-    };
-
-    swarmOrchestrationService.eventBus.on('swarm.event', send);
-
-    req.on('close', () => {
-      swarmOrchestrationService.eventBus.off('swarm.event', send);
-    });
-  }
-
-  /**
-   * POST /v1/agents/swarm/:sessionId/message
-   * @deprecated Use swarmMessageStream instead  Ethis endpoint bypasses intent routing.
-   * Kept for backwards compatibility. Routes all messages as TASK_CREATE directly.
-   */
-  @Post('swarm/:sessionId/message')
-  async swarmMessage(
-    @Param('sessionId') sessionId: string,
-    @Req() req: AuthenticatedRequest,
-    @Res() res: ExpressResponse,
-  ) {
-    return res.status(410).json({
-      error: 'Gone',
-      message: 'This endpoint is deprecated. Use POST /swarm/:sessionId/message-stream instead.',
-    });
-  }
-
-  /**
-   * POST /v1/agents/swarm/:sessionId/message-stream
-   * Streams the response to user questions/requests using BuilderProgressEmitter.
-   */
-  @Post('swarm/:sessionId/message-stream')
-  async swarmMessageStream(
-    @Param('sessionId') sessionId: string,
-    @Req() req: AuthenticatedRequest,
-    @Res() res: ExpressResponse,
-  ) {
-    const emitter = new BuilderProgressEmitter(res);
-    emitter.init();
-
-    try {
-      const schema = z.object({
-        message: z.string().min(1),
-        workspaceId: z.string().optional(),
-        mentions: z.array(z.object({
-          id: z.string(),
-          name: z.string(),
-          type: z.enum(['agent', 'task']),
-        })).optional(),
-        contexts: z.array(z.any()).optional(),
-      });
-      const { message, workspaceId, mentions = [], contexts = [] } = schema.parse(req.body ?? {});
-      const userId = req.userId!;
-
-      const session = await swarmOrchestrationService.getSession(sessionId);
-      const wid = workspaceId || session?.workspaceId;
-
-      if (!wid) {
-        emitter.error('Workspace ID not found');
-        return;
-      }
-
-      // ── #2: Authorize  Everify userId owns or is a member of this workspace ──
-      const [isOwner, isMember] = await Promise.all([
-        prisma.workspace.findFirst({ where: { id: wid, ownerId: userId }, select: { id: true } }),
-        prisma.workspaceMember.findFirst({ where: { workspaceId: wid, userId }, select: { id: true } }),
-      ]);
-      if (!isOwner && !isMember) {
-        emitter.error('Access denied');
-        return;
-      }
-
-      // Persist USER message to DB
-      const savedUserMessage = await prisma.aiMessage.create({
-        data: {
-          conversationId: sessionId,
-          role: 'USER',
-          content: message,
-          metadata: {
-            source: 'swarm_interrupt_stream',
-            contexts,
-            mentions,
-          }
-        }
-      });
-
-      await prisma.aiConversation.update({
-        where: { id: sessionId },
-        data: {
-          messageCount: { increment: 1 },
-          lastMessageAt: new Date()
-        }
-      }).catch(() => null);
-
-      // Route the message through our enterprise-grade router
-      const { responderName, responseContent, intent } = await routeSwarmMessage({
-        sessionId,
-        workspaceId: wid,
-        userId,
-        message,
-        mentions,
-        emitter,
-        excludeMessageId: savedUserMessage.id,
-      });
-
-      // Save ASSISTANT message to database
-      await prisma.aiMessage.create({
-        data: {
-          conversationId: sessionId,
-          role: 'ASSISTANT',
-          content: responseContent,
-          metadata: {
-            responder: responderName,
-            source: 'swarm_assistant_response',
-            intent: intent.type,
-          }
-        }
-      });
-
-      await prisma.aiConversation.update({
-        where: { id: sessionId },
-        data: {
-          messageCount: { increment: 1 },
-          lastMessageAt: new Date()
-        }
-      }).catch(() => null);
-
-      emitter.complete({
-        responder: responderName
-      });
-
-    } catch (err: any) {
-      console.error('[SwarmMessageStream] Error:', err);
-      const isAuthError = err?.message?.startsWith('Unauthorized') || err?.code === 'UNAUTHORIZED' || err?.message?.startsWith('Access denied');
-      emitter.error(isAuthError ? 'Access denied' : (err?.message || 'Internal server error'));
-    }
-  }
-
-  /**
-   * GET /v1/agents/swarm/tasks?sessionId=...
-   * Returns agent tasks associated with a swarm session.
-   */
-  @Get('swarm/tasks')
-  async swarmTasks(
-    @Query('sessionId') sessionId: string | undefined,
-    @Req() req: AuthenticatedRequest,
-    @Res() res: ExpressResponse,
-  ) {
-    try {
-      const where: any = {
-        status: { in: ['PENDING', 'QUEUED', 'RUNNING', 'PAUSED', 'COMPLETED', 'FAILED', 'CANCELLED', 'PENDING_APPROVAL'] },
-      };
-      if (sessionId) {
-        where.metadata = { path: ['sessionId'], equals: sessionId };
-      }
-      const tasks = await (prisma.agentTask as any).findMany({
-        where,
-        orderBy: { createdAt: 'desc' },
-        take: 100,
-      });
-      return res.json({ tasks });
-    } catch (error) {
-      console.error('[SwarmTasks] Error:', error);
-      return res.status(500).json({ error: 'Internal server error' });
-    }
-  }
-
-  /**
-   * POST /v1/agents/swarm/tasks/:taskId/approve
-   * Approves a PENDING_APPROVAL task and moves it to PENDING.
-   */
-  @Post('swarm/tasks/:taskId/approve')
-  async approveSwarmTask(
-    @Param('taskId') taskId: string,
-    @Req() req: AuthenticatedRequest,
-    @Res() res: ExpressResponse,
-  ) {
-    try {
-      const task = await (prisma.agentTask as any).findFirst({
-        where: { id: taskId },
-        select: { workspaceId: true },
-      });
-      if (!task) return res.status(404).json({ error: 'Task not found' });
-
-      const userId = req.userId!;
-      const hasAccess = await prisma.workspace.findFirst({
-        where: {
-          id: task.workspaceId,
-          OR: [{ ownerId: userId }, { members: { some: { userId } } }],
-        },
-      });
-      if (!hasAccess) return res.status(403).json({ error: 'Access denied' });
-
-      await (prisma.agentTask as any).update({
-        where: { id: taskId },
-        data: { status: 'PENDING', updatedAt: new Date() },
-      });
-      return res.json({ ok: true });
-    } catch (error) {
-      console.error('[SwarmApprove] Error:', error);
-      return res.status(500).json({ error: 'Internal server error' });
-    }
-  }
-
-  /**
-   * POST /v1/agents/swarm/tasks/:taskId/deny
-   * Denies a PENDING_APPROVAL task and marks it as FAILED.
-   */
-  @Post('swarm/tasks/:taskId/deny')
-  async denySwarmTask(
-    @Param('taskId') taskId: string,
-    @Req() req: AuthenticatedRequest,
-    @Res() res: ExpressResponse,
-  ) {
-    try {
-      const task = await (prisma.agentTask as any).findFirst({
-        where: { id: taskId },
-        select: { workspaceId: true },
-      });
-      if (!task) return res.status(404).json({ error: 'Task not found' });
-
-      const userId = req.userId!;
-      const hasAccess = await prisma.workspace.findFirst({
-        where: {
-          id: task.workspaceId,
-          OR: [{ ownerId: userId }, { members: { some: { userId } } }],
-        },
-      });
-      if (!hasAccess) return res.status(403).json({ error: 'Access denied' });
-
-      await (prisma.agentTask as any).update({
-        where: { id: taskId },
-        data: { status: 'FAILED', updatedAt: new Date() },
-      });
-      return res.json({ ok: true });
-    } catch (error) {
-      console.error('[SwarmDeny] Error:', error);
-      return res.status(500).json({ error: 'Internal server error' });
-    }
-  }
-
-  // ─── Workforce Endpoints ────────────────────────────────────────────────────
-
-  @Post('workforces/:workforceId/run')
-  async runWorkforceEndpoint(
-    @Param('workforceId') workforceId: string,
-    @Body() body: { task?: string; input?: Record<string, unknown> },
-    @Req() req: AuthenticatedRequest,
-    @Res() res: ExpressResponse
-  ) {
-    try {
-      const schema = z.object({
-        task: z.string().optional(),
-        input: z.record(z.unknown()).optional(),
-      });
-      const parsed = schema.parse(body ?? {});
-      const userId = req.userId!;
-
-      const workforce = await prisma.workforce.findFirst({
-        where: {
-          id: workforceId,
-          createdBy: userId,
-        },
-      });
-      if (!workforce) {
-        return res.status(404).json({ error: 'Workforce not found' });
-      }
-
-      const input = { task: parsed.task, ...parsed.input };
-      const result = await runWorkforce(workforceId, input, userId);
-      return res.json(result);
-    } catch (error) {
-      console.error('Error running workforce:', error);
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ error: 'Invalid request', details: error.errors });
-      }
-      return res.status(500).json({ error: 'Internal server error', message: error instanceof Error ? error.message : 'Unknown' });
-    }
-  }
-
-  /**
-   * POST /v1/agents/tools/editor-assistant/message-stream
-   * POST /v1/agents/workforces/editor-assistant/message-stream
-   *
-   * SSE endpoints that mirror the Agent Builder stream format for the editor
-   * assistant (Tool / Workforce). We currently stream progress steps and the
-   * final payload (assistantText + proposedOps); response text is not streamed
-   * token-by-token yet.
-   */
-  @Post('tools/editor-assistant/message-stream')
-  async toolEditorAssistantStream(
-    @Req() req: AuthenticatedRequest,
-    @Res() res: ExpressResponse,
-  ) {
-    return this.editorAssistantStreamInternal('tool', req, res);
-  }
-
-  @Post('workforces/editor-assistant/message-stream')
-  async workforceEditorAssistantStream(
-    @Req() req: AuthenticatedRequest,
-    @Res() res: ExpressResponse,
-  ) {
-    return this.editorAssistantStreamInternal('workforce', req, res);
-  }
-
-  private async editorAssistantStreamInternal(
-    mode: 'tool' | 'workforce',
-    req: AuthenticatedRequest,
-    res: ExpressResponse,
-  ) {
-    const emitter = new BuilderProgressEmitter(res);
-    emitter.init();
-
-    try {
-      const schema = z.object({
-        conversationId: z.string().min(1),
-        message: z.string().min(1),
-        context: z.unknown(),
-      });
-
-      const body = schema.parse(req.body ?? {});
-      const userId = req.userId!;
-
-      emitter.thinking(
-        mode === 'tool'
-          ? 'Analyzing current tool configuration…'
-          : 'Analyzing current workforce graph…',
-        mode === 'tool' ? 'TOOL_EDITOR' : 'WORKFORCE_EDITOR',
-      );
-
-      const conversation = await prisma.aiConversation.findFirst({
-        where: {
-          id: body.conversationId,
-          userId,
-          conversationType:
-            mode === 'tool'
-              ? 'TOOL_BUILDER'
-              : 'WORKFORCE_BUILDER',
-        },
-        select: { id: true },
-      });
-
-      if (!conversation) {
-        emitter.error('Conversation not found or access denied');
-        return;
-      }
-
-      emitter.thinking(
-        'Drafting proposed changes…',
-        mode === 'tool' ? 'TOOL_EDITOR' : 'WORKFORCE_EDITOR',
-      );
-
-      const result = await runEditorAssistantMessage({
-        mode,
-        userId,
-        conversationId: body.conversationId,
-        message: body.message,
-        context: body.context,
-        onToken: (t) => emitter.token(t),
-      });
-
-      const followups = this.buildEditorFollowups(mode);
-      const actions = this.buildEditorActions(mode);
-
-      await prisma.aiMessage.create({
-        data: {
-          conversationId: body.conversationId,
-          role: 'ASSISTANT',
-          content: result.assistantText,
-          metadata: { proposedOps: result.proposedOps, followups, editorMode: mode } as any,
-        },
-      });
-
-      await prisma.aiConversation.update({
-        where: { id: body.conversationId },
-        data: {
-          messageCount: { increment: 2 }, // user + assistant
-          lastMessageAt: new Date(),
-        },
-      });
-
-      emitter.complete({
-        assistantText: result.assistantText,
-        proposedOps: result.proposedOps,
-        followups,
-        actions,
-      });
-    } catch (error: any) {
-      console.error('Error in editor assistant stream:', error);
-      if (error instanceof z.ZodError) {
-        emitter.error('Invalid editor assistant request.');
-      } else {
-        emitter.error(error?.message || 'Internal server error');
-      }
-    }
-  }
-
-  /**
-   * POST /v1/agents/tools/editor-assistant/message
-   * POST /v1/agents/workforces/editor-assistant/message
-   *
-   * Shared editor assistant for Tool & Workforce builders.
-   * Returns strict JSON { assistantText, proposedOps } where proposedOps
-   * are validated ToolOp / WorkforceOp objects.
-   */
-  @Post('tools/editor-assistant/message')
-  async toolEditorAssistantMessage(
-    @Req() req: AuthenticatedRequest,
-    @Res() res: ExpressResponse,
-  ) {
-    return this.editorAssistantMessageInternal('tool', req, res);
-  }
-
-  @Post('workforces/editor-assistant/message')
-  async workforceEditorAssistantMessage(
-    @Req() req: AuthenticatedRequest,
-    @Res() res: ExpressResponse,
-  ) {
-    return this.editorAssistantMessageInternal('workforce', req, res);
-  }
-
-  private async editorAssistantMessageInternal(
-    mode: 'tool' | 'workforce',
-    req: AuthenticatedRequest,
-    res: ExpressResponse,
-  ) {
-    try {
-      const schema = z.object({
-        conversationId: z.string().min(1),
-        message: z.string().min(1),
-        context: z.unknown(),
-      });
-
-      const body = schema.parse(req.body ?? {});
-      const userId = req.userId!;
-
-      // Ensure the conversation belongs to this user and matches the editor mode.
-      const conversation = await prisma.aiConversation.findFirst({
-        where: {
-          id: body.conversationId,
-          userId,
-          conversationType:
-            mode === 'tool'
-              ? 'TOOL_BUILDER'
-              : 'WORKFORCE_BUILDER',
-        },
-        select: { id: true },
-      });
-
-      if (!conversation) {
-        return res.status(404).json({ error: 'Conversation not found or access denied' });
-      }
-
-      const result = await runEditorAssistantMessage({
-        mode,
-        userId,
-        conversationId: body.conversationId,
-        message: body.message,
-        context: body.context,
-      });
-
-      const followups = this.buildEditorFollowups(mode);
-
-      // Persist assistant message with proposedOps metadata for frontend to consume.
-      await prisma.aiMessage.create({
-        data: {
-          conversationId: body.conversationId,
-          role: 'ASSISTANT',
-          content: result.assistantText,
-          metadata: { proposedOps: result.proposedOps, followups, editorMode: mode } as any,
-        },
-      });
-
-      await prisma.aiConversation.update({
-        where: { id: body.conversationId },
-        data: {
-          messageCount: { increment: 2 }, // user + assistant
-          lastMessageAt: new Date(),
-        },
-      });
-
-      return res.json(result);
-    } catch (error) {
-      console.error('Error in editor assistant message:', error);
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ error: 'Invalid request', details: error.errors });
-      }
-      return res.status(500).json({
-        error: 'Internal server error',
-        message: error instanceof Error ? error.message : 'Unknown',
-      });
-    }
-  }
-
-  /**
-   * POST /v1/agents/workforces/:workforceId/run-stream
-   *
-   * SSE endpoint that streams high-level progress for a workforce run.
-   * Uses the same SSE wire format as the builder stream (thinking / complete / error).
-   */
-  @Post('workforces/:workforceId/run-stream')
-  async runWorkforceStream(
-    @Param('workforceId') workforceId: string,
-    @Body() body: {
-      task?: string;
-      input?: Record<string, unknown>;
-      conversationId?: string;
-      messages?: Array<{ role: string; content: string }>;
-    },
-    @Req() req: AuthenticatedRequest,
-    @Res() res: ExpressResponse
-  ) {
-    const schema = z.object({
-      task: z.string().min(1),
-      input: z.record(z.unknown()).optional(),
-      conversationId: z.string().optional(),
-      messages: z
-        .array(z.object({ role: z.string(), content: z.string() }))
-        .optional(),
-    });
-
-    let parsed: z.infer<typeof schema>;
-    try {
-      parsed = schema.parse(body ?? {});
-    } catch (err) {
-      return res.status(400).json({ error: 'Invalid request', details: err });
-    }
-
-    const userId = req.userId!;
-    const emitter = new BuilderProgressEmitter(res);
-    emitter.init();
-    emitter.thinking('Starting workforce run', undefined);
-
-    req.on('close', () => {
-      emitter.end();
-    });
-
-    try {
-      const workforce = await prisma.workforce.findFirst({
-        where: {
-          id: workforceId,
-          createdBy: userId,
-        },
-      });
-      if (!workforce) {
-        emitter.error('Workforce not found or access denied');
-        return;
-      }
-
-      const input = {
-        task: parsed.task,
-        conversationId: parsed.conversationId,
-        messages: parsed.messages,
-        ...parsed.input,
-      };
-      const result = await runWorkforce(workforceId, input, userId);
-      const executionId = result.executionId;
-
-      const { redisSub } = await import('@/lib/redis');
-      const channel = `workforce:run:${executionId}`;
-
-      const listener = (channelName: string, message: string) => {
-        if (channelName !== channel) return;
-        try {
-          const data = JSON.parse(message);
-          if (data.type === 'thinking') {
-            emitter.thinking(data.message, data.node);
-          } else if (data.type === 'token') {
-            emitter.token(data.message);
-          } else if (data.type === 'error') {
-            emitter.error(data.message);
-          } else if (data.type === 'complete') {
-            redisSub.unsubscribe(channel).catch(() => { });
-            redisSub.removeListener('message', listener);
-            const ctx = data.context || {};
-            const steps = ctx.steps && typeof ctx.steps === 'object' ? ctx.steps : {};
-            const stepEntries = Object.entries(steps as Record<string, any>);
-            let naturalSummary: string | undefined;
-            const output = ctx.output as any;
-            if (output && typeof output === 'object') {
-              if (typeof output.summary === 'string') {
-                naturalSummary = output.summary;
-              } else if (typeof output.text === 'string') {
-                naturalSummary = output.text;
-              }
-            }
-            if (!naturalSummary && stepEntries.length > 0) {
-              const failedSteps = stepEntries.filter(([, value]) => value && typeof value === 'object' && (value.status === 'error' || value.status === 'FAILED' || !!value.error));
-              if (failedSteps.length > 0) {
-                naturalSummary = `One or more steps failed while running the workflow.`;
-              } else {
-                naturalSummary = `Successfully completed ${stepEntries.length} workflow steps.`;
-              }
-            }
-
-            emitter.complete({
-              executionId,
-              workflowId: result.workflowId,
-              status: data.status,
-              steps,
-              output,
-              summary: naturalSummary || 'Execution completed.',
-            });
-          }
-        } catch (e) {
-          console.error('Error parsing redis message', e);
-        }
-      };
-
-      redisSub.on('message', listener);
-      await redisSub.subscribe(channel);
-
-      req.on('close', () => {
-        redisSub.unsubscribe(channel).catch(() => { });
-        redisSub.removeListener('message', listener);
-      });
-    } catch (error) {
-      console.error('Error running workforce (stream):', error);
-      const message = error instanceof Error ? error.message : 'Unknown error';
-      emitter.error(message);
-    }
-  }
-
-  /**
-   * GET /v1/agents/workforces/executions/:executionId
-   * Returns workflow execution status for polling until RUNNING -> COMPLETED/FAILED.
-   */
-  @Get('workforces/executions/:executionId')
-  async getWorkflowExecutionStatus(
-    @Param('executionId') executionId: string,
-    @Req() req: AuthenticatedRequest,
-    @Res() res: ExpressResponse
-  ) {
-    try {
-      const userId = req.userId!;
-      const execution = await prisma.agentWorkflowExecution.findUnique({
-        where: { id: executionId },
-        include: {
-          workflow: {
-            include: {
-              workspace: {
-                select: {
-                  ownerId: true,
-                  members: { where: { userId }, select: { userId: true } },
-                },
-              },
-            },
-          },
-        },
-      });
-      if (!execution?.workflow?.workspace) {
-        return res.status(404).json({ error: 'Execution not found' });
-      }
-      const { workspace } = execution.workflow;
-      const isOwner = workspace.ownerId === userId;
-      const isMember = workspace.members?.length > 0;
-      if (!isOwner && !isMember) {
-        return res.status(403).json({ error: 'Access denied' });
-      }
-
-      // Build a human-readable summary from the execution context when available.
-      const ctx = (execution.context as any) || {};
-      const steps = ctx.steps && typeof ctx.steps === 'object' ? ctx.steps : {};
-      const stepEntries = Object.entries(steps as Record<string, any>);
-
-      let naturalSummary: string | undefined;
-      const output = ctx.output as any;
-      if (output && typeof output === 'object') {
-        if (typeof output.summary === 'string') {
-          naturalSummary = output.summary;
-        } else if (typeof output.text === 'string') {
-          naturalSummary = output.text;
-        }
-      }
-
-      // Fallback: derive a short explanation from step results.
-      if (!naturalSummary && stepEntries.length > 0) {
-        const skippedPlaceholders = stepEntries.filter(
-          ([, value]) =>
-            value &&
-            typeof value === 'object' &&
-            value.skipped === true &&
-            value.reason === 'NO_EXECUTOR_PLACEHOLDER'
-        );
-
-        const failedSteps = stepEntries.filter(
-          ([, value]) =>
-            value &&
-            typeof value === 'object' &&
-            (value.status === 'error' || value.status === 'FAILED' || !!value.error)
-        );
-
-        const fragments: string[] = [];
-
-        if (skippedPlaceholders.length > 0) {
-          const ids = skippedPlaceholders.map(([id]) => id).join(', ');
-          fragments.push(
-            `Some workflow steps were configured as placeholders without an executor and were skipped (steps: ${ids}).`
-          );
-        }
-
-        if (failedSteps.length > 0) {
-          const ids = failedSteps.map(([id]) => id).join(', ');
-          fragments.push(
-            `One or more steps failed while running the workflow (steps: ${ids}).`
-          );
-        }
-
-        if (fragments.length > 0) {
-          naturalSummary = fragments.join(' ');
-        }
-      }
-
-      return res.json({
-        id: execution.id,
-        status: execution.status,
-        endTime: execution.endTime,
-        error: execution.error,
-        summary: naturalSummary ?? null,
-        steps: steps,
-        output: ctx.output ?? null,
-      });
-    } catch (error) {
-      console.error('Error fetching workflow execution status:', error);
-      return res.status(500).json({
-        error: 'Internal server error',
-        message: error instanceof Error ? error.message : 'Unknown error',
-      });
-    }
-  }
 
   @Post('execute')
   async execute(@Req() req: AuthenticatedRequest, @Res() res: ExpressResponse) {
@@ -1190,6 +202,10 @@ export class AgentsController {
         return res.status(404).json({ error: 'Execution not found or access denied' });
       }
 
+      if (execution.agentId !== body.agentId) {
+        return res.status(400).json({ error: 'Agent ID does not match execution' });
+      }
+
       if (!execution.aiAgent.isActive) {
         return res.status(400).json({ error: 'Agent is not active' });
       }
@@ -1234,7 +250,9 @@ export class AgentsController {
     @Res() res: ExpressResponse
   ) {
     try {
-      // Fetch the async run result from Redis
+      const userId = req.userId!;
+      await assertAgentRunAccess(runId, userId);
+
       const result = await import('@/lib/redis').then(m => m.redis.get(`agent_run:${runId}`));
       if (result) {
         return res.json(JSON.parse(result));
@@ -1610,6 +628,20 @@ export class AgentsController {
       const schema = z.object({
         conversationId: z.string(),
         message: z.string().min(1),
+        contexts: z.array(z.object({
+          type: z.string(),
+          id: z.string(),
+        })).optional(),
+        mentions: z.array(z.object({
+          id: z.string(),
+          name: z.string(),
+          type: z.enum(['agent', 'task']),
+        })).optional(),
+        attachments: z.array(z.object({
+          type: z.string(),
+          filename: z.string(),
+          content: z.string().optional(),
+        })).optional(),
       });
 
       const body = schema.parse(req.body);
@@ -1619,7 +651,8 @@ export class AgentsController {
         body.conversationId,
         agentId,
         body.message,
-        userId
+        userId,
+        { contexts: body.contexts, mentions: body.mentions, attachments: body.attachments }
       );
 
       return res.json(result);
@@ -1824,6 +857,20 @@ export class AgentsController {
       const schema = z.object({
         conversationId: z.string(),
         message: z.string().min(1),
+        contexts: z.array(z.object({
+          type: z.string(),
+          id: z.string(),
+        })).optional(),
+        mentions: z.array(z.object({
+          id: z.string(),
+          name: z.string(),
+          type: z.enum(['agent', 'task']),
+        })).optional(),
+        attachments: z.array(z.object({
+          type: z.string(),
+          filename: z.string(),
+          content: z.string().optional(),
+        })).optional(),
       });
 
       const body = schema.parse(req.body);
@@ -1833,7 +880,8 @@ export class AgentsController {
         body.conversationId,
         agentId,
         body.message,
-        userId
+        userId,
+        { contexts: body.contexts, mentions: body.mentions, attachments: body.attachments }
       );
 
       return res.json(result);
@@ -1943,13 +991,19 @@ export class AgentsController {
     @Res() res: ExpressResponse
   ) {
     try {
+      const userId = req.userId!;
+
+      const rl = await consumeRateLimit(agentBuilderRateLimiter, userId, 'agent:builder:initialize');
+      if (!rl.allowed) {
+        return res.status(429).json({ error: rl.error, retryAfter: rl.retryAfter });
+      }
+
       const schema = z.object({
         conversationId: z.string().optional(),
         skipWelcome: z.boolean().optional(),
       });
 
       const body = schema.parse(req.body);
-      const userId = req.userId!;
 
       // Log for debugging
       console.log('[AgentBuilder] Initialize request:', {
@@ -1962,6 +1016,9 @@ export class AgentsController {
       // Handle "new" or placeholder agentId if needed, but existing logic supports string | undefined.
       // If agentId is passed in route, we use it.
       const targetAgentId = agentId === 'new' ? undefined : agentId;
+      if (targetAgentId) {
+        await assertAgentAccess(targetAgentId, userId, 'write');
+      }
 
       const result = await agentBuilderService.initializeConversation(
         userId,
@@ -1995,20 +1052,42 @@ export class AgentsController {
     @Res() res: ExpressResponse
   ) {
     try {
+      const userId = req.userId!;
+
+      const rl = await consumeRateLimit(agentBuilderRateLimiter, userId, 'agent:builder:message');
+      if (!rl.allowed) {
+        return res.status(429).json({ error: rl.error, retryAfter: rl.retryAfter });
+      }
+
       const schema = z.object({
         conversationId: z.string(),
         message: z.string().min(1),
+        contexts: z.array(z.object({
+          type: z.string(),
+          id: z.string(),
+        })).optional(),
+        mentions: z.array(z.object({
+          id: z.string(),
+          name: z.string(),
+          type: z.enum(['agent', 'task']),
+        })).optional(),
+        attachments: z.array(z.object({
+          type: z.string(),
+          filename: z.string(),
+          content: z.string().optional(),
+        })).optional(),
       });
 
       const body = schema.parse(req.body);
-      const userId = req.userId!;
 
       // Route through Inngest-backed async workflow, matching Executor/Operator.
       // The caller can poll /v1/agents/runs/:runId for status and result.
       const { runId } = await agentBuilderService.processMessageAsync(
         body.conversationId,
         body.message,
-        userId
+        userId,
+        agentId,
+        { contexts: body.contexts, mentions: body.mentions, attachments: body.attachments }
       );
 
       return res.json({ runId });
@@ -2042,6 +1121,15 @@ export class AgentsController {
     const schema = z.object({
       conversationId: z.string(),
       message: z.string().min(1),
+      contexts: z.array(z.object({
+        type: z.string(),
+        id: z.string(),
+      })).optional(),
+      mentions: z.array(z.object({
+        id: z.string(),
+        name: z.string(),
+        type: z.enum(['agent', 'task']),
+      })).optional(),
     });
 
     let body: z.infer<typeof schema>;
@@ -2052,6 +1140,11 @@ export class AgentsController {
     }
 
     const userId = req.userId!;
+
+    const rl = await consumeRateLimit(agentBuilderRateLimiter, userId, 'agent:builder:message-stream');
+    if (!rl.allowed) {
+      return res.status(429).json({ error: rl.error, retryAfter: rl.retryAfter });
+    }
     const emitter = new BuilderProgressEmitter(res);
     emitter.init();
 
@@ -2072,7 +1165,8 @@ export class AgentsController {
         // Progress callback: thinking steps
         (step: string, node?: string) => emitter.thinking(step, node),
         // Token callback: each streamed LLM response character
-        (text: string) => emitter.token(text)
+        (text: string) => emitter.token(text),
+        { contexts: body.contexts, mentions: body.mentions }
       );
 
       // Send the final metadata  Eresponse text was already streamed token-by-token,
@@ -2096,6 +1190,15 @@ export class AgentsController {
     const schema = z.object({
       conversationId: z.string(),
       message: z.string().min(1),
+      contexts: z.array(z.object({
+        type: z.string(),
+        id: z.string(),
+      })).optional(),
+      mentions: z.array(z.object({
+        id: z.string(),
+        name: z.string(),
+        type: z.enum(['agent', 'task']),
+      })).optional(),
     });
 
     let body: z.infer<typeof schema>;
@@ -2106,60 +1209,62 @@ export class AgentsController {
     }
 
     const userId = req.userId!;
+    const runId = randomUUID();
+    await registerAgentRunOwner(runId, userId);
+    const channel = `agent_run:${runId}`;
 
     const emitter = new BuilderProgressEmitter(res);
     emitter.init();
+    emitter.thinking('Starting...', undefined);
 
-    // End stream if client disconnects early
+    const { redisSub } = await import('@/lib/redis');
+
+    const listener = (channelName: string, message: string) => {
+      if (channelName !== channel) return;
+      try {
+        const data = JSON.parse(message);
+        if (data.type === 'thinking') {
+          emitter.thinking(data.message, data.node);
+        } else if (data.type === 'token') {
+          emitter.token(data.message);
+        } else if (data.type === 'error') {
+          redisSub.unsubscribe(channel).catch(() => { });
+          redisSub.removeListener('message', listener);
+          emitter.error(data.message);
+        } else if (data.type === 'complete') {
+          redisSub.unsubscribe(channel).catch(() => { });
+          redisSub.removeListener('message', listener);
+          const { response: _stripped, ...metaPayload } = data.payload || {};
+          emitter.complete(metaPayload as Record<string, unknown>);
+        }
+      } catch (e) {
+        console.error('[AgentExecutor] Error parsing redis message', e);
+      }
+    };
+
+    redisSub.on('message', listener);
+    await redisSub.subscribe(channel);
+
     req.on('close', () => {
-      // Stream is over.
+      redisSub.unsubscribe(channel).catch(() => { });
+      redisSub.removeListener('message', listener);
     });
 
-    try {
-      const result = await agentExecutorService.processMessage(
-        body.conversationId,
-        agentId,
-        body.message,
-        userId
-      );
-
-      const runId = result.runId;
-      const { redisSub } = await import('@/lib/redis');
-      const channel = `agent_run:${runId}`;
-
-      const listener = (channelName: string, message: string) => {
-        if (channelName !== channel) return;
-        try {
-          const data = JSON.parse(message);
-          if (data.type === 'thinking') {
-            emitter.thinking(data.message, data.node);
-          } else if (data.type === 'token') {
-            emitter.token(data.message);
-          } else if (data.type === 'error') {
-            emitter.error(data.message);
-          } else if (data.type === 'complete') {
-            redisSub.unsubscribe(channel).catch(() => { });
-            redisSub.removeListener('message', listener);
-            const { response: _stripped, ...metaPayload } = data.payload || {};
-            emitter.complete(metaPayload as Record<string, unknown>);
-          }
-        } catch (e) {
-          console.error('[AgentExecutor] Error parsing redis message', e);
-        }
-      };
-
-      redisSub.on('message', listener);
-      await redisSub.subscribe(channel);
-
-      req.on('close', () => {
-        redisSub.unsubscribe(channel).catch(() => { });
-        redisSub.removeListener('message', listener);
-      });
-    } catch (error) {
-      console.error('[AgentExecutor] Flow error:', error);
-      const message = error instanceof Error ? error.message : 'Unknown error';
-      emitter.error(message);
-    }
+    // Shim: runs executeWorkflow directly without Inngest for immediate streaming
+    const shimStep = { run: async (_name: string, fn: () => any) => fn() };
+    agentExecutorService.executeWorkflow(shimStep, {
+      runId,
+      conversationId: body.conversationId,
+      agentId,
+      message: body.message,
+      userId,
+      options: { contexts: body.contexts, mentions: body.mentions },
+    }).catch((error: Error) => {
+      console.error('[AgentExecutor] Direct workflow error:', error);
+      redisSub.unsubscribe(channel).catch(() => { });
+      redisSub.removeListener('message', listener);
+      emitter.error(error.message || 'Unknown error');
+    });
   }
 
   // ─── Operator: SSE message stream ─────────────────────────────────────────
@@ -2172,6 +1277,15 @@ export class AgentsController {
     const schema = z.object({
       conversationId: z.string(),
       message: z.string().min(1),
+      contexts: z.array(z.object({
+        type: z.string(),
+        id: z.string(),
+      })).optional(),
+      mentions: z.array(z.object({
+        id: z.string(),
+        name: z.string(),
+        type: z.enum(['agent', 'task']),
+      })).optional(),
     });
 
     let body: z.infer<typeof schema>;
@@ -2182,60 +1296,62 @@ export class AgentsController {
     }
 
     const userId = req.userId!;
+    const runId = randomUUID();
+    await registerAgentRunOwner(runId, userId);
+    const channel = `agent_run:${runId}`;
 
     const emitter = new BuilderProgressEmitter(res);
     emitter.init();
+    emitter.thinking('Starting...', undefined);
 
-    // End stream if client disconnects early
+    const { redisSub } = await import('@/lib/redis');
+
+    const listener = (channelName: string, message: string) => {
+      if (channelName !== channel) return;
+      try {
+        const data = JSON.parse(message);
+        if (data.type === 'thinking') {
+          emitter.thinking(data.message, data.node);
+        } else if (data.type === 'token') {
+          emitter.token(data.message);
+        } else if (data.type === 'error') {
+          redisSub.unsubscribe(channel).catch(() => { });
+          redisSub.removeListener('message', listener);
+          emitter.error(data.message);
+        } else if (data.type === 'complete') {
+          redisSub.unsubscribe(channel).catch(() => { });
+          redisSub.removeListener('message', listener);
+          const { response: _stripped, ...metaPayload } = data.payload || {};
+          emitter.complete(metaPayload as Record<string, unknown>);
+        }
+      } catch (e) {
+        console.error('[AgentOperator] Error parsing redis message', e);
+      }
+    };
+
+    redisSub.on('message', listener);
+    await redisSub.subscribe(channel);
+
     req.on('close', () => {
-      // Stream is over.
+      redisSub.unsubscribe(channel).catch(() => { });
+      redisSub.removeListener('message', listener);
     });
 
-    try {
-      const result = await agentOperatorService.processMessage(
-        body.conversationId,
-        agentId,
-        body.message,
-        userId
-      );
-
-      const runId = result.runId;
-      const { redisSub } = await import('@/lib/redis');
-      const channel = `agent_run:${runId}`;
-
-      const listener = (channelName: string, message: string) => {
-        if (channelName !== channel) return;
-        try {
-          const data = JSON.parse(message);
-          if (data.type === 'thinking') {
-            emitter.thinking(data.message, data.node);
-          } else if (data.type === 'token') {
-            emitter.token(data.message);
-          } else if (data.type === 'error') {
-            emitter.error(data.message);
-          } else if (data.type === 'complete') {
-            redisSub.unsubscribe(channel).catch(() => { });
-            redisSub.removeListener('message', listener);
-            const { response: _stripped, ...metaPayload } = data.payload || {};
-            emitter.complete(metaPayload as Record<string, unknown>);
-          }
-        } catch (e) {
-          console.error('[AgentOperator] Error parsing redis message', e);
-        }
-      };
-
-      redisSub.on('message', listener);
-      await redisSub.subscribe(channel);
-
-      req.on('close', () => {
-        redisSub.unsubscribe(channel).catch(() => { });
-        redisSub.removeListener('message', listener);
-      });
-    } catch (error) {
-      console.error('[AgentOperator] Flow error:', error);
-      const message = error instanceof Error ? error.message : 'Unknown error';
-      emitter.error(message);
-    }
+    // Shim: runs executeWorkflow directly without Inngest for immediate streaming
+    const shimStep = { run: async (_name: string, fn: () => any) => fn() };
+    agentOperatorService.executeWorkflow(shimStep, {
+      runId,
+      conversationId: body.conversationId,
+      agentId,
+      message: body.message,
+      userId,
+      options: { contexts: body.contexts, mentions: body.mentions },
+    }).catch((error: Error) => {
+      console.error('[AgentOperator] Direct workflow error:', error);
+      redisSub.unsubscribe(channel).catch(() => { });
+      redisSub.removeListener('message', listener);
+      emitter.error(error.message || 'Unknown error');
+    });
   }
 
   @Post(':agentId/builder/update-draft')
@@ -2288,96 +1404,6 @@ export class AgentsController {
       return res.json(result);
     } catch (error) {
       console.error('Error launching agent:', error);
-      return res.status(500).json({
-        error: 'Internal server error',
-        message: error instanceof Error ? error.message : 'Unknown error',
-      });
-    }
-  }
-
-  /**
-   * POST /v1/agents/composite-tools/:toolId/run
-   *
-   * Runs a composite tool by ID and streams progress via SSE.
-   * Events: thinking, complete, error  Ematching the useToolRun frontend hook format.
-   */
-  @Post('composite-tools/:toolId/run')
-  async runCompositeTool(
-    @Param('toolId') toolId: string,
-    @Req() req: AuthenticatedRequest,
-    @Res() res: ExpressResponse,
-  ) {
-    const emitter = new BuilderProgressEmitter(res);
-    emitter.init();
-
-    try {
-      const schema = z.object({
-        input: z.record(z.any()).optional().default({}),
-        startStepId: z.string().optional(),
-      });
-
-      const body = schema.parse(req.body ?? {});
-      const userId = req.userId!;
-
-      // Verify the tool exists and belongs to this user (or is accessible)
-      const tool = await (prisma as any).compositeTool.findFirst({
-        where: {
-          id: toolId,
-          OR: [
-            { ownerId: userId },
-          ],
-        },
-        select: { id: true, name: true },
-      });
-
-      if (!tool) {
-        emitter.error('Tool not found or access denied');
-        return;
-      }
-
-      emitter.thinking(`Starting tool: ${tool.name}`, 'TOOL_RUNNER');
-
-      const { compositeToolExecutionService } = await import('@/services/agents/execution/compositeToolExecutionService');
-
-      await compositeToolExecutionService.execute(
-        toolId,
-        body.input,
-        userId,
-        (event) => {
-          if (event.type === 'thinking') {
-            const stepId = event.metadata?.stepId;
-            emitter.thinking(event.content, stepId);
-          } else if (event.type === 'token') {
-            emitter.token(event.content);
-          } else if (event.type === 'complete') {
-            emitter.complete({ output: event.metadata?.result ?? event.metadata });
-          } else if (event.type === 'error') {
-            emitter.error(event.content);
-          }
-        },
-      );
-    } catch (error: any) {
-      console.error('[composite-tools/run] Error:', error);
-      emitter.error(error?.message || 'Internal server error');
-    }
-  }
-
-  @Get('system-tools')
-  async getSystemTools(@Req() req: AuthenticatedRequest, @Res() res: ExpressResponse) {
-    try {
-      const tools = await getAllTools();
-
-      // Map to frontend-friendly format
-      const formattedTools = tools.map(tool => ({
-        id: tool.id,
-        name: tool.name,
-        description: tool.description,
-        category: tool.category,
-      }));
-
-      return res.json(formattedTools);
-    } catch (error) {
-      console.error('Error fetching system tools:', error);
       return res.status(500).json({
         error: 'Internal server error',
         message: error instanceof Error ? error.message : 'Unknown error',
@@ -2636,6 +1662,7 @@ export class AgentsController {
       const body = schema.parse(req.body);
       const userId = req.userId!;
 
+      await assertProjectAccessForUser(userId, projectId);
       const agent = await agentHiringService.hireAgentForProject(projectId, body.department, userId);
       return res.json(agent);
     } catch (error) {
@@ -2654,6 +1681,8 @@ export class AgentsController {
     @Res() res: ExpressResponse
   ) {
     try {
+      const userId = req.userId!;
+      await assertProjectAccessForUser(userId, projectId);
       const agents = await agentHiringService.getProjectAgents(projectId);
       return res.json(agents);
     } catch (error) {

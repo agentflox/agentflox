@@ -1668,7 +1668,7 @@ export function PublishEntityModal({
                                 </Button>
                                 <Button
                                     size="sm"
-                                    disabled={!title || !displayDescription.replace(/<[^>]+>/g, '').trim()}
+                                    disabled={!title || !(displayDescription ?? '').replace(/<[^>]+>/g, '').trim()}
                                     onClick={() => setScreen("preview")}
                                     className="h-9 px-5 text-[13px] font-semibold bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-zinc-200 dark:text-zinc-900 text-white shadow-sm transition-colors cursor-pointer"
                                 >

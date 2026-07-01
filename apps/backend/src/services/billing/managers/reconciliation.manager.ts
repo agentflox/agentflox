@@ -52,7 +52,7 @@ export class ReconciliationManager {
         let lastId: string | undefined = undefined;
 
         while (hasMore) {
-            const intents = await stripe.paymentIntents.list({
+            const intents: Awaited<ReturnType<typeof stripe.paymentIntents.list>> = await stripe.paymentIntents.list({
                 created: {
                     gte: startUnix,
                     lte: endUnix,

@@ -196,8 +196,6 @@ export const projectRouter = router({
 				isHiring: input.isHiring,
 				isActive: input.isActive ?? true,
 				isPublic: input.isPublic ?? true,
-				isActive: input.isActive ?? true,
-				isPublic: input.isPublic ?? true,
 				status: "PUBLISHED",
 				// Only add default views if creating
 				...(id ? {} : {

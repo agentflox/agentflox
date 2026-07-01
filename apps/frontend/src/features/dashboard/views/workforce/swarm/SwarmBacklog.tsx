@@ -2,10 +2,10 @@
 
 import React, { useEffect, useState } from 'react';
 import { Search, Filter, Clock, CheckCircle2, AlertCircle, PlayCircle, Loader2 } from 'lucide-react';
-import { useWorkforceStore } from '../store/useWorkforceStore';
+import { useWorkforceStore } from '../../../../../entities/workforce/hooks/useWorkforceStore';
 import { toast } from 'sonner';
 import { fetchAuthToken } from '@/utils/backend-request';
-import { BACKEND_URL } from '@/entities/agents/hooks/useAgentStream';
+import { BACKEND_URL } from '@/hooks/useSSEStream';
 
 export default function SwarmBacklog() {
     const { swarmSessionId, swarmTasks, setSwarmTasks, backlogFilters, setBacklogFilters } = useWorkforceStore();
@@ -19,7 +19,7 @@ export default function SwarmBacklog() {
         setIsLoading(true);
         try {
             const token = await fetchAuthToken();
-            const url = new URL(`${BACKEND_URL}/v1/agents/swarm/tasks`);
+            const url = new URL(`${BACKEND_URL}/v1/workforces/swarm/tasks`);
             url.searchParams.set('status', 'PENDING,OPEN,IN_PROGRESS');
             if (swarmSessionId) {
                 url.searchParams.set('sessionId', swarmSessionId);
@@ -58,13 +58,13 @@ export default function SwarmBacklog() {
     };
 
     const filteredTasks = swarmTasks.filter(t => {
-        const matchesSearch = !backlogFilters.search || 
+        const matchesSearch = !backlogFilters.search ||
             t.title.toLowerCase().includes(backlogFilters.search.toLowerCase()) ||
             t.description?.toLowerCase().includes(backlogFilters.search.toLowerCase());
-        
-        const matchesStatus = backlogFilters.status.length === 0 || 
+
+        const matchesStatus = backlogFilters.status.length === 0 ||
             backlogFilters.status.includes(t.status);
-            
+
         return matchesSearch && matchesStatus;
     });
 
@@ -99,8 +99,8 @@ export default function SwarmBacklog() {
                     </div>
                 ) : filteredTasks.length > 0 ? (
                     filteredTasks.map((task) => (
-                        <div 
-                            key={task.id} 
+                        <div
+                            key={task.id}
                             className="p-3 bg-background border border-border/60 rounded-xl hover:border-primary/40 transition-all cursor-pointer group shadow-sm hover:shadow-md"
                         >
                             <div className="flex items-center justify-between mb-2">
@@ -115,11 +115,11 @@ export default function SwarmBacklog() {
                                     {task.status}
                                 </div>
                             </div>
-                            
+
                             <h3 className="text-xs font-bold text-foreground group-hover:text-primary transition-colors leading-relaxed truncate">
                                 {task.title}
                             </h3>
-                            
+
                             {task.description && (
                                 <p className="text-[10px] text-muted-foreground mt-1 line-clamp-2 leading-snug">
                                     {task.description}

@@ -9,12 +9,13 @@ import { useToast } from "@/hooks/useToast";
 
 type Props = {
     teamId: string;
+    workspaceId?: string;
     open: boolean;
     onClose: () => void;
     inline?: boolean;
 };
 
-export function TeamSettingsSidebar({ teamId, open, onClose, inline }: Props) {
+export function TeamSettingsSidebar({ teamId, workspaceId, open, onClose, inline }: Props) {
     const { toast } = useToast();
     const utils = trpc.useUtils();
     const { data: team } = trpc.team.get.useQuery({ id: teamId }, { enabled: open });

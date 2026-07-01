@@ -12,11 +12,12 @@ import {
 	Users,
 	Briefcase,
 	User,
+	FileText,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
-export type WorkspaceView = "overview" | "personal" | "spaces" | "projects" | "teams" | "chats" | "ai-chat";
+export type WorkspaceView = "overview" | "personal" | "spaces" | "projects" | "teams" | "docs" | "chats" | "ai-chat";
 
 interface NavigationSidebarProps {
 	workspaceId: string;
@@ -39,6 +40,7 @@ const navigationItems: Array<{
 		{ id: "spaces", label: "Spaces", icon: FolderKanban },
 		{ id: "projects", label: "Projects", icon: Briefcase },
 		{ id: "teams", label: "Teams", icon: Users },
+		{ id: "docs", label: "Docs", icon: FileText },
 		{ id: "chats", label: "Chats", icon: MessageSquare },
 		{ id: "ai-chat", label: "AI Chat", icon: Sparkles },
 	];
@@ -55,9 +57,9 @@ export default function NavigationSidebar({
 	return (
 		<aside
 			className={cn(
-				"relative flex flex-col border-r border-zinc-200 bg-white transition-all duration-300 ease-in-out shadow-lg",
-				collapsed ? "w-16" : "w-72",
-				mode === "overlay" ? "h-full fixed inset-y-0 left-0 z-40" : "h-screen"
+			  "relative flex flex-col border-r border-zinc-200 bg-white transition-all duration-300 ease-in-out shadow-lg",
+			  collapsed ? "w-16" : "w-72",
+			  mode === "overlay" ? "h-full fixed inset-y-0 left-0 z-40" : "h-screen sticky top-0"
 			)}
 		>
 			{/* Header */}
@@ -68,7 +70,7 @@ export default function NavigationSidebar({
 						<button
 							aria-label="Close sidebar"
 							onClick={onClose}
-							className="rounded-md p-1.5 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900"
+							className="rounded-md p-1.5 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 cursor-pointer"
 						>
 							<Menu size={16} />
 						</button>
@@ -77,7 +79,7 @@ export default function NavigationSidebar({
 						<button
 							aria-label="Toggle sidebar"
 							onClick={onToggleCollapse}
-							className="flex h-8 w-8 items-center justify-center rounded-md text-zinc-400 hover:bg-zinc-100 hover:text-zinc-900 transition-colors"
+							className="flex h-8 w-8 items-center justify-center rounded-md text-zinc-400 hover:bg-zinc-100 hover:text-zinc-900 transition-colors cursor-pointer"
 						>
 							{collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
 						</button>
@@ -86,14 +88,14 @@ export default function NavigationSidebar({
 			</div>
 
 			{/* Navigation */}
-			<ScrollArea className="flex-1 px-3 py-4">
+			<ScrollArea className="flex-1 px-1.5 py-4">
 				<div className="space-y-1">
 					{navigationItems.map((item) => {
 						const Icon = item.icon;
 						const isActive = activeView === item.id;
 
 						const commonClassName = cn(
-							"group flex w-full items-center gap-3 rounded-md px-2 py-2 text-sm font-medium transition-all duration-200 outline-none",
+							"group flex w-full items-center gap-3 rounded-md px-2 py-2 text-sm font-medium transition-all duration-200 outline-none cursor-pointer",
 							isActive
 								? "bg-primary/10 text-primary"
 								: "text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900",
@@ -121,7 +123,7 @@ export default function NavigationSidebar({
 								className={commonClassName}
 								title={collapsed ? item.label : undefined}
 							>
-								<Icon size={18} className={cn("shrink-0", isActive ? "text-primary" : "text-zinc-400 group-hover:text-zinc-900")} />
+								<Icon size={18} className={cn("shrink-0 cursor-pointer", isActive ? "text-primary" : "text-zinc-400 group-hover:text-zinc-900")} />
 								{!collapsed && <span>{item.label}</span>}
 							</button>
 						);

@@ -105,6 +105,12 @@ interface DescriptionEditorProps {
     spaceId?: string | null;
     workspaceId?: string | null;
     projectId?: string | null;
+    // Minimum height of the editor content area. Accepts any CSS height value
+    // (e.g. 300, '300px', '50vh', '20rem'). Defaults to 300px.
+    minHeight?: number | string;
+    // Optional maximum height. When provided, the editor becomes internally
+    // scrollable once content exceeds this height instead of growing forever.
+    maxHeight?: number | string;
     // Opt-in realtime collaboration
     collaboration?: {
         enabled: boolean;
@@ -158,6 +164,14 @@ const MenuButton = ({ onClick, isActive, icon, tooltip, className, disabled }: M
         </TooltipContent>
     </Tooltip>
 );
+
+// Normalizes a height prop (number or string) into a valid CSS size string.
+// Numbers are treated as pixel values; strings are passed through as-is so
+// callers can use any CSS unit ('50vh', '20rem', '100%', etc.).
+const toCssSize = (value: number | string | undefined): string | undefined => {
+    if (value === undefined || value === null) return undefined;
+    return typeof value === 'number' ? `${value}px` : value;
+};
 
 // Function to get extensions with optional collaboration support
 const getExtensions = (collaborationExtensions: any[] = []) => [
@@ -309,6 +323,8 @@ export const DescriptionEditor = forwardRef<DescriptionEditorRef, DescriptionEdi
     spaceId = null,
     workspaceId = null,
     projectId = null,
+    minHeight = 300,
+    maxHeight,
     collaboration,
 }, ref) {
     const [brainEditOpen, setBrainEditOpen] = useState(false);
@@ -373,7 +389,7 @@ export const DescriptionEditor = forwardRef<DescriptionEditorRef, DescriptionEdi
             editorProps: {
                 attributes: {
                     class:
-                        'prose prose-sm max-w-none focus:outline-none min-h-[300px] text-zinc-900 [&_.ProseMirror]:min-h-[300px] [&_.ProseMirror]:outline-none',
+                        'prose prose-sm max-w-none focus:outline-none text-zinc-900 [&_.ProseMirror]:outline-none',
                 },
                 handleClickOn: (view, pos, node, nodePos, event, direct) => {
                     console.log('[DEBUG] handleClickOn triggered:', {
@@ -482,10 +498,10 @@ export const DescriptionEditor = forwardRef<DescriptionEditorRef, DescriptionEdi
 
     // Update content when changed externally
     useEffect(() => {
-        if (!editor || !content || content === editor.getHTML() || editor.isFocused) {
+        if (!editor || content === undefined || content === null || content === editor.getHTML() || editor.isFocused) {
             console.log('[DEBUG] Skipping content update:', {
                 hasEditor: !!editor,
-                hasContent: !!content,
+                hasContent: content !== undefined && content !== null,
                 contentMatch: content === editor?.getHTML(),
                 isFocused: editor?.isFocused
             });
@@ -692,8 +708,17 @@ export const DescriptionEditor = forwardRef<DescriptionEditorRef, DescriptionEdi
         return () => document.removeEventListener('mousedown', handleMouseDown);
     }, [mentionModalOpen]);
 
+    // CSS custom properties used by editor.css to size the ProseMirror content
+    // area. Passed via inline style so minHeight/maxHeight can be arbitrary
+    // values (numbers or any CSS unit string) without relying on Tailwind's
+    // build-time class generation.
+    const editorSizeStyle = {
+        ['--editor-min-height' as any]: toCssSize(minHeight) ?? '300px',
+        ...(maxHeight !== undefined ? { ['--editor-max-height' as any]: toCssSize(maxHeight) } : {}),
+    } as React.CSSProperties;
+
     return (
-        <div className="relative group">
+        <div className="relative group" style={editorSizeStyle}>
             {/* Brain Edit Dialog (full or Write with AI mode) */}
             <BrainEditDialog
                 open={brainEditOpen}
@@ -1307,7 +1332,11 @@ export const DescriptionEditor = forwardRef<DescriptionEditorRef, DescriptionEdi
                 </DragHandle>
             )}
             {/* Editor Content */}
-            <EditorContent editor={editor} className="tiptap" />
+            <EditorContent
+                editor={editor}
+                className="tiptap"
+                data-has-max-height={maxHeight !== undefined ? '' : undefined}
+            />
         </div>
     );
 });

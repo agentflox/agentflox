@@ -179,7 +179,9 @@ exports.Prisma.UserScalarFieldEnum = {
   createdAt: 'createdAt',
   updatedAt: 'updatedAt',
   lastActiveAt: 'lastActiveAt',
-  embeddingUpdatedAt: 'embeddingUpdatedAt'
+  embeddingUpdatedAt: 'embeddingUpdatedAt',
+  deletedAt: 'deletedAt',
+  deletedById: 'deletedById'
 };
 
 exports.Prisma.OrganizationScalarFieldEnum = {
@@ -193,7 +195,9 @@ exports.Prisma.OrganizationScalarFieldEnum = {
   updatedAt: 'updatedAt',
   description: 'description',
   website: 'website',
-  socialLinks: 'socialLinks'
+  socialLinks: 'socialLinks',
+  deletedAt: 'deletedAt',
+  deletedById: 'deletedById'
 };
 
 exports.Prisma.OrganizationMemberScalarFieldEnum = {
@@ -233,7 +237,9 @@ exports.Prisma.WorkspaceScalarFieldEnum = {
   settings: 'settings',
   slug: 'slug',
   storageLimit: 'storageLimit',
-  storageUsed: 'storageUsed'
+  storageUsed: 'storageUsed',
+  deletedAt: 'deletedAt',
+  deletedById: 'deletedById'
 };
 
 exports.Prisma.WorkspaceMemberScalarFieldEnum = {
@@ -280,7 +286,9 @@ exports.Prisma.SpaceScalarFieldEnum = {
   icon: 'icon',
   color: 'color',
   visibility: 'visibility',
-  settings: 'settings'
+  settings: 'settings',
+  deletedAt: 'deletedAt',
+  deletedById: 'deletedById'
 };
 
 exports.Prisma.IntegrationScalarFieldEnum = {
@@ -334,7 +342,9 @@ exports.Prisma.TaskScalarFieldEnum = {
   spaceId: 'spaceId',
   parentId: 'parentId',
   order: 'order',
-  locationType: 'locationType'
+  locationType: 'locationType',
+  deletedAt: 'deletedAt',
+  deletedById: 'deletedById'
 };
 
 exports.Prisma.TaskTypeScalarFieldEnum = {
@@ -514,7 +524,9 @@ exports.Prisma.FolderScalarFieldEnum = {
   settings: 'settings',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt',
-  archivedAt: 'archivedAt'
+  archivedAt: 'archivedAt',
+  deletedAt: 'deletedAt',
+  deletedById: 'deletedById'
 };
 
 exports.Prisma.ListScalarFieldEnum = {
@@ -536,7 +548,9 @@ exports.Prisma.ListScalarFieldEnum = {
   projectId: 'projectId',
   teamId: 'teamId',
   locationType: 'locationType',
-  createdBy: 'createdBy'
+  createdBy: 'createdBy',
+  deletedAt: 'deletedAt',
+  deletedById: 'deletedById'
 };
 
 exports.Prisma.ViewScalarFieldEnum = {
@@ -564,8 +578,12 @@ exports.Prisma.ViewScalarFieldEnum = {
   visibility: 'visibility',
   isAutosave: 'isAutosave',
   position: 'position',
+  sidebarView: 'sidebarView',
+  sidebarOrder: 'sidebarOrder',
   createdAt: 'createdAt',
-  updatedAt: 'updatedAt'
+  updatedAt: 'updatedAt',
+  deletedAt: 'deletedAt',
+  deletedById: 'deletedById'
 };
 
 exports.Prisma.FormResponseScalarFieldEnum = {
@@ -643,8 +661,15 @@ exports.Prisma.DocumentScalarFieldEnum = {
   id: 'id',
   workspaceId: 'workspaceId',
   parentId: 'parentId',
+  spaceId: 'spaceId',
+  projectId: 'projectId',
+  listId: 'listId',
+  folderId: 'folderId',
+  teamId: 'teamId',
+  viewId: 'viewId',
   createdBy: 'createdBy',
   title: 'title',
+  description: 'description',
   content: 'content',
   icon: 'icon',
   coverImage: 'coverImage',
@@ -655,7 +680,61 @@ exports.Prisma.DocumentScalarFieldEnum = {
   version: 'version',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt',
-  publishedAt: 'publishedAt'
+  publishedAt: 'publishedAt',
+  settings: 'settings',
+  locationType: 'locationType',
+  deletedAt: 'deletedAt',
+  deletedById: 'deletedById'
+};
+
+exports.Prisma.DocumentRelationshipScalarFieldEnum = {
+  id: 'id',
+  documentId: 'documentId',
+  targetType: 'targetType',
+  targetId: 'targetId',
+  createdAt: 'createdAt'
+};
+
+exports.Prisma.DocumentCommentScalarFieldEnum = {
+  id: 'id',
+  documentId: 'documentId',
+  userId: 'userId',
+  parentId: 'parentId',
+  content: 'content',
+  isEdited: 'isEdited',
+  isResolved: 'isResolved',
+  resolvedById: 'resolvedById',
+  resolvedAt: 'resolvedAt',
+  assigneeId: 'assigneeId',
+  editedAt: 'editedAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
+exports.Prisma.DocumentWatcherScalarFieldEnum = {
+  id: 'id',
+  documentId: 'documentId',
+  userId: 'userId',
+  teamId: 'teamId',
+  addedAt: 'addedAt'
+};
+
+exports.Prisma.DocumentCommentAttachmentScalarFieldEnum = {
+  id: 'id',
+  commentId: 'commentId',
+  filename: 'filename',
+  url: 'url',
+  mimeType: 'mimeType',
+  size: 'size',
+  createdAt: 'createdAt'
+};
+
+exports.Prisma.DocumentCommentReactionScalarFieldEnum = {
+  id: 'id',
+  commentId: 'commentId',
+  userId: 'userId',
+  emoji: 'emoji',
+  createdAt: 'createdAt'
 };
 
 exports.Prisma.DocumentVersionScalarFieldEnum = {
@@ -690,7 +769,9 @@ exports.Prisma.ChannelScalarFieldEnum = {
   isArchived: 'isArchived',
   isDefault: 'isDefault',
   topic: 'topic',
-  type: 'type'
+  type: 'type',
+  deletedAt: 'deletedAt',
+  deletedById: 'deletedById'
 };
 
 exports.Prisma.ChannelMemberScalarFieldEnum = {
@@ -912,7 +993,9 @@ exports.Prisma.MarketplaceListingScalarFieldEnum = {
   publishedAt: 'publishedAt',
   featuredAt: 'featuredAt',
   archivedAt: 'archivedAt',
-  lastActivityAt: 'lastActivityAt'
+  lastActivityAt: 'lastActivityAt',
+  deletedAt: 'deletedAt',
+  deletedById: 'deletedById'
 };
 
 exports.Prisma.ListingRatingScalarFieldEnum = {
@@ -1079,7 +1162,9 @@ exports.Prisma.ProjectScalarFieldEnum = {
   launchedAt: 'launchedAt',
   transferredAt: 'transferredAt',
   hiringRoles: 'hiringRoles',
-  spaceId: 'spaceId'
+  spaceId: 'spaceId',
+  deletedAt: 'deletedAt',
+  deletedById: 'deletedById'
 };
 
 exports.Prisma.ProjectMemberScalarFieldEnum = {
@@ -1166,6 +1251,7 @@ exports.Prisma.PostScalarFieldEnum = {
   createdAt: 'createdAt',
   updatedAt: 'updatedAt',
   deletedAt: 'deletedAt',
+  deletedById: 'deletedById',
   editedAt: 'editedAt',
   isHidden: 'isHidden',
   reportCount: 'reportCount',
@@ -1330,7 +1416,9 @@ exports.Prisma.TeamScalarFieldEnum = {
   createdAt: 'createdAt',
   updatedAt: 'updatedAt',
   hiringRoles: 'hiringRoles',
-  spaceId: 'spaceId'
+  spaceId: 'spaceId',
+  deletedAt: 'deletedAt',
+  deletedById: 'deletedById'
 };
 
 exports.Prisma.TeamLikeScalarFieldEnum = {
@@ -2703,7 +2791,9 @@ exports.Prisma.AiAgentScalarFieldEnum = {
   updatedAt: 'updatedAt',
   lastExecutedAt: 'lastExecutedAt',
   lastModifiedBy: 'lastModifiedBy',
-  archivedAt: 'archivedAt'
+  archivedAt: 'archivedAt',
+  deletedAt: 'deletedAt',
+  deletedById: 'deletedById'
 };
 
 exports.Prisma.SystemToolScalarFieldEnum = {
@@ -2742,9 +2832,51 @@ exports.Prisma.CompositeToolScalarFieldEnum = {
   category: 'category',
   functionSchema: 'functionSchema',
   steps: 'steps',
+  mode: 'mode',
   isPublic: 'isPublic',
   createdAt: 'createdAt',
-  updatedAt: 'updatedAt'
+  updatedAt: 'updatedAt',
+  deletedAt: 'deletedAt',
+  deletedById: 'deletedById'
+};
+
+exports.Prisma.CompositeToolVersionScalarFieldEnum = {
+  id: 'id',
+  compositeToolId: 'compositeToolId',
+  version: 'version',
+  name: 'name',
+  description: 'description',
+  functionSchema: 'functionSchema',
+  steps: 'steps',
+  isLive: 'isLive',
+  createdAt: 'createdAt',
+  createdById: 'createdById'
+};
+
+exports.Prisma.CompositeToolExecutionLogScalarFieldEnum = {
+  id: 'id',
+  compositeToolId: 'compositeToolId',
+  versionId: 'versionId',
+  userId: 'userId',
+  status: 'status',
+  input: 'input',
+  output: 'output',
+  steps: 'steps',
+  error: 'error',
+  executionTimeMs: 'executionTimeMs',
+  createdAt: 'createdAt',
+  finishedAt: 'finishedAt'
+};
+
+exports.Prisma.ToolStepResultScalarFieldEnum = {
+  id: 'id',
+  idempotencyKey: 'idempotencyKey',
+  toolId: 'toolId',
+  runId: 'runId',
+  stepId: 'stepId',
+  stepName: 'stepName',
+  result: 'result',
+  createdAt: 'createdAt'
 };
 
 exports.Prisma.AgentSkillScalarFieldEnum = {
@@ -2887,7 +3019,9 @@ exports.Prisma.WorkforceScalarFieldEnum = {
   updatedAt: 'updatedAt',
   visibility: 'visibility',
   graph: 'graph',
-  data: 'data'
+  data: 'data',
+  deletedAt: 'deletedAt',
+  deletedById: 'deletedById'
 };
 
 exports.Prisma.TemplateScalarFieldEnum = {
@@ -2922,7 +3056,9 @@ exports.Prisma.TemplateScalarFieldEnum = {
   createdAt: 'createdAt',
   updatedAt: 'updatedAt',
   archivedAt: 'archivedAt',
-  publishedAt: 'publishedAt'
+  publishedAt: 'publishedAt',
+  deletedAt: 'deletedAt',
+  deletedById: 'deletedById'
 };
 
 exports.Prisma.TemplateVersionScalarFieldEnum = {
@@ -2950,6 +3086,72 @@ exports.Prisma.TemplateAuditLogScalarFieldEnum = {
   metadata: 'metadata',
   oldValue: 'oldValue',
   newValue: 'newValue',
+  createdAt: 'createdAt'
+};
+
+exports.Prisma.BugReportScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  entityType: 'entityType',
+  entityId: 'entityId',
+  title: 'title',
+  description: 'description',
+  stepsToReproduce: 'stepsToReproduce',
+  expectedBehavior: 'expectedBehavior',
+  actualBehavior: 'actualBehavior',
+  reproducibility: 'reproducibility',
+  category: 'category',
+  severity: 'severity',
+  priority: 'priority',
+  status: 'status',
+  tags: 'tags',
+  pageUrl: 'pageUrl',
+  region: 'region',
+  locale: 'locale',
+  userAgent: 'userAgent',
+  appVersion: 'appVersion',
+  os: 'os',
+  deviceType: 'deviceType',
+  assignedToId: 'assignedToId',
+  resolution: 'resolution',
+  resolvedAt: 'resolvedAt',
+  closedAt: 'closedAt',
+  adminNotes: 'adminNotes',
+  duplicateOfId: 'duplicateOfId',
+  externalRef: 'externalRef',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt',
+  deletedAt: 'deletedAt'
+};
+
+exports.Prisma.BugReportAttachmentScalarFieldEnum = {
+  id: 'id',
+  bugReportId: 'bugReportId',
+  fileKey: 'fileKey',
+  fileName: 'fileName',
+  mimeType: 'mimeType',
+  fileSize: 'fileSize',
+  uploadedById: 'uploadedById',
+  createdAt: 'createdAt'
+};
+
+exports.Prisma.BugReportCommentScalarFieldEnum = {
+  id: 'id',
+  bugReportId: 'bugReportId',
+  authorId: 'authorId',
+  body: 'body',
+  isInternal: 'isInternal',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
+exports.Prisma.BugReportStatusHistoryScalarFieldEnum = {
+  id: 'id',
+  bugReportId: 'bugReportId',
+  fromStatus: 'fromStatus',
+  toStatus: 'toStatus',
+  changedById: 'changedById',
+  note: 'note',
   createdAt: 'createdAt'
 };
 
@@ -3446,7 +3648,8 @@ exports.LogAction = exports.$Enums.LogAction = {
   SECURITY_PASSWORD_CHANGE: 'SECURITY_PASSWORD_CHANGE',
   SECURITY_2FA_ENABLE: 'SECURITY_2FA_ENABLE',
   SECURITY_SUSPICIOUS_ACTIVITY: 'SECURITY_SUSPICIOUS_ACTIVITY',
-  PLAN_HEALED: 'PLAN_HEALED'
+  PLAN_HEALED: 'PLAN_HEALED',
+  DOCUMENT_VIEW: 'DOCUMENT_VIEW'
 };
 
 exports.LogCategory = exports.$Enums.LogCategory = {
@@ -4118,6 +4321,20 @@ exports.AgentStatus = exports.$Enums.AgentStatus = {
   ERROR: 'ERROR'
 };
 
+exports.ToolCreationMode = exports.$Enums.ToolCreationMode = {
+  MANUAL: 'MANUAL',
+  AI: 'AI'
+};
+
+exports.ExecutionStatus = exports.$Enums.ExecutionStatus = {
+  PENDING: 'PENDING',
+  RUNNING: 'RUNNING',
+  SUCCESS: 'SUCCESS',
+  FAILED: 'FAILED',
+  TIMEOUT: 'TIMEOUT',
+  CANCELLED: 'CANCELLED'
+};
+
 exports.AgentRelationType = exports.$Enums.AgentRelationType = {
   SUB_AGENT: 'SUB_AGENT',
   PEER: 'PEER',
@@ -4191,6 +4408,48 @@ exports.TemplateAuditStatus = exports.$Enums.TemplateAuditStatus = {
   PARTIAL: 'PARTIAL'
 };
 
+exports.Reproducibility = exports.$Enums.Reproducibility = {
+  ALWAYS: 'ALWAYS',
+  SOMETIMES: 'SOMETIMES',
+  RARELY: 'RARELY',
+  UNABLE: 'UNABLE'
+};
+
+exports.BugReportCategory = exports.$Enums.BugReportCategory = {
+  UI: 'UI',
+  PERFORMANCE: 'PERFORMANCE',
+  FUNCTIONALITY: 'FUNCTIONALITY',
+  SECURITY: 'SECURITY',
+  DATA: 'DATA',
+  INTEGRATION: 'INTEGRATION',
+  OTHER: 'OTHER'
+};
+
+exports.BugReportSeverity = exports.$Enums.BugReportSeverity = {
+  LOW: 'LOW',
+  MEDIUM: 'MEDIUM',
+  HIGH: 'HIGH',
+  CRITICAL: 'CRITICAL'
+};
+
+exports.BugReportPriority = exports.$Enums.BugReportPriority = {
+  LOW: 'LOW',
+  NORMAL: 'NORMAL',
+  HIGH: 'HIGH',
+  URGENT: 'URGENT'
+};
+
+exports.BugReportStatus = exports.$Enums.BugReportStatus = {
+  OPEN: 'OPEN',
+  TRIAGED: 'TRIAGED',
+  IN_PROGRESS: 'IN_PROGRESS',
+  ON_HOLD: 'ON_HOLD',
+  RESOLVED: 'RESOLVED',
+  CLOSED: 'CLOSED',
+  DUPLICATE: 'DUPLICATE',
+  WONT_FIX: 'WONT_FIX'
+};
+
 exports.Prisma.ModelName = {
   Account: 'Account',
   Session: 'Session',
@@ -4228,6 +4487,11 @@ exports.Prisma.ModelName = {
   Goal: 'Goal',
   GoalUpdate: 'GoalUpdate',
   Document: 'Document',
+  DocumentRelationship: 'DocumentRelationship',
+  DocumentComment: 'DocumentComment',
+  DocumentWatcher: 'DocumentWatcher',
+  DocumentCommentAttachment: 'DocumentCommentAttachment',
+  DocumentCommentReaction: 'DocumentCommentReaction',
   DocumentVersion: 'DocumentVersion',
   DocumentCollaborator: 'DocumentCollaborator',
   Channel: 'Channel',
@@ -4356,6 +4620,9 @@ exports.Prisma.ModelName = {
   AiAgent: 'AiAgent',
   SystemTool: 'SystemTool',
   CompositeTool: 'CompositeTool',
+  CompositeToolVersion: 'CompositeToolVersion',
+  CompositeToolExecutionLog: 'CompositeToolExecutionLog',
+  ToolStepResult: 'ToolStepResult',
   AgentSkill: 'AgentSkill',
   AgentToSkill: 'AgentToSkill',
   SkillToTool: 'SkillToTool',
@@ -4369,7 +4636,11 @@ exports.Prisma.ModelName = {
   Workforce: 'Workforce',
   Template: 'Template',
   TemplateVersion: 'TemplateVersion',
-  TemplateAuditLog: 'TemplateAuditLog'
+  TemplateAuditLog: 'TemplateAuditLog',
+  BugReport: 'BugReport',
+  BugReportAttachment: 'BugReportAttachment',
+  BugReportComment: 'BugReportComment',
+  BugReportStatusHistory: 'BugReportStatusHistory'
 };
 
 /**

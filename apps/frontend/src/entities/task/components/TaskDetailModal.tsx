@@ -65,7 +65,7 @@ import { DocLinksPanelContent } from './DocLinksPanelContent';
 import { useDebounce } from '@/hooks/useDebounce';
 import { RelatedPanelContent } from './RelatedPanelContent';
 import { CustomFieldsSection } from './CustomFieldsSection';
-import { ChatView } from '@/features/dashboard/views/project/ChatView';
+import { ChatView } from '@/features/dashboard/views/shared/SharedAIChatView';
 import { TaskCalendar } from './TaskCalendar';
 import { TaskTypeIcon } from './TaskTypeIcon';
 
@@ -857,7 +857,7 @@ export function TaskDetailContent({
                                         <button
                                             type="button"
                                             onClick={() => { setLeftTab('subtasks'); setIsAddingSubtask(true); }}
-                                            className="w-full flex items-center gap-2 py-2 text-xs font-medium text-zinc-600 hover:text-zinc-900 hover:bg-zinc-50 rounded-md transition-colors"
+                                            className="w-full flex items-center gap-2 py-2 text-xs font-medium text-zinc-600 hover:text-zinc-900 hover:bg-zinc-50 rounded-md transition-colors cursor-pointer"
                                         >
                                             <Plus className="h-3.5 w-3.5" />
                                             Add Subtask
@@ -876,7 +876,7 @@ export function TaskDetailContent({
                                                 type="button"
                                                 onClick={() => setLeftTab('details')}
                                                 className={cn(
-                                                    "px-4 py-3 text-sm font-medium border-b-2 transition-colors",
+                                                    "px-4 py-3 text-sm font-medium border-b-2 transition-colors cursor-pointer",
                                                     leftTab === 'details' ? "border-zinc-900 text-zinc-900" : "border-transparent text-zinc-500 hover:text-zinc-700"
                                                 )}
                                             >
@@ -886,7 +886,7 @@ export function TaskDetailContent({
                                                 type="button"
                                                 onClick={() => setLeftTab('subtasks')}
                                                 className={cn(
-                                                    "px-4 py-3 text-sm font-medium border-b-2 transition-colors flex items-center gap-1.5",
+                                                    "px-4 py-3 text-sm font-medium border-b-2 transition-colors flex items-center gap-1.5 cursor-pointer",
                                                     leftTab === 'subtasks' ? "border-zinc-900 text-zinc-900" : "border-transparent text-zinc-500 hover:text-zinc-700"
                                                 )}
                                             >
@@ -901,7 +901,7 @@ export function TaskDetailContent({
                                                 type="button"
                                                 onClick={() => setLeftTab('action-items')}
                                                 className={cn(
-                                                    "px-4 py-3 text-sm font-medium border-b-2 transition-colors",
+                                                    "px-4 py-3 text-sm font-medium border-b-2 transition-colors cursor-pointer",
                                                     leftTab === 'action-items' ? "border-zinc-900 text-zinc-900" : "border-transparent text-zinc-500 hover:text-zinc-700"
                                                 )}
                                             >
@@ -1192,7 +1192,7 @@ export function TaskDetailContent({
                                                                 <PopoverTrigger asChild>
                                                                     <button
                                                                         type="button"
-                                                                        className="w-full min-h-[28px] rounded-md border border-zinc-200 bg-zinc-50/80 hover:bg-zinc-100 px-2 py-1.5 text-left text-sm font-medium text-zinc-700 transition-colors"
+                                                                        className="w-full min-h-[28px] rounded-md border border-zinc-200 bg-zinc-50/80 hover:bg-zinc-100 px-2 py-1.5 text-left text-sm font-medium text-zinc-700 transition-colors cursor-pointer"
                                                                     >
                                                                         {task.timeEstimate != null && task.timeEstimate > 0
                                                                             ? (() => {
@@ -1270,7 +1270,7 @@ export function TaskDetailContent({
                                                             <button
                                                                 type="button"
                                                                 onClick={() => setTimeTrackingModalOpen(true)}
-                                                                className="flex items-center gap-2 w-full min-h-[28px] rounded-md border border-zinc-200 bg-zinc-50/80 hover:bg-zinc-100 px-2 py-1.5 text-left transition-colors group"
+                                                                className="flex items-center gap-2 w-full min-h-[28px] rounded-md border border-zinc-200 bg-zinc-50/80 hover:bg-zinc-100 px-2 py-1.5 text-left transition-colors group cursor-pointer"
                                                             >
                                                                 <div className="h-5 w-5 rounded-full bg-zinc-300 group-hover:bg-zinc-400 flex items-center justify-center shrink-0">
                                                                     <Clock className="h-3 w-3 text-zinc-600" />
@@ -1291,7 +1291,7 @@ export function TaskDetailContent({
                                                                     <button
                                                                         type="button"
                                                                         onClick={() => setRightSidebarPanel('blocking')}
-                                                                        className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 transition-colors"
+                                                                        className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 transition-colors cursor-pointer"
                                                                     >
                                                                         <MinusCircle className="h-3.5 w-3.5" />
                                                                         {(task as any).blockedDependencies?.length ?? 0} Blocking
@@ -1301,7 +1301,7 @@ export function TaskDetailContent({
                                                                     <button
                                                                         type="button"
                                                                         onClick={() => setRightSidebarPanel('related')}
-                                                                        className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium bg-zinc-100 text-zinc-700 border border-zinc-200 hover:bg-zinc-200 transition-colors"
+                                                                        className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium bg-zinc-100 text-zinc-700 border border-zinc-200 hover:bg-zinc-200 transition-colors cursor-pointer"
                                                                     >
                                                                         <ArrowLeftRight className="h-3.5 w-3.5" />
                                                                         {(task as any).dependencies?.length ?? 0} Related
@@ -1313,7 +1313,7 @@ export function TaskDetailContent({
                                                                         <button
                                                                             type="button"
                                                                             onClick={() => setRightSidebarPanel('docLinks')}
-                                                                            className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium bg-zinc-100 text-zinc-700 border border-zinc-200 hover:bg-zinc-200 transition-colors"
+                                                                            className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium bg-zinc-100 text-zinc-700 border border-zinc-200 hover:bg-zinc-200 transition-colors cursor-pointer"
                                                                         >
                                                                             <FileText className="h-3.5 w-3.5" />
                                                                             {docCount} Doc{docCount !== 1 ? 's' : ''}
@@ -1326,7 +1326,7 @@ export function TaskDetailContent({
                                                                         <button
                                                                             type="button"
                                                                             onClick={() => setRightSidebarPanel('taskLinks')}
-                                                                            className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium bg-zinc-100 text-zinc-700 border border-zinc-200 hover:bg-zinc-200 transition-colors"
+                                                                            className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium bg-zinc-100 text-zinc-700 border border-zinc-200 hover:bg-zinc-200 transition-colors cursor-pointer"
                                                                         >
                                                                             <Paperclip className="h-3.5 w-3.5" />
                                                                             {linkCount} Link{linkCount !== 1 ? 's' : ''}
@@ -1338,7 +1338,7 @@ export function TaskDetailContent({
                                                                         key={ct.id}
                                                                         type="button"
                                                                         onClick={() => setRightSidebarPanel('related')}
-                                                                        className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium bg-zinc-100 text-zinc-700 border border-zinc-200 hover:bg-zinc-200 transition-colors"
+                                                                        className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium bg-zinc-100 text-zinc-700 border border-zinc-200 hover:bg-zinc-200 transition-colors cursor-pointer"
                                                                     >
                                                                         <ArrowLeftRight className="h-3.5 w-3.5" />
                                                                         {ct.name}
@@ -1347,7 +1347,7 @@ export function TaskDetailContent({
                                                                 <button
                                                                     type="button"
                                                                     onClick={() => setRightSidebarPanel('more')}
-                                                                    className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium text-zinc-500 border border-dashed border-zinc-300 hover:border-zinc-400 hover:bg-zinc-50 hover:text-zinc-700 transition-colors"
+                                                                    className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium text-zinc-500 border border-dashed border-zinc-300 hover:border-zinc-400 hover:bg-zinc-50 hover:text-zinc-700 transition-colors cursor-pointer"
                                                                 >
                                                                     <Plus className="h-3.5 w-3.5" />
                                                                     Add
@@ -1482,7 +1482,7 @@ export function TaskDetailContent({
                                                                             <span className="text-sm font-semibold text-zinc-900">Activities</span>
                                                                             <button
                                                                                 type="button"
-                                                                                className="text-xs text-zinc-500 hover:text-zinc-700"
+                                                                                className="text-xs text-zinc-500 hover:text-zinc-700 cursor-pointer"
                                                                                 onClick={() => setActivityFilterTypes(new Set())}
                                                                             >
                                                                                 Unselect All
@@ -1571,7 +1571,7 @@ export function TaskDetailContent({
                                                                     <p className="text-sm text-zinc-500 py-4">Select activity types in the filter to view activities.</p>
                                                                 )}
                                                                 {activityFilterTypes.size > 0 && filteredActivity.length > 3 && (
-                                                                    <button type="button" className="flex items-center gap-1 text-xs text-zinc-500 hover:text-zinc-700 mb-3">
+                                                                    <button type="button" className="flex items-center gap-1 text-xs text-zinc-500 hover:text-zinc-700 mb-3 cursor-pointer">
                                                                         <ChevronRight className="h-3.5 w-3.5" /> Show more
                                                                     </button>
                                                                 )}
@@ -1694,7 +1694,7 @@ export function TaskDetailContent({
                                         )}
 
                                         {/* Narrow sidebar at right edge */}
-                                        <div className="w-14 flex flex-col items-center py-2 border-l border-zinc-100 bg-zinc-50/50 shrink-0">
+                                        <div className="w-18 flex flex-col items-center py-2 border-l border-zinc-100 bg-zinc-50/50 shrink-0 px-2">
                                             {[
                                                 { id: 'activity' as const, icon: MessageSquare, label: 'Activity', count: undefined },
                                                 { id: 'blocking' as const, icon: MinusCircle, label: 'Blocking', count: (task as any).blockedDependencies?.length ?? 0 },
@@ -1710,7 +1710,7 @@ export function TaskDetailContent({
                                                     type="button"
                                                     onClick={() => setRightSidebarPanel(rightSidebarPanel === id ? null : id)}
                                                     className={cn(
-                                                        "flex flex-col items-center gap-0.5 py-2 px-1 w-full rounded-md transition-colors relative",
+                                                        "flex flex-col items-center gap-0.5 py-2 px-1 w-full my-0.5 rounded-md transition-colors relative cursor-pointer",
                                                         rightSidebarPanel === id ? "bg-zinc-200 text-zinc-900" : "text-zinc-500 hover:bg-zinc-100 hover:text-zinc-700"
                                                     )}
                                                 >

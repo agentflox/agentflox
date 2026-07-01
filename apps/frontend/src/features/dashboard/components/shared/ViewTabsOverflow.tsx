@@ -36,6 +36,8 @@ interface ViewItem {
     isPinned?: boolean;
     isPrivate?: boolean;
     isLocked?: boolean;
+    isDefault?: boolean;
+    config?: any;
 }
 
 interface ViewTabsOverflowProps {

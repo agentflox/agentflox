@@ -31,6 +31,8 @@ export type InputUiType =
 
 export type BuilderInputField = {
   name: string;
+  /** Human-readable display label. Falls back to name if not set. */
+  label?: string;
   // JSON schema primitive type used by our backend/agent tool registry.
   type: "string" | "number" | "boolean" | "object" | "array";
   description?: string;
@@ -38,6 +40,7 @@ export type BuilderInputField = {
   uiType?: InputUiType;
   fillMode?: InputFillMode;
   defaultValue?: unknown;
+  placeholder?: string;
   options?: string[];
   jsonSchema?: unknown;
 };

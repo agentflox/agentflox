@@ -305,7 +305,6 @@ Respond ONLY with valid JSON in this exact format:
                         { description: { contains: query, mode: 'insensitive' } },
                     ],
                     isActive: true,
-                    isArchived: false,
                 },
                 take: 5,
                 select: {
@@ -326,7 +325,7 @@ Respond ONLY with valid JSON in this exact format:
                 metadata: { workspaceId: ws.id, color: ws.color },
                 actionable: true,
             }));
-        } catch (error) {
+        } catch (error: any) {
             this.logger.error(`Failed to search workspaces: ${error.message}`);
             return [];
         }
@@ -343,7 +342,7 @@ Respond ONLY with valid JSON in this exact format:
                         { name: { contains: query, mode: 'insensitive' } },
                         { description: { contains: query, mode: 'insensitive' } },
                     ],
-                    isArchived: false,
+                    isActive: false,
                 },
                 take: 5,
                 select: {
@@ -364,7 +363,7 @@ Respond ONLY with valid JSON in this exact format:
                 metadata: { projectId: proj.id },
                 actionable: true,
             }));
-        } catch (error) {
+        } catch (error: any) {
             this.logger.error(`Failed to search projects: ${error.message}`);
             return [];
         }
@@ -402,7 +401,7 @@ Respond ONLY with valid JSON in this exact format:
                 metadata: { teamId: team.id },
                 actionable: true,
             }));
-        } catch (error) {
+        } catch (error: any) {
             this.logger.error(`Failed to search teams: ${error.message}`);
             return [];
         }
@@ -437,7 +436,7 @@ Respond ONLY with valid JSON in this exact format:
                 metadata: { taskId: task.id },
                 actionable: true,
             }));
-        } catch (error) {
+        } catch (error: any) {
             this.logger.error(`Failed to search tasks: ${error.message}`);
             return [];
         }
@@ -451,30 +450,30 @@ Respond ONLY with valid JSON in this exact format:
                 where: {
                     workspaceId: context.workspaceId,
                     OR: [
-                        { name: { contains: query, mode: 'insensitive' } },
+                        { title: { contains: query, mode: 'insensitive' } },
                         { description: { contains: query, mode: 'insensitive' } },
                     ],
                 },
                 take: 5,
                 select: {
                     id: true,
-                    name: true,
+                    title: true,
                     description: true,
-                    type: true,
+                    category: true,
                 },
             });
 
             return materials.map((mat, idx) => ({
                 id: `mat-${mat.id}`,
                 type: 'material' as const,
-                title: mat.name,
-                description: `${mat.type} • ${mat.description || 'Material'}`,
+                title: mat.title,
+                description: `${mat.category} • ${mat.description || 'Material'}`,
                 icon: 'FileText',
                 score: 0.65 - (idx * 0.05),
                 metadata: { materialId: mat.id },
                 actionable: true,
             }));
-        } catch (error) {
+        } catch (error: any) {
             this.logger.error(`Failed to search materials: ${error.message}`);
             return [];
         }
@@ -511,7 +510,7 @@ Respond ONLY with valid JSON in this exact format:
                 metadata: { toolId: tool.id },
                 actionable: true,
             }));
-        } catch (error) {
+        } catch (error: any) {
             this.logger.error(`Failed to search tools: ${error.message}`);
             return [];
         }
@@ -551,7 +550,7 @@ Be helpful, concise, and actionable. Suggest specific next steps when appropriat
 
         return {
             success: true,
-            message: result.text,
+            message: result.content || '',
             followUpActions: [
                 { label: 'Create Task', command: '/create task', icon: 'Plus' },
                 { label: 'Search', command: '/search', icon: 'Search' },

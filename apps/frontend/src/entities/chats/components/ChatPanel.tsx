@@ -50,6 +50,7 @@ interface ChatPanelProps {
   onDeleteConversation?: (conversationId: string) => Promise<void>
   onArchiveConversation?: (conversationId: string) => Promise<void>
   onShareConversation?: (conversationId: string) => void
+  className?: string | null
 }
 
 export function ChatPanel({
@@ -79,6 +80,7 @@ export function ChatPanel({
   onDeleteConversation,
   onArchiveConversation,
   onShareConversation,
+  className
 }: ChatPanelProps) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const hasConversation = messages.length > 0 || pendingAssistantMessage
@@ -90,7 +92,7 @@ export function ChatPanel({
     <div className="relative flex h-full w-full overflow-hidden bg-gradient-to-br from-slate-50 to-slate-100">
       {/* Main Chat Area */}
       <div className="flex h-full w-full flex-col">
-        <Card className="flex h-full flex-col overflow-hidden border-0 bg-white shadow-none lg:rounded-2xl lg:border lg:shadow-2xl">
+        <Card className={cn("flex h-full flex-col overflow-hidden border-0 bg-white shadow-none lg:rounded-2xl lg:border lg:shadow-2xl", className)}>
           {/* Header with mobile menu button */}
           <div className="relative">
             <ChatHeader

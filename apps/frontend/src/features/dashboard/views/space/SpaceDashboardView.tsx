@@ -4,39 +4,42 @@ import { useMemo, useState, useCallback, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { trpc } from "@/lib/trpc";
 import SpaceNavigationSidebar, { type SpaceView } from "@/features/dashboard/layouts/space/SpaceNavigationSidebar";
+import dynamic from "next/dynamic";
 import { SpaceOverviewTab } from "@/features/dashboard/views/space/SpaceOverviewTab";
-import { SpaceProjectsTab } from "@/features/dashboard/components/space/SpaceProjectsTab";
-import { SpaceTeamsTab } from "@/features/dashboard/components/space/SpaceTeamsTab";
-import { SpaceToolsTab } from "@/features/dashboard/components/space/SpaceToolsTab";
-import { SpaceMaterialsTab } from "@/features/dashboard/components/space/SpaceMaterialsTab";
-import { SpaceDocumentsTab } from "@/features/dashboard/components/space/SpaceDocumentsTab";
-import { SpaceTasksTab } from "@/features/dashboard/components/space/SpaceTasksTab";
-import WorkspaceChatView from "@/features/dashboard/views/workspace/WorkspaceChatView";
-import WorkspaceAIChatView from "@/features/dashboard/views/workspace/WorkspaceAIChatView";
-import SpaceProjectView from "@/features/dashboard/views/space/SpaceProjectView";
-import SpaceTeamView from "@/features/dashboard/views/space/SpaceTeamView";
-import SpacePersonalView from "@/features/dashboard/views/space/SpacePersonalView";
-import SpaceListView from "@/features/dashboard/views/space/SpaceListView";
+import { DashboardLoadingState, DashboardErrorState } from "@/features/dashboard/components/shared/DashboardStates";
+
+const ChatView = dynamic(() => import("@/features/dashboard/views/shared/ChatView"));
+const AIChatView = dynamic(() => import("@/features/dashboard/views/shared/AIChatView"));
+const SharedAIChatView = dynamic(() => import("@/features/dashboard/views/shared/SharedAIChatView").then(mod => mod.ChatView));
+const SpaceProjectView = dynamic(() => import("@/features/dashboard/views/space/SpaceProjectView"));
+const SpaceTeamView = dynamic(() => import("@/features/dashboard/views/space/SpaceTeamView"));
+const SpacePersonalView = dynamic(() => import("@/features/dashboard/views/space/SpacePersonalView"));
+const SpaceListView = dynamic(() => import("@/features/dashboard/views/space/SpaceListView"));
+const SpaceDocsView = dynamic(() => import("@/features/dashboard/views/space/SpaceDocsView"));
+
 import { ShareModal } from "@/components/permissions/ShareModal";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { ViewTabsOverflow } from "@/features/dashboard/components/shared/ViewTabsOverflow";
 import { AddViewModal, ViewType } from "@/features/dashboard/components/modals/AddViewModal";
 import { SpaceViewContextMenu } from "@/features/dashboard/components/space/SpaceViewContextMenu";
-import ListView from "@/features/dashboard/views/generic/ListView";
-import { BoardView } from "@/features/dashboard/views/generic/BoardView";
-import { TableView } from "@/features/dashboard/views/generic/TableView";
-import { PeopleView } from "@/features/dashboard/views/generic/PeopleView ";
-import { CalendarView } from "@/features/dashboard/views/generic/CalendarView";
-import { GanttView } from "@/features/dashboard/views/generic/GanttView";
-import { TimelineView } from "@/features/dashboard/views/generic/TimelineView";
-import { FormView } from "@/features/dashboard/views/generic/FormView";
-import { MindMapView } from "@/features/dashboard/views/generic/MindMapView";
-import { WorkloadView } from "@/features/dashboard/views/generic/WorkloadView";
-import WhiteboardView from "@/features/dashboard/views/generic/WhiteboardView";
-import { MapView } from "@/features/dashboard/views/generic/MapView";
-import { DashboardView as GenericDashboardView } from "@/features/dashboard/views/generic/DashboardView";
-import { EmbedView } from "@/features/dashboard/views/generic/EmbedView";
+
+const ListView = dynamic(() => import("@/features/dashboard/views/generic/ListView"));
+const BoardView = dynamic(() => import("@/features/dashboard/views/generic/BoardView").then(mod => mod.BoardView));
+const TableView = dynamic(() => import("@/features/dashboard/views/generic/TableView").then(mod => mod.TableView));
+const PeopleView = dynamic(() => import("@/features/dashboard/views/generic/PeopleView ").then(mod => mod.PeopleView));
+const ActivityView = dynamic(() => import("@/features/dashboard/views/generic/ActivityView").then(mod => mod.ActivityView));
+const CalendarView = dynamic(() => import("@/features/dashboard/views/generic/CalendarView").then(mod => mod.CalendarView));
+const GanttView = dynamic(() => import("@/features/dashboard/views/generic/GanttView").then(mod => mod.GanttView));
+const TimelineView = dynamic(() => import("@/features/dashboard/views/generic/TimelineView").then(mod => mod.TimelineView));
+const FormView = dynamic(() => import("@/features/dashboard/views/generic/FormView").then(mod => mod.FormView));
+const MindMapView = dynamic(() => import("@/features/dashboard/views/generic/MindMapView").then(mod => mod.MindMapView));
+const WorkloadView = dynamic(() => import("@/features/dashboard/views/generic/WorkloadView").then(mod => mod.WorkloadView));
+const WhiteboardView = dynamic(() => import("@/features/dashboard/views/generic/WhiteboardView"));
+const MapView = dynamic(() => import("@/features/dashboard/views/generic/MapView").then(mod => mod.MapView));
+const GenericDashboardView = dynamic(() => import("@/features/dashboard/views/generic/DashboardView").then(mod => mod.DashboardView));
+const EmbedView = dynamic(() => import("@/features/dashboard/views/generic/EmbedView").then(mod => mod.EmbedView));
+const DocView = dynamic(() => import("@/features/dashboard/views/generic/DocView").then(mod => mod.DocView));
 import {
     ContextMenu,
     ContextMenuTrigger,
@@ -71,9 +74,7 @@ import { DashboardHeader } from "@/features/dashboard/components/shared/Dashboar
 import { QuickAgentModal } from "@/features/dashboard/components/modals/QuickAgentModal";
 import { ResizableSplitLayout, SidePanelContainer } from "@/components/layout/ResizableSplitLayout";
 import { TaskDetailContent, TaskDetailModal, TaskLayoutMode } from "@/entities/task/components/TaskDetailModal";
-import { ChatView } from "@/features/dashboard/views/project/ChatView";
 import { SpaceActionsMenu } from "@/features/dashboard/components/sidebar/SpaceActionsMenu";
-
 import {
     LayoutDashboard,
     FolderKanban,
@@ -126,7 +127,13 @@ import { toast } from "sonner";
 type LayoutMode = "sidebar" | "top";
 
 interface SpaceDashboardViewProps {
-    spaceId: string;
+    listId?: string;
+    spaceId?: string;
+    projectId?: string;
+    teamId?: string;
+    workspaceId?: string;
+    selectedTaskIdFromParent?: string | null;
+    onTaskSelect?: (taskId: string | null) => void;
 }
 
 const viewConfig: Record<
@@ -191,7 +198,7 @@ const viewConfig: Record<
     MEMBERS: { label: "Members", icon: Users, description: "Members" },
 };
 
-export default function SpaceDashboardView({ spaceId }: SpaceDashboardViewProps) {
+export default function SpaceDashboardView({ listId, spaceId, projectId, teamId, workspaceId, selectedTaskIdFromParent, onTaskSelect }: SpaceDashboardViewProps) {
     const searchParams = useSearchParams();
     const router = useRouter();
     const utils = trpc.useUtils();
@@ -221,8 +228,7 @@ export default function SpaceDashboardView({ spaceId }: SpaceDashboardViewProps)
     const [taskViewMode, setTaskViewMode] = useState<TaskLayoutMode>("modal");
 
     // Fetch Data
-    const { data: space, isLoading: isSpaceLoading } = trpc.space.get.useQuery({ id: spaceId });
-    const workspaceId = space?.workspaceId;
+    const { data: space, isLoading: isSpaceLoading } = trpc.space.get.useQuery({ id: spaceId! }, { enabled: !!spaceId });
 
     const { data: selectedList } = trpc.list.get.useQuery(
         { id: selectedListId || "" },
@@ -238,14 +244,14 @@ export default function SpaceDashboardView({ spaceId }: SpaceDashboardViewProps)
     const createViewMutation = trpc.view.create.useMutation({
         onSuccess: async () => {
             // Refetch to ensure views are updated
-            await utils.space.get.refetch({ id: spaceId });
+            await utils.space.get.refetch({ id: spaceId! });
         },
         onError: (err) => toast.error(`Failed to add view: ${err.message}`)
     });
 
     const deleteViewMutation = trpc.view.delete.useMutation({
         onSuccess: async () => {
-            await utils.space.get.refetch({ id: spaceId });
+            await utils.space.get.refetch({ id: spaceId! });
             toast.success("View deleted");
         },
         onError: (err) => toast.error(`Failed to delete view: ${err.message}`)
@@ -253,14 +259,14 @@ export default function SpaceDashboardView({ spaceId }: SpaceDashboardViewProps)
 
     const updateViewMutation = trpc.view.update.useMutation({
         onSuccess: async () => {
-            await utils.space.get.invalidate({ id: spaceId });
+            await utils.space.get.invalidate({ id: spaceId! });
         },
         onError: (err) => toast.error(`Failed to update view: ${err.message}`)
     });
 
     const reorderViewsMutation = trpc.view.reorder.useMutation({
         onSuccess: async () => {
-            await utils.space.get.invalidate({ id: spaceId });
+            await utils.space.get.invalidate({ id: spaceId! });
         },
         onError: (err) => toast.error(`Failed to reorder views: ${err.message}`)
     });
@@ -268,12 +274,12 @@ export default function SpaceDashboardView({ spaceId }: SpaceDashboardViewProps)
     const createFromTemplateMutation = trpc.view.createFromTemplate.useMutation({
         onSuccess: async (data) => {
             // Refetch to ensure views are updated
-            await utils.space.get.refetch({ id: spaceId });
+            await utils.space.get.refetch({ id: spaceId! });
             toast.success("View created from template");
 
             // Automatically switch to the new view
             const params = new URLSearchParams(searchParams.toString());
-            params.set("tab", "views");
+            params.set("tab", "overview");
             params.set("v", data.id);
             router.push(`?${params.toString()}`, { scroll: false });
         },
@@ -308,7 +314,7 @@ export default function SpaceDashboardView({ spaceId }: SpaceDashboardViewProps)
 
     // Check tabs
     const currentTab = searchParams.get("tab");
-    const isViewsTab = (currentTab === "views" || !currentTab) && !selectedListId;
+    const isViewsTab = (currentTab === "overview" || !currentTab) && !selectedListId;
     const isListsTab = currentTab === "lists" || !!selectedListId;
 
     // Active Tab Logic - use view ID for the tab value
@@ -321,7 +327,7 @@ export default function SpaceDashboardView({ spaceId }: SpaceDashboardViewProps)
         // Only keep existing non-conflicting params, but for simplicity we rely on current params
         // Ensure we are in views mode visually too if not set
         if (!params.get("tab")) {
-            params.set("tab", "views");
+            params.set("tab", "overview");
         }
         params.set("v", viewId);
         router.push(`?${params.toString()}`, { scroll: false });
@@ -357,8 +363,8 @@ export default function SpaceDashboardView({ spaceId }: SpaceDashboardViewProps)
 
     const handleListSelect = (listId: string) => {
         const params = new URLSearchParams(searchParams.toString());
-        if (listId) params.set("list", listId);
-        else params.delete("list");
+        if (listId) params.set("lt", listId);
+        else params.delete("lt");
         router.push(`?${params.toString()}`, { scroll: false });
     };
 
@@ -376,7 +382,7 @@ export default function SpaceDashboardView({ spaceId }: SpaceDashboardViewProps)
             const trimmed = name.trim();
             const patchViews = (views: any[]) => views.map((v: any) => v.id === viewId ? { ...v, name: trimmed } : v);
 
-            utils.space.get.setData({ id: spaceId }, (old: any) => old ? { ...old, views: patchViews(old.views ?? []) } : old);
+            utils.space.get.setData({ id: spaceId! }, (old: any) => old ? { ...old, views: patchViews(old.views ?? []) } : old);
 
             updateViewMutation.mutate({
                 id: viewId,
@@ -418,9 +424,9 @@ export default function SpaceDashboardView({ spaceId }: SpaceDashboardViewProps)
         // Navigate to the last created view after all are created
         if (lastCreatedViewId) {
             // Ensure views are refetched (mutations already refetch, but double-check)
-            await utils.space.get.refetch({ id: spaceId });
+            await utils.space.get.refetch({ id: spaceId! });
             const params = new URLSearchParams(searchParams.toString());
-            params.set("tab", "views");
+            params.set("tab", "overview");
             params.set("v", lastCreatedViewId);
             router.push(`?${params.toString()}`, { scroll: false });
         }
@@ -451,7 +457,7 @@ export default function SpaceDashboardView({ spaceId }: SpaceDashboardViewProps)
         if (isViewsTab && !urlTabId && views.length > 0) {
             // Use replace instead of push to avoid history clutter on default load
             const params = new URLSearchParams(searchParams.toString());
-            if (!params.get("tab")) params.set("tab", "views");
+            if (!params.get("tab")) params.set("tab", "overview");
             params.set("v", views[0].id);
             router.replace(`?${params.toString()}`, { scroll: false });
         }
@@ -476,77 +482,26 @@ export default function SpaceDashboardView({ spaceId }: SpaceDashboardViewProps)
     }, [currentTab, selectedTeamId, spaceTeams, searchParams, router]);
 
     // For Chats and AI Chats, we can do similar if we had access to the list here easily.
-    // WorkspaceChatView handles internal selection, but we want URL reflection.
-    // If WorkspaceChatView selects a default, it calls onChatSelect, which updates URL.
+    // ChatView handles internal selection, but we want URL reflection.
+    // If ChatView selects a default, it calls onChatSelect, which updates URL.
     // So we don't strictly need a useEffect here for chats if the child component is well behaved.
 
     // Check if we're in "views" tab mode (from sidebar)
     // moved up
 
     const renderViewContent = (view: any) => {
-        if (!view || !workspaceId) return null;
+        if (!view) return null;
         const viewType = view.type as ViewType;
 
         switch (viewType) {
             case "OVERVIEW":
-                return <SpaceOverviewTab space={space} spaceProjects={spaceProjects} spaceTeams={spaceTeams} />;
-
-            case "PROJECTS":
-                return (
-                    <SpaceProjectsTab
-                        workspaceId={workspaceId}
-                        spaceId={spaceId}
-                        projects={spaceProjects}
-
-                    />
-                );
-
-            case "TEAMS":
-                return (
-                    <SpaceTeamsTab
-                        workspaceId={workspaceId}
-                        spaceId={spaceId}
-                        teams={spaceTeams}
-
-                    />
-                );
-
-            case "DOCS":
-                return <SpaceDocumentsTab />;
-
-            case "TASKS":
-                return (
-                    <SpaceTasksTab
-                        spaceId={spaceId}
-                        workspaceId={workspaceId}
-                    />
-                );
-
-            case "TOOLS":
-                return (
-                    <SpaceToolsTab
-                        workspaceId={workspaceId}
-                        spaceId={spaceId}
-                        tools={spaceWithTools?.tools}
-
-                    />
-                );
-
-            case "MATERIALS":
-                return (
-                    <SpaceMaterialsTab
-                        workspaceId={workspaceId}
-                        spaceId={spaceId}
-                        materials={spaceWithTools?.materials}
-
-                    />
-                );
+                return <SpaceOverviewTab space={space} />;
 
             // Generic Vews
             case "LIST":
                 return (
                     <ListView
-                        spaceId={spaceId}
+                        spaceId={spaceId!}
                         viewId={view.id}
                         initialConfig={view.config}
                         selectedTaskIdFromParent={selectedTaskId}
@@ -556,7 +511,7 @@ export default function SpaceDashboardView({ spaceId }: SpaceDashboardViewProps)
             case "BOARD":
                 return (
                     <BoardView
-                        spaceId={spaceId}
+                        spaceId={spaceId!}
                         viewId={view.id}
                         initialConfig={view.config}
                         selectedTaskIdFromParent={selectedTaskId}
@@ -566,19 +521,17 @@ export default function SpaceDashboardView({ spaceId }: SpaceDashboardViewProps)
             case "TABLE":
                 return (
                     <TableView
-                        spaceId={spaceId}
+                        spaceId={spaceId!}
                         viewId={view.id}
                         initialConfig={view.config}
                         selectedTaskIdFromParent={selectedTaskId}
                         onTaskSelect={handleTaskSelect}
-                        entity={space}
-                        context="space"
                     />
                 );
             case "CALENDAR":
                 return (
                     <CalendarView
-                        spaceId={spaceId}
+                        spaceId={spaceId!}
                         viewId={view.id}
                         initialConfig={view.config}
                         selectedTaskIdFromParent={selectedTaskId}
@@ -588,7 +541,7 @@ export default function SpaceDashboardView({ spaceId }: SpaceDashboardViewProps)
             case "GANTT":
                 return (
                     <GanttView
-                        spaceId={spaceId}
+                        spaceId={spaceId!}
                         viewId={view.id}
                         initialConfig={view.config}
                         selectedTaskIdFromParent={selectedTaskId}
@@ -598,7 +551,7 @@ export default function SpaceDashboardView({ spaceId }: SpaceDashboardViewProps)
             case "TIMELINE":
                 return (
                     <TimelineView
-                        spaceId={spaceId}
+                        spaceId={spaceId!}
                         viewId={view.id}
                         initialConfig={view.config}
                         selectedTaskIdFromParent={selectedTaskId}
@@ -609,7 +562,7 @@ export default function SpaceDashboardView({ spaceId }: SpaceDashboardViewProps)
                 return (
                     <FormView
                         workspaceId={workspaceId}
-                        spaceId={spaceId}
+                        spaceId={spaceId!}
                         viewId={view.id}
                         initialConfig={view.config}
                         selectedTaskIdFromParent={selectedTaskId}
@@ -621,7 +574,17 @@ export default function SpaceDashboardView({ spaceId }: SpaceDashboardViewProps)
             case "PEOPLE":
                 return (
                     <PeopleView
-                        spaceId={spaceId}
+                        spaceId={spaceId!}
+                        viewId={view.id}
+                        initialConfig={view.config}
+                        selectedTaskIdFromParent={selectedTaskId}
+                        onTaskSelect={handleTaskSelect}
+                    />
+                );
+            case "ACTIVITY":
+                return (
+                    <ActivityView
+                        spaceId={spaceId!}
                         viewId={view.id}
                         initialConfig={view.config}
                         selectedTaskIdFromParent={selectedTaskId}
@@ -631,7 +594,7 @@ export default function SpaceDashboardView({ spaceId }: SpaceDashboardViewProps)
             case "MIND_MAP":
                 return (
                     <MindMapView
-                        spaceId={spaceId}
+                        spaceId={spaceId!}
                         viewId={view.id}
                         initialConfig={view.config}
                         selectedTaskIdFromParent={selectedTaskId}
@@ -643,7 +606,7 @@ export default function SpaceDashboardView({ spaceId }: SpaceDashboardViewProps)
             case "MAP":
                 return (
                     <MapView
-                        spaceId={spaceId}
+                        spaceId={spaceId!}
                         viewId={view.id}
                         initialConfig={view.config}
                         selectedTaskIdFromParent={selectedTaskId}
@@ -655,7 +618,7 @@ export default function SpaceDashboardView({ spaceId }: SpaceDashboardViewProps)
             case "WORKLOAD":
                 return (
                     <WorkloadView
-                        spaceId={spaceId}
+                        spaceId={spaceId!}
                         viewId={view.id}
                         initialConfig={view.config}
                         selectedTaskIdFromParent={selectedTaskId}
@@ -667,7 +630,7 @@ export default function SpaceDashboardView({ spaceId }: SpaceDashboardViewProps)
             case "WHITEBOARD":
                 return (
                     <WhiteboardView
-                        spaceId={spaceId}
+                        spaceId={spaceId!}
                         viewId={view.id}
                         initialConfig={view.config}
                         selectedTaskIdFromParent={selectedTaskId}
@@ -679,7 +642,7 @@ export default function SpaceDashboardView({ spaceId }: SpaceDashboardViewProps)
             case "DASHBOARD":
                 return (
                     <GenericDashboardView
-                        spaceId={spaceId}
+                        spaceId={spaceId!}
                         viewId={view.id}
                         initialConfig={view.config}
                         selectedTaskIdFromParent={selectedTaskId}
@@ -689,13 +652,26 @@ export default function SpaceDashboardView({ spaceId }: SpaceDashboardViewProps)
                     />
                 );
 
+            case "DOC":
+                return (
+                    <DocView
+                        listId={listId}
+                        spaceId={spaceId!}
+                        projectId={projectId}
+                        teamId={teamId}
+                        viewId={view.id}
+                        initialConfig={view.config}
+                        selectedTaskIdFromParent={selectedTaskId}
+                        onTaskSelect={handleTaskSelect}
+                    />
+                );
+
             // Embeds
             case "EMBED":
             case "SPREADSHEET":
             case "FILE":
             case "VIDEO":
             case "DESIGN":
-            case "DOC":
             case "GOOGLE_CALENDAR":
             case "GOOGLE_DOCS":
             case "GOOGLE_MAPS":
@@ -705,7 +681,7 @@ export default function SpaceDashboardView({ spaceId }: SpaceDashboardViewProps)
                 return (
                     <EmbedView
                         listId={listId}
-                        spaceId={spaceId}
+                        spaceId={spaceId!}
                         projectId={projectId}
                         teamId={teamId}
                         viewId={view.id}
@@ -735,22 +711,11 @@ export default function SpaceDashboardView({ spaceId }: SpaceDashboardViewProps)
     };
 
     if (isLoading) {
-        return (
-            <div className="flex items-center justify-center py-12 h-screen">
-                <div className="flex flex-col items-center gap-3">
-                    <div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-primary" />
-                    <p className="text-sm text-muted-foreground">Loading space...</p>
-                </div>
-            </div>
-        );
+        return <DashboardLoadingState message="Loading space..." />;
     }
 
     if (!space) {
-        return (
-            <div className="flex items-center justify-center py-12 h-screen">
-                <p className="text-sm text-muted-foreground">Space not found</p>
-            </div>
-        );
+        return <DashboardErrorState title="Space not found" message="We couldn't find the space you're looking for." />;
     }
 
     return (
@@ -763,20 +728,20 @@ export default function SpaceDashboardView({ spaceId }: SpaceDashboardViewProps)
                 {/* Navigation Sidebar - Show only when layoutMode is "sidebar" */}
                 {layoutMode === "sidebar" && (
                     <SpaceNavigationSidebar
-                        spaceId={spaceId}
-                        activeView={(isListsTab ? "lists" : currentTab || "views") as SpaceView}
+                        spaceId={spaceId!}
+                        activeView={(isListsTab ? "lists" : currentTab || "overview") as SpaceView}
                         onViewChange={(view: SpaceView) => {
                             const params = new URLSearchParams(searchParams.toString());
                             params.delete("v"); // Always clear view ID when switching main contexts
                             params.delete("pj");
                             params.delete("tm");
-                            params.delete("list");
+                            params.delete("lt");
                             params.delete("ch");
                             params.delete("ai");
 
-                            // Special handling for "views" tab - show tab-based interface
-                            if (view === "views") {
-                                params.set("tab", "views");
+                            // Special handling for "overview" tab - show tab-based interface
+                            if (view === "overview") {
+                                params.set("tab", "overview");
                                 if (views.length > 0) {
                                     params.set("v", views[0].id);
                                 }
@@ -843,7 +808,7 @@ export default function SpaceDashboardView({ spaceId }: SpaceDashboardViewProps)
                                 render: () => (
                                     <SpaceActionsMenu
                                         workspaceId={workspaceId!}
-                                        spaceId={spaceId}
+                                        spaceId={spaceId!}
                                         trigger={
                                             <Button variant="ghost" size="sm" className="h-8 relative group transition-all duration-200 ease-in-out w-8 hover:w-auto px-0 hover:px-3 justify-center hover:justify-start">
                                                 <div className="flex items-center justify-center w-8 h-8 shrink-0">
@@ -899,41 +864,40 @@ export default function SpaceDashboardView({ spaceId }: SpaceDashboardViewProps)
                                         {/* Render dedicated view components for sidebar items */}
                                         {isListsTab ? (
                                             <SpaceListView
-                                                spaceId={spaceId}
+                                                spaceId={spaceId!}
                                                 workspaceId={workspaceId!}
                                                 selectedListId={selectedListId || undefined}
                                                 onListSelect={handleListSelect}
                                             />
                                         ) : currentTab === "projects" ? (
                                             <SpaceProjectView
-                                                spaceId={spaceId}
+                                                spaceId={spaceId!}
                                                 workspaceId={workspaceId!}
                                                 selectedProjectId={selectedProjectId || undefined}
                                                 onProjectSelect={handleProjectSelect}
                                             />
                                         ) : currentTab === "teams" ? (
                                             <SpaceTeamView
-                                                spaceId={spaceId}
+                                                spaceId={spaceId!}
                                                 workspaceId={workspaceId!}
                                                 selectedTeamId={selectedTeamId || undefined}
                                                 onTeamSelect={handleTeamSelect}
                                             />
                                         ) : currentTab === "personal" ? (
-                                            <SpacePersonalView
-                                                spaceId={spaceId}
-                                                workspaceId={workspaceId!}
-                                            />
+                                            <SpacePersonalView spaceId={spaceId!} workspaceId={workspaceId!} />
+                                        ) : currentTab === "docs" ? (
+                                            <SpaceDocsView spaceId={spaceId!} workspaceId={workspaceId!} />
                                         ) : currentTab === "chats" ? (
-                                            <WorkspaceChatView
+                                            <ChatView
                                                 workspaceId={workspaceId!}
                                                 selectedChatId={selectedChannelId || undefined}
                                                 onChatSelect={handleChatSelect}
                                             />
                                         ) : currentTab === "ai-chat" ? (
-                                            <WorkspaceAIChatView
-                                                workspaceId={workspaceId!}
-                                                selectedAIChatId={selectedAiChatId || undefined}
-                                                onAIChatSelect={handleAIChatSelect}
+                                            <SharedAIChatView
+                                                contextType="SPACE"
+                                                contextId={spaceId!}
+                                                contextName={space?.name || "Space"}
                                             />
                                         ) : isViewsTab ? (
                                             <Tabs value={activeTab} onValueChange={handleTabChange} className="flex h-full flex-col">
@@ -965,7 +929,7 @@ export default function SpaceDashboardView({ spaceId }: SpaceDashboardViewProps)
                                                                     const moved = newSortedViews.find((v: any) => v.id === activeId);
                                                                     if (moved) moved.isPinned = overView.isPinned;
                                                                     newSortedViews.forEach((v: any, i: number) => { v.position = i * 1000; });
-                                                                    utils.space.get.setData({ id: spaceId }, (old: any) => old ? { ...old, views: newSortedViews } : old);
+                                                                    utils.space.get.setData({ id: spaceId! }, (old: any) => old ? { ...old, views: newSortedViews } : old);
                                                                     reorderViewsMutation.mutate(newSortedViews.map((v: any, i: number) => ({ id: v.id, position: i * 1000 })));
                                                                 }}
                                                                 renderMoreAction={(view) => (
@@ -1004,7 +968,7 @@ export default function SpaceDashboardView({ spaceId }: SpaceDashboardViewProps)
                                                                                     <Switch checked={view.isDefault} />
                                                                                 </div>
                                                                                 <div className="h-px bg-slate-100 my-1 mx-2" />
-                                                                                <div role="button" className="flex items-center gap-2 px-2 py-1.5 text-sm hover:bg-slate-100 rounded-sm text-slate-700 w-full text-left cursor-pointer transition-colors" onClick={(e) => { e.stopPropagation(); createViewMutation.mutate({ name: `${view.name} Copy`, type: view.type, spaceId: view.spaceId }); }}>
+                                                                                <div role="button" className="flex items-center gap-2 px-2 py-1.5 text-sm hover:bg-slate-100 rounded-sm text-slate-700 w-full text-left cursor-pointer transition-colors" onClick={(e) => { e.stopPropagation(); createViewMutation.mutate({ name: `${view.name} Copy`, type: view.type as any, spaceId: spaceId! }); }}>
                                                                                     <CopyPlus className="h-4 w-4 shrink-0" /> Duplicate view
                                                                                 </div>
                                                                                 <div role="button" className="flex items-center gap-2 px-2 py-1.5 text-sm hover:bg-slate-100 rounded-sm text-slate-700 w-full text-left cursor-pointer transition-colors" onClick={(e) => { e.stopPropagation(); setViewToTemplate(view); }}>
@@ -1071,7 +1035,7 @@ export default function SpaceDashboardView({ spaceId }: SpaceDashboardViewProps)
                                                                                                 <span className="inline-block max-w-[120px] truncate align-bottom">{view.name}</span>
                                                                                                 {view.isPinned && <Pin className="h-3 w-3 shrink-0 rotate-45 text-muted-foreground" />}
                                                                                                 {view.isPrivate && <Lock className="h-3 w-3 shrink-0 text-muted-foreground" />}
-                                                                                                
+
                                                                                                 {activeTab === view.id && (
                                                                                                     <div className="absolute left-0 right-0 h-0.5 bg-primary rounded-t-full" style={{ bottom: "-5px" }} />
                                                                                                 )}
@@ -1143,6 +1107,29 @@ export default function SpaceDashboardView({ spaceId }: SpaceDashboardViewProps)
                                                             {renderViewContent(activeView)}
                                                         </TabsContent>
                                                     )}
+                                                    
+                                                    {views.length === 0 && (
+                                                        <div className="flex flex-col items-center justify-center h-full p-8 text-center animate-in fade-in zoom-in-95 duration-700 ease-out fill-mode-both">
+                                                            <div className="relative mb-6 group">
+                                                                <div className="absolute inset-0 bg-primary/10 blur-2xl rounded-full transition-all duration-700 group-hover:bg-primary/20 group-hover:blur-3xl" />
+                                                                <div className="relative h-20 w-20 bg-gradient-to-br from-white to-slate-50 border border-slate-200/60 shadow-lg shadow-slate-200/20 rounded-3xl flex items-center justify-center text-primary transform transition-transform duration-500 group-hover:scale-105 group-hover:-translate-y-1">
+                                                                    <LayoutDashboard className="h-9 w-9 stroke-[1.5]" />
+                                                                </div>
+                                                            </div>
+                                                            <h3 className="text-xl font-semibold text-slate-900 tracking-tight mb-2">No views configured</h3>
+                                                            <p className="text-sm text-slate-500 max-w-md mb-8 leading-relaxed">
+                                                                Your space is currently a blank canvas. Add a view to start visualizing your data, tracking tasks, and organizing your workflow.
+                                                            </p>
+                                                            <Button 
+                                                                size="default" 
+                                                                onClick={() => setAddViewModalOpen(true)}
+                                                                className="shadow-sm hover:shadow-md transition-all group rounded-full px-6"
+                                                            >
+                                                                <Plus className="h-4 w-4 mr-2 transition-transform duration-300 group-hover:rotate-90" />
+                                                                Create your first view
+                                                            </Button>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </Tabs>
                                         ) : (
@@ -1161,11 +1148,8 @@ export default function SpaceDashboardView({ spaceId }: SpaceDashboardViewProps)
                                             title={<span className="text-xs font-semibold text-zinc-600 uppercase tracking-wider">AI Assistant</span>}
                                             icon={<div className="h-2 w-2 rounded-full bg-indigo-500 animate-pulse" />}
                                         >
-                                            <ChatView
-                                                contextType="SPACE"
-                                                contextId={spaceId}
-                                                contextName={space.name || "Space"}
-                                                hideSidebar={true}
+                                            <AIChatView
+                                                workspaceId={workspaceId!}
                                             />
                                         </SidePanelContainer>
                                     )}
@@ -1260,8 +1244,16 @@ export default function SpaceDashboardView({ spaceId }: SpaceDashboardViewProps)
                         </DialogDescription>
                     </DialogHeader>
                     <DialogFooter>
-                        <Button variant="outline" onClick={() => setViewToDelete(null)}>Cancel</Button>
-                        <Button variant="destructive" onClick={() => viewToDelete && handleDeleteView(viewToDelete.id)}>Delete</Button>
+                        <Button 
+                            className="flex-1 sm:flex-none inline-flex items-center justify-center h-9 px-4 rounded-lg border border-zinc-200 bg-white text-[13.5px] font-medium text-zinc-600 hover:bg-zinc-50 hover:border-zinc-300 hover:text-zinc-800 transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 focus-visible:ring-offset-1" 
+                            onClick={() => setViewToDelete(null)}>
+                            Cancel
+                        </Button>
+                        <Button 
+                            onClick={() => viewToDelete && handleDeleteView(viewToDelete.id)}
+                            className="flex-1 sm:flex-none h-9 px-4 rounded-lg bg-red-600 hover:bg-red-700 text-[13.5px] font-medium shadow-sm shadow-red-900/10 transition-all duration-150">
+                            Delete
+                        </Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>

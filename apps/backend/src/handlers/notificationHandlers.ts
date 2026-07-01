@@ -71,4 +71,14 @@ export function registerNotificationHandlers(io: any, socket: Socket) {
       // ignore
     }
   });
+
+  socket.on('notification:send', (data: { userId: string, notification?: any }) => {
+    try {
+      if (!data.userId) return;
+      // Relay the notification to the target user's room
+      socket.to(`user:${data.userId}`).emit('notification:new', data.notification ? { notification: data.notification } : {});
+    } catch (err) {
+      console.error('Error relaying notification:', err);
+    }
+  });
 }

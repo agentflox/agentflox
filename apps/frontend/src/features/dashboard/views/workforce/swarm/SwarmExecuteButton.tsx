@@ -2,20 +2,20 @@
 
 import React, { useState } from 'react';
 import { Play, Square } from 'lucide-react';
-import { useWorkforceStore } from '../store/useWorkforceStore';
+import { useWorkforceStore } from '../../../../../entities/workforce/hooks/useWorkforceStore';
 import { toast } from 'sonner';
 import { fetchAuthToken } from '@/utils/backend-request';
-import { BACKEND_URL } from '@/entities/agents/hooks/useAgentStream';
+import { BACKEND_URL } from '@/hooks/useSSEStream';
 
 interface SwarmExecuteButtonProps {
     workforceId?: string;
 }
 
 export function SwarmExecuteButton({ workforceId }: SwarmExecuteButtonProps) {
-    const { 
-        isAutonomousMode, 
-        setAutonomousMode, 
-        swarmSessionId, 
+    const {
+        isAutonomousMode,
+        setAutonomousMode,
+        swarmSessionId,
         setSwarmSessionId,
     } = useWorkforceStore();
     const [isStarting, setIsStarting] = useState(false);
@@ -29,7 +29,7 @@ export function SwarmExecuteButton({ workforceId }: SwarmExecuteButtonProps) {
         setIsStarting(true);
         try {
             const token = await fetchAuthToken();
-            const resp = await fetch(`${BACKEND_URL}/v1/agents/swarm/start`, {
+            const resp = await fetch(`${BACKEND_URL}/v1/workforces/swarm/start`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -42,7 +42,7 @@ export function SwarmExecuteButton({ workforceId }: SwarmExecuteButtonProps) {
                 const err = await resp.json().catch(() => ({})) as any;
                 throw new Error(err.error || 'Failed to start swarm');
             }
-            
+
             const { sessionId } = await resp.json();
             setSwarmSessionId(sessionId);
             setAutonomousMode(true);
@@ -60,7 +60,7 @@ export function SwarmExecuteButton({ workforceId }: SwarmExecuteButtonProps) {
 
         try {
             const token = await fetchAuthToken();
-            await fetch(`${BACKEND_URL}/v1/agents/swarm/${swarmSessionId}/stop`, {
+            await fetch(`${BACKEND_URL}/v1/workforces/swarm/${swarmSessionId}/stop`, {
                 method: 'POST',
                 headers: token ? { Authorization: `Bearer ${token}` } : {},
             });
@@ -77,7 +77,7 @@ export function SwarmExecuteButton({ workforceId }: SwarmExecuteButtonProps) {
             <div className="flex items-center gap-2 px-3 py-1 bg-green-500/10 border border-green-500/20 rounded-md animate-in fade-in slide-in-from-right-4">
                 <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
                 <span className="text-xs font-bold text-green-600 tracking-wider">Swarm Online</span>
-                <button 
+                <button
                     onClick={handleStopSwarm}
                     className="p-1 hover:bg-green-500/20 rounded-md transition-colors ml-1"
                 >

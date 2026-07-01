@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-
 import {
   ChatMessageList,
   RenderedMessage,
@@ -10,6 +9,7 @@ import {
 } from '@/entities/chats/components/MessageList';
 import { ChatComposer } from '@/entities/chats/components/ChatComposer';
 import { trpc } from '@/lib/trpc';
+import { agentService } from '@/services/agent.service';
 import { toast } from 'sonner';
 import { MessageRole } from '@agentflox/database/src/generated/prisma/client';
 import { AgentProfile } from '@/entities/agents/components/AgentProfile';
@@ -67,8 +67,6 @@ export const OperatorView: React.FC<OperatorViewProps> = ({
     }), []);
 
   const handleMessageComplete = useCallback(async (data: any) => {
-    isSendingRef.current = false;
-    setIsSending(false);
     if (data?.conversationState) setConversationState(data.conversationState);
     if (data?.agentDraft) setAgentDraft(data.agentDraft);
 
@@ -78,9 +76,16 @@ export const OperatorView: React.FC<OperatorViewProps> = ({
     if (result.data?.messages) {
       optimisticMessageIds.current.clear();
       const dbMessages = buildDbMessages(result.data.messages);
+
+      // Batch: clear sending + show DB messages in one paint (zero blank gap)
+      isSendingRef.current = false;
+      setIsSending(false);
       setMessages(dbMessages);
+
       const newFollowupsMap = new Map<string, MessageFollowup[]>();
-      dbMessages.forEach(msg => { if (msg.followups) newFollowupsMap.set(msg.id, msg.followups); });
+      dbMessages.forEach(msg => {
+        if (msg.followups) newFollowupsMap.set(msg.id, msg.followups);
+      });
       setFollowupsMap(newFollowupsMap);
 
       if (data?.followups?.length) {
@@ -89,16 +94,27 @@ export const OperatorView: React.FC<OperatorViewProps> = ({
         if (latestAssistant) {
           const metadata = (latestAssistant as any).metadata || {};
           if (!metadata.followupsConsumed) {
-            setFollowupsMap(prev => { const m = new Map(prev); m.set(latestAssistant.id, data.followups); return m; });
-            setMessages(prev => prev.map(msg => msg.id === latestAssistant.id ? { ...msg, followups: data.followups } : msg));
+            setFollowupsMap(prev => {
+              const m = new Map(prev);
+              m.set(latestAssistant.id, data.followups);
+              return m;
+            });
+            setMessages(prev =>
+              prev.map(msg => (msg.id === latestAssistant.id ? { ...msg, followups: data.followups } : msg))
+            );
           }
         }
       }
+    } else {
+      isSendingRef.current = false;
+      setIsSending(false);
     }
 
     const isReady = data?.agentDraft?.status === 'ready';
     const isActive = agentData?.status === 'ACTIVE' && agentData?.isActive;
-    if ((isReady || isActive) && !showAgentProfile) setTimeout(() => setShowAgentProfile(true), 500);
+    if ((isReady || isActive) && !showAgentProfile) {
+      setTimeout(() => setShowAgentProfile(true), 500);
+    }
   }, [resolvedAgentId, refetchAgent, refetchMessages, buildDbMessages, agentData, showAgentProfile]);
 
   const handleMessageError = useCallback((errorMessage: string) => {
@@ -128,43 +144,78 @@ export const OperatorView: React.FC<OperatorViewProps> = ({
     onError: handleMessageError,
   });
 
-  const initializeMutation = trpc.agent.operator.initialize.useMutation({
-    onSuccess: async (data) => {
+  const [isInitializingBuilder, setIsInitializingBuilder] = useState(false);
+  const initializeBuilder = async (params: { agentId: string; conversationId?: string; skipWelcome?: boolean }) => {
+    try {
+      setIsInitializingBuilder(true);
+      const res = await agentService.agents.operator.initialize(params);
+      if (!res.ok) {
+        const error = await res.json().catch(() => ({}));
+        throw new Error(error.userMessage || error.message || error.error || 'Failed to initialize conversation');
+      }
+      const data = await res.json();
+
       setConversationId(data.conversationId);
       setConversationState(data.conversationState);
       setUserContext(data.userContext);
-      setAgentDraft(data.conversationState.agentDraft);
-      if (resolvedAgentId) await refetchAgent();
+      setAgentDraft(data.conversationState?.agentDraft);
+
+      if (resolvedAgentId) {
+        await refetchAgent();
+      }
+
       const result = await refetchMessages();
+
       if (result.data?.messages) {
         const followupsMapFromDB = new Map<string, MessageFollowup[]>();
         result.data.messages.forEach(msg => {
           const f = (msg as any).followups;
           if (f && Array.isArray(f)) followupsMapFromDB.set(msg.id, f);
         });
+
         if (data.followups?.length) {
           const assistantMessages = result.data.messages.filter(m => m.role === 'ASSISTANT');
           const latestAssistant = assistantMessages[assistantMessages.length - 1];
           if (latestAssistant) followupsMapFromDB.set(latestAssistant.id, data.followups);
         }
+
         setFollowupsMap(followupsMapFromDB);
       }
+
       setIsInitializing(false);
-    },
-    onError: (error) => {
+    } catch (error: any) {
       toast.error(error.message || 'Failed to initialize conversation');
       setIsInitializing(false);
-    },
-  });
+    } finally {
+      setIsInitializingBuilder(false);
+    }
+  };
 
-  const launchMutation = trpc.agent.operator.launch.useMutation({
-    onSuccess: async (data) => {
+
+  const [isLaunching, setIsLaunching] = useState(false);
+  const launchBuilder = async (params: { conversationId: string; agentId: string }) => {
+    try {
+      setIsLaunching(true);
+      const res = await agentService.agents.builder.launch(params);
+      if (!res.ok) {
+        const error = await res.json().catch(() => ({}));
+        throw new Error(error.userMessage || error.message || error.error || 'Failed to launch agent');
+      }
+      const data = await res.json();
+
       toast.success('Agent launched successfully!');
-      if (resolvedAgentId) await refetchAgent();
+
+      if (resolvedAgentId) {
+        await refetchAgent();
+      }
+
       setShowAgentProfile(true);
-    },
-    onError: (error) => { toast.error(error.message || 'Failed to launch agent'); },
-  });
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to launch agent');
+    } finally {
+      setIsLaunching(false);
+    }
+  };
 
   useEffect(() => {
     if (messagesData?.messages && conversationId && !isSendingRef.current) {
@@ -187,15 +238,15 @@ export const OperatorView: React.FC<OperatorViewProps> = ({
 
   const hasInitialized = useRef(false);
   useEffect(() => {
-    if (conversationId || initializeMutation.isPending || hasInitialized.current) return;
+    if (conversationId || isInitializingBuilder || hasInitialized.current) return;
     if (resolvedAgentId) {
       if (isLoadingAgent) return;
       const storedConversationId = agentData?.conversations?.[0]?.id;
       hasInitialized.current = true;
       if (storedConversationId) {
-        initializeMutation.mutate({ conversationId: storedConversationId, agentId: resolvedAgentId });
+        initializeBuilder({ conversationId: storedConversationId, agentId: resolvedAgentId });
       } else {
-        initializeMutation.mutate({ agentId: resolvedAgentId });
+        initializeBuilder({ agentId: resolvedAgentId });
       }
     } else {
       console.log('[OperatorView] No agent ID available, skipping initialization');
@@ -207,7 +258,7 @@ export const OperatorView: React.FC<OperatorViewProps> = ({
 
   const markFollowupsConsumedMutation = trpc.chat.markFollowupsConsumed.useMutation();
 
-  const handleSendMessage = useCallback(async (message: string) => {
+  const handleSendMessage = useCallback(async (message: string, options?: { attachments?: any[]; webSearch?: boolean; contexts?: Array<{ type: string; id: string }>; mentions?: Array<{ id: string; name: string; type: 'agent' | 'task' }> }) => {
     if (!message.trim() || isSending || !conversationId || !resolvedAgentId) return;
 
     const optimisticId = `optimistic_${Date.now()}`;
@@ -228,7 +279,7 @@ export const OperatorView: React.FC<OperatorViewProps> = ({
 
     Promise.all(consumePromises).catch(() => { });
 
-    await sendStreamMessage({ agentId: resolvedAgentId, conversationId, message });
+    await sendStreamMessage({ agentId: resolvedAgentId, conversationId, message, contexts: options?.contexts, mentions: options?.mentions, attachments: options?.attachments });
   }, [sendStreamMessage, conversationId, resolvedAgentId, isSending, messages, markFollowupsConsumedMutation]);
 
   const handleFollowupClick = useCallback(async (messageId: string, followup: MessageFollowup) => {
@@ -240,11 +291,11 @@ export const OperatorView: React.FC<OperatorViewProps> = ({
 
   const handleActionClick = useCallback((messageId: string, action: MessageAction) => {
     if (action.id === 'launch-agent' && agentDraft?.status === 'ready' && conversationId && resolvedAgentId) {
-      launchMutation.mutate({ conversationId, agentId: resolvedAgentId });
+      launchBuilder({ conversationId, agentId: resolvedAgentId });
       return;
     }
     if (action.label) handleSendMessage(action.label);
-  }, [handleSendMessage, launchMutation, conversationId, agentDraft, resolvedAgentId]);
+  }, [handleSendMessage, conversationId, agentDraft, resolvedAgentId]);
 
   if (isInitializing) {
     return <AgentChatSkeleton />;
@@ -267,7 +318,7 @@ export const OperatorView: React.FC<OperatorViewProps> = ({
             <div className="flex-1 overflow-hidden relative">
               <ChatMessageList
                 messages={messagesWithFollowups}
-                agentLabel="Agentflox Agent Operator"
+                label="Agentflox Agent Operator"
                 pendingAssistantMessage={
                   isSending ? (
                     <StreamingMessage
@@ -276,7 +327,7 @@ export const OperatorView: React.FC<OperatorViewProps> = ({
                       currentNode={thinkingNode}
                       streamingContent={streamingContent}
                       isStreaming={isStreaming}
-                      agentLabel="Agentflox Agent Operator"
+                      label="Agentflox Agent Operator"
                     />
                   ) : null
                 }

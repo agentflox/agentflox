@@ -893,7 +893,7 @@ Return strictly JSON with shape: { "welcomeMessage": string }.`,
     agentId: string,
     message: string,
     userId: string,
-    onProgress?: (step: string, node?: string) => void,
+    options?: { contexts?: any[]; mentions?: any[]; attachments?: any[] },
     idempotencyKey?: string
   ): Promise<{ runId: string }> {
     const runId = randomUUID();
@@ -906,6 +906,7 @@ Return strictly JSON with shape: { "welcomeMessage": string }.`,
         agentId,
         userId,
         message,
+        options,
         idempotencyKey,
       }
     });
@@ -921,6 +922,7 @@ Return strictly JSON with shape: { "welcomeMessage": string }.`,
       agentId,
       message,
       userId,
+      options,
       idempotencyKey
     }: {
       runId: string;
@@ -928,6 +930,7 @@ Return strictly JSON with shape: { "welcomeMessage": string }.`,
       agentId: string;
       message: string;
       userId: string;
+      options?: { contexts?: any[]; mentions?: any[]; attachments?: any[] };
       idempotencyKey?: string;
     }
   ): Promise<{
@@ -1086,11 +1089,7 @@ Return strictly JSON with shape: { "welcomeMessage": string }.`,
           onProgress?.(`Loading workspace context for ${agent.name}... (turn ${turnCount + 1})`);
 
           // ── Step 2: Prepare user context, history, and executions ──────────────
-          const {
-            userContext,
-            refreshedState,
-            executionsSummary,
-          }: {
+          const ctxResult: {
             userContext: UserContext;
             refreshedState: ConversationState;
             executionsSummary: Array<{
@@ -1101,14 +1100,19 @@ Return strictly JSON with shape: { "welcomeMessage": string }.`,
               trigger: string;
               outputSummary: string;
             }>;
+            fullMessageWithContext: string;
           } = await step.run(
-            'executor-prepare-context-and-executions',
+            'executor-resolve-context-and-history',
             async () => {
+              const { explicitContextResolver } = await import('@/utils/utilities/explicitContextResolver');
+              const resolvedExplicitContext = await explicitContextResolver.resolve(userId, options);
+              const fullMessageWithContext = resolvedExplicitContext ? `${message}\n${resolvedExplicitContext}` : message;
+
               let ctx = await agentBuilderContextService.fetchUserContext(userId);
 
               try {
                 ctx = await this.entityScopeInferrer.inferAndFetchEntityScope(
-                  message,
+                  fullMessageWithContext,
                   conversationState.conversationHistory.map((h: { role: string; content: string }) => ({
                     role: h.role,
                     content: h.content,
@@ -1126,7 +1130,12 @@ Return strictly JSON with shape: { "welcomeMessage": string }.`,
               await agentBuilderStateService.addMessageToHistory(
                 conversationId,
                 'user',
-                message
+                message,
+                {
+                  contexts: options?.contexts,
+                  mentions: options?.mentions,
+                  attachments: options?.attachments,
+                }
               );
 
               const latestState =
@@ -1156,7 +1165,7 @@ Return strictly JSON with shape: { "welcomeMessage": string }.`,
                 outputSummary: this.sanitizeToolOutput((exec as any).outputData),
               }));
 
-              return { userContext: ctx, refreshedState: latestState, executionsSummary };
+              return { userContext: ctx, refreshedState: latestState, executionsSummary, fullMessageWithContext };
             }
           );
 
@@ -1164,7 +1173,7 @@ Return strictly JSON with shape: { "welcomeMessage": string }.`,
           const prepResult = await step.run('executor-prepare-inferences', async () => {
             let intent = AGENT_CONSTANTS.INTENT.EXECUTOR.EXECUTE;
             if (!isSwarmTask) {
-              const res = await intentInferenceService.inferExecutorIntent(message, refreshedState.conversationHistory);
+              const res = await intentInferenceService.inferExecutorIntent(ctxResult.fullMessageWithContext, ctxResult.refreshedState.conversationHistory);
               intent = res.intent;
             }
 
@@ -1173,15 +1182,15 @@ Return strictly JSON with shape: { "welcomeMessage": string }.`,
             }
 
             const automationInference = await this.automationInferrer.infer(
-              refreshedState.conversationHistory.map((h) => ({ role: h.role, content: h.content })),
-              message,
-              refreshedState.agentDraft,
-              userContext,
+              ctxResult.refreshedState.conversationHistory.map((h) => ({ role: h.role, content: h.content })),
+              ctxResult.fullMessageWithContext,
+              ctxResult.refreshedState.agentDraft,
+              ctxResult.userContext,
               userId
             );
 
             const skillInference = await this.skillInferenceService.inferSkills(
-              message,
+              ctxResult.fullMessageWithContext,
               `Current capabilities: ${agent.capabilities?.join(', ') || 'None'}. Description: ${agent.description || ''}`,
               BUILT_IN_SKILLS
             );
@@ -1191,7 +1200,7 @@ Return strictly JSON with shape: { "welcomeMessage": string }.`,
 
             let semanticMemoryBlock = '';
             try {
-              const memories = await memoryManager.getSemanticContext(agentId, userId, message, agent.workspaceId);
+              const memories = await memoryManager.getSemanticContext(agentId, userId, ctxResult.fullMessageWithContext, agent.workspaceId);
               if (memories.length > 0) {
                 semanticMemoryBlock = `\n\n## Relevant Memory Context\n${memories.map((m, i) => `${i + 1}. ${m.content}`).join('\n')}`;
               }
@@ -1233,7 +1242,7 @@ Return strictly JSON with shape: { "welcomeMessage": string }.`,
             const agentToolNames = agent.tools?.map((t: any) => t.name) || [];
             if (agentToolNames.length > 0) {
               selectedToolNames = await this.toolDiscoveryService.selectRelevantTools(
-                message,
+                  ctxResult.fullMessageWithContext,
                 agentToolNames,
                 async (name) => {
                   const { getToolByName } = await import('../registry/toolRegistry');
@@ -1285,7 +1294,7 @@ Return strictly JSON with shape: { "welcomeMessage": string }.`,
           const model = await fetchModel();
           const guardrails = AGENT_CONSTANTS.PROMPTS.QUALITY_GUARDRAILS;
 
-          const cacheKey = `executor:${agentId}:${Buffer.from(message.slice(0, 80)).toString('base64')}`;
+          const cacheKey = `executor:${agentId}:${Buffer.from(ctxResult.fullMessageWithContext.slice(0, 80)).toString('base64')}`;
           const cachedResponse = await this.responseCache.getCachedResponse(cacheKey).catch(() => null);
 
           const { swarmPeerBlock = '' } = prepResult;
@@ -1311,7 +1320,7 @@ CRITICAL INSTRUCTIONS:
 When you are finished and ready to deliver the final work product, JUST WRITE IT DIRECTLY AS RAW TEXT in your message. DO NOT use the 'executor_response' tool if you have a lot of text or code to return.
 ${guardrails}${semanticMemoryBlock}${swarmPeerBlock}`;
 
-            userMessageContent = `Task Instructions:\n${message}\n\nWorkspace Context:\n${JSON.stringify(userContext)}`;
+            userMessageContent = `Task Instructions:\n${ctxResult.fullMessageWithContext}\n\nWorkspace Context:\n${JSON.stringify(ctxResult.userContext)}`;
           } else {
 
             systemPrompt = `You are an Agent Executor assistant for Agentflox.
@@ -1323,7 +1332,7 @@ ${guardrails}${semanticMemoryBlock}${swarmPeerBlock}`;
           ${guardrails}${semanticMemoryBlock}${swarmPeerBlock}`;
 
             userMessageContent = JSON.stringify({
-              message,
+              message: ctxResult.fullMessageWithContext,
               agent: {
                 id: agent.id,
                 name: agent.name,
@@ -1341,26 +1350,27 @@ ${guardrails}${semanticMemoryBlock}${swarmPeerBlock}`;
                 },
                 tools: agent.tools?.map((t: any) => t.name) || [],
               },
-              userContext,
-              executions: executionsSummary,
+              workspaceId: agent.workspaceId,
+              userContext: ctxResult.userContext,
+              executions: ctxResult.executionsSummary,
               automationInference,
               missingSkills: missingSkillsArray.length > 0 ? missingSkillsArray : undefined,
             });
           }
 
+          const systemMessage = { role: 'system' as const, content: systemPrompt };
+          const userMessageObj = { role: 'user' as const, content: userMessageContent };
           const messages = [
-            { role: 'system' as const, content: systemPrompt },
-            {
-              role: 'user' as const,
-              content: userMessageContent,
-            },
+            systemMessage,
+            ...ctxResult.refreshedState.conversationHistory.map(h => ({ role: h.role, content: h.content })),
+            userMessageObj
           ];
 
           const estimatedTokens = this.tokenBudgetManager.estimateTokens(JSON.stringify(messages)) + 800;
           const tokenCheck = await checkAgentTokenLimit(userId, estimatedTokens);
           if (!tokenCheck.allowed) {
             const compressionResult = await this.tokenBudgetManager.compressIfNeeded(
-              refreshedState.conversationHistory.map(h => ({ role: h.role, content: h.content })),
+              ctxResult.refreshedState.conversationHistory.map(h => ({ role: h.role, content: h.content })),
               6_000
             );
 
@@ -1766,7 +1776,7 @@ ${guardrails}${semanticMemoryBlock}${swarmPeerBlock}`;
           });
 
           const updatedState = await agentBuilderStateService.updateConversationState(conversationId, {
-            agentDraft: refreshedState.agentDraft,
+            agentDraft: ctxResult.refreshedState.agentDraft,
           });
 
           const partialResult = {

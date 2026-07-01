@@ -16,6 +16,7 @@ interface TemplateMenuPopoverProps {
     triggerIconClassName?: string;
     triggerChevronClassName?: string;
     triggerLabelClassName?: string;
+    targetDocHasChildren?: boolean;
 }
 
 export function TemplateMenuPopover({
@@ -27,6 +28,7 @@ export function TemplateMenuPopover({
     triggerIconClassName,
     triggerChevronClassName,
     triggerLabelClassName,
+    targetDocHasChildren,
 }: TemplateMenuPopoverProps) {
     const [open, setOpen] = useState(false);
     const [centerOpen, setCenterOpen] = useState(false);
@@ -34,6 +36,14 @@ export function TemplateMenuPopover({
     const [templateModalMode, setTemplateModalMode] = useState<"save" | "update">("save");
     const [initialTemplate, setInitialTemplate] = useState<any | null>(null);
     const [initialView, setInitialView] = useState<"detail" | "useTemplate">("detail");
+    const [isFetchingChildren, setIsFetchingChildren] = useState(false);
+    const [dynamicContentToSave, setDynamicContentToSave] = React.useState(contentToSave);
+    const utils = trpc.useUtils();
+
+    React.useEffect(() => {
+        setDynamicContentToSave(contentToSave);
+    }, [contentToSave]);
+
     const queryEntityTypes = entityType && [
         "SPACE",
         "FOLDER",
@@ -50,7 +60,7 @@ export function TemplateMenuPopover({
 
     const recentQuery = trpc.template.list.useQuery(
         {
-            scope: workspaceId ? "workspace" : "global",
+            scope: workspaceId ? "all" : "global",
             entityTypes: queryEntityTypes,
             workspaceId: workspaceId ?? undefined,
             pageSize: 5,
@@ -129,25 +139,49 @@ export function TemplateMenuPopover({
                         Apply a template
                     </button>
                     <button
-                        onClick={() => {
+                        onClick={async () => {
+                            if (entityType === "DOC" && contentToSave?.id) {
+                                setIsFetchingChildren(true);
+                                try {
+                                    const snapshot = await utils.document.getChildrenSnapshot.fetch({ id: contentToSave.id });
+                                    setDynamicContentToSave({ ...contentToSave, children: snapshot });
+                                } catch (e) {
+                                    console.error("Failed to fetch children snapshot", e);
+                                } finally {
+                                    setIsFetchingChildren(false);
+                                }
+                            }
                             setTemplateModalMode("save");
                             setTemplateModalOpen(true);
                             setOpen(false);
                         }}
-                        className="w-full flex items-center gap-2.5 px-2 py-1.5 text-[13.5px] rounded-sm transition-colors text-left text-slate-700 hover:bg-slate-100/80 cursor-pointer"
+                        disabled={isFetchingChildren}
+                        className="w-full flex items-center gap-2.5 px-2 py-1.5 text-[13.5px] rounded-sm transition-colors text-left text-slate-700 hover:bg-slate-100/80 cursor-pointer disabled:opacity-50"
                     >
-                        <Save className="h-4 w-4 text-slate-500" />
+                        {isFetchingChildren ? <Loader2 className="h-4 w-4 animate-spin text-slate-500" /> : <Save className="h-4 w-4 text-slate-500" />}
                         Save as template
                     </button>
                     <button
-                        onClick={() => {
+                        onClick={async () => {
+                            if (entityType === "DOC" && contentToSave?.id) {
+                                setIsFetchingChildren(true);
+                                try {
+                                    const snapshot = await utils.document.getChildrenSnapshot.fetch({ id: contentToSave.id });
+                                    setDynamicContentToSave({ ...contentToSave, children: snapshot });
+                                } catch (e) {
+                                    console.error("Failed to fetch children snapshot", e);
+                                } finally {
+                                    setIsFetchingChildren(false);
+                                }
+                            }
                             setTemplateModalMode("update");
                             setTemplateModalOpen(true);
                             setOpen(false);
                         }}
-                        className="w-full flex items-center gap-2.5 px-2 py-1.5 text-[13.5px] rounded-sm transition-colors text-left text-slate-700 hover:bg-slate-100/80 cursor-pointer"
+                        disabled={isFetchingChildren}
+                        className="w-full flex items-center gap-2.5 px-2 py-1.5 text-[13.5px] rounded-sm transition-colors text-left text-slate-700 hover:bg-slate-100/80 cursor-pointer disabled:opacity-50"
                     >
-                        <RefreshCw className="h-4 w-4 text-slate-500" />
+                        {isFetchingChildren ? <Loader2 className="h-4 w-4 animate-spin text-slate-500" /> : <RefreshCw className="h-4 w-4 text-slate-500" />}
                         Update existing template
                     </button>
                 </HoverCardContent>
@@ -165,8 +199,10 @@ export function TemplateMenuPopover({
                     spaceId: contentToSave?.spaceId ?? undefined,
                     projectId: contentToSave?.projectId ?? undefined,
                     teamId: contentToSave?.teamId ?? undefined,
-                    folderId: contentToSave?.folderId ?? undefined,
-                    listId: contentToSave?.listId ?? undefined,
+                    folderId: dynamicContentToSave?.folderId ?? undefined,
+                    listId: dynamicContentToSave?.listId ?? undefined,
+                    targetDocId: entityType === "DOC" ? dynamicContentToSave?.id : undefined,
+                    targetDocHasChildren: targetDocHasChildren,
                 }}
                 initialTemplate={initialTemplate}
                 initialView={initialView}
@@ -178,7 +214,7 @@ export function TemplateMenuPopover({
                 initialMode={templateModalMode}
                 entityType={entityType || "TASK"}
                 workspaceId={workspaceId}
-                contentToSave={contentToSave}
+                contentToSave={dynamicContentToSave}
             />
         </>
     );

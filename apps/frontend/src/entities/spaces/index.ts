@@ -1,5 +1,4 @@
 export * from "./components/SpaceCard";
-export * from "./components/SpaceFilterSidebar";
 export * from "./components/SpaceCreationModal";
 export * from "./components/SpaceArchiveModal";
 export * from "./components/SpaceDeleteModal";

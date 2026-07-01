@@ -258,10 +258,10 @@ export const listRouter = router({
     .query(async ({ ctx, input }) => {
       const userId = ctx.session!.user!.id;
       const resolvedWorkspaceId = await assertContextAccess(
-        input.workspaceId,
-        input.spaceId,
-        input.projectId,
-        input.teamId,
+        input.workspaceId ?? undefined,
+        input.spaceId ?? undefined,
+        input.projectId ?? undefined,
+        input.teamId ?? undefined,
         userId
       );
 
@@ -443,10 +443,10 @@ export const listRouter = router({
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.session!.user!.id;
       const resolvedWorkspaceId = await assertContextAccess(
-        input.workspaceId,
-        input.spaceId,
-        input.projectId,
-        input.teamId,
+        input.workspaceId ?? undefined,
+        input.spaceId ?? undefined,
+        input.projectId ?? undefined,
+        input.teamId ?? undefined,
         userId
       );
 

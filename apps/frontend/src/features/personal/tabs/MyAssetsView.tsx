@@ -20,7 +20,7 @@ interface OwnedAsset {
   sourceListingId: string;
   title: string;
   description: string;
-  type: Extract<ListingType, 'agent' | 'tool' | 'template'>;
+  type: Extract<ListingType, 'agent' | 'tool' | 'template' | 'workforce'>;
   version: string;
   state: AssetState;
   installedAt: string;
@@ -252,11 +252,12 @@ export function MyAssetsView() {
     toast({ title: "Asset updated", description: "Your asset is now up to date with the latest version." });
   };
 
-  const counts = {
+  const counts: Record<string, number> = {
     all: assets.length,
     agent: assets.filter(a => a.type === 'agent').length,
     tool: assets.filter(a => a.type === 'tool').length,
     template: assets.filter(a => a.type === 'template').length,
+    workforce: assets.filter(a => a.type === 'workforce').length,
   };
 
   return (

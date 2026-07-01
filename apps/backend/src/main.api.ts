@@ -5,7 +5,8 @@
  */
 import 'reflect-metadata';
 import cors from 'cors';
-import { json } from 'express';
+import helmet from 'helmet';
+import { json, raw, type Request, type Response, type NextFunction } from 'express';
 import { createAdapter } from '@socket.io/redis-adapter';
 import { NestFactory } from '@nestjs/core';
 import { Server } from 'socket.io';
@@ -21,11 +22,13 @@ import { registerNotificationHandlers } from './handlers/notificationHandlers';
 import { registerMessageHandlers } from './handlers/messageHandlers';
 import { registerChannelHandlers } from './handlers/channelHandlers';
 import { registerCollaborationHandlers } from './handlers/collaborationHandlers';
+import { registerToolExecutionHandlers } from './handlers/toolExecutionHandlers';
 import { PresenceService } from './services/socket/presenceService';
 import { getFriendIds, getTeamMemberIds } from './utils/socket/authorization';
 import { AppModule } from './app.module';
 import { inngestHandler } from './inngest/serve';
 import { createLifecycleManager } from './lib/lifecycleManager';
+import { metricsAuthMiddleware, requestTimeoutMiddleware } from './middleware/httpSecurity';
 import { PRESENCE_CONFIG } from './lib/presenceConfig';
 import type {
     ServerToClientEvents,
@@ -42,6 +45,29 @@ async function bootstrapApiServer() {
     const apiSingletonsDisabled = String(env.DISABLE_API_SINGLETON_HOOKS || '').toLowerCase() === 'true';
 
     const app = await NestFactory.create(AppModule, { cors: false });
+
+    app.use(helmet({
+        contentSecurityPolicy: false,
+        crossOriginEmbedderPolicy: false,
+    }));
+    app.use(requestTimeoutMiddleware);
+
+    const captureWebhookRawBody = (req: Request, _res: Response, next: NextFunction) => {
+        const buf = req.body;
+        (req as any).rawBody = Buffer.isBuffer(buf) ? buf.toString('utf8') : String(buf ?? '');
+        try {
+            req.body = JSON.parse((req as any).rawBody);
+        } catch {
+            req.body = {};
+        }
+        next();
+    };
+    app.use('/api/billing/paypal/webhook', raw({ type: 'application/json' }), captureWebhookRawBody);
+    app.use('/api/billing/stripe/webhook', raw({ type: 'application/json' }), (req: Request, _res: Response, next: NextFunction) => {
+        const buf = req.body;
+        (req as any).rawBody = Buffer.isBuffer(buf) ? buf.toString('utf8') : String(buf ?? '');
+        next();
+    });
 
     app.use(json({ limit: '1mb' }));
     app.use(
@@ -127,7 +153,7 @@ async function bootstrapApiServer() {
         });
     });
 
-    expressApp.get('/metrics', async (_req: any, res: any) => {
+    expressApp.get('/metrics', metricsAuthMiddleware, async (_req: any, res: any) => {
         res.set('Content-Type', contentType);
         res.end(await getMetrics());
     });
@@ -242,6 +268,7 @@ async function bootstrapApiServer() {
             registerMessageHandlers(io, socket);
             registerChannelHandlers(io, socket);
             registerCollaborationHandlers(io, socket);
+            registerToolExecutionHandlers(io, socket as any);
 
             socket.on('disconnect', async (reason: string) => {
                 metrics.socketConnections.dec();

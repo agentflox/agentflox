@@ -47,7 +47,7 @@ export function ChipGroup({ chips, onClearAll, className }: ChipGroupProps) {
       ))}
       {chips.length > 0 && onClearAll && (
         <button
-          className="rounded-full border px-3 py-1 text-sm text-muted-foreground transition-colors hover:bg-muted"
+          className="rounded-full border px-3 py-1 text-sm text-muted-foreground transition-colors hover:bg-muted cursor-pointer"
           onClick={onClearAll}
           type="button"
         >

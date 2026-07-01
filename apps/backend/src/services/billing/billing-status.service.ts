@@ -1,8 +1,10 @@
 import { Injectable, Logger, BadRequestException, HttpException, HttpStatus } from '@nestjs/common';
 import { SubscriptionManager } from '@/services/billing/managers/subscription.manager';
 import { CreditManager } from '@/services/billing/managers/credit.manager';
+import { prisma } from '@/lib/prisma';
 
 interface CheckStatusParams {
+    userId: string;
     method: 'subscription' | 'checkout';
     subId?: string;
     orderId?: string;
@@ -10,6 +12,7 @@ interface CheckStatusParams {
 }
 
 interface UpdateStatusParams {
+    userId: string;
     method: 'subscription' | 'checkout';
     subId?: string;
     orderId?: string;
@@ -28,16 +31,23 @@ export class BillingStatusService {
      */
     async checkStatus(params: CheckStatusParams) {
         try {
-            const { method, subId, orderId, status } = params;
+            const { userId, method, subId, orderId, status } = params;
 
-            if (!method || (!subId && !orderId) || !status) {
-                throw new BadRequestException('Missing required parameters: method, subId/orderId, and status');
+            if (!userId || !method || (!subId && !orderId) || !status) {
+                throw new BadRequestException('Missing required parameters: userId, method, subId/orderId, and status');
             }
 
             let exists = false;
             let shouldShowModal = false;
 
             if (method === 'subscription' && subId) {
+                const subscription = await prisma.subscription.findFirst({
+                    where: { subId, userId },
+                    select: { subId: true },
+                });
+                if (!subscription) {
+                    return { exists: false, shouldShowModal: false, status, method, id: subId };
+                }
                 // Check if subscription exists
                 exists = await SubscriptionManager.checkSubscriptionExists(subId);
 
@@ -50,6 +60,13 @@ export class BillingStatusService {
                     shouldShowModal = true;
                 }
             } else if (method === 'checkout' && orderId) {
+                const purchase = await prisma.creditPurchase.findFirst({
+                    where: { orderId, userId },
+                    select: { orderId: true },
+                });
+                if (!purchase) {
+                    return { exists: false, shouldShowModal: false, status, method, id: orderId };
+                }
                 // Check if order exists
                 exists = await CreditManager.checkOrderExists(orderId);
 
@@ -84,19 +101,33 @@ export class BillingStatusService {
      */
     async updateStatus(params: UpdateStatusParams) {
         try {
-            const { method, subId, orderId } = params;
+            const { userId, method, subId, orderId } = params;
 
-            if (!method || (!subId && !orderId)) {
-                throw new BadRequestException('Missing required parameters: method and subId/orderId');
+            if (!userId || !method || (!subId && !orderId)) {
+                throw new BadRequestException('Missing required parameters: userId, method and subId/orderId');
             }
 
             // Update metadata to mark modal as shown
             if (method === 'subscription' && subId) {
+                const subscription = await prisma.subscription.findFirst({
+                    where: { subId, userId },
+                    select: { subId: true },
+                });
+                if (!subscription) {
+                    throw new BadRequestException('Subscription not found');
+                }
                 await SubscriptionManager.updateSubscriptionMetadata(subId, {
                     showModal: false,
                     modalShownAt: new Date().toISOString(),
                 });
             } else if (method === 'checkout' && orderId) {
+                const purchase = await prisma.creditPurchase.findFirst({
+                    where: { orderId, userId },
+                    select: { orderId: true },
+                });
+                if (!purchase) {
+                    throw new BadRequestException('Order not found');
+                }
                 await CreditManager.updateOrderMetadata(orderId, {
                     showModal: false,
                     modalShownAt: new Date().toISOString(),

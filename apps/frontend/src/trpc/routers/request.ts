@@ -113,13 +113,15 @@ export const requestRouter = router({
           userId: app.senderId,
           type: "REQUEST_STATUS",
           title: "Request Accepted",
-          content: app.targetType === "PROJECT"
+          message: app.targetType === "PROJECT"
             ? "Your request was accepted. You have been added to the project."
             : app.targetType === "TEAM"
               ? "Your request was accepted. You have been added to the team."
               : "Your request was accepted.",
-          relatedId: app.id,
-          relatedType: "REQUEST",
+          entityId: app.id,
+          entityType: "REQUEST",
+          metadata: {},
+          aggregateKey: `request_${app.id}_accepted`,
         },
       });
 
@@ -144,9 +146,11 @@ export const requestRouter = router({
           userId: app.senderId,
           type: "REQUEST_STATUS",
           title: "Request Rejected",
-          content: input.response || "Your request was rejected.",
-          relatedId: app.id,
-          relatedType: "REQUEST",
+          message: input.response || "Your request was rejected.",
+          entityId: app.id,
+          entityType: "REQUEST",
+          metadata: {},
+          aggregateKey: `request_${app.id}_rejected`,
         },
       });
 

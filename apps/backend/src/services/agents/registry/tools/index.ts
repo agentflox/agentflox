@@ -7,7 +7,6 @@ import { BROWSER_AUTOMATION_TOOLS } from './categories/browserAutomation';
 import { MEDIA_GENERATION_TOOLS } from './categories/mediaGeneration';
 import { FILE_OPERATION_TOOLS } from './categories/fileOperations';
 import { API_INTEGRATION_TOOLS } from './categories/apiIntegration';
-
 import { TASK_MANAGEMENT_TOOLS } from './categories/taskManagement';
 import { SEARCH_TOOLS } from './categories/search';
 import { PROJECT_MANAGEMENT_TOOLS } from './categories/projectManagement';

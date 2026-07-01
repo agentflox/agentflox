@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { checkAgentTokenLimit, estimateTokens } from '@/utils/ai/agentUsageTracking';
 import { EditorAssistantResponseSchema, ToolOpSchema } from './editorOps';
+import { explicitContextResolver } from '@/utils/utilities/explicitContextResolver';
 import { BaseEditorAssistant, type EditorAssistantMessageInput, type EditorAssistantResponse, EditorAssistantError } from './BaseEditorAssistant';
 
 /**
@@ -8,11 +9,11 @@ import { BaseEditorAssistant, type EditorAssistantMessageInput, type EditorAssis
  */
 export class ToolEditorAssistant extends BaseEditorAssistant {
   async processMessage(input: EditorAssistantMessageInput): Promise<EditorAssistantResponse> {
-    const { userId, conversationId, message, context, onToken, signal } = input;
+    const { userId, conversationId, message, context, onToken, signal, options } = input;
     const model = process.env.OPENAI_MODEL || 'gpt-4o-mini';
 
     await prisma.aiMessage.create({
-      data: { conversationId, role: 'USER', content: message },
+      data: { conversationId, role: 'USER', content: message, attachments: options?.attachments },
     });
 
     const system = [
@@ -47,16 +48,19 @@ export class ToolEditorAssistant extends BaseEditorAssistant {
       'If you are unsure or the request is vague, ask for clarification in assistantText and return an empty proposedOps array.',
     ].join('\n');
 
+    const explicitContextStr = await explicitContextResolver.resolve(userId, options);
+
     const userContent = [
       'Context represents the tool editor state (tool meta, inputs/outputs, ordered steps).',
       'Context JSON:',
       JSON.stringify(context),
       '',
+      explicitContextStr,
       'User message:',
       message,
       '',
       'Return JSON only.',
-    ].join('\n');
+    ].filter(Boolean).join('\n');
 
     const messages = [
       { role: 'system' as const, content: system },

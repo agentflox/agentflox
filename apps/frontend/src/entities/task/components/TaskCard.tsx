@@ -3,7 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import {
 	GitBranch, UserIcon, Bot, MessageSquare, Paperclip,
-	Calendar, CheckCircle2, MoreVertical, Flag, Target, ListIcon, FileText
+	Calendar, CheckCircle2, MoreVertical, Flag, Target, ListIcon, FileText, PenSquare, Trash2, ArrowRight
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
@@ -13,6 +13,7 @@ import {
 	DropdownMenu,
 	DropdownMenuContent,
 	DropdownMenuItem,
+	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { TaskTypeIcon } from "./TaskTypeIcon";
@@ -59,6 +60,7 @@ type Props = {
 	className?: string;
 	isSelected?: boolean;
 	onSelect?: (id: string, selected: boolean) => void;
+	onDelete?: (id: string) => void;
 };
 
 const getStatusColor = (status: string | null | undefined) => {
@@ -82,7 +84,7 @@ const getPriorityIcon = (priority: string | null | undefined) => {
 	}
 };
 
-export function TaskCard({ item, onOpen, onConvert, className, isSelected, onSelect }: Props) {
+export function TaskCard({ item, onOpen, onConvert, className, isSelected, onSelect, onDelete }: Props) {
 	const statusLabel = typeof item.status === 'object' ? (item as any).status?.name : item.status;
 
 	// Format date if needed
@@ -92,8 +94,8 @@ export function TaskCard({ item, onOpen, onConvert, className, isSelected, onSel
 	return (
 		<div
 			className={cn(
-				"group relative flex flex-col bg-white rounded-lg border shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer overflow-hidden",
-				isSelected ? "border-blue-400 ring-1 ring-blue-200 bg-blue-50/20" : "border-zinc-200 hover:border-zinc-300",
+				"group relative flex flex-col bg-white rounded-lg border shadow-sm hover:shadow-md transition-all duration-300 cursor-pointer overflow-hidden h-full",
+				isSelected ? "border-emerald-300 ring-2 ring-emerald-200 bg-emerald-50/20" : "border-slate-200 hover:border-emerald-300 hover:shadow-emerald-500/10",
 				className
 			)}
 			onClick={() => onOpen?.(item.id)}
@@ -103,9 +105,48 @@ export function TaskCard({ item, onOpen, onConvert, className, isSelected, onSel
 				<div className="absolute left-0 top-0 bottom-0 w-1 bg-red-500" />
 			)}
 
-			<div className="p-3 pt-10 flex flex-col gap-2">
-				{/* Header: Project/Context & Actions */}
-				<div className="flex items-center justify-between text-[10px] text-zinc-500 font-medium uppercase tracking-wider">
+			{/* Checkbox — top left, visible on hover or when selected */}
+			<div
+				className={cn(
+					"absolute top-2 left-3 z-10 transition-opacity",
+					isSelected ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+				)}
+				onClick={(e) => { e.stopPropagation(); onSelect?.(item.id, !isSelected); }}
+			>
+				<Checkbox
+					checked={isSelected}
+					onCheckedChange={(checked) => onSelect?.(item.id, !!checked)}
+					className="h-4 w-4 border-slate-300 bg-white shadow-sm cursor-pointer"
+				/>
+			</div>
+
+			{/* Actions — top right, vertical dots */}
+			<div className="opacity-0 group-hover:opacity-100 transition-opacity absolute top-2 right-2 z-20">
+				<DropdownMenu>
+					<DropdownMenuTrigger asChild>
+						<Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => e.stopPropagation()}>
+							<MoreVertical className="h-4 w-4 text-zinc-400" />
+						</Button>
+					</DropdownMenuTrigger>
+					<DropdownMenuContent align="end">
+						<DropdownMenuItem onClick={(e) => { e.stopPropagation(); onOpen?.(item.id); }}>
+							<PenSquare className="mr-1 h-4 w-4" />
+							Edit Task
+						</DropdownMenuItem>
+						<DropdownMenuItem
+							onClick={(e) => { e.stopPropagation(); onDelete?.(item.id); }}
+							className="text-red-600 focus:text-red-600 dark:text-red-500 dark:focus:text-red-500"
+						>
+							<Trash2 className="mr-1 h-4 w-4" />
+							Delete Task
+						</DropdownMenuItem>
+					</DropdownMenuContent>
+				</DropdownMenu>
+			</div>
+
+			<div className="p-3 flex flex-col gap-4 flex-1 pt-12 relative z-0">
+				{/* Header: Project/Context */}
+				<div className="flex items-center justify-between text-[10px] text-zinc-500 font-medium uppercase tracking-wider -mt-4">
 					<div className="flex items-center gap-2 min-w-0">
 						<span className="truncate text-[10px] text-zinc-500 mt-0.5 font-medium italic normal-case">
 							{item.list?.locationType === 'PERSONAL' ? (
@@ -124,63 +165,41 @@ export function TaskCard({ item, onOpen, onConvert, className, isSelected, onSel
 					</div>
 
 					{item.parent && (
-						<div className="flex items-center gap-1 shrink-0 ml-2 mr-8 text-zinc-400" title={item.parent.title}>
+						<div className="flex items-center gap-1 shrink-0 ml-2 text-zinc-400" title={item.parent.title}>
 							<GitBranch className="h-3 w-3" />
 							<span className="truncate text-[10px] max-w-[80px]">{item.parent.title}</span>
 						</div>
 					)}
-
-
-					{/* Checkbox — top left, visible on hover or when selected */}
-					<div
-						className={cn(
-							"absolute top-2 left-2 z-10 transition-opacity",
-							isSelected ? "opacity-100" : "opacity-0 group-hover:opacity-100"
-						)}
-						onClick={(e) => { e.stopPropagation(); onSelect?.(item.id, !isSelected); }}
-					>
-						<Checkbox
-							checked={isSelected}
-							onCheckedChange={(checked) => onSelect?.(item.id, !!checked)}
-							className="h-4 w-4 border-zinc-300 bg-white shadow-sm cursor-pointer"
-						/>
-					</div>
-
-					{/* Actions — top right, vertical dots */}
-					<div className="opacity-0 group-hover:opacity-100 transition-opacity absolute top-2 right-2">
-						<DropdownMenu>
-							<DropdownMenuTrigger asChild>
-								<Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => e.stopPropagation()}>
-									<MoreVertical className="h-4 w-4 text-zinc-400" />
-								</Button>
-							</DropdownMenuTrigger>
-							<DropdownMenuContent align="end">
-								<DropdownMenuItem onClick={(e) => { e.stopPropagation(); onOpen?.(item.id); }}>View Details</DropdownMenuItem>
-								<DropdownMenuItem onClick={(e) => { e.stopPropagation(); onConvert?.(item.id); }}>Convert to Proposal</DropdownMenuItem>
-							</DropdownMenuContent>
-						</DropdownMenu>
-					</div>
 				</div>
 
 				{/* Title & Description */}
-				<div className="flex flex-col gap-1">
-					<div className="flex items-center gap-2">
-						<div className="h-3.5 w-3.5 flex items-center justify-center flex-shrink-0">
-							{item.taskType ? (
-								<TaskTypeIcon type={item.taskType} className="h-3.5 w-3.5" />
-							) : (
-								<div className={cn("h-3 w-3 rounded-full border flex-shrink-0", getStatusColor(statusLabel))} />
-							)}
+				<div className="min-w-0 space-y-2.5 flex-1">
+					<div className="flex items-start justify-between gap-4">
+						<div className="flex items-center gap-2">
+							<div className="h-4 w-4 flex items-center justify-center flex-shrink-0">
+								{item.taskType ? (
+									<TaskTypeIcon type={item.taskType} className="h-4 w-4" />
+								) : (
+									<div className={cn("h-3.5 w-3.5 rounded-full border flex-shrink-0", getStatusColor(statusLabel))} />
+								)}
+							</div>
+							<h3 className={cn(
+								"font-medium text-base leading-snug line-clamp-1 transition-colors duration-200",
+								isSelected ? "text-indigo-700" : "text-slate-900 group-hover:text-indigo-700"
+							)}>
+								{item.title || "Untitled Task"}
+							</h3>
 						</div>
-						<h3 className="text-sm font-medium text-zinc-900 leading-snug truncate">
-							{item.title}
-						</h3>
 					</div>
-					{item.description && (
+					{item.description ? (
 						<div
-							className="text-xs text-zinc-500 line-clamp-2"
+							className="line-clamp-2 text-sm text-slate-500 leading-relaxed"
 							dangerouslySetInnerHTML={{ __html: item.description }}
 						/>
+					) : (
+						<p className="line-clamp-2 text-sm text-slate-500 leading-relaxed">
+							No description provided.
+						</p>
 					)}
 				</div>
 
@@ -193,55 +212,22 @@ export function TaskCard({ item, onOpen, onConvert, className, isSelected, onSel
                     )}
                 </div> */}
 
-				{/* Footer: Meta Info & Assignees */}
-				<div className="flex items-center justify-between mt-2 pt-2 border-t border-zinc-50 h-8">
-					<div className="flex items-center gap-3 text-zinc-400">
-						{getPriorityIcon(item.priority as any)}
+				{/* Footer */}
+				<div className="mt-auto flex flex-col gap-4">
+					<div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-400">
+						<div className="flex items-center gap-1.5">
+							<Calendar className="h-3.5 w-3.5 text-slate-300" />
+							<span className="font-medium">
+								{item.updatedAt ? `Updated ${new Date(item.updatedAt).toLocaleDateString()}` : "No recent activity"}
+							</span>
+						</div>
 
-						{dueDate && (
-							<div className={cn("flex items-center gap-1 text-[11px]", isOverdue ? "text-red-500 font-medium" : "")}>
-								<Calendar className="h-3 w-3" />
-								<span>{dueDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</span>
-							</div>
-						)}
-
-						{(item._count?.comments || 0) > 0 && (
-							<div className="flex items-center gap-1 text-[11px]">
-								<MessageSquare className="h-3 w-3" />
-								<span>{item._count?.comments}</span>
-							</div>
-						)}
-
-						{(item.subtasks?.length || 0) > 0 && (
-							<div className="flex items-center gap-1 text-[11px]">
-								<CheckCircle2 className="h-3 w-3" />
-								<span>{item.subtasks?.length}</span>
-							</div>
-						)}
-					</div>
-
-					<div className="flex -space-x-1.5">
-						{item.assignee ? (
-							<Avatar className="h-5 w-5 border border-white ring-1 ring-zinc-100">
-								<AvatarImage src={item.assignee.image || undefined} />
-								<AvatarFallback className="text-[8px] bg-blue-100 text-blue-700">
-									{item.assignee.name?.substring(0, 1).toUpperCase()}
-								</AvatarFallback>
-							</Avatar>
-						) : item.assignees && item.assignees.length > 0 ? (
-							item.assignees.slice(0, 3).map((a, i) => (
-								<Avatar key={i} className="h-5 w-5 border border-white ring-1 ring-zinc-100">
-									<AvatarImage src={a.user?.image || undefined} />
-									<AvatarFallback className="text-[8px] bg-blue-100 text-blue-700">
-										{a.user?.name?.substring(0, 1).toUpperCase()}
-									</AvatarFallback>
-								</Avatar>
-							))
-						) : (
-							<div className="h-5 w-5 rounded-full border border-dashed border-zinc-300 flex items-center justify-center">
-								<UserIcon className="h-3 w-3 text-zinc-300" />
-							</div>
-						)}
+						<div className={cn(
+							"flex items-center gap-1 font-bold opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-300 text-indigo-600"
+						)}>
+							<span>View</span>
+							<ArrowRight className="h-3.5 w-3.5 transition-transform duration-300 group-hover:translate-x-0.5" />
+						</div>
 					</div>
 				</div>
 			</div>

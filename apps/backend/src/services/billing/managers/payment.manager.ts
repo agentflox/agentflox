@@ -234,7 +234,7 @@ export class PaymentManager {
           // But PaymentStatus.REFUNDED might be clearer.
           // Let's stick to original logic for the new record status unless audit complained.
           // Audit complained about "money stays in Stripe".
-          status: PaymentStatus.SUCCEEDED,
+          // Use REFUNDED for clarity
           billingPeriodStart: payment.billingPeriodStart,
           billingPeriodEnd: payment.billingPeriodEnd,
           billingType: 'SUBSCRIPTION' as any,

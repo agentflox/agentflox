@@ -1,4 +1,4 @@
-import { Button } from "@/components/ui/button";
+"use client";
 import { Plus, Settings, Users } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
@@ -6,24 +6,29 @@ interface VerticalToolRailProps {
   onAddClick: () => void;
   onMembersClick?: () => void;
   onSettingsClick: () => void;
+  activeItem?: "add" | "members" | "settings";
   className?: string;
 }
 
-export function VerticalToolRail({ onAddClick, onMembersClick, onSettingsClick, className = "" }: VerticalToolRailProps) {
+export function VerticalToolRail({ onAddClick, onMembersClick, onSettingsClick, activeItem, className = "" }: VerticalToolRailProps) {
+  const baseBtn = "flex h-7 w-7 items-center justify-center rounded-lg transition-colors cursor-pointer";
+  const activeBtn = "bg-slate-900 text-white";
+  const inactiveBtn = "text-slate-600 hover:bg-slate-100";
+
   return (
-    <div className={`absolute right-0 top-20 z-[55] hidden lg:flex flex-col items-center gap-4 p-2 bg-background/80 backdrop-blur-sm rounded-l-lg border border-border shadow-lg ${className}`}>
+    <div className={`absolute right-2 top-20 z-[70] hidden lg:flex flex-col items-center gap-1 py-2 px-0.5 bg-white/90 backdrop-blur-md rounded-md border border-slate-200/60 shadow-sm ${className}`}>
       <TooltipProvider delayDuration={300}>
         <Tooltip>
           <TooltipTrigger asChild>
-            <button 
-              className="flex h-6 w-6 items-center justify-center rounded-full bg-background hover:bg-accent hover:text-accent-foreground transition-colors border shadow-sm"
+            <button
+              className={`${baseBtn} ${activeItem === "add" ? activeBtn : inactiveBtn}`}
               onClick={onAddClick}
               aria-label="Add new item"
             >
-              <Plus className="h-5 w-5" />
+              <Plus className="h-4 w-4" />
             </button>
           </TooltipTrigger>
-          <TooltipContent side="left">
+          <TooltipContent side="left" className="z-[80]">
             <p>Add new item</p>
           </TooltipContent>
         </Tooltip>
@@ -32,30 +37,32 @@ export function VerticalToolRail({ onAddClick, onMembersClick, onSettingsClick, 
           <Tooltip>
             <TooltipTrigger asChild>
               <button
-                className="flex h-6 w-6 items-center justify-center rounded-full bg-background hover:bg-accent hover:text-accent-foreground transition-colors border shadow-sm"
+                className={`${baseBtn} ${activeItem === "members" ? activeBtn : inactiveBtn}`}
                 onClick={onMembersClick}
                 aria-label="Manage members"
               >
-                <Users className="h-5 w-5" />
+                <Users className="h-4 w-4" />
               </button>
             </TooltipTrigger>
-            <TooltipContent side="left">
+            <TooltipContent side="left" className="z-[80]">
               <p>Members</p>
             </TooltipContent>
           </Tooltip>
         )}
 
+        <div className="w-5 h-px bg-slate-200 my-1" />
+
         <Tooltip>
           <TooltipTrigger asChild>
-            <button 
-              className="flex h-6 w-6 items-center justify-center rounded-full bg-background hover:bg-accent hover:text-accent-foreground transition-colors border shadow-sm"
+            <button
+              className={`${baseBtn} ${activeItem === "settings" ? activeBtn : inactiveBtn}`}
               onClick={onSettingsClick}
               aria-label="Space settings"
             >
-              <Settings className="h-5 w-5" />
+              <Settings className="h-4 w-4" />
             </button>
           </TooltipTrigger>
-          <TooltipContent side="left">
+          <TooltipContent side="left" className="z-[80]">
             <p>Space settings</p>
           </TooltipContent>
         </Tooltip>

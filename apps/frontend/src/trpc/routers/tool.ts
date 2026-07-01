@@ -104,16 +104,63 @@ export const toolRouter = router({
       });
     }),
 
+  deleteMany: protectedProcedure
+    .input(z.object({ ids: z.array(z.string()) }))
+    .mutation(async ({ ctx, input }) => {
+      const userId = ctx.session!.user!.id;
+      await prisma.compositeTool.deleteMany({
+        where: {
+          id: { in: input.ids },
+          ownerId: userId,
+        },
+      });
+      return { success: true };
+    }),
+
+
   get: protectedProcedure
-    .input(z.object({ id: z.string() }))
+    .input(z.object({
+      id: z.string(),
+      conversationType: z.string().optional(),
+    }))
     .query(async ({ ctx, input }) => {
       const userId = ctx.session!.user!.id;
-      return prisma.tool.findFirst({
+
+      const composite = await prisma.compositeTool.findFirst({
+        where: {
+          id: input.id,
+          OR: [{ ownerId: userId }, { isPublic: true }],
+        },
+        include: {
+          aiConversations: {
+            where: {
+              conversationType: (input.conversationType || 'TOOL_BUILDER') as any
+            },
+            orderBy: { createdAt: 'desc' },
+            take: 1,
+          },
+        },
+      });
+
+      if (composite) {
+        // Map aiConversations to conversations for the frontend
+        return {
+          ...composite,
+          conversations: composite.aiConversations,
+          systemPrompt: composite.systemPrompt ?? '',
+          steps: composite.steps as any[] ?? [],
+          status: 'DRAFT', // Default to avoid frontend crashes
+        };
+      }
+
+      const tool = await prisma.tool.findFirst({
         where: {
           id: input.id,
           OR: [{ ownerId: userId }, { isPublic: true }],
         },
       });
+
+      return tool ? { ...tool, conversations: [] } : null;
     }),
 
   create: protectedProcedure

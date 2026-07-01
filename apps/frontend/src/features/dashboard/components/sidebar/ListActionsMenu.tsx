@@ -42,11 +42,12 @@ import { TemplateMenuPopover } from "@/entities/templates/components/TemplateMen
 interface ListActionsMenuProps {
     workspaceId: string;
     spaceId?: string;
+    projectId?: string;
     listId: string;
     trigger?: React.ReactNode;
 }
 
-export function ListActionsMenu({ workspaceId, spaceId, listId, trigger }: ListActionsMenuProps) {
+export function ListActionsMenu({ workspaceId, spaceId, projectId, listId, trigger }: ListActionsMenuProps) {
     const { toast } = useToast();
     const utils = trpc.useUtils();
     const queryClient = useQueryClient();
@@ -60,8 +61,8 @@ export function ListActionsMenu({ workspaceId, spaceId, listId, trigger }: ListA
     const [shareModalOpen, setShareModalOpen] = useState(false);
 
     const { data: listsData } = trpc.list.byContext.useQuery(
-        { spaceId, workspaceId },
-        { enabled: !!(spaceId || workspaceId) }
+        { spaceId, projectId, workspaceId },
+        { enabled: !!(spaceId || projectId || workspaceId) }
     );
 
     const list = listsData?.items?.find((l: any) => l.id === listId);
@@ -78,7 +79,9 @@ export function ListActionsMenu({ workspaceId, spaceId, listId, trigger }: ListA
     });
 
     const handleCopyLink = () => {
-        const url = `${window.location.origin}${window.location.pathname}?list=${listId}`;
+        const url = projectId
+            ? `${window.location.origin}${window.location.pathname}?pj=${projectId}&list=${listId}`
+            : `${window.location.origin}${window.location.pathname}?list=${listId}`;
         navigator.clipboard.writeText(url);
         toast({ title: "Link copied to clipboard" });
     };
@@ -128,7 +131,7 @@ export function ListActionsMenu({ workspaceId, spaceId, listId, trigger }: ListA
                             id: listId,
                             workspaceId,
                             spaceId: list?.spaceId ?? spaceId ?? undefined,
-                            projectId: list?.projectId ?? undefined,
+                            projectId: list?.projectId ?? projectId ?? undefined,
                             teamId: list?.teamId ?? undefined,
                             folderId: list?.folderId ?? undefined,
                             listId,

@@ -25,6 +25,7 @@ import { ConnectLinkModal, LINK_ATTACHMENT_MIME_TYPE } from './ConnectLinkModal'
 import { trpc } from '@/lib/trpc';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
+import { Separator } from '@/components/ui/separator';
 
 const QUICK_ICONS = [
     { icon: FileText, label: 'Document', color: 'text-blue-600' },

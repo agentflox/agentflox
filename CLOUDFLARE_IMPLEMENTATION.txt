@@ -1,0 +1,139 @@
+Your stack is Vercel (frontend + /api/trpc) and Render (API + Socket.IO). Cloudflare sits best in front of your custom domains, not the raw *.vercel.app / *.onrender.com URLs.
+
+Recommended architecture
+User
+  ↓
+Cloudflare (DDoS + WAF + rate limits)
+  ├─ app.agentflox.com      → Vercel (Next.js + tRPC)
+  ├─ api.agentflox.com      → Render API (NestJS)
+  └─ ws.agentflox.com       → Render Socket.IO
+Cloudflare absorbs volumetric attacks before they hit Vercel/Render. Your in-app rate limits remain a second layer.
+
+Step 1: Move DNS to Cloudflare
+Create a Cloudflare account and add your domain (e.g. agentflox.com).
+Cloudflare gives you two nameservers — update those at your registrar.
+Wait for DNS to activate (usually minutes to a few hours).
+Step 2: Frontend (Vercel)
+In Vercel: Project → Settings → Domains → add app.agentflox.com (or use apex agentflox.com).
+
+In Cloudflare DNS:
+
+Type	Name	Target	Proxy
+CNAME
+app
+cname.vercel-dns.com
+Proxied (orange cloud)
+SSL/TLS (Cloudflare → SSL/TLS):
+
+Set mode to Full (strict).
+Enable Always Use HTTPS.
+Vercel note: If you use the apex domain, follow Vercel’s custom domain + Cloudflare docs.
+
+Update env:
+
+NEXT_PUBLIC_SERVER_URL=https://api.agentflox.com
+NEXTAUTH_URL=https://app.agentflox.com
+Step 3: Backend API (Render)
+In Render: Web service → Settings → Custom Domains → add api.agentflox.com.
+
+In Cloudflare:
+
+Type	Name	Target	Proxy
+CNAME
+api
+<your-service>.onrender.com
+Proxied
+On Render, set:
+
+CORS_ORIGIN=https://app.agentflox.com
+METRICS_TOKEN=<strong-random-token>
+Do not use CORS_ORIGIN=* in production.
+
+Step 4: WebSockets (Socket.IO)
+Type	Name	Target	Proxy
+CNAME
+ws
+<socket-service>.onrender.com
+Proxied
+Cloudflare proxies WebSockets on all plans. Point the frontend at wss://ws.agentflox.com (not the raw Render URL).
+
+Network → WebSockets: ensure enabled (default on).
+
+Step 5: DDoS protection (automatic)
+With Proxied records, you get on all plans:
+
+L3/L4 DDoS mitigation
+HTTP DDoS mitigation
+Bot scoring (basic)
+No extra config required for baseline protection.
+
+Step 6: Rate limiting & WAF (important for your app)
+Your expensive routes (/api/trpc, /chat, /v1/agents, webhooks) should be rate-limited at the edge.
+
+Security → WAF → Rate limiting rules (needs Pro or use WAF custom rules on Free with limits):
+
+Rule	Match	Action
+tRPC abuse
+http.host eq "app.agentflox.com" and http.request.uri.path contains "/api/trpc"
+Block/challenge after ~100 req/min per IP
+Chat/upload
+http.host eq "api.agentflox.com" and http.request.uri.path in {"/chat" "/chat/upload"}
+30 req/min per IP
+Auth endpoints
+path contains /api/auth
+20 req/min per IP
+Free tier alternative: Security → Settings → turn on Bot Fight Mode and Browser Integrity Check.
+
+Webhook exceptions — do not rate-limit these aggressively:
+
+http.request.uri.path contains "/api/billing/stripe/webhook"
+or http.request.uri.path contains "/api/billing/paypal/webhook"
+or http.request.uri.path contains "/api/inngest"
+Stripe/PayPal need stable paths; Inngest needs reliable delivery.
+
+Step 7: Hide origin (optional but strong)
+Without this, attackers can bypass Cloudflare using *.onrender.com directly.
+
+In Render, restrict inbound traffic to Cloudflare IP ranges (Render firewall or a small allowlist if available).
+Or use Cloudflare Tunnel (advanced) so Render has no public ingress except through CF.
+On Free, at minimum: don’t publish the raw Render URL in the frontend; use only api.agentflox.com.
+
+Step 8: Trust real client IPs (backend)
+Behind Cloudflare, req.ip should use CF-Connecting-IP. Your rate limiter uses x-forwarded-for — that’s fine if Render forwards Cloudflare headers. Optionally validate requests come from Cloudflare IPs before trusting those headers (defense against direct origin access).
+
+Step 9: Checklist after go-live
+
+ app.agentflox.com loads over HTTPS
+
+ Login / tRPC works (/api/trpc)
+
+ API calls hit https://api.agentflox.com (not localhost or onrender.com)
+
+ WebSockets connect on wss://ws.agentflox.com
+
+ Stripe/PayPal webhooks still succeed (check dashboard logs)
+
+ Inngest dev/prod sync works on /api/inngest
+
+ CORS_ORIGIN matches your app domain only
+
+ /metrics requires METRICS_TOKEN (already in your code)
+Plan recommendation
+Plan	Good for
+Free
+Basic DDoS, DNS, SSL, Bot Fight Mode
+Pro (~$20/mo)
+WAF rate limiting rules, more page rules, better analytics
+Business
+Advanced DDoS, custom WAF rules at scale
+For Agentflox (API + LLM + uploads + websockets), Pro is the practical minimum if you want edge rate limits.
+
+What Cloudflare does not replace
+App-level authz (your recent fixes)
+METRICS_TOKEN, webhook verification, JWT auth
+Redis/app rate limits (keep as backup)
+Database connection limits under application-layer floods
+If you want, I can next:
+
+Draft the exact Cloudflare WAF rules as importable expressions for your routes, or
+Add a small “trust Cloudflare IP + CF-Connecting-IP” middleware patch to the backend.

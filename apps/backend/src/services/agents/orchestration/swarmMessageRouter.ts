@@ -810,11 +810,11 @@ export async function routeSwarmMessage(params: {
     if (session?.config?.agentIds) {
       agentIds = session.config.agentIds;
     } else {
-      const workspaceAgents = await prisma.workspaceAgent.findMany({
+      const workspaceAgents = await (prisma as any).workspaceAgent.findMany({
         where: { workspaceId },
         select: { agentId: true },
       });
-      agentIds = workspaceAgents.map(wa => wa.agentId);
+      agentIds = workspaceAgents.map((wa: any) => wa.agentId);
     }
 
     const [agents, tasks] = await Promise.all([

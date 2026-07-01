@@ -1,4 +1,4 @@
-import { WorkforceEdge, WorkforceEdgeData, WorkforceNode } from "./store/useWorkforceStore";
+import { WorkforceEdge, WorkforceEdgeData, WorkforceNode } from "../../../../entities/workforce/hooks/useWorkforceStore";
 
 export type WorkforceTemplateId =
   | "lead-research-enrichment"

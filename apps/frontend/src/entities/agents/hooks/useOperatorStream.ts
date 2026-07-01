@@ -6,6 +6,16 @@ import type { AgentStreamCallbacks, UseAgentStreamReturn, ThinkingStep } from '.
 
 export type { ThinkingStep };
 
+export interface Attachment {
+    type: 'text' | 'file';
+    content?: string;
+    chunks?: string[];
+    fileId?: string;
+    url: string;
+    filename: string;
+    mimeType: string;
+}
+
 export interface OperatorStreamCallbacks extends AgentStreamCallbacks { }
 
 export interface UseOperatorStreamReturn extends Omit<UseAgentStreamReturn, 'sendMessage'> {
@@ -13,6 +23,9 @@ export interface UseOperatorStreamReturn extends Omit<UseAgentStreamReturn, 'sen
         agentId: string;
         conversationId: string;
         message: string;
+        contexts?: Array<{ type: string; id: string }>;
+        mentions?: Array<{ id: string; name: string; type: 'agent' | 'task' }>;
+        attachments?: Attachment[];
     }) => Promise<void>;
 }
 
@@ -27,14 +40,26 @@ export function useOperatorStream(callbacks: OperatorStreamCallbacks = {}): UseO
         agentId,
         conversationId,
         message,
+        contexts,
+        mentions,
+        attachments,
     }: {
         agentId: string;
         conversationId: string;
         message: string;
+        contexts?: Array<{ type: string; id: string }>;
+        mentions?: Array<{ id: string; name: string; type: 'agent' | 'task' }>;
+        attachments?: Attachment[];
     }) => {
         await genericSend({
             url: `${BACKEND_URL}/v1/agents/${agentId}/operator/message-stream`,
-            body: { conversationId, message },
+            body: {
+                conversationId,
+                message,
+                ...(contexts?.length ? { contexts } : {}),
+                ...(mentions?.length ? { mentions } : {}),
+                ...(attachments?.length ? { attachments } : {}),
+            },
         });
     }, [genericSend]);
 

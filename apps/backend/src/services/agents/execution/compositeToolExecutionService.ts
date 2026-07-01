@@ -3,12 +3,29 @@ import { CodeExecutorService } from './codeExecutor';
 import { executeApiIntegrationTool } from './apiIntegrationExecutor';
 import { openai } from '@/lib/openai';
 import logger from '@/lib/logger';
+import { updateAgentUsage } from '@/utils/ai/agentUsageTracking';
+
+/**
+ * Step types as produced by both the Flow Builder and AI Builder.
+ * The Flow builder stores: PYTHON, JAVASCRIPT, LLM, API, SYSTEM_TOOL, LOOP, BRANCH
+ * Old legacy types (transform_python etc.) are also supported for backwards compat.
+ */
+export type StepType =
+  | 'PYTHON' | 'JAVASCRIPT' | 'LLM' | 'API' | 'SYSTEM_TOOL' | 'LOOP' | 'BRANCH'
+  | 'RUN_CHAIN' | 'IMAGE'
+  | 'transform_python' | 'transform_javascript' | 'transform_llm' | 'transform_api';
 
 export interface CompositeToolStep {
   id: string;
-  type: 'transform_llm' | 'transform_python' | 'transform_javascript' | 'transform_api';
+  /** varName is how other steps reference this step's output: params.{varName} */
+  varName?: string;
   name: string;
+  type: StepType | string;
   config: any;
+  /** Relevance AI: output variable aliases e.g. { transformed: "{{transformed}}", stdout: "{{stdout}}" } */
+  output?: Record<string, string>;
+  /** Relevance AI: run this step for each item in an array expression e.g. "{{steps.prev.items}}" */
+  foreach?: string;
 }
 
 export interface CompositeExecutionResult {
@@ -36,44 +53,113 @@ export class CompositeToolExecutionService {
     }
 
     const steps = (tool.steps as unknown as CompositeToolStep[]) || [];
+
+    // stepResults keyed by step id, varName, and name — accessed via context.steps.*
     const stepResults: Record<string, any> = {};
-    const context: Record<string, any> = { input, inputs: input, steps: stepResults };
+
+    // params starts as the tool input (field-by-field), and grows with each step result
+    // so Python code can do: params.get('pdf_file_url') OR params.get('step1_result')
+    const params: Record<string, any> = { ...(input ?? {}) };
+
+    // Full execution context
+    const context: Record<string, any> = {
+      input,
+      inputs: input,
+      params,
+      steps: stepResults,
+    };
 
     onProgress?.({ type: 'thinking', content: `Starting composite tool execution: ${tool.name}` });
 
     try {
       let stepIndex = 1;
       for (const step of steps) {
-        onProgress?.({ type: 'thinking', content: `Executing step: ${step.name} (${step.type})`, metadata: { stepId: step.id } });
+        onProgress?.({
+          type: 'thinking',
+          content: `Executing step: ${step.name || step.id} (${step.type})`,
+          metadata: { stepId: step.id },
+        });
 
+        // Execute the step, respecting foreach (loop) if present
         let result: any;
-        result = await this.executeOneStep(step, context, userId);
-
-        stepResults[step.id] = result;
-        context[step.id] = result;
-
-        // Alias by positional index (e.g., step_1)
-        const positionalAlias = `step_${stepIndex}`;
-        stepResults[positionalAlias] = result;
-        context[positionalAlias] = result;
-
-        // Alias by name and safe name
-        if (step.name) {
-          stepResults[step.name] = result;
-          context[step.name] = result;
-          const safeName = step.name.replace(/[^a-zA-Z0-9_]/g, '_');
-          stepResults[safeName] = result;
-          context[safeName] = result;
+        const foreachExpr: string | undefined = (step as any).foreach;
+        if (foreachExpr && foreachExpr.trim()) {
+          // Resolve the array to iterate over
+          const arrPath = foreachExpr.trim().replace(/^\{\{|\}\}$/g, '').trim();
+          const arr = arrPath.split('.').reduce((obj: any, k: string) => obj?.[k], context);
+          if (Array.isArray(arr)) {
+            const results: any[] = [];
+            for (const item of arr) {
+              const itemParams = { ...params, each: item };
+              const itemResult = await this.executeOneStep(step, { ...context, each: item }, itemParams, userId);
+              results.push(itemResult);
+            }
+            result = results;
+          } else {
+            result = await this.executeOneStep(step, context, params, userId);
+          }
+        } else {
+          result = await this.executeOneStep(step, context, params, userId);
         }
+
+        // Build all aliases for this step's result
+        // In our format: step.varName is set (e.g. "extract_text")
+        // In Relevance AI format: step.name is the short id (e.g. "python")
+        const identifier = step.varName || this.safeIdentifier(step.name) || step.id;
+        const positionalAlias = `step_${stepIndex}`;
+
+        // Build a Relevance AI-compatible output object using the step's output mapping
+        // e.g. { transformed: {{transformed}}, stdout: {{stdout}} } → resolved against raw result
+        let storedResult = result;
+        const outputMap = (step as any).output;
+        if (outputMap && typeof outputMap === 'object' && result && typeof result === 'object') {
+          // The step result IS the context for resolving output aliases
+          const stepCtx = result;
+          storedResult = {};
+          for (const [outKey] of Object.entries(outputMap)) {
+            // For Python/JS: transformed=result value, stdout/stderr from result object
+            storedResult[outKey] = stepCtx[outKey] ?? result;
+          }
+          // Also always expose the raw result as 'transformed' for compat
+          if (!storedResult.transformed) storedResult.transformed = result;
+        } else if (result && typeof result === 'object' && !Array.isArray(result) && !('transformed' in result)) {
+          // Wrap plain objects in Relevance AI output shape for {{step.transformed}} compat
+          storedResult = { transformed: result, ...result };
+        }
+
+        // Store in stepResults (accessible via steps.{varName} in variable expressions)
+        if (step.id) stepResults[step.id] = storedResult;
+        stepResults[identifier] = storedResult;
+        stepResults[positionalAlias] = storedResult;
+
+        // Merge step result into params so subsequent steps can access via params.{varName}
+        params[identifier] = storedResult;
+        params[positionalAlias] = storedResult;
+        // Flat spread: params.{identifier}_{key} for nested field access
+        if (storedResult && typeof storedResult === 'object' && !Array.isArray(storedResult)) {
+          for (const [key, val] of Object.entries(storedResult)) {
+            params[`${identifier}_${key}`] = val;
+            // Also spread one level deeper for transformed.{field} access
+            if (key === 'transformed' && val && typeof val === 'object' && !Array.isArray(val)) {
+              for (const [tf, tv] of Object.entries(val as object)) {
+                params[`${identifier}_${tf}`] = tv;
+              }
+            }
+          }
+        }
+
+        // Keep context in sync
+        context[identifier] = storedResult;
+        if (step.id) context[step.id] = storedResult;
+        context[positionalAlias] = storedResult;
 
         stepIndex++;
 
-        // If step defines specific output mapping
-        if (step.config?.outputMapping) {
-          // TODO: Implement output mapping
-        }
-
-        onProgress?.({ type: 'thinking', content: `Step ${step.name} completed successfully`, metadata: { stepId: step.id, result: result } });
+        onProgress?.({
+          type: 'thinking',
+          content: `Step ${step.name || step.id} completed`,
+          metadata: { stepId: step.id, result },
+        });
       }
 
       // ── Build final output ──────────────────────────────────────────────
@@ -84,14 +170,11 @@ export class CompositeToolExecutionService {
       let finalOutput: any;
 
       if (outputMode === 'manual' && Object.keys(returnProps).length > 0) {
-        // Build output object by resolving each field's x-expression
         finalOutput = {};
         for (const [key, fieldSchema] of Object.entries(returnProps) as [string, any][]) {
           const expr: string | undefined = fieldSchema?.['x-expression'];
           if (expr) {
-            // Unwrap {{ … }} if present
             const path = expr.trim().replace(/^\{\{|\}\}$/g, '').trim();
-            // Resolve via dot-path against context
             const resolved = path.split('.').reduce((obj: any, k: string) => obj?.[k], context);
             finalOutput[key] = resolved !== undefined ? resolved : null;
           } else {
@@ -102,58 +185,95 @@ export class CompositeToolExecutionService {
         finalOutput = stepResults[steps[steps.length - 1]?.id] ?? null;
       }
 
-      onProgress?.({ type: 'complete', content: typeof finalOutput === 'string' ? finalOutput : JSON.stringify(finalOutput, null, 2), metadata: { result: finalOutput } });
+      onProgress?.({
+        type: 'complete',
+        content: typeof finalOutput === 'string' ? finalOutput : JSON.stringify(finalOutput, null, 2),
+        metadata: { result: finalOutput },
+      });
 
-      return {
-        success: true,
-        output: finalOutput,
-        steps: stepResults,
-      };
+      return { success: true, output: finalOutput, steps: stepResults };
     } catch (err: any) {
       logger.error(`Composite tool execution failed: ${err.message}`, { toolId, userId });
       onProgress?.({ type: 'error', content: err.message });
-      return {
-        success: false,
-        output: null,
-        steps: stepResults,
-        error: err.message,
-      };
+      return { success: false, output: null, steps: stepResults, error: err.message };
     }
   }
 
-  public async executeOneStep(step: CompositeToolStep, context: any, userId: string): Promise<any> {
-    switch (step.type) {
-      case 'LLM' as any:
-        return await this.executeLlmStep(step, context);
-      case 'PYTHON' as any:
-        return await this.executePythonStep(step, context, userId);
-      case 'JAVASCRIPT' as any:
-        return await this.executeJavascriptStep(step, context, userId);
-      case 'API' as any:
+  public async executeOneStep(
+    step: CompositeToolStep,
+    context: Record<string, any>,
+    params: Record<string, any>,
+    userId: string
+  ): Promise<any> {
+    // Support our format (type: 'PYTHON') AND Relevance AI format (transformation: 'python_code_transformation')
+    const rawType = step.type || (step as any).transformation || '';
+    const type = rawType.toString().toUpperCase()
+      // Explicit Relevance AI transformation IDs (must come before generic replacements)
+      .replace('PYTHON_CODE_TRANSFORMATION', 'PYTHON')
+      .replace('JS_CODE_TRANSFORMATION', 'JAVASCRIPT')
+      .replace('JAVASCRIPT_CODE_TRANSFORMATION', 'JAVASCRIPT')
+      .replace('PROMPT_COMPLETION', 'LLM')
+      .replace('API_CALL', 'API')
+      .replace('RUN_CHAIN', 'RUN_CHAIN')
+      .replace('IMAGE_FM', 'IMAGE')
+      // Legacy our-format prefixes
+      .replace('TRANSFORM_', '')
+      .replace('_TRANSFORMATION', '')
+      .replace('_CODE', '')
+      .replace('_CALL', '')
+      .trim();
+
+    switch (type) {
+      case 'LLM':
+        return await this.executeLlmStep(step, context, userId);
+      case 'PYTHON':
+        return await this.executePythonStep(step, context, params, userId);
+      case 'JAVASCRIPT':
+      case 'JS':
+        return await this.executeJavascriptStep(step, context, params, userId);
+      case 'API':
         return await this.executeApiStep(step, context, userId);
-      case 'SYSTEM_TOOL' as any:
+      case 'SYSTEM_TOOL':
         return await this.executeSystemToolStep(step, context, userId);
+      case 'RUN_CHAIN':
+        return await this.executeRunChainStep(step, context, params, userId);
+      case 'LOOP':
+        return await this.executeLoopStep(step, context, params, userId);
+      case 'BRANCH':
+        return await this.executeBranchStep(step, context, params, userId);
+      case 'IMAGE':
+        logger.warn(`IMAGE step type is not yet fully supported, returning stub for step ${step.name}`);
+        return { image_url: null, status: 'stub' };
       default:
-        throw new Error(`Unknown step type: ${step.type}`);
+        logger.warn(`Unknown step type "${step.type || (step as any).transformation}", skipping step ${step.name || step.id}`);
+        return null;
     }
+  }
+
+  private safeIdentifier(name?: string): string {
+    if (!name) return '';
+    return name.replace(/[^a-zA-Z0-9_]/g, '_').replace(/^[0-9]/, '_$&');
   }
 
   private resolveVariables(text: string, context: any): string {
     if (typeof text !== 'string') return text;
     return text.replace(/\{\{(.*?)\}\}/g, (_, path) => {
       const value = path.trim().split('.').reduce((obj: any, key: string) => obj?.[key], context);
-      return value !== undefined ? (typeof value === 'object' ? JSON.stringify(value) : String(value)) : `{{${path}}}`;
+      return value !== undefined
+        ? typeof value === 'object' ? JSON.stringify(value) : String(value)
+        : `{{${path}}}`;
     });
   }
 
-  private async executeLlmStep(step: CompositeToolStep, context: any) {
-    const { prompt, systemPrompt, model = 'gpt-4o-mini', temperature = 0.7, maxTokens = 1000 } = step.config || {};
+  private async executeLlmStep(step: CompositeToolStep, context: any, userId: string) {
+    // Support both our format (config.*) and Relevance AI format (params.*)
+    const cfg = step.config || (step as any).params || {};
+    const { prompt, systemPrompt, model = 'gpt-4o-mini', temperature = 0.7, maxTokens = 1000 } = cfg;
     const resolvedPrompt = this.resolveVariables(prompt || '', context);
-    
+
     const messages: any[] = [];
     if (systemPrompt) {
-      const resolvedSystemPrompt = this.resolveVariables(systemPrompt, context);
-      messages.push({ role: 'system', content: resolvedSystemPrompt });
+      messages.push({ role: 'system', content: this.resolveVariables(systemPrompt, context) });
     }
     messages.push({ role: 'user', content: resolvedPrompt });
 
@@ -164,66 +284,128 @@ export class CompositeToolExecutionService {
       max_tokens: maxTokens,
     });
 
+    if (completion.usage) {
+      updateAgentUsage(
+        userId,
+        'System',
+        completion.usage.prompt_tokens,
+        completion.usage.completion_tokens
+      ).catch((err) => logger.error(`Failed to update usage for LLM step: ${err.message}`, { userId }));
+    }
+
     return completion.choices[0].message.content;
   }
 
-  private async executePythonStep(step: CompositeToolStep, context: any, userId: string) {
-    const { code } = step.config || {};
-    // Resolve variables in code if needed, but usually Python code fetches from `params` or `steps`
-    // The current CodeExecutorService doesn't support easy variable injection into code string, 
-    // but we can pass them in `params`.
+  /**
+   * Executes a PYTHON step.
+   *
+   * The generated code uses:
+   *   - params          — dict with all tool inputs + all prior step outputs (by varName)
+   *   - steps           — dict keyed by step varName with full result objects
+   *   - Helper("name")  — built-in helper caller (stubbed; extend as needed)
+   *   - LLM("model")    — built-in LLM caller
+   *   - result = {...}  — the return value (must assign to `result`, not `return`)
+   *
+   * NOTE: The AI builder generates `return results` at the end. We rewrite that to
+   * `result = results` before execution so the wrapper can capture it.
+   */
+  private async executePythonStep(
+    step: CompositeToolStep,
+    context: any,
+    params: Record<string, any>,
+    userId: string
+  ) {
+    // Support both our format (config.code) and Relevance AI format (params.code)
+    const cfg = step.config || (step as any).params || {};
+    const rawCode: string = cfg.code || '';
 
-    // For now, we pass the entire context as params
+    // Rewrite `return <expr>` (top-level) → `result = <expr>` so the wrapper captures it
+    const code = rawCode.replace(/^(\s*)return\s+(.+)$/gm, '$1result = $2');
+
     const result = await this.codeExecutor.execute(
-      { kind: 'PYTHON', code },
-      context.input || {},
-      context,
-      { executionDepth: 0, userId, traceId: `composite-${step.id}` },
+      { kind: 'PYTHON', code, advancedSettings: cfg }, // Passed advanced settings here
+      params,              // ← the merged params dict (inputs + prior step outputs)
+      context.steps ?? {}, // ← step results keyed by varName
+      { executionDepth: 0, userId, traceId: `composite-${step.id}`, advancedSettings: cfg }, // Passed advanced settings here
       {
         runStep: async () => ({}),
-        promptCompletion: async (p) => {
-          const c = await openai.chat.completions.create({ model: 'gpt-4o-mini', messages: [{ role: 'user', content: p }] });
+        promptCompletion: async (p: string) => {
+          const c = await openai.chat.completions.create({
+            model: 'gpt-4o-mini',
+            messages: [{ role: 'user', content: p }],
+          });
+          if (c.usage) {
+            updateAgentUsage(
+              userId,
+              'System',
+              c.usage.prompt_tokens,
+              c.usage.completion_tokens
+            ).catch((err) => logger.error(`Failed to update usage for Python LLM helper: ${err.message}`, { userId }));
+          }
           return c.choices[0].message.content || '';
-        }
+        },
       }
     );
 
     if (!result.success) {
-      throw new Error(`Python step failed: ${result.error?.message || 'Unknown error'}`);
+      throw new Error(`Python step "${step.name}" failed: ${result.error?.message || 'Unknown error'}`);
     }
 
-    console.log(`[Python Logs for ${step.name}]:`, result.logs);
+    if (result.logs?.length) {
+      logger.info(`[Python logs for ${step.name}]`, { logs: result.logs });
+    }
 
     return result.result;
   }
 
-  private async executeJavascriptStep(step: CompositeToolStep, context: any, userId: string) {
-    const { code } = step.config || {};
+  private async executeJavascriptStep(
+    step: CompositeToolStep,
+    context: any,
+    params: Record<string, any>,
+    userId: string
+  ) {
+    // Support both our format (config.code) and Relevance AI format (params.code)
+    const cfg = step.config || (step as any).params || {};
+    const rawCode: string = cfg.code || '';
+    const code = rawCode.replace(/^(\s*)return\s+(.+)$/gm, '$1result = $2');
+
     const result = await this.codeExecutor.execute(
-      { kind: 'JAVASCRIPT', code },
-      context.input || {},
-      context,
-      { executionDepth: 0, userId, traceId: `composite-${step.id}` },
+      { kind: 'JAVASCRIPT', code, advancedSettings: cfg },
+      params,
+      context.steps ?? {},
+      { executionDepth: 0, userId, traceId: `composite-${step.id}`, advancedSettings: cfg },
       {
         runStep: async () => ({}),
-        promptCompletion: async (p) => {
-          const c = await openai.chat.completions.create({ model: 'gpt-4o-mini', messages: [{ role: 'user', content: p }] });
+        promptCompletion: async (p: string) => {
+          const c = await openai.chat.completions.create({
+            model: 'gpt-4o-mini',
+            messages: [{ role: 'user', content: p }],
+          });
+          if (c.usage) {
+            updateAgentUsage(
+              userId,
+              'System',
+              c.usage.prompt_tokens,
+              c.usage.completion_tokens
+            ).catch((err) => logger.error(`Failed to update usage for JS LLM helper: ${err.message}`, { userId }));
+          }
           return c.choices[0].message.content || '';
-        }
+        },
       }
     );
 
     if (!result.success) {
-      throw new Error(`Javascript step failed: ${result.error?.message || 'Unknown error'}`);
+      throw new Error(`JavaScript step "${step.name}" failed: ${result.error?.message || 'Unknown error'}`);
     }
 
     return result.result;
   }
 
   private async executeApiStep(step: CompositeToolStep, context: any, userId: string) {
-    const { method, url, headers, query, body } = step.config || {};
+    // Support both our format (config.*) and Relevance AI format (params.*)
+    const cfg = step.config || (step as any).params || {};
+    const { method, url, headers, query, body } = cfg;
 
-    // Resolve variables in URL, headers, and body
     const resolvedUrl = this.resolveVariables(url, context);
     const resolvedHeaders: Record<string, string> = {};
     if (headers) {
@@ -241,13 +423,7 @@ export class CompositeToolExecutionService {
 
     const result = await executeApiIntegrationTool(
       'httpRequest',
-      {
-        method,
-        url: resolvedUrl,
-        headers: resolvedHeaders,
-        query,
-        body: resolvedBody,
-      },
+      { method, url: resolvedUrl, headers: resolvedHeaders, query, body: resolvedBody },
       userId
     );
 
@@ -255,19 +431,18 @@ export class CompositeToolExecutionService {
   }
 
   private async executeSystemToolStep(step: CompositeToolStep, context: any, userId: string) {
-    const { toolId, input } = step.config || {};
-    if (!toolId) throw new Error('Missing toolId for SYSTEM_TOOL step');
+    // Support both our format (config.*) and Relevance AI format (params.*)
+    const cfg = step.config || (step as any).params || {};
+    const { toolId, input } = cfg;
+    if (!toolId) throw new Error(`Missing toolId for SYSTEM_TOOL step "${step.name}"`);
 
-    // Parse input, resolve variables
     let parameters: any = {};
     if (typeof input === 'object' && input !== null) {
       parameters = JSON.parse(this.resolveVariables(JSON.stringify(input), context));
     } else if (typeof input === 'string') {
       try {
         parameters = JSON.parse(this.resolveVariables(input, context));
-      } catch {
-        // Not JSON
-      }
+      } catch { }
     }
 
     const { executeTool } = await import('../core/toolExecutor');
@@ -282,6 +457,24 @@ export class CompositeToolExecutionService {
     const res = await executeTool({ toolName: toolDef.name, parameters }, userId);
     if (!res.success) throw new Error(`System tool error: ${res.error}`);
     return res.result;
+  }
+
+  private async executeRunChainStep(step: CompositeToolStep, context: any, params: any, userId: string) {
+    const cfg = step.config || (step as any).params || {};
+    // In Relevance AI, run_chain refers to another studio by ID in studio_id or project
+    // But since this is a complex nested call, for now we will just log a warning and return stub
+    logger.warn(`RUN_CHAIN step type is not yet fully supported (attempting to run sub-tool ${cfg.studio_id}). Returning stub.`);
+    return { output: 'RUN_CHAIN not fully implemented yet' };
+  }
+
+  private async executeLoopStep(step: CompositeToolStep, context: any, params: any, userId: string) {
+    logger.warn(`LOOP step type is not fully supported except via 'foreach' arrays. Returning stub.`);
+    return { status: 'LOOP stub' };
+  }
+
+  private async executeBranchStep(step: CompositeToolStep, context: any, params: any, userId: string) {
+    logger.warn(`BRANCH step type is not fully supported. Returning stub.`);
+    return { status: 'BRANCH stub' };
   }
 }
 

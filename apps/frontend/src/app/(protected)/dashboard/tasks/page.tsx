@@ -7,8 +7,9 @@ import { Button } from "@/components/ui/button";
 import { Pagination } from "@/components/ui/pagination";
 import { PageHeader } from "@/entities/shared/components/PageHeader";
 import { SearchSection } from "@/entities/shared/components/SearchSection";
-import { TaskCard, TaskFilterSidebar, useTaskList } from "@/entities/task";
+import { TaskCard, useTaskList } from "@/entities/task";
 import { TaskCreationModal } from "@/entities/task/components/TaskCreationModal";
+import { ConfirmDeleteModal } from "@/components/modals/ConfirmDeleteModal";
 import { useToast } from "@/hooks/useToast";
 import { trpc } from "@/lib/trpc";
 import {
@@ -18,7 +19,7 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
-import { Filter, Eye, MoreHorizontal, Trash, ArrowUpDown, ChevronUp, ChevronDown, Check, Settings2 } from "lucide-react";
+import { Filter, Eye, MoreHorizontal, Trash, ArrowUpDown, ChevronUp, ChevronDown, Check, Settings2, CheckSquare, PenSquare } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { DataTableSkeleton } from "@/components/ui/data-table-skeleton";
 import { cn } from "@/lib/utils";
@@ -40,6 +41,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
 import { formatDistanceToNow } from "date-fns";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default function TasksPage() {
 	const router = useRouter();
@@ -64,6 +66,21 @@ export default function TasksPage() {
 
 	const createTask = trpc.task.create.useMutation();
 	const convertTask = trpc.task.createProposalFromTask.useMutation();
+	const deleteMutation = trpc.task.delete.useMutation({
+		onSuccess: () => {
+			toast({ title: "Task deleted successfully" });
+			trpc.useUtils().task.list.invalidate();
+		},
+		onError: (error) => {
+			toast({ title: "Failed to delete task", description: error.message, variant: "destructive" });
+		}
+	});
+
+	// Delete modal state
+	const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+	const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
+	const [bulkDeleteRows, setBulkDeleteRows] = useState<any[]>([]);
+
 	const hasNextPage = (data?.items?.length || 0) === pageSize;
 	const hasPreviousPage = page > 1;
 	const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
@@ -80,8 +97,27 @@ export default function TasksPage() {
 		});
 	};
 
+	const handleDelete = (id: string, name?: string) => {
+		setDeleteTarget({ id, name: name ?? "Untitled Task" });
+		setBulkDeleteRows([]);
+		setDeleteModalOpen(true);
+	};
+
 	const handleBulkDelete = (rows: any[]) => {
-		console.log("Delete tasks: ", rows.map((r: any) => r.id));
+		setBulkDeleteRows(rows);
+		setDeleteTarget(null);
+		setDeleteModalOpen(true);
+	};
+
+	const handleConfirmDelete = async () => {
+		if (bulkDeleteRows.length > 0) {
+			for (const row of bulkDeleteRows) {
+				await deleteMutation.mutateAsync({ id: row.id });
+			}
+			setSelectedGridIds(new Set());
+		} else if (deleteTarget) {
+			await deleteMutation.mutateAsync({ id: deleteTarget.id });
+		}
 	};
 
 	const columns: ColumnDef<any>[] = [
@@ -176,16 +212,15 @@ export default function TasksPage() {
 						</DropdownMenuTrigger>
 						<DropdownMenuContent align="end">
 							<DropdownMenuItem onClick={() => router.push(`/dashboard/tasks/${task.id}`)}>
-								<Eye className="mr-2 h-4 w-4" />
-								View
+								<PenSquare className="mr-1 h-4 w-4" />
+								Edit Task
 							</DropdownMenuItem>
-							<DropdownMenuSeparator />
 							<DropdownMenuItem
 								className="text-destructive focus:text-destructive"
-								onClick={() => console.log("Delete", task.id)}
+								onClick={() => handleDelete(task.id, task.title)}
 							>
-								<Trash className="mr-2 h-4 w-4" />
-								Delete
+								<Trash className="mr-1 h-4 w-4" />
+								Delete Task
 							</DropdownMenuItem>
 						</DropdownMenuContent>
 					</DropdownMenu>
@@ -260,7 +295,7 @@ export default function TasksPage() {
 
 					<SearchSection
 						searchValue={query}
-						searchPlaceholder="Search tasks by title or description..."
+						searchPlaceholder="Search tasks..."
 						resultsCount={data?.total ?? 0}
 						onSearchChange={setQuery}
 						onSearchSubmit={() => setPage(1)}
@@ -489,9 +524,24 @@ export default function TasksPage() {
 
 					{isLoading ? (
 						viewMode === "grid" ? (
-							<div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-								{Array.from({ length: 6 }).map((_, index) => (
-									<div key={index} className="min-h-[220px] animate-pulse rounded-lg border bg-muted/30" />
+							<div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 pb-4">
+								{[...Array(8)].map((_, i) => (
+									<div key={i} className="relative flex flex-col bg-white rounded-xl border border-slate-200 shadow-sm p-6 pt-10 overflow-hidden">
+										<div className="flex items-start gap-3 mb-4">
+											<Skeleton className="h-10 w-10 rounded-xl shrink-0" />
+											<div className="flex-1 space-y-2 pt-1">
+												<Skeleton className="h-4 w-[60%] rounded-md" />
+												<Skeleton className="h-3 w-[40%] rounded-md opacity-60" />
+											</div>
+										</div>
+										<Skeleton className="h-3.5 w-full rounded-md" />
+										<Skeleton className="h-3.5 w-[75%] rounded-md mt-1.5" />
+										<div className="flex items-center gap-2 mt-5 pt-4 border-t border-slate-100">
+											<Skeleton className="h-5 w-16 rounded-full" />
+											<Skeleton className="h-5 w-14 rounded-full" />
+											<Skeleton className="h-5 w-12 rounded-full ml-auto" />
+										</div>
+									</div>
 								))}
 							</div>
 						) : (
@@ -500,7 +550,7 @@ export default function TasksPage() {
 					) : data?.items && data.items.length > 0 ? (
 						viewMode === "grid" ? (
 							<>
-								<div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+								<div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 pb-4">
 									{data.items.map((item) => (
 										<TaskCard
 											key={item.id}
@@ -509,6 +559,7 @@ export default function TasksPage() {
 											onConvert={handleConvertToProposal}
 											isSelected={selectedGridIds.has(item.id)}
 											onSelect={handleGridSelect}
+											onDelete={(id) => handleDelete(id, item.title)}
 										/>
 									))}
 								</div>
@@ -522,7 +573,7 @@ export default function TasksPage() {
 											<X className="h-3.5 w-3.5" />
 											Deselect
 										</Button>
-										<Button variant="destructive" size="sm" onClick={() => { console.log("Delete:", [...selectedGridIds]); setSelectedGridIds(new Set()); }} className="h-8 gap-1.5 px-3 cursor-pointer">
+										<Button variant="destructive" size="sm" onClick={() => handleBulkDelete(Array.from(selectedGridIds).map(id => ({ id })))} className="h-8 gap-1.5 px-3 cursor-pointer">
 											<Trash className="h-3.5 w-3.5" />
 											Delete Selected
 										</Button>
@@ -533,18 +584,29 @@ export default function TasksPage() {
 							<DataTable columns={columns} data={data.items} onDeleteSelected={handleBulkDelete} onTableReady={setTable} hideToolbar columnVisibility={columnVisibility} onColumnVisibilityChange={setColumnVisibility} />
 						)
 					) : (
-						<div className="flex min-h-[320px] flex-col items-center justify-center rounded-lg border-2 border-dashed border-muted bg-muted/10 p-8 text-center">
-							<div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-emerald-100 to-teal-100">
-								<Plus className="h-8 w-8 text-emerald-600" />
+						<div className="flex min-h-[400px] flex-col items-center justify-center rounded-2xl border border-slate-200/80 bg-gradient-to-b from-slate-50/50 to-white shadow-sm">
+							<div className="text-center px-6 py-8 max-w-xs">
+								<div className="mx-auto h-16 w-16 rounded-2xl bg-gradient-to-br from-indigo-50 to-indigo-100 border border-indigo-100 shadow-sm flex items-center justify-center mb-6">
+									<CheckSquare className="h-7 w-7 text-indigo-500" />
+								</div>
+								<h3 className="text-base font-semibold text-slate-900">
+									{query ? "No results found" : "No tasks yet"}
+								</h3>
+								<p className="mt-2 text-sm text-slate-500 leading-relaxed">
+									{query
+										? "Try adjusting your search or clearing filters to find what you're looking for."
+										: "Create a task to track and organize your upcoming work."}
+								</p>
+								{!query && (
+									<button
+										onClick={handleCreateTask}
+										className="mt-6 inline-flex items-center gap-2 rounded-xl px-4 h-10 text-sm font-semibold bg-gradient-to-b from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 text-white shadow-md shadow-indigo-200 hover:shadow-lg hover:shadow-indigo-300 transition-all cursor-pointer"
+									>
+										<Plus className="h-4 w-4" />
+										Create new task
+									</button>
+								)}
 							</div>
-							<h3 className="mt-4 text-lg font-semibold text-foreground">No tasks yet</h3>
-							<p className="mt-2 text-sm text-muted-foreground">
-								{query ? "Try a different search or reset your filters." : "Create a task to track upcoming work."}
-							</p>
-							<Button onClick={handleCreateTask} variant="outline" className="mt-4">
-								<Plus className="mr-2 h-4 w-4" />
-								Add task
-							</Button>
 						</div>
 					)}
 
@@ -564,6 +626,15 @@ export default function TasksPage() {
 				onOpenChange={setIsCreateModalOpen}
 				context="GENERAL"
 				workspaceId={defaultWorkspaceId}
+			/>
+			<ConfirmDeleteModal
+				open={deleteModalOpen}
+				onOpenChange={setDeleteModalOpen}
+				itemName={deleteTarget?.name}
+				count={bulkDeleteRows.length > 0 ? bulkDeleteRows.length : 1}
+				entityLabel="task"
+				onConfirm={handleConfirmDelete}
+				isLoading={deleteMutation.isPending}
 			/>
 		</Shell>
 	);

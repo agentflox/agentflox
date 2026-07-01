@@ -48,6 +48,14 @@ export function EnhancedIconPicker({ icon, color, onIconChange, onColorChange, s
         return VALID_ICONS.filter(key => key.toLowerCase().includes(lowerQuery)).slice(0, 300);
     }, [searchQuery]);
 
+    // Ensure current color is available and first
+    const displayColors = React.useMemo(() => {
+        const uniqueColors = new Set(COLORS);
+        // If color is valid and not empty, ensuring it's in the set wont enforce order, so we build array manually
+        const baseColors = COLORS.filter(c => c !== color);
+        return color && color !== "" ? [color, ...baseColors] : COLORS;
+    }, [color]);
+
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
@@ -174,16 +182,19 @@ export function EnhancedIconPicker({ icon, color, onIconChange, onColorChange, s
             {/* Icon View Content */}
             {view === 'icon' && (
                 <>
-                    <div className="relative px-1">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-                        <Input
-                            className="h-8 pl-9 pr-3 text-xs bg-muted/50 border-none focus-visible:ring-1"
-                            placeholder="Search icons..."
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            onKeyDown={(e) => e.stopPropagation()}
-                            onClick={(e) => e.stopPropagation()}
-                        />
+                   <div className="px-1">
+                        <div className="flex h-8 items-center rounded-md border border-zinc-200 bg-white px-3 shadow-sm transition-colors">
+                            <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
+                            <Input
+                                variant="ghost"
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                onKeyDown={(e) => e.stopPropagation()}
+                                onClick={(e) => e.stopPropagation()}
+                                placeholder="Search icons..."
+                                className="h-full bg-transparent pl-2 pr-0 text-xs focus:outline-none focus:ring-0 focus-visible:ring-0"
+                            />
+                        </div>
                     </div>
 
                     <ScrollArea className="h-[280px] w-full px-1">
@@ -199,7 +210,7 @@ export function EnhancedIconPicker({ icon, color, onIconChange, onColorChange, s
                                             onIconChange(defaultChar);
                                         }}
                                         className={cn(
-                                            "flex items-center justify-center aspect-square rounded-md transition-all hover:bg-muted font-bold",
+                                            "flex items-center justify-center aspect-square rounded-md transition-all hover:bg-muted font-bold cursor-pointer",
                                             // Check if current icon matches the default character
                                             icon === (entityName ? entityName.charAt(0).toUpperCase() : "S")
                                                 ? "bg-primary/10 border border-primary/50"
@@ -224,7 +235,7 @@ export function EnhancedIconPicker({ icon, color, onIconChange, onColorChange, s
                                             onIconChange("");
                                         }}
                                         className={cn(
-                                            "flex items-center justify-center aspect-square rounded-md transition-all hover:bg-muted text-zinc-600 hover:text-zinc-900",
+                                            "flex items-center justify-center aspect-square rounded-md transition-all hover:bg-muted text-zinc-600 hover:text-zinc-900 cursor-pointer",
                                             icon === "" && "bg-primary/10 text-primary border border-primary/50"
                                         )}
                                         title="None"
@@ -245,7 +256,7 @@ export function EnhancedIconPicker({ icon, color, onIconChange, onColorChange, s
                                             onIconChange(iconName);
                                         }}
                                         className={cn(
-                                            "flex items-center justify-center aspect-square rounded-md transition-all hover:bg-muted text-zinc-600 hover:text-zinc-900",
+                                            "flex items-center justify-center aspect-square rounded-md transition-all hover:bg-muted text-zinc-600 hover:text-zinc-900 cursor-pointer",
                                             isSelected && "bg-primary/10 text-primary border border-primary/50"
                                         )}
                                         title={iconName}
@@ -276,16 +287,7 @@ export function EnhancedIconPicker({ icon, color, onIconChange, onColorChange, s
             {view === 'color' && (
                 <div className="p-1">
                     <div className="grid grid-cols-6 gap-2">
-                        {(() => {
-                            // Ensure current color is available and first
-                            const displayColors = React.useMemo(() => {
-                                const uniqueColors = new Set(COLORS);
-                                // If color is valid and not empty, ensuring it's in the set wont enforce order, so we build array manually
-                                const baseColors = COLORS.filter(c => c !== color);
-                                return color && color !== "" ? [color, ...baseColors] : COLORS;
-                            }, [color]);
-
-                            return displayColors.map((c) => (
+                        {displayColors.map((c) => (
                                 <button
                                     key={c}
                                     onClick={(e) => {
@@ -294,14 +296,19 @@ export function EnhancedIconPicker({ icon, color, onIconChange, onColorChange, s
                                         setView('icon'); // Switch back to icon view after picking color?
                                     }}
                                     className={cn(
-                                        "h-8 w-8 rounded-full border border-transparent transition-transform hover:scale-110",
+                                        "h-8 w-8 rounded-full border border-transparent transition-transform hover:scale-110 cursor-pointer",
                                         c === "#FFFFFF" && "border-zinc-200",
                                         color === c && "ring-1 ring-primary ring-offset-1"
                                     )}
                                     style={{ backgroundColor: c }}
-                                />
-                            ));
-                        })()}
+                                >
+                                    {c === color && (
+                                        <div className="absolute inset-0 flex items-center justify-center">
+                                            <div className="h-2 w-2 rounded-full bg-white shadow-sm" />
+                                        </div>
+                                    )}
+                                </button>
+                            ))}
                     </div>
                 </div>
             )}

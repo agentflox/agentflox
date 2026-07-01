@@ -15,17 +15,18 @@ export const PaypalProvider: React.FC<PaypalProviderProps> = ({
   children,
   isSubscription = true,
 }) => {
+  const clientId = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID ?? "";
   const paypalOptions: ReactPayPalScriptOptions = React.useMemo(
     () => ({
-      clientId: process.env.PAYPAL_CLIENT_ID!,
+      clientId,
       intent: isSubscription ? "subscription" : "capture",
       vault: isSubscription,
       components: "buttons",
     }),
-    [isSubscription]
+    [clientId, isSubscription]
   );
 
-  if (!process.env.PAYPAL_CLIENT_ID) {
+  if (!clientId) {
     console.error("Missing NEXT_PUBLIC_PAYPAL_CLIENT_ID environment variable.");
   }
 

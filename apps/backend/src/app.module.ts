@@ -12,6 +12,8 @@ import { BillingModule } from './modules/billing.module';
 import { CommandModule } from './modules/command.module';
 import { AiModule } from './modules/ai.module';
 import { SupportModule } from './modules/support.module';
+import { ToolsModule } from './modules/tools.module';
+import { WorkforcesModule } from './modules/workforces.module';
 
 @Module({
   imports: [
@@ -27,7 +29,9 @@ import { SupportModule } from './modules/support.module';
     BillingModule,
     CommandModule,
     AiModule,
-    SupportModule
+    SupportModule,
+    ToolsModule,
+    WorkforcesModule
   ],
 })
 export class AppModule { }

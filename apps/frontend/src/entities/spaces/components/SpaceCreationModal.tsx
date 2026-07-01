@@ -196,7 +196,7 @@ export function SpaceCreationModal({ workspaceId, open, onOpenChange, onSuccess,
 
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
-			<DialogContent className="sm:max-w-[500px] p-0 overflow-hidden gap-0 border-border/50 shadow-2xl bg-background/95 backdrop-blur-xl transition-all duration-300">
+			<DialogContent className="sm:max-w-xl p-0 overflow-hidden gap-0 border-border/50 shadow-2xl bg-background/95 backdrop-blur-xl transition-all duration-300">
 				{/* Header Section */}
 				<div className="p-6 pb-2">
 					<div className="flex items-start gap-5">
@@ -207,12 +207,12 @@ export function SpaceCreationModal({ workspaceId, open, onOpenChange, onSuccess,
 						)}>
 							<Rocket className="w-5 h-5 md:w-6 md:h-6" strokeWidth={1.5} />
 						</div>
-						<div className="space-y-1.5 pt-1">
+						<div className="pt-1">
 							<DialogTitle className="text-xl font-bold tracking-tight text-foreground/95">
 								Create New Space
 							</DialogTitle>
 							<DialogDescription className="text-muted-foreground text-sm leading-relaxed">
-								Organize your projects, teams, and resources within a dedicated environment.
+								Organize your projects, teams, and resources.
 							</DialogDescription>
 						</div>
 					</div>
@@ -315,7 +315,7 @@ export function SpaceCreationModal({ workspaceId, open, onOpenChange, onSuccess,
 									onBlur={() => setFocusedField(null)}
 									maxLength={500}
 									disabled={createMutation.isPending}
-									className="min-h-[100px] resize-none bg-muted/30 border-input/60 hover:bg-muted/50 focus:bg-background transition-all duration-200 focus:ring-2 focus:ring-primary/20 text-sm leading-relaxed shadow-sm py-3"
+									className="min-h-[100px] resize-none bg-muted/30 border-input/60 hover:bg-muted/50 focus:bg-background transition-all duration-200 focus:ring-2 focus:ring-primary/20 text-sm leading-relaxed shadow-sm py-3 rounded-md"
 								/>
 								<div className="absolute bottom-2 right-2 text-xs text-muted-foreground/50 pointer-events-none">
 									{description.length}/500

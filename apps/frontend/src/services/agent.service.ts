@@ -80,7 +80,7 @@ export const agentService = {
 
         workforces: {
             run: (workforceId: string, data: { task?: string; input?: Record<string, unknown> }, session?: any) =>
-                sendBackendRequest(`/v1/agents/workforces/${workforceId}/run`, {
+                sendBackendRequest(`/v1/workforces/${workforceId}/run`, {
                     method: 'POST',
                     body: JSON.stringify(data),
                 }, session),
@@ -106,6 +106,9 @@ export const agentService = {
                 conversationId: string;
                 agentId: string;
                 message: string;
+                contexts?: Array<{ type: string; id: string }>;
+                mentions?: Array<{ id: string; name: string; type: string }>;
+                attachments?: Array<{ type: string; filename: string; content?: string }>;
             }, session?: any) =>
                 sendBackendRequest(`/v1/agents/${data.agentId}/builder/message`, {
                     method: 'POST',
@@ -156,6 +159,8 @@ export const agentService = {
                 conversationId: string;
                 agentId: string;
                 message: string;
+                contexts?: Array<{ type: string; id: string }>;
+                mentions?: Array<{ id: string; name: string; type: string }>;
             }, session?: any) =>
                 sendBackendRequest(`/v1/agents/${data.agentId}/operator/message`, {
                     method: 'POST',
@@ -210,6 +215,8 @@ export const agentService = {
                 conversationId: string;
                 agentId: string;
                 message: string;
+                contexts?: Array<{ type: string; id: string }>;
+                mentions?: Array<{ id: string; name: string; type: string }>;
             }, session?: any) =>
                 sendBackendRequest(`/v1/agents/${data.agentId}/executor/message`, {
                     method: 'POST',
@@ -303,10 +310,5 @@ export const agentService = {
                     body: JSON.stringify(data),
                 }, session),
         },
-
-        getSystemTools: (session?: any) =>
-            sendBackendRequest('/v1/agents/system-tools', {
-                method: 'GET',
-            }, session),
     },
 };

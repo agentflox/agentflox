@@ -188,7 +188,7 @@ export default function DashboardPage() {
                   </div>
                   <div className="text-3xl font-bold text-foreground">3</div>
                 </div>
-                
+
                 <div className="flex flex-col p-4 rounded-2xl bg-background/60 border border-border/50 backdrop-blur-md min-w-[120px] shadow-sm transition-all hover:-translate-y-1 hover:shadow-md flex-1 md:flex-none">
                   <div className="flex items-center gap-2 mb-2">
                     <div className="p-1.5 rounded-md bg-indigo-500/10 text-indigo-500">

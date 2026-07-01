@@ -32,7 +32,7 @@ export async function syncTemplatesToDatabase() {
     for (const template of AGENT_TEMPLATES) {
         try {
             // Check if template exists (by name and isSystem=true)
-            const existing = await prisma.agentTemplate.findFirst({
+            const existing = await (prisma as any).agentTemplate.findFirst({
                 where: {
                     name: template.name,
                     isSystem: true
@@ -52,7 +52,7 @@ Capabilities: ${template.capabilities.map(c => c.name).join(', ')}
             const embedding = await generateEmbedding(textToEmbed);
 
             // Prepare base data
-            const data: Prisma.AgentTemplateCreateInput = {
+            const data: any = {
                 name: template.name,
                 description: template.description,
                 role: template.role,
@@ -70,7 +70,7 @@ Capabilities: ${template.capabilities.map(c => c.name).join(', ')}
 
             if (existing) {
                 // Update existing
-                await prisma.agentTemplate.update({
+                await (prisma as any).agentTemplate.update({
                     where: { id: existing.id },
                     data
                 });
@@ -78,7 +78,7 @@ Capabilities: ${template.capabilities.map(c => c.name).join(', ')}
                 console.log(`[TemplateRegistry] Updated template: ${template.name}`);
             } else {
                 // Create new
-                const created = await prisma.agentTemplate.create({
+                const created = await (prisma as any).agentTemplate.create({
                     data
                 });
                 templateId = created.id;

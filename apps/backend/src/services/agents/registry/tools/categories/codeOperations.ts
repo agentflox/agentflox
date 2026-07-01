@@ -1,4 +1,4 @@
-import { ToolDefinition } from '../core/ToolRegistryManager';
+import { ToolDefinition } from '../../core/ToolRegistryManager';
 
 export const CODE_OPERATION_TOOLS: ToolDefinition[] = [
     {

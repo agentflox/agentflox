@@ -118,6 +118,8 @@ interface DashboardViewProps {
     listId?: string;
     viewId?: string;
     initialConfig?: any;
+    selectedTaskIdFromParent?: string | null;
+    onTaskSelect?: (taskId: string | null) => void;
 }
 
 type WidgetType =
@@ -280,7 +282,9 @@ export function DashboardView({
     teamId,
     listId,
     viewId,
-    initialConfig
+    initialConfig,
+    selectedTaskIdFromParent,
+    onTaskSelect
 }: DashboardViewProps) {
     const [widgets, setWidgets] = useState<Widget[]>([
         {

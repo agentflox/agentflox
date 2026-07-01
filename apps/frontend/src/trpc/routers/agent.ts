@@ -1,7 +1,6 @@
 import { z } from "zod";
 import { protectedProcedure, router } from "@/trpc/init";
 import { prisma } from "@/lib/prisma";
-import { agentService } from "@/services/agent.service";
 import { randomUUID } from "crypto";
 
 // Default triggers for new agents
@@ -457,15 +456,15 @@ export const agentRouter = router({
       });
     }),
 
-  execute: protectedProcedure
+  getExecutions: protectedProcedure
     .input(z.object({
       agentId: z.string(),
-      inputData: z.any().optional(),
-      executionContext: z.any().optional(),
+      page: z.number().int().min(1).optional().default(1),
+      pageSize: z.number().int().min(1).max(100).optional().default(50),
     }))
-    .mutation(async ({ ctx, input }) => {
+    .query(async ({ ctx, input }) => {
       const userId = ctx.session!.user!.id;
-
+      
       const agent = await prisma.aiAgent.findFirst({
         where: {
           id: input.agentId,
@@ -473,7 +472,7 @@ export const agentRouter = router({
             { createdBy: userId },
             {
               collaborators: {
-                some: { userId, canExecute: true }
+                some: { userId }
               }
             }
           ]
@@ -484,194 +483,25 @@ export const agentRouter = router({
         throw new Error("Agent not found or permission denied");
       }
 
-      if (!agent.isActive) {
-        throw new Error("Agent is not active");
-      }
+      const skip = (input.page - 1) * input.pageSize;
+      const take = input.pageSize;
 
-      // Create execution record
-      const execution = await prisma.agentExecution.create({
-        data: {
-          id: randomUUID(),
-          agentId: input.agentId,
-          triggeredBy: 'MANUAL',
-          triggerUserId: userId,
-          inputData: input.inputData || {},
-          executionContext: input.executionContext || {},
-          status: 'QUEUED',
-          startedAt: new Date(),
-        },
-      });
+      const [total, items] = await Promise.all([
+        prisma.agentExecution.count({ where: { agentId: input.agentId } }),
+        prisma.agentExecution.findMany({
+          where: { agentId: input.agentId },
+          orderBy: { startedAt: "desc" },
+          skip,
+          take,
+        }),
+      ]);
 
-      // Call backend API to trigger execution via secure client
-      try {
-        const response = await agentService.agents.execute({
-          executionId: execution.id,
-          agentId: input.agentId,
-          inputData: input.inputData,
-          executionContext: input.executionContext,
-        }, ctx.session);
-
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          throw new Error(errorData.error || 'Failed to trigger execution');
-        }
-
-        const result = await response.json();
-        return execution;
-      } catch (error) {
-        // Update execution status to failed
-        await prisma.agentExecution.update({
-          where: { id: execution.id },
-          data: {
-            status: 'FAILED',
-            error: error instanceof Error ? error.message : 'Unknown error',
-          },
-        });
-        throw error;
-      }
-    }),
-
-  getExecutions: protectedProcedure
-    .input(z.object({
-      agentId: z.string(),
-      status: z.enum(['QUEUED', 'RUNNING', 'COMPLETED', 'FAILED', 'CANCELLED', 'TIMEOUT']).optional(),
-      page: z.number().int().min(1).optional().default(1),
-      pageSize: z.number().int().min(1).max(50).optional().default(20),
-    }))
-    .query(async ({ ctx, input }) => {
-      // Call backend API for execution history
-      try {
-        const response = await agentService.agents.getExecutions(
-          input.agentId,
-          {
-            page: input.page,
-            pageSize: input.pageSize,
-            status: input.status,
-          },
-          ctx.session
-        );
-
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          throw new Error(errorData.error || 'Failed to fetch executions');
-        }
-
-        return await response.json();
-      } catch (error) {
-        // Fallback to direct database query if backend is unavailable
-        const userId = ctx.session!.user!.id;
-
-        const agent = await prisma.aiAgent.findFirst({
-          where: {
-            id: input.agentId,
-            OR: [
-              { createdBy: userId },
-              {
-                collaborators: {
-                  some: { userId }
-                }
-              }
-            ]
-          },
-        });
-
-        if (!agent) {
-          throw new Error("Agent not found or permission denied");
-        }
-
-        const where: any = { agentId: input.agentId };
-        if (input.status) where.status = input.status;
-
-        const skip = (input.page - 1) * input.pageSize;
-        const take = input.pageSize;
-
-        const [total, items] = await Promise.all([
-          prisma.agentExecution.count({ where }),
-          prisma.agentExecution.findMany({
-            where,
-            orderBy: { startedAt: 'desc' },
-            skip,
-            take,
-          }),
-        ]);
-
-        return {
-          items,
-          total,
-          page: input.page,
-          pageSize: input.pageSize,
-        };
-      }
-    }),
-
-  chat: protectedProcedure
-    .input(z.object({
-      agentId: z.string().min(1),
-      message: z.string().min(1),
-      conversationId: z.string().optional(),
-      context: z.object({
-        projects: z.array(z.string()).optional(),
-        teams: z.array(z.string()).optional(),
-        tasks: z.array(z.string()).optional(),
-      }).optional(),
-    }))
-    .mutation(async ({ ctx, input }) => {
-      const userId = ctx.session!.user!.id;
-
-      // Call backend service to process chat message
-      try {
-        const response = await agentService.agents.chat({
-          userId,
-          agentId: input.agentId,
-          message: input.message,
-          conversationId: input.conversationId,
-          context: input.context,
-        }, ctx.session);
-
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          throw new Error(errorData.error || errorData.message || 'Failed to process chat message');
-        }
-
-        return await response.json();
-      } catch (error) {
-        if (error instanceof Error) {
-          throw error;
-        }
-        throw new Error('Failed to process chat message');
-      }
-    }),
-
-  approveExecution: protectedProcedure
-    .input(z.object({
-      executionId: z.string(),
-      approved: z.boolean(),
-      reason: z.string().optional(),
-    }))
-    .mutation(async ({ ctx, input }) => {
-      const userId = ctx.session!.user!.id;
-
-      // Call backend service to approve/reject execution
-      try {
-        const response = await agentService.agents.approveExecution({
-          executionId: input.executionId,
-          userId,
-          approved: input.approved,
-          reason: input.reason,
-        }, ctx.session);
-
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          throw new Error(errorData.error || errorData.message || 'Failed to approve/reject execution');
-        }
-
-        return await response.json();
-      } catch (error) {
-        if (error instanceof Error) {
-          throw error;
-        }
-        throw new Error('Failed to approve/reject execution');
-      }
+      return {
+        items,
+        total,
+        page: input.page,
+        pageSize: input.pageSize,
+      };
     }),
 
   getExecutionPlan: protectedProcedure
@@ -880,19 +710,6 @@ export const agentRouter = router({
   /**
    * System tools & skill-based configuration
    */
-
-  getSystemTools: protectedProcedure
-    .query(async ({ ctx }) => {
-      const session = ctx.session;
-      const response = await agentService.agents.getSystemTools(session);
-
-      if (!response.ok) {
-        const error = await response.json().catch(() => ({ error: 'Unknown error' }));
-        throw new Error(error.error || error.message || 'Failed to fetch system tools');
-      }
-
-      return response.json();
-    }),
 
   getAgentSkills: protectedProcedure
     .input(z.object({
@@ -1466,276 +1283,4 @@ export const agentRouter = router({
       return { success: true };
     }),
 
-  // Agent Builder endpoints
-  builder: router({
-    initialize: protectedProcedure
-      .input(z.object({
-        conversationId: z.string().optional(),
-        agentId: z.string().optional(),
-        skipWelcome: z.boolean().optional(),
-      }))
-      .mutation(async ({ ctx, input }) => {
-        const session = ctx.session;
-        // agentId is optional for builder initialization (can be 'new')
-        const response = await agentService.agents.builder.initialize(input, session);
-        if (!response.ok) {
-          const error = await response.json().catch(() => ({ error: 'Unknown error' }));
-          throw new Error(error.userMessage || error.message || error.error || 'Failed to initialize builder');
-        }
-        return response.json();
-      }),
-
-    message: protectedProcedure
-      .input(z.object({
-        conversationId: z.string(),
-        agentId: z.string().min(1), // Required for parameterized route
-        message: z.string().min(1),
-      }))
-      .mutation(async ({ ctx, input }) => {
-        const session = ctx.session;
-        const response = await agentService.agents.builder.message(input, session);
-        if (!response.ok) {
-          const error = await response.json().catch(() => ({ error: 'Unknown error' }));
-          throw new Error(error.userMessage || error.message || error.error || 'Failed to process message');
-        }
-        return response.json();
-      }),
-
-    updateDraft: protectedProcedure
-      .input(z.object({
-        conversationId: z.string(),
-        agentId: z.string().min(1), // Required for parameterized route
-        draft: z.any(), // Partial<AgentDraft>
-      }))
-      .mutation(async ({ ctx, input }) => {
-        const session = ctx.session;
-        const response = await agentService.agents.builder.updateDraft(input, session);
-        if (!response.ok) {
-          const error = await response.json().catch(() => ({ error: 'Unknown error' }));
-          throw new Error(error.userMessage || error.message || error.error || 'Failed to update draft');
-        }
-        return response.json();
-      }),
-
-    launch: protectedProcedure
-      .input(z.object({
-        conversationId: z.string(),
-        agentId: z.string().min(1), // Required for parameterized route
-      }))
-      .mutation(async ({ ctx, input }) => {
-        const session = ctx.session;
-        const response = await agentService.agents.builder.launch(input, session);
-        if (!response.ok) {
-          const error = await response.json().catch(() => ({ error: 'Unknown error' }));
-          throw new Error(error.userMessage || error.message || error.error || 'Failed to launch agent');
-        }
-        return response.json();
-      }),
-  }),
-
-  // Operator endpoints
-  operator: router({
-    initialize: protectedProcedure
-      .input(z.object({
-        conversationId: z.string().optional(),
-        agentId: z.string().min(1), // Required for Operator
-        skipWelcome: z.boolean().optional(),
-      }))
-      .mutation(async ({ ctx, input }) => {
-        const session = ctx.session;
-        const response = await agentService.agents.operator.initialize(input, session);
-        if (!response.ok) {
-          const error = await response.json().catch(() => ({ error: 'Unknown error' }));
-          throw new Error(error.userMessage || error.message || error.error || 'Failed to initialize operator');
-        }
-        return response.json();
-      }),
-    message: protectedProcedure
-      .input(z.object({
-        conversationId: z.string(),
-        agentId: z.string().min(1),
-        message: z.string().min(1),
-      }))
-      .mutation(async ({ ctx, input }) => {
-        const session = ctx.session;
-        const response = await agentService.agents.operator.message(input, session);
-        if (!response.ok) {
-          const error = await response.json().catch(() => ({ error: 'Unknown error' }));
-          throw new Error(error.userMessage || error.message || error.error || 'Failed to process message');
-        }
-        return response.json();
-      }),
-
-    chat: protectedProcedure
-      .input(z.object({
-        agentId: z.string().min(1),
-        message: z.string().min(1),
-        workspaceId: z.string().optional(),
-        conversationId: z.string().optional(),
-        context: z.any().optional(),
-      }))
-      .mutation(async ({ ctx, input }) => {
-        const session = ctx.session;
-        const response = await agentService.agents.operator.chat(input, session);
-        if (!response.ok) {
-          const error = await response.json().catch(() => ({ error: 'Unknown error' }));
-          throw new Error(error.userMessage || error.message || error.error || 'Failed to process operator chat message');
-        }
-        return response.json();
-      }),
-
-    applyPatch: protectedProcedure
-      .input(z.object({
-        agentId: z.string().min(1),
-        patch: z.any(),
-      }))
-      .mutation(async ({ ctx, input }) => {
-        const session = ctx.session;
-        const response = await agentService.agents.operator.apply(input, session);
-        if (!response.ok) {
-          const error = await response.json().catch(() => ({ error: 'Unknown error' }));
-          throw new Error(error.userMessage || error.message || error.error || 'Failed to apply operator patch');
-        }
-        return response.json();
-      }),
-
-    execute: protectedProcedure
-      .input(z.object({
-        agentId: z.string().min(1),
-        inputData: z.any().optional(),
-        executionContext: z.any().optional(),
-      }))
-      .mutation(async ({ ctx, input }) => {
-        const session = ctx.session;
-        const response = await agentService.agents.operator.execute(input, session);
-        if (!response.ok) {
-          const error = await response.json().catch(() => ({ error: 'Unknown error' }));
-          throw new Error(error.userMessage || error.message || error.error || 'Failed to trigger operator execution');
-        }
-        return response.json();
-      }),
-  }),
-
-  // Executor endpoints
-  executor: router({
-    initialize: protectedProcedure
-      .input(z.object({
-        conversationId: z.string().optional(),
-        agentId: z.string().min(1), // Required for Executor
-        skipWelcome: z.boolean().optional(),
-      }))
-      .mutation(async ({ ctx, input }) => {
-        const session = ctx.session;
-        const response = await agentService.agents.executor.initialize(input, session);
-        if (!response.ok) {
-          const error = await response.json().catch(() => ({ error: 'Unknown error' }));
-          throw new Error(error.userMessage || error.message || error.error || 'Failed to initialize executor');
-        }
-        return response.json();
-      }),
-    message: protectedProcedure
-      .input(z.object({
-        conversationId: z.string(),
-        agentId: z.string().min(1),
-        message: z.string().min(1),
-      }))
-      .mutation(async ({ ctx, input }) => {
-        const session = ctx.session;
-        const response = await agentService.agents.executor.message(input, session);
-        if (!response.ok) {
-          const error = await response.json().catch(() => ({ error: 'Unknown error' }));
-          throw new Error(error.userMessage || error.message || error.error || 'Failed to process message');
-        }
-        return response.json();
-      }),
-
-    chat: protectedProcedure
-      .input(z.object({
-        agentId: z.string().min(1),
-        message: z.string().min(1),
-        conversationId: z.string().optional(),
-      }))
-      .mutation(async ({ ctx, input }) => {
-        const session = ctx.session;
-        const response = await agentService.agents.executor.chat(input, session);
-        if (!response.ok) {
-          const error = await response.json().catch(() => ({ error: 'Unknown error' }));
-          throw new Error(error.userMessage || error.message || error.error || 'Failed to process executor chat message');
-        }
-        return response.json();
-      }),
-
-    execute: protectedProcedure
-      .input(z.object({
-        agentId: z.string().min(1),
-        inputData: z.any().optional(),
-        executionContext: z.any().optional(),
-      }))
-      .mutation(async ({ ctx, input }) => {
-        const session = ctx.session;
-        const response = await agentService.agents.executor.execute(input, session);
-        if (!response.ok) {
-          const error = await response.json().catch(() => ({ error: 'Unknown error' }));
-          throw new Error(error.userMessage || error.message || error.error || 'Failed to trigger executor execution');
-        }
-        return response.json();
-      }),
-  }),
-
-  getRelations: protectedProcedure
-    .input(z.object({
-      agentId: z.string(),
-    }))
-    .query(async ({ ctx, input }) => {
-      const userId = ctx.session!.user!.id;
-
-      // Verify access
-      const agent = await prisma.aiAgent.findFirst({
-        where: {
-          id: input.agentId,
-          OR: [
-            { createdBy: userId },
-            {
-              collaborators: {
-                some: { userId }
-              }
-            }
-          ]
-        },
-      });
-
-      if (!agent) {
-        throw new Error("Agent not found or permission denied");
-      }
-
-      const [subAgents, parentAgents, peers] = await Promise.all([
-        prisma.agentRelation.findMany({
-          where: { parentId: input.agentId, type: 'SUB_AGENT' },
-          include: { child: true },
-        }),
-        prisma.agentRelation.findMany({
-          where: { childId: input.agentId, type: 'SUB_AGENT' },
-          include: { parent: true },
-        }),
-        prisma.agentRelation.findMany({
-          where: {
-            OR: [
-              { parentId: input.agentId, type: 'PEER' },
-              { childId: input.agentId, type: 'PEER' }
-            ]
-          },
-          include: { parent: true, child: true },
-        }),
-      ]);
-
-      return {
-        subAgents: subAgents.map(r => ({ ...r.child, relationId: r.id })),
-        supervisors: parentAgents.map(r => ({ ...r.parent, relationId: r.id })),
-        peers: peers.map(r => {
-          const peer = r.parentId === input.agentId ? r.child : r.parent;
-          return { ...peer, relationId: r.id };
-        }),
-      };
-    }),
 });
-

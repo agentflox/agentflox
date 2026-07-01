@@ -3,17 +3,19 @@
 import { useState, useMemo, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { trpc } from "@/lib/trpc";
-import { Loader2, Plus, ChevronRight, List as ListIcon, MoreHorizontal, Search, ChevronsLeft, ChevronsRight, X, Folder, CheckSquare } from "lucide-react";
+import { Loader2, Plus, ChevronRight, List as ListIcon, MoreHorizontal, Search, ChevronsLeft, ChevronsRight, X, Folder, CheckSquare, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { LoadingContainer, LoadingPage } from "@/components/ui/loading";
 import { cn } from "@/lib/utils";
-import ListDashboardView from "@/features/dashboard/views/generic/ListDashboardView";
-import FolderDashboardView from "@/features/dashboard/views/generic/FolderDashboardView";
+import DashboardListView from "@/features/dashboard/views/generic/DashboardListView";
+import DashboardFolderView from "@/features/dashboard/views/generic/DashboardFolderView";
+import { DocView } from "@/features/dashboard/views/generic/DocView";
 import { ListCreationModal } from "@/entities/task/components/ListCreationModal";
 import { FolderCreationModal } from "@/entities/task/components/FolderCreationModal";
 import { TaskCreationModal } from "@/entities/task/components/TaskCreationModal";
+import DocumentCreationModal from "@/entities/documents/components/DocumentCreationModal";
 import { ListActionsMenu } from "@/features/dashboard/components/sidebar/ListActionsMenu";
 import { FolderActionsMenu } from "@/features/dashboard/components/sidebar/FolderActionsMenu";
 import { CreateOptionsModal } from "@/features/dashboard/components/modals/CreateOptionsModal";
@@ -21,6 +23,7 @@ import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
+    DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
@@ -48,10 +51,14 @@ export default function ProjectListView({ projectId, workspaceId, selectedListId
     const [isFolderModalOpen, setIsFolderModalOpen] = useState(false);
     const [isCreateOptionsModalOpen, setIsCreateOptionsModalOpen] = useState(false);
     const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
+    const [isDocModalOpen, setIsDocModalOpen] = useState(false);
     const [targetListId, setTargetListId] = useState<string | undefined>(undefined);
+    const [docTargetListId, setDocTargetListId] = useState<string | undefined>(undefined);
+    const [docTargetFolderId, setDocTargetFolderId] = useState<string | undefined>(undefined);
 
     // Folder State
     const [expandedFolders, setExpandedFolders] = useState<Record<string, boolean>>({});
+    const [expandedDocs, setExpandedDocs] = useState<Record<string, boolean>>({});
     const [targetFolderId, setTargetFolderId] = useState<string | undefined>(undefined);
 
     const handleFolderClick = (folderId: string) => {
@@ -96,6 +103,16 @@ export default function ProjectListView({ projectId, workspaceId, selectedListId
 
     const listsRaw = listsData?.items ?? [];
     const folders = foldersData?.items ?? [];
+
+    // Active doc view from URL
+    const activeDocViewId = searchParams.get("docView") || null;
+
+    // Fetch all DOC views for this project scoped to sidebar
+    const { data: docViewsData, refetch: refetchDocViews } = trpc.view.list.useQuery(
+        { projectId, type: "DOC", sidebarView: true },
+        { enabled: !!projectId }
+    );
+    const allDocViews = docViewsData ?? [];
 
     // Client-side filter
     const lists = useMemo(() => {
@@ -176,6 +193,7 @@ export default function ProjectListView({ projectId, workspaceId, selectedListId
         const params = new URLSearchParams(searchParams.toString());
         params.set("list", list.id);
         params.delete("lv");
+        params.delete("docView");
         router.push(`?${params.toString()}`, { scroll: false });
     };
 
@@ -183,6 +201,27 @@ export default function ProjectListView({ projectId, workspaceId, selectedListId
         if (onListSelect) {
             onListSelect(listId);
         }
+        // Clear doc view when switching to list
+        const params = new URLSearchParams(searchParams.toString());
+        params.delete("docView");
+        router.push(`?${params.toString()}`, { scroll: false });
+    };
+
+    const handleDocViewClick = (docViewId: string) => {
+        const params = new URLSearchParams(searchParams.toString());
+        params.set("docView", docViewId);
+        params.delete("list");
+        params.delete("folder");
+        router.push(`?${params.toString()}`, { scroll: false });
+    };
+
+    const handleDocCreated = (id: string) => {
+        refetchDocViews();
+        const params = new URLSearchParams(searchParams.toString());
+        params.set("docView", id);
+        params.delete("list");
+        params.delete("folder");
+        router.push(`?${params.toString()}`, { scroll: false });
     };
 
     const handleOpenCreateListInFolder = (folderId: string) => {
@@ -274,6 +313,15 @@ export default function ProjectListView({ projectId, workspaceId, selectedListId
                                                     <Folder className="mr-2 h-4 w-4" />
                                                     Folder
                                                 </DropdownMenuItem>
+                                                <DropdownMenuSeparator />
+                                                <DropdownMenuItem onClick={() => {
+                                                    setDocTargetListId(undefined);
+                                                    setDocTargetFolderId(activeFolderId || undefined);
+                                                    setIsDocModalOpen(true);
+                                                }}>
+                                                    <FileText className="mr-2 h-4 w-4" />
+                                                    Doc
+                                                </DropdownMenuItem>
                                             </DropdownMenuContent>
                                         </DropdownMenu>
                                     </div>
@@ -292,20 +340,57 @@ export default function ProjectListView({ projectId, workspaceId, selectedListId
                                     padding="md"
                                 />
                             ) : groupedStructure.length === 0 ? (
-                                <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
-                                    <ListIcon className="mb-4 h-12 w-12 text-muted-foreground/50" />
-                                    <p className="text-sm font-medium text-foreground">No lists or folders found</p>
-                                    {searchQuery && (
+                                searchQuery ? (
+                                    <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
+                                        <ListIcon className="mb-4 h-12 w-12 text-muted-foreground/50" />
+                                        <p className="text-sm font-medium text-foreground">No lists or folders found</p>
                                         <p className="mt-1 text-xs text-muted-foreground">
                                             Try adjusting your search
                                         </p>
-                                    )}
-                                    {!searchQuery && (
-                                        <p className="mt-1 text-xs text-muted-foreground">
-                                            Create your first list or folder to get started
-                                        </p>
-                                    )}
-                                </div>
+                                    </div>
+                                ) : (
+                                    <div className="flex h-full items-center justify-center py-12">
+                                        <div className="flex flex-col items-center text-center max-w-sm p-6">
+                                            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-50 mb-4">
+                                                <ListIcon className="h-6 w-6 text-indigo-500" strokeWidth={1.5} />
+                                            </div>
+
+                                            <h2 className="text-lg font-semibold text-slate-900 mb-1">
+                                                Organize your Lists
+                                            </h2>
+
+                                            <p className="text-sm text-slate-500 leading-relaxed mb-5">
+                                                Lists help you organize tasks and workflows. Select one or create a new one.
+                                            </p>
+
+                                            <div className="flex flex-col sm:flex-row items-center gap-3">
+                                                <Button
+                                                    size="sm"
+                                                    className="bg-slate-900 hover:bg-slate-800 text-white rounded-lg w-full sm:w-auto"
+                                                    onClick={() => {
+                                                        setTargetFolderId(activeFolderId || undefined);
+                                                        setIsListModalOpen(true);
+                                                    }}
+                                                >
+                                                    <Plus className="mr-1.5 h-4 w-4" />
+                                                    Create a List
+                                                </Button>
+                                                <Button
+                                                    size="sm"
+                                                    variant="outline"
+                                                    className="rounded-lg border-[#2D2D2D] text-[#2D2D2D] hover:bg-[#f5f5f5] hover:border-[#1a1a1a] w-full sm:w-auto"
+                                                    onClick={() => {
+                                                        setTargetFolderId(activeFolderId || undefined);
+                                                        setIsFolderModalOpen(true);
+                                                    }}
+                                                >
+                                                    <Folder className="mr-1.5 h-4 w-4" />
+                                                    Create a Folder
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )
                             ) : (
                                 <div className="space-y-1">
                                     {groupedStructure.map((item) => {
@@ -369,6 +454,15 @@ export default function ProjectListView({ projectId, workspaceId, selectedListId
                                                                         <Folder className="mr-2 h-4 w-4" />
                                                                         Folder
                                                                     </DropdownMenuItem>
+                                                                    <DropdownMenuSeparator />
+                                                                    <DropdownMenuItem onClick={() => {
+                                                                        setDocTargetListId(undefined);
+                                                                        setDocTargetFolderId(item.id);
+                                                                        setIsDocModalOpen(true);
+                                                                    }}>
+                                                                        <FileText className="mr-2 h-4 w-4" />
+                                                                        Doc
+                                                                    </DropdownMenuItem>
                                                                 </DropdownMenuContent>
                                                             </DropdownMenu>
                                                         </div>
@@ -380,55 +474,98 @@ export default function ProjectListView({ projectId, workspaceId, selectedListId
                                                         <div className="ml-[1.125rem] pl-2 border-l border-slate-200 mt-1 space-y-1">
                                                             {item.items && item.items.length > 0 ? (
                                                                 item.items.map((list: any) => {
-                                                                    const isActive = activeListId === list.id;
+                                                                    const isActive = activeListId === list.id && !activeDocViewId;
+                                                                    const listDocViews = allDocViews.filter(v => v.listId === list.id);
+                                                                    const isDocExpanded = expandedDocs[list.id];
                                                                     return (
-                                                                        <div
-                                                                            key={list.id}
-                                                                            className={cn(
-                                                                                "group/item flex w-full items-center gap-2 rounded-md px-2 py-2 transition-colors",
-                                                                                "hover:bg-slate-50",
-                                                                                isActive && "bg-slate-100"
-                                                                            )}
-                                                                        >
-                                                                            <button
-                                                                                onClick={() => handleListClick(list.id)}
-                                                                                className="flex min-w-0 flex-1 items-center gap-2 text-left focus:outline-none"
+                                                                        <div key={list.id}>
+                                                                            <div
+                                                                                className={cn(
+                                                                                    "group/item flex w-full items-center gap-2 rounded-md px-2 py-2 transition-colors",
+                                                                                    "hover:bg-slate-50",
+                                                                                    isActive && "bg-slate-100"
+                                                                                )}
                                                                             >
-                                                                                <div className="h-1.5 w-1.5 rounded-full shrink-0" style={{ backgroundColor: list.color || '#cbd5e1' }} />
-                                                                                <span className={cn("truncate text-sm", isActive ? "font-medium text-foreground" : "text-muted-foreground group-hover/item:text-foreground")}>
-                                                                                    {list.name}
-                                                                                </span>
-                                                                            </button>
-                                                                            <div className="opacity-0 group-hover/item:opacity-100 transition-opacity flex items-center gap-1">
-                                                                                <ListActionsMenu
-                                                                                    workspaceId={workspaceId}
-                                                                                    projectId={projectId}
-                                                                                    listId={list.id}
-                                                                                />
-                                                                                <DropdownMenu>
-                                                                                    <DropdownMenuTrigger asChild>
+                                                                                <button
+                                                                                    onClick={() => handleListClick(list.id)}
+                                                                                    className="flex min-w-0 flex-1 items-center gap-2 text-left focus:outline-none"
+                                                                                >
+                                                                                    <div className="h-1.5 w-1.5 rounded-full shrink-0" style={{ backgroundColor: list.color || '#cbd5e1' }} />
+                                                                                    <span className={cn("truncate text-sm", isActive ? "font-medium text-foreground" : "text-muted-foreground group-hover/item:text-foreground")}>
+                                                                                        {list.name}
+                                                                                    </span>
+                                                                                </button>
+                                                                                <div className="opacity-0 group-hover/item:opacity-100 transition-opacity flex items-center gap-1">
+                                                                                    {listDocViews.length > 0 && (
                                                                                         <button
-                                                                                            className="h-5 w-5 inline-flex items-center justify-center rounded-sm hover:bg-slate-200 text-muted-foreground hover:text-foreground"
-                                                                                            title="Create"
+                                                                                            onClick={(e) => { e.stopPropagation(); setExpandedDocs(prev => ({ ...prev, [list.id]: !prev[list.id] })); }}
+                                                                                            className="h-4 w-4 inline-flex items-center justify-center rounded-sm hover:bg-slate-200 text-muted-foreground"
+                                                                                            title="Toggle docs"
                                                                                         >
-                                                                                            <Plus className="h-3 w-3" />
+                                                                                            <ChevronRight className={cn("h-3 w-3 transition-transform", isDocExpanded && "rotate-90")} />
                                                                                         </button>
-                                                                                    </DropdownMenuTrigger>
-                                                                                    <DropdownMenuContent align="end" className="w-48">
-                                                                                        <DropdownMenuItem onClick={() => {
-                                                                                            setTargetListId(list.id);
-                                                                                            setIsTaskModalOpen(true);
-                                                                                        }}>
-                                                                                            <CheckSquare className="mr-2 h-4 w-4" />
-                                                                                            Task
-                                                                                        </DropdownMenuItem>
-                                                                                        <DropdownMenuItem onClick={() => handleOpenCreateListInFolder(item.id)}>
-                                                                                            <ListIcon className="mr-2 h-4 w-4" />
-                                                                                            List
-                                                                                        </DropdownMenuItem>
-                                                                                    </DropdownMenuContent>
-                                                                                </DropdownMenu>
+                                                                                    )}
+                                                                                    <ListActionsMenu
+                                                                                        workspaceId={workspaceId}
+                                                                                        projectId={projectId}
+                                                                                        listId={list.id}
+                                                                                    />
+                                                                                    <DropdownMenu>
+                                                                                        <DropdownMenuTrigger asChild>
+                                                                                            <button
+                                                                                                className="h-5 w-5 inline-flex items-center justify-center rounded-sm hover:bg-slate-200 text-muted-foreground hover:text-foreground"
+                                                                                                title="Create"
+                                                                                            >
+                                                                                                <Plus className="h-3 w-3" />
+                                                                                            </button>
+                                                                                        </DropdownMenuTrigger>
+                                                                                        <DropdownMenuContent align="end" className="w-48">
+                                                                                            <DropdownMenuItem onClick={() => {
+                                                                                                setTargetListId(list.id);
+                                                                                                setIsTaskModalOpen(true);
+                                                                                            }}>
+                                                                                                <CheckSquare className="mr-2 h-4 w-4" />
+                                                                                                Task
+                                                                                            </DropdownMenuItem>
+                                                                                            <DropdownMenuItem onClick={() => handleOpenCreateListInFolder(item.id)}>
+                                                                                                <ListIcon className="mr-2 h-4 w-4" />
+                                                                                                List
+                                                                                            </DropdownMenuItem>
+                                                                                            <DropdownMenuSeparator />
+                                                                                            <DropdownMenuItem onClick={() => {
+                                                                                                setDocTargetListId(list.id);
+                                                                                                setDocTargetFolderId(undefined);
+                                                                                                setIsDocModalOpen(true);
+                                                                                            }}>
+                                                                                                <FileText className="mr-2 h-4 w-4" />
+                                                                                                Doc
+                                                                                            </DropdownMenuItem>
+                                                                                        </DropdownMenuContent>
+                                                                                    </DropdownMenu>
+                                                                                </div>
                                                                             </div>
+                                                                            {/* Doc views under list */}
+                                                                            {isDocExpanded && listDocViews.length > 0 && (
+                                                                                <div className="ml-4 pl-2 border-l border-slate-200 mt-0.5 space-y-0.5">
+                                                                                    {listDocViews.map((docView) => {
+                                                                                        const isDocActive = activeDocViewId === docView.id;
+                                                                                        return (
+                                                                                            <button
+                                                                                                key={docView.id}
+                                                                                                onClick={() => handleDocViewClick(docView.id)}
+                                                                                                className={cn(
+                                                                                                    "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs transition-colors",
+                                                                                                    "hover:bg-slate-50",
+                                                                                                    isDocActive ? "bg-slate-100 font-medium text-foreground" : "text-muted-foreground"
+                                                                                                )}
+                                                                                            >
+                                                                                                <FileText className={cn("h-3 w-3 shrink-0", isDocActive ? "text-indigo-500" : "text-muted-foreground")} />
+                                                                                                <span className="truncate">{docView.name}</span>
+                                                                                            </button>
+                                                                                        );
+                                                                                    })}
+                                                                                </div>
+                                                                            )}
                                                                         </div>
                                                                     );
                                                                 })
@@ -448,63 +585,106 @@ export default function ProjectListView({ projectId, workspaceId, selectedListId
                                         } else {
                                             // Render List Item (Top Level)
                                             const list = item.data;
-                                            const isActive = activeListId === list.id;
+                                            const isActive = activeListId === list.id && !activeDocViewId;
+                                            const listDocViews = allDocViews.filter(v => v.listId === list.id);
+                                            const isDocExpanded = expandedDocs[list.id];
                                             return (
-                                                <div
-                                                    key={list.id}
-                                                    className={cn(
-                                                        "group/item flex w-full items-center gap-2 rounded-lg px-2 py-2 transition-colors",
-                                                        "hover:bg-slate-50",
-                                                        isActive && "bg-slate-100"
-                                                    )}
-                                                >
-                                                    <button
-                                                        onClick={() => handleListClick(list.id)}
-                                                        className="flex min-w-0 flex-1 items-center gap-3 text-left focus:outline-none"
+                                                <div key={list.id}>
+                                                    <div
+                                                        className={cn(
+                                                            "group/item flex w-full items-center gap-2 rounded-lg px-2 py-2 transition-colors",
+                                                            "hover:bg-slate-50",
+                                                            isActive && "bg-slate-100"
+                                                        )}
                                                     >
-                                                        <ListIcon
-                                                            className="h-4 w-4 shrink-0 text-muted-foreground"
-                                                            style={{ color: list.color || undefined }}
-                                                        />
-                                                        <div className="flex min-w-0 flex-1 flex-col justify-center">
-                                                            <p className={cn("truncate text-sm font-medium", isActive ? "text-foreground" : "text-zinc-600")}>
-                                                                {list.name}
-                                                            </p>
-                                                        </div>
-                                                    </button>
-                                                    <div className="opacity-0 group-hover/item:opacity-100 transition-opacity flex items-center gap-1">
-                                                        <ListActionsMenu
-                                                            workspaceId={workspaceId}
-                                                            projectId={projectId}
-                                                            listId={list.id}
-                                                        />
-                                                        <DropdownMenu>
-                                                            <DropdownMenuTrigger asChild>
+                                                        <button
+                                                            onClick={() => handleListClick(list.id)}
+                                                            className="flex min-w-0 flex-1 items-center gap-3 text-left focus:outline-none"
+                                                        >
+                                                            <ListIcon
+                                                                className="h-4 w-4 shrink-0 text-muted-foreground"
+                                                                style={{ color: list.color || undefined }}
+                                                            />
+                                                            <div className="flex min-w-0 flex-1 flex-col justify-center">
+                                                                <p className={cn("truncate text-sm font-medium", isActive ? "text-foreground" : "text-zinc-600")}>
+                                                                    {list.name}
+                                                                </p>
+                                                            </div>
+                                                        </button>
+                                                        <div className="opacity-0 group-hover/item:opacity-100 transition-opacity flex items-center gap-1">
+                                                            {listDocViews.length > 0 && (
                                                                 <button
-                                                                    className="h-5 w-5 inline-flex items-center justify-center rounded-sm hover:bg-slate-200 text-muted-foreground hover:text-foreground"
-                                                                    title="Create"
+                                                                    onClick={(e) => { e.stopPropagation(); setExpandedDocs(prev => ({ ...prev, [list.id]: !prev[list.id] })); }}
+                                                                    className="h-4 w-4 inline-flex items-center justify-center rounded-sm hover:bg-slate-200 text-muted-foreground"
+                                                                    title="Toggle docs"
                                                                 >
-                                                                    <Plus className="h-3 w-3" />
+                                                                    <ChevronRight className={cn("h-3 w-3 transition-transform", isDocExpanded && "rotate-90")} />
                                                                 </button>
-                                                            </DropdownMenuTrigger>
-                                                            <DropdownMenuContent align="end" className="w-48">
-                                                                <DropdownMenuItem onClick={() => {
-                                                                    setTargetListId(list.id);
-                                                                    setIsTaskModalOpen(true);
-                                                                }}>
-                                                                    <CheckSquare className="mr-2 h-4 w-4" />
-                                                                    Task
-                                                                </DropdownMenuItem>
-                                                                <DropdownMenuItem onClick={() => {
-                                                                    setTargetFolderId(undefined);
-                                                                    setIsListModalOpen(true);
-                                                                }}>
-                                                                    <ListIcon className="mr-2 h-4 w-4" />
-                                                                    List
-                                                                </DropdownMenuItem>
-                                                            </DropdownMenuContent>
-                                                        </DropdownMenu>
+                                                            )}
+                                                            <ListActionsMenu
+                                                                workspaceId={workspaceId}
+                                                                projectId={projectId}
+                                                                listId={list.id}
+                                                            />
+                                                            <DropdownMenu>
+                                                                <DropdownMenuTrigger asChild>
+                                                                    <button
+                                                                        className="h-5 w-5 inline-flex items-center justify-center rounded-sm hover:bg-slate-200 text-muted-foreground hover:text-foreground"
+                                                                        title="Create"
+                                                                    >
+                                                                        <Plus className="h-3 w-3" />
+                                                                    </button>
+                                                                </DropdownMenuTrigger>
+                                                                <DropdownMenuContent align="end" className="w-48">
+                                                                    <DropdownMenuItem onClick={() => {
+                                                                        setTargetListId(list.id);
+                                                                        setIsTaskModalOpen(true);
+                                                                    }}>
+                                                                        <CheckSquare className="mr-2 h-4 w-4" />
+                                                                        Task
+                                                                    </DropdownMenuItem>
+                                                                    <DropdownMenuItem onClick={() => {
+                                                                        setTargetFolderId(undefined);
+                                                                        setIsListModalOpen(true);
+                                                                    }}>
+                                                                        <ListIcon className="mr-2 h-4 w-4" />
+                                                                        List
+                                                                    </DropdownMenuItem>
+                                                                    <DropdownMenuSeparator />
+                                                                    <DropdownMenuItem onClick={() => {
+                                                                        setDocTargetListId(list.id);
+                                                                        setDocTargetFolderId(undefined);
+                                                                        setIsDocModalOpen(true);
+                                                                    }}>
+                                                                        <FileText className="mr-2 h-4 w-4" />
+                                                                        Doc
+                                                                    </DropdownMenuItem>
+                                                                </DropdownMenuContent>
+                                                            </DropdownMenu>
+                                                        </div>
                                                     </div>
+                                                    {/* Doc views under top-level list */}
+                                                    {isDocExpanded && listDocViews.length > 0 && (
+                                                        <div className="ml-4 pl-2 border-l border-slate-200 mt-0.5 space-y-0.5">
+                                                            {listDocViews.map((docView) => {
+                                                                const isDocActive = activeDocViewId === docView.id;
+                                                                return (
+                                                                    <button
+                                                                        key={docView.id}
+                                                                        onClick={() => handleDocViewClick(docView.id)}
+                                                                        className={cn(
+                                                                            "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs transition-colors",
+                                                                            "hover:bg-slate-50",
+                                                                            isDocActive ? "bg-slate-100 font-medium text-foreground" : "text-muted-foreground"
+                                                                        )}
+                                                                    >
+                                                                        <FileText className={cn("h-3 w-3 shrink-0", isDocActive ? "text-indigo-500" : "text-muted-foreground")} />
+                                                                        <span className="truncate">{docView.name}</span>
+                                                                    </button>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    )}
                                                 </div>
                                             );
                                         }
@@ -533,9 +713,18 @@ export default function ProjectListView({ projectId, workspaceId, selectedListId
                 )}
                 <div className="flex-1 overflow-hidden">
                     {
-                        activeListId ? (
-                            <div className="flex-1 overflow-hidden bg-zinc-50 h-full">
-                                <ListDashboardView
+                        activeDocViewId ? (
+                            <div className="flex-1 overflow-hidden h-full">
+                                <DocView
+                                    viewId={activeDocViewId}
+                                    projectId={projectId}
+                                    listId={docTargetListId}
+                                    folderId={docTargetFolderId}
+                                />
+                            </div>
+                        ) : activeListId ? (
+                            <div className={cn("flex-1 overflow-hidden bg-zinc-50 h-full", isSidebarCollapsed && "[&_.dashboard-tabs-container]:pl-12")}>
+                                <DashboardListView
                                     listId={activeListId}
                                     projectId={projectId}
                                     workspaceId={workspaceId}
@@ -544,8 +733,8 @@ export default function ProjectListView({ projectId, workspaceId, selectedListId
                                 />
                             </div>
                         ) : activeFolderId ? (
-                            <div className="flex-1 overflow-hidden bg-zinc-50 h-full">
-                                <FolderDashboardView
+                            <div className={cn("flex-1 overflow-hidden bg-zinc-50 h-full", isSidebarCollapsed && "[&_.dashboard-tabs-container]:pl-12")}>
+                                <DashboardFolderView
                                     folderId={activeFolderId}
                                     projectId={projectId}
                                     workspaceId={workspaceId}
@@ -621,6 +810,16 @@ export default function ProjectListView({ projectId, workspaceId, selectedListId
                 defaultListId={targetListId}
                 availableStatuses={listsRaw.find(l => l.id === targetListId)?.statuses}
                 trigger={<span className="hidden" />}
+            />
+
+            <DocumentCreationModal
+                open={isDocModalOpen}
+                onOpenChange={(open) => {
+                    setIsDocModalOpen(open);
+                    if (!open) { setDocTargetListId(undefined); setDocTargetFolderId(undefined); }
+                }}
+                workspaceId={workspaceId || ""}
+                onSuccess={handleDocCreated}
             />
         </div>
     );

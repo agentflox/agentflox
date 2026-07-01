@@ -13,7 +13,7 @@ import { trpc } from "@/lib/trpc";
 
 type Scope = "received" | "sent";
 type RequestStatus = "PENDING" | "ACCEPTED" | "REJECTED" | "WITHDRAWN" | "EXPIRED";
-type ConnectionStatus = "PENDING" | "ACCEPTED" | "REJECTED";
+type ConnectionStatus = "PENDING" | "ACCEPTED" | "REJECTED" | "BLOCKED";
 
 function userPhoto(u: { image?: string | null; avatar?: string | null }) {
   return u.image || u.avatar || "";
@@ -42,6 +42,7 @@ function ConnectionStatusBadge({ status }: { status: ConnectionStatus }) {
     PENDING: { bg: "bg-amber-50", text: "text-amber-700", border: "border-amber-200", icon: AlertCircle },
     ACCEPTED: { bg: "bg-emerald-50", text: "text-emerald-700", border: "border-emerald-200", icon: CheckCircle },
     REJECTED: { bg: "bg-rose-50", text: "text-rose-700", border: "border-rose-200", icon: XCircle },
+    BLOCKED: { bg: "bg-slate-50", text: "text-slate-700", border: "border-slate-200", icon: XCircle },
   };
   const style = styles[status];
   const Icon = style.icon;
@@ -428,11 +429,11 @@ export function RequestsView() {
                             {format(new Date(conn.requestedAt), "MMM d, yyyy 'at' h:mm a")}
                           </span>
                         </div>
-                        {(other?.username || other?.email) && (
+                        {(other?.username || (other as any)?.email) && (
                           <div className="flex items-center gap-1.5">
                             <Mail className="h-3.5 w-3.5" strokeWidth={2} />
                             <span className="font-medium truncate max-w-[200px]">
-                              {other.username || other.email}
+                              {other.username || (other as any).email}
                             </span>
                           </div>
                         )}

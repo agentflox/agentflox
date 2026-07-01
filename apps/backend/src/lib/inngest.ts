@@ -1,5 +1,5 @@
-import { Inngest } from 'inngest';
-import { AgentExecutorRequestedEvent, AgentOperatorRequestedEvent, AgentExecutorCancelEvent, AgentOperatorCancelEvent } from './services/agents/execution/agentEvents';
+import { Inngest, EventSchemas } from 'inngest';
+import { AgentExecutorRequestedEvent, AgentOperatorRequestedEvent, AgentExecutorCancelEvent, AgentOperatorCancelEvent } from '../services/agents/execution/agentEvents';
 
 type Events = {
   'agent/execute': AgentExecuteEvent;
@@ -13,10 +13,11 @@ type Events = {
 };
 
 // Initialize Inngest client
-export const inngest = new Inngest<Events>({
+export const inngest = new Inngest({
   id: 'agentflox-agents',
   name: 'Agentflox AI Agents',
   eventKey: process.env.INNGEST_EVENT_KEY || (process.env.NODE_ENV === 'development' ? 'local' : undefined),
+  schemas: new EventSchemas().fromRecord<Events>(),
 });
 
 // Event types for agent execution

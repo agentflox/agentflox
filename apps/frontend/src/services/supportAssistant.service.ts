@@ -1,121 +1,128 @@
-import { TRPCError } from "@trpc/server";
-import { initializeOpenAI } from "@/lib/openai";
-import { prisma } from "@/lib/prisma";
-import { ConversationType } from "@agentflox/database/src/generated/prisma";
+"use client";
 
-export async function initializeSupportAssistant(userId: string, title?: string) {
-  const db: any = prisma as any;
+import { fetchAuthToken, sendBackendRequest } from "@/utils/backend-request";
+import { BACKEND_URL } from "@/hooks/useSSEStream";
 
-  const existing = await db.aiConversation.findFirst({
-    where: {
-      userId,
-      conversationType: ConversationType.SUPPORT,
-    },
-    orderBy: { updatedAt: "desc" },
-    select: { id: true },
-  });
+// ─── Types ──────────────────────────────────────────────────────────────────
 
-  if (existing?.id) {
-    return { conversationId: existing.id, created: false };
-  }
-
-  const conv = await db.aiConversation.create({
-    data: {
-      userId,
-      title: title || "Support Chat",
-      conversationType: ConversationType.SUPPORT,
-    },
-    select: { id: true },
-  });
-
-  const welcome = "Hello! I'm your Agentflox AI assistant. How can I help you today? I can help with community questions, platform features, or technical support.";
-
-  await db.aiMessage.create({
-    data: {
-      conversationId: conv.id,
-      role: "ASSISTANT",
-      content: welcome,
-      metadata: { kind: "welcome" },
-    },
-  });
-
-  await db.aiConversation.update({
-    where: { id: conv.id },
-    data: { messageCount: 1, lastMessageAt: new Date() },
-  });
-
-  return { conversationId: conv.id, created: true };
+export interface SupportStreamCallbacks {
+  onThinking?: (step: string) => void;
+  onToken?: (text: string) => void;
+  onComplete?: (content: string) => void;
+  onError?: (message: string) => void;
 }
 
-export async function sendMessageToSupportAssistant(userId: string, conversationId: string, message: string) {
-  const openai = initializeOpenAI();
-  const db: any = prisma as any;
+// ─── Initialize support conversation ────────────────────────────────────────
 
-  const conv = await db.aiConversation.findFirst({
-    where: { id: conversationId, userId },
-    select: { id: true },
+export async function initializeSupportAssistant(
+  title?: string,
+): Promise<{ conversationId: string; created: boolean }> {
+  const res = await sendBackendRequest("/v1/support/initialize", {
+    method: "POST",
+    body: JSON.stringify({ title }),
   });
-  if (!conv) throw new TRPCError({ code: "NOT_FOUND", message: "Conversation not found" });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err?.message || `HTTP ${res.status}`);
+  }
+  return res.json();
+}
 
-  const system = [
-    "You are a premium AI support assistant for Agentflox.",
-    "Agentflox is a powerful agentic AI platform for building tools and workforces.",
-    "You are helpful, professional, and friendly.",
-    "Your goal is to assist users with any questions they have about the platform.",
-    "Provide clear, concise, and accurate information.",
-  ].join("\n");
+// ─── Send message (non-streaming) ───────────────────────────────────────────
 
-  try {
-    await db.aiMessage.create({
-      data: {
-        conversationId,
-        role: "USER",
-        content: message,
-      },
-    });
+export async function sendMessageToSupportAssistant(
+  conversationId: string,
+  message: string,
+): Promise<{ content: string }> {
+  const res = await sendBackendRequest("/v1/support/message", {
+    method: "POST",
+    body: JSON.stringify({ conversationId, message }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err?.message || `HTTP ${res.status}`);
+  }
+  return res.json();
+}
 
-    const recent = await db.aiMessage.findMany({
-      where: { conversationId },
-      orderBy: { createdAt: "asc" },
-      take: 20,
-      select: { role: true, content: true },
-    });
+// ─── Stream message (SSE) ────────────────────────────────────────────────────
 
-    const completion = await openai.chat.completions.create({
-      model: process.env.OPENAI_MODEL || "gpt-4o-mini",
-      temperature: 0.7,
-      messages: [
-        { role: "system", content: system },
-        ...recent.map((m: any) => ({
-          role: m.role === "ASSISTANT" ? ("assistant" as const) : ("user" as const),
-          content: m.content as string,
-        })),
-      ],
-    });
+/**
+ * Streams the assistant response for the support chat.
+ * Emits SSE frames: thinking → token → complete | error.
+ * Compatible with useSSEStream on the frontend.
+ */
+export async function streamMessageToSupportAssistant(
+  conversationId: string,
+  message: string,
+  callbacks: SupportStreamCallbacks,
+): Promise<void> {
+  const token = await fetchAuthToken();
 
-    const assistantContent = completion.choices[0]?.message?.content ?? "I'm sorry, I couldn't generate a response.";
+  const res = await fetch(`${BACKEND_URL}/v1/support/message-stream`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "text/event-stream",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify({ conversationId, message }),
+  });
 
-    await db.aiMessage.create({
-      data: {
-        conversationId,
-        role: "ASSISTANT",
-        content: assistantContent,
-      },
-    });
+  if (!res.ok || !res.body) {
+    const text = await res.text().catch(() => "");
+    let errMsg = `HTTP ${res.status}`;
+    try {
+      const data = JSON.parse(text);
+      errMsg = data?.message || data?.error || errMsg;
+    } catch { /* ignore */ }
+    callbacks.onError?.(errMsg);
+    return;
+  }
 
-    await db.aiConversation.update({
-      where: { id: conversationId },
-      data: {
-        messageCount: { increment: 2 },
-        lastMessageAt: new Date(),
-      },
-    });
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder("utf-8");
+  let buffer = "";
+  let fullText = "";
 
-    return { content: assistantContent };
-  } catch (err: any) {
-    throw new TRPCError({
-      code: "INTERNAL_SERVER_ERROR",
-      message: err?.message || "Failed to generate assistant response.",
-    });
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const frames = buffer.split("\n\n");
+    buffer = frames.pop() ?? "";
+
+    for (const frame of frames) {
+      if (!frame.trim()) continue;
+      const dataLines = frame
+        .split("\n")
+        .filter((l) => l.startsWith("data: "))
+        .map((l) => l.slice("data: ".length));
+
+      if (dataLines.length === 0) continue;
+      let event: any;
+      try {
+        event = JSON.parse(dataLines.join(""));
+      } catch {
+        continue;
+      }
+
+      switch (event.type) {
+        case "thinking":
+          callbacks.onThinking?.(event.step ?? "");
+          break;
+        case "token":
+          fullText += event.text ?? "";
+          callbacks.onToken?.(event.text ?? "");
+          break;
+        case "complete":
+          callbacks.onComplete?.(event.payload?.content ?? fullText);
+          break;
+        case "error":
+          callbacks.onError?.(event.message ?? "Unknown error");
+          break;
+      }
+    }
   }
 }

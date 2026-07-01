@@ -8,18 +8,15 @@ type ChatContextType = 'project' | 'profile' | 'proposal' | 'team' | 'workspace'
 interface PlanLimits {
   maxProjects: number;
   maxTeams: number;
-  maxProposals: number;
   maxRequests: number;
   maxChatsPerProject: number;
   maxChatsPerProfile: number;
-  maxChatsPerProposal: number;
   maxChatsPerTeam: number;
 }
 
 interface ResourceCounts {
   projectsOwned: number;
   teamsOwned: number;
-  proposalsOwned: number;
   requestsSent: number;
 }
 
@@ -45,23 +42,21 @@ export class LimitGuard {
     return {
       maxProjects: f?.maxProjects ?? 0,
       maxTeams: f?.maxTeams ?? 0,
-      maxProposals: f?.maxProposals ?? 0,
       maxRequests: f?.maxRequests ?? 0,
       maxChatsPerProject: f?.maxChatsPerProject ?? 0,
       maxChatsPerProfile: f?.maxChatsPerProfile ?? 0,
-      maxChatsPerProposal: f?.maxChatsPerProposal ?? 0,
       maxChatsPerTeam: f?.maxChatsPerTeam ?? 0,
     };
   }
 
   static async getResourceCounts(userId: string): Promise<ResourceCounts> {
-    const [projectsOwned, teamsOwned, proposalsOwned, requestsSent] = await Promise.all([
+    const [projectsOwned, teamsOwned, requestsSent] = await Promise.all([
       prisma.project?.count({ where: { ownerId: userId } }) ?? Promise.resolve(0),
       prisma.team?.count({ where: { ownerId: userId } }) ?? Promise.resolve(0),
       (prisma as any).proposal?.count({ where: { userId } }) ?? Promise.resolve(0),
       prisma.request?.count({ where: { senderId: userId } }) ?? Promise.resolve(0),
     ]);
-    return { projectsOwned, teamsOwned, proposalsOwned, requestsSent };
+    return { projectsOwned, teamsOwned, requestsSent };
   }
 
   static async ensureWithinCreateLimit(userId: string, service: ServiceKey): Promise<void> {
@@ -73,10 +68,10 @@ export class LimitGuard {
           return counts.projectsOwned >= limits.maxProjects;
         case 'TEAM':
           return counts.teamsOwned >= limits.maxTeams;
-        case 'PROPOSAL':
-          return counts.proposalsOwned >= limits.maxProposals;
         case 'REQUEST':
           return counts.requestsSent >= limits.maxRequests;
+        default:
+          return false;
       }
     };
     if (over(service)) {
@@ -93,10 +88,10 @@ export class LimitGuard {
           return counts.projectsOwned > limits.maxProjects;
         case 'TEAM':
           return counts.teamsOwned > limits.maxTeams;
-        case 'PROPOSAL':
-          return counts.proposalsOwned > limits.maxProposals;
         case 'REQUEST':
           return counts.requestsSent > limits.maxRequests;
+        default:
+          return false;
       }
     };
     if (exceeds(service)) {
@@ -134,12 +129,6 @@ export class LimitGuard {
           },
         });
         limit = limits.maxChatsPerProfile;
-        break;
-      case 'proposal':
-        currentCount = await db.aiConversation.count({
-          where: { userId, proposalId: entityId },
-        });
-        limit = limits.maxChatsPerProposal;
         break;
       case 'team':
         currentCount = await db.aiConversation.count({

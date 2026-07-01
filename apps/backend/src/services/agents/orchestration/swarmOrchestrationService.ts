@@ -6,7 +6,7 @@ import { randomUUID } from 'crypto';
 import { metrics } from '@/monitoring/metrics';
 import { createContextLogger } from '@/lib/logger';
 import { inngest } from '@/lib/inngest';
-import { redis, redisPub, redisSub } from '@/lib/redis';
+import { redis, redisPub, redisSub, redisConnectionOptions } from '@/lib/redis';
 import { Queue, Worker, Job } from 'bullmq';
 import { swarmMessageBuffer } from './swarmMessageBuffer';
 import { openai } from '@/lib/openai';
@@ -54,22 +54,30 @@ export type SwarmMessageType =
 
 
 // ── BullMQ queue with retry + DLQ policy ────────────────────────────────────
+// Pass redisConnectionOptions (plain object) instead of the Redis instance to avoid
+// the duplicate-ioredis TS2322 error in monorepos — BullMQ manages its own connections.
 export const swarmCycleQueue = new Queue('swarm-cycles', {
-    connection: redis,
+    connection: redisConnectionOptions,
     defaultJobOptions: {
         attempts: 3,
         backoff: { type: 'exponential', delay: 2000 },
-        removeOnComplete: { count: 100 },  // keep last 100 completed jobs
-        removeOnFail: { count: 500 },      // keep last 500 failed for inspection
+        removeOnComplete: { count: 50, age: 3600 },   // keep last 50 jobs max 1h
+        removeOnFail: { count: 100, age: 86400 },     // keep last 100 failures max 24h
     },
 });
 
-export const swarmDLQ = new Queue('swarm-cycles-dlq', { connection: redis });
+export const swarmDLQ = new Queue('swarm-cycles-dlq', { connection: redisConnectionOptions });
 
 const swarmCycleWorker = new Worker('swarm-cycles', async (job: Job) => {
     const { sessionId } = job.data;
     await swarmOrchestrationService.executeCycle(sessionId);
-}, { connection: redis, concurrency: 100 });
+}, {
+    connection: redisConnectionOptions,
+    concurrency: 20,       // safe limit — prevents Redis connection storms
+    drainDelay: 10,        // wait 10ms when queue is empty before polling again (reduces idle commands)
+    stalledInterval: 60_000, // check for stalled jobs every 60s (default 30s)
+    maxStalledCount: 2,    // mark job as failed after 2 stall checks (prevent ghost jobs)
+});
 
 swarmCycleWorker.on('error', err => {
     console.error('[SwarmWorker] Error:', err);
@@ -597,7 +605,7 @@ export class SwarmOrchestrationService {
                 const previousStep = currentStepIndex > 0 ? pipeline[currentStepIndex - 1] : null;
                 const prevArtifact = currentStepIndex > 0 ? artifacts[`step_${currentStepIndex - 1}`] : null;
 
-                let detailText = `Pipeline Active: **${pipeline.map(stepId => getFriendlyStepName(stepId, agentNamesMap)).join(' → ')}**\n\n`;
+                let detailText = `Pipeline Active: **${pipeline.map((stepId: string) => getFriendlyStepName(stepId, agentNamesMap)).join(' → ')}**\n\n`;
                 if (currentStepIndex > 0 && previousStep) {
                     detailText += `📥 **Context Handoff**: Output of step **${getFriendlyStepName(previousStep, agentNamesMap)}** passed as input to **${agentDisplayName}**.\n\n`;
                 }

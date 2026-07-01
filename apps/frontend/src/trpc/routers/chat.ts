@@ -5,6 +5,7 @@ import { initializeOpenAI } from '@/lib/openai'
 import { ensureChatContext, type ChatContextType } from '@/entities/chats/utils'
 import { LimitGuard } from '@/features/usage/utils/limitGuard'
 import { protectedProcedure, router } from '@/trpc/init'
+import { assertChatEntityAccess, assertProjectAccess, assertWorkforceAccess } from '@/lib/resourceAccess'
 
 export const chatRouter = router({
   list: protectedProcedure
@@ -15,10 +16,13 @@ export const chatRouter = router({
       })
     )
     .query(async ({ ctx, input }) => {
+      const userId = ctx.session.user.id
+      await assertChatEntityAccess(userId, input.contextType, input.entityId)
+
       const db = prisma as any
 
       const where: any = {
-        userId: ctx.session.user.id,
+        userId,
       }
 
       switch (input.contextType) {
@@ -26,7 +30,7 @@ export const chatRouter = router({
           where.projectId = input.entityId
           break
         case 'proposal':
-          where.proposalId = input.entityId
+          // proposalId removed from schema
           break
         case 'team':
           where.teamId = input.entityId
@@ -52,7 +56,6 @@ export const chatRouter = router({
         case 'profile':
           where.userId = input.entityId
           where.projectId = null
-          where.proposalId = null
           where.teamId = null
           where.workspaceId = null
           where.spaceId = null
@@ -72,7 +75,6 @@ export const chatRouter = router({
           id: true,
           title: true,
           projectId: true,
-          proposalId: true,
           teamId: true,
           workspaceId: true,
           spaceId: true,
@@ -98,11 +100,14 @@ export const chatRouter = router({
       })
     )
     .query(async ({ ctx, input }) => {
+      const userId = ctx.session.user.id
+      await assertProjectAccess(userId, input.projectId)
+
       const db = prisma as any
 
       const conversations = await db.aiConversation.findMany({
         where: {
-          userId: ctx.session.user.id,
+          userId,
           projectId: input.projectId,
         },
         orderBy: {
@@ -235,8 +240,11 @@ export const chatRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
+      const userId = ctx.session.user.id
+      await assertChatEntityAccess(userId, input.contextType as ChatContextType, input.entityId)
+
       await LimitGuard.ensureWithinChatLimit(
-        ctx.session.user.id,
+        userId,
         input.contextType as ChatContextType,
         input.entityId
       )
@@ -245,7 +253,7 @@ export const chatRouter = router({
       const openai = initializeOpenAI()
 
       const data: any = {
-        userId: ctx.session.user.id,
+        userId,
         title: input.title || 'New chat',
         conversationType: input.conversationType ?? ConversationType.GENERAL,
         systemPrompt: input.systemPrompt,
@@ -258,7 +266,6 @@ export const chatRouter = router({
           data.conversationType = input.conversationType ?? ConversationType.PROJECT_HELP
           break
         case 'proposal':
-          data.proposalId = input.entityId
           data.conversationType = input.conversationType ?? ConversationType.GENERAL
           break
         case 'team':
@@ -307,7 +314,6 @@ export const chatRouter = router({
         id: conversation.id,
         title: conversation.title,
         projectId: conversation.projectId,
-        proposalId: conversation.proposalId,
         teamId: conversation.teamId,
         model: conversation.model?.name,
         conversationType: conversation.conversationType,
@@ -585,6 +591,8 @@ export const chatRouter = router({
       const db = prisma as any
       const userId = ctx.session.user.id
 
+      await assertWorkforceAccess(userId, input.workforceId)
+
       const conversationType = input.mode === 'SWARM'
         ? ConversationType.WORKFORCE_SWARM_EXECUTION
         : ConversationType.WORKFORCE_EXECUTION;
@@ -637,6 +645,8 @@ export const chatRouter = router({
     .mutation(async ({ ctx, input }) => {
       const db = prisma as any
       const userId = ctx.session.user.id
+
+      await assertWorkforceAccess(userId, input.workforceId)
 
       // Resolve a default model if none supplied
       let modelId = input.modelId

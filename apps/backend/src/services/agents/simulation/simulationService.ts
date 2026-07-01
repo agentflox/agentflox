@@ -46,7 +46,7 @@ INSTRUCTIONS:
                     { role: 'system', content: systemPrompt },
                     { role: 'user', content: userMessage }
                 ],
-                tools: draft.tools?.map(t => ({ // Mock mapping of internal tool definitions to OpenAI format
+                tools: draft.tools?.map((t: any) => ({ // Mock mapping of internal tool definitions to OpenAI format
                     type: 'function',
                     function: {
                         name: t.name,

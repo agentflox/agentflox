@@ -1,3 +1,4 @@
+import "server-only";
 import {
   Client,
   Environment,
@@ -13,11 +14,11 @@ export const client = new Client({
     process.env.NODE_ENV === "production"
       ? Environment.Production
       : Environment.Sandbox,
-  timeout: 0,
+  timeout: 30_000,
   logging: {
     logLevel: LogLevel.Info,
-    logRequest: { logBody: true },
-    logResponse: { logHeaders: true },
+    logRequest: { logBody: false },
+    logResponse: { logHeaders: false },
   },
 });
 

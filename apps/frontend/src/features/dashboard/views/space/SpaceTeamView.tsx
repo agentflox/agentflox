@@ -3,22 +3,24 @@
 import { useState, useMemo, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { trpc } from "@/lib/trpc";
-import { Loader2, Plus, ChevronRight, Users, MoreHorizontal, Search, ChevronsLeft, ChevronsRight, X, Settings } from "lucide-react";
+import { Loader2, Plus, ChevronRight, Users, MoreHorizontal, Search, ChevronsLeft, ChevronsRight, X, Settings, LayoutGrid } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { LoadingContainer, LoadingPage } from "@/components/ui/loading";
+import { LoadingContainer } from "@/components/ui/loading";
 import { cn } from "@/lib/utils";
-import TeamViewSwitcher from "@/features/dashboard/views/team/ViewSwitcher";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TeamCreationModal } from "@/entities/teams/components/TeamCreationModal";
 import { TeamImportModal } from "@/entities/teams/components/TeamImportModal";
 import { TeamActionsMenu } from "@/features/dashboard/components/sidebar/TeamActionsMenu";
 import { TeamCreateMenu } from "@/features/dashboard/components/sidebar/TeamCreateMenu";
+import DashboardTeamView from "@/features/dashboard/views/generic/DashboardTeamView";
+import { SharedManageTeamsView } from "@/features/dashboard/views/shared/SharedManageTeamsView";
+
 import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
+    DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
@@ -29,18 +31,7 @@ interface SpaceTeamViewProps {
     onTeamSelect: (teamId: string) => void;
 }
 
-const TEAM_TABS = [
-    { id: "overview", label: "Overview" },
-    { id: "tasks", label: "Tasks" },
-    { id: "discussions", label: "Discussions" },
-    { id: "chat", label: "Chat" },
-    { id: "activities", label: "Activities" },
-    { id: "members", label: "Members" },
-    { id: "analytics", label: "Analytics" },
-    { id: "governance", label: "Governance" },
-    { id: "appeal", label: "Appeals" },
-    { id: "logs", label: "Logs" },
-];
+// Removing TEAM_TABS array as it's no longer needed in this file
 
 function formatNumber(value: number | null | undefined) {
     if (!value) return "0";
@@ -52,8 +43,7 @@ export default function SpaceTeamView({ spaceId, workspaceId, selectedTeamId, on
     const searchParams = useSearchParams();
     const [createModalOpen, setCreateModalOpen] = useState(false);
     const [importModalOpen, setImportModalOpen] = useState(false);
-    const [settingsTeamId, setSettingsTeamId] = useState<string | null>(null);
-    const [settingsTab, setSettingsTab] = useState("general");
+    const [isManageView, setIsManageView] = useState(false);
 
     // Sidebar State
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
@@ -69,8 +59,7 @@ export default function SpaceTeamView({ spaceId, workspaceId, selectedTeamId, on
         return () => clearTimeout(timer);
     }, [searchQuery]);
 
-    // Get active tab from URL or default to overview
-    const activeTab = searchParams.get("ttab") || "overview";
+    const activeTeamId = !isManageView ? selectedTeamId : undefined;
 
     // Fetch teams list for this space
     const { data: teamsData, isLoading: isLoadingList, refetch: refetchList } = trpc.team.list.useQuery({
@@ -88,20 +77,6 @@ export default function SpaceTeamView({ spaceId, workspaceId, selectedTeamId, on
         return teamsRaw.filter(t => t.name.toLowerCase().includes(debouncedQuery.toLowerCase()));
     }, [teamsRaw, debouncedQuery]);
 
-    const activeTeamId = selectedTeamId;
-
-    // Fetch details if a team is selected
-    const { data: selectedTeam, isLoading: isLoadingDetail } = trpc.team.get.useQuery(
-        { id: selectedTeamId! },
-        { enabled: !!selectedTeamId }
-    );
-
-    const handleTabChange = (tabId: string) => {
-        const params = new URLSearchParams(searchParams.toString());
-        params.set("ttab", tabId);
-        router.push(`?${params.toString()}`, { scroll: false });
-    };
-
     const handleBackToList = () => {
         const params = new URLSearchParams(searchParams.toString());
         params.delete("tm");
@@ -110,6 +85,7 @@ export default function SpaceTeamView({ spaceId, workspaceId, selectedTeamId, on
     };
 
     const handleTeamClick = (teamId: string) => {
+        setIsManageView(false);
         if (onTeamSelect) {
             onTeamSelect(teamId);
         }
@@ -123,64 +99,13 @@ export default function SpaceTeamView({ spaceId, workspaceId, selectedTeamId, on
         setCreateModalOpen(true);
     };
 
-    if (selectedTeamId) {
-        if (isLoadingDetail) {
-            return (
-                <LoadingPage label="Loading team details..." />
-            );
-        }
-
-        if (!selectedTeam) {
-            return (
-                <div className="flex h-full flex-col items-center justify-center gap-4">
-                    <p className="text-muted-foreground">Team not found</p>
-                    <Button onClick={handleBackToList}>Back to Teams</Button>
-                </div>
-            );
-        }
-
-        return (
-            <div className="flex h-full flex-col">
-                <div className="border-b border-zinc-200 bg-white px-6 py-4">
-                    <div className="flex items-center gap-4 mb-4">
-                        <Button variant="ghost" size="sm" onClick={handleBackToList} className="text-zinc-500">
-                            ← Back
-                        </Button>
-                        <h1 className="text-2xl font-bold text-zinc-900">{selectedTeam.name}</h1>
-                        <Badge variant={selectedTeam.isActive ? "default" : "secondary"}>
-                            {selectedTeam.isActive ? "Active" : "Archived"}
-                        </Badge>
-                    </div>
-
-                    <Tabs value={activeTab} onValueChange={handleTabChange}>
-                        <TabsList className="bg-transparent p-0 h-auto flex-wrap">
-                            {TEAM_TABS.map(tab => (
-                                <TabsTrigger
-                                    key={tab.id}
-                                    value={tab.id}
-                                    className="data-[state=active]:bg-zinc-100 data-[state=active]:shadow-none rounded-md"
-                                >
-                                    {tab.label}
-                                </TabsTrigger>
-                            ))}
-                        </TabsList>
-                    </Tabs>
-                </div>
-
-                <div className="flex-1 overflow-hidden bg-zinc-50">
-                    <TeamViewSwitcher activeTab={activeTab} team={selectedTeam} />
-                </div>
-            </div>
-        );
-    }
-
     // List View
     return (
         <div className="flex h-full gap-0 bg-background transition-all">
             {/* Teams Sidebar */}
             <aside className={cn(
                 "shrink-0 bg-white transition-all duration-300 ease-in-out flex flex-col h-full overflow-hidden",
-                isSidebarCollapsed ? "w-0 border-none" : "w-80 border-r border-slate-200"
+                isSidebarCollapsed ? "w-0 border-none" : "w-[256px] border-r border-slate-200"
             )}>
                 <div className="flex h-full flex-col overflow-hidden">
                     {/* Header */}
@@ -210,20 +135,34 @@ export default function SpaceTeamView({ spaceId, workspaceId, selectedTeamId, on
                                 </div>
                             ) : (
                                 <div className="flex items-center justify-between px-4 py-3">
-                                    <h2 className="text-sm font-semibold text-foreground">Teams</h2>
+                                    <h2 className={cn("text-sm font-semibold", isManageView ? "text-indigo-600" : "text-foreground")}>
+                                        {isManageView ? "Manage Teams" : "Teams"}
+                                    </h2>
                                     <div className="flex items-center gap-1">
                                         <DropdownMenu>
                                             <DropdownMenuTrigger asChild>
-                                                <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-foreground">
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                                                    title="More options"
+                                                >
                                                     <MoreHorizontal className="h-4 w-4" />
                                                 </Button>
                                             </DropdownMenuTrigger>
-                                            <DropdownMenuContent align="end" className="w-56">
+                                            <DropdownMenuContent align="end" className="w-48">
                                                 <DropdownMenuItem onClick={() => setCreateModalOpen(true)}>
-                                                    <Plus className="mr-2 h-4 w-4" /> Create Team
+                                                    <Plus className="mr-2 h-4 w-4" />
+                                                    Create Team
                                                 </DropdownMenuItem>
                                                 <DropdownMenuItem onClick={() => setImportModalOpen(true)}>
-                                                    <Users className="mr-2 h-4 w-4" /> Import Team
+                                                    <Users className="mr-2 h-4 w-4" />
+                                                    Import Team
+                                                </DropdownMenuItem>
+                                                <DropdownMenuSeparator />
+                                                <DropdownMenuItem onClick={() => setIsManageView(true)}>
+                                                    <LayoutGrid className="mr-2 h-4 w-4" />
+                                                    Manage Teams
                                                 </DropdownMenuItem>
                                             </DropdownMenuContent>
                                         </DropdownMenu>
@@ -249,10 +188,10 @@ export default function SpaceTeamView({ spaceId, workspaceId, selectedTeamId, on
                                         </Button>
 
                                         <Button
-                                            onClick={handleCreateTeam}
                                             variant="ghost"
                                             size="icon"
                                             className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                                            onClick={() => setCreateModalOpen(true)}
                                             title="Create Team"
                                         >
                                             <Plus className="h-4 w-4" />
@@ -266,6 +205,15 @@ export default function SpaceTeamView({ spaceId, workspaceId, selectedTeamId, on
                     {/* Teams List */}
                     {!isSidebarCollapsed && (
                         <div className="flex-1 overflow-y-auto px-2 py-2">
+                            {/* Manage Teams entry */}
+                            <div
+                                className={cn("group/item flex w-full items-center gap-2 rounded-lg px-2 py-2 text-sm font-medium transition-colors hover:bg-slate-50 cursor-pointer mb-1", isManageView && "bg-indigo-50 text-indigo-700")}
+                                onClick={() => setIsManageView(true)}
+                            >
+                                <LayoutGrid className={cn("h-4 w-4 shrink-0 ml-1", isManageView ? "text-indigo-600" : "text-muted-foreground")} />
+                                <span className="flex-1 truncate">Manage Teams</span>
+                            </div>
+                            <div className="my-1.5 border-t border-slate-100" />
                             {isLoadingList ? (
                                 <LoadingContainer
                                     label="Loading teams..."
@@ -290,7 +238,7 @@ export default function SpaceTeamView({ spaceId, workspaceId, selectedTeamId, on
                             ) : (
                                 <div className="space-y-1">
                                     {teams.map((team) => {
-                                        const isActive = activeTeamId === team.id;
+                                        const isActive = !isManageView && activeTeamId === team.id;
                                         return (
                                             <div
                                                 key={team.id}
@@ -302,7 +250,7 @@ export default function SpaceTeamView({ spaceId, workspaceId, selectedTeamId, on
                                             >
                                                 <button
                                                     onClick={() => handleTeamClick(team.id)}
-                                                    className="flex min-w-0 flex-1 items-center gap-3 text-left focus:outline-none"
+                                                    className="flex min-w-0 flex-1 items-center gap-3 text-left focus:outline-none cursor-pointer"
                                                 >
                                                     <div className="flex min-w-0 flex-1 flex-col gap-1">
                                                         <div className="flex items-center gap-2">
@@ -352,76 +300,42 @@ export default function SpaceTeamView({ spaceId, workspaceId, selectedTeamId, on
                         </Button>
                     </div>
                 )}
-                {
-                    activeTeamId ? (
-                        selectedTeam ? (
-                            <div className="flex h-full flex-col">
-                                <div className="border-b border-zinc-200 bg-white px-6 py-4">
-                                    <div className="flex items-center gap-4 mb-4">
-                                        <Button variant="ghost" size="sm" onClick={() => handleTeamClick("")} className="text-zinc-500">
-                                            ← Back
-                                        </Button>
-                                        <h1 className="text-2xl font-bold text-zinc-900">{selectedTeam.name}</h1>
-                                        <Badge variant={selectedTeam.isActive ? "default" : "secondary"}>
-                                            {selectedTeam.isActive ? "Active" : "Archived"}
-                                        </Badge>
-                                        <div className="ml-auto">
-                                            <TeamActionsMenu
-                                                workspaceId={workspaceId}
-                                                teamId={selectedTeam.id}
-                                                trigger={
-                                                    <Button variant="ghost" size="sm" className="h-8 gap-2">
-                                                        <Settings className="h-4 w-4" />
-                                                        <span className="hidden sm:inline">Settings</span>
-                                                    </Button>
-                                                }
-                                            />
-                                        </div>
-                                    </div>
+                {isManageView ? (
+                    <SharedManageTeamsView workspaceId={workspaceId} onTeamCreated={handleTeamCreated} />
+                ) : activeTeamId ? (
+                    <div className="flex h-full flex-col">
+                        <DashboardTeamView
+                            teamId={activeTeamId}
+                            spaceId={spaceId}
+                            workspaceId={workspaceId}
+                        />
+                    </div>
+                ) : (
+                    <div className="flex h-full items-center justify-center">
+                        <div className="flex flex-col items-center text-center max-w-sm p-6">
+                            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-50 mb-4">
+                                <Users className="h-6 w-6 text-indigo-500" strokeWidth={1.5} />
+                            </div>
 
-                                    <Tabs value={activeTab} onValueChange={(tab) => {
-                                        const params = new URLSearchParams(searchParams.toString());
-                                        params.set("ttab", tab);
-                                        router.push(`?${params.toString()}`, { scroll: false });
-                                    }}>
-                                        <TabsList className="bg-transparent p-0 h-auto flex-wrap">
-                                            {TEAM_TABS.map(tab => (
-                                                <TabsTrigger
-                                                    key={tab.id}
-                                                    value={tab.id}
-                                                    className="data-[state=active]:bg-zinc-100 data-[state=active]:shadow-none rounded-md"
-                                                >
-                                                    {tab.label}
-                                                </TabsTrigger>
-                                            ))}
-                                        </TabsList>
-                                    </Tabs>
-                                </div>
+                            <h2 className="text-lg font-semibold text-slate-900 mb-1">
+                                Assemble your Team
+                            </h2>
 
-                                <div className="flex-1 overflow-hidden bg-zinc-50">
-                                    <TeamViewSwitcher activeTab={activeTab} team={selectedTeam} />
-                                </div>
-                            </div>
-                        ) : isLoadingDetail ? (
-                            <LoadingPage label="Loading team details..." />
-                        ) : (
-                            <div className="flex h-full flex-col items-center justify-center gap-4">
-                                <p className="text-muted-foreground">Team not found</p>
-                                <Button onClick={() => handleTeamClick("")}>Back to Teams</Button>
-                            </div>
-                        )
-                    ) : (
-                        <div className="flex h-full items-center justify-center">
-                            <div className="text-center">
-                                <Users className="mx-auto mb-4 h-16 w-16 text-muted-foreground/30" />
-                                <p className="text-lg font-medium text-foreground">Select a team</p>
-                                <p className="mt-1 text-sm text-muted-foreground">
-                                    Choose a team from the sidebar to view its details
-                                </p>
-                            </div>
+                            <p className="text-sm text-slate-500 leading-relaxed mb-5">
+                                Teams represent groups of people working together. Select one or create a new one.
+                            </p>
+
+                            <Button
+                                size="sm"
+                                className="bg-slate-900 hover:bg-slate-800 text-white rounded-lg"
+                                onClick={() => setCreateModalOpen(true)}
+                            >
+                                <Plus className="mr-1.5 h-4 w-4" />
+                                Create a Team
+                            </Button>
                         </div>
-                    )
-                }
+                    </div>
+                )}
             </div>
 
             {/* Modals - Pass spaceId as defaultSpaceId */}

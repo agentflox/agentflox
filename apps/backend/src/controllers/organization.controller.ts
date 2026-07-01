@@ -1,6 +1,6 @@
-import { Controller, Get, Post, Body, Param, UseGuards, Request } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, UseGuards, Req } from '@nestjs/common';
 import { OrganizationService } from '../services/organization/organizationService';
-import { JwtAuthGuard } from '../middleware/httpAuth';
+import { AuthenticatedRequest, JwtAuthGuard } from '../middleware/httpAuth';
 import { z } from 'zod';
 
 const CreateOrgSchema = z.object({
@@ -22,61 +22,68 @@ export class OrganizationController {
     constructor(private readonly organizationService: OrganizationService) { }
 
     @Get()
-    async getUserOrganizations(@Request() req) {
-        return this.organizationService.getUserOrganizations(req.user.id);
+    async getUserOrganizations(@Req() req: AuthenticatedRequest) {
+        return this.organizationService.getUserOrganizations(req.userId!);
     }
 
     @Post()
-    async createOrganization(@Request() req, @Body() body: unknown) {
+    async createOrganization(@Req() req: AuthenticatedRequest, @Body() body: unknown) {
         const data = CreateOrgSchema.parse(body);
-        return this.organizationService.createOrganization(req.user.id, data);
+        return this.organizationService.createOrganization(req.userId!, data);
     }
 
     @Get(':id')
-    async getOrganization(@Param('id') id: string) {
-        return this.organizationService.getOrganization(id);
+    async getOrganization(@Param('id') id: string, @Req() req: AuthenticatedRequest) {
+        return this.organizationService.getOrganization(id, req.userId!);
     }
 
     @Get(':id/departments')
-    async getDepartments(@Param('id') id: string) {
-        return this.organizationService.getDepartments(id);
+    async getDepartments(@Param('id') id: string, @Req() req: AuthenticatedRequest) {
+        return this.organizationService.getDepartments(id, req.userId!);
     }
 
     @Post(':id/departments')
-    async createDepartment(@Param('id') id: string, @Body() body: unknown) {
+    async createDepartment(@Param('id') id: string, @Req() req: AuthenticatedRequest, @Body() body: unknown) {
         const data = CreateDeptSchema.parse(body);
-        return this.organizationService.createDepartment(id, data);
+        return this.organizationService.createDepartment(id, req.userId!, data);
     }
 
     @Post(':id/link/workspace/:workspaceId')
-    async linkWorkspace(@Param('id') orgId: string, @Param('workspaceId') workspaceId: string) {
-        return this.organizationService.linkWorkspaceToOrganization(workspaceId, orgId);
+    async linkWorkspace(
+        @Param('id') orgId: string,
+        @Param('workspaceId') workspaceId: string,
+        @Req() req: AuthenticatedRequest,
+    ) {
+        return this.organizationService.linkWorkspaceToOrganization(workspaceId, orgId, req.userId!);
     }
 
     @Post(':id/link/project/:projectId')
     async linkProject(
         @Param('id') orgId: string,
         @Param('projectId') projectId: string,
+        @Req() req: AuthenticatedRequest,
         @Body() body: { departmentId?: string }
     ) {
-        return this.organizationService.linkProjectToOrganization(projectId, orgId, body.departmentId);
+        return this.organizationService.linkProjectToOrganization(projectId, orgId, req.userId!, body.departmentId);
     }
 
     @Post(':id/link/team/:teamId')
     async linkTeam(
         @Param('id') orgId: string,
         @Param('teamId') teamId: string,
+        @Req() req: AuthenticatedRequest,
         @Body() body: { departmentId?: string }
     ) {
-        return this.organizationService.linkTeamToOrganization(teamId, orgId, body.departmentId);
+        return this.organizationService.linkTeamToOrganization(teamId, orgId, req.userId!, body.departmentId);
     }
 
     @Post(':id/link/agent/:agentId')
     async linkAgent(
         @Param('id') orgId: string,
         @Param('agentId') agentId: string,
+        @Req() req: AuthenticatedRequest,
         @Body() body: { departmentId?: string }
     ) {
-        return this.organizationService.linkAgentToOrganization(agentId, orgId, body.departmentId);
+        return this.organizationService.linkAgentToOrganization(agentId, orgId, req.userId!, body.departmentId);
     }
 }

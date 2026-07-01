@@ -8,10 +8,12 @@ import { ChatComposer } from '@/entities/chats/components/ChatComposer';
 import { AgentSuggestionCard, type AgentSuggestionCardProps } from '@/entities/agents/components/AgentSuggestionCard';
 import { AgentTemplateCard, type AgentTemplateCardProps } from '@/entities/agents/components/AgentTemplateCard';
 import { trpc } from '@/lib/trpc';
+import { agentService } from '@/services/agent.service';
 import { toast } from 'sonner';
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Loader2, Sparkles } from 'lucide-react';
+import { Loader2, Sparkles, HelpCircle, LayoutGrid } from 'lucide-react';
+import { ChatContextModal, type ContextEntity } from '@/features/dashboard/components/modals/ChatContextModal';
 
 type AgentTemplate = Omit<AgentTemplateCardProps, 'onClick' | 'disabled'>;
 
@@ -131,10 +133,15 @@ const AGENT_TEMPLATES: AgentTemplate[] = [
 export default function AgentCreatePage() {
   const router = useRouter();
   const [isCreating, setIsCreating] = useState(false);
+  const [contextModalOpen, setContextModalOpen] = useState(false);
+  const [selectedContexts, setSelectedContexts] = useState<ContextEntity[]>([]);
 
   const createAgentMutation = trpc.agent.create.useMutation();
-  const initializeBuilderMutation = trpc.agent.builder.initialize.useMutation();
-  const messageMutation = trpc.agent.builder.message.useMutation();
+  
+
+  // Fetch active workspace for the context modal
+  const { data: workspaces } = trpc.workspace.list.useQuery({});
+  const workspaceId = workspaces?.[0]?.id ?? '';
 
   const handleCardClick = async (card: Omit<AgentSuggestionCardProps | AgentTemplateCardProps, 'onClick' | 'disabled'>) => {
     if (isCreating) return;
@@ -152,17 +159,20 @@ export default function AgentCreatePage() {
       });
 
       // Step 2: Initialize builder conversation
-      const builderData = await initializeBuilderMutation.mutateAsync({
+      const initRes = await agentService.agents.builder.initialize({
         agentId: agent.id,
         skipWelcome: true,  // Skip the welcome message
       });
+      if (!initRes.ok) throw new Error(await initRes.text());
+      const builderData = await initRes.json();
 
       // Step 3: Send the first message
-      await messageMutation.mutateAsync({
+      const msgRes = await agentService.agents.builder.message({
         conversationId: builderData.conversationId,
         message: card.message,
         agentId: agent.id,
       });
+      if (!msgRes.ok) throw new Error(await msgRes.text());
 
       // Step 4: Redirect to the agent builder page
       router.push(`/dashboard/agents/create/${agent.id}`);
@@ -175,7 +185,7 @@ export default function AgentCreatePage() {
 
   const handleSendMessage = async (
     messageText: string,
-    options?: { attachments?: any[]; webSearch?: boolean; contexts?: Array<{ type: string; id: string }> }
+    options?: { attachments?: any[]; webSearch?: boolean; contexts?: Array<{ type: string; id: string }>; mentions?: any[] }
   ) => {
     if (!messageText.trim() || isCreating) return;
 
@@ -192,17 +202,23 @@ export default function AgentCreatePage() {
       });
 
       // Step 2: Initialize builder conversation
-      const builderData = await initializeBuilderMutation.mutateAsync({
+      const initRes = await agentService.agents.builder.initialize({
         agentId: agent.id,
         skipWelcome: true,  // Skip the welcome message
       });
+      if (!initRes.ok) throw new Error(await initRes.text());
+      const builderData = await initRes.json();
 
       // Step 3: Send the user's message
-      await messageMutation.mutateAsync({
+      const msgRes = await agentService.agents.builder.message({
         conversationId: builderData.conversationId,
         message: messageText,
         agentId: agent.id,
+        contexts: options?.contexts,
+        mentions: options?.mentions,
+        attachments: options?.attachments
       });
+      if (!msgRes.ok) throw new Error(await msgRes.text());
 
       // Step 4: Redirect to the agent builder page
       router.push(`/dashboard/agents/create/${agent.id}`);
@@ -237,6 +253,10 @@ export default function AgentCreatePage() {
     }
   };
 
+  const handleGetHelp = () => {
+    window.open('https://docs.agentflox.com/', '_blank', 'noopener,noreferrer');
+  };
+
   // Group templates by category
   const templatesByCategory = AGENT_TEMPLATES.reduce((acc, template) => {
     if (!acc[template.category]) {
@@ -251,73 +271,116 @@ export default function AgentCreatePage() {
       <div className="flex flex-col max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-8">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 rounded-lg bg-gradient-to-br from-primary/10 to-primary/5">
-              <Sparkles className="h-6 w-6 text-primary" />
+          <div className="flex items-center justify-between gap-2 mb-2">
+            <div className="flex items-center gap-2">
+              <div className="p-2 rounded-lg bg-gradient-to-br from-indigo-500/10 to-blue-500/5">
+                <Sparkles className="h-8 w-8 text-indigo-500" />
+              </div>
+              <div>
+                <h1 className="text-xl font-bold tracking-tight">Create AI Agent</h1>
+                <p className="text-muted-foreground">
+                 What should your new teammate work with you on?
+                </p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-3xl font-bold tracking-tight">Create AI Agent</h1>
-              <p className="text-muted-foreground mt-1">
-                What should your new teammate work with you on?
-              </p>
+
+            {/* Top-right actions */}
+            <div className="flex items-center gap-2 shrink-0">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleGetHelp}
+                className="text-muted-foreground hover:text-foreground"
+              >
+                <HelpCircle className="h-4 w-4 mr-1.5" />
+                Get help
+              </Button>
+              <Button
+                size="sm"
+                onClick={handleGetStarted}
+                disabled={isCreating}
+                className="rounded-md border border-border bg-background text-muted-foreground font-medium hover:bg-muted/50 hover:text-foreground shadow-none"
+              >
+                 {isCreating ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Creating...
+                  </>
+                ) : (
+                  'Start from scratch'
+                )}
+              </Button>
             </div>
           </div>
         </div>
 
         {/* Chat Composer */}
-        <div className="mb-12">
-          <Card className="border border-border/50 bg-card shadow-sm hover:shadow-md transition-shadow">
-            <CardContent className="p-4 sm:p-6">
-              <ChatComposer
-                onSend={handleSendMessage}
-                isSending={isCreating}
+        <div className="mb-16 mt-12 max-w-3xl mx-auto w-full">
+          <ChatComposer
+            onSend={handleSendMessage}
+            isSending={isCreating}
+            disabled={isCreating}
+            inputClassName="min-h-[80px]"
+            hideMentions
+            onContextClick={() => setContextModalOpen(true)}
+            contextCount={selectedContexts.length}
+          />
+          <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            {SUGGESTED_AGENTS.map((agent) => (
+              <AgentSuggestionCard
+                key={agent.id}
+                {...agent}
+                onClick={() => handleCardClick(agent)}
                 disabled={isCreating}
-                inputClassName="min-h-[100px]"
               />
-              <div className="mt-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                {SUGGESTED_AGENTS.map((agent) => (
-                  <AgentSuggestionCard
-                    key={agent.id}
-                    {...agent}
-                    onClick={() => handleCardClick(agent)}
+            ))}
+          </div>
+        </div>
+
+        {/* ── Divider: Composer → Templates ── */}
+        <div className="relative flex items-center gap-5 py-2 mb-12 mt-8">
+          <div className="flex-1 h-px bg-border" />
+          <div className="flex items-center gap-2 px-4 py-2 rounded-full border border-border bg-muted/40 shrink-0">
+            <LayoutGrid className="h-3.5 w-3.5 text-muted-foreground" />
+            <span className="text-[11px] font-medium tracking-widest text-muted-foreground uppercase">
+              Start from a template
+            </span>
+          </div>
+          <div className="flex-1 h-px bg-border" />
+        </div>
+
+        {/* Agent Templates by Category */}
+        <div className="mb-16">
+          {Object.entries(templatesByCategory).map(([category, templates]) => (
+            <div key={category} className="mb-16">
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h2 className="text-xl font-semibold text-foreground mb-1">{category}</h2>
+                  <p className="text-sm text-muted-foreground">Specialized agents for {category.toLowerCase()}</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                {templates.map((template) => (
+                  <AgentTemplateCard
+                    key={template.id}
+                    {...template}
+                    onClick={() => handleCardClick(template)}
                     disabled={isCreating}
                   />
                 ))}
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          ))}
         </div>
 
-        {/* Agent Templates by Category */}
-        {Object.entries(templatesByCategory).map(([category, templates]) => (
-          <div key={category} className="mb-16">
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h2 className="text-xl font-semibold text-foreground mb-1">{category}</h2>
-                <p className="text-sm text-muted-foreground">Specialized agents for {category.toLowerCase()}</p>
-              </div>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              {templates.map((template) => (
-                <AgentTemplateCard
-                  key={template.id}
-                  {...template}
-                  onClick={() => handleCardClick(template)}
-                  disabled={isCreating}
-                />
-              ))}
-            </div>
-          </div>
-        ))}
-
         {/* Get Started Section */}
-        <div className="mb-16 mt-20">
+        <div className="mb-24 mt-16">
           <Card className="border-2 border-dashed border-border/50 bg-gradient-to-br from-background to-muted/20">
             <CardContent className="p-12 text-center">
-              <h2 className="text-2xl font-semibold text-foreground mb-3">
+              <h2 className="text-2xl font-semibold text-foreground mb-1">
                 Didn't find what you were looking for?
               </h2>
-              <p className="text-muted-foreground mb-6 max-w-2xl mx-auto">
+              <p className="text-muted-foreground mb-8 max-w-2xl mx-auto">
                 Describe your perfect Super Agent to our agent builder to get started
               </p>
               <Button
@@ -338,7 +401,6 @@ export default function AgentCreatePage() {
             </CardContent>
           </Card>
         </div>
-
 
         {/* Animated Loading Overlay */}
         {isCreating && (
@@ -427,6 +489,14 @@ export default function AgentCreatePage() {
           </div>
         )}
       </div>
+
+      <ChatContextModal
+        workspaceId={workspaceId}
+        open={contextModalOpen}
+        onOpenChange={setContextModalOpen}
+        selectedContexts={selectedContexts}
+        onContextsChange={setSelectedContexts}
+      />
     </Shell>
   );
 }

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useMemo } from 'react';
-import { useWorkforceStore } from '../store/useWorkforceStore';
+import { useWorkforceStore } from '../../../../../entities/workforce/hooks/useWorkforceStore';
 import { GanttChartSquare, ChevronUp, ChevronDown, ListCheck } from 'lucide-react';
 
 export default function SwarmTimeline() {
@@ -16,11 +16,10 @@ export default function SwarmTimeline() {
     if (timelineTasks.length === 0 && !isOpen) return null;
 
     return (
-        <div className={`fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur-md border-t border-border z-40 transition-all duration-300 ${
-            isOpen ? 'h-64' : 'h-10'
-        }`}>
+        <div className={`fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur-md border-t border-border z-40 transition-all duration-300 ${isOpen ? 'h-64' : 'h-10'
+            }`}>
             {/* Header / Toggle */}
-            <div 
+            <div
                 className="h-10 flex items-center justify-between px-4 cursor-pointer hover:bg-secondary/20 transition-colors"
                 onClick={() => setIsOpen(!isOpen)}
             >
@@ -43,7 +42,7 @@ export default function SwarmTimeline() {
                                 const start = new Date(task.createdAt).getTime();
                                 const end = task.completedAt ? new Date(task.completedAt).getTime() : Date.now();
                                 const duration = (end - start) / 1000;
-                                
+
                                 return (
                                     <div key={task.id} className="flex items-center gap-4 group">
                                         <div className="w-40 flex-shrink-0">
@@ -51,14 +50,13 @@ export default function SwarmTimeline() {
                                             <p className="text-[9px] text-muted-foreground uppercase">{task.status}</p>
                                         </div>
                                         <div className="flex-1 h-6 bg-secondary/20 rounded-md relative overflow-hidden group-hover:bg-secondary/40 transition-colors">
-                                            <div 
-                                                className={`h-full rounded-md flex items-center px-2 transition-all duration-1000 ${
-                                                    task.status === 'COMPLETED' ? 'bg-green-500/20 text-green-600 border border-green-500/30' : 
-                                                    'bg-primary/20 text-primary border border-primary/30 animate-pulse'
-                                                }`}
-                                                style={{ 
+                                            <div
+                                                className={`h-full rounded-md flex items-center px-2 transition-all duration-1000 ${task.status === 'COMPLETED' ? 'bg-green-500/20 text-green-600 border border-green-500/30' :
+                                                        'bg-primary/20 text-primary border border-primary/30 animate-pulse'
+                                                    }`}
+                                                style={{
                                                     width: `${Math.min(100, (duration / 300) * 100)}%`, // Scale relative to 5 min
-                                                    marginLeft: '0%' 
+                                                    marginLeft: '0%'
                                                 }}
                                             >
                                                 <span className="text-[9px] font-bold truncate">

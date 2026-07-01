@@ -176,7 +176,7 @@ export function ListCreationModal({ context, contextId, workspaceId, folderId, o
             />
           </div>
 
-          <div className="flex items-center justify-center pt-4">
+          <div className="flex items-center justify-end pt-4">
             <Button type="submit" disabled={isSubmitting || !name.trim()}>
               {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Create

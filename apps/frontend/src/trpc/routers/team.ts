@@ -148,7 +148,6 @@ export const teamRouter = router({
                 maxSize: input.maxSize,
                 spaceId: input.spaceId,
                 workspaceId: input.workspaceId,
-                workspaceId: input.workspaceId,
                 status: "PUBLISHED",
                 // Only add default views if creating
                 ...(id ? {} : {

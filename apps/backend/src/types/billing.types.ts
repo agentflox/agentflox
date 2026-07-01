@@ -41,8 +41,8 @@ export type SubscribeInput = {
     chargeId?: string;
     refundId?: string;
     errorMessage?: string;
-    currentCycleStart?: DateTime;
-    currentCycleEnd?: DateTime;
+    currentCycleStart?: Date;
+    currentCycleEnd?: Date;
     createdAt?: string;
     updatedAt?: string;
     metadata?: Record<string, any>;
@@ -101,8 +101,6 @@ export interface PurchaseDetails {
             remainingProjects: number;
             teamsUsed: number;
             remainingTeams: number;
-            proposalsUsed: number;
-            remainingProposals: number;
             requestsUsed: number;
             remainingRequests: number;
         };

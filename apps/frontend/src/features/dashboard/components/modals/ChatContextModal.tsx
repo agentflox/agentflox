@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { Search, Check, X, FolderKanban, Users, FileCheck, User, Building2 } from "lucide-react";
+import { Search, Check, X, FolderKanban, Users, FileCheck, User, Building2, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -192,13 +192,14 @@ export function ChatContextModal({
 
 				<div className="space-y-4 py-4">
 					{/* Search */}
-					<div className="relative">
-						<Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+					<div className="flex h-9 items-center rounded-md border border-zinc-200 bg-white px-3 shadow-sm transition-colors">
+						<Search className="h-4 w-4 shrink-0 text-zinc-400" />
 						<Input
+							variant="ghost"
 							placeholder="Search..."
 							value={searchQuery}
 							onChange={(e) => setSearchQuery(e.target.value)}
-							className="pl-9"
+							className="h-full bg-transparent pl-2 pr-0 focus:outline-none focus:ring-0 focus-visible:ring-0"
 						/>
 					</div>
 
@@ -231,27 +232,27 @@ export function ChatContextModal({
 					{/* Tabs */}
 					<Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)}>
 						<TabsList className="grid w-full grid-cols-6">
-							<TabsTrigger value="workspaces" className="text-xs">
+							<TabsTrigger value="workspaces" className="cursor-pointer text-xs">
 								<Building2 className="mr-1 h-3 w-3" />
 								Workspaces
 							</TabsTrigger>
-							<TabsTrigger value="spaces" className="text-xs">
+							<TabsTrigger value="spaces" className="cursor-pointer text-xs">
 								<FolderKanban className="mr-1 h-3 w-3" />
 								Spaces
 							</TabsTrigger>
-							<TabsTrigger value="projects" className="text-xs">
+							<TabsTrigger value="projects" className="cursor-pointer text-xs">
 								<FolderKanban className="mr-1 h-3 w-3" />
 								Projects
 							</TabsTrigger>
-							<TabsTrigger value="teams" className="text-xs">
+							<TabsTrigger value="teams" className="cursor-pointer text-xs">
 								<Users className="mr-1 h-3 w-3" />
 								Teams
 							</TabsTrigger>
-							<TabsTrigger value="members" className="text-xs">
+							<TabsTrigger value="members" className="cursor-pointer text-xs">
 								<User className="mr-1 h-3 w-3" />
 								Members
 							</TabsTrigger>
-							<TabsTrigger value="proposals" className="text-xs">
+							<TabsTrigger value="proposals" className="cursor-pointer text-xs">
 								<FileCheck className="mr-1 h-3 w-3" />
 								Proposals
 							</TabsTrigger>
@@ -276,7 +277,7 @@ export function ChatContextModal({
 												key={`${item.type}-${item.id}`}
 												onClick={() => toggleContext(item)}
 												className={cn(
-													"flex w-full items-start gap-3 px-4 py-3 text-left transition-colors",
+													"flex w-full cursor-pointer items-start gap-3 px-4 py-3 text-left transition-colors",
 													"hover:bg-slate-50",
 													selected && "bg-slate-50"
 												)}
@@ -314,12 +315,16 @@ export function ChatContextModal({
 				</div>
 
 				<DialogFooter>
-					<Button type="button" variant="outline" onClick={handleClose}>
-						Done
+					<Button
+						type="button"
+						onClick={handleClose}
+						className="cursor-pointer gap-1.5 bg-zinc-900 text-white shadow-sm hover:bg-zinc-800"
+					>
+						<Plus className="h-4 w-4" />
+						Add
 					</Button>
 				</DialogFooter>
 			</DialogContent>
 		</Dialog>
 	);
 }
-

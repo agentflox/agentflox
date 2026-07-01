@@ -69,6 +69,7 @@ export interface FSMContext {
     conversationId?: string;
     executionContext?: { executionId: string };
     agentName?: string;
+    agentSystemPrompt?: string;
 }
 
 export interface ExecutionPlanStep {
@@ -336,8 +337,6 @@ export class AgentFSMOrchestrator {
 
                     stepResults.push({
                         stepId: planStep.id,
-                        toolName: planStep.toolName,
-                        description: planStep.description,
                         success: toolResult.success,
                         result: toolResult.result,
                         error: toolResult.error,
@@ -625,7 +624,7 @@ IMPORTANT: Steps without a toolName are completely valid THINK steps. DO NOT fai
             });
 
             const wfExecId = ctx.executionContext?.executionId;
-            const nodeId = ctx.executionContext?.step?.id || ctx.agentName || ctx.agentId;
+            const nodeId = (ctx.executionContext as any)?.step?.id || ctx.agentName || ctx.agentId;
             let finalContent = '';
             let tokens = 0;
             let costUsd = 0;
@@ -758,7 +757,7 @@ IMPORTANT: Steps without a toolName are completely valid THINK steps. DO NOT fai
             });
 
             const wfExecId = ctx.executionContext?.executionId;
-            const nodeId = ctx.executionContext?.step?.id || ctx.agentName || ctx.agentId;
+            const nodeId = (ctx.executionContext as any)?.step?.id || ctx.agentName || ctx.agentId;
             let finalContent = '';
 
             for await (const chunk of stream) {

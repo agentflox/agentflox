@@ -31,6 +31,8 @@ export interface SendChatMessageParams {
     embeddings?: Array<{ chunk: string; embedding: number[] }>
   }>
   webSearch?: boolean
+  contexts?: any[]
+  mentions?: any[]
   config?: { RPM?: number; RPD?: number }
 }
 
@@ -49,14 +51,18 @@ export async function sendChatMessage(
   params: SendChatMessageParams,
   options?: SendChatMessageOptions
 ): Promise<string> {
-  const { conversationId, contextType, entityId, message, attachments, webSearch, config } = params
+  const { conversationId, contextType, entityId, message, attachments, webSearch, contexts, mentions, config } = params
   const { onChunk } = options ?? {}
+
+  const { fetchAuthToken } = await import('@/utils/backend-request')
+  const token = await fetchAuthToken()
 
   const url = `${getBackendUrl()}/chat`
   const response = await fetch(url, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
+      ...(token && { Authorization: `Bearer ${token}` }),
     },
     credentials: 'include',
     body: JSON.stringify({
@@ -66,9 +72,11 @@ export async function sendChatMessage(
       message,
       attachments,
       webSearch,
+      contexts,
+      mentions,
       config: {
-        RPM: config?.maxRPM ?? config?.RPM ?? 0,
-        RPD: config?.maxRPD ?? config?.RPD ?? 0,
+        RPM: config?.RPM ?? 0,
+        RPD: config?.RPD ?? 0,
       },
     }),
   })

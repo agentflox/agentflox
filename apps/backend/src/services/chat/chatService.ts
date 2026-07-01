@@ -45,6 +45,8 @@ const bodySchema = z.object({
             RPD: z.number().optional(),
         })
         .optional(),
+    contexts: z.array(z.any()).optional(),
+    mentions: z.array(z.any()).optional(),
 });
 
 interface ChatCompletionMessageParam {
@@ -107,7 +109,7 @@ export class ChatService {
         stream: ReadableStream;
         headers: Record<string, string>;
     }> {
-        const { conversationId, contextType, entityId, message, attachments, webSearch, model, config } = bodySchema.parse(payload);
+        const { conversationId, contextType, entityId, message, attachments, webSearch, model, config, contexts, mentions } = bodySchema.parse(payload);
 
         const openai = initializeOpenAI();
         const db = prisma as any;
@@ -166,6 +168,9 @@ export class ChatService {
                 },
             }),
         ]);
+
+        const explicitContextResolver = (await import('@/utils/utilities/explicitContextResolver')).explicitContextResolver;
+        const explicitContextStr = await explicitContextResolver.resolve(userId, { contexts, mentions });
 
         // **ENHANCEMENT: Enrich context with workspace data and semantic understanding**
         const conversationHistoryForContext = previousMessages.map((m: { role: string; content: string }) => ({
@@ -252,7 +257,11 @@ export class ChatService {
         // Add basic context summary (fallback)
         if (basicContext.summary && !enrichedContext.semanticContext) {
             const label = contextLabels[contextType] ?? contextType;
-        systemPromptParts.push(`${label.charAt(0).toUpperCase() + label.slice(1)} summary:\n${basicContext.summary}`);
+            systemPromptParts.push(`${label.charAt(0).toUpperCase() + label.slice(1)} summary:\n${basicContext.summary}`);
+        }
+        
+        if (explicitContextStr) {
+            systemPromptParts.push(`Additional Explicit Context:\n${explicitContextStr}`);
         }
 
         if (knowledgeSnippets.length > 0) {
@@ -269,7 +278,7 @@ export class ChatService {
                 role: 'system',
                 content: systemPromptParts.join('\n\n'),
             },
-            ...previousMessages.map((msg) => ({
+            ...previousMessages.map((msg: any) => ({
                 role: msg.role.toLowerCase() as ChatCompletionMessageParam['role'],
                 content: msg.content,
             })),

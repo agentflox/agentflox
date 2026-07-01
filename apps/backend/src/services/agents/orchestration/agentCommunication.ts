@@ -49,7 +49,7 @@ export interface AgentResponse {
 export class AgentCommunicationService implements OnModuleInit {
     private pendingResponses: Map<string, (response: any) => void> = new Map();
     private activeListeners: Set<string> = new Set();
-    private streamBreaker: CircuitBreaker;
+    private streamBreaker: any;
 
     constructor() {
         this.streamBreaker = new CircuitBreaker(

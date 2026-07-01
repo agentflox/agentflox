@@ -40,6 +40,7 @@ import {
   CheckSquare,
   GripHorizontal,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import './editor.css';
 
 interface EditorProps {
@@ -49,7 +50,15 @@ interface EditorProps {
   editable?: boolean;
   onContentChange?: (content: string) => void;
   editorClassName?: string;
+  // Initial / floor height in px. The editor starts at this height and the
+  // user can never resize below it. Defaults to 300.
   minHeight?: number;
+  // Optional ceiling in px for manual resizing. If omitted, the user can
+  // drag the resize handle to grow the editor without an upper bound.
+  maxHeight?: number;
+  // Set to false to hide the drag-to-resize handle entirely (fixed height
+  // editors, e.g. comment boxes).
+  resizable?: boolean;
   placeholder?: string;
 }
 
@@ -61,6 +70,8 @@ export function Editor({
   onContentChange,
   editorClassName,
   minHeight = 300,
+  maxHeight,
+  resizable = true,
   placeholder = "Start writing or type / for commands...",
 }: EditorProps) {
   const utils = trpc.useUtils();
@@ -70,27 +81,48 @@ export function Editor({
   const isResizing = useRef(false);
   const editorRef = useRef<HTMLDivElement>(null);
 
-  const startResizing = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
-    isResizing.current = true;
-    document.addEventListener("mousemove", handleMouseMove);
-    document.addEventListener("mouseup", stopResizing);
-    document.body.style.cursor = "ns-resize";
-  }, []);
+  // Keep the current height in sync if minHeight/maxHeight change after
+  // mount (e.g. parent toggles a "compact" vs "expanded" layout), without
+  // clobbering a height the user has manually dragged to, except where it
+  // now falls outside the new bounds.
+  useEffect(() => {
+    setHeight((prev) => {
+      let next = Math.max(prev, minHeight);
+      if (maxHeight !== undefined) next = Math.min(next, maxHeight);
+      return next;
+    });
+  }, [minHeight, maxHeight]);
+
+  const handleMouseMove = useCallback((e: MouseEvent) => {
+    if (!isResizing.current) return;
+    const editorTop = editorRef.current?.getBoundingClientRect().top || 0;
+    let newHeight = Math.max(minHeight, e.clientY - editorTop);
+    if (maxHeight !== undefined) newHeight = Math.min(newHeight, maxHeight);
+    setHeight(newHeight);
+  }, [minHeight, maxHeight]);
 
   const stopResizing = useCallback(() => {
     isResizing.current = false;
     document.removeEventListener("mousemove", handleMouseMove);
     document.removeEventListener("mouseup", stopResizing);
     document.body.style.cursor = "default";
-  }, []);
+  }, [handleMouseMove]);
 
-  const handleMouseMove = useCallback((e: MouseEvent) => {
-    if (!isResizing.current) return;
-    const editorTop = editorRef.current?.getBoundingClientRect().top || 0;
-    const newHeight = Math.max(minHeight, e.clientY - editorTop);
-    setHeight(newHeight);
-  }, [minHeight]);
+  const startResizing = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    isResizing.current = true;
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", stopResizing);
+    document.body.style.cursor = "ns-resize";
+  }, [handleMouseMove, stopResizing]);
+
+  // Clean up listeners if the component unmounts mid-drag.
+  useEffect(() => {
+    return () => {
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", stopResizing);
+    };
+  }, [handleMouseMove, stopResizing]);
 
   const updateDocument = trpc.document.update.useMutation({
     onSuccess: () => {
@@ -399,6 +431,22 @@ export function Editor({
       >
         <EditorContent editor={editor} />
       </div>
+
+      {/* Drag-to-resize handle. Clamped between minHeight and maxHeight. */}
+      {resizable && (
+        <div
+          role="separator"
+          aria-orientation="horizontal"
+          aria-label="Resize editor"
+          onMouseDown={startResizing}
+          className={cn(
+            "flex items-center justify-center h-3 cursor-ns-resize select-none group",
+            "text-slate-300 hover:text-slate-500 transition-colors",
+          )}
+        >
+          <GripHorizontal className="h-3.5 w-3.5" />
+        </div>
+      )}
 
       {/* Refined drag handle */}
       {editable && editor && (

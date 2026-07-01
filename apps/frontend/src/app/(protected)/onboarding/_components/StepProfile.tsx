@@ -76,7 +76,7 @@ export default function StepProfile({ onNext, onBack, isLoading, defaultValues }
               <button
                 key={r}
                 onClick={() => setRole(r)}
-                className={`py-2.5 px-3 rounded-lg text-xs sm:text-sm font-medium border transition-all truncate ${role === r
+                className={`py-2.5 px-3 rounded-lg text-xs sm:text-sm font-medium border transition-all truncate cursor-pointer ${role === r
                   ? "border-black bg-black text-white shadow-md ring-1 ring-black"
                   : "border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-50"
                   }`}
@@ -103,14 +103,14 @@ export default function StepProfile({ onNext, onBack, isLoading, defaultValues }
         <div className="flex items-center justify-between mt-8 animate-in fade-in slide-in-from-bottom-4 duration-300">
           <button
             onClick={onBack}
-            className="text-sm font-medium text-gray-500 hover:text-black transition-colors opacity-0 pointer-events-none"
+            className="text-sm font-medium text-gray-500 hover:text-black transition-colors opacity-0 pointer-events-none cursor-pointer"
           >
             Back
           </button>
           <button
             onClick={handleNext}
             disabled={isLoading}
-            className="bg-black hover:bg-gray-800 text-white px-8 py-3 rounded-full font-medium text-sm transition-all hover:scale-105 active:scale-95 disabled:opacity-50"
+            className="bg-black hover:bg-gray-800 text-white px-8 py-3 rounded-full font-medium text-sm transition-all hover:scale-105 active:scale-95 disabled:opacity-50 cursor-pointer"
           >
             {isLoading ? "Saving..." : "Continue"}
           </button>

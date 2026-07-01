@@ -4,10 +4,10 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { cn } from "@/lib/utils";
 import { ChatComposer, type ChatComposerRef } from "@/entities/chats/components/ChatComposer";
 import { StreamingMessage } from "@/entities/agents/components/StreamingMessage";
-import { BACKEND_URL } from "@/entities/agents/hooks/useAgentStream";
+import { BACKEND_URL } from "@/hooks/useSSEStream";
 import { useSwarmMessageStream } from "@/entities/agents/hooks/useSwarmMessageStream";
 import { trpc } from "@/lib/trpc";
-import { WorkforceChatSkeleton } from "../WorkforceChatSkeleton";
+import { WorkforceChatSkeleton } from "../workflow/WorkforceChatSkeleton";
 import { fetchAuthToken } from "@/utils/backend-request";
 import { toast } from "sonner";
 import ReactMarkdown from 'react-markdown';
@@ -295,7 +295,7 @@ export default function SwarmRunView({
     if (!sid) return;
 
     try {
-      const res = await backendFetch(`/v1/agents/swarm/tasks?sessionId=${encodeURIComponent(sid)}`);
+      const res = await backendFetch(`/v1/workforces/swarm/tasks?sessionId=${encodeURIComponent(sid)}`);
       if (!res.ok) return;
       const data = await res.json() as any;
       const all: SwarmTask[] = data.tasks ?? [];
@@ -315,7 +315,7 @@ export default function SwarmRunView({
     sseRef.current = ctrl;
     try {
       const token = await fetchAuthToken();
-      const res = await fetch(`${BACKEND_URL}/v1/agents/swarm/${sid}/events`, {
+      const res = await fetch(`${BACKEND_URL}/v1/workforces/swarm/${sid}/events`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
         signal: ctrl.signal,
       });
@@ -368,7 +368,7 @@ export default function SwarmRunView({
   // ── check swarm session status ────────────────────────────────────────────
   const checkSessionStatus = useCallback(async (cid: string) => {
     try {
-      const res = await backendFetch(`/v1/agents/swarm/${encodeURIComponent(cid)}/status`);
+      const res = await backendFetch(`/v1/workforces/swarm/${encodeURIComponent(cid)}/status`);
       if (!res.ok) return;
       const data = await res.json() as any;
       if (data?.status === "running") {
@@ -439,7 +439,7 @@ export default function SwarmRunView({
     if (!conversationId) { toast.error("No active conversation"); return; }
     setIsStarting(true);
     try {
-      const res = await backendFetch("/v1/agents/swarm/start", {
+      const res = await backendFetch("/v1/workforces/swarm/start", {
         method: "POST",
         body: JSON.stringify({ workforceId, sessionId: conversationId }),
       });
@@ -466,7 +466,7 @@ export default function SwarmRunView({
     sseRef.current?.abort();
     subscribedSessionIdRef.current = null;
     try {
-      await backendFetch(`/v1/agents/swarm/${swarmSessionId}/stop`, { method: "POST" });
+      await backendFetch(`/v1/workforces/swarm/${swarmSessionId}/stop`, { method: "POST" });
       setSessionStatus("stopped"); toast.info("Swarm stopped");
     } catch { }
   }, [swarmSessionId]);
@@ -474,7 +474,7 @@ export default function SwarmRunView({
   // ── handle task approve ───────────────────────────────────────────────────
   const handleApprove = useCallback(async (taskId: string) => {
     try {
-      await backendFetch(`/v1/agents/swarm/tasks/${taskId}/approve`, { method: "POST" });
+      await backendFetch(`/v1/workforces/swarm/tasks/${taskId}/approve`, { method: "POST" });
       toast.success("Task approved"); fetchTasks();
     } catch { toast.error("Approval failed"); }
   }, [fetchTasks]);
@@ -482,7 +482,7 @@ export default function SwarmRunView({
   // ── handle task deny ─────────────────────────────────────────────────────
   const handleDeny = useCallback(async (taskId: string) => {
     try {
-      await backendFetch(`/v1/agents/swarm/tasks/${taskId}/deny`, { method: "POST" });
+      await backendFetch(`/v1/workforces/swarm/tasks/${taskId}/deny`, { method: "POST" });
       toast.info("Task denied"); fetchTasks();
     } catch { toast.error("Deny failed"); }
   }, [fetchTasks]);
@@ -529,7 +529,7 @@ export default function SwarmRunView({
       // Auto-start swarm if stopped/idle before sending
       setIsStarting(true);
       try {
-        const startRes = await backendFetch("/v1/agents/swarm/start", {
+        const startRes = await backendFetch("/v1/workforces/swarm/start", {
           method: "POST",
           body: JSON.stringify({ workforceId, sessionId: conversationId }),
         });
@@ -915,7 +915,7 @@ export default function SwarmRunView({
     for (let i = combinedFeed.length - 1; i >= 0; i--) {
       const item = combinedFeed[i];
       if (item._type === 'message' && item.msg?.role === 'user') {
-          return { activeSuggestedActions: [], activeSuggestedMessageId: null };
+        return { activeSuggestedActions: [], activeSuggestedMessageId: null };
       }
       if (item._type === 'message' && item.msg?.meta?.suggestedActions?.length > 0) {
         return { activeSuggestedActions: item.msg.meta.suggestedActions, activeSuggestedMessageId: item.id };
@@ -1082,7 +1082,7 @@ export default function SwarmRunView({
                     <div className="bg-white border border-zinc-200 rounded-xl overflow-hidden shadow-sm mb-4">
                       <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-100 bg-zinc-50/50">
                         <span className="text-sm font-semibold text-zinc-700">Follow-up questions</span>
-                        <button 
+                        <button
                           onClick={() => setDismissedActionId(activeSuggestedMessageId)}
                           className="text-zinc-400 hover:text-zinc-600 transition-colors cursor-pointer"
                         >

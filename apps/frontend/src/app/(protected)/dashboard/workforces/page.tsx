@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import { Pagination } from "@/components/ui/pagination";
 import {
   WorkforceCard,
-  WorkforceFilterSidebar,
   WorkforceCreationCard,
   useWorkforceList,
 } from "@/entities/workforce";
@@ -21,7 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Filter, MoreHorizontal, Eye, Trash } from "lucide-react";
+import { Filter, MoreHorizontal, Eye, Trash, Network, PenSquare } from "lucide-react";
 import { DataTable } from "@/components/ui/data-table";
 import { DataTableSkeleton } from "@/components/ui/data-table-skeleton";
 import { DataTableColumnHeader } from "@/components/ui/data-table-column-header";
@@ -40,6 +39,10 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { cn } from "@/lib/utils";
 import { Settings2, ArrowUpDown, Check, ChevronUp, ChevronDown, MoreVertical } from "lucide-react";
 import { DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuPortal, DropdownMenuSubContent, DropdownMenuCheckboxItem } from "@/components/ui/dropdown-menu";
+import { Skeleton } from "@/components/ui/skeleton";
+import { trpc } from "@/lib/trpc";
+import { useToast } from "@/hooks/useToast";
+import { ConfirmDeleteModal } from "@/components/modals/ConfirmDeleteModal";
 
 export default function WorkforcePage() {
   const router = useRouter();
@@ -77,8 +80,44 @@ export default function WorkforcePage() {
     });
   };
 
-  const handleBulkDelete = (rows: any[]) => {
-    console.log("Delete workforces: ", rows.map((r: any) => r.id));
+  const { toast } = useToast();
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
+  const [bulkDeleteRows, setBulkDeleteRows] = useState<any[]>([]);
+
+  const utils = trpc.useUtils();
+  const deleteMutation = trpc.workforce.delete.useMutation({
+    onSuccess: () => {
+      toast({ title: "Workforce deleted successfully" });
+      utils.workforce.list.invalidate();
+    },
+    onError: (error) => {
+      toast({ title: "Failed to delete workforce", description: error.message, variant: "destructive" });
+    }
+  });
+
+  const handleDelete = (id: string) => {
+    const item = data?.items?.find((w) => w.id === id);
+    setDeleteTarget({ id, name: item?.name ?? "Untitled Workforce" });
+    setBulkDeleteRows([]);
+    setDeleteModalOpen(true);
+  };
+
+  const handleBulkDeleteModal = (rows: any[]) => {
+    setBulkDeleteRows(rows);
+    setDeleteTarget(null);
+    setDeleteModalOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (bulkDeleteRows.length > 0) {
+      for (const row of bulkDeleteRows) {
+        await deleteMutation.mutateAsync({ id: row.id });
+      }
+      setSelectedGridIds(new Set());
+    } else if (deleteTarget) {
+      await deleteMutation.mutateAsync({ id: deleteTarget.id });
+    }
   };
 
   const columns: ColumnDef<any>[] = [
@@ -176,16 +215,15 @@ export default function WorkforcePage() {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem onClick={() => router.push(DASHBOARD_ROUTES.WORKFORCE_CREATE(workforce.id))}>
-                <Eye className="mr-2 h-4 w-4" />
-                View
+                <PenSquare className="mr-1 h-4 w-4" />
+                Edit Workforce
               </DropdownMenuItem>
-              <DropdownMenuSeparator />
               <DropdownMenuItem
-                className="text-destructive focus:text-destructive"
-                onClick={() => console.log("Delete", workforce.id)}
+                className="text-red-600 focus:text-red-600"
+                onClick={() => handleDelete(workforce.id)}
               >
-                <Trash className="mr-2 h-4 w-4" />
-                Delete
+                <Trash className="mr-1 h-4 w-4" />
+                Delete Workforce
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -193,6 +231,8 @@ export default function WorkforcePage() {
       },
     },
   ];
+
+  const handleBulkDelete = (rows: any[]) => handleBulkDeleteModal(rows);
 
   const filterChips = useMemo(() => {
     const chips: Array<{ id: string; label: string; onRemove: () => void }> = [];
@@ -232,12 +272,12 @@ export default function WorkforcePage() {
             description="Build, deploy and monitor your autonomous agent workforces."
             actions={
               <Button
-								onClick={handleCreateWorkforce}
-								className="group flex items-center gap-2 bg-zinc-900 hover:bg-zinc-700 text-white dark:bg-zinc-50 dark:text-zinc-900 dark:hover:bg-zinc-200 px-4 py-2 h-9 rounded-md transition-all duration-300 shadow-sm hover:shadow-md active:scale-[0.98]"
-							>
-								<Plus className="h-4 w-4 transition-transform duration-300 group-hover:rotate-90" />
-								<span className="font-medium text-sm">New Workforce</span>
-							</Button>
+                onClick={handleCreateWorkforce}
+                className="group flex items-center gap-2 bg-zinc-900 hover:bg-zinc-700 text-white dark:bg-zinc-50 dark:text-zinc-900 dark:hover:bg-zinc-200 px-4 py-2 h-9 rounded-md transition-all duration-300 shadow-sm hover:shadow-md active:scale-[0.98]"
+              >
+                <Plus className="h-4 w-4 transition-transform duration-300 group-hover:rotate-90" />
+                <span className="font-medium text-sm">New Workforce</span>
+              </Button>
             }
           />
 
@@ -445,12 +485,24 @@ export default function WorkforcePage() {
 
           {isLoading ? (
             viewMode === "grid" ? (
-              <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                {Array.from({ length: 6 }).map((_, index) => (
-                  <div
-                    key={index}
-                    className="h-[220px] animate-pulse rounded-lg border border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900"
-                  />
+              <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 pb-4">
+                {[...Array(8)].map((_, i) => (
+                  <div key={i} className="relative flex flex-col bg-white rounded-xl border border-slate-200 shadow-sm p-6 pt-10 overflow-hidden">
+                    <div className="flex items-start gap-3 mb-4">
+                      <Skeleton className="h-10 w-10 rounded-xl shrink-0" />
+                      <div className="flex-1 space-y-2 pt-1">
+                        <Skeleton className="h-4 w-[60%] rounded-md" />
+                        <Skeleton className="h-3 w-[40%] rounded-md opacity-60" />
+                      </div>
+                    </div>
+                    <Skeleton className="h-3.5 w-full rounded-md" />
+                    <Skeleton className="h-3.5 w-[75%] rounded-md mt-1.5" />
+                    <div className="flex items-center gap-2 mt-5 pt-4 border-t border-slate-100">
+                      <Skeleton className="h-5 w-16 rounded-full" />
+                      <Skeleton className="h-5 w-14 rounded-full" />
+                      <Skeleton className="h-5 w-12 rounded-full ml-auto" />
+                    </div>
+                  </div>
                 ))}
               </div>
             ) : (
@@ -459,12 +511,13 @@ export default function WorkforcePage() {
           ) : data?.items && data.items.length > 0 ? (
             viewMode === "grid" ? (
               <>
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 pb-4">
                   {data.items.map((item) => (
                     <WorkforceCard
                       key={item.id}
                       item={item}
                       onOpen={(id) => router.push(DASHBOARD_ROUTES.WORKFORCE_CREATE(id))}
+                      onDelete={handleDelete}
                       isSelected={selectedGridIds.has(item.id)}
                       onSelect={handleGridSelect}
                     />
@@ -481,7 +534,7 @@ export default function WorkforcePage() {
                       <X className="h-3.5 w-3.5" />
                       Deselect
                     </Button>
-                    <Button variant="destructive" size="sm" onClick={() => { console.log("Delete:", [...selectedGridIds]); setSelectedGridIds(new Set()); }} className="h-8 gap-1.5 px-3 cursor-pointer">
+                    <Button variant="destructive" size="sm" onClick={() => handleBulkDeleteModal(Array.from(selectedGridIds).map(id => ({ id })))} className="h-8 gap-1.5 px-3 cursor-pointer">
                       <Trash className="h-3.5 w-3.5" />
                       Delete Selected
                     </Button>
@@ -492,26 +545,29 @@ export default function WorkforcePage() {
               <DataTable columns={columns} data={data.items} onDeleteSelected={handleBulkDelete} onTableReady={setTable} hideToolbar columnVisibility={columnVisibility} onColumnVisibilityChange={setColumnVisibility} />
             )
           ) : (
-            <div className="flex min-h-[320px] flex-col items-center justify-center rounded-xl border border-dashed border-zinc-200 bg-zinc-50/50 p-8 text-center dark:border-zinc-800 dark:bg-zinc-900/50">
-              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-zinc-100 dark:bg-zinc-800">
-                <Plus className="h-6 w-6 text-zinc-400" />
+            <div className="flex min-h-[400px] flex-col items-center justify-center rounded-2xl border border-slate-200/80 bg-gradient-to-b from-slate-50/50 to-white shadow-sm">
+              <div className="text-center px-6 py-8 max-w-xs">
+                <div className="mx-auto h-16 w-16 rounded-2xl bg-gradient-to-br from-indigo-50 to-indigo-100 border border-indigo-100 shadow-sm flex items-center justify-center mb-6">
+                  <Network className="h-7 w-7 text-indigo-500" />
+                </div>
+                <h3 className="text-base font-semibold text-slate-900">
+                  {query ? "No results found" : "No workforces yet"}
+                </h3>
+                <p className="mt-2 text-sm text-slate-500 leading-relaxed">
+                  {query
+                    ? "Try adjusting your search or clearing filters to find what you're looking for."
+                    : "Create and organize your workforces to streamline collaboration."}
+                </p>
+                {!query && (
+                  <button
+                    onClick={handleCreateWorkforce}
+                    className="mt-6 inline-flex items-center gap-2 rounded-xl px-4 h-10 text-sm font-semibold bg-gradient-to-b from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 text-white shadow-md shadow-indigo-200 hover:shadow-lg hover:shadow-indigo-300 transition-all cursor-pointer"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Create new workforce
+                  </button>
+                )}
               </div>
-              <h3 className="mt-4 text-base font-medium text-zinc-900 dark:text-zinc-50">
-                No workforces found
-              </h3>
-              <p className="mt-1 text-sm text-zinc-500">
-                {query
-                  ? "Try adjusting your search or filters."
-                  : "Get started by creating a new workforce."}
-              </p>
-              <Button
-                onClick={handleCreateWorkforce}
-                size="sm"
-                variant="outline"
-                className="mt-8 border-zinc-200 bg-white hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-950 max-w-40"
-              >
-                Create workforce
-              </Button>
             </div>
           )}
 
@@ -534,6 +590,15 @@ export default function WorkforcePage() {
           // Navigate to the create/[id] page passing mode as a query param
           router.push(`${DASHBOARD_ROUTES.WORKFORCE_CREATE(id)}?mode=${mode}`);
         }}
+      />
+      <ConfirmDeleteModal
+        open={deleteModalOpen}
+        onOpenChange={setDeleteModalOpen}
+        itemName={deleteTarget?.name}
+        count={bulkDeleteRows.length > 0 ? bulkDeleteRows.length : 1}
+        entityLabel="workforce"
+        onConfirm={handleConfirmDelete}
+        isLoading={deleteMutation.isPending}
       />
     </Shell>
   );

@@ -38,7 +38,6 @@ export class PlanManager {
                         maxProjects: (data.feature as any).maxProjects ?? (data.feature as any).maxProject ?? 0,
                         maxTeams: data.feature.maxTeams,
                         maxRequests: data.feature.maxRequests,
-                        maxProposals: (data.feature as any).maxProposals ?? 0,
                     },
                     create: {
                         name: `${plan.name}_Feature`,
@@ -47,7 +46,6 @@ export class PlanManager {
                         maxProjects: (data.feature as any).maxProjects ?? (data.feature as any).maxProject ?? 0,
                         maxTeams: data.feature.maxTeams,
                         maxRequests: data.feature.maxRequests,
-                        maxProposals: (data.feature as any).maxProposals ?? 0,
                         planId: plan.id,
                     }
                 });

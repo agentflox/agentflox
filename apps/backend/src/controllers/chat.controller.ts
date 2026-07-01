@@ -1,17 +1,22 @@
-import { Controller, Post, Req, Res, Body, HttpException, HttpStatus, UseInterceptors, UploadedFile } from '@nestjs/common';
+import {
+    Controller,
+    Post,
+    Req,
+    Res,
+    Body,
+    HttpException,
+    HttpStatus,
+    UseInterceptors,
+    UploadedFile,
+    UseGuards,
+} from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { Request, Response } from 'express';
+import { Response } from 'express';
 import { ChatService } from '../services/chat/chatService';
 import { OpenAIErrorHandler } from '../services/chat/utils/errorHandler';
 import { parseFile } from '../services/chat/fileParserService';
-
-interface AuthenticatedRequest extends Request {
-    user?: {
-        id: string;
-        email?: string;
-        name?: string;
-    };
-}
+import { AuthenticatedRequest, JwtAuthGuard } from '../middleware/httpAuth';
+import { prisma } from '@/lib/prisma';
 
 interface UploadedFileType {
     buffer: Buffer;
@@ -23,15 +28,12 @@ interface UploadedFileType {
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
 @Controller('chat')
+@UseGuards(JwtAuthGuard)
 export class ChatController {
     @Post()
     async chat(@Req() req: AuthenticatedRequest, @Res() res: Response, @Body() body: any) {
         try {
-            const userId = req.user?.id;
-
-            if (!userId) {
-                throw new HttpException('Unauthorized', HttpStatus.UNAUTHORIZED);
-            }
+            const userId = req.userId!;
 
             const ip = req.headers['x-forwarded-for'] as string || req.headers['x-real-ip'] as string || req.ip || 'unknown';
 
@@ -59,29 +61,29 @@ export class ChatController {
     }
 
     @Post('upload')
-    @UseInterceptors(FileInterceptor('file'))
+    @UseInterceptors(FileInterceptor('file', { limits: { fileSize: MAX_FILE_SIZE } }))
     async upload(
         @Req() req: AuthenticatedRequest,
         @UploadedFile() file: UploadedFileType,
         @Body('conversationId') conversationId: string
     ) {
         try {
-            const userId = req.user?.id;
-
-            if (!userId) {
-                throw new HttpException('Unauthorized', HttpStatus.UNAUTHORIZED);
-            }
+            const userId = req.userId!;
 
             if (!file) {
                 throw new HttpException('No file provided', HttpStatus.BAD_REQUEST);
             }
 
-            if (file.size > MAX_FILE_SIZE) {
-                throw new HttpException('File too large', HttpStatus.BAD_REQUEST);
-            }
-
             if (!conversationId) {
                 throw new HttpException('Conversation ID required', HttpStatus.BAD_REQUEST);
+            }
+
+            const conversation = await prisma.aiConversation.findFirst({
+                where: { id: conversationId, userId },
+                select: { id: true },
+            });
+            if (!conversation) {
+                throw new HttpException('Conversation not found', HttpStatus.NOT_FOUND);
             }
 
             const parsedFile = await parseFile(
@@ -94,6 +96,9 @@ export class ChatController {
 
             return parsedFile;
         } catch (error: any) {
+            if (error?.code === 'LIMIT_FILE_SIZE') {
+                throw new HttpException('File too large', HttpStatus.BAD_REQUEST);
+            }
             console.error('File upload error:', error);
             throw new HttpException(
                 error.message || 'Failed to upload file',

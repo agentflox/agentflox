@@ -51,7 +51,7 @@ export const AgentPreview: React.FC<AgentPreviewProps> = ({
   const showBlueImage = currentStage.progress >= 50;
 
   return (
-    <div className="h-full bg-white flex items-center justify-center p-6 max-h-screen overflow-hidden">
+    <div className="h-full bg-white flex items-center justify-center py-4 px-8 max-h-screen overflow-hidden">
       <div className="w-full max-w-xl">
         {/* Main Panel */}
         <motion.div
@@ -60,8 +60,8 @@ export const AgentPreview: React.FC<AgentPreviewProps> = ({
           className="bg-white overflow-hidden"
         >
           {/* Progress Bar - Moved to Top */}
-          <div className="px-8 pt-8 pb-6 border-b border-gray-200">
-            <div className="space-y-3">
+          <div className="pb-6 border-b border-gray-200">
+            <div className="space-y-2">
               {/* Percentage and Stage Counter */}
               <div className="flex items-center justify-between text-sm">
                 <span className="text-gray-500">
@@ -81,86 +81,12 @@ export const AgentPreview: React.FC<AgentPreviewProps> = ({
                 )}
               </div>
 
-              {/* Progress Bar Container */}
-              <div className="relative h-2 bg-gray-200 rounded-full overflow-hidden">
-                {/* Background Shimmer */}
-                <motion.div
-                  className="absolute inset-0 bg-gradient-to-r from-transparent via-gray-300/20 to-transparent"
-                  animate={{
-                    x: ["-100%", "200%"],
-                  }}
-                  transition={{
-                    duration: 2,
-                    repeat: Infinity,
-                    ease: "linear",
-                  }}
-                />
-
-                {/* Progress Fill */}
-                <motion.div
-                  className={`absolute inset-y-0 left-0 rounded-full ${showBlueImage
-                    ? "bg-gradient-to-r from-blue-600 to-blue-400"
-                    : "bg-gradient-to-r from-pink-600 to-pink-400"
-                    }`}
-                  initial={{ width: 0 }}
-                  animate={{ width: `${currentStage.progress}%` }}
-                  transition={{
-                    duration: 0.8,
-                    ease: "easeInOut",
-                  }}
-                >
-                  {/* Glow Effect */}
-                  <motion.div
-                    className={`absolute inset-0 ${showBlueImage
-                      ? "bg-blue-400/50"
-                      : "bg-pink-400/50"
-                      } blur-md`}
-                    animate={{
-                      opacity: [0.5, 0.8, 0.5],
-                    }}
-                    transition={{
-                      duration: 1.5,
-                      repeat: Infinity,
-                    }}
-                  />
-                </motion.div>
-
-                {/* Progress Head Indicator */}
-                {isAnimating && currentStage.progress < 100 && (
-                  <motion.div
-                    className={`absolute top-1/2 -translate-y-1/2 w-4 h-4 rounded-full ${showBlueImage ? "bg-blue-400" : "bg-pink-400"
-                      } shadow-lg`}
-                    animate={{
-                      left: `${currentStage.progress}%`,
-                      x: "-50%",
-                    }}
-                    transition={{
-                      duration: 0.8,
-                      ease: "easeInOut",
-                    }}
-                  >
-                    <motion.div
-                      className={`absolute inset-0 rounded-full ${showBlueImage ? "bg-blue-400" : "bg-pink-400"
-                        }`}
-                      animate={{
-                        scale: [1, 1.5, 1],
-                        opacity: [1, 0, 0],
-                      }}
-                      transition={{
-                        duration: 1,
-                        repeat: Infinity,
-                      }}
-                    />
-                  </motion.div>
-                )}
-              </div>
-
               {/* Stage Pills */}
               <div className="flex gap-1.5 pt-2">
                 {buildStages.map((stage, index) => (
                   <motion.div
                     key={stage.id}
-                    className={`flex-1 h-1 rounded-full transition-colors duration-300 ${index <= currentStageIndex
+                    className={`flex-1 h-1.5 rounded-full transition-colors duration-300 ${index <= currentStageIndex
                       ? showBlueImage && index >= 2
                         ? "bg-blue-500"
                         : "bg-pink-500"
@@ -176,7 +102,7 @@ export const AgentPreview: React.FC<AgentPreviewProps> = ({
           </div>
 
           {/* Image Animation Container */}
-          <div className="relative w-full bg-gray-50 flex items-center justify-center overflow-hidden h-72">
+          <div className="relative w-full bg-gray-50 flex items-center justify-center overflow-hidden h-[300px]">
             {/* Ambient Background Glow */}
             <div className="absolute inset-0 bg-gradient-radial from-blue-500/5 via-transparent to-transparent" />
 
@@ -328,15 +254,15 @@ export const AgentPreview: React.FC<AgentPreviewProps> = ({
           </div>
 
           {/* Stage Information */}
-          <div className="px-8 py-6 border-b border-gray-200">
+          <div className="py-6 px-4 border-b border-gray-200">
             <motion.div
               key={currentStage.id}
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.3 }}
             >
-              <div className="flex items-center gap-3 mb-2">
-                <div className="relative">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="relative -ml-2">
                   <div
                     className={`w-3 h-3 rounded-full ${showBlueImage ? "bg-blue-500" : "bg-pink-500"
                       }`}
@@ -356,20 +282,20 @@ export const AgentPreview: React.FC<AgentPreviewProps> = ({
                     />
                   )}
                 </div>
-                <h3 className="text-lg font-semibold text-gray-900">
+                <h3 className="text-lg font-semibold text-gray-900 leading-none">
                   {currentStage.label}
                 </h3>
               </div>
-              <p className="text-gray-600 text-sm ml-6">
+              <p className="text-gray-600 text-sm">
                 {currentStage.description}
               </p>
             </motion.div>
           </div>
 
           {/* Action Button */}
-          <div className="px-8 pb-8">
+          <div className="flex items-center justify-center pt-8">
             {/* Simplified Enhanced Action Footer - Replace the existing action button section */}
-            <div className="relative overflow-hidden">
+            <div className="relative overflow-hidden w-full">
               {/* Animated Background Gradient */}
               <motion.div
                 className="absolute inset-0 opacity-30"
@@ -391,7 +317,7 @@ export const AgentPreview: React.FC<AgentPreviewProps> = ({
                 }}
               />
 
-              <div className="relative py-6">
+              <div className="relative">
                 {isComplete ? (
                   /* Success State - Agent Live */
                   <motion.div
@@ -414,7 +340,7 @@ export const AgentPreview: React.FC<AgentPreviewProps> = ({
                         }}
                       />
 
-                      <div className="relative bg-white rounded-xl p-4">
+                      <div className="relative bg-white rounded-xl p-4 w-full">
                         <div className="flex items-center justify-center gap-3">
                           {/* Pulsing success icon */}
                           <div className="relative">

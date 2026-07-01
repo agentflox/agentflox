@@ -18,24 +18,21 @@ import {
     ChevronRight,
     Menu,
     List as ListIcon,
+    User,
+    Sparkles,
+    FileText
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 export type ProjectView =
     | "overview"
-    | "discussions"
-    | "logs"
-    | "activities"
-    | "appeal"
-    | "governance"
-    | "tasks"
+    | "personal"
+    | "teams"
     | "lists"
-    | "members"
-    | "analytics"
-    | "war_room"
-    | "marketplace"
-    | "settings";
+    | "docs"
+    | "chats"
+    | "ai-chat";
 
 interface ProjectNavigationSidebarProps {
     projectId: string;
@@ -54,18 +51,12 @@ const navigationItems: Array<{
     href?: string;
 }> = [
         { id: "overview", label: "Overview", icon: LayoutDashboard },
-        { id: "discussions", label: "Discussions", icon: MessageSquare },
-        { id: "tasks", label: "Tasks", icon: CheckSquare },
+        { id: "personal", label: "Personal", icon: User },
+        { id: "teams", label: "Teams", icon: Users },
         { id: "lists", label: "Lists", icon: ListIcon },
-        { id: "activities", label: "Activities", icon: Activity },
-        { id: "members", label: "Members", icon: Users },
-        { id: "analytics", label: "Analytics", icon: BarChart3 },
-        { id: "logs", label: "Audit Logs", icon: ClipboardList },
-        { id: "appeal", label: "Appeal", icon: Gavel },
-        { id: "governance", label: "Governance", icon: Shield },
-        { id: "war_room", label: "War Room", icon: Swords },
-        { id: "marketplace", label: "Marketplace", icon: Store },
-        // { id: "settings", label: "Settings", icon: Settings }, // Might handle settings separately
+        { id: "docs", label: "Docs", icon: FileText },
+        { id: "chats", label: "Chats", icon: MessageSquare },
+        { id: "ai-chat", label: "AI Chat", icon: Sparkles },
     ];
 
 export default function ProjectNavigationSidebar({
@@ -111,7 +102,7 @@ export default function ProjectNavigationSidebar({
             </div>
 
             {/* Navigation */}
-            <ScrollArea className="flex-1 px-3 py-4">
+            <ScrollArea className="flex-1 px-1.5 py-4">
                 <div className="space-y-1">
                     {navigationItems.map((item) => {
                         const Icon = item.icon;

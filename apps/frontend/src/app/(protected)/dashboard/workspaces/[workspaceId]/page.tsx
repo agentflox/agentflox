@@ -1,6 +1,6 @@
 "use client";
 import { useParams } from "next/navigation";
-import WorkspaceViewComponent from "@/features/dashboard/views/workspace/WorkspaceView";
+import WorkspaceViewComponent from "@/features/dashboard/views/workspace/WorkspaceDashboardView";
 
 export default function WorkspaceDetailPage() {
 	const params = useParams();

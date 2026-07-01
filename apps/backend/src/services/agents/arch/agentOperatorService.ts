@@ -773,6 +773,7 @@ Return strictly JSON with shape: { "welcomeMessage": string }.`,
     agentId: string,
     message: string,
     userId: string,
+    options?: { contexts?: any[]; mentions?: any[]; attachments?: any[] },
     idempotencyKey?: string
   ): Promise<{ runId: string }> {
     const runId = randomUUID();
@@ -785,6 +786,7 @@ Return strictly JSON with shape: { "welcomeMessage": string }.`,
         agentId,
         userId,
         message,
+        options,
         idempotencyKey,
       }
     });
@@ -800,6 +802,7 @@ Return strictly JSON with shape: { "welcomeMessage": string }.`,
       agentId,
       message,
       userId,
+      options,
       idempotencyKey
     }: {
       runId: string;
@@ -807,6 +810,7 @@ Return strictly JSON with shape: { "welcomeMessage": string }.`,
       agentId: string;
       message: string;
       userId: string;
+      options?: { contexts?: any[]; mentions?: any[]; attachments?: any[] };
       idempotencyKey?: string;
     }
   ): Promise<{
@@ -841,6 +845,9 @@ Return strictly JSON with shape: { "welcomeMessage": string }.`,
 
     // Sanitize user input to prevent prompt injection
     const sanitizedMessage = this.inputSanitizer.sanitize(message);
+    const { explicitContextResolver } = await import('@/utils/utilities/explicitContextResolver');
+    const resolvedExplicitContext = await explicitContextResolver.resolve(userId, options);
+    const fullMessageWithContext = resolvedExplicitContext ? `${sanitizedMessage}\n${resolvedExplicitContext}` : sanitizedMessage;
     const turnStartMs = Date.now(); // Phase 5: wall-clock timer for metrics
     const shortMsg = message.length > 70 ? message.substring(0, 70).replace(/\n/g, ' ') + '...' : message.replace(/\n/g, ' ');
     onProgress?.(`Processing request: "${shortMsg}"`);
@@ -904,7 +911,7 @@ Return strictly JSON with shape: { "welcomeMessage": string }.`,
 
         try {
           ctx = await this.entityScopeInferrer.inferAndFetchEntityScope(
-            sanitizedMessage,
+            fullMessageWithContext,
             conversationState.conversationHistory.map((h: { role: string; content: string }) => ({
               role: h.role,
               content: h.content,
@@ -922,7 +929,12 @@ Return strictly JSON with shape: { "welcomeMessage": string }.`,
         await agentBuilderStateService.addMessageToHistory(
           conversationId,
           'user',
-          sanitizedMessage
+          sanitizedMessage,
+          {
+            contexts: options?.contexts,
+            mentions: options?.mentions,
+            attachments: options?.attachments,
+          }
         );
 
         const latestState =
@@ -941,7 +953,7 @@ Return strictly JSON with shape: { "welcomeMessage": string }.`,
       });
 
       // --- NEW: INTELLIGENT INTENT INFERENCE (Injected Service) ---
-      const intentResult = await intentInferenceService.inferOperatorIntent(sanitizedMessage, refreshedState.conversationHistory);
+      const intentResult = await intentInferenceService.inferOperatorIntent(fullMessageWithContext, refreshedState.conversationHistory);
 
       // Handle EXECUTE_REQUEST - "Wrong Context" Guardrail
       // Operators configure; Executors execute.
@@ -950,7 +962,7 @@ Return strictly JSON with shape: { "welcomeMessage": string }.`,
         // For now, we strictly guide to Executor for clarity, unless explicit "test" keyword?
         // The prompt says "EXECUTE_REQUEST: User wants to RUN the agent... - Operator can trigger dry runs, but primary execution is Executor."
         // If confidence is high, suggeset Executor.
-        if (intentResult.confidence > 0.8 && !sanitizedMessage.toLowerCase().includes('test')) {
+        if (intentResult.confidence > 0.8 && !fullMessageWithContext.toLowerCase().includes('test')) {
           return {
             response: "To run this agent for a production task, please switch to the **Executor** view. The Operator view is for configuring, training, and running test simulations.",
             conversationState: refreshedState,
@@ -979,7 +991,7 @@ Return strictly JSON with shape: { "welcomeMessage": string }.`,
 
       // Try to extract configuration if user is requesting changes
       let extractedConfig: any = null;
-      const lowerMessage = sanitizedMessage.toLowerCase();
+      const lowerMessage = fullMessageWithContext.toLowerCase();
       const isConfigChange = lowerMessage.includes('change') ||
         lowerMessage.includes('update') ||
         lowerMessage.includes('modify') ||
@@ -989,7 +1001,7 @@ Return strictly JSON with shape: { "welcomeMessage": string }.`,
       if (isConfigChange) {
         try {
           extractedConfig = await this.configurationExtractor.extract(
-            sanitizedMessage,
+            fullMessageWithContext,
             refreshedState,
             userContext,
             userId,
@@ -1096,14 +1108,12 @@ Return strictly JSON with shape: { "welcomeMessage": string }.`,
       }
 
       // Infer skills based on message and context
-      let inferredSkills: { suggestedSkills: string[], confidence: number, reasoning: string } | null = null;
-      if (isConfigChange || isAutomationRelated) {
-        inferredSkills = await this.skillInferenceService.inferSkills(
-          sanitizedMessage,
-          `Current capabilities: ${agent.capabilities?.join(', ') || 'None'}. Description: ${agent.description || ''}`,
-          BUILT_IN_SKILLS
-        );
-      }
+      const skillInference = await this.skillInferenceService.inferSkills(
+        fullMessageWithContext,
+        `Current capabilities: ${agent.capabilities?.join(', ') || 'None'}. Description: ${agent.description || ''}`,
+        BUILT_IN_SKILLS
+      );
+      const inferredSkills = skillInference;
 
       // If we have a merged update (config change), mix in skills
       if (Object.keys(mergedUpdates).length > 0 && inferredSkills && inferredSkills.confidence > 0.7 && inferredSkills.suggestedSkills.length > 0) {
@@ -1140,7 +1150,7 @@ Return strictly JSON with shape: { "welcomeMessage": string }.`,
         const memories = await memoryManager.getSemanticContext(
           agentId,
           userId,
-          sanitizedMessage,
+          fullMessageWithContext,
           agent.workspaceId
         );
         if (memories.length > 0) {
@@ -1164,7 +1174,7 @@ ${guardrails}${semanticMemoryBlock}`;
         {
           role: 'user' as const,
           content: JSON.stringify({
-            message: sanitizedMessage,
+            message: fullMessageWithContext,
             agent: {
               id: agent.id,
               name: agent.name,
@@ -1212,7 +1222,7 @@ ${guardrails}${semanticMemoryBlock}`;
       const agentToolNames = agent.tools?.map((t: any) => t.name) || [];
       if (agentToolNames.length > 0) {
         const selectedToolNames = await this.toolDiscoveryService.selectRelevantTools(
-          sanitizedMessage,
+          fullMessageWithContext,
           agentToolNames,
           async (name) => {
             const tool = await getToolByName(name);

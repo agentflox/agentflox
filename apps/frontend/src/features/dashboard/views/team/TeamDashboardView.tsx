@@ -3,26 +3,27 @@
 import { useMemo, useState, useCallback, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { trpc } from "@/lib/trpc";
+import { DashboardLoadingState, DashboardErrorState } from "@/features/dashboard/components/shared/DashboardStates";
 import TeamNavigationSidebar, { type TeamView } from "@/features/dashboard/layouts/team/TeamNavigationSidebar";
-import { TeamOverviewTab } from "@/features/dashboard/views/team/TeamOverviewTab";
-import { DiscussionsView } from "@/features/dashboard/views/team/DiscussionsView";
-import { ActivitiesView } from "@/features/dashboard/views/team/ActivitiesView";
-import { MembersView } from "@/features/dashboard/views/team/MembersView";
-import TeamListView from "@/features/dashboard/views/team/TeamListView";
-import ListView from "@/features/dashboard/views/generic/ListView";
-import { BoardView } from "@/features/dashboard/views/generic/BoardView";
-import { TableView } from "@/features/dashboard/views/generic/TableView";
-import { PeopleView } from "@/features/dashboard/views/generic/PeopleView ";
-import { CalendarView } from "@/features/dashboard/views/generic/CalendarView";
-import { GanttView } from "@/features/dashboard/views/generic/GanttView";
-import { TimelineView } from "@/features/dashboard/views/generic/TimelineView";
-import { FormView } from "@/features/dashboard/views/generic/FormView";
-import { MindMapView } from "@/features/dashboard/views/generic/MindMapView";
-import { WorkloadView } from "@/features/dashboard/views/generic/WorkloadView";
-import WhiteboardView from "@/features/dashboard/views/generic/WhiteboardView";
-import { MapView } from "@/features/dashboard/views/generic/MapView";
-import { DashboardView as GenericDashboardView } from "@/features/dashboard/views/generic/DashboardView";
-import { EmbedView } from "@/features/dashboard/views/generic/EmbedView";
+import dynamic from "next/dynamic";
+const TeamOverviewTab = dynamic(() => import("@/features/dashboard/views/team/TeamOverviewTab").then(mod => mod.TeamOverviewTab));
+const TeamListView = dynamic(() => import("@/features/dashboard/views/team/TeamListView"));
+const ListView = dynamic(() => import("@/features/dashboard/views/generic/ListView"));
+const BoardView = dynamic(() => import("@/features/dashboard/views/generic/BoardView").then(mod => mod.BoardView));
+const TableView = dynamic(() => import("@/features/dashboard/views/generic/TableView").then(mod => mod.TableView));
+const PeopleView = dynamic(() => import("@/features/dashboard/views/generic/PeopleView ").then(mod => mod.PeopleView));
+const ActivityView = dynamic(() => import("@/features/dashboard/views/generic/ActivityView").then(mod => mod.ActivityView));
+const CalendarView = dynamic(() => import("@/features/dashboard/views/generic/CalendarView").then(mod => mod.CalendarView));
+const GanttView = dynamic(() => import("@/features/dashboard/views/generic/GanttView").then(mod => mod.GanttView));
+const TimelineView = dynamic(() => import("@/features/dashboard/views/generic/TimelineView").then(mod => mod.TimelineView));
+const FormView = dynamic(() => import("@/features/dashboard/views/generic/FormView").then(mod => mod.FormView));
+const MindMapView = dynamic(() => import("@/features/dashboard/views/generic/MindMapView").then(mod => mod.MindMapView));
+const WorkloadView = dynamic(() => import("@/features/dashboard/views/generic/WorkloadView").then(mod => mod.WorkloadView));
+const WhiteboardView = dynamic(() => import("@/features/dashboard/views/generic/WhiteboardView"));
+const MapView = dynamic(() => import("@/features/dashboard/views/generic/MapView").then(mod => mod.MapView));
+const GenericDashboardView = dynamic(() => import("@/features/dashboard/views/generic/DashboardView").then(mod => mod.DashboardView));
+const EmbedView = dynamic(() => import("@/features/dashboard/views/generic/EmbedView").then(mod => mod.EmbedView));
+const DocView = dynamic(() => import("@/features/dashboard/views/generic/DocView").then(mod => mod.DocView));
 import { ShareModal } from "@/components/permissions/ShareModal";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -48,11 +49,13 @@ import { DashboardHeader } from "@/features/dashboard/components/shared/Dashboar
 import { QuickAgentModal } from "@/features/dashboard/components/modals/QuickAgentModal";
 import { ResizableSplitLayout, SidePanelContainer } from "@/components/layout/ResizableSplitLayout";
 import { TaskDetailPanel, TaskLayoutMode } from "@/entities/task/components/TaskDetailPanel";
-import { ChatView } from "@/features/dashboard/views/project/ChatView";
+const ChatView = dynamic(() => import("@/features/dashboard/views/shared/ChatView"));
+const AIChatView = dynamic(() => import("@/features/dashboard/views/shared/AIChatView"));
+const SharedAIChatView = dynamic(() => import("@/features/dashboard/views/shared/SharedAIChatView").then(mod => mod.ChatView));
+const TeamPersonalView = dynamic(() => import("@/features/dashboard/views/team/TeamPersonalView"));
+const TeamProjectView = dynamic(() => import("@/features/dashboard/views/team/TeamProjectView"));
+const TeamDocsView = dynamic(() => import("@/features/dashboard/views/team/TeamDocsView"));
 import { TeamActionsMenu } from "@/features/dashboard/components/sidebar/TeamActionsMenu";
-import { VerticalToolRail } from "@/features/dashboard/components/VerticalToolRail";
-import TeamItemSidebar from "@/features/dashboard/layouts/team/TeamItemSidebar";
-import TeamSettingsSidebar from "@/features/dashboard/layouts/team/TeamSettingsSidebar";
 import {
   Popover,
   PopoverContent,
@@ -103,22 +106,25 @@ import { toast } from "sonner";
 type LayoutMode = "sidebar" | "top";
 
 interface TeamDashboardViewProps {
-  teamId: string;
+  listId?: string;
+  spaceId?: string;
+  projectId?: string;
+  teamId?: string;
+  workspaceId?: string;
+  selectedTaskIdFromParent?: string | null;
+  onTaskSelect?: (taskId: string | null) => void;
 }
 
-const viewConfig: Record<
+const viewConfig: Partial<Record<
   ViewType,
   {
     label: string;
     icon: React.ComponentType<{ className?: string; size?: number }>;
     description: string;
   }
-> = {
+>> = {
   // Existing
   OVERVIEW: { label: "Overview", icon: LayoutDashboard, description: "Team overview" },
-  DISCUSSIONS: { label: "Discussions", icon: MessageSquare, description: "Team discussions" },
-  ACTIVITY: { label: "Activities", icon: Activity, description: "Activity log" },
-  MEMBERS: { label: "Members", icon: Users, description: "Team members" },
 
   // Generic
   LIST: { label: "List", icon: List, description: "List view" },
@@ -126,6 +132,7 @@ const viewConfig: Record<
   CALENDAR: { label: "Calendar", icon: Calendar, description: "Calendar view" },
   GANTT: { label: "Gantt", icon: Network, description: "Gantt chart" },
   DOC: { label: "Doc", icon: FileText, description: "Document" },
+  DOCS: { label: "Docs", icon: FileText, description: "Documents" },
   FORM: { label: "Form", icon: LayoutDashboard, description: "Form" },
   TABLE: { label: "Table", icon: ClipboardList, description: "Table view" },
   TIMELINE: { label: "Timeline", icon: Clock, description: "Timeline view" },
@@ -167,7 +174,7 @@ const viewConfig: Record<
   MARKETPLACE: { label: "Marketplace", icon: LayoutDashboard, description: "Marketplace" },
 };
 
-export default function TeamDashboardView({ teamId }: TeamDashboardViewProps) {
+export default function TeamDashboardView({ listId, spaceId, projectId, teamId, workspaceId, selectedTaskIdFromParent, onTaskSelect }: TeamDashboardViewProps) {
   const searchParams = useSearchParams();
   const router = useRouter();
   const utils = trpc.useUtils();
@@ -181,6 +188,7 @@ export default function TeamDashboardView({ teamId }: TeamDashboardViewProps) {
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
 
   const [selectedListId, setSelectedListId] = useState<string | null>(searchParams.get("list"));
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(searchParams.get("pj"));
   const [addViewModalOpen, setAddViewModalOpen] = useState(false);
   const [viewToRename, setViewToRename] = useState<{ id: string, name: string } | null>(null);
   const [viewToDelete, setViewToDelete] = useState<{ id: string, name: string } | null>(null);
@@ -199,15 +207,15 @@ export default function TeamDashboardView({ teamId }: TeamDashboardViewProps) {
   const openSettingsSidebar = () => setSettingsSidebarOpen(true);
 
   // Fetch Data
-  const { data: team, isLoading: isTeamLoading } = trpc.team.get.useQuery({ id: teamId });
+  const { data: team, isLoading: isTeamLoading } = trpc.team.get.useQuery({ id: teamId ?? "" }, { enabled: !!teamId });
 
-  const workspaceId = team?.workspaceId || undefined;
+  const resolvedWorkspaceId = team?.workspaceId || workspaceId;
   const isLoading = isTeamLoading;
 
   // Mutations
   const createViewMutation = trpc.view.create.useMutation({
     onSuccess: () => {
-      utils.team.get.invalidate({ id: teamId });
+      utils.team.get.invalidate({ id: teamId! });
       toast.success("View added");
     },
     onError: (err) => toast.error(`Failed to add view: ${err.message}`)
@@ -215,7 +223,7 @@ export default function TeamDashboardView({ teamId }: TeamDashboardViewProps) {
 
   const deleteViewMutation = trpc.view.delete.useMutation({
     onSuccess: () => {
-      utils.team.get.invalidate({ id: teamId });
+      utils.team.get.invalidate({ id: teamId! });
       toast.success("View deleted");
     },
     onError: (err) => toast.error(`Failed to delete view: ${err.message}`)
@@ -223,21 +231,21 @@ export default function TeamDashboardView({ teamId }: TeamDashboardViewProps) {
 
   const updateViewMutation = trpc.view.update.useMutation({
     onSuccess: () => {
-      utils.team.get.invalidate({ id: teamId });
+      utils.team.get.invalidate({ id: teamId! });
     },
     onError: (err) => toast.error(`Failed to update view: ${err.message}`)
   });
 
   const createFromTemplateMutation = trpc.view.createFromTemplate.useMutation({
     onSuccess: () => {
-      utils.team.get.invalidate({ id: teamId });
+      utils.team.get.invalidate({ id: teamId! });
       toast.success("View created from template");
     },
     onError: (err) => toast.error(`Failed to create view: ${err.message}`)
   });
 
   const reorderViewsMutation = trpc.view.reorder.useMutation({
-    onSuccess: () => utils.team.get.invalidate({ id: teamId }),
+    onSuccess: () => utils.team.get.invalidate({ id: teamId! }),
     onError: (err) => toast.error(`Failed to reorder views: ${err.message}`)
   });
 
@@ -254,9 +262,9 @@ export default function TeamDashboardView({ teamId }: TeamDashboardViewProps) {
     });
   }, [team?.views]);
 
-  const currentTab = searchParams.get("tab");
+  const currentTab = searchParams.get("tab") || "overview";
   const selectedListIdFromUrl = searchParams.get("list");
-  const isViewsTab = currentTab === "views" || !currentTab;
+  const isOverviewTab = currentTab === "overview" || (!searchParams.get("tab") && !selectedListIdFromUrl);
   const isListsTab = currentTab === "lists" || !!selectedListIdFromUrl;
 
   // Active Tab Logic
@@ -279,7 +287,7 @@ export default function TeamDashboardView({ teamId }: TeamDashboardViewProps) {
       const trimmed = name.trim();
       const patchViews = (views: any[]) => views.map((v: any) => v.id === viewId ? { ...v, name: trimmed } : v);
 
-      utils.team.get.setData({ id: teamId }, (old: any) => old ? { ...old, views: patchViews(old.views ?? []) } : old);
+      utils.team.get.setData({ id: teamId! }, (old: any) => old ? { ...old, views: patchViews(old.views ?? []) } : old);
 
       updateViewMutation.mutate({
         id: viewId,
@@ -299,8 +307,8 @@ export default function TeamDashboardView({ teamId }: TeamDashboardViewProps) {
     selectedTypes.forEach(type => {
       const config = viewConfig[type];
       createViewMutation.mutate({
-        name: config.label,
-        type: type,
+        name: config?.label || type,
+        type: type as any,
         teamId: teamId
       });
     });
@@ -342,13 +350,13 @@ export default function TeamDashboardView({ teamId }: TeamDashboardViewProps) {
 
 
   useEffect(() => {
-    if (isViewsTab && !urlTabId && views.length > 0) {
+    if (isOverviewTab && !urlTabId && views.length > 0) {
       const params = new URLSearchParams(searchParams.toString());
-      if (!params.get("tab")) params.set("tab", "views");
+      params.set("tab", "overview");
       params.set("v", views[0].id);
       router.replace(`?${params.toString()}`, { scroll: false });
     }
-  }, [urlTabId, views, isViewsTab, searchParams, router]);
+  }, [urlTabId, views, isOverviewTab, searchParams, router]);
 
   const renderViewContent = (view: any) => {
     if (!view || !team) return null;
@@ -357,19 +365,12 @@ export default function TeamDashboardView({ teamId }: TeamDashboardViewProps) {
     switch (viewType) {
       case "OVERVIEW":
         return <TeamOverviewTab team={team} />;
-      case "DISCUSSIONS":
-        return <DiscussionsView teamId={teamId} />;
-      case "ACTIVITY":
-        return <ActivitiesView teamId={teamId} />;
-      case "MEMBERS":
-        return <MembersView teamId={teamId} />;
-
       // Generic Views
       case "TASKS":
       case "LIST":
         return (
           <ListView
-            listId={listId}
+            listId={listId || undefined}
             spaceId={spaceId}
             projectId={projectId}
             teamId={teamId}
@@ -382,7 +383,7 @@ export default function TeamDashboardView({ teamId }: TeamDashboardViewProps) {
       case "BOARD":
         return (
           <BoardView
-            listId={listId}
+            listId={listId || undefined}
             spaceId={spaceId}
             projectId={projectId}
             teamId={teamId}
@@ -395,7 +396,7 @@ export default function TeamDashboardView({ teamId }: TeamDashboardViewProps) {
       case "TABLE":
         return (
           <TableView
-            listId={listId}
+            listId={listId || undefined}
             spaceId={spaceId}
             projectId={projectId}
             teamId={teamId}
@@ -408,7 +409,7 @@ export default function TeamDashboardView({ teamId }: TeamDashboardViewProps) {
       case "CALENDAR":
         return (
           <CalendarView
-            listId={listId}
+            listId={listId || undefined}
             spaceId={spaceId}
             projectId={projectId}
             teamId={teamId}
@@ -421,7 +422,7 @@ export default function TeamDashboardView({ teamId }: TeamDashboardViewProps) {
       case "GANTT":
         return (
           <GanttView
-            listId={listId}
+            listId={listId || undefined}
             spaceId={spaceId}
             projectId={projectId}
             teamId={teamId}
@@ -434,7 +435,7 @@ export default function TeamDashboardView({ teamId }: TeamDashboardViewProps) {
       case "TIMELINE":
         return (
           <TimelineView
-            listId={listId}
+            listId={listId || undefined}
             spaceId={spaceId}
             projectId={projectId}
             teamId={teamId}
@@ -447,8 +448,8 @@ export default function TeamDashboardView({ teamId }: TeamDashboardViewProps) {
       case "FORM":
         return (
           <FormView
-            workspaceId={workspaceId}
-            listId={listId}
+            workspaceId={resolvedWorkspaceId}
+            listId={listId || undefined}
             spaceId={spaceId}
             projectId={projectId}
             teamId={teamId}
@@ -461,7 +462,20 @@ export default function TeamDashboardView({ teamId }: TeamDashboardViewProps) {
       case "PEOPLE":
         return (
           <PeopleView
-            listId={listId}
+            listId={listId || undefined}
+            spaceId={spaceId}
+            projectId={projectId}
+            teamId={teamId}
+            viewId={view.id}
+            initialConfig={view.config as any}
+            selectedTaskIdFromParent={selectedTaskIdFromParent}
+            onTaskSelect={onTaskSelect}
+          />
+        );
+      case "ACTIVITY":
+        return (
+          <ActivityView
+            listId={listId || undefined}
             spaceId={spaceId}
             projectId={projectId}
             teamId={teamId}
@@ -474,7 +488,7 @@ export default function TeamDashboardView({ teamId }: TeamDashboardViewProps) {
       case "MIND_MAP":
         return (
           <MindMapView
-            listId={listId}
+            listId={listId || undefined}
             spaceId={spaceId}
             projectId={projectId}
             teamId={teamId}
@@ -487,7 +501,7 @@ export default function TeamDashboardView({ teamId }: TeamDashboardViewProps) {
       case "WORKLOAD":
         return (
           <WorkloadView
-            listId={listId}
+            listId={listId || undefined}
             spaceId={spaceId}
             projectId={projectId}
             teamId={teamId}
@@ -500,7 +514,7 @@ export default function TeamDashboardView({ teamId }: TeamDashboardViewProps) {
       case "WHITEBOARD":
         return (
           <WhiteboardView
-            listId={listId}
+            listId={listId || undefined}
             spaceId={spaceId}
             projectId={projectId}
             teamId={teamId}
@@ -513,7 +527,7 @@ export default function TeamDashboardView({ teamId }: TeamDashboardViewProps) {
       case "MAP":
         return (
           <MapView
-            listId={listId}
+            listId={listId || undefined}
             spaceId={spaceId}
             projectId={projectId}
             teamId={teamId}
@@ -526,7 +540,21 @@ export default function TeamDashboardView({ teamId }: TeamDashboardViewProps) {
       case "DASHBOARD":
         return (
           <GenericDashboardView
-            listId={listId}
+            listId={listId || undefined}
+            spaceId={spaceId}
+            projectId={projectId}
+            teamId={teamId}
+            viewId={view.id}
+            initialConfig={view.config as any}
+            selectedTaskIdFromParent={selectedTaskIdFromParent}
+            onTaskSelect={onTaskSelect}
+          />
+        );
+
+      case "DOC":
+        return (
+          <DocView
+            listId={listId || undefined}
             spaceId={spaceId}
             projectId={projectId}
             teamId={teamId}
@@ -538,7 +566,6 @@ export default function TeamDashboardView({ teamId }: TeamDashboardViewProps) {
         );
 
       // Embeds
-      case "DOC":
       case "EMBED":
       case "SPREADSHEET":
       case "FILE":
@@ -552,7 +579,7 @@ export default function TeamDashboardView({ teamId }: TeamDashboardViewProps) {
       case "GOOGLE_DRIVE":
         return (
           <EmbedView
-            listId={listId}
+            listId={listId || undefined}
             spaceId={spaceId}
             projectId={projectId}
             teamId={teamId}
@@ -583,22 +610,11 @@ export default function TeamDashboardView({ teamId }: TeamDashboardViewProps) {
   };
 
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-12 h-screen">
-        <div className="flex flex-col items-center gap-3">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-primary" />
-          <p className="text-sm text-muted-foreground">Loading team...</p>
-        </div>
-      </div>
-    );
+    return <DashboardLoadingState message="Loading team..." />;
   }
 
   if (!team) {
-    return (
-      <div className="flex items-center justify-center py-12 h-screen">
-        <p className="text-sm text-muted-foreground">Team not found</p>
-      </div>
-    );
+    return <DashboardErrorState title="Team not found" message="We couldn't find the team you're looking for." />;
   }
 
   return (
@@ -608,26 +624,20 @@ export default function TeamDashboardView({ teamId }: TeamDashboardViewProps) {
         {layoutMode === "sidebar" && (
           <TeamNavigationSidebar
             teamId={teamId}
-            activeView={(isListsTab ? 'lists' : activeView?.type?.toLowerCase() || 'overview') as any}
+            activeView={(isListsTab ? "lists" : currentTab) as any}
             onViewChange={(viewId) => {
               const params = new URLSearchParams(searchParams.toString());
-
+              params.delete("v");
+              params.delete("ptab");
               if (viewId === "lists") {
                 params.set("tab", "lists");
-                router.push(`?${params.toString()}`, { scroll: false });
-                return;
-              }
-
-              const type = viewId.toUpperCase();
-              const targetView = views.find((v: any) => v.type === type);
-              if (targetView) {
-                params.set("tab", "views");
-                params.set("v", targetView.id);
-                router.push(`?${params.toString()}`, { scroll: false });
+              } else if (viewId === "overview") {
+                params.set("tab", "overview");
+                if (views.length > 0) params.set("v", views[0].id);
               } else {
                 params.set("tab", viewId);
-                router.push(`?${params.toString()}`, { scroll: false });
               }
+              router.push(`?${params.toString()}`, { scroll: false });
             }}
             collapsed={sidebarCollapsed}
             onToggleCollapse={() => setSidebarCollapsed((prev) => !prev)}
@@ -666,7 +676,7 @@ export default function TeamDashboardView({ teamId }: TeamDashboardViewProps) {
                 onClick: () => { },
                 render: () => (
                   <TeamActionsMenu
-                    workspaceId={workspaceId!}
+                    workspaceId={resolvedWorkspaceId!}
                     teamId={teamId}
                     trigger={
                       <Button variant="ghost" size="sm" className="h-8 gap-2">
@@ -680,254 +690,294 @@ export default function TeamDashboardView({ teamId }: TeamDashboardViewProps) {
             ]}
           />
           <div className="flex-1 overflow-hidden relative">
-            {isListsTab ? (
-              <TeamListView
-                teamId={teamId}
-                workspaceId={workspaceId}
-                selectedListId={selectedListId || undefined}
-                onListSelect={handleListSelect}
-                selectedTaskIdFromParent={selectedTaskId}
-                onTaskSelect={handleTaskSelect}
-              />
-            ) : (
-              <ResizableSplitLayout
-                MainContent={
-                  <Tabs value={activeTab} onValueChange={handleTabChange} className="flex h-full flex-col">
-                    <div className="border-b border-slate-200 bg-white px-4">
-                      <div className="flex items-center gap-1 min-w-0 overflow-hidden h-10">
-                        <TabsList className="h-auto bg-transparent p-0 flex-1 min-w-0 flex items-center overflow-hidden">
-                          <ViewTabsOverflow
-                            views={views}
-                            activeTab={activeTab}
-                            onTabChange={handleTabChange}
-                            onAddView={() => setAddViewModalOpen(true)}
-                            onReorderViews={(activeId, overId, dropPosition) => {
-                              const activeView = views.find((v: any) => v.id === activeId);
-                              const overView = views.find((v: any) => v.id === overId);
-                              if (!activeView || !overView || activeId === overId) return;
-                              const otherViews = views.filter((v: any) => v.id !== activeId);
-                              let targetViewId: string | null = overId;
-                              if (dropPosition === "after") {
-                                const idx = otherViews.findIndex((v: any) => v.id === overId);
-                                targetViewId = idx >= 0 && idx < otherViews.length - 1 ? otherViews[idx + 1].id : null;
-                              }
-                              let newSortedViews: any[];
-                              if (targetViewId) {
-                                const idx = otherViews.findIndex((v: any) => v.id === targetViewId);
-                                newSortedViews = [...otherViews.slice(0, idx), activeView, ...otherViews.slice(idx)];
-                              } else {
-                                newSortedViews = [...otherViews, activeView];
-                              }
-                              const moved = newSortedViews.find((v: any) => v.id === activeId);
-                              if (moved) moved.isPinned = overView.isPinned;
-                              newSortedViews.forEach((v: any, i: number) => { v.position = i * 1000; });
-                              utils.team.get.setData({ id: teamId }, (old: any) => old ? { ...old, views: newSortedViews } : old);
-                              reorderViewsMutation.mutate(newSortedViews.map((v: any, i: number) => ({ id: v.id, position: i * 1000 })));
-                            }}
-                            getIcon={(view) => {
-                              const viewType = view.type as ViewType;
-                              const config = viewConfig[viewType] || { icon: FileText };
-                              const Icon = config.icon;
-                              return <Icon className="h-full w-full" />;
-                            }}
-                            onTogglePin={(view) => togglePin(view)}
-                            renderMoreAction={(view) => (
-                              <Popover modal={false}>
-                                <PopoverTrigger asChild>
-                                  <div role="button" className="h-6 w-6 p-0 flex items-center justify-center rounded hover:bg-slate-200" onClick={e => e.stopPropagation()}>
-                                    <MoreHorizontal className="h-4 w-4 text-muted-foreground shrink-0 m-auto" />
-                                  </div>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-56 p-1" sideOffset={8} side="right" align="start">
-                                  <div className="flex flex-col">
-                                    <div role="button" className="flex items-center gap-2 px-2 py-1.5 text-sm hover:bg-slate-100 rounded-sm text-slate-700 w-full text-left cursor-pointer transition-colors" onClick={(e) => { e.stopPropagation(); setViewToRename({ id: view.id, name: view.name }); }}>
-                                      <Edit className="h-4 w-4 shrink-0" /> Rename
+            <ResizableSplitLayout
+              MainContent={
+                <>
+                  {isListsTab ? (
+                    <TeamListView
+                      teamId={teamId}
+                      workspaceId={resolvedWorkspaceId}
+                      selectedListId={selectedListId || undefined}
+                      onListSelect={handleListSelect}
+                      selectedTaskIdFromParent={selectedTaskId}
+                      onTaskSelect={handleTaskSelect}
+                    />
+                  ) : isOverviewTab && activeView ? (
+                    <div className="flex-1 overflow-hidden relative">
+                      <Tabs value={activeTab || undefined} onValueChange={handleTabChange} className="h-full flex flex-col">
+                        <div className="border-b border-slate-200 bg-white px-4 py-1">
+                          <div className="flex items-center gap-1 min-w-0 overflow-visible">
+                            <TabsList className="h-auto bg-transparent p-0 flex-1 min-w-0 flex items-center overflow-visible">
+                              <ViewTabsOverflow
+                                views={views}
+                                activeTab={activeTab}
+                                onTabChange={handleTabChange}
+                                onAddView={() => setAddViewModalOpen(true)}
+                                onReorderViews={(activeId, overId, dropPosition) => {
+                                  const activeView = views.find((v: any) => v.id === activeId);
+                                  const overView = views.find((v: any) => v.id === overId);
+                                  if (!activeView || !overView || activeId === overId) return;
+                                  const otherViews = views.filter((v: any) => v.id !== activeId);
+                                  let targetViewId: string | null = overId;
+                                  if (dropPosition === "after") {
+                                    const idx = otherViews.findIndex((v: any) => v.id === overId);
+                                    targetViewId = idx >= 0 && idx < otherViews.length - 1 ? otherViews[idx + 1].id : null;
+                                  }
+                                  let newSortedViews: any[];
+                                  if (targetViewId) {
+                                    const idx = otherViews.findIndex((v: any) => v.id === targetViewId);
+                                    newSortedViews = [...otherViews.slice(0, idx), activeView, ...otherViews.slice(idx)];
+                                  } else {
+                                    newSortedViews = [...otherViews, activeView];
+                                  }
+                                  const moved = newSortedViews.find((v: any) => v.id === activeId);
+                                  if (moved) moved.isPinned = overView.isPinned;
+                                  newSortedViews.forEach((v: any, i: number) => { v.position = i * 1000; });
+                                  utils.team.get.setData({ id: teamId! }, (old: any) => old ? { ...old, views: newSortedViews } : old);
+                                  reorderViewsMutation.mutate(newSortedViews.map((v: any, i: number) => ({ id: v.id, position: i * 1000 })));
+                                }}
+                                getIcon={(view) => {
+                                  const viewType = view.type as ViewType;
+                                  const config = viewConfig[viewType] || { icon: FileText };
+                                  const Icon = config.icon;
+                                  return <Icon className="h-full w-full" />;
+                                }}
+                                onTogglePin={(view) => togglePin(view)}
+                                renderMoreAction={(view) => (
+                                  <Popover modal={false}>
+                                    <PopoverTrigger asChild>
+                                      <div role="button" className="h-6 w-6 p-0 flex items-center justify-center rounded hover:bg-slate-200" onClick={e => e.stopPropagation()}>
+                                        <MoreHorizontal className="h-4 w-4 text-muted-foreground shrink-0 m-auto" />
+                                      </div>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-56 p-1" sideOffset={8} side="right" align="start">
+                                      <div className="flex flex-col">
+                                        <div role="button" className="flex items-center gap-2 px-2 py-1.5 text-sm hover:bg-slate-100 rounded-sm text-slate-700 w-full text-left cursor-pointer transition-colors" onClick={(e) => { e.stopPropagation(); setViewToRename({ id: view.id, name: view.name }); }}>
+                                          <Edit className="h-4 w-4 shrink-0" /> Rename
+                                        </div>
+                                        <div role="button" className="flex items-center gap-2 px-2 py-1.5 text-sm hover:bg-slate-100 rounded-sm text-slate-700 w-full text-left cursor-pointer transition-colors" onClick={(e) => { e.stopPropagation(); handleCopyViewLink(view); }}>
+                                          <Copy className="h-4 w-4 shrink-0" /> Copy link
+                                        </div>
+                                        <div role="button" className="flex items-center gap-2 px-2 py-1.5 text-sm hover:bg-slate-100 rounded-sm text-slate-700 w-full text-left cursor-pointer transition-colors" onClick={(e) => { e.stopPropagation(); setViewToShare({ id: view.id, name: view.name }); }}>
+                                          <Shield className="h-4 w-4 shrink-0" /> Permissions
+                                        </div>
+                                        <div className="h-px bg-slate-100 my-1 mx-2" />
+                                        <div role="button" className="flex items-center justify-between px-2 py-1.5 text-sm hover:bg-slate-100 rounded-sm text-slate-700 w-full text-left cursor-pointer transition-colors" onClick={(e) => { e.stopPropagation(); togglePin(view); }}>
+                                          <div className="flex items-center gap-2"><Pin className="h-4 w-4 shrink-0" /> Pin view</div>
+                                          <Switch checked={view.isPinned} />
+                                        </div>
+                                        <div role="button" className="flex items-center justify-between px-2 py-1.5 text-sm hover:bg-slate-100 rounded-sm text-slate-700 w-full text-left cursor-pointer transition-colors" onClick={(e) => { e.stopPropagation(); togglePrivate(view); }}>
+                                          <div className="flex items-center gap-2"><EyeOff className="h-4 w-4 shrink-0" /> Private</div>
+                                          <Switch checked={view.isPrivate} />
+                                        </div>
+                                        <div role="button" className="flex items-center justify-between px-2 py-1.5 text-sm hover:bg-slate-100 rounded-sm text-slate-700 w-full text-left cursor-pointer transition-colors" onClick={(e) => { e.stopPropagation(); toggleDefault(view); }}>
+                                          <div className="flex items-center gap-2"><Star className="h-4 w-4 shrink-0" /> Set default</div>
+                                          <Switch checked={view.isDefault} />
+                                        </div>
+                                        <div className="h-px bg-slate-100 my-1 mx-2" />
+                                        <div role="button" className="flex items-center gap-2 px-2 py-1.5 text-sm hover:bg-slate-100 rounded-sm text-slate-700 w-full text-left cursor-pointer transition-colors" onClick={(e) => { e.stopPropagation(); createViewMutation.mutate({ name: `${view.name} Copy`, type: view.type as any, teamId: teamId! }); }}>
+                                          <CopyPlus className="h-4 w-4 shrink-0" /> Duplicate
+                                        </div>
+                                        <div role="button" className="flex items-center gap-2 px-2 py-1.5 text-sm hover:bg-slate-100 rounded-sm text-slate-700 w-full text-left cursor-pointer transition-colors" onClick={(e) => { e.stopPropagation(); setViewToTemplate(view); }}>
+                                          <Save className="h-4 w-4 shrink-0" /> Save as template
+                                        </div>
+                                        <div className="h-px bg-slate-100 my-1 mx-2" />
+                                        <div role="button" className="flex items-center gap-2 px-2 py-1.5 text-sm hover:bg-red-50 hover:text-red-700 rounded-sm text-red-600 w-full text-left cursor-pointer transition-colors" onClick={(e) => { e.stopPropagation(); setViewToDelete({ id: view.id, name: view.name }); }}>
+                                          <Trash2 className="h-4 w-4 shrink-0" /> Delete view
+                                        </div>
+                                      </div>
+                                    </PopoverContent>
+                                  </Popover>
+                                )}
+                                renderDropdownItem={(view, trigger) => (
+                                  <ContextMenu key={`dd-${view.id}`}>
+                                    <ContextMenuTrigger asChild>{trigger}</ContextMenuTrigger>
+                                    <TeamViewContextMenu
+                                      view={view}
+                                      onRename={(v) => setViewToRename({ id: v.id, name: v.name })}
+                                      onDelete={(v) => setViewToDelete({ id: v.id, name: v.name })}
+                                      onDuplicate={(v) => createViewMutation.mutate({ name: `${v.name} Copy`, type: v.type as any, teamId })}
+                                      onTogglePin={togglePin}
+                                      onTogglePrivate={togglePrivate}
+                                      onToggleLock={toggleLock}
+                                      onToggleDefault={toggleDefault}
+                                      onCopyLink={handleCopyViewLink}
+                                      onShare={(v) => setViewToShare({ id: v.id, name: v.name })}
+                                      onSaveTemplate={(v) => setViewToTemplate(v)}
+                                    />
+                                  </ContextMenu>
+                                )}
+                                renderTab={(view, isActive) => {
+                                  const viewType = view.type as ViewType;
+                                  const config = viewConfig[viewType] || { label: view.name, icon: FileText };
+                                  const Icon = config.icon;
+                                  return (
+                                    <ContextMenu key={view.id}>
+                                      <ContextMenuTrigger>
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <TabsTrigger value={view.id} asChild>
+                                              <div className={cn(
+                                                "group relative flex items-center gap-1.5 h-10 px-3 py-2 text-sm cursor-pointer whitespace-nowrap transition-colors rounded-md",
+                                                activeTab === view.id
+                                                  ? "text-primary font-medium"
+                                                  : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                                              )}>
+                                                <Icon className={cn("h-4 w-4 shrink-0", activeTab === view.id ? "text-primary" : "text-slate-500 group-hover:text-slate-700")} />
+                                                <span className="inline-block max-w-[120px] truncate align-bottom">{view.name}</span>
+                                                {view.isPinned && <Pin className="h-3 w-3 shrink-0 rotate-45 text-muted-foreground" />}
+                                                {view.isPrivate && <Lock className="h-3 w-3 shrink-0 text-muted-foreground" />}
+
+                                                {activeTab === view.id && (
+                                                  <div className="absolute left-0 right-0 h-0.5 bg-primary rounded-t-full" style={{ bottom: "-5px" }} />
+                                                )}
+                                              </div>
+                                            </TabsTrigger>
+                                          </TooltipTrigger>
+                                          <TooltipContent>{view.name}</TooltipContent>
+                                        </Tooltip>
+                                      </ContextMenuTrigger>
+                                      <TeamViewContextMenu
+                                        view={view}
+                                        onRename={(v) => setViewToRename({ id: v.id, name: v.name })}
+                                        onDelete={(v) => setViewToDelete({ id: v.id, name: v.name })}
+                                        onDuplicate={(v) => createViewMutation.mutate({ name: `${v.name} Copy`, type: v.type as any, teamId })}
+                                        onTogglePin={togglePin}
+                                        onTogglePrivate={togglePrivate}
+                                        onToggleLock={toggleLock}
+                                        onToggleDefault={toggleDefault}
+                                        onCopyLink={handleCopyViewLink}
+                                        onShare={(v) => setViewToShare({ id: v.id, name: v.name })}
+                                        onSaveTemplate={(v) => setViewToTemplate(v)}
+                                      />
+                                    </ContextMenu>
+                                  );
+                                }}
+                                renderMeasureTab={(view) => {
+                                  const viewType = view.type as ViewType;
+                                  const config = viewConfig[viewType] || { icon: FileText };
+                                  const Icon = config.icon;
+                                  return (
+                                    <div className={cn(
+                                      "flex items-center gap-1.5 h-10 px-3 py-2 text-sm whitespace-nowrap font-medium",
+                                      activeTab === view.id ? "text-primary" : "text-slate-600"
+                                    )}>
+                                      <Icon className="h-4 w-4 shrink-0" />
+                                      <span className="max-w-[120px] truncate">{view.name}</span>
+                                      {view.isPinned && <Pin className="h-3 w-3 shrink-0 rotate-45" />}
+                                      {view.isPrivate && <Lock className="h-3 w-3 shrink-0" />}
                                     </div>
-                                    <div role="button" className="flex items-center gap-2 px-2 py-1.5 text-sm hover:bg-slate-100 rounded-sm text-slate-700 w-full text-left cursor-pointer transition-colors" onClick={(e) => { e.stopPropagation(); handleCopyViewLink(view); }}>
-                                      <Copy className="h-4 w-4 shrink-0" /> Copy link
-                                    </div>
-                                    <div role="button" className="flex items-center gap-2 px-2 py-1.5 text-sm hover:bg-slate-100 rounded-sm text-slate-700 w-full text-left cursor-pointer transition-colors" onClick={(e) => { e.stopPropagation(); setViewToShare({ id: view.id, name: view.name }); }}>
-                                      <Shield className="h-4 w-4 shrink-0" /> Permissions
-                                    </div>
-                                    <div className="h-px bg-slate-100 my-1 mx-2" />
-                                    <div role="button" className="flex items-center justify-between px-2 py-1.5 text-sm hover:bg-slate-100 rounded-sm text-slate-700 w-full text-left cursor-pointer transition-colors" onClick={(e) => { e.stopPropagation(); togglePin(view); }}>
-                                      <div className="flex items-center gap-2"><Pin className="h-4 w-4 shrink-0" /> Pin view</div>
-                                      <Switch checked={view.isPinned} />
-                                    </div>
-                                    <div role="button" className="flex items-center justify-between px-2 py-1.5 text-sm hover:bg-slate-100 rounded-sm text-slate-700 w-full text-left cursor-pointer transition-colors" onClick={(e) => { e.stopPropagation(); togglePrivate(view); }}>
-                                      <div className="flex items-center gap-2"><EyeOff className="h-4 w-4 shrink-0" /> Private</div>
-                                      <Switch checked={view.isPrivate} />
-                                    </div>
-                                    <div role="button" className="flex items-center justify-between px-2 py-1.5 text-sm hover:bg-slate-100 rounded-sm text-slate-700 w-full text-left cursor-pointer transition-colors" onClick={(e) => { e.stopPropagation(); toggleDefault(view); }}>
-                                      <div className="flex items-center gap-2"><Star className="h-4 w-4 shrink-0" /> Set default</div>
-                                      <Switch checked={view.isDefault} />
-                                    </div>
-                                    <div className="h-px bg-slate-100 my-1 mx-2" />
-                                    <div role="button" className="flex items-center gap-2 px-2 py-1.5 text-sm hover:bg-slate-100 rounded-sm text-slate-700 w-full text-left cursor-pointer transition-colors" onClick={(e) => { e.stopPropagation(); createViewMutation.mutate({ name: `${view.name} Copy`, type: view.type, teamId }); }}>
-                                      <CopyPlus className="h-4 w-4 shrink-0" /> Duplicate
-                                    </div>
-                                    <div role="button" className="flex items-center gap-2 px-2 py-1.5 text-sm hover:bg-slate-100 rounded-sm text-slate-700 w-full text-left cursor-pointer transition-colors" onClick={(e) => { e.stopPropagation(); setViewToTemplate(view); }}>
-                                      <Save className="h-4 w-4 shrink-0" /> Save as template
-                                    </div>
-                                    <div className="h-px bg-slate-100 my-1 mx-2" />
-                                    <div role="button" className="flex items-center gap-2 px-2 py-1.5 text-sm hover:bg-red-50 hover:text-red-700 rounded-sm text-red-600 w-full text-left cursor-pointer transition-colors" onClick={(e) => { e.stopPropagation(); setViewToDelete({ id: view.id, name: view.name }); }}>
-                                      <Trash2 className="h-4 w-4 shrink-0" /> Delete view
-                                    </div>
-                                  </div>
-                                </PopoverContent>
-                              </Popover>
-                            )}
-                            renderDropdownItem={(view, trigger) => (
-                              <ContextMenu key={`dd-${view.id}`}>
-                                <ContextMenuTrigger asChild>{trigger}</ContextMenuTrigger>
-                                <TeamViewContextMenu
-                                  view={view}
-                                  onRename={(v) => setViewToRename({ id: v.id, name: v.name })}
-                                  onDelete={(v) => setViewToDelete({ id: v.id, name: v.name })}
-                                  onDuplicate={(v) => createViewMutation.mutate({ name: `${v.name} Copy`, type: v.type, teamId })}
-                                  onTogglePin={togglePin}
-                                  onTogglePrivate={togglePrivate}
-                                  onToggleLock={toggleLock}
-                                  onToggleDefault={toggleDefault}
-                                  onCopyLink={handleCopyViewLink}
-                                  onShare={(v) => setViewToShare({ id: v.id, name: v.name })}
-                                  onSaveTemplate={(v) => setViewToTemplate(v)}
-                                />
-                              </ContextMenu>
-                            )}
-                            renderTab={(view, isActive) => {
-                              const viewType = view.type as ViewType;
-                              const config = viewConfig[viewType] || { label: view.name, icon: FileText };
-                              const Icon = config.icon;
-                              return (
-                                <ContextMenu key={view.id}>
-                                  <ContextMenuTrigger>
-                                    <Tooltip>
-                                      <TooltipTrigger asChild>
-                                        <TabsTrigger value={view.id} asChild>
-                                          <div className={cn(
-                                            "group relative flex items-center gap-1.5 h-10 px-3 py-2 text-sm cursor-pointer whitespace-nowrap transition-colors rounded-md",
-                                            activeTab === view.id
-                                              ? "text-primary font-medium"
-                                              : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
-                                          )}>
-                                            <Icon className={cn("h-4 w-4 shrink-0", activeTab === view.id ? "text-primary" : "text-slate-500 group-hover:text-slate-700")} />
-                                            <span className="inline-block max-w-[120px] truncate align-bottom">{view.name}</span>
-                                            {view.isPinned && <Pin className="h-3 w-3 shrink-0 rotate-45 text-muted-foreground" />}
-                                            {view.isPrivate && <Lock className="h-3 w-3 shrink-0 text-muted-foreground" />}
-                                            
-                                            {activeTab === view.id && (
-                                              <div className="absolute left-0 right-0 h-0.5 bg-primary rounded-t-full" style={{ bottom: "-5px" }} />
-                                            )}
-                                          </div>
-                                        </TabsTrigger>
-                                      </TooltipTrigger>
-                                      <TooltipContent>{view.name}</TooltipContent>
-                                    </Tooltip>
-                                  </ContextMenuTrigger>
-                                  <TeamViewContextMenu
-                                    view={view}
-                                    onRename={(v) => setViewToRename({ id: v.id, name: v.name })}
-                                    onDelete={(v) => setViewToDelete({ id: v.id, name: v.name })}
-                                    onDuplicate={(v) => createViewMutation.mutate({ name: `${v.name} Copy`, type: v.type, teamId })}
-                                    onTogglePin={togglePin}
-                                    onTogglePrivate={togglePrivate}
-                                    onToggleLock={toggleLock}
-                                    onToggleDefault={toggleDefault}
-                                    onCopyLink={handleCopyViewLink}
-                                    onShare={(v) => setViewToShare({ id: v.id, name: v.name })}
-                                    onSaveTemplate={(v) => setViewToTemplate(v)}
-                                  />
-                                </ContextMenu>
-                              );
-                            }}
-                            renderMeasureTab={(view) => {
-                              const viewType = view.type as ViewType;
-                              const config = viewConfig[viewType] || { icon: FileText };
-                              const Icon = config.icon;
-                              return (
-                                <div className={cn(
-                                  "flex items-center gap-1.5 h-10 px-3 py-2 text-sm whitespace-nowrap font-medium",
-                                  activeTab === view.id ? "text-primary" : "text-slate-600"
-                                )}>
-                                  <Icon className="h-4 w-4 shrink-0" />
-                                  <span className="max-w-[120px] truncate">{view.name}</span>
-                                  {view.isPinned && <Pin className="h-3 w-3 shrink-0 rotate-45" />}
-                                  {view.isPrivate && <Lock className="h-3 w-3 shrink-0" />}
+                                  );
+                                }}
+                              />
+                            </TabsList>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 w-8 p-0 rounded-md hover:bg-slate-100 shrink-0 self-center"
+                              onClick={() => setAddViewModalOpen(true)}
+                            >
+                              <Plus className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+
+                        <div className={cn(
+                          "relative min-h-0 flex-1 min-w-0 max-w-full",
+                          (activeView && ["TASKS", "LIST", "BOARD", "TABLE", "CALENDAR", "GANTT", "TIMELINE", "WORKLOAD", "WHITEBOARD", "MIND_MAP", "MAP", "EMBED", "SPREADSHEET", "FILE", "VIDEO", "DESIGN", "DOC", "FORM", "DASHBOARD", "PEOPLE", "GOOGLE_CALENDAR", "GOOGLE_DOCS", "GOOGLE_MAPS", "GOOGLE_SLIDES", "GOOGLE_FORMS", "GOOGLE_DRIVE"].includes(activeView.type))
+                            ? "overflow-hidden"
+                            : "overflow-y-auto px-6 py-6"
+                        )}>
+                          {activeView && (
+                            <TabsContent value={activeView.id} className="mt-0 h-full min-h-0 min-w-0 w-full max-w-full">
+                              {renderViewContent(activeView)}
+                            </TabsContent>
+                          )}
+
+                          {views.length === 0 && (
+                            <div className="flex flex-col items-center justify-center h-full p-8 text-center animate-in fade-in zoom-in-95 duration-700 ease-out fill-mode-both">
+                              <div className="relative mb-6 group">
+                                <div className="absolute inset-0 bg-primary/10 blur-2xl rounded-full transition-all duration-700 group-hover:bg-primary/20 group-hover:blur-3xl" />
+                                <div className="relative h-20 w-20 bg-gradient-to-br from-white to-slate-50 border border-slate-200/60 shadow-lg shadow-slate-200/20 rounded-3xl flex items-center justify-center text-primary transform transition-transform duration-500 group-hover:scale-105 group-hover:-translate-y-1">
+                                  <LayoutDashboard className="h-9 w-9 stroke-[1.5]" />
                                 </div>
-                              );
-                            }}
-                          />
-                        </TabsList>
-                        <div className="flex items-center shrink-0">
-                          <Button variant="ghost" size="sm" onClick={() => setAddViewModalOpen(true)} className="h-8 px-2.5 text-sm font-medium text-muted-foreground hover:text-foreground">
-                            <Plus className="h-4 w-4 mr-1" />
-                            View
-                          </Button>
+                              </div>
+                              <h3 className="text-xl font-semibold text-slate-900 tracking-tight mb-2">No views configured</h3>
+                              <p className="text-sm text-slate-500 max-w-md mb-8 leading-relaxed">
+                                Your team is currently a blank canvas. Add a view to start visualizing your data, tracking tasks, and organizing your workflow.
+                              </p>
+                              <Button
+                                size="default"
+                                onClick={() => setAddViewModalOpen(true)}
+                                className="shadow-sm hover:shadow-md transition-all group rounded-full px-6"
+                              >
+                                <Plus className="h-4 w-4 mr-2 transition-transform duration-300 group-hover:rotate-90" />
+                                Create your first view
+                              </Button>
+                            </div>
+                          )}
                         </div>
-                      </div>
+                      </Tabs>
                     </div>
-
-                    <div className="relative min-h-0 flex-1 overflow-y-auto px-6 py-6">
-                      {activeView && (
-                        <TabsContent value={activeView.id} className="mt-0 h-full min-h-0">
-                          {renderViewContent(activeView)}
-                        </TabsContent>
-                      )}
-
-                      {!activeView && views.length === 0 && (
-                        <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
-                          <p>No views configured for this team.</p>
-                          <Button variant="link" onClick={() => setAddViewModalOpen(true)}>Add a view</Button>
-                        </div>
-                      )}
-
-                      {/* Vertical tool rail */}
-                      <VerticalToolRail
-                        onAddClick={openItemSidebar}
-                        onSettingsClick={openSettingsSidebar}
-                        className="right-0"
+                  ) : currentTab === "personal" ? (
+                    <TeamPersonalView teamId={teamId!} workspaceId={resolvedWorkspaceId!} />
+                  ) : currentTab === "projects" ? (
+                    <TeamProjectView
+                      teamId={teamId!}
+                      workspaceId={resolvedWorkspaceId!}
+                      selectedProjectId={selectedProjectId || undefined}
+                      onProjectSelect={(id) => setSelectedProjectId(id)}
+                      selectedTaskIdFromParent={selectedTaskIdFromParent}
+                      onTaskSelect={onTaskSelect}
+                    />
+                  ) : currentTab === "docs" ? (
+                    <TeamDocsView teamId={teamId!} workspaceId={resolvedWorkspaceId!} />
+                  ) : currentTab === "chats" ? (
+                    <ChatView contextType="TEAM" contextId={teamId} contextName={team?.name} />
+                  ) : currentTab === "ai-chat" ? (
+                    <SharedAIChatView
+                      contextType="TEAM"
+                      contextId={teamId!}
+                      contextName={team?.name || "Team"}
+                    />
+                  ) : (
+                    <div className="flex-1 overflow-y-auto p-4">
+                      <TeamOverviewTab team={team} />
+                    </div>
+                  )}
+                </>
+              }
+              SidePanelContent={
+                <>
+                  {isAskAIOpen && (
+                    <SidePanelContainer
+                      onClose={() => setIsAskAIOpen(false)}
+                      title={<span className="text-xs font-semibold text-zinc-600 uppercase tracking-wider">AI Assistant</span>}
+                      icon={<div className="h-2 w-2 rounded-full bg-indigo-500 animate-pulse" />}
+                    >
+                      <AIChatView
+                        workspaceId={resolvedWorkspaceId!}
                       />
-                      <TeamItemSidebar teamId={teamId} workspaceId={team?.workspaceId || undefined} type={activeView?.type as any} open={itemSidebarOpen} onClose={() => setItemSidebarOpen(false)} inline />
-                      <TeamSettingsSidebar teamId={teamId} workspaceId={team?.workspaceId || undefined} open={settingsSidebarOpen} onClose={() => setSettingsSidebarOpen(false)} inline />
+                    </SidePanelContainer>
+                  )}
+                  {selectedTaskId && !isAskAIOpen && taskViewMode === 'sidebar' && (
+                    <div className="h-full border-l border-zinc-200 bg-white">
+                      <TaskDetailPanel
+                        taskId={selectedTaskId}
+                        layoutMode="sidebar"
+                        onLayoutChange={setTaskViewMode}
+                        onClose={() => {
+                          const params = new URLSearchParams(searchParams.toString());
+                          params.delete("task");
+                          router.push(`?${params.toString()}`);
+                        }}
+                      />
                     </div>
-                  </Tabs>
-                }
-                SidePanelContent={
-                  <>
-                    {isAskAIOpen && (
-                      <SidePanelContainer
-                        onClose={() => setIsAskAIOpen(false)}
-                        title={<span className="text-xs font-semibold text-zinc-600 uppercase tracking-wider">AI Assistant</span>}
-                        icon={<div className="h-2 w-2 rounded-full bg-indigo-500 animate-pulse" />}
-                      >
-                        <ChatView
-                          contextType="TEAM"
-                          contextId={teamId}
-                          contextName={team.name || "Team"}
-                          hideSidebar={true}
-                        />
-                      </SidePanelContainer>
-                    )}
-                    {selectedTaskId && !isAskAIOpen && taskViewMode === 'sidebar' && (
-                      <div className="h-full border-l border-zinc-200 bg-white">
-                        <TaskDetailPanel
-                          taskId={selectedTaskId}
-                          layoutMode="sidebar"
-                          onLayoutChange={setTaskViewMode}
-                          onClose={() => {
-                            const params = new URLSearchParams(searchParams.toString());
-                            params.delete("task");
-                            router.push(`?${params.toString()}`);
-                          }}
-                        />
-                      </div>
-                    )}
-                  </>
-                }
-                isPanelOpen={isAskAIOpen || (!!selectedTaskId && taskViewMode === 'sidebar')}
-              />
-            )}
+                  )}
+                </>
+              }
+              isPanelOpen={isAskAIOpen || (!!selectedTaskId && taskViewMode === 'sidebar')}
+            />
           </div>
         </div>
       </div>
@@ -975,7 +1025,7 @@ export default function TeamDashboardView({ teamId }: TeamDashboardViewProps) {
         itemType="team"
         itemId={teamId}
         itemName={team.name || "Team"}
-        workspaceId={team?.workspaceId || ""}
+        workspaceId={resolvedWorkspaceId || ""}
       />
 
       <Dialog open={!!viewToRename} onOpenChange={(open) => !open && setViewToRename(null)}>
@@ -1008,8 +1058,16 @@ export default function TeamDashboardView({ teamId }: TeamDashboardViewProps) {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setViewToDelete(null)}>Cancel</Button>
-            <Button variant="destructive" onClick={() => viewToDelete && handleDeleteView(viewToDelete.id)}>Delete</Button>
+            <Button 
+                className="flex-1 sm:flex-none inline-flex items-center justify-center h-9 px-4 rounded-lg border border-zinc-200 bg-white text-[13.5px] font-medium text-zinc-600 hover:bg-zinc-50 hover:border-zinc-300 hover:text-zinc-800 transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 focus-visible:ring-offset-1" 
+                onClick={() => setViewToDelete(null)}>
+                Cancel
+            </Button>
+            <Button 
+                onClick={() => viewToDelete && handleDeleteView(viewToDelete.id)}
+                className="flex-1 sm:flex-none h-9 px-4 rounded-lg bg-red-600 hover:bg-red-700 text-[13.5px] font-medium shadow-sm shadow-red-900/10 transition-all duration-150">
+                Delete
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -1017,7 +1075,7 @@ export default function TeamDashboardView({ teamId }: TeamDashboardViewProps) {
       {viewToShare && (
         <ShareViewPermissionModal
           viewId={viewToShare.id}
-          workspaceId={workspaceId as string}
+          workspaceId={resolvedWorkspaceId as string}
           open={!!viewToShare}
           onOpenChange={(open) => !open && setViewToShare(null)}
         />
@@ -1028,7 +1086,7 @@ export default function TeamDashboardView({ teamId }: TeamDashboardViewProps) {
           open={!!viewToTemplate}
           onOpenChange={(open) => !open && setViewToTemplate(null)}
           view={viewToTemplate}
-          workspaceId={team?.workspaceId || ""}
+          workspaceId={resolvedWorkspaceId || ""}
         />
       )}
     </div>

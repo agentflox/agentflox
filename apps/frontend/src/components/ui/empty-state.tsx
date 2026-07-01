@@ -56,7 +56,7 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
                 rounded-lg 
                 shadow-md 
                 transition duration-150 
-                focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2
+                focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 cursor-pointer
               "
             >
               {actionButton}

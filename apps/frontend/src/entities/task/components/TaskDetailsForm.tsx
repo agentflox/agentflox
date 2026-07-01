@@ -136,8 +136,9 @@ export function TaskDetailsForm({
         </div>
 
         {/* Description - Rich editor (ClickUp-style) */}
-        <div className="min-h-[120px] border border-zinc-200 rounded-md overflow-hidden bg-white">
+        <div className="min-h-[100px] border border-zinc-200 rounded-md overflow-hidden bg-white">
           <DescriptionEditor
+            minHeight={280}
             content={watch('description') || ''}
             onChange={(value) => setValue('description', value, { shouldDirty: true, shouldTouch: true })}
             editable={true}

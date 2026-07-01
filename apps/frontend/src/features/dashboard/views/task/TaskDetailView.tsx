@@ -748,7 +748,7 @@ export function TaskDetailView({
                                         <button
                                             type="button"
                                             onClick={() => { setLeftTab('subtasks'); setIsAddingSubtask(true); }}
-                                            className="w-full flex items-center gap-2 py-2 text-xs font-medium text-zinc-600 hover:text-zinc-900 hover:bg-zinc-50 rounded-md transition-colors"
+                                            className="w-full flex items-center gap-2 py-2 text-xs font-medium text-zinc-600 hover:text-zinc-900 hover:bg-zinc-50 rounded-md transition-colors cursor-pointer"
                                         >
                                             <Plus className="h-3.5 w-3.5" />
                                             Add Subtask
@@ -769,7 +769,7 @@ export function TaskDetailView({
                                                     type="button"
                                                     onClick={() => setLeftTab(tab)}
                                                     className={cn(
-                                                        'px-4 py-3 text-sm font-medium border-b-2 transition-colors flex items-center gap-1.5',
+                                                        'px-4 py-3 text-sm font-medium border-b-2 transition-colors flex items-center gap-1.5 cursor-pointer',
                                                         leftTab === tab
                                                             ? 'border-zinc-900 text-zinc-900'
                                                             : 'border-transparent text-zinc-500 hover:text-zinc-700'
@@ -1138,7 +1138,7 @@ export function TaskDetailView({
                                                                     <button
                                                                         type="button"
                                                                         onClick={() => setRightSidebarPanel('blocking')}
-                                                                        className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 transition-colors"
+                                                                        className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 transition-colors cursor-pointer"
                                                                     >
                                                                         <MinusCircle className="h-3.5 w-3.5" />
                                                                         {(task as any).blockedDependencies?.length ?? 0} Blocking
@@ -1148,7 +1148,7 @@ export function TaskDetailView({
                                                                     <button
                                                                         type="button"
                                                                         onClick={() => setRightSidebarPanel('related')}
-                                                                        className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium bg-zinc-100 text-zinc-700 border border-zinc-200 hover:bg-zinc-200 transition-colors"
+                                                                        className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium bg-zinc-100 text-zinc-700 border border-zinc-200 hover:bg-zinc-200 transition-colors cursor-pointer"
                                                                     >
                                                                         <ArrowLeftRight className="h-3.5 w-3.5" />
                                                                         {(task as any).dependencies?.length ?? 0} Related
@@ -1160,7 +1160,7 @@ export function TaskDetailView({
                                                                         <button
                                                                             type="button"
                                                                             onClick={() => setRightSidebarPanel('docLinks')}
-                                                                            className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium bg-zinc-100 text-zinc-700 border border-zinc-200 hover:bg-zinc-200 transition-colors"
+                                                                            className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium bg-zinc-100 text-zinc-700 border border-zinc-200 hover:bg-zinc-200 transition-colors cursor-pointer"
                                                                         >
                                                                             <FileText className="h-3.5 w-3.5" />
                                                                             {docCount} Doc{docCount !== 1 ? 's' : ''}
@@ -1173,7 +1173,7 @@ export function TaskDetailView({
                                                                         <button
                                                                             type="button"
                                                                             onClick={() => setRightSidebarPanel('taskLinks')}
-                                                                            className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium bg-zinc-100 text-zinc-700 border border-zinc-200 hover:bg-zinc-200 transition-colors"
+                                                                            className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium bg-zinc-100 text-zinc-700 border border-zinc-200 hover:bg-zinc-200 transition-colors cursor-pointer"
                                                                         >
                                                                             <Paperclip className="h-3.5 w-3.5" />
                                                                             {linkCount} Link{linkCount !== 1 ? 's' : ''}
@@ -1185,7 +1185,7 @@ export function TaskDetailView({
                                                                         key={ct.id}
                                                                         type="button"
                                                                         onClick={() => setRightSidebarPanel('related')}
-                                                                        className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium bg-zinc-100 text-zinc-700 border border-zinc-200 hover:bg-zinc-200 transition-colors"
+                                                                        className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium bg-zinc-100 text-zinc-700 border border-zinc-200 hover:bg-zinc-200 transition-colors cursor-pointer"
                                                                     >
                                                                         <ArrowLeftRight className="h-3.5 w-3.5" />
                                                                         {ct.name}
@@ -1194,7 +1194,7 @@ export function TaskDetailView({
                                                                 <button
                                                                     type="button"
                                                                     onClick={() => setRightSidebarPanel('more')}
-                                                                    className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium text-zinc-500 border border-dashed border-zinc-300 hover:border-zinc-400 hover:bg-zinc-50 hover:text-zinc-700 transition-colors"
+                                                                    className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium text-zinc-500 border border-dashed border-zinc-300 hover:border-zinc-400 hover:bg-zinc-50 hover:text-zinc-700 transition-colors cursor-pointer"
                                                                 >
                                                                     <Plus className="h-3.5 w-3.5" />
                                                                     Add
@@ -1408,7 +1408,7 @@ export function TaskDetailView({
                                                                     <p className="text-sm text-zinc-500 py-4">Select activity types in the filter to view activities.</p>
                                                                 )}
                                                                 {activityFilterTypes.size > 0 && filteredActivity.length > 3 && (
-                                                                    <button type="button" className="flex items-center gap-1 text-xs text-zinc-500 hover:text-zinc-700 mb-3">
+                                                                    <button type="button" className="flex items-center gap-1 text-xs text-zinc-500 hover:text-zinc-700 mb-3 cursor-pointer">
                                                                         <ChevronRight className="h-3.5 w-3.5" /> Show more
                                                                     </button>
                                                                 )}
@@ -1543,7 +1543,7 @@ export function TaskDetailView({
                                         )}
 
                                         {/* Narrow right sidebar strip */}
-                                        <div className="w-14 flex flex-col items-center py-2 border-l border-zinc-100 bg-zinc-50/50 shrink-0">
+                                        <div className="w-18 flex flex-col items-center py-2 border-l border-zinc-100 bg-zinc-50/50 shrink-0 px-2">
                                             {([
                                                 { id: 'activity' as const, icon: MessageSquare, label: 'Activity', count: undefined },
                                                 { id: 'blocking' as const, icon: MinusCircle, label: 'Blocking', count: (task as any).blockedDependencies?.length ?? 0 },
@@ -1559,7 +1559,7 @@ export function TaskDetailView({
                                                     type="button"
                                                     onClick={() => setRightSidebarPanel(rightSidebarPanel === id ? null : id)}
                                                     className={cn(
-                                                        'flex flex-col items-center gap-0.5 py-2 px-1 w-full rounded-md transition-colors relative',
+                                                        'flex flex-col items-center gap-0.5 py-2 px-1 w-full rounded-md my-0.5 transition-colors relative cursor-pointer',
                                                         rightSidebarPanel === id
                                                             ? 'bg-zinc-200 text-zinc-900'
                                                             : 'text-zinc-500 hover:bg-zinc-100 hover:text-zinc-700'

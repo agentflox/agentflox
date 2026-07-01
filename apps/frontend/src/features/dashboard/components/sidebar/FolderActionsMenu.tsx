@@ -41,6 +41,7 @@ import { TemplateMenuPopover } from "@/entities/templates/components/TemplateMen
 interface FolderActionsMenuProps {
     workspaceId: string;
     spaceId: string;
+    projectId?: string;
     folderId: string;
     folderName: string;
     folderIcon?: string;
@@ -51,6 +52,7 @@ interface FolderActionsMenuProps {
 export function FolderActionsMenu({
     workspaceId,
     spaceId,
+    projectId,
     folderId,
     folderName,
     folderIcon,
@@ -75,8 +77,9 @@ export function FolderActionsMenu({
     });
 
     const handleCopyLink = () => {
-        // Assuming a route structure, modify as needed
-        const url = `${window.location.origin}/dashboard/s/${spaceId}/folder/${folderId}`;
+        const url = projectId
+            ? `${window.location.origin}/dashboard/projects/${projectId}?folder=${folderId}`
+            : `${window.location.origin}/dashboard/s/${spaceId}/folder/${folderId}`;
         navigator.clipboard.writeText(url);
         toast({ title: "Link copied to clipboard" });
     };
@@ -131,6 +134,7 @@ export function FolderActionsMenu({
                             id: folderId,
                             workspaceId,
                             spaceId,
+                            projectId,
                             folderId,
                             name: folderName,
                         }}

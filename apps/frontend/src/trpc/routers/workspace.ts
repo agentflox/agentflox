@@ -117,7 +117,6 @@ export const workspaceRouter = router({
 				});
 
 				// Create default task types
-				const { generateKeyBetween } = await import('fractional-indexing');
 
 				const defaultTaskTypes = [
 					{ name: 'Task', icon: '📋', color: '#3b82f6', isDefault: true },
@@ -126,9 +125,8 @@ export const workspaceRouter = router({
 					{ name: 'Meeting Note', icon: '📅', color: '#f59e0b', isDefault: false },
 				];
 
-				let prevPosition: string | null = null;
+				let currentPosition = 65536;
 				for (const taskType of defaultTaskTypes) {
-					const position = generateKeyBetween(prevPosition, null);
 					await tx.taskType.create({
 						data: {
 							workspaceId: ws.id,
@@ -137,10 +135,10 @@ export const workspaceRouter = router({
 							color: taskType.color,
 							isDefault: taskType.isDefault,
 							isActive: true,
-							position,
+							position: currentPosition,
 						},
 					});
-					prevPosition = position;
+					currentPosition += 65536;
 				}
 
 				// Seed default workspace-level statuses
@@ -346,12 +344,10 @@ export const workspaceRouter = router({
 			await prisma.project.deleteMany({ where: { workspaceId: input.id } });
 			await prisma.team.deleteMany({ where: { workspaceId: input.id } });
 			await prisma.task.deleteMany({ where: { workspaceId: input.id } });
-			await prisma.proposal.deleteMany({ where: { workspaceId: input.id } });
 			await prisma.tool.deleteMany({ where: { workspaceId: input.id } });
 			await prisma.material.deleteMany({ where: { workspaceId: input.id } });
 			await prisma.folder.deleteMany({ where: { workspaceId: input.id } });
 			await prisma.list.deleteMany({ where: { workspaceId: input.id } });
-
 			return prisma.workspace.delete({ where: { id: input.id } });
 		}),
 

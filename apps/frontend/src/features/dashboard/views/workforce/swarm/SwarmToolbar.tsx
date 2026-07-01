@@ -2,10 +2,10 @@
 
 import React, { useState } from 'react';
 import { Play, Square, Settings, Layout, Activity, GitBranch } from 'lucide-react';
-import { useWorkforceStore } from '../store/useWorkforceStore';
+import { useWorkforceStore } from '../../../../../entities/workforce/hooks/useWorkforceStore';
 import { toast } from 'sonner';
 import { fetchAuthToken } from '@/utils/backend-request';
-import { BACKEND_URL } from '@/entities/agents/hooks/useAgentStream';
+import { BACKEND_URL } from '@/hooks/useSSEStream';
 
 interface SwarmToolbarProps {
     workforceId?: string;
@@ -14,10 +14,10 @@ interface SwarmToolbarProps {
 }
 
 export default function SwarmToolbar({ workforceId, activeTab, onTabChange }: SwarmToolbarProps) {
-    const { 
-        isAutonomousMode, 
-        setAutonomousMode, 
-        swarmSessionId, 
+    const {
+        isAutonomousMode,
+        setAutonomousMode,
+        swarmSessionId,
         setSwarmSessionId,
     } = useWorkforceStore();
     const [isStarting, setIsStarting] = useState(false);
@@ -31,7 +31,7 @@ export default function SwarmToolbar({ workforceId, activeTab, onTabChange }: Sw
         setIsStarting(true);
         try {
             const token = await fetchAuthToken();
-            const resp = await fetch(`${BACKEND_URL}/v1/agents/swarm/start`, {
+            const resp = await fetch(`${BACKEND_URL}/v1/workforces/swarm/start`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -44,7 +44,7 @@ export default function SwarmToolbar({ workforceId, activeTab, onTabChange }: Sw
                 const err = await resp.json().catch(() => ({})) as any;
                 throw new Error(err.error || 'Failed to start swarm');
             }
-            
+
             const { sessionId } = await resp.json();
             setSwarmSessionId(sessionId);
             setAutonomousMode(true);
@@ -63,7 +63,7 @@ export default function SwarmToolbar({ workforceId, activeTab, onTabChange }: Sw
 
         try {
             const token = await fetchAuthToken();
-            await fetch(`${BACKEND_URL}/v1/agents/swarm/${swarmSessionId}/stop`, {
+            await fetch(`${BACKEND_URL}/v1/workforces/swarm/${swarmSessionId}/stop`, {
                 method: 'POST',
                 headers: token ? { Authorization: `Bearer ${token}` } : {},
             });
@@ -93,22 +93,20 @@ export default function SwarmToolbar({ workforceId, activeTab, onTabChange }: Sw
                 <div className="flex bg-secondary/50 p-1 rounded-lg">
                     <button
                         onClick={() => onTabChange('build')}
-                        className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
-                            activeTab === 'build' 
-                                ? 'bg-background shadow-sm text-foreground' 
-                                : 'text-muted-foreground hover:text-foreground'
-                        }`}
+                        className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${activeTab === 'build'
+                            ? 'bg-background shadow-sm text-foreground'
+                            : 'text-muted-foreground hover:text-foreground'
+                            }`}
                     >
                         <Settings className="h-3.5 w-3.5" />
                         Build
                     </button>
                     <button
                         onClick={() => onTabChange('run')}
-                        className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
-                            activeTab === 'run' 
-                                ? 'bg-background shadow-sm text-foreground' 
-                                : 'text-muted-foreground hover:text-foreground'
-                        }`}
+                        className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${activeTab === 'run'
+                            ? 'bg-background shadow-sm text-foreground'
+                            : 'text-muted-foreground hover:text-foreground'
+                            }`}
                     >
                         <Activity className="h-3.5 w-3.5" />
                         Run View
@@ -121,7 +119,7 @@ export default function SwarmToolbar({ workforceId, activeTab, onTabChange }: Sw
                     <div className="flex items-center gap-3 px-3 py-1.5 bg-green-500/10 border border-green-500/20 rounded-full animate-in fade-in slide-in-from-right-4">
                         <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
                         <span className="text-[11px] font-bold text-green-600 uppercase tracking-wider">Swarm Online</span>
-                        <button 
+                        <button
                             onClick={handleStopSwarm}
                             className="ml-2 p-1 hover:bg-green-500/20 rounded-md transition-colors"
                         >

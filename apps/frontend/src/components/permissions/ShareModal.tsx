@@ -35,8 +35,8 @@ import { useSocket } from '@/components/providers/SocketProvider';
 interface ShareModalProps {
     isOpen: boolean;
     onClose: () => void;
-    itemType: 'space' | 'project' | 'team' | 'folder' | 'list' | 'task' | 'view' | 'workspace';
-    itemId: string;
+    itemType: 'space' | 'project' | 'team' | 'folder' | 'list' | 'task' | 'view' | 'workspace' | 'doc';
+    itemId?: string;
     itemName: string;
     workspaceId: string;
 }
@@ -101,10 +101,10 @@ export function ShareModal({
 
     // Fetch permissions on open
     const fetchPermissions = useCallback(async () => {
-        if (!isOpen) return;
+        if (!isOpen || !itemId) return;
         setIsLoadingPermissions(true);
         try {
-            const res = await permissionsService.permissions.list(itemType, itemId);
+            const res = await permissionsService.permissions.list(itemType, itemId as string);
             if (res.ok) {
                 const data = await res.json();
                 setUserPermissions(data.userPermissions || []);
@@ -232,8 +232,8 @@ export function ShareModal({
 
         try {
             await Promise.all(pendingInvites.map(async (invite) => {
-                if (invite.type === 'team' && invite.id) {
-                    await permissionsService.permissions.grant(itemType, itemId, {
+                if (invite.type === 'team' && invite.id && itemId) {
+                    await permissionsService.permissions.grant(itemType, itemId as string, {
                         teamId: invite.id,
                         permission: invite.permission
                     });
@@ -245,10 +245,10 @@ export function ShareModal({
                     // We can use permissionsService for invitations too if refactored fully, 
                     // but sticking to existing logic pattern for consistency or refactoring if desired.
                     // Let's use the Service which we imported.
-                    if (invite.role === 'GUEST') {
+                    if (invite.role === 'GUEST' && itemId) {
                         await permissionsService.invitations.inviteGuest({
                             itemType,
-                            itemId,
+                            itemId: itemId as string,
                             email: invite.email,
                             permission: invite.permission
                         });
@@ -375,7 +375,7 @@ export function ShareModal({
                                                         </div>
                                                         <div className="flex flex-col">
                                                             <span className="text-sm font-medium text-zinc-900">{team.name}</span>
-                                                            <span className="text-xs text-zinc-500">{team._count?.members || 0} members</span>
+                                                            <span className="text-xs text-zinc-500">{(team as any)._count?.members || (team as any).size || 0} members</span>
                                                         </div>
                                                     </div>
                                                 ))}

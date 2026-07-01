@@ -65,7 +65,10 @@ export class SubscriptionManager {
               feature: true,
             }
           },
-          payments: true
+          payments: {
+            orderBy: { createdAt: 'desc' },
+            take: 10
+          }
         }
       });
       if (subscription && !subscription.plan) {
@@ -93,7 +96,7 @@ export class SubscriptionManager {
           },
           payments: {
             orderBy: { createdAt: 'desc' },
-            take: 10 // Get recent payments for history
+            take: 10
           }
         }
       });
@@ -118,7 +121,7 @@ export class SubscriptionManager {
     const subscription = await this.getCurrentSubscription(userId);
     if (!subscription) return null;
     const cycle = await this.checkAndManageCycle(userId);
-    const latestPayment = subscription.payments[subscription.payments.length - 1];
+    const latestPayment = subscription.payments[0];
     return {
       status: subscription.status,
       plan: {
@@ -138,12 +141,12 @@ export class SubscriptionManager {
       nextCycleEnd: cycle.nextCycleEnd,
       latestPayment: latestPayment
         ? {
-          status: latestPayment.status,
-          amount: latestPayment.amount,
-          billingType: latestPayment.billingType,
-          currency: latestPayment.currency,
-          billingPeriodStart: latestPayment.billingPeriodStart,
-          billingPeriodEnd: latestPayment.billingPeriodEnd
+          status: latestPayment!.status,
+          amount: latestPayment!.amount,
+          billingType: latestPayment!.billingType,
+          currency: latestPayment!.currency,
+          billingPeriodStart: latestPayment!.billingPeriodStart,
+          billingPeriodEnd: latestPayment!.billingPeriodEnd
         }
         : undefined
     };
@@ -157,8 +160,8 @@ export class SubscriptionManager {
     if (!plan) throw new Error('Invalid subscription plan');
     const paymentTime = DateTime.fromISO(String(data.payment.paymentTime ?? DateTime.now().toISO()));
     const nextPaymentTime = DateTime.fromISO(String(data.payment.nextPaymentTime ?? paymentTime.plus({ months: 1 }).toISO()));
-    const currentPeriodStart = data.currentCycleStart ?? paymentTime;
-    const currentPeriodEnd = data.currentCycleEnd ?? nextPaymentTime;
+    const currentPeriodStart = data.currentCycleStart ?? paymentTime.toJSDate();
+    const currentPeriodEnd = data.currentCycleEnd ?? nextPaymentTime.toJSDate();
     const paymentStatus = this.getPaymentStatus(data.status);
     const subscriptionStatus = this.getSubscriptionStatus(data.status);
     if (paymentStatus !== PaymentStatus.SUCCEEDED) {
@@ -170,7 +173,7 @@ export class SubscriptionManager {
           userId: data.userId,
           status: { in: [SubscriptionStatus.ACTIVE, SubscriptionStatus.PAUSED] },
         },
-        data: { status: SubscriptionStatus.EXPIRED, currentPeriodEnd: currentPeriodStart.toJSDate() },
+        data: { status: SubscriptionStatus.EXPIRED, currentPeriodEnd: currentPeriodStart },
       });
       const subscription = await tx.subscription.create({
         data: {
@@ -180,8 +183,8 @@ export class SubscriptionManager {
           status: subscriptionStatus,
           createdAt: data.createdAt,
           updatedAt: data.updatedAt,
-          currentPeriodStart: currentPeriodStart.toJSDate(),
-          currentPeriodEnd: currentPeriodEnd.toJSDate(),
+          currentPeriodStart: currentPeriodStart,
+          currentPeriodEnd: currentPeriodEnd,
         },
         include: { plan: { include: { feature: true } }, payments: true },
       });
@@ -194,8 +197,6 @@ export class SubscriptionManager {
           remainingProjects: feature?.maxProjects ?? 0,
           maxTeams: feature?.maxTeams ?? 0,
           remainingTeams: feature?.maxTeams ?? 0,
-          maxProposals: feature?.maxProposals ?? 0,
-          remainingProposals: feature?.maxProposals ?? 0,
           maxRequests: feature?.maxRequests ?? 0,
           remainingRequests: feature?.maxRequests ?? 0,
           maxCredits: feature?.maxCredits ?? 0,
@@ -227,7 +228,12 @@ export class SubscriptionManager {
             userId: data.userId,
             type: NotificationType.SUBSCRIPTION,
             title: `Subscription Activated: ${subscription.plan.displayName || subscription.plan.name}`,
-            content: `Your subscription is active. Period: ${paymentTime.toFormat('yyyy-LL-dd')} to ${nextPaymentTime.toFormat('yyyy-LL-dd')}.`
+            message: `Your subscription is active. Period: ${paymentTime.toFormat('yyyy-LL-dd')} to ${nextPaymentTime.toFormat('yyyy-LL-dd')}.`,
+            actorIds: [],
+            entityType: 'SUBSCRIPTION',
+            entityId: subscription.id,
+            metadata: {},
+            aggregateKey: `subscription:${data.userId}`,
           }
         });
       }
@@ -264,8 +270,6 @@ export class SubscriptionManager {
         remainingProjects: freePlan.feature?.maxProjects || 0,
         maxTeams: freePlan.feature?.maxTeams || 0,
         remainingTeams: freePlan.feature?.maxTeams || 0,
-        maxProposals: freePlan.feature?.maxProposals || 0,
-        remainingProposals: freePlan.feature?.maxProposals || 0,
         maxRequests: freePlan.feature?.maxRequests || 0,
         remainingRequests: freePlan.feature?.maxRequests || 0,
         maxCredits: freePlan.feature?.maxCredits || 0,
@@ -320,7 +324,12 @@ export class SubscriptionManager {
             userId,
             type: NotificationType.SUBSCRIPTION,
             title: `Subscription Renewed: ${current.plan.displayName || current.plan.name}`,
-            content: `Your subscription has been renewed. New billing period: ${currentPeriodStart.toFormat('MMM dd, yyyy')} to ${currentPeriodEnd.toFormat('MMM dd, yyyy')}.`
+            message: `Your subscription has been renewed. New billing period: ${currentPeriodStart.toFormat('MMM dd, yyyy')} to ${currentPeriodEnd.toFormat('MMM dd, yyyy')}.`,
+            actorIds: [],
+            entityType: 'SUBSCRIPTION',
+            entityId: current.id,
+            metadata: {},
+            aggregateKey: `subscription:${userId}`,
           }
         });
         return { subscription: updatedSubscription, payment: newPayment };
@@ -344,8 +353,8 @@ export class SubscriptionManager {
       createdAt?: string;
       updatedAt?: string;
       metadata?: Record<string, any>;
-      currentPeriodStart?: string | DateTime;
-      currentPeriodEnd?: string | DateTime;
+      currentPeriodStart?: string | Date;
+      currentPeriodEnd?: string | Date;
     }
   ) {
     if (!userId) throw new Error('User not found');
@@ -366,8 +375,8 @@ export class SubscriptionManager {
         status: params.status,
         payment: params.payment,
         metadata: params.metadata,
-        currentCycleStart: DateTime.fromISO(String(params.currentPeriodStart)),
-        currentCycleEnd: DateTime.fromISO(String(params.currentPeriodEnd)),
+        currentCycleStart: params.currentPeriodStart ? new Date(params.currentPeriodStart) : undefined,
+        currentCycleEnd: params.currentPeriodEnd ? new Date(params.currentPeriodEnd) : undefined,
         createdAt: params.createdAt,
         updatedAt: params.updatedAt,
       });
@@ -439,7 +448,7 @@ export class SubscriptionManager {
     return this.createDefaultSubscription(userId);
   }
 
-  static async cancel(userId: string, params: { subscriptionId: string, reason?: string, canceledAt: DateTime }) {
+  static async cancel(userId: string, params: { subscriptionId: string, reason?: string, canceledAt?: Date }) {
     const subscription = await prisma.subscription.findFirst({
       where: { subId: params.subscriptionId, userId },
       include: { payments: true, plan: true },

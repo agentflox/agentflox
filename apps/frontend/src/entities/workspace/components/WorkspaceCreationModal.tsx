@@ -1,10 +1,10 @@
 "use client";
 
 import React from "react";
-import { FolderKanban } from "lucide-react";
+import { Rocket } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -72,82 +72,83 @@ export function WorkspaceCreationModal({ open, onOpenChange, onCreated }: Worksp
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-xl gap-6">
-        <DialogHeader className="gap-1.5">
-          <DialogTitle className="text-2xl font-semibold tracking-tight">Create a workspace</DialogTitle>
-          <DialogDescription className="text-base text-muted-foreground">
-            Set the foundation for collaboration. You can refine details later.
-          </DialogDescription>
-        </DialogHeader>
-
-        <form className="flex flex-col gap-5" onSubmit={handleSubmit}>
-          <div className="rounded-2xl border border-sky-100 bg-gradient-to-br from-sky-50 via-white to-blue-50 p-4 shadow-sm">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-              <div className="flex items-center justify-center rounded-2xl bg-white/80 p-3 text-sky-600 shadow-inner">
-                <FolderKanban className="h-6 w-6" />
-              </div>
-              <div className="space-y-1">
-                <p className="text-sm font-semibold text-slate-900">A home for your projects, teams, and tasks.</p>
-                <p className="text-sm text-muted-foreground">Give it a clear identity so teammates know where to work.</p>
-              </div>
+      <DialogContent className="sm:max-w-xl p-0 overflow-hidden gap-0 border-border/50 shadow-2xl bg-background/95 backdrop-blur-xl transition-all duration-300">
+        {/* Header Section */}
+        <div className="p-6 pb-2">
+          <div className="flex items-start gap-5">
+            <div className={cn(
+              "mt-1 p-3 rounded-2xl border transition-all duration-300",
+              "bg-primary/5 border-primary/10 text-primary shadow-[0_0_15px_-3px_rgba(0,0,0,0.1)]",
+              "group-hover:scale-105"
+            )}>
+              <Rocket className="w-5 h-5 md:w-6 md:h-6" strokeWidth={1.5} />
+            </div>
+            <div className="pt-1">
+              <DialogTitle className="text-xl font-bold tracking-tight text-foreground/95">
+                Create a workspace
+              </DialogTitle>
+              <DialogDescription className="text-muted-foreground text-sm leading-relaxed">
+                Organize your spaces, projects, teams, and resources.
+              </DialogDescription>
             </div>
           </div>
+        </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="workspace-name" className="text-sm font-medium text-slate-700">
-              Workspace name
-            </Label>
-            <Input
-              id="workspace-name"
-              name="name"
-              placeholder="Ex: Atlas Collaboration Hub"
-              value={form.name}
-              onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))}
-              className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-900 shadow-xs placeholder:text-slate-400 focus:border-sky-500 focus:ring-2 focus:ring-sky-200"
-              required
-            />
-          </div>
-
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label htmlFor="workspace-description" className="text-sm font-medium text-slate-700">
-                Description
+        <form className="flex flex-col" onSubmit={handleSubmit}>
+          <div className="px-6 py-6 space-y-6">
+            <div className="space-y-2">
+              <Label htmlFor="workspace-name" className="text-sm font-medium text-slate-700">
+                Workspace name
               </Label>
-              <span className="text-xs text-muted-foreground">Optional, a short purpose note</span>
+              <Input
+                id="workspace-name"
+                name="name"
+                placeholder="Ex: Atlas Collaboration Hub"
+                value={form.name}
+                onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))}
+                className="w-full rounded-md border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-900 shadow-xs placeholder:text-slate-400 focus:border-sky-500 focus:ring-2 focus:ring-sky-200"
+                required
+              />
             </div>
-            <Textarea
-              id="workspace-description"
-              name="description"
-              placeholder="Describe the focus, mission, or who should join..."
-              value={form.description}
-              onChange={(event) => setForm((prev) => ({ ...prev, description: event.target.value }))}
-              className="min-h-[120px] rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 shadow-xs placeholder:text-slate-400 focus:border-sky-500 focus:ring-2 focus:ring-sky-200"
-            />
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="workspace-description" className="text-sm font-medium text-slate-700">
+                  Description
+                </Label>
+                <span className="text-xs text-muted-foreground">Optional, a short purpose note</span>
+              </div>
+              <Textarea
+                id="workspace-description"
+                name="description"
+                placeholder="Describe the focus, mission, or who should join..."
+                value={form.description}
+                onChange={(event) => setForm((prev) => ({ ...prev, description: event.target.value }))}
+                className="min-h-[120px] rounded-md border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 shadow-xs placeholder:text-slate-400 focus:border-sky-500 focus:ring-2 focus:ring-sky-200"
+              />
+            </div>
+
+            {createMutation.error && (
+              <p className="text-sm text-red-600">
+                {createMutation.error.message || "Something unexpected happened. Please try again."}
+              </p>
+            )}
           </div>
 
-          {createMutation.error && (
-            <p className="text-sm text-red-600">
-              {createMutation.error.message || "Something unexpected happened. Please try again."}
-            </p>
-          )}
-
-          <DialogFooter className="gap-3">
+          <DialogFooter className="px-6 py-4 bg-muted/20 flex items-center justify-end gap-3 border-t border-border/40">
             <Button
               type="button"
               variant="ghost"
-              className="w-full rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 sm:w-auto"
               onClick={() => onOpenChange(false)}
               disabled={isSubmitting}
+              className="h-10 px-4 hover:bg-transparent hover:text-foreground text-muted-foreground font-medium transition-colors"
             >
               Cancel
             </Button>
             <Button
               type="submit"
-              className={cn(
-                "w-full rounded-xl bg-gradient-to-r from-sky-500 via-cyan-600 to-blue-600 text-white shadow-lg shadow-sky-500/30 transition hover:shadow-2xl sm:w-auto",
-                isSubmitting && "opacity-90"
-              )}
               disabled={isSubmitting}
+              className="h-10 px-5 font-semibold shadow-lg hover:shadow-primary/25 transition-all duration-300"
             >
               {isSubmitting ? (
                 <span className="flex items-center gap-2">
@@ -166,4 +167,3 @@ export function WorkspaceCreationModal({ open, onOpenChange, onCreated }: Worksp
 }
 
 export default WorkspaceCreationModal;
-

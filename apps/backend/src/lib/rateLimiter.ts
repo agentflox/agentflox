@@ -66,6 +66,92 @@ export const socketRateLimiters = {
 };
 
 /**
+ * Agent Builder rate limiter (per userId).
+ *
+ * Each builder message triggers an LLM call — limit to 20 per minute per user.
+ * Override via env vars AGENT_BUILDER_RL_POINTS / AGENT_BUILDER_RL_DURATION.
+ */
+export const agentBuilderRateLimiter = createRateLimiter({
+    points: parseInt(process.env.AGENT_BUILDER_RL_POINTS ?? '20', 10),
+    duration: parseInt(process.env.AGENT_BUILDER_RL_DURATION ?? '60', 10),
+    blockDuration: 30,
+    keyPrefix: 'rl:agent:builder',
+});
+
+/**
+ * Tool Builder rate limiter (per userId).
+ * Covers /tools/:id/builder/* and /tools/editor-assistant/* endpoints.
+ */
+export const toolBuilderRateLimiter = createRateLimiter({
+    points: parseInt(process.env.TOOL_BUILDER_RL_POINTS ?? '20', 10),
+    duration: parseInt(process.env.TOOL_BUILDER_RL_DURATION ?? '60', 10),
+    blockDuration: 30,
+    keyPrefix: 'rl:tool:builder',
+});
+
+/**
+ * Workforce rate limiter (per userId).
+ * Covers /workforces/:id/run, run-stream, swarm message, and editor assistant.
+ */
+export const workforceRateLimiter = createRateLimiter({
+    points: parseInt(process.env.WORKFORCE_RL_POINTS ?? '15', 10),
+    duration: parseInt(process.env.WORKFORCE_RL_DURATION ?? '60', 10),
+    blockDuration: 30,
+    keyPrefix: 'rl:workforce',
+});
+
+/**
+ * Support chat rate limiter (per userId).
+ * Each message calls an LLM — limit to 30 per minute.
+ */
+export const supportRateLimiter = createRateLimiter({
+    points: parseInt(process.env.SUPPORT_RL_POINTS ?? '30', 10),
+    duration: parseInt(process.env.SUPPORT_RL_DURATION ?? '60', 10),
+    blockDuration: 30,
+    keyPrefix: 'rl:support',
+});
+
+/**
+ * General AI features rate limiter (per userId).
+ * Covers /ai/listing/generate and /ai/text — lightweight LLM calls.
+ */
+export const aiFeaturesRateLimiter = createRateLimiter({
+    points: parseInt(process.env.AI_FEATURES_RL_POINTS ?? '30', 10),
+    duration: parseInt(process.env.AI_FEATURES_RL_DURATION ?? '60', 10),
+    blockDuration: 30,
+    keyPrefix: 'rl:ai:features',
+});
+
+/**
+ * Command API rate limiter (per userId).
+ * Covers /command/parse, /command/suggest, and /command/execute.
+ */
+export const commandRateLimiter = createRateLimiter({
+    points: parseInt(process.env.COMMAND_RL_POINTS ?? '30', 10),
+    duration: parseInt(process.env.COMMAND_RL_DURATION ?? '60', 10),
+    blockDuration: 60,
+    keyPrefix: 'rl:command',
+});
+
+/**
+ * Tool execution rate limiter.
+ *
+ * Uses rate-limiter-flexible which internally issues atomic INCR + EXPIRE
+ * pipelines to Redis — never a read-then-write — so concurrent requests under
+ * load cannot race past the limit.
+ *
+ * Defaults: 60 tool runs per user per minute, blocked for 60s on violation.
+ * Override via env vars TOOL_EXEC_RL_POINTS / TOOL_EXEC_RL_DURATION.
+ */
+export const toolExecutionRateLimiter = createRateLimiter({
+    points: parseInt(process.env.TOOL_EXEC_RL_POINTS ?? '60', 10),
+    duration: parseInt(process.env.TOOL_EXEC_RL_DURATION ?? '60', 10),
+    blockDuration: 60,
+    keyPrefix: 'rl:tool:exec',
+});
+
+
+/**
  * Helper to consume rate limit and handle errors
  */
 export async function consumeRateLimit(

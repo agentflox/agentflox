@@ -22,7 +22,7 @@ export default function StepFinish({ onNext, isLoading }: StepFinishProps) {
       <button
         onClick={onNext}
         disabled={isLoading}
-        className="bg-black hover:bg-gray-800 text-white px-10 py-3.5 rounded-full font-medium text-base transition-all hover:scale-105 active:scale-95 shadow-lg disabled:opacity-50"
+        className="bg-black hover:bg-gray-800 text-white px-10 py-3.5 rounded-full font-medium text-base transition-all hover:scale-105 active:scale-95 shadow-lg disabled:opacity-50 cursor-pointer"
       >
         {isLoading ? "Finalizing..." : "Go to Dashboard"}
       </button>

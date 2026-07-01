@@ -32,12 +32,7 @@ interface UsageState {
             remaining: number;
             percentageUsed: number;
         };
-        proposals: {
-            used: number;
-            limit: number;
-            remaining: number;
-            percentageUsed: number;
-        };
+
         requests: {
             used: number;
             limit: number;
@@ -59,10 +54,6 @@ interface UsageState {
             projectsUsed: number;
             projectLimit: number;
             remainingProjects: number;
-
-            proposalsUsed: number;
-            proposalLimit: number;
-            remainingProposals: number;
 
             teamsUsed: number;
             teamLimit: number;
@@ -91,10 +82,6 @@ interface UsageState {
         projectsUsed: number;
         projectLimit: number;
         remainingProjects: number;
-
-        proposalsUsed: number;
-        proposalLimit: number;
-        remainingProposals: number;
 
         teamsUsed: number;
         teamLimit: number;
@@ -280,8 +267,6 @@ export class UsageManager {
                     remainingProjects: feature.maxProjects,
                     maxTeams: feature.maxTeams,
                     remainingTeams: feature.maxTeams,
-                    maxProposals: feature.maxProposals,
-                    remainingProposals: feature.maxProposals,
                     maxRequests: feature.maxRequests,
                     remainingRequests: feature.maxRequests,
                     maxCredits: feature.maxCredits,
@@ -292,8 +277,6 @@ export class UsageManager {
                     remainingChatsPerProject: feature.maxChatsPerProject || 0,
                     maxChatsPerProfile: feature.maxChatsPerProfile || 0,
                     remainingChatsPerProfile: feature.maxChatsPerProfile || 0,
-                    maxChatsPerProposal: feature.maxChatsPerProposal || 0,
-                    remainingChatsPerProposal: feature.maxChatsPerProposal || 0,
                     maxChatsPerTeam: feature.maxChatsPerTeam || 0,
                     remainingChatsPerTeam: feature.maxChatsPerTeam || 0,
                 }
@@ -735,10 +718,7 @@ export class UsageManager {
                 subUsage?.maxTeams || 0,
                 subUsage?.remainingTeams || 0
             ),
-            proposals: this.calculateResourceUsage(
-                subUsage?.maxProposals || 0,
-                subUsage?.remainingProposals || 0
-            ),
+
             requests: this.calculateResourceUsage(
                 subUsage?.maxRequests || 0,
                 subUsage?.remainingRequests || 0
@@ -749,7 +729,6 @@ export class UsageManager {
         subscriptionState.isApproachingLimit =
             subscriptionState.projects.percentageUsed >= 80 ||
             subscriptionState.teams.percentageUsed >= 80 ||
-            subscriptionState.proposals.percentageUsed >= 80 ||
             subscriptionState.requests.percentageUsed >= 80;
 
         // Build active packages state
@@ -771,9 +750,6 @@ export class UsageManager {
                 projectLimit: usage?.maxProjects || 0,
                 remainingProjects: usage?.remainingProjects || 0,
 
-                proposalsUsed: (usage?.maxProposals || 0) - (usage?.remainingProposals || 0),
-                proposalLimit: usage?.maxProposals || 0,
-                remainingProposals: usage?.remainingProposals || 0,
 
                 teamsUsed: (usage?.maxTeams || 0) - (usage?.remainingTeams || 0),
                 teamLimit: usage?.maxTeams || 0,
@@ -826,8 +802,6 @@ export class UsageManager {
             creditLimit: 0,
             projectsUsed: 0,
             projectLimit: 0,
-            proposalsUsed: 0,
-            proposalLimit: 0,
             teamsUsed: 0,
             teamLimit: 0,
             requestsUsed: 0,
@@ -839,8 +813,6 @@ export class UsageManager {
         totals.projectLimit += subscription.projects.limit;
         totals.teamsUsed += subscription.teams.used;
         totals.teamLimit += subscription.teams.limit;
-        totals.proposalsUsed += subscription.proposals.used;
-        totals.proposalLimit += subscription.proposals.limit;
         totals.requestsUsed += subscription.requests.used;
         totals.requestLimit += subscription.requests.limit;
 
@@ -852,8 +824,6 @@ export class UsageManager {
             totals.projectLimit += pkg.projectLimit;
             totals.teamsUsed += pkg.teamsUsed;
             totals.teamLimit += pkg.teamLimit;
-            totals.proposalsUsed += pkg.proposalsUsed;
-            totals.proposalLimit += pkg.proposalLimit;
             totals.requestsUsed += pkg.requestsUsed;
             totals.requestLimit += pkg.requestLimit;
         });
@@ -870,10 +840,6 @@ export class UsageManager {
             projectsUsed: totals.projectsUsed,
             projectLimit: totals.projectLimit,
             remainingProjects: totals.projectLimit - totals.projectsUsed,
-
-            proposalsUsed: totals.proposalsUsed,
-            proposalLimit: totals.proposalLimit,
-            remainingProposals: totals.proposalLimit - totals.proposalsUsed,
 
             teamsUsed: totals.teamsUsed,
             teamLimit: totals.teamLimit,

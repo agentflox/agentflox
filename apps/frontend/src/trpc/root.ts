@@ -1,5 +1,5 @@
 import { router } from "@/trpc/init";
-import { proposalRouter } from "@/trpc/routers/proposal";
+
 import { projectRouter } from "@/trpc/routers/project";
 import { teamRouter } from "@/trpc/routers/team";
 import { requestRouter } from "@/trpc/routers/request";
@@ -21,16 +21,13 @@ import { spaceRouter } from "@/trpc/routers/space";
 import { channelRouter } from "@/trpc/routers/channel";
 import { channelMessageRouter } from "@/trpc/routers/channelMessage";
 import { taskRouter } from "@/trpc/routers/task";
-import { materialRouter } from "@/trpc/routers/material";
 import { toolRouter } from "@/trpc/routers/tool";
-import { resourceRouter } from "@/trpc/routers/resource";
 import { marketplaceRouter } from "@/trpc/routers/marketplace";
 import { payoutRouter } from "@/trpc/routers/payout";
 import { listRouter } from "@/trpc/routers/list";
 import { folderRouter } from "@/trpc/routers/folder";
 import { agentRouter } from "@/trpc/routers/agent";
 import { documentRouter } from "@/trpc/routers/document";
-import { documentActivityRouter } from "@/trpc/routers/documentActivity";
 import { organizationRouter } from "@/trpc/routers/organization";
 import { viewRouter } from "@/trpc/routers/view";
 import { customFieldsRouter } from "@/trpc/routers/customFields";
@@ -43,10 +40,9 @@ import { settingsRouter } from "@/trpc/routers/settings";
 import { communityGroupRouter } from "@/trpc/routers/communityGroup";
 import { adminRouter } from "@/trpc/routers/admin";
 import { editorAssistantRouter } from "@/trpc/routers/editorAssistant";
-import { supportAssistantRouter } from "@/trpc/routers/supportAssistant";
+import { bugReportRouter } from "@/trpc/routers/bugReport";
 
 export const appRouter = router({
-  proposal: proposalRouter,
   project: projectRouter,
   team: teamRouter,
   request: requestRouter,
@@ -68,16 +64,13 @@ export const appRouter = router({
   channel: channelRouter,
   channelMessage: channelMessageRouter,
   task: taskRouter,
-  material: materialRouter,
   tool: toolRouter,
   marketplace: marketplaceRouter,
   payout: payoutRouter,
-  resource: resourceRouter,
   list: listRouter,
   folder: folderRouter,
   agent: agentRouter,
   document: documentRouter,
-  documentActivity: documentActivityRouter,
   organization: organizationRouter,
   view: viewRouter,
   customFields: customFieldsRouter,
@@ -90,7 +83,7 @@ export const appRouter = router({
   communityGroup: communityGroupRouter,
   admin: adminRouter,
   editorAssistant: editorAssistantRouter,
-  supportAssistant: supportAssistantRouter,
+  bugReport: bugReportRouter,
 });
 
 export type AppRouter = typeof appRouter;

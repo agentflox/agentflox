@@ -250,23 +250,35 @@ export class AgentBuilderService {
     conversationId: string,
     message: string,
     userId: string,
-    idempotencyKey?: string
+    idempotencyKey?: string,
+    options?: { contexts?: any[]; mentions?: any[]; attachments?: any[] }
   ): Promise<{ runId: string }> {
     const runId = this.generateId();
 
-    // Fire-and-forget durable workflow via Inngest. The Inngest handler is
-    // responsible for writing run status to Redis under agent_run:{runId}.
-    const { inngest } = await import('@/lib/inngest');
-    await inngest.send({
-      name: 'agent/builder.requested',
-      data: {
-        runId,
-        conversationId,
-        message,
-        userId,
-        idempotencyKey,
-      },
-    });
+    try {
+      const { inngest } = await import('@/lib/inngest');
+      await inngest.send({
+        name: 'agent/builder.requested',
+        data: {
+          runId,
+          conversationId,
+          message,
+          userId,
+          idempotencyKey,
+          options,
+        },
+      } as any);
+    } catch (e: any) {
+      if (e.code === 'ECONNREFUSED' || (e.cause && e.cause.code === 'ECONNREFUSED')) {
+        console.warn('[AgentBuilderService] Failed to enqueue Inngest job: ECONNREFUSED. Is the Inngest Dev Server running?');
+        console.warn('[AgentBuilderService] To start it, run: npx inngest-cli@latest dev');
+      } else {
+        console.error('[AgentBuilderService] Error enqueueing to Inngest:', e);
+      }
+      // Depending on requirements, we either re-throw or return anyway. 
+      // Throwing might still cause a 500 API error. Let's throw a more descriptive error.
+      throw new Error('Background task queuing failed. Ensure the Inngest Dev Server is running.');
+    }
 
     return { runId };
   }
@@ -997,6 +1009,7 @@ Follow the flow guide principles: AI-generated messages, numbered options, dynam
     userId: string,
     onProgress?: (step: string, node?: string) => void,
     onToken?: (text: string) => void,
+    options?: { contexts?: any[]; mentions?: any[]; attachments?: any[] },
     idempotencyKey?: string
   ): Promise<{
     response: string;
@@ -1027,7 +1040,7 @@ Follow the flow guide principles: AI-generated messages, numbered options, dynam
           'user.id': userId,
           'message.length': message.length,
         });
-        const result = await this.processMessageInternal(conversationId, message, userId, startTime, span, onProgress, onToken);
+        const result = await this.processMessageInternal(conversationId, message, userId, startTime, span, onProgress, onToken, options);
 
         // Cache the result under the idempotency key so retries return it immediately.
         if (idempotencyKey) {
@@ -1053,7 +1066,8 @@ Follow the flow guide principles: AI-generated messages, numbered options, dynam
     startTime: number,
     span: any,
     onProgress?: (step: string, node?: string) => void,
-    onToken?: (text: string) => void
+    onToken?: (text: string) => void,
+    options?: { contexts?: any[]; mentions?: any[]; attachments?: any[] }
   ): Promise<{
     response: string;
     conversationState: ConversationState;
@@ -1114,6 +1128,10 @@ Follow the flow guide principles: AI-generated messages, numbered options, dynam
     // Sanitize user input to prevent prompt injection
     const sanitizedMessage = this.inputSanitizer.sanitize(message);
 
+    const { explicitContextResolver } = await import('@/utils/utilities/explicitContextResolver');
+    const resolvedExplicitContext = await explicitContextResolver.resolve(userId, options);
+    const fullMessageWithContext = resolvedExplicitContext ? `${sanitizedMessage}\n${resolvedExplicitContext}` : sanitizedMessage;
+
     // Acquire lock to prevent concurrent processing
     const lockAcquired = await this.acquireLock(conversationId);
     if (!lockAcquired) {
@@ -1159,7 +1177,7 @@ Follow the flow guide principles: AI-generated messages, numbered options, dynam
 
       // ─── Step 2: intent inference ─────────────────────────────────────────────
       emit('Analysing your intent…', undefined);
-      const { intent } = await this.intentInferenceService.inferBuilderIntent(sanitizedMessage, conversationState.conversationHistory);
+      const { intent } = await this.intentInferenceService.inferBuilderIntent(fullMessageWithContext, conversationState.conversationHistory);
       // Emit again now that we know the intent so the label is specific
       const intentLabel: Record<string, string> = {
         [AGENT_CONSTANTS.INTENT.BUILDER.BUILD_OR_MODIFY]: 'build / modify',
@@ -1225,7 +1243,12 @@ Follow the flow guide principles: AI-generated messages, numbered options, dynam
       await agentBuilderStateService.addMessageToHistory(
         conversationId,
         'user',
-        sanitizedMessage
+        sanitizedMessage,
+        {
+          contexts: options?.contexts,
+          mentions: options?.mentions,
+          attachments: options?.attachments,
+        }
       );
 
       // Refresh conversation state
@@ -1268,7 +1291,7 @@ Follow the flow guide principles: AI-generated messages, numbered options, dynam
       const isMatureConfig = enrichedState.stage === 'launch';
       const shouldSkipInference = isMatureConfig && intent === AGENT_CONSTANTS.INTENT.BUILDER.LAUNCH_AGENT;
 
-      const cacheKey = this.responseCache.generateCacheKey(sanitizedMessage, scopedUserContext);
+      const cacheKey = this.responseCache.generateCacheKey(fullMessageWithContext, scopedUserContext);
       let extractedConfig: ExtractedConfiguration | null = null;
       let automationInferencePromise: Promise<any>;
 
@@ -1288,7 +1311,7 @@ Follow the flow guide principles: AI-generated messages, numbered options, dynam
         if (!extractedConfig) {
           try {
             extractedConfig = await this.configurationExtractor.extract(
-              sanitizedMessage,
+              fullMessageWithContext,
               enrichedState,
               scopedUserContext,
               userId,
@@ -1306,7 +1329,7 @@ Follow the flow guide principles: AI-generated messages, numbered options, dynam
         // B) Automation Inference
         automationInferencePromise = this.automationInferrer.infer(
           enrichedState.conversationHistory.map(h => ({ role: h.role, content: h.content })),
-          sanitizedMessage,
+          fullMessageWithContext,
           enrichedState.agentDraft,
           scopedUserContext,
           userId
@@ -1428,7 +1451,7 @@ Follow the flow guide principles: AI-generated messages, numbered options, dynam
           role: h.role,
           content: h.content,
         })),
-        sanitizedMessage,   // always use sanitized — prevents prompt injection into backward-jump classifier
+        fullMessageWithContext,   // always use sanitized/context-enriched — prevents prompt injection
         extractedConfig,
         userId,
         conversationId,
@@ -1472,7 +1495,7 @@ Follow the flow guide principles: AI-generated messages, numbered options, dynam
       const enrichedPrompt = agentBuilderPromptService.buildBuilderPrompt(
         enrichedState,
         scopedUserContext,
-        sanitizedMessage
+        fullMessageWithContext
       );
 
       const agentTriggerContext =

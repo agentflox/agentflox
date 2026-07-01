@@ -14,10 +14,10 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { 
-  Bot, 
-  Play, 
-  Pause, 
+import {
+  Bot,
+  Play,
+  Pause,
   Edit,
   Sparkles,
   Wrench,
@@ -36,10 +36,8 @@ import { useRouter } from "next/navigation";
 
 export function OverviewView({ agent }: { agent: any }) {
   const router = useRouter();
-  const { data: executions } = trpc.agent.getExecutions.useQuery(
-    { agentId: agent?.id || '', page: 1, pageSize: 10 },
-    { enabled: !!agent?.id }
-  );
+  // TODO: backend endpoint not yet implemented
+  const executions: any = { items: [] };
 
   const updateAgent = trpc.agent.update.useMutation({
     onSuccess: () => {
@@ -88,7 +86,7 @@ export function OverviewView({ agent }: { agent: any }) {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="text-3xl">{agent.avatar || '🤖'}</div>
-        <div>
+          <div>
             <div className="flex items-center gap-2.5">
               <h1 className="text-2xl font-bold">{agent.name}</h1>
               <Badge variant={agent.status === 'ACTIVE' ? 'default' : agent.status === 'DRAFT' ? 'secondary' : 'destructive'}>
@@ -201,12 +199,12 @@ export function OverviewView({ agent }: { agent: any }) {
           </CardContent>
         </Card>
 
-      <Card>
+        <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Success Rate</CardTitle>
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
-        </CardHeader>
-        <CardContent>
+          </CardHeader>
+          <CardContent>
             <div className="text-2xl font-bold">{successRate}%</div>
             <p className="text-xs text-muted-foreground mt-1">
               {agent.successfulRuns || 0} successful, {agent.failedRuns || 0} failed
@@ -239,7 +237,7 @@ export function OverviewView({ agent }: { agent: any }) {
             </p>
           </CardContent>
         </Card>
-              </div>
+      </div>
 
       {/* Agent Details */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -262,8 +260,8 @@ export function OverviewView({ agent }: { agent: any }) {
                 </ul>
               ) : (
                 <p className="text-sm text-muted-foreground">No capabilities defined</p>
-            )}
-          </div>
+              )}
+            </div>
             <div>
               <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
                 <XCircle className="h-4 w-4 text-red-500" />
@@ -279,23 +277,23 @@ export function OverviewView({ agent }: { agent: any }) {
                 <p className="text-sm text-muted-foreground">No constraints defined</p>
               )}
             </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
 
         {/* Configuration Summary */}
-      <Card>
-        <CardHeader>
+        <Card>
+          <CardHeader>
             <CardTitle>Configuration</CardTitle>
-            </CardHeader>
+          </CardHeader>
           <CardContent className="space-y-3">
             <div className="flex justify-between">
               <span className="text-sm text-muted-foreground">Type</span>
               <Badge variant="outline">{agent.agentType}</Badge>
-                          </div>
+            </div>
             <div className="flex justify-between">
               <span className="text-sm text-muted-foreground">Autonomy Level</span>
               <Badge variant="outline">{agent.autonomyLevel}</Badge>
-                        </div>
+            </div>
             <div className="flex justify-between">
               <span className="text-sm text-muted-foreground">Requires Approval</span>
               <Badge variant={agent.requiresApproval ? 'default' : 'secondary'}>
@@ -316,25 +314,25 @@ export function OverviewView({ agent }: { agent: any }) {
                 </div>
               </div>
             )}
-            </CardContent>
-          </Card>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Recent Executions */}
       {executions && executions.items && executions.items.length > 0 && (
-          <Card>
-            <CardHeader>
+        <Card>
+          <CardHeader>
             <CardTitle>Recent Executions</CardTitle>
-        </CardHeader>
-        <CardContent>
+          </CardHeader>
+          <CardContent>
             <div className="space-y-2">
               {executions.items.slice(0, 5).map((execution: any) => (
                 <div key={execution.id} className="flex items-center justify-between p-3 border rounded-lg">
                   <div className="flex items-center gap-3">
                     <Badge variant={
                       execution.status === 'COMPLETED' ? 'default' :
-                      execution.status === 'FAILED' ? 'destructive' :
-                      'secondary'
+                        execution.status === 'FAILED' ? 'destructive' :
+                          'secondary'
                     }>
                       {execution.status}
                     </Badge>
@@ -350,8 +348,8 @@ export function OverviewView({ agent }: { agent: any }) {
                 </div>
               ))}
             </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
       )}
     </div>
   );

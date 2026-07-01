@@ -106,6 +106,14 @@ export const redisPub = clients.redisPub;
 export const redisSub = clients.redisSub;
 export const redisNotificationsSub = clients.redisNotificationsSub;
 
+/**
+ * Raw connection options — use this with BullMQ instead of the Redis instance
+ * to avoid the duplicate-ioredis type error in monorepo setups.
+ * BullMQ ships its own ioredis in root node_modules, which is a different
+ * type identity than apps/backend/node_modules/ioredis.
+ */
+export const redisConnectionOptions = redisConfig;
+
 // Add error handlers to prevent crashes
 redis.on('error', (err) => {
   console.error('❌ Redis client error:', err.message);

@@ -366,7 +366,7 @@ export function CustomFieldSidebarPanel({
         }
 
         // Initialize locations
-        const initialLocations = [];
+        const initialLocations: { id: string; type: string }[] = [];
         if (f?.workspaceId) initialLocations.push({ id: f.workspaceId, type: "WORKSPACE" });
         if (f?.spaceId) initialLocations.push({ id: f.spaceId, type: "SPACE" });
         if (f?.projectId) initialLocations.push({ id: f.projectId, type: "PROJECT" });

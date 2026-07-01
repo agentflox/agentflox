@@ -182,7 +182,7 @@ export function WorkforceCreationCard({ open, onOpenChange, onSelect }: Props) {
                                 {/* CTA */}
                                 <button
                                     className={cn(
-                                        "mt-auto flex w-full items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-semibold transition-all duration-150",
+                                        "mt-auto flex w-full items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-semibold transition-all duration-150 cursor-pointer",
                                         opt.buttonClass,
                                     )}
                                     onClick={(e) => {
@@ -196,41 +196,6 @@ export function WorkforceCreationCard({ open, onOpenChange, onSelect }: Props) {
                             </div>
                         );
                     })}
-                </div>
-
-                <div className="mt-6 space-y-3">
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-                                Templates
-                            </p>
-                            <p className="text-sm text-muted-foreground">
-                                Start from battle-tested workflows for common go-to-market and ops use-cases.
-                            </p>
-                        </div>
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[260px] overflow-y-auto">
-                        {WORKFORCE_TEMPLATES.map((tpl) => (
-                            <button
-                                key={tpl.id}
-                                type="button"
-                                onClick={() => handleCreateFromTemplate(tpl)}
-                                className={cn(
-                                    "flex flex-col items-start gap-1.5 rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2.5 text-left transition-all hover:bg-white hover:border-zinc-300"
-                                )}
-                            >
-                                <span className="text-[10px] font-semibold uppercase tracking-widest text-zinc-400">
-                                    {tpl.category} · {tpl.targetTeams}
-                                </span>
-                                <span className="text-sm font-semibold text-zinc-900">
-                                    {tpl.name}
-                                </span>
-                                <span className="text-xs text-zinc-500 line-clamp-2">
-                                    {tpl.description}
-                                </span>
-                            </button>
-                        ))}
-                    </div>
                 </div>
             </DialogContent>
         </Dialog>

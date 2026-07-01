@@ -5,15 +5,21 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { X } from "lucide-react";
 
 function SidebarShell({ title, open, onClose, children }: { title: string; open: boolean; onClose: () => void; children: React.ReactNode }) {
   return (
-    <div className={cn("absolute right-0 top-14 z-[60] w-auto min-w-[22rem] max-w-md h-[calc(100%-3rem)] transform bg-white shadow-2xl transition-transform duration-300 border-l", open ? "-translate-x-14" : "translate-x-full")}> 
-      <div className="flex items-center justify-between border-b px-4 py-3">
-        <span className="font-medium">{title}</span>
-        <button className="rounded-md border p-1.5 hover:bg-muted" onClick={onClose} aria-label="Close">✕</button>
+    <div className={cn(
+      "absolute inset-y-4 rounded-md right-0 z-[60] w-auto min-w-[24rem] max-w-md transform bg-white shadow-[0_0_40px_rgba(0,0,0,0.08)] transition-transform duration-300 border border-slate-200/60 flex flex-col overflow-hidden",
+      open ? "-translate-x-14" : "translate-x-full"
+    )}>
+      <div className="flex items-center justify-between border-b border-slate-200/60 bg-white/80 backdrop-blur-md px-6 py-4">
+        <span className="text-base font-semibold tracking-tight text-slate-900">{title}</span>
+        <button className="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors cursor-pointer" onClick={onClose} aria-label="Close">
+          <X className="h-4 w-4" />
+        </button>
       </div>
-      <div className="h-full overflow-y-auto p-4 space-y-4">{children}</div>
+      <div className="flex-1 overflow-y-auto p-6 pb-8 space-y-6 bg-white">{children}</div>
     </div>
   );
 }
@@ -42,21 +48,53 @@ export function ChannelSettingsSidebar({
   disabled?: boolean;
 }) {
   return (
-    <SidebarShell title="Chat settings" open={open} onClose={onClose}>
-      <div className="space-y-4">
-        <div className="space-y-2">
-          <Label>Title</Label>
-          <Input value={chatTitle} onChange={(e) => onChatTitle(e.target.value)} />
+    <SidebarShell title="Chat Settings" open={open} onClose={onClose}>
+      <div className="space-y-5">
+
+        {/* Title */}
+        <div className="space-y-1.5">
+          <Label className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest">Title</Label>
+          <Input
+            value={chatTitle}
+            onChange={(e) => onChatTitle(e.target.value)}
+            className="h-11 rounded-xl bg-slate-50 border-slate-200 text-slate-900 placeholder:text-slate-400 focus-visible:ring-2 focus-visible:ring-indigo-500/30 focus-visible:border-indigo-400 transition-all"
+          />
         </div>
-        <div className="space-y-2">
-          <Label>Topic</Label>
-          <Input value={chatTopic} onChange={(e) => onChatTopic(e.target.value)} placeholder="e.g. Sprint 14 planning" />
+
+        {/* Topic */}
+        <div className="space-y-1.5">
+          <Label className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest">Topic</Label>
+          <Input
+            value={chatTopic}
+            onChange={(e) => onChatTopic(e.target.value)}
+            placeholder="e.g. Sprint 14 planning"
+            className="h-11 rounded-xl bg-slate-50 border-slate-200 text-slate-900 placeholder:text-slate-400 focus-visible:ring-2 focus-visible:ring-indigo-500/30 focus-visible:border-indigo-400 transition-all"
+          />
         </div>
-        <div className="space-y-2">
-          <Label>Description</Label>
-          <Textarea value={chatDescription} onChange={(e) => onChatDescription(e.target.value)} rows={3} placeholder="Describe the purpose of this chat" />
+
+        {/* Description */}
+        <div className="space-y-1.5">
+          <Label className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest">Description</Label>
+          <Textarea
+            value={chatDescription}
+            onChange={(e) => onChatDescription(e.target.value)}
+            rows={4}
+            placeholder="Describe the purpose of this chat"
+            className="rounded-xl bg-slate-50 border-slate-200 text-slate-900 placeholder:text-slate-400 focus-visible:ring-2 focus-visible:ring-indigo-500/30 focus-visible:border-indigo-400 transition-all resize-none"
+          />
         </div>
-        <Button onClick={onSave} disabled={disabled || !chatTitle.trim()}>Save</Button>
+
+        {/* Save */}
+        <div className="pt-4 border-t border-slate-100">
+          <Button
+            onClick={onSave}
+            disabled={disabled || !chatTitle.trim()}
+            className="w-full h-11 rounded-xl font-semibold bg-gradient-to-b from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 text-white shadow-md shadow-indigo-200 hover:shadow-lg hover:shadow-indigo-300 transition-all disabled:opacity-40 disabled:shadow-none"
+          >
+            Save Changes
+          </Button>
+        </div>
+
       </div>
     </SidebarShell>
   );

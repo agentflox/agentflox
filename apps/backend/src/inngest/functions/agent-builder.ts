@@ -17,15 +17,16 @@ export const agentBuilderWorkflow = inngest.createFunction(
     concurrency: {
       limit: 10,
     },
-    triggers: [{ event: 'agent/builder.requested'  }],
+    triggers: [{ event: 'agent/builder.requested' }],
   },
   async ({ event }) => {
-    const { runId, conversationId, message, userId, idempotencyKey } = event.data as {
+    const { runId, conversationId, message, userId, idempotencyKey, options } = event.data as {
       runId: string;
       conversationId: string;
       message: string;
       userId: string;
       idempotencyKey?: string;
+      options?: { contexts?: any[]; mentions?: any[] };
     };
 
     const runKey = `agent_run:${runId}`;
@@ -37,6 +38,7 @@ export const agentBuilderWorkflow = inngest.createFunction(
         userId,
         undefined,
         undefined,
+        options,
         idempotencyKey
       );
 

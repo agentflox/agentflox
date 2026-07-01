@@ -4,15 +4,6 @@ import type { NextConfig } from "next";
 import { PrismaPlugin } from '@prisma/nextjs-monorepo-workaround-plugin';
 
 const nextConfig: NextConfig = {
-  env: {
-    SUPABASE_URL: process.env.SUPABASE_URL,
-    SUPABASE_ANON_KEY: process.env.SUPABASE_ANON_KEY,
-    SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
-    PAYPAL_CLIENT_ID: process.env.PAYPAL_CLIENT_ID,
-    STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY,
-    STRIPE_WEBHOOK_SECRET: process.env.STRIPE_WEBHOOK_SECRET,
-    STRIPE_PUBLISHABLE_KEY: process.env.STRIPE_PUBLISHABLE_KEY
-  },
   async rewrites() {
     const explicitBackendUrl =
       process.env.NEXT_PUBLIC_API_URL ||
@@ -56,6 +47,7 @@ const nextConfig: NextConfig = {
     return config;
   },
   transpilePackages: ["@agentflox/types"],
+  serverExternalPackages: ['@prisma/client', '@agentflox/database'],
   outputFileTracingIncludes: {
     '/api/**': [
       '../../packages/database/src/generated/prisma/schema.prisma',

@@ -162,7 +162,7 @@ export const agentExecutorWorkflow = inngest.createFunction(
                                             userId: data.userId,
                                             action: 'STATUS_CHANGED',
                                             field: 'statusId',
-                                            oldValue: backlogTask.statusId ? String(backlogTask.statusId) : null,
+                                            oldValue: backlogTask.statusId ? String(backlogTask.statusId) : undefined,
                                             newValue: completedStatus!.id
                                         }
                                     });

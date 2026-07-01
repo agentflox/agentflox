@@ -40,7 +40,7 @@ export class PromptRegistry {
         }
 
         // Fetch active versions for this environment
-        const versions = await prisma.promptVersion.findMany({
+        const versions = await (prisma as any).promptVersion.findMany({
             where: {
                 templateId,
                 environment,
@@ -85,7 +85,7 @@ export class PromptRegistry {
         } = {}
     ): Promise<PromptVersion> {
         // Get latest version number
-        const latestVersion = await prisma.promptVersion.findFirst({
+        const latestVersion = await (prisma as any).promptVersion.findFirst({
             where: { templateId, environment },
             orderBy: { version: 'desc' },
         });
@@ -95,7 +95,7 @@ export class PromptRegistry {
         // Extract variables from template (simple {{variable}} pattern)
         const variables = this.extractVariables(content);
 
-        const version = await prisma.promptVersion.create({
+        const version = await (prisma as any).promptVersion.create({
             data: {
                 id: `${templateId}-v${newVersion}`,
                 templateId,
@@ -116,12 +116,12 @@ export class PromptRegistry {
      * Activate a specific version (and optionally deactivate others)
      */
     async activateVersion(versionId: string, deactivateOthers: boolean = true): Promise<void> {
-        const version = await prisma.promptVersion.findUnique({ where: { id: versionId } });
+        const version = await (prisma as any).promptVersion.findUnique({ where: { id: versionId } });
         if (!version) throw new Error('Version not found');
 
         if (deactivateOthers) {
             // Deactivate all other versions in the same environment
-            await prisma.promptVersion.updateMany({
+            await (prisma as any).promptVersion.updateMany({
                 where: {
                     templateId: version.templateId,
                     environment: version.environment,
@@ -132,7 +132,7 @@ export class PromptRegistry {
         }
 
         // Activate this version
-        await prisma.promptVersion.update({
+        await (prisma as any).promptVersion.update({
             where: { id: versionId },
             data: { isActive: true },
         });

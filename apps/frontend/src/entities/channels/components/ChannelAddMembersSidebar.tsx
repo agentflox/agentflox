@@ -28,12 +28,17 @@ export interface GroupOption {
 
 function SidebarShell({ title, open, onClose, children }: { title: string; open: boolean; onClose: () => void; children: React.ReactNode }) {
   return (
-    <div className={cn("absolute right-0 top-14 z-[60] w-auto min-w-[22rem] max-w-md h-[calc(100%-3rem)] transform bg-white shadow-2xl transition-transform duration-300 border-l", open ? "-translate-x-14" : "translate-x-full")}> 
-      <div className="flex items-center justify-between border-b px-4 py-3">
-        <span className="font-medium">{title}</span>
-        <button className="rounded-md border p-1.5 hover:bg-muted" onClick={onClose} aria-label="Close">✕</button>
+    <div className={cn(
+      "absolute inset-y-4 rounded-md right-0 z-[60] w-auto min-w-[24rem] max-w-md transform bg-white shadow-[0_0_40px_rgba(0,0,0,0.08)] transition-transform duration-300 border border-slate-200/60 flex flex-col overflow-hidden",
+      open ? "-translate-x-14" : "translate-x-full"
+    )}>
+      <div className="flex items-center justify-between border-b border-slate-200/60 bg-white/80 backdrop-blur-md px-6 py-4">
+        <span className="text-base font-semibold tracking-tight text-slate-900">{title}</span>
+        <button className="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors cursor-pointer" onClick={onClose} aria-label="Close">
+          <X className="h-4 w-4" />
+        </button>
       </div>
-      <div className="h-full overflow-y-auto p-4 space-y-4">{children}</div>
+      <div className="flex-1 overflow-y-auto p-6 pb-8 space-y-6 bg-white">{children}</div>
     </div>
   );
 }
@@ -126,10 +131,16 @@ export function ChannelAddMembersSidebar({
 
   return (
     <SidebarShell title="Add members" open={open} onClose={onClose}>
-      <div className="space-y-4">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input placeholder="Search individuals" value={searchQuery} onChange={(e) => onSearchQuery(e.target.value)} className="pl-9" />
+      <div className="space-y-6">
+        <div className="flex h-10 items-center rounded-md border border-slate-200 bg-slate-50/50 px-3 shadow-sm transition-colors focus-within:border-indigo-500 focus-within:ring-1 focus-within:ring-indigo-500">
+          <Search className="h-4 w-4 shrink-0 text-slate-400" />
+          <Input
+            variant="ghost"
+            placeholder="Search individuals"
+            value={searchQuery}
+            onChange={(e) => onSearchQuery(e.target.value)}
+            className="h-full border-0 bg-transparent pl-2 pr-0 focus:outline-none focus-visible:ring-0 shadow-none"
+          />
         </div>
 
         <Accordion type="multiple" className="w-full">
@@ -147,16 +158,32 @@ export function ChannelAddMembersSidebar({
                   filteredIndividuals.map((member) => {
                     const isSelected = alreadyInChat(member.id) || selectedIndividuals.some((m) => m.id === member.id);
                     return (
-                      <button key={member.id} onClick={() => addIndividual(member)} className={cn("flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left transition-colors","hover:bg-slate-50", isSelected && "bg-slate-100")} disabled={isSelected}>
+                      <button
+                        key={member.id}
+                        onClick={() => addIndividual(member)}
+                        className={cn(
+                          "flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-all",
+                          isSelected
+                            ? "bg-indigo-50 border border-indigo-100 cursor-default"
+                            : "hover:bg-slate-50 border border-transparent hover:border-slate-100 hover:shadow-sm cursor-pointer"
+                        )}
+                        disabled={isSelected}
+                      >
                         <Avatar className="h-8 w-8">
                           <AvatarImage src={member.image} />
-                          <AvatarFallback>{member.name.charAt(0).toUpperCase()}</AvatarFallback>
+                          <AvatarFallback className={cn("text-sm font-semibold", isSelected ? "bg-indigo-100 text-indigo-600" : "bg-slate-100 text-slate-600")}>
+                            {member.name.charAt(0).toUpperCase()}
+                          </AvatarFallback>
                         </Avatar>
                         <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-medium text-foreground">{member.name}</p>
+                          <p className={cn("truncate text-sm font-medium", isSelected ? "text-indigo-700" : "text-foreground")}>{member.name}</p>
                           {member.sourceName && <p className="truncate text-xs text-muted-foreground">{member.sourceName}</p>}
                         </div>
-                        {isSelected && <Badge variant="secondary">Selected</Badge>}
+                        {isSelected && (
+                          <span className="shrink-0 text-xs font-semibold text-indigo-500 bg-indigo-50 border border-indigo-200 rounded-full px-2.5 py-0.5">
+                            Selected
+                          </span>
+                        )}
                       </button>
                     );
                   })
@@ -185,7 +212,16 @@ export function ChannelAddMembersSidebar({
                           )}
                         </div>
                       </div>
-                      <Button size="sm" variant="outline" onClick={() => toggleGroup(group)}>
+                      <Button
+                        size="sm"
+                        onClick={() => toggleGroup(group)}
+                        className={cn(
+                          "rounded-lg h-8 px-3 text-xs font-semibold transition-all",
+                          selectedSpaceGroups.some((g) => g.id === group.id)
+                            ? "bg-red-50 text-red-500 border border-red-200 hover:bg-red-100 hover:border-red-300 shadow-none"
+                            : "bg-gradient-to-b from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 text-white border-0 shadow-sm shadow-indigo-200 hover:shadow-md hover:shadow-indigo-300"
+                        )}
+                      >
                         {selectedSpaceGroups.some((g) => g.id === group.id) ? "Remove" : "Select"}
                       </Button>
                     </CardHeader>
@@ -215,7 +251,16 @@ export function ChannelAddMembersSidebar({
                           )}
                         </div>
                       </div>
-                      <Button size="sm" variant="outline" onClick={() => toggleGroup(group)}>
+                      <Button
+                        size="sm"
+                        onClick={() => toggleGroup(group)}
+                        className={cn(
+                          "rounded-lg h-8 px-3 text-xs font-semibold transition-all",
+                          selectedProjectGroups.some((g) => g.id === group.id)
+                            ? "bg-red-50 text-red-500 border border-red-200 hover:bg-red-100 hover:border-red-300 shadow-none"
+                            : "bg-gradient-to-b from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 text-white border-0 shadow-sm shadow-indigo-200 hover:shadow-md hover:shadow-indigo-300"
+                        )}
+                      >
                         {selectedProjectGroups.some((g) => g.id === group.id) ? "Remove" : "Select"}
                       </Button>
                     </CardHeader>
@@ -245,7 +290,16 @@ export function ChannelAddMembersSidebar({
                           )}
                         </div>
                       </div>
-                      <Button size="sm" variant="outline" onClick={() => toggleGroup(group)}>
+                      <Button
+                        size="sm"
+                        onClick={() => toggleGroup(group)}
+                        className={cn(
+                          "rounded-lg h-8 px-3 text-xs font-semibold transition-all",
+                          selectedTeamGroups.some((g) => g.id === group.id)
+                            ? "bg-red-50 text-red-500 border border-red-200 hover:bg-red-100 hover:border-red-300 shadow-none"
+                            : "bg-gradient-to-b from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 text-white border-0 shadow-sm shadow-indigo-200 hover:shadow-md hover:shadow-indigo-300"
+                        )}
+                      >
                         {selectedTeamGroups.some((g) => g.id === group.id) ? "Remove" : "Select"}
                       </Button>
                     </CardHeader>
@@ -257,8 +311,20 @@ export function ChannelAddMembersSidebar({
         </Accordion>
 
         <div className="flex gap-2">
-          <Button variant="outline" className="flex-1" onClick={clearAll}>Clear</Button>
-          <Button className="flex-1" onClick={handleAddAll} disabled={selectedIndividuals.length === 0 && selectedProjectGroups.length === 0 && selectedTeamGroups.length === 0 && selectedSpaceGroups.length === 0}>Add to chat</Button>
+          <Button
+            variant="ghost"
+            className="flex-1 border border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-900 hover:border-slate-300 rounded-xl h-11 font-medium transition-all"
+            onClick={clearAll}
+          >
+            Clear
+          </Button>
+          <Button
+            className="flex-1 bg-gradient-to-b from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 text-white rounded-xl h-11 font-semibold shadow-md shadow-indigo-200 hover:shadow-lg hover:shadow-indigo-300 transition-all disabled:opacity-40 disabled:shadow-none"
+            onClick={handleAddAll}
+            disabled={selectedIndividuals.length === 0 && selectedProjectGroups.length === 0 && selectedTeamGroups.length === 0 && selectedSpaceGroups.length === 0}
+          >
+            Add to chat
+          </Button>
         </div>
       </div>
     </SidebarShell>

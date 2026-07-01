@@ -1,5 +1,5 @@
 "use client";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { trpc } from "@/lib/trpc";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -13,7 +13,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Filter, Inbox } from "lucide-react";
-import { useReactTable, flexRender, getCoreRowModel } from "@tanstack/react-table";
+import { useReactTable, flexRender, getCoreRowModel, ColumnDef } from "@tanstack/react-table";
 import { useDebounce } from '@/hooks/useDebounce';
 import Shell from '@/components/layout/Shell';
 import { useSocket } from '@/components/providers/SocketProvider';

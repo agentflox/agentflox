@@ -4,7 +4,6 @@ import Shell from "@/components/layout/Shell";
 import { PageHeader } from "@/entities/shared/components/PageHeader";
 import { SearchSection } from "@/entities/shared/components/SearchSection";
 import ProjectCard from "@/entities/projects/components/ProjectCard";
-import ProjectFilterSidebar from "@/entities/projects/components/ProjectFilterSidebar";
 import { Pagination } from "@/components/ui/pagination";
 import { useProjectList } from "@/entities/projects/hooks/useProjectList";
 import { Button } from "@/components/ui/button";
@@ -19,7 +18,10 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
-import { Filter, Tag, MoreHorizontal, Eye, Trash } from "lucide-react";
+import { Filter, Tag, MoreHorizontal, Eye, Trash, PenSquare } from "lucide-react";
+import { ConfirmDeleteModal } from "@/components/modals/ConfirmDeleteModal";
+import { useToast } from "@/hooks/useToast";
+import { trpc } from "@/lib/trpc";
 import { INDUSTRY_OPTIONS } from "@/constants/shares";
 import { DataTable } from "@/components/ui/data-table";
 import { DataTableColumnHeader } from "@/components/ui/data-table-column-header";
@@ -37,11 +39,29 @@ import { formatDistanceToNow } from "date-fns";
 import { DataTableSkeleton } from "@/components/ui/data-table-skeleton";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-import { Settings2, ArrowUpDown, Check, ChevronUp, ChevronDown, MoreVertical } from "lucide-react";
+import { Settings2, ArrowUpDown, Check, ChevronUp, ChevronDown, MoreVertical, FolderKanban } from "lucide-react";
 import { DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuPortal, DropdownMenuSubContent, DropdownMenuCheckboxItem } from "@/components/ui/dropdown-menu";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default function ProjectsPage() {
 	const router = useRouter();
+	const { toast } = useToast();
+	const utils = trpc.useUtils();
+	const deleteMutation = trpc.project.delete.useMutation({
+		onSuccess: () => {
+			toast({ title: "Project deleted successfully" });
+			utils.project.list.invalidate();
+		},
+		onError: (error) => {
+			toast({ title: "Failed to delete project", description: error.message, variant: "destructive" });
+		}
+	});
+
+	// Delete modal state
+	const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+	const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
+	const [bulkDeleteRows, setBulkDeleteRows] = useState<any[]>([]);
+
 	const {
 		data,
 		isLoading,
@@ -76,8 +96,27 @@ export default function ProjectsPage() {
 		});
 	};
 
+	const handleDelete = (id: string, name?: string) => {
+		setDeleteTarget({ id, name: name ?? "Untitled Project" });
+		setBulkDeleteRows([]);
+		setDeleteModalOpen(true);
+	};
+
 	const handleBulkDelete = (rows: any[]) => {
-		console.log("Delete projects: ", rows.map(r => r.id));
+		setBulkDeleteRows(rows);
+		setDeleteTarget(null);
+		setDeleteModalOpen(true);
+	};
+
+	const handleConfirmDelete = async () => {
+		if (bulkDeleteRows.length > 0) {
+			for (const row of bulkDeleteRows) {
+				await deleteMutation.mutateAsync({ id: row.id });
+			}
+			setSelectedGridIds(new Set());
+		} else if (deleteTarget) {
+			await deleteMutation.mutateAsync({ id: deleteTarget.id });
+		}
 	};
 
 	const columns: ColumnDef<any>[] = [
@@ -182,16 +221,15 @@ export default function ProjectsPage() {
 						</DropdownMenuTrigger>
 						<DropdownMenuContent align="end">
 							<DropdownMenuItem onClick={() => handleOpen(project.id)}>
-								<Eye className="mr-2 h-4 w-4" />
-								View
+								<PenSquare className="mr-1 h-4 w-4" />
+								Edit Project
 							</DropdownMenuItem>
-							<DropdownMenuSeparator />
 							<DropdownMenuItem
 								className="text-destructive focus:text-destructive"
-								onClick={() => console.log("Delete", project.id)}
+								onClick={() => handleDelete(project.id, project.title)}
 							>
-								<Trash className="mr-2 h-4 w-4" />
-								Delete
+								<Trash className="mr-1 h-4 w-4" />
+								Delete Project
 							</DropdownMenuItem>
 						</DropdownMenuContent>
 					</DropdownMenu>
@@ -240,12 +278,10 @@ export default function ProjectsPage() {
 						actions={
 							<Button
 								onClick={() => setShowCreateModal(true)}
-								className="max-w-16 group relative overflow-hidden bg-gradient-to-br from-cyan-500 via-cyan-600 to-blue-600 text-white hover:shadow-xl transition-all duration-300 font-semibold px-5 py-2.5 !rounded-full whitespace-nowrap"
+								className="group flex items-center gap-2 bg-zinc-900 hover:bg-zinc-700 text-white dark:bg-zinc-50 dark:text-zinc-900 dark:hover:bg-zinc-200 px-4 py-2 h-9 rounded-md transition-all duration-300 shadow-sm hover:shadow-md active:scale-[0.98]"
 							>
-								<span className="relative z-10 flex items-center gap-2">
-									<Plus className="h-4 w-4 transition-transform group-hover:rotate-90 duration-300" />
-								</span>
-								<div className="absolute inset-0 bg-gradient-to-br from-cyan-400 via-cyan-500 to-blue-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+								<Plus className="h-4 w-4 transition-transform duration-300 group-hover:rotate-90" />
+								<span className="font-medium text-sm">New Project</span>
 							</Button>
 						}
 					/>
@@ -442,9 +478,24 @@ export default function ProjectsPage() {
 					{/* Results Grid */}
 					{isLoading ? (
 						viewMode === "grid" ? (
-							<div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-								{Array.from({ length: 9 }).map((_, i) => (
-									<div key={i} className="min-h-[220px] animate-pulse rounded-lg border bg-muted/30" />
+							<div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 pb-4">
+								{[...Array(8)].map((_, i) => (
+									<div key={i} className="relative flex flex-col bg-white rounded-xl border border-slate-200 shadow-sm p-6 pt-10 overflow-hidden">
+										<div className="flex items-start gap-3 mb-4">
+											<Skeleton className="h-10 w-10 rounded-xl shrink-0" />
+											<div className="flex-1 space-y-2 pt-1">
+												<Skeleton className="h-4 w-[60%] rounded-md" />
+												<Skeleton className="h-3 w-[40%] rounded-md opacity-60" />
+											</div>
+										</div>
+										<Skeleton className="h-3.5 w-full rounded-md" />
+										<Skeleton className="h-3.5 w-[75%] rounded-md mt-1.5" />
+										<div className="flex items-center gap-2 mt-5 pt-4 border-t border-slate-100">
+											<Skeleton className="h-5 w-16 rounded-full" />
+											<Skeleton className="h-5 w-14 rounded-full" />
+											<Skeleton className="h-5 w-12 rounded-full ml-auto" />
+										</div>
+									</div>
 								))}
 							</div>
 						) : (
@@ -453,7 +504,7 @@ export default function ProjectsPage() {
 					) : data?.items && data.items.length > 0 ? (
 						viewMode === "grid" ? (
 							<>
-								<div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+								<div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 pb-4">
 									{data.items.map((p: any) => (
 										<ProjectCard
 											key={p.id}
@@ -461,6 +512,7 @@ export default function ProjectsPage() {
 											onOpen={handleOpen}
 											isSelected={selectedGridIds.has(p.id)}
 											onSelect={handleGridSelect}
+											onDelete={(id) => handleDelete(id, p.title)}
 										/>
 									))}
 								</div>
@@ -475,7 +527,7 @@ export default function ProjectsPage() {
 											<X className="h-3.5 w-3.5" />
 											Deselect
 										</Button>
-										<Button variant="destructive" size="sm" onClick={() => { console.log("Delete:", [...selectedGridIds]); setSelectedGridIds(new Set()); }} className="h-8 gap-1.5 px-3 cursor-pointer">
+										<Button variant="destructive" size="sm" onClick={() => handleBulkDelete(Array.from(selectedGridIds).map(id => ({ id })))} className="h-8 gap-1.5 px-3 cursor-pointer">
 											<Trash className="h-3.5 w-3.5" />
 											Delete Selected
 										</Button>
@@ -486,20 +538,27 @@ export default function ProjectsPage() {
 							<DataTable columns={columns} data={data.items} onDeleteSelected={handleBulkDelete} onTableReady={setTable} hideToolbar columnVisibility={columnVisibility} onColumnVisibilityChange={setColumnVisibility} />
 						)
 					) : (
-						<div className="flex min-h-[400px] flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-300 bg-gray-50/50">
-							<div className="text-center">
-								<div className="mx-auto h-16 w-16 rounded-full bg-gradient-to-br from-cyan-100 to-blue-100 flex items-center justify-center mb-4">
-									<Plus className="h-8 w-8 text-cyan-600" />
+						<div className="flex min-h-[400px] flex-col items-center justify-center rounded-2xl border border-slate-200/80 bg-gradient-to-b from-slate-50/50 to-white shadow-sm">
+							<div className="text-center px-6 py-8 max-w-xs">
+								<div className="mx-auto h-16 w-16 rounded-2xl bg-gradient-to-br from-indigo-50 to-indigo-100 border border-indigo-100 shadow-sm flex items-center justify-center mb-6">
+									<FolderKanban className="h-7 w-7 text-indigo-500" />
 								</div>
-								<h3 className="mt-4 text-lg font-semibold text-gray-900">No Projects found</h3>
-								<p className="mb-4 mt-2 text-sm text-muted-foreground">
-									{query ? "Try adjusting your search or filters" : "Get started by creating your first project"}
+								<h3 className="text-base font-semibold text-slate-900">
+									{query ? "No results found" : "No projects yet"}
+								</h3>
+								<p className="mt-2 text-sm text-slate-500 leading-relaxed">
+									{query
+										? "Try adjusting your search or clearing filters to find what you're looking for."
+										: "Create and manage your projects to start organizing your work."}
 								</p>
 								{!query && (
-									<Button onClick={() => setShowCreateModal(true)} variant="outline" className="mt-4">
-										<Plus className="mr-2 h-4 w-4" />
-										Create Your First Project
-									</Button>
+									<button
+										onClick={() => setShowCreateModal(true)}
+										className="mt-6 inline-flex items-center gap-2 rounded-xl px-4 h-10 text-sm font-semibold bg-gradient-to-b from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 text-white shadow-md shadow-indigo-200 hover:shadow-lg hover:shadow-indigo-300 transition-all cursor-pointer"
+									>
+										<Plus className="h-4 w-4" />
+										Create new project
+									</button>
 								)}
 							</div>
 						</div>
@@ -518,6 +577,15 @@ export default function ProjectsPage() {
 				</div>
 			</div>
 			<ProjectCreationModal open={showCreateModal} onOpenChange={setShowCreateModal} onCreated={handleProjectCreated} />
+			<ConfirmDeleteModal
+				open={deleteModalOpen}
+				onOpenChange={setDeleteModalOpen}
+				itemName={deleteTarget?.name}
+				count={bulkDeleteRows.length > 0 ? bulkDeleteRows.length : 1}
+				entityLabel="project"
+				onConfirm={handleConfirmDelete}
+				isLoading={deleteMutation.isPending}
+			/>
 		</Shell>
 	);
 }

@@ -1,4 +1,4 @@
-import { ToolDefinition } from '../core/ToolRegistryManager';
+import { ToolDefinition } from '../../core/ToolRegistryManager';
 
 export const BROWSER_AUTOMATION_TOOLS: ToolDefinition[] = [
     {

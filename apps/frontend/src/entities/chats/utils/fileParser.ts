@@ -1,5 +1,6 @@
+import 'server-only'
+import { createClient } from '@supabase/supabase-js'
 import { initializeOpenAI } from '@/lib/openai'
-import { supabaseAdmin } from '@/lib/supabase/client'
 
 // Supported text file extensions
 const TEXT_FILE_EXTENSIONS = ['.pdf', '.doc', '.docx', '.xls', '.xlsx', '.txt', '.md', '.csv', '.json', '.xml', '.html', '.log']
@@ -157,6 +158,16 @@ async function createEmbeddings(chunks: string[]): Promise<Array<{ chunk: string
 async function uploadToSupabase(file: File, userId: string, conversationId: string): Promise<string> {
   const fileExt = file.name.substring(file.name.lastIndexOf('.'))
   const fileName = `${userId}/${conversationId}/${Date.now()}${fileExt}`
+  const supabaseAdmin = createClient(
+    process.env.SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    }
+  )
   
   const { data, error } = await supabaseAdmin.storage
     .from('chat-attachments')

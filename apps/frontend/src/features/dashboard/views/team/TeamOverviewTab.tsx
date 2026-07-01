@@ -1,507 +1,633 @@
 "use client";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import UserCard from "@/entities/users/components/UserCard";
-import Link from "next/link";
-import {
-    Users,
-    UserPlus,
-    GraduationCap,
-    TrendingUp,
-    Handshake,
-    ShoppingBag,
-    LayoutGrid
-} from "lucide-react";
-import { DASHBOARD_ROUTES } from "@/constants/routes.config";
 
-const teamTabs = [
-    {
-        key: 'overview',
-        label: 'Overview',
-        icon: <LayoutGrid className="h-4 w-4" />,
-    },
-    {
-        key: 'teams',
-        label: 'Teams',
-        icon: <Users className="h-4 w-4" />,
-    },
-    {
-        key: 'cofounders',
-        label: 'Co-Founders',
-        icon: <UserPlus className="h-4 w-4" />,
-    },
-    {
-        key: 'mentors',
-        label: 'Mentors',
-        icon: <GraduationCap className="h-4 w-4" />,
-    },
-    {
-        key: 'investors',
-        label: 'Investors',
-        icon: <TrendingUp className="h-4 w-4" />,
-    },
-    {
-        key: 'partners',
-        label: 'Partners',
-        icon: <Handshake className="h-4 w-4" />,
-    },
-    {
-        key: 'customers',
-        label: 'Customers',
-        icon: <ShoppingBag className="h-4 w-4" />,
-    },
-];
+import { useMemo, useState } from "react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+    Users, UserPlus, GraduationCap, TrendingUp, Handshake, ShoppingBag,
+    LayoutGrid, Clock, Settings2, Target,
+    Plus, ExternalLink, Link2, Check,
+    FolderKanban, FolderOpen, List, MessageSquare, ChevronRight, Hash,
+} from "lucide-react";
+import { formatDistanceToNow } from "date-fns";
+import { cn } from "@/lib/utils";
+import { useRouter } from "next/navigation";
+import { UserProfileHoverCard } from "@/entities/users/components/UserProfileHoverCard";
+import { DASHBOARD_ROUTES } from "@/constants/routes.config";
+import { ProjectCreationModal } from "@/entities/projects/components/ProjectCreationModal";
+import { FolderCreationModal } from "@/entities/task/components/FolderCreationModal";
+import { ListCreationModal } from "@/entities/task/components/ListCreationModal";
+import { ChatCreationModal } from "@/entities/channels/components/ChatCreationModal";
+import { ShareModal } from "@/components/permissions/ShareModal";
+
+// ── Tooltip ────────────────────────────────────────────────────────────────
+function Tooltip({ label, children }: { label: string; children: React.ReactNode }) {
+    return (
+        <div className="relative group/tip">
+            {children}
+            <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-50 opacity-0 group-hover/tip:opacity-100 transition-opacity duration-150">
+                <div className="bg-slate-900 text-white text-[11px] font-medium px-2.5 py-1.5 rounded-lg whitespace-nowrap shadow-lg">
+                    {label}
+                    <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-900" />
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// ── Row action buttons ────────────────────────────────────────────────────
+function RowActions({ url }: { url: string }) {
+    const [copied, setCopied] = useState(false);
+
+    function handleOpenNewTab(e: React.MouseEvent) {
+        e.stopPropagation();
+        window.open(url, "_blank", "noopener,noreferrer");
+    }
+
+    async function handleCopyLink(e: React.MouseEvent) {
+        e.stopPropagation();
+        try {
+            await navigator.clipboard.writeText(window.location.origin + url);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 1500);
+        } catch {
+            // fallback: do nothing
+        }
+    }
+
+    return (
+        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-150 shrink-0">
+            <Tooltip label="Open in new tab">
+                <button
+                    onClick={handleOpenNewTab}
+                    className="flex h-6 w-6 items-center justify-center rounded border border-slate-200 bg-white text-slate-500 hover:text-slate-800 hover:border-slate-300 hover:shadow-sm hover:bg-slate-100 transition-all duration-150 cursor-pointer"
+                >
+                    <ExternalLink className="h-4 w-4" />
+                </button>
+            </Tooltip>
+            <Tooltip label={copied ? "Copied!" : "Copy link"}>
+                <button
+                    onClick={handleCopyLink}
+                    className="flex h-6 w-6 items-center justify-center rounded border border-slate-200 bg-white text-slate-500 hover:text-slate-800 hover:border-slate-300 hover:bg-slate-100 hover:shadow-sm transition-all duration-150 cursor-pointer"
+                >
+                    {copied ? (
+                        <Check className="h-4 w-4 text-emerald-500" />
+                    ) : (
+                        <Link2 className="h-4 w-4" />
+                    )}
+                </button>
+            </Tooltip>
+        </div>
+    );
+}
+
+// ── Stat card ──────────────────────────────────────────────────────────────
+function StatCard({
+    icon: Icon,
+    label,
+    value,
+    accent,
+}: {
+    icon: React.ElementType;
+    label: string;
+    value: React.ReactNode;
+    accent: string;
+}) {
+    return (
+        <div className="group relative flex flex-col gap-3 rounded-xl border border-slate-200/80 bg-white px-5 py-4 shadow-sm transition-all duration-200 hover:shadow-md hover:border-slate-300 overflow-hidden">
+            <div className={cn("absolute top-0 left-0 h-0.5 w-full rounded-t-xl", accent)} />
+            <div className="flex items-center justify-between">
+                <div className={cn(
+                    "flex h-8 w-8 items-center justify-center rounded-lg border border-slate-100",
+                    accent.replace("bg-", "bg-").replace("-500", "-50")
+                )}>
+                    <Icon className={cn("h-4 w-4", accent.replace("bg-", "text-"))} />
+                </div>
+            </div>
+            <div>
+                <p className="text-2xl font-bold tracking-tight text-slate-900">{value}</p>
+                <p className="text-xs font-medium text-slate-500 mt-0.5">{label}</p>
+            </div>
+        </div>
+    );
+}
+
+// ── Section header ─────────────────────────────────────────────────────────
+function SectionHeader({
+    icon: Icon,
+    title,
+    count,
+    onAdd,
+    addLabel,
+}: {
+    icon: React.ElementType;
+    title: string;
+    count?: number;
+    onAdd?: () => void;
+    addLabel?: string;
+}) {
+    return (
+        <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+                <Icon className="h-4 w-4 text-slate-400" />
+                <h3 className="text-sm font-semibold text-slate-700">{title}</h3>
+                {count !== undefined && (
+                    <span className="inline-flex items-center justify-center h-4 min-w-4 px-1 rounded text-[10px] font-semibold bg-slate-100 text-slate-500">
+                        {count}
+                    </span>
+                )}
+            </div>
+            {onAdd && (
+                <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={onAdd}
+                    className="h-7 px-2 text-xs text-slate-500 hover:text-slate-800 hover:bg-slate-100"
+                >
+                    <Plus className="h-3.5 w-3.5 mr-1" />
+                    {addLabel || "Add"}
+                </Button>
+            )}
+        </div>
+    );
+}
+
+// ── Empty state ────────────────────────────────────────────────────────────
+function EmptyState({
+    icon: Icon,
+    title,
+    description,
+    actionLabel,
+    onAction,
+}: {
+    icon: React.ElementType;
+    title: string;
+    description: string;
+    actionLabel?: string;
+    onAction?: () => void;
+}) {
+    return (
+        <div className="flex flex-col items-center justify-center py-10 text-center px-4">
+            <div className="h-12 w-12 rounded-full bg-slate-50 border border-slate-200 flex items-center justify-center mb-3">
+                <Icon className="h-5 w-5 text-slate-300" />
+            </div>
+            <p className="text-sm font-semibold text-slate-700">{title}</p>
+            <p className="text-xs text-slate-400 mt-1 mb-4 max-w-[220px] leading-relaxed">{description}</p>
+            {actionLabel && onAction && (
+                <button
+                    onClick={onAction}
+                    className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-600 border border-slate-200 rounded-lg px-4 py-1.5 bg-white hover:bg-slate-50 hover:border-slate-300 hover:text-slate-800 transition-all duration-150 shadow-sm"
+                >
+                    <Plus className="h-3.5 w-3.5" />
+                    {actionLabel}
+                </button>
+            )}
+        </div>
+    );
+}
+
+// ── Shared User Row Component ──────────────────────────────────────────────
+function UserRow({ user, subtitle, href }: { user: any; subtitle?: string; href?: string }) {
+    const router = useRouter();
+    const name = user.name || user.email || "Unknown";
+    const initials = name.slice(0, 2).toUpperCase();
+
+    return (
+        <UserProfileHoverCard userId={user.id}>
+            <div
+                onClick={() => href && router.push(href)}
+                className="flex items-center gap-3 px-5 py-3 hover:bg-slate-50/70 transition-colors cursor-pointer group"
+            >
+                <div
+                    className="h-8 w-8 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0"
+                    style={{ backgroundColor: user.color || "#ec4899" }}
+                >
+                    {user.avatarUrl || user.image ? (
+                        <img src={user.avatarUrl || user.image} alt={name} className="h-full w-full rounded-full object-cover" />
+                    ) : initials}
+                </div>
+                <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-slate-700 truncate group-hover:text-slate-900 transition-colors">{name}</p>
+                    {subtitle && <p className="text-xs text-slate-500 truncate">{subtitle}</p>}
+                </div>
+                {href && <RowActions url={href} />}
+            </div>
+        </UserProfileHoverCard>
+    );
+}
 
 export function TeamOverviewTab({ team }: { team: any }) {
+    const router = useRouter();
+
+    const [projectModalOpen, setProjectModalOpen] = useState(false);
+    const [folderModalOpen, setFolderModalOpen] = useState(false);
+    const [listModalOpen, setListModalOpen] = useState(false);
+    const [chatModalOpen, setChatModalOpen] = useState(false);
+    const [shareModalOpen, setShareModalOpen] = useState(false);
+
+    const members = useMemo(() => team?.members ?? team?.teams ?? [], [team]);
+    const projects = useMemo(() => team?.projects ?? [], [team]);
+    const folders = useMemo(() => team?.folders ?? [], [team]);
+    const lists = useMemo(() => team?.lists ?? [], [team]);
+    const channels = useMemo(() => team?.channels ?? [], [team]);
+    const cofounders = useMemo(() => team?.cofounders ?? [], [team]);
+    const mentors = useMemo(() => team?.mentors ?? [], [team]);
+    const investors = useMemo(() => team?.investors ?? [], [team]);
+    const partners = useMemo(() => team?.partners ?? [], [team]);
+    const customers = useMemo(() => team?.customers ?? [], [team]);
+
     if (!team) {
         return (
-            <div className="flex items-center justify-center h-64">
-                <p className="text-sm text-muted-foreground">No team data available</p>
+            <div className="flex h-[50vh] flex-col items-center justify-center gap-4 text-center">
+                <div className="rounded-full bg-slate-50 border border-slate-200 p-4">
+                    <Users className="h-8 w-8 text-slate-400" />
+                </div>
+                <div className="space-y-1">
+                    <h3 className="text-lg font-medium text-slate-900">No team data available</h3>
+                    <p className="text-sm text-slate-500">Select a team to view its overview.</p>
+                </div>
             </div>
         );
     }
 
     return (
-        <div className="space-y-4 sm:space-y-6 px-2 sm:px-0">
-            {/* Tabs Section */}
-            <Tabs defaultValue="overview" className="w-full">
-                {/* Horizontal Scrolling Tabs with Better Visibility */}
-                <div className="relative -mx-2 sm:mx-0">
-                    <TabsList className="w-full inline-flex sm:flex justify-start bg-slate-800 border border-slate-600 rounded-lg sm:rounded-xl h-auto p-1 overflow-x-auto sm:overflow-visible overflow-y-hidden">
-                        <div className="flex gap-1 md:flex-wrap min-w-max sm:min-w-0 sm:w-full px-1">
-                            {teamTabs.map((tab) => (
-                                <TabsTrigger
-                                    key={tab.key}
-                                    value={tab.key}
-                                    className="flex items-center gap-2 whitespace-nowrap rounded-md px-3 sm:px-4 py-2.5 sm:py-3 text-slate-300 bg-transparent hover:bg-slate-700/50 hover:text-white data-[state=active]:bg-gradient-to-r data-[state=active]:from-cyan-600 data-[state=active]:to-cyan-500 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-cyan-500/20 transition-all duration-200 font-medium"
-                                >
-                                    <span className="flex-shrink-0">{tab.icon}</span>
-                                    <span className="text-xs sm:text-sm font-semibold">{tab.label}</span>
-                                </TabsTrigger>
-                            ))}
-                        </div>
-                    </TabsList>
-                </div>
+        <>
+            <div className="h-full w-full overflow-y-auto fade-in-up animate-in slide-in-from-bottom-5 duration-500">
+                <div className="w-full px-6 py-6 space-y-5">
 
-                {/* Overview Tab */}
-                <TabsContent value="overview" className="mt-4 sm:mt-6 space-y-4 sm:space-y-6">
-                    {/* Hero Section with Team Vision */}
-                    <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 sm:gap-6">
-                        {/* Team Vision Card */}
-                        <Card className="bg-gradient-to-br from-slate-900 to-slate-800 border-slate-700 text-white overflow-hidden">
-                            <CardContent className="p-4 sm:p-6">
-                                <div className="space-y-3 sm:space-y-4">
-                                    <div className="flex items-center gap-2">
-                                        <div className="h-7 w-7 sm:h-8 sm:w-8 rounded-lg bg-blue-500/20 flex items-center justify-center flex-shrink-0">
-                                            <LayoutGrid className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-blue-400" />
-                                        </div>
-                                        <span className="text-xs sm:text-sm font-medium text-blue-400">Team Vision</span>
-                                    </div>
+                    {/* ── Hero ─────────────────────────────────────────── */}
+                    <div className="relative rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+                        <div
+                            className="absolute inset-0 opacity-[0.04] pointer-events-none"
+                            style={{ background: `radial-gradient(ellipse 80% 60% at 70% 50%, #ec4899, transparent)` }}
+                        />
+                        <div
+                            className="absolute top-0 left-0 right-0 h-0.5"
+                            style={{ background: `linear-gradient(90deg, #ec4899cc, transparent)` }}
+                        />
 
-                                    <h2 className="text-xl sm:text-2xl font-bold leading-tight">
-                                        {team.name || "Empowering the Future of Development"}
-                                    </h2>
+                        <div className="relative z-10 flex flex-col sm:flex-row gap-5 items-start p-6">
+                            <div className="h-12 w-12 rounded-xl flex items-center justify-center border shrink-0 bg-pink-50 border-pink-200 text-pink-500">
+                                <LayoutGrid className="h-6 w-6" />
+                            </div>
 
-                                    <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
-                                        {team.description || "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua."}
-                                    </p>
-
-                                    {/* Decorative 3D Illustration Placeholder */}
-                                    <div className="mt-4 sm:mt-6 h-40 sm:h-48 rounded-lg bg-slate-800/50 border border-slate-700 flex items-center justify-center">
-                                        <div className="text-center">
-                                            <LayoutGrid className="h-10 w-10 sm:h-12 sm:w-12 text-slate-600 mx-auto mb-2" />
-                                            <p className="text-xs text-slate-500">Team Visualization</p>
-                                        </div>
-                                    </div>
+                            <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                    <h1 className="text-lg font-bold text-slate-900 tracking-tight truncate">
+                                        {team.name || "Untitled Team"}
+                                    </h1>
+                                    <Badge variant="outline" className="text-xs capitalize border-pink-200 bg-pink-50 text-pink-700">
+                                        Team
+                                    </Badge>
                                 </div>
-                            </CardContent>
-                        </Card>
+                                <p className="mt-1 text-sm text-slate-500 max-w-2xl leading-relaxed line-clamp-2">
+                                    {team.description || "No description — click Settings to add context for your team."}
+                                </p>
+                                <div className="flex flex-wrap gap-3 mt-2">
+                                    {team.createdAt && (
+                                        <span className="flex items-center gap-1.5 text-xs text-slate-400">
+                                            <Clock className="h-3.5 w-3.5" />
+                                            Created {formatDistanceToNow(new Date(team.createdAt), { addSuffix: true })}
+                                        </span>
+                                    )}
+                                </div>
+                            </div>
 
-                        {/* Key Metrics & Quick Info */}
-                        <div className="space-y-3 sm:space-y-4">
-                            {/* Key Metrics */}
-                            <Card className="bg-slate-900 border-slate-700">
-                                <CardHeader className="pb-2 sm:pb-3 px-4 sm:px-6 pt-4 sm:pt-6">
-                                    <CardTitle className="text-sm sm:text-base text-white">Key Metrics</CardTitle>
-                                </CardHeader>
-                                <CardContent className="px-4 sm:px-6 pb-4 sm:pb-6">
-                                    <div className="grid grid-cols-3 gap-2 sm:gap-4">
-                                        <div className="text-center">
-                                            <div className="relative inline-flex items-center justify-center">
-                                                <svg className="h-16 w-16 sm:h-20 sm:w-20 transform -rotate-90">
-                                                    <circle
-                                                        cx="32"
-                                                        cy="32"
-                                                        r="28"
-                                                        stroke="currentColor"
-                                                        strokeWidth="5"
-                                                        fill="none"
-                                                        className="text-slate-700 sm:hidden"
-                                                    />
-                                                    <circle
-                                                        cx="32"
-                                                        cy="32"
-                                                        r="28"
-                                                        stroke="currentColor"
-                                                        strokeWidth="5"
-                                                        fill="none"
-                                                        strokeDasharray={`${2 * Math.PI * 28}`}
-                                                        strokeDashoffset={`${2 * Math.PI * 28 * (1 - 0.9)}`}
-                                                        className="text-cyan-400 sm:hidden"
-                                                        strokeLinecap="round"
-                                                    />
-                                                    <circle
-                                                        cx="40"
-                                                        cy="40"
-                                                        r="32"
-                                                        stroke="currentColor"
-                                                        strokeWidth="6"
-                                                        fill="none"
-                                                        className="text-slate-700 hidden sm:block"
-                                                    />
-                                                    <circle
-                                                        cx="40"
-                                                        cy="40"
-                                                        r="32"
-                                                        stroke="currentColor"
-                                                        strokeWidth="6"
-                                                        fill="none"
-                                                        strokeDasharray={`${2 * Math.PI * 32}`}
-                                                        strokeDashoffset={`${2 * Math.PI * 32 * (1 - 0.9)}`}
-                                                        className="text-cyan-400 hidden sm:block"
-                                                        strokeLinecap="round"
-                                                    />
-                                                </svg>
-                                                <span className="absolute text-base sm:text-lg font-bold text-white">90%</span>
-                                            </div>
-                                            <p className="text-[10px] sm:text-xs text-slate-400 mt-1 sm:mt-2">Funding 90%</p>
-                                        </div>
-
-                                        <div className="text-center">
-                                            <div className="relative inline-flex items-center justify-center">
-                                                <svg className="h-16 w-16 sm:h-20 sm:w-20 transform -rotate-90">
-                                                    <circle
-                                                        cx="32"
-                                                        cy="32"
-                                                        r="28"
-                                                        stroke="currentColor"
-                                                        strokeWidth="5"
-                                                        fill="none"
-                                                        className="text-slate-700 sm:hidden"
-                                                    />
-                                                    <circle
-                                                        cx="32"
-                                                        cy="32"
-                                                        r="28"
-                                                        stroke="currentColor"
-                                                        strokeWidth="5"
-                                                        fill="none"
-                                                        strokeDasharray={`${2 * Math.PI * 28}`}
-                                                        strokeDashoffset={`${2 * Math.PI * 28 * (1 - 0.9)}`}
-                                                        className="text-cyan-400 sm:hidden"
-                                                        strokeLinecap="round"
-                                                    />
-                                                    <circle
-                                                        cx="40"
-                                                        cy="40"
-                                                        r="32"
-                                                        stroke="currentColor"
-                                                        strokeWidth="6"
-                                                        fill="none"
-                                                        className="text-slate-700 hidden sm:block"
-                                                    />
-                                                    <circle
-                                                        cx="40"
-                                                        cy="40"
-                                                        r="32"
-                                                        stroke="currentColor"
-                                                        strokeWidth="6"
-                                                        fill="none"
-                                                        strokeDasharray={`${2 * Math.PI * 32}`}
-                                                        strokeDashoffset={`${2 * Math.PI * 32 * (1 - 0.9)}`}
-                                                        className="text-cyan-400 hidden sm:block"
-                                                        strokeLinecap="round"
-                                                    />
-                                                </svg>
-                                                <span className="absolute text-base sm:text-lg font-bold text-white">90%</span>
-                                            </div>
-                                            <p className="text-[10px] sm:text-xs text-slate-400 mt-1 sm:mt-2">Stage Beta Launch</p>
-                                        </div>
-
-                                        <div className="text-center">
-                                            <div className="relative inline-flex items-center justify-center">
-                                                <svg className="h-16 w-16 sm:h-20 sm:w-20 transform -rotate-90">
-                                                    <circle
-                                                        cx="32"
-                                                        cy="32"
-                                                        r="28"
-                                                        stroke="currentColor"
-                                                        strokeWidth="5"
-                                                        fill="none"
-                                                        className="text-slate-700 sm:hidden"
-                                                    />
-                                                    <circle
-                                                        cx="32"
-                                                        cy="32"
-                                                        r="28"
-                                                        stroke="currentColor"
-                                                        strokeWidth="5"
-                                                        fill="none"
-                                                        strokeDasharray={`${2 * Math.PI * 28}`}
-                                                        strokeDashoffset={`${2 * Math.PI * 28 * (1 - 0.5)}`}
-                                                        className="text-slate-500 sm:hidden"
-                                                        strokeLinecap="round"
-                                                    />
-                                                    <circle
-                                                        cx="40"
-                                                        cy="40"
-                                                        r="32"
-                                                        stroke="currentColor"
-                                                        strokeWidth="6"
-                                                        fill="none"
-                                                        className="text-slate-700 hidden sm:block"
-                                                    />
-                                                    <circle
-                                                        cx="40"
-                                                        cy="40"
-                                                        r="32"
-                                                        stroke="currentColor"
-                                                        strokeWidth="6"
-                                                        fill="none"
-                                                        strokeDasharray={`${2 * Math.PI * 32}`}
-                                                        strokeDashoffset={`${2 * Math.PI * 32 * (1 - 0.5)}`}
-                                                        className="text-slate-500 hidden sm:block"
-                                                        strokeLinecap="round"
-                                                    />
-                                                </svg>
-                                                <span className="absolute text-base sm:text-lg font-bold text-white">50%</span>
-                                            </div>
-                                            <p className="text-[10px] sm:text-xs text-slate-400 mt-1 sm:mt-2">Timeline Q4 2024</p>
-                                        </div>
-                                    </div>
-                                </CardContent>
-                            </Card>
-
-                            {/* Recent Updates */}
-                            <Card className="bg-slate-900 border-slate-700">
-                                <CardHeader className="pb-2 sm:pb-3 px-4 sm:px-6 pt-4 sm:pt-6">
-                                    <CardTitle className="text-sm sm:text-base text-white">Recent Updates</CardTitle>
-                                </CardHeader>
-                                <CardContent className="px-4 sm:px-6 pb-4 sm:pb-6">
-                                    <ul className="space-y-2 text-xs sm:text-sm text-slate-300">
-                                        <li className="flex items-start gap-2">
-                                            <span className="text-cyan-400 mt-1 flex-shrink-0">•</span>
-                                            <span>2021-1.6 fixed 2021</span>
-                                        </li>
-                                        <li className="flex items-start gap-2">
-                                            <span className="text-cyan-400 mt-1 flex-shrink-0">•</span>
-                                            <span>2013 $ 80 on the la frus touunert</span>
-                                        </li>
-                                        <li className="flex items-start gap-2">
-                                            <span className="text-cyan-400 mt-1 flex-shrink-0">•</span>
-                                            <span>Da rte & se se on th ay ad age of share sas ting fit mpolity houenm and alns out</span>
-                                        </li>
-                                    </ul>
-                                </CardContent>
-                            </Card>
-
-                            {/* Quick Links */}
-                            <Card className="bg-slate-900 border-slate-700">
-                                <CardHeader className="pb-2 sm:pb-3 px-4 sm:px-6 pt-4 sm:pt-6">
-                                    <CardTitle className="text-sm sm:text-base text-white">Quick Links</CardTitle>
-                                </CardHeader>
-                                <CardContent className="px-4 sm:px-6 pb-4 sm:pb-6">
-                                    <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2">
-                                        <button className="px-3 sm:px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white text-xs sm:text-sm rounded-md transition-colors whitespace-nowrap">
-                                            View Full Report
-                                        </button>
-                                        <button className="px-3 sm:px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white text-xs sm:text-sm rounded-md transition-colors whitespace-nowrap">
-                                            Meet the Team
-                                        </button>
-                                        <button className="px-3 sm:px-4 py-2 bg-cyan-500 hover:bg-cyan-600 text-white text-xs sm:text-sm rounded-md transition-colors whitespace-nowrap">
-                                            Contact Us
-                                        </button>
-                                    </div>
-                                </CardContent>
-                            </Card>
+                            <button
+                                onClick={() => router.push(`?tab=settings`)}
+                                className={cn(
+                                    "shrink-0 inline-flex items-center gap-2 rounded-lg border px-3 py-1.5",
+                                    "text-xs font-medium text-slate-600",
+                                    "border-slate-200 bg-white/80 backdrop-blur-sm shadow-sm",
+                                    "hover:bg-slate-50 hover:border-slate-300 hover:text-slate-900 hover:shadow",
+                                    "transition-all duration-150 active:scale-[0.98] cursor-pointer"
+                                )}
+                            >
+                                <Settings2 className="h-3.5 w-3.5 text-slate-400" />
+                                Settings
+                            </button>
                         </div>
                     </div>
-                </TabsContent>
 
-                {/* Teams Tab */}
-                <TabsContent value="teams" className="mt-4 sm:mt-6">
-                    <Card>
-                        <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 px-4 sm:px-6 pt-4 sm:pt-6">
-                            <CardTitle className="text-base sm:text-lg">Team Members</CardTitle>
-                            {team?.teamId && (
-                                <Link
-                                    href={DASHBOARD_ROUTES.TEAM(team.teamId)}
-                                    className="text-xs sm:text-sm text-cyan-600 hover:text-cyan-700 hover:underline font-medium"
-                                >
-                                    View full team →
-                                </Link>
+                    {/* ── Stats ────────────────────────────────────────── */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                        <StatCard icon={Users} label="Members" value={members.length} accent="bg-pink-500" />
+                        <StatCard icon={FolderKanban} label="Projects" value={projects.length} accent="bg-orange-500" />
+                        <StatCard icon={List} label="Lists" value={lists.length} accent="bg-emerald-500" />
+                        <StatCard icon={MessageSquare} label="Channels" value={channels.length} accent="bg-blue-500" />
+                    </div>
+
+                    {/* ── Projects + Channels ───────────────────────────── */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {/* Projects */}
+                        <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+                            <div className="px-5 pt-4 pb-3 border-b border-slate-100">
+                                <SectionHeader icon={FolderKanban} title="Projects" count={projects.length} onAdd={() => setProjectModalOpen(true)} addLabel="New Project" />
+                            </div>
+                            {projects.length === 0 ? (
+                                <EmptyState
+                                    icon={FolderKanban}
+                                    title="No projects yet"
+                                    description="Projects help track goals and deliverables for this team."
+                                    actionLabel="Add Project"
+                                    onAction={() => setProjectModalOpen(true)}
+                                />
+                            ) : (
+                                <div className="divide-y divide-slate-50">
+                                    {projects.slice(0, 6).map((project: any) => {
+                                        const url = `/dashboard/projects/${project.id}`;
+                                        return (
+                                            <div
+                                                key={project.id}
+                                                onClick={() => router.push(url)}
+                                                className="group flex items-center gap-3 px-5 py-2.5 hover:bg-slate-50/70 transition-colors cursor-pointer"
+                                            >
+                                                <div
+                                                    className="h-6 w-6 rounded-md flex items-center justify-center shrink-0 text-white text-[10px] font-bold"
+                                                    style={{ backgroundColor: project.color || "#f97316" }}
+                                                >
+                                                    {(project.name || "P")[0].toUpperCase()}
+                                                </div>
+                                                <span className="flex-1 text-sm text-slate-700 font-medium truncate group-hover:text-indigo-600 transition-colors">
+                                                    {project.name}
+                                                </span>
+                                                <RowActions url={url} />
+                                            </div>
+                                        );
+                                    })}
+                                    {projects.length > 6 && (
+                                        <div className="px-5 py-2 text-xs text-slate-400 hover:text-slate-600 cursor-pointer hover:bg-slate-50 transition-colors">
+                                            +{projects.length - 6} more projects
+                                        </div>
+                                    )}
+                                </div>
                             )}
-                        </CardHeader>
-                        <CardContent className="px-4 sm:px-6 pb-4 sm:pb-6">
-                            {team?.teams && team.teams.length > 0 ? (
-                                <div className="grid grid-cols-1 gap-3 sm:gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                                    {team.teams.map((m: any) => (
-                                        <UserCard
-                                            key={m.id}
-                                            id={m.id}
-                                            title={m.name}
-                                            subtitle={m.role}
-                                            href={DASHBOARD_ROUTES.PROFILES(m.id)}
-                                        />
+                        </div>
+
+                        {/* Channels */}
+                        <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+                            <div className="px-5 pt-4 pb-3 border-b border-slate-100">
+                                <SectionHeader icon={MessageSquare} title="Channels" count={channels.length} onAdd={() => setChatModalOpen(true)} addLabel="New Channel" />
+                            </div>
+                            {channels.length === 0 ? (
+                                <EmptyState
+                                    icon={MessageSquare}
+                                    title="No channels yet"
+                                    description="Hubs for team conversation."
+                                    actionLabel="Add Channel"
+                                    onAction={() => setChatModalOpen(true)}
+                                />
+                            ) : (
+                                <div className="divide-y divide-slate-50">
+                                    {channels.slice(0, 8).map((channel: any) => {
+                                        const url = `/dashboard/channels/${channel.id}`;
+                                        return (
+                                            <div
+                                                key={channel.id}
+                                                onClick={() => router.push(url)}
+                                                className="group flex items-center gap-3 px-5 py-2.5 hover:bg-slate-50/70 transition-colors cursor-pointer"
+                                            >
+                                                <MessageSquare className="h-4 w-4 text-slate-400 shrink-0" />
+                                                <span className="flex-1 text-sm text-slate-700 font-medium truncate group-hover:text-indigo-600 transition-colors">
+                                                    #{channel.name}
+                                                </span>
+                                                <RowActions url={url} />
+                                                <ChevronRight className="h-3.5 w-3.5 text-slate-300 group-hover:text-slate-500 transition-colors shrink-0" />
+                                            </div>
+                                        );
+                                    })}
+                                    {channels.length > 8 && (
+                                        <div className="px-5 py-2 text-xs text-slate-400 hover:text-slate-600 cursor-pointer hover:bg-slate-50 transition-colors">
+                                            +{channels.length - 8} more channels
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* ── Folders + Lists ───────────────────────────────── */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {/* Folders */}
+                        <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+                            <div className="px-5 pt-4 pb-3 border-b border-slate-100">
+                                <SectionHeader icon={FolderOpen} title="Folders" count={folders.length} onAdd={() => setFolderModalOpen(true)} addLabel="New Folder" />
+                            </div>
+                            {folders.length === 0 ? (
+                                <EmptyState
+                                    icon={FolderOpen}
+                                    title="No folders yet"
+                                    description="Folders help organize lists inside this team."
+                                    actionLabel="Add Folder"
+                                    onAction={() => setFolderModalOpen(true)}
+                                />
+                            ) : (
+                                <div className="divide-y divide-slate-50">
+                                    {folders.slice(0, 8).map((folder: any) => {
+                                        const url = `/dashboard/folders/${folder.id}`;
+                                        return (
+                                            <div
+                                                key={folder.id}
+                                                onClick={() => router.push(url)}
+                                                className="group flex items-center gap-3 px-5 py-2.5 hover:bg-slate-50/70 transition-colors cursor-pointer"
+                                            >
+                                                <FolderOpen className="h-4 w-4 text-slate-400 shrink-0" />
+                                                <span className="flex-1 text-sm text-slate-700 font-medium truncate group-hover:text-indigo-600 transition-colors">
+                                                    {folder.name}
+                                                </span>
+                                                <RowActions url={url} />
+                                                <ChevronRight className="h-3.5 w-3.5 text-slate-300 group-hover:text-slate-500 transition-colors shrink-0" />
+                                            </div>
+                                        );
+                                    })}
+                                    {folders.length > 8 && (
+                                        <div className="px-5 py-2 text-xs text-slate-400 hover:text-slate-600 cursor-pointer hover:bg-slate-50 transition-colors">
+                                            +{folders.length - 8} more folders
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Lists */}
+                        <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+                            <div className="px-5 pt-4 pb-3 border-b border-slate-100">
+                                <SectionHeader icon={List} title="Lists" count={lists.length} onAdd={() => setListModalOpen(true)} addLabel="New List" />
+                            </div>
+                            {lists.length === 0 ? (
+                                <EmptyState
+                                    icon={List}
+                                    title="No lists yet"
+                                    description="Lists are where tasks live — create your first one."
+                                    actionLabel="Add List"
+                                    onAction={() => setListModalOpen(true)}
+                                />
+                            ) : (
+                                <div className="divide-y divide-slate-50">
+                                    {lists.slice(0, 8).map((list: any) => {
+                                        const url = `/dashboard/lists/${list.id}`;
+                                        return (
+                                            <div
+                                                key={list.id}
+                                                onClick={() => router.push(url)}
+                                                className="group flex items-center gap-3 px-5 py-2.5 hover:bg-slate-50/70 transition-colors cursor-pointer"
+                                            >
+                                                {list.color ? (
+                                                    <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: list.color }} />
+                                                ) : (
+                                                    <List className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                                                )}
+                                                <span className="flex-1 text-sm text-slate-700 font-medium truncate group-hover:text-indigo-600 transition-colors">
+                                                    {list.name}
+                                                </span>
+                                                <RowActions url={url} />
+                                                <ChevronRight className="h-3.5 w-3.5 text-slate-300 group-hover:text-slate-500 transition-colors shrink-0" />
+                                            </div>
+                                        );
+                                    })}
+                                    {lists.length > 8 && (
+                                        <div className="px-5 py-2 text-xs text-slate-400 hover:text-slate-600 cursor-pointer hover:bg-slate-50 transition-colors">
+                                            +{lists.length - 8} more lists
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* ── Team Network ──────────────────────────────────── */}
+                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+
+                        {/* Team Members */}
+                        <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+                            <div className="px-5 pt-4 pb-3 border-b border-slate-100">
+                                <SectionHeader icon={Users} title="Team Members" count={members.length} onAdd={() => setShareModalOpen(true)} addLabel="Invite" />
+                            </div>
+                            {members.length === 0 ? (
+                                <EmptyState icon={Users} title="No team members yet" description="Add members to start collaborating." />
+                            ) : (
+                                <div className="divide-y divide-slate-50 max-h-64 overflow-y-auto">
+                                    {members.map((m: any) => (
+                                        <UserRow key={m.id} user={m.user ?? m} subtitle={m.role} href={DASHBOARD_ROUTES.PROFILES((m.user ?? m).id)} />
                                     ))}
                                 </div>
-                            ) : (
-                                <p className="text-xs sm:text-sm text-muted-foreground text-center py-6 sm:py-8">No team members added yet</p>
                             )}
-                        </CardContent>
-                    </Card>
-                </TabsContent>
+                        </div>
 
-                {/* Co-Founders Tab */}
-                <TabsContent value="cofounders" className="mt-4 sm:mt-6">
-                    <Card>
-                        <CardHeader className="px-4 sm:px-6 pt-4 sm:pt-6">
-                            <CardTitle className="text-base sm:text-lg">Co-Founders</CardTitle>
-                        </CardHeader>
-                        <CardContent className="px-4 sm:px-6 pb-4 sm:pb-6">
-                            {team?.cofounders && team.cofounders.length > 0 ? (
-                                <div className="grid grid-cols-1 gap-3 sm:gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                                    {team.cofounders.map((m: any) => (
-                                        <UserCard
-                                            key={m.id}
-                                            id={m.id}
-                                            title={m.name}
-                                            subtitle={m.title}
-                                            href={DASHBOARD_ROUTES.PROFILES(m.id)}
-                                        />
+                        {/* Co-Founders */}
+                        {cofounders.length > 0 && (
+                            <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+                                <div className="px-5 pt-4 pb-3 border-b border-slate-100">
+                                    <SectionHeader icon={UserPlus} title="Co-Founders" count={cofounders.length} />
+                                </div>
+                                <div className="divide-y divide-slate-50 max-h-64 overflow-y-auto">
+                                    {cofounders.map((m: any) => (
+                                        <UserRow key={m.id} user={m} subtitle={m.title} href={DASHBOARD_ROUTES.PROFILES(m.id)} />
                                     ))}
                                 </div>
-                            ) : (
-                                <p className="text-xs sm:text-sm text-muted-foreground text-center py-6 sm:py-8">No co-founders added yet</p>
-                            )}
-                        </CardContent>
-                    </Card>
-                </TabsContent>
+                            </div>
+                        )}
 
-                {/* Mentors Tab */}
-                <TabsContent value="mentors" className="mt-4 sm:mt-6">
-                    <Card>
-                        <CardHeader className="px-4 sm:px-6 pt-4 sm:pt-6">
-                            <CardTitle className="text-base sm:text-lg">Mentors</CardTitle>
-                        </CardHeader>
-                        <CardContent className="px-4 sm:px-6 pb-4 sm:pb-6">
-                            {team?.mentors && team.mentors.length > 0 ? (
-                                <div className="grid grid-cols-1 gap-3 sm:gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                                    {team.mentors.map((m: any) => (
-                                        <UserCard
-                                            key={m.id}
-                                            id={m.id}
-                                            title={m.name}
-                                            subtitle={m.expertise}
-                                            href={DASHBOARD_ROUTES.PROFILES(m.id)}
-                                        />
+                        {/* Mentors */}
+                        {mentors.length > 0 && (
+                            <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+                                <div className="px-5 pt-4 pb-3 border-b border-slate-100">
+                                    <SectionHeader icon={GraduationCap} title="Mentors" count={mentors.length} />
+                                </div>
+                                <div className="divide-y divide-slate-50 max-h-64 overflow-y-auto">
+                                    {mentors.map((m: any) => (
+                                        <UserRow key={m.id} user={m} subtitle={m.expertise} href={DASHBOARD_ROUTES.PROFILES(m.id)} />
                                     ))}
                                 </div>
-                            ) : (
-                                <p className="text-xs sm:text-sm text-muted-foreground text-center py-6 sm:py-8">No mentors added yet</p>
-                            )}
-                        </CardContent>
-                    </Card>
-                </TabsContent>
+                            </div>
+                        )}
 
-                {/* Investors Tab */}
-                <TabsContent value="investors" className="mt-4 sm:mt-6">
-                    <Card>
-                        <CardHeader className="px-4 sm:px-6 pt-4 sm:pt-6">
-                            <CardTitle className="text-base sm:text-lg">Investors</CardTitle>
-                        </CardHeader>
-                        <CardContent className="px-4 sm:px-6 pb-4 sm:pb-6">
-                            {team?.investors && team.investors.length > 0 ? (
-                                <div className="grid grid-cols-1 gap-3 sm:gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                                    {team.investors.map((m: any) => (
-                                        <UserCard
-                                            key={m.id}
-                                            id={m.id}
-                                            title={m.name}
-                                            subtitle={m.firm || m.type}
-                                            href={DASHBOARD_ROUTES.PROFILES(m.id)}
-                                        />
+                        {/* Investors */}
+                        {investors.length > 0 && (
+                            <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+                                <div className="px-5 pt-4 pb-3 border-b border-slate-100">
+                                    <SectionHeader icon={TrendingUp} title="Investors" count={investors.length} />
+                                </div>
+                                <div className="divide-y divide-slate-50 max-h-64 overflow-y-auto">
+                                    {investors.map((m: any) => (
+                                        <UserRow key={m.id} user={m} subtitle={m.firm || m.type} href={DASHBOARD_ROUTES.PROFILES(m.id)} />
                                     ))}
                                 </div>
-                            ) : (
-                                <p className="text-xs sm:text-sm text-muted-foreground text-center py-6 sm:py-8">No investors added yet</p>
-                            )}
-                        </CardContent>
-                    </Card>
-                </TabsContent>
+                            </div>
+                        )}
 
-                {/* Partners Tab */}
-                <TabsContent value="partners" className="mt-4 sm:mt-6">
-                    <Card>
-                        <CardHeader className="px-4 sm:px-6 pt-4 sm:pt-6">
-                            <CardTitle className="text-base sm:text-lg">Partners</CardTitle>
-                        </CardHeader>
-                        <CardContent className="px-4 sm:px-6 pb-4 sm:pb-6">
-                            {team?.partners && team.partners.length > 0 ? (
-                                <div className="grid grid-cols-1 gap-3 sm:gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                                    {team.partners.map((m: any) => (
-                                        <UserCard
-                                            key={m.id}
-                                            id={m.id}
-                                            title={m.name}
-                                            subtitle={m.type}
-                                            href={DASHBOARD_ROUTES.PROFILES(m.id)}
-                                        />
+                        {/* Partners */}
+                        {partners.length > 0 && (
+                            <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+                                <div className="px-5 pt-4 pb-3 border-b border-slate-100">
+                                    <SectionHeader icon={Handshake} title="Partners" count={partners.length} />
+                                </div>
+                                <div className="divide-y divide-slate-50 max-h-64 overflow-y-auto">
+                                    {partners.map((m: any) => (
+                                        <UserRow key={m.id} user={m} subtitle={m.type} href={DASHBOARD_ROUTES.PROFILES(m.id)} />
                                     ))}
                                 </div>
-                            ) : (
-                                <p className="text-xs sm:text-sm text-muted-foreground text-center py-6 sm:py-8">No partners added yet</p>
-                            )}
-                        </CardContent>
-                    </Card>
-                </TabsContent>
+                            </div>
+                        )}
 
-                {/* Customers Tab */}
-                <TabsContent value="customers" className="mt-4 sm:mt-6">
-                    <Card>
-                        <CardHeader className="px-4 sm:px-6 pt-4 sm:pt-6">
-                            <CardTitle className="text-base sm:text-lg">Customers</CardTitle>
-                        </CardHeader>
-                        <CardContent className="px-4 sm:px-6 pb-4 sm:pb-6">
-                            {team?.customers && team.customers.length > 0 ? (
-                                <div className="grid grid-cols-1 gap-3 sm:gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                                    {team.customers.map((m: any) => (
-                                        <UserCard
-                                            key={m.id}
-                                            id={m.id}
-                                            title={m.name}
-                                            subtitle={m.segment}
-                                            href={DASHBOARD_ROUTES.PROFILES(m.id)}
-                                        />
+                        {/* Customers */}
+                        {customers.length > 0 && (
+                            <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+                                <div className="px-5 pt-4 pb-3 border-b border-slate-100">
+                                    <SectionHeader icon={ShoppingBag} title="Customers" count={customers.length} />
+                                </div>
+                                <div className="divide-y divide-slate-50 max-h-64 overflow-y-auto">
+                                    {customers.map((m: any) => (
+                                        <UserRow key={m.id} user={m} subtitle={m.segment} href={DASHBOARD_ROUTES.PROFILES(m.id)} />
                                     ))}
                                 </div>
-                            ) : (
-                                <p className="text-xs sm:text-sm text-muted-foreground text-center py-6 sm:py-8">No customers added yet</p>
-                            )}
-                        </CardContent>
-                    </Card>
-                </TabsContent>
-            </Tabs>
+                            </div>
+                        )}
 
-            <style jsx global>{`
-        .scrollbar-hide::-webkit-scrollbar {
-          display: none;
-        }
-        .scrollbar-hide {
-          -ms-overflow-style: none;
-          scrollbar-width: none;
-        }
-      `}</style>
-        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            {/* ── Modals ───────────────────────────────────────── */}
+            <ProjectCreationModal
+                open={projectModalOpen}
+                onOpenChange={setProjectModalOpen}
+                defaultTeamId={team.id}
+            />
+
+            <FolderCreationModal
+                context="TEAM"
+                contextId={team.id}
+                workspaceId={team.workspaceId}
+                open={folderModalOpen}
+                onOpenChange={setFolderModalOpen}
+            />
+
+            <ListCreationModal
+                context="TEAM"
+                contextId={team.id}
+                workspaceId={team.workspaceId}
+                open={listModalOpen}
+                onOpenChange={setListModalOpen}
+            />
+
+            <ChatCreationModal
+                open={chatModalOpen}
+                onOpenChange={setChatModalOpen}
+                onCreate={async () => {
+                    setChatModalOpen(false);
+                }}
+            />
+
+            <ShareModal
+                isOpen={shareModalOpen}
+                onClose={() => setShareModalOpen(false)}
+                itemType="team"
+                itemId={team.id}
+                itemName={team.name}
+                workspaceId={team.workspaceId}
+            />
+        </>
     );
 }

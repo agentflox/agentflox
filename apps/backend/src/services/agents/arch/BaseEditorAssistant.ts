@@ -22,6 +22,7 @@ export interface EditorAssistantMessageInput {
   context: unknown;
   onToken?: (text: string) => void;
   signal?: AbortSignal;
+  options?: { attachments?: any[]; contexts?: any[]; mentions?: any[] };
 }
 
 export type EditorAssistantResponse = z.infer<typeof EditorAssistantResponseSchema>;

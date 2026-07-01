@@ -31,7 +31,7 @@ export function useSwarmMessageStream(callbacks: AgentStreamCallbacks = {}): Use
         contexts?: any[];
     }) => {
         await genericSend({
-            url: `${BACKEND_URL}/v1/agents/swarm/${sessionId}/message-stream`,
+            url: `${BACKEND_URL}/v1/workforces/swarm/${sessionId}/message-stream`,
             body: { message, workspaceId, mentions, contexts },
         });
     }, [genericSend]);

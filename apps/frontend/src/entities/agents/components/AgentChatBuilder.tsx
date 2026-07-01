@@ -9,6 +9,7 @@ import {
 } from '@/entities/chats/components/MessageList';
 import { ChatComposer } from '@/entities/chats/components/ChatComposer';
 import { trpc } from '@/lib/trpc';
+import { agentService } from '@/services/agent.service';
 import { toast } from 'sonner';
 import { MessageRole } from '@agentflox/database/src/generated/prisma/client';
 import { AgentPreview } from './AgentBuilderPreview';
@@ -69,26 +70,30 @@ export const AgentChatBuilder: React.FC<AgentChatBuilderProps> = ({
   );
 
   // Mutations
-  const initializeMutation = trpc.agent.builder.initialize.useMutation({
-    onSuccess: async (data) => {
+  const [isInitializingBuilder, setIsInitializingBuilder] = useState(false);
+  const initializeBuilder = async (params: { agentId?: string; conversationId?: string; skipWelcome?: boolean }) => {
+    try {
+      setIsInitializingBuilder(true);
+      const res = await agentService.agents.builder.initialize(params);
+      if (!res.ok) {
+        const error = await res.json().catch(() => ({}));
+        throw new Error(error.userMessage || error.message || error.error || 'Failed to initialize conversation');
+      }
+      const data = await res.json();
+
       setConversationId(data.conversationId);
       setConversationState(data.conversationState);
       setUserContext(data.userContext);
       setAgentDraft(data.conversationState.agentDraft);
 
-      // Refetch agent data to get updated conversations list
       if (agentId) {
         await refetchAgent();
       }
 
-      // Refetch messages to get latest from DB
       const result = await refetchMessages();
 
-      // Load follow-ups from message metadata (persisted) and from API response
       if (result.data?.messages) {
         const followupsMapFromDB = new Map<string, MessageFollowup[]>();
-
-        // First, load follow-ups from persisted metadata
         result.data.messages.forEach(msg => {
           const followupsFromMetadata = (msg as any).followups;
           if (followupsFromMetadata && Array.isArray(followupsFromMetadata)) {
@@ -96,7 +101,6 @@ export const AgentChatBuilder: React.FC<AgentChatBuilderProps> = ({
           }
         });
 
-        // Then, add follow-ups from API response if provided (for new welcome messages)
         if (data.followups?.length) {
           const assistantMessages = result.data.messages.filter(m => m.role === 'ASSISTANT');
           const latestAssistant = assistantMessages[assistantMessages.length - 1];
@@ -109,12 +113,13 @@ export const AgentChatBuilder: React.FC<AgentChatBuilderProps> = ({
       }
 
       setIsInitializing(false);
-    },
-    onError: (error) => {
+    } catch (error: any) {
       toast.error(error.message || 'Failed to initialize conversation');
       setIsInitializing(false);
-    },
-  });
+    } finally {
+      setIsInitializingBuilder(false);
+    }
+  };
 
   // ─── Streaming message handler callbacks ──────────────────────────────────
 
@@ -214,23 +219,31 @@ export const AgentChatBuilder: React.FC<AgentChatBuilderProps> = ({
     onError: handleMessageError,
   });
 
-  const launchMutation = trpc.agent.builder.launch.useMutation({
-    onSuccess: async (data) => {
+  const [isLaunching, setIsLaunching] = useState(false);
+  const launchBuilder = async (params: { conversationId: string; agentId: string }) => {
+    try {
+      setIsLaunching(true);
+      const res = await agentService.agents.builder.launch(params);
+      if (!res.ok) {
+        const error = await res.json().catch(() => ({}));
+        throw new Error(error.userMessage || error.message || error.error || 'Failed to launch agent');
+      }
+      const data = await res.json();
+
       toast.success('Agent created successfully!');
       onAgentCreated?.(data.agentId);
 
-      // Refetch agent data to get updated status (ACTIVE)
       if (agentId) {
         await refetchAgent();
       }
 
-      // Show agent profile after launch
       setShowAgentProfile(true);
-    },
-    onError: (error) => {
+    } catch (error: any) {
       toast.error(error.message || 'Failed to launch agent');
-    },
-  });
+    } finally {
+      setIsLaunching(false);
+    }
+  };
 
   // Sync messages from database (only when not sending to avoid conflicts)
   useEffect(() => {
@@ -299,7 +312,7 @@ export const AgentChatBuilder: React.FC<AgentChatBuilderProps> = ({
 
   useEffect(() => {
     // Prevent multiple initializations
-    if (conversationId || initializeMutation.isPending || hasInitialized.current) return;
+    if (conversationId || isInitializingBuilder || hasInitialized.current) return;
 
     // If agentId is provided, wait for agent data to load before initializing
     if (agentId) {
@@ -314,21 +327,21 @@ export const AgentChatBuilder: React.FC<AgentChatBuilderProps> = ({
       if (storedConversationId) {
         // Load existing conversation
         console.log('[AgentChatBuilder] Loading existing conversation:', storedConversationId);
-        initializeMutation.mutate({
+        initializeBuilder({
           conversationId: storedConversationId,
           agentId: agentId
         });
       } else {
         // No existing conversation, create a new one and link to agent
         console.log('[AgentChatBuilder] Creating new conversation for agent:', agentId);
-        initializeMutation.mutate({
+        initializeBuilder({
           agentId: agentId
         });
       }
     } else {
       // No agentId provided, create new conversation
       hasInitialized.current = true;
-      initializeMutation.mutate({});
+      initializeBuilder({});
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [agentId, agentData, isLoadingAgent, conversationId]);
@@ -337,7 +350,7 @@ export const AgentChatBuilder: React.FC<AgentChatBuilderProps> = ({
   const markFollowupsConsumedMutation = trpc.chat.markFollowupsConsumed.useMutation();
 
   // ✅ Update handleSendMessage to update UI optimistically before mutation
-  const handleSendMessage = useCallback(async (message: string) => {
+  const handleSendMessage = useCallback(async (message: string, options?: { attachments?: any[]; webSearch?: boolean; contexts?: Array<{ type: string; id: string }>; mentions?: Array<{ id: string; name: string; type: 'agent' | 'task' }> }) => {
     if (!message.trim() || isSending || !conversationId) return;
 
     const optimisticId = `optimistic_${Date.now()}`;
@@ -377,6 +390,9 @@ export const AgentChatBuilder: React.FC<AgentChatBuilderProps> = ({
       conversationId,
       message,
       agentId: resolvedAgentId,
+      contexts: options?.contexts,
+      mentions: options?.mentions,
+      attachments: options?.attachments,
     });
   }, [sendStreamMessage, conversationId, isSending, messages, markFollowupsConsumedMutation, agentId, agentDraft, agentData]);
 
@@ -412,11 +428,11 @@ export const AgentChatBuilder: React.FC<AgentChatBuilderProps> = ({
       conversationId &&
       resolvedAgentId;
     if (canLaunch) {
-      launchMutation.mutate({ conversationId: conversationId!, agentId: resolvedAgentId! });
+      launchBuilder({ conversationId: conversationId!, agentId: resolvedAgentId! });
       return;
     }
     if (action.label) handleSendMessage(action.label);
-  }, [handleSendMessage, launchMutation, conversationId, agentDraft, agentId, agentData, conversationState]);
+  }, [handleSendMessage, conversationId, agentDraft, agentId, agentData, conversationState]);
 
   // Resize functionality replaced by ResizableSplitLayout
   const [profileWidth, setProfileWidth] = useState(480);
@@ -444,7 +460,7 @@ export const AgentChatBuilder: React.FC<AgentChatBuilderProps> = ({
             <div className="flex-1 overflow-hidden relative">
               <ChatMessageList
                 messages={messagesWithFollowups}
-                agentLabel="Agentflox Agent Builder"
+                label="Agentflox Agent Builder"
                 pendingAssistantMessage={
                   isSending ? (
                     <StreamingMessage
@@ -453,7 +469,7 @@ export const AgentChatBuilder: React.FC<AgentChatBuilderProps> = ({
                       currentNode={thinkingNode}
                       streamingContent={streamingContent}
                       isStreaming={isStreaming}
-                      agentLabel="Agentflox Agent Builder"
+                      label="Agentflox Agent Builder"
                     />
                   ) : null
                 }
@@ -466,6 +482,7 @@ export const AgentChatBuilder: React.FC<AgentChatBuilderProps> = ({
                 onSend={handleSendMessage}
                 isSending={isSending}
                 disabled={isSending || !conversationId}
+                minHeight={80}
               />
             </div>
           </div>

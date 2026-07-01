@@ -483,27 +483,27 @@ export function TaskCreationModal({
             />
 
             <Tabs defaultValue="details" className="flex-1 flex flex-col min-h-0">
-              <div className="px-6 border-b border-zinc-100 bg-zinc-50/30 shrink-0">
-                <TabsList className="h-10 bg-transparent p-0 w-full justify-start gap-6">
+              <div className="px-6 border-b border-zinc-200/70 bg-white shrink-0">
+                <TabsList className="h-11 bg-transparent p-0 w-full justify-start gap-1">
                   <TabsTrigger
                     value="details"
-                    className="h-full rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none px-0 font-medium text-xs text-zinc-500 data-[state=active]:text-blue-600 transition-none"
+                    className="group relative h-full rounded-none border-0 bg-transparent data-[state=active]:bg-transparent data-[state=active]:shadow-none px-3 font-medium text-[13px] text-zinc-500 data-[state=active]:text-zinc-900 transition-colors duration-150 cursor-pointer hover:text-zinc-700 after:absolute after:left-3 after:right-3 after:bottom-0 after:h-[2px] after:rounded-full after:bg-blue-600 after:scale-x-0 after:transition-transform after:duration-200 data-[state=active]:after:scale-x-100"
                   >
-                    <FileText className="h-3.5 w-3.5 mr-2" />
+                    <FileText className="h-3.5 w-3.5 mr-2 text-zinc-400 group-data-[state=active]:text-blue-600 transition-colors duration-150" />
                     Details
                   </TabsTrigger>
                   <TabsTrigger
                     value="attachments"
-                    className="h-full rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none px-0 font-medium text-xs text-zinc-500 data-[state=active]:text-blue-600 transition-none"
+                    className="group relative h-full rounded-none border-0 bg-transparent data-[state=active]:bg-transparent data-[state=active]:shadow-none px-3 font-medium text-[13px] text-zinc-500 data-[state=active]:text-zinc-900 transition-colors duration-150 cursor-pointer hover:text-zinc-700 after:absolute after:left-3 after:right-3 after:bottom-0 after:h-[2px] after:rounded-full after:bg-blue-600 after:scale-x-0 after:transition-transform after:duration-200 data-[state=active]:after:scale-x-100"
                   >
-                    <Paperclip className="h-3.5 w-3.5 mr-2" />
+                    <Paperclip className="h-3.5 w-3.5 mr-2 text-zinc-400 group-data-[state=active]:text-blue-600 transition-colors duration-150" />
                     Attachments
                   </TabsTrigger>
                   <TabsTrigger
                     value="options"
-                    className="h-full rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none px-0 font-medium text-xs text-zinc-500 data-[state=active]:text-blue-600 transition-none"
+                    className="group relative h-full rounded-none border-0 bg-transparent data-[state=active]:bg-transparent data-[state=active]:shadow-none px-3 font-medium text-[13px] text-zinc-500 data-[state=active]:text-zinc-900 transition-colors duration-150 cursor-pointer hover:text-zinc-700 after:absolute after:left-3 after:right-3 after:bottom-0 after:h-[2px] after:rounded-full after:bg-blue-600 after:scale-x-0 after:transition-transform after:duration-200 data-[state=active]:after:scale-x-100"
                   >
-                    <Settings2 className="h-3.5 w-3.5 mr-2" />
+                    <Settings2 className="h-3.5 w-3.5 mr-2 text-zinc-400 group-data-[state=active]:text-blue-600 transition-colors duration-150" />
                     Settings
                   </TabsTrigger>
                 </TabsList>
@@ -525,17 +525,25 @@ export function TaskCreationModal({
                     />
                   </TabsContent>
                   <TabsContent value="attachments" className="mt-0 h-full">
-                    <div className="h-full flex flex-col items-center justify-center border-2 border-dashed border-zinc-200 rounded-lg bg-zinc-50/50 p-12 text-center transition-colors hover:bg-zinc-50 hover:border-zinc-300">
-                      <div className="h-12 w-12 rounded-full bg-blue-50 flex items-center justify-center mb-4">
-                        <UploadCloud className="h-6 w-6 text-blue-600" />
+                    <div className="h-full flex flex-col items-center justify-center border-2 border-dashed border-zinc-200 rounded-xl bg-gradient-to-b from-zinc-50/80 to-white p-12 text-center transition-all duration-200 hover:border-blue-300 hover:bg-blue-50/30 cursor-pointer">
+                      <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-blue-50 to-blue-100/60 ring-1 ring-blue-100 flex items-center justify-center mb-5 shadow-sm">
+                        <UploadCloud className="h-6 w-6 text-blue-600" strokeWidth={1.75} />
                       </div>
-                      <h3 className="text-sm font-semibold text-zinc-900 mb-1">Upload Attachments</h3>
-                      <p className="text-xs text-zinc-500 max-w-xs mb-6">
-                        Drag and drop files here, or click to browse from your computer.
+                      <h3 className="text-sm font-semibold text-zinc-900 mb-1.5">Upload attachments</h3>
+                      <p className="text-xs text-zinc-500 max-w-xs mb-6 leading-relaxed">
+                        Drag and drop files here, or browse from your computer.
                       </p>
-                      <Button variant="outline" size="sm" type="button">
-                        Browse Files
+                      <Button
+                        size="sm"
+                        type="button"
+                        className="cursor-pointer bg-zinc-900 hover:bg-zinc-800 text-white font-medium text-xs px-4 h-8 shadow-sm hover:shadow transition-all duration-150"
+                      >
+                        <UploadCloud className="h-3.5 w-3.5 mr-1.5" />
+                        Browse files
                       </Button>
+                      <p className="text-[11px] text-zinc-400 mt-4">
+                        Supports images, PDFs, and documents up to 25MB
+                      </p>
                     </div>
                   </TabsContent>
                   <TabsContent value="options" className="mt-0 h-full">

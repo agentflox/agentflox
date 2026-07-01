@@ -2,6 +2,7 @@ import { Controller, Get, Post, Param, Body, Req, Res, UseGuards } from '@nestjs
 import { Response as ExpressResponse } from 'express';
 import { AuthenticatedRequest, JwtAuthGuard } from '@/middleware/httpAuth';
 import { governanceService } from '@/services/governance/governanceService';
+import { assertProjectAccessForUser } from '@/utils/socket/granularAuth';
 import { z } from 'zod';
 
 @Controller('v1/governance')
@@ -9,9 +10,22 @@ import { z } from 'zod';
 export class GovernanceController {
 
     @Get('projects/:projectId/captable')
-    async getCapTable(@Param('projectId') projectId: string, @Res() res: ExpressResponse) {
-        const table = await governanceService.getCapTable(projectId);
-        return res.json(table);
+    async getCapTable(
+        @Param('projectId') projectId: string,
+        @Req() req: AuthenticatedRequest,
+        @Res() res: ExpressResponse,
+    ) {
+        try {
+            await assertProjectAccessForUser(req.userId!, projectId);
+            const table = await governanceService.getCapTable(projectId);
+            return res.json(table);
+        } catch (e: any) {
+            if (e?.message?.includes('access') || e?.message?.includes('not found')) {
+                return res.status(403).json({ error: e.message });
+            }
+            console.error(e);
+            return res.status(500).json({ error: 'Failed' });
+        }
     }
 
     @Post('projects/:projectId/safe')
@@ -25,9 +39,13 @@ export class GovernanceController {
             const body = schema.parse(req.body);
             const userId = req.userId!;
 
+            await assertProjectAccessForUser(userId, projectId);
             const doc = await governanceService.generateSAFE(projectId, userId, body.type, body.cap, body.discount);
             return res.json(doc);
-        } catch (e) {
+        } catch (e: any) {
+            if (e?.message?.includes('access') || e?.message?.includes('not found')) {
+                return res.status(403).json({ error: e.message || 'Access denied' });
+            }
             console.error(e);
             return res.status(500).json({ error: 'Failed' });
         }
@@ -37,9 +55,13 @@ export class GovernanceController {
     async draftUpdate(@Param('projectId') projectId: string, @Req() req: AuthenticatedRequest, @Res() res: ExpressResponse) {
         try {
             const userId = req.userId!;
+            await assertProjectAccessForUser(userId, projectId);
             const update = await governanceService.draftInvestorUpdate(projectId, userId);
             return res.json(update);
-        } catch (e) {
+        } catch (e: any) {
+            if (e?.message?.includes('access') || e?.message?.includes('not found')) {
+                return res.status(403).json({ error: e.message });
+            }
             console.error(e);
             return res.status(500).json({ error: 'Failed' });
         }

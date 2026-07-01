@@ -7,6 +7,10 @@ const TEXT_FILE_EXTENSIONS = ['.pdf', '.doc', '.docx', '.xls', '.xlsx', '.txt', 
 // Supported file types for OpenAI Files API
 const OPENAI_FILE_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.mp3', '.mp4', '.mpeg', '.mpga', '.m4a', '.wav', '.webm'];
 
+const MAX_EXTRACTED_TEXT_LENGTH = 500_000; // ~500KB of text
+const MAX_CHUNKS = 200;
+const EMBEDDING_CONCURRENCY = 5;
+
 export interface ParsedFile {
     type: 'text' | 'file';
     content?: string;
@@ -22,13 +26,35 @@ export interface ParsedFile {
  * Chunk text into smaller pieces
  */
 export function chunkText(text: string, chunkSize = 1000): string[] {
+    const boundedText = text.slice(0, MAX_EXTRACTED_TEXT_LENGTH);
     const chunks: string[] = [];
     let start = 0;
-    while (start < text.length) {
-        chunks.push(text.slice(start, start + chunkSize));
+    while (start < boundedText.length && chunks.length < MAX_CHUNKS) {
+        chunks.push(boundedText.slice(start, start + chunkSize));
         start += chunkSize;
     }
     return chunks;
+}
+
+async function runWithConcurrency<T, R>(
+    items: T[],
+    concurrency: number,
+    fn: (item: T) => Promise<R>,
+): Promise<R[]> {
+    const results: R[] = new Array(items.length);
+    let index = 0;
+
+    async function worker() {
+        while (index < items.length) {
+            const current = index++;
+            results[current] = await fn(items[current]);
+        }
+    }
+
+    await Promise.all(
+        Array.from({ length: Math.min(concurrency, items.length) }, () => worker())
+    );
+    return results;
 }
 
 /**
@@ -60,21 +86,18 @@ async function extractTextFromFile(fileUrl: string, filename: string, mimeType: 
  */
 async function createEmbeddings(chunks: string[]): Promise<Array<{ chunk: string; embedding: number[] }>> {
     const openai = initializeOpenAI();
+    const boundedChunks = chunks.slice(0, MAX_CHUNKS);
 
-    const embeddings = await Promise.all(
-        chunks.map(async (chunk) => {
-            const res = await openai.embeddings.create({
-                model: 'text-embedding-3-small',
-                input: chunk,
-            });
-            return {
-                chunk,
-                embedding: res.data[0].embedding,
-            };
-        })
-    );
-
-    return embeddings;
+    return runWithConcurrency(boundedChunks, EMBEDDING_CONCURRENCY, async (chunk) => {
+        const res = await openai.embeddings.create({
+            model: 'text-embedding-3-small',
+            input: chunk,
+        });
+        return {
+            chunk,
+            embedding: res.data[0].embedding,
+        };
+    });
 }
 
 /**
@@ -129,10 +152,11 @@ export async function parseFile(
         const extractedText = await extractTextFromFile(url, filename, mimeType);
 
         if (extractedText) {
-            const textChunks = chunkText(extractedText);
+            const boundedText = extractedText.slice(0, MAX_EXTRACTED_TEXT_LENGTH);
+            const textChunks = chunkText(boundedText);
             const embeddings = await createEmbeddings(textChunks);
 
-            parsedFile.content = extractedText;
+            parsedFile.content = boundedText;
             parsedFile.chunks = textChunks;
             parsedFile.embeddings = embeddings;
         } else {

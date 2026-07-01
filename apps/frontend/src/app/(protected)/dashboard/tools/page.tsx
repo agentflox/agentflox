@@ -1,5 +1,5 @@
 "use client";
-
+import { trpc } from "@/lib/trpc";
 import { useMemo, useState } from "react";
 import { Plus, X } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -11,7 +11,7 @@ import { SearchSection } from "@/entities/shared/components/SearchSection";
 import { useToast } from "@/hooks/useToast";
 import { ToolCard, ToolCreationModal, useToolList } from "@/entities/tools";
 import { DASHBOARD_ROUTES } from "@/constants/routes.config";
-import { Filter, MoreHorizontal, Eye, Trash } from "lucide-react";
+import { Filter, MoreHorizontal, Eye, Trash, Wrench } from "lucide-react";
 import { DataTable } from "@/components/ui/data-table";
 import { DataTableColumnHeader } from "@/components/ui/data-table-column-header";
 import { ColumnDef } from "@tanstack/react-table";
@@ -28,8 +28,10 @@ import { formatDistanceToNow } from "date-fns";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { DataTableSkeleton } from "@/components/ui/data-table-skeleton";
-import { Settings2, ArrowUpDown, Check, ChevronUp, ChevronDown, MoreVertical } from "lucide-react";
+import { Settings2, ArrowUpDown, Check, ChevronUp, ChevronDown, MoreVertical, PenSquare } from "lucide-react";
 import { DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuPortal, DropdownMenuSubContent, DropdownMenuCheckboxItem } from "@/components/ui/dropdown-menu";
+import { Skeleton } from "@/components/ui/skeleton";
+import { ConfirmDeleteModal } from "@/components/modals/ConfirmDeleteModal";
 
 export default function ToolsPage() {
   const router = useRouter();
@@ -60,6 +62,33 @@ export default function ToolsPage() {
   const [table, setTable] = useState<import("@tanstack/react-table").Table<any> | null>(null);
   const [selectedGridIds, setSelectedGridIds] = useState<Set<string>>(new Set());
 
+  // Delete modal state
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
+  const [bulkDeleteRows, setBulkDeleteRows] = useState<any[]>([]);
+
+  const utils = trpc.useUtils();
+  const deleteMutation = trpc.compositeTool.delete.useMutation({
+    onSuccess: () => {
+      toast({ title: "Tool deleted successfully." });
+      utils.compositeTool.list.invalidate();
+    },
+    onError: (err) => {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    }
+  });
+
+  const deleteManyMutation = trpc.compositeTool.deleteMany.useMutation({
+    onSuccess: () => {
+      toast({ title: "Tools deleted successfully." });
+      utils.compositeTool.list.invalidate();
+      setSelectedGridIds(new Set());
+    },
+    onError: (err) => {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    }
+  });
+
   const handleGridSelect = (id: string, selected: boolean) => {
     setSelectedGridIds((prev) => {
       const next = new Set(prev);
@@ -69,7 +98,24 @@ export default function ToolsPage() {
   };
 
   const handleBulkDelete = (rows: any[]) => {
-    console.log("Delete tools: ", rows.map((r: any) => r.id));
+    if (rows.length === 0) return;
+    setBulkDeleteRows(rows);
+    setDeleteTarget(null);
+    setDeleteModalOpen(true);
+  };
+
+  const handleDelete = (id: string, name?: string) => {
+    setDeleteTarget({ id, name: name ?? "Untitled Tool" });
+    setBulkDeleteRows([]);
+    setDeleteModalOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (bulkDeleteRows.length > 0) {
+      deleteManyMutation.mutate({ ids: bulkDeleteRows.map((r) => r.id) });
+    } else if (deleteTarget) {
+      await deleteMutation.mutateAsync({ id: deleteTarget.id });
+    }
   };
 
   const columns: ColumnDef<any>[] = [
@@ -103,7 +149,12 @@ export default function ToolsPage() {
           <div className="flex flex-col">
             <span
               className="font-medium text-foreground hover:underline cursor-pointer"
-              onClick={() => router.push(DASHBOARD_ROUTES.TOOL(tool.id))}
+              onClick={() => {
+                const route = tool.mode === "AI"
+                  ? `/dashboard/tools/build/ai/${tool.id}`
+                  : `/dashboard/tools/build/flow/${tool.id}`;
+                router.push(route);
+              }}
             >
               {tool.name || "Untitled Tool"}
             </span>
@@ -112,6 +163,16 @@ export default function ToolsPage() {
                 {tool.description}
               </span>
             )}
+            <div className="mt-1">
+              <span className={cn(
+                "inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider",
+                tool.mode === "AI"
+                  ? "border-violet-200 bg-violet-50 text-violet-700 dark:border-violet-800 dark:bg-violet-950 dark:text-violet-400"
+                  : "border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-800 dark:bg-sky-950 dark:text-sky-400"
+              )}>
+                {tool.mode === "AI" ? "AI Mode" : "Flow Mode"}
+              </span>
+            </div>
           </div>
         );
       },
@@ -163,17 +224,21 @@ export default function ToolsPage() {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => router.push(DASHBOARD_ROUTES.TOOL(tool.id))}>
-                <Eye className="mr-2 h-4 w-4" />
-                View
+              <DropdownMenuItem onClick={() => {
+                const route = tool.mode === "AI"
+                  ? `/dashboard/tools/build/ai/${tool.id}`
+                  : `/dashboard/tools/build/flow/${tool.id}`;
+                router.push(route);
+              }}>
+                <PenSquare className="mr-1 h-4 w-4" />
+                Edit Tool
               </DropdownMenuItem>
-              <DropdownMenuSeparator />
               <DropdownMenuItem
                 className="text-destructive focus:text-destructive"
-                onClick={() => console.log("Delete", tool.id)}
+                onClick={() => handleDelete(tool.id)}
               >
-                <Trash className="mr-2 h-4 w-4" />
-                Delete
+                <Trash className="mr-1 h-4 w-4" />
+                Delete Tool
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -425,12 +490,24 @@ export default function ToolsPage() {
 
             {isLoading ? (
               viewMode === "grid" ? (
-                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                  {Array.from({ length: 6 }).map((_, index) => (
-                    <div
-                      key={index}
-                      className="h-[200px] animate-pulse rounded-lg border border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900"
-                    />
+                <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 pb-4">
+                  {[...Array(8)].map((_, i) => (
+                    <div key={i} className="relative flex flex-col bg-white rounded-xl border border-slate-200 shadow-sm p-6 pt-10 overflow-hidden">
+                      <div className="flex items-start gap-3 mb-4">
+                        <Skeleton className="h-10 w-10 rounded-xl shrink-0" />
+                        <div className="flex-1 space-y-2 pt-1">
+                          <Skeleton className="h-4 w-[60%] rounded-md" />
+                          <Skeleton className="h-3 w-[40%] rounded-md opacity-60" />
+                        </div>
+                      </div>
+                      <Skeleton className="h-3.5 w-full rounded-md" />
+                      <Skeleton className="h-3.5 w-[75%] rounded-md mt-1.5" />
+                      <div className="flex items-center gap-2 mt-5 pt-4 border-t border-slate-100">
+                        <Skeleton className="h-5 w-16 rounded-full" />
+                        <Skeleton className="h-5 w-14 rounded-full" />
+                        <Skeleton className="h-5 w-12 rounded-full ml-auto" />
+                      </div>
+                    </div>
                   ))}
                 </div>
               ) : (
@@ -439,17 +516,24 @@ export default function ToolsPage() {
             ) : data?.items && data.items.length > 0 ? (
               viewMode === "grid" ? (
                 <>
-                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                  <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 pb-4">
                     {data.items.map(item => (
                       <ToolCard
                         key={item.id}
                         item={item}
                         onOpen={(id) => {
-                          router.push(DASHBOARD_ROUTES.TOOL(id));
+                          const route = item.mode === "AI"
+                            ? `/dashboard/tools/build/ai/${id}`
+                            : `/dashboard/tools/build/flow/${id}`;
+                          router.push(route);
                         }}
                         onManage={(id) => {
-                          router.push(DASHBOARD_ROUTES.TOOL(id));
+                          const route = item.mode === "AI"
+                            ? `/dashboard/tools/build/ai/${id}`
+                            : `/dashboard/tools/build/flow/${id}`;
+                          router.push(route);
                         }}
+                        onDelete={handleDelete}
                         isSelected={selectedGridIds.has(item.id)}
                         onSelect={handleGridSelect}
                       />
@@ -466,7 +550,7 @@ export default function ToolsPage() {
                         <X className="h-3.5 w-3.5" />
                         Deselect
                       </Button>
-                      <Button variant="destructive" size="sm" onClick={() => { console.log("Delete:", [...selectedGridIds]); setSelectedGridIds(new Set()); }} className="h-8 gap-1.5 px-3 cursor-pointer">
+                      <Button variant="destructive" size="sm" onClick={() => handleBulkDelete(Array.from(selectedGridIds).map(id => ({ id })))} className="h-8 gap-1.5 px-3 cursor-pointer">
                         <Trash className="h-3.5 w-3.5" />
                         Delete Selected
                       </Button>
@@ -477,22 +561,29 @@ export default function ToolsPage() {
                 <DataTable columns={columns} data={data.items} onDeleteSelected={handleBulkDelete} onTableReady={setTable} hideToolbar columnVisibility={columnVisibility} onColumnVisibilityChange={setColumnVisibility} />
               )
             ) : (
-              <div className="flex min-h-[320px] flex-col items-center justify-center rounded-xl border border-dashed border-zinc-200 bg-zinc-50/50 p-8 text-center dark:border-zinc-800 dark:bg-zinc-900/50">
-                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-zinc-100 dark:bg-zinc-800">
-                  <Plus className="h-6 w-6 text-zinc-400" />
+              <div className="flex min-h-[400px] flex-col items-center justify-center rounded-2xl border border-slate-200/80 bg-gradient-to-b from-slate-50/50 to-white shadow-sm">
+                <div className="text-center px-6 py-8 max-w-xs">
+                  <div className="mx-auto h-16 w-16 rounded-2xl bg-gradient-to-br from-indigo-50 to-indigo-100 border border-indigo-100 shadow-sm flex items-center justify-center mb-6">
+                    <Wrench className="h-7 w-7 text-indigo-500" />
+                  </div>
+                  <h3 className="text-base font-semibold text-slate-900">
+                    {query ? "No results found" : "No tools yet"}
+                  </h3>
+                  <p className="mt-2 text-sm text-slate-500 leading-relaxed">
+                    {query
+                      ? "Try adjusting your search or clearing filters to find what you're looking for."
+                      : "Create and manage your tools to start organizing your work."}
+                  </p>
+                  {!query && (
+                    <button
+                      onClick={handleCreateTool}
+                      className="mt-6 inline-flex items-center gap-2 rounded-xl px-4 h-10 text-sm font-semibold bg-gradient-to-b from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 text-white shadow-md shadow-indigo-200 hover:shadow-lg hover:shadow-indigo-300 transition-all cursor-pointer"
+                    >
+                      <Plus className="h-4 w-4" />
+                      Create new tool
+                    </button>
+                  )}
                 </div>
-                <h3 className="mt-4 text-base font-medium text-zinc-900 dark:text-zinc-50">No tools found</h3>
-                <p className="mt-1 text-sm text-zinc-500">
-                  {query ? "Try adjusting your search or filters." : "Get started by creating a new tool."}
-                </p>
-                <Button
-                  onClick={handleCreateTool}
-                  size="sm"
-                  variant="outline"
-                  className="mt-8 border-zinc-200 bg-white hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-950 max-w-40"
-                >
-                  Create tool
-                </Button>
               </div>
             )}
 
@@ -515,12 +606,17 @@ export default function ToolsPage() {
         open={showCreateModal}
         onOpenChange={setShowCreateModal}
         onCreated={(id) => {
-          toast({
-            title: "Tool created",
-            description: "Redirecting to tool builder…",
-          });
-          router.push(DASHBOARD_ROUTES.TOOL(id));
+          // Routing is handled within the modal itself
         }}
+      />
+      <ConfirmDeleteModal
+        open={deleteModalOpen}
+        onOpenChange={setDeleteModalOpen}
+        itemName={deleteTarget?.name}
+        count={bulkDeleteRows.length > 0 ? bulkDeleteRows.length : 1}
+        entityLabel="tool"
+        onConfirm={handleConfirmDelete}
+        isLoading={deleteMutation.isPending || deleteManyMutation.isPending}
       />
     </Shell>
   );

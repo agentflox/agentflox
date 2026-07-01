@@ -8,7 +8,7 @@ type Tx = Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
 
 async function recordTaskActivity(
   tx: Tx,
-  params: { taskId: string; userId: string; action: "CREATED" | "UPDATED" | "STATUS_CHANGED" | "ASSIGNED" | "UNASSIGNED" | "PRIORITY_CHANGED" | "DUE_DATE_CHANGED" | "COMMENTED" | "ATTACHED" | "MOVED" | "TYPE_CHANGED"; field?: string | null; oldValue?: unknown; newValue?: unknown }
+  params: { taskId: string; userId: string; action: "CREATED" | "UPDATED" | "STATUS_CHANGED" | "ASSIGNED" | "UNASSIGNED" | "PRIORITY_CHANGED" | "DUE_DATE_CHANGED" | "COMMENTED" | "ATTACHED" | "MOVED"; field?: string | null; oldValue?: unknown; newValue?: unknown }
 ) {
   await tx.taskActivity.create({
     data: {
@@ -161,7 +161,7 @@ async function duplicateTaskInternal(
     for (const sub of subtasks) {
       await duplicateTaskInternal(tx, userId, {
         taskId: sub.id,
-        targetListId: listId,
+        targetListId: listId ?? undefined,
         parentId: newTask.id,
         options: params.options
       });
@@ -371,6 +371,8 @@ export const taskRouter = router({
             { createdBy: userId },
             { assigneeId: userId },
             { assignees: { some: { userId } } },
+            { workspace: { OR: [{ ownerId: userId }, { members: { some: { userId } } }] } },
+            { project: { OR: [{ ownerId: userId }, { members: { some: { userId } } }] } },
           ],
         },
         include: {
@@ -646,34 +648,6 @@ export const taskRouter = router({
       });
     }),
 
-  createProposalFromTask: protectedProcedure
-    .input(z.object({ taskId: z.string(), category: z.enum(["COFOUNDER", "MENTOR", "CUSTOMER", "INVESTOR", "PARTNER", "MEMBERSHIP"]).default("PARTNER") }))
-    .mutation(async ({ ctx, input }) => {
-      const userId = ctx.session!.user!.id;
-      const task = await prisma.task.findUnique({ where: { id: input.taskId } });
-      if (!task) throw new Error("Task not found");
-
-      const proposal = await prisma.proposal.create({
-        data: {
-          userId,
-          createdBy: userId,
-          category: input.category as any,
-          projectId: task.projectId || undefined,
-          teamId: task.teamId || undefined,
-          title: task.title,
-          shortSummary: task.description?.slice(0, 500) || task.title,
-          detailedDesc: task.description || task.title,
-          industry: [],
-          keywords: [],
-          intent: "OFFERING",
-          visibility: "PUBLIC",
-          status: "PUBLISHED",
-          workspaceId: task.workspaceId || undefined,
-        },
-      });
-      return proposal;
-    }),
-
   update: protectedProcedure
     .input(z.object({
       id: z.string(),
@@ -852,7 +826,7 @@ export const taskRouter = router({
             await recordTaskActivity(tx, { taskId: id, userId, action: "MOVED", field: "listId", oldValue: before.listId, newValue: data.listId });
           }
           if (data.taskTypeId !== undefined && String(before.taskTypeId ?? "") !== String(data.taskTypeId ?? "")) {
-            await recordTaskActivity(tx, { taskId: id, userId, action: "TYPE_CHANGED", field: "taskTypeId", oldValue: before.taskTypeId, newValue: data.taskTypeId });
+            await recordTaskActivity(tx, { taskId: id, userId, action: "UPDATED", field: "taskTypeId", oldValue: before.taskTypeId, newValue: data.taskTypeId });
           }
         }
 
@@ -938,7 +912,7 @@ export const taskRouter = router({
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.session!.user!.id;
       return prisma.$transaction(async (tx) => {
-        const results = [];
+        const results: any[] = [];
         for (const taskId of input.taskIds) {
           const newTask = await duplicateTaskInternal(tx as Tx, userId, {
             taskId,

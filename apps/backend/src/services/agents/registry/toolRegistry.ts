@@ -8,7 +8,8 @@
 import { Tool } from '../types/types';
 import { prisma } from '@/lib/prisma';
 import type { Tool as ToolType } from '../types/types';
-import { toolRegistryManager, ToolDefinition } from './tools';
+import { toolRegistryManager } from './tools';
+import { ToolDefinition } from './core/ToolRegistryManager';
 
 // Export the sync logic from the unified sync file
 export { syncToolsToDatabase } from './sync';

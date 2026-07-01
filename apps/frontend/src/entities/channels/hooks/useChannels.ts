@@ -129,7 +129,7 @@ export function useChannels(params: { channelId?: string }) {
   }, [socket, isConnected, utils.channelMessage.list, channelId]);
 
   const sendMessage = useCallback(
-    async (input: { channelId: string; content: string; attachments?: any[]; parentId?: string }) => {
+    async (input: { channelId: string; content: string; attachments?: any[]; contexts?: any[]; mentions?: any[]; parentId?: string }) => {
       if (!currentUserId) throw new Error("Not authenticated");
       const id = uuidv4();
       const temp: ChannelMessage = {
@@ -138,6 +138,8 @@ export function useChannels(params: { channelId?: string }) {
         userId: currentUserId,
         content: input.content,
         attachments: input.attachments ?? [],
+        contexts: input.contexts,
+        mentions: input.mentions,
         parentId: input.parentId,
         createdAt: new Date().toISOString(),
         isPending: true,
@@ -163,6 +165,8 @@ export function useChannels(params: { channelId?: string }) {
             channelId: input.channelId,
             content: input.content,
             attachments: input.attachments ?? [],
+            contexts: input.contexts,
+            mentions: input.mentions,
             replyTo: input.parentId ? { id: input.parentId } : undefined,
           },
           (err: any, resp?: any) => {

@@ -1,9 +1,8 @@
 "use client";
 
 import React, { useEffect } from "react";
-import { Users2 } from "lucide-react";
+import { Users2, Users } from "lucide-react";
 import { useParams } from "next/navigation";
-
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -154,13 +153,26 @@ export function TeamCreationModal({ open, onOpenChange, onCreated, defaultSpaceI
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
 			<DialogContent className="sm:max-w-xl gap-6">
-				<DialogHeader className="gap-1.5">
-					<DialogTitle className="text-2xl font-semibold tracking-tight">Spin up a new team</DialogTitle>
-					<DialogDescription className="text-base text-muted-foreground">
-						Define the vibe, outline the mission, and get everyone aligned.
-					</DialogDescription>
-				</DialogHeader>
-
+				{/* Header Section */}
+		        <div className="pb-2">
+		          <div className="flex items-start gap-5">
+		            <div className={cn(
+		              "mt-1 p-3 rounded-2xl border transition-all duration-300",
+		              "bg-primary/5 border-primary/10 text-primary shadow-[0_0_15px_-3px_rgba(0,0,0,0.1)]",
+		              "group-hover:scale-105"
+		            )}>
+		              <Users className="w-5 h-5 md:w-6 md:h-6" strokeWidth={1.5} />
+		            </div>
+		            <div className="pt-1">
+		              <DialogTitle className="text-xl font-bold tracking-tight text-foreground/95">
+		                Create a team
+		              </DialogTitle>
+		              <DialogDescription className="text-muted-foreground text-sm leading-relaxed">
+		                Organize team members.
+		              </DialogDescription>
+		            </div>
+		          </div>
+		        </div>
 				<form className="flex flex-col gap-5" onSubmit={handleSubmit}>
 					{/* Location Selectors */}
 					<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -171,7 +183,7 @@ export function TeamCreationModal({ open, onOpenChange, onCreated, defaultSpaceI
 									value={form.workspaceId}
 									onValueChange={(val) => setForm(prev => ({ ...prev, workspaceId: val, spaceId: "" }))}
 								>
-									<SelectTrigger className="w-full rounded-xl bg-white">
+									<SelectTrigger className="w-full rounded-md bg-white">
 										<SelectValue placeholder="Select Workspace" />
 									</SelectTrigger>
 									<SelectContent>
@@ -189,7 +201,7 @@ export function TeamCreationModal({ open, onOpenChange, onCreated, defaultSpaceI
 								onValueChange={(val) => setForm(prev => ({ ...prev, spaceId: val }))}
 								disabled={!form.workspaceId}
 							>
-								<SelectTrigger className="w-full rounded-xl bg-white">
+								<SelectTrigger className="w-full rounded-md bg-white">
 									<SelectValue placeholder={form.workspaceId ? "Select Space" : "Select Workspace First"} />
 								</SelectTrigger>
 								<SelectContent>
@@ -228,7 +240,7 @@ export function TeamCreationModal({ open, onOpenChange, onCreated, defaultSpaceI
 								placeholder="Ex: Growth Engineering Collective"
 								value={form.name}
 								onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))}
-								className="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-900 shadow-xs placeholder:text-slate-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+								className="flex-1 rounded-md border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-900 shadow-xs placeholder:text-slate-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
 								required
 							/>
 						</div>
@@ -246,7 +258,7 @@ export function TeamCreationModal({ open, onOpenChange, onCreated, defaultSpaceI
 							placeholder="Outline who you’re looking for, the focus areas, or the goals for this season..."
 							value={form.description}
 							onChange={(event) => setForm((prev) => ({ ...prev, description: event.target.value }))}
-							className="min-h-[100px] rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 shadow-xs placeholder:text-slate-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+							className="min-h-[100px] rounded-md border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 shadow-xs placeholder:text-slate-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
 							required
 						/>
 					</div>
@@ -257,18 +269,20 @@ export function TeamCreationModal({ open, onOpenChange, onCreated, defaultSpaceI
 								Status
 							</Label>
 							<Select value={form.status} onValueChange={(value) => setForm((prev) => ({ ...prev, status: value }))}>
-								<SelectTrigger id="team-status" className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-left text-sm text-slate-900 shadow-xs focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200">
-									<SelectValue placeholder="Choose status" />
+								<SelectTrigger id="project-status" className="w-full rounded-md border border-slate-200 bg-white px-4 py-2.5 text-left text-sm text-slate-900 shadow-xs focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200">
+								  <SelectValue placeholder="Choose status">
+								    {STATUS_OPTIONS.find(o => o.value === form.status)?.label ?? "Choose status"}
+								  </SelectValue>
 								</SelectTrigger>
 								<SelectContent className="rounded-2xl border border-slate-100 shadow-xl">
-									{STATUS_OPTIONS.map((option) => (
-										<SelectItem key={option.value} value={option.value} className="rounded-lg px-3 py-2.5">
-											<span className="flex flex-col items-start gap-0.5">
-												<span className="text-sm font-semibold text-slate-900">{option.label}</span>
-												<span className="text-xs text-muted-foreground">{option.helper}</span>
-											</span>
-										</SelectItem>
-									))}
+								  {STATUS_OPTIONS.map((option) => (
+								    <SelectItem key={option.value} value={option.value} className="rounded-lg px-3 py-2.5">
+								      <span className="flex flex-col items-start gap-0.5">
+								        <span className="text-sm font-normal text-slate-900">{option.label}</span>
+								        <span className="text-xs text-muted-foreground">{option.helper}</span>
+								      </span>
+								    </SelectItem>
+								  ))}
 								</SelectContent>
 							</Select>
 						</div>
@@ -277,7 +291,7 @@ export function TeamCreationModal({ open, onOpenChange, onCreated, defaultSpaceI
 								Visibility
 							</Label>
 							<Select value={form.visibility} onValueChange={(value: any) => setForm((prev) => ({ ...prev, visibility: value }))}>
-								<SelectTrigger id="team-visibility" className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-left text-sm text-slate-900 shadow-xs focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200">
+								<SelectTrigger id="team-visibility" className="w-full rounded-md border border-slate-200 bg-white px-4 py-2.5 text-left text-sm text-slate-900 shadow-xs focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200">
 									<SelectValue placeholder="Choose visibility" />
 								</SelectTrigger>
 								<SelectContent className="rounded-2xl border border-slate-100 shadow-xl">

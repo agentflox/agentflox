@@ -17,7 +17,7 @@ export class InvitationEmailTemplates {
      * Invitation to join workspace as member
      */
     static getWorkspaceMemberInvite(data: InvitationEmailData, theme: EmailTheme): EmailTemplate {
-        const expiryDays = Math.ceil((new Date(data.expiresAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+        const expiryDays = data.expiresAt ? Math.ceil((new Date(data.expiresAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24)) : 7;
 
         return {
             subject: `${data.inviterName} invited you to join ${data.workspaceName || 'a workspace'}`,
@@ -118,7 +118,7 @@ If you didn't expect this invitation, you can safely ignore this email.
         const expiryDays = data.expiresAt
             ? Math.ceil((new Date(data.expiresAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
             : 0;
-        const itemTypeLabel = data.itemType?.charAt(0).toUpperCase() + data.itemType?.slice(1) || 'item';
+        const itemTypeLabel = data.itemType ? data.itemType.charAt(0).toUpperCase() + data.itemType.slice(1) : 'Item';
 
         return {
             subject: `${data.inviterName} invited you to collaborate on ${data.itemName || 'an item'}`,

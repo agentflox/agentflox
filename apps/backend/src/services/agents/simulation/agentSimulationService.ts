@@ -55,6 +55,7 @@ export class AgentSimulationService {
         });
 
         if (!conversation) throw new Error('Simulation not found');
+        if (conversation.userId !== userId) throw new Error('Access denied');
         const metadata = conversation.metadata as Record<string, any>;
 
         if (metadata.status !== 'ACTIVE') throw new Error('Simulation is not active');
@@ -242,6 +243,7 @@ Instructions:
         });
 
         if (!conversation) throw new Error('Simulation not found');
+        if (conversation.userId !== userId) throw new Error('Access denied');
         const metadata = conversation.metadata as Record<string, any>;
         const agentIds = metadata.agentIds as string[];
 

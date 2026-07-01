@@ -44,6 +44,7 @@ interface DataTableProps<TData, TValue> {
   hideToolbar?: boolean
   hideHeader?: boolean
   onlyHeader?: boolean
+  showBorders?: boolean
   columnVisibility?: import("@tanstack/react-table").VisibilityState
   onColumnVisibilityChange?: React.Dispatch<React.SetStateAction<import("@tanstack/react-table").VisibilityState>>
 }
@@ -57,6 +58,7 @@ export function DataTable<TData, TValue>({
   hideToolbar = false,
   hideHeader = false,
   onlyHeader = false,
+  showBorders = false,
   columnVisibility: externalColumnVisibility,
   onColumnVisibilityChange,
 }: DataTableProps<TData, TValue>) {
@@ -148,7 +150,8 @@ export function DataTable<TData, TValue>({
       )}
 
       <div className={cn(
-        "w-full rounded-md border bg-card relative",
+        "w-full bg-card relative",
+        showBorders ? "rounded-md border" : "border-b",
         (hideHeader || onlyHeader) && "border-0 shadow-none bg-transparent",
         onlyHeader && "mb-0 pb-0"
       )}>
@@ -163,9 +166,9 @@ export function DataTable<TData, TValue>({
                         {header.isPlaceholder
                           ? null
                           : flexRender(
-                              header.column.columnDef.header,
-                              header.getContext()
-                            )}
+                            header.column.columnDef.header,
+                            header.getContext()
+                          )}
                       </TableHead>
                     )
                   })}

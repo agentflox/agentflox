@@ -35,6 +35,11 @@ export interface ServerToClientEvents {
   'collaboration:user-joined': (data: { documentId: string; userId: string; username: string }) => void;
   'collaboration:user-left': (data: { documentId: string; userId: string }) => void;
 
+  // Tool events
+  'tool:log': (data: { runId: string; type: string; content?: string; stepId?: string; payload?: any }) => void;
+  'tool:complete': (data: { runId: string; result?: any; payload?: any }) => void;
+  'tool:error': (data: { runId: string; message?: string }) => void;
+
   // Error events
   'error': (data: ErrorEvent) => void;
 }
@@ -77,6 +82,10 @@ export interface ClientToServerEvents {
   'collaboration:update': (data: { documentId: string; update: string }) => void;
   'collaboration:sync-request': (data: { documentId: string; stateVector?: string }) => void;
   'collaboration:awareness-update': (data: { documentId: string; awareness: any }) => void;
+
+  // Tool events
+  'tool:subscribe-logs': (data: { runId: string }) => void;
+  'tool:unsubscribe-logs': (data: { runId: string }) => void;
 
   // Heartbeat
   'heartbeat': () => void;

@@ -42,7 +42,7 @@ export default function StepUsage({ onNext, onBack, isLoading, defaultValues }: 
                                 setUsage(opt.id);
                             }
                         }}
-                        className={`flex items-center p-4 rounded-xl border-2 transition-all cursor-pointer text-left group outline-none ${usage === opt.id
+                        className={`flex items-center p-4 rounded-xl border-2 transition-all cursor-pointer text-left group outline-none cursor-pointer ${usage === opt.id
                             ? "border-black bg-gray-50 ring-1 ring-black/5"
                             : "border-gray-100 hover:border-gray-300 focus:border-black"
                             }`}
@@ -70,14 +70,14 @@ export default function StepUsage({ onNext, onBack, isLoading, defaultValues }: 
             <div className="flex items-center justify-between mt-8">
                 <button
                     onClick={onBack}
-                    className="text-sm font-medium text-gray-500 hover:text-black transition-colors"
+                    className="text-sm font-medium text-gray-500 hover:text-black transition-colors cursor-pointer"
                 >
                     Back
                 </button>
                 <button
                     onClick={handleNext}
                     disabled={isLoading}
-                    className="bg-black hover:bg-gray-800 text-white px-8 py-3 rounded-full font-medium text-sm transition-all hover:scale-105 active:scale-95 disabled:opacity-50"
+                    className="bg-black hover:bg-gray-800 text-white px-8 py-3 rounded-full font-medium text-sm transition-all hover:scale-105 active:scale-95 disabled:opacity-50 cursor-pointer"
                 >
                     {isLoading ? "Saving..." : "Continue"}
                 </button>

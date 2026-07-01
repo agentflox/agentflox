@@ -1,16 +1,15 @@
-import { 
-  PrismaClient, 
-  Prisma, 
-  SubscriptionStatus, 
-  PurchaseStatus, 
-  Usage, 
-  Payment, 
-  PaymentStatus, 
-  PlanType, 
-  Subscription, 
-  NotificationType 
+import {
+  PrismaClient,
+  Prisma,
+  SubscriptionStatus,
+  PurchaseStatus,
+  Usage,
+  Payment,
+  PaymentStatus,
+  PlanType,
+  Subscription,
+  NotificationType
 } from '@agentflox/database/src/generated/prisma';
-import { SubscriptionManager, PlanManager } from '../../billing/utils';
 import { prisma } from '@/lib/prisma';
 import { DateTime } from 'luxon';
 import emailService, { EmailServiceError } from '@/utils/email/emailService';
@@ -28,12 +27,6 @@ interface UsageState {
       percentageUsed: number;
     };
     teams: {
-      used: number;
-      limit: number;
-      remaining: number;
-      percentageUsed: number;
-    };
-    proposals: {
       used: number;
       limit: number;
       remaining: number;
@@ -60,10 +53,6 @@ interface UsageState {
       projectsUsed: number;
       projectLimit: number;
       remainingProjects: number;
-
-      proposalsUsed: number;
-      proposalLimit: number;
-      remainingProposals: number;
 
       teamsUsed: number;
       teamLimit: number;
@@ -92,10 +81,6 @@ interface UsageState {
     projectsUsed: number;
     projectLimit: number;
     remainingProjects: number;
-
-    proposalsUsed: number;
-    proposalLimit: number;
-    remainingProposals: number;
 
     teamsUsed: number;
     teamLimit: number;
@@ -160,7 +145,7 @@ export class UsageManager {
       throw new Error(`${errorMessage}: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
-  
+
   private static isValidEmail(email: string): boolean {
     const emailRegex = /^(?:[a-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*|"(?:[\x01-\x08\x0b\x0c\x0e-\x1f\x21\x23-\x5b\x5d-\x7f]|\\[\x01-\x09\x0b\x0c\x0e-\x7f])*")@(?:(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?|\[(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?|[a-z0-9-]*[a-z0-9]:(?:[\x01-\x08\x0b\x0c\x0e-\x1f\x21-\x5a\x53-\x7f]|\\[\x01-\x09\x0b\x0c\x0e-\x7f])+)\])$/i;
     return emailRegex.test(email);
@@ -280,8 +265,6 @@ export class UsageManager {
           remainingProjects: feature.maxProjects,
           maxTeams: feature.maxTeams,
           remainingTeams: feature.maxTeams,
-          maxProposals: feature.maxProposals,
-          remainingProposals: feature.maxProposals,
           maxRequests: feature.maxRequests,
           remainingRequests: feature.maxRequests,
           maxCredits: feature.maxCredits,
@@ -292,8 +275,6 @@ export class UsageManager {
           remainingChatsPerProject: feature.maxChatsPerProject || 0,
           maxChatsPerProfile: feature.maxChatsPerProfile || 0,
           remainingChatsPerProfile: feature.maxChatsPerProfile || 0,
-          maxChatsPerProposal: feature.maxChatsPerProposal || 0,
-          remainingChatsPerProposal: feature.maxChatsPerProposal || 0,
           maxChatsPerTeam: feature.maxChatsPerTeam || 0,
           remainingChatsPerTeam: feature.maxChatsPerTeam || 0,
         }
@@ -305,7 +286,7 @@ export class UsageManager {
     // Get current limits and usage
     const serviceField = this.getServiceField(service);
     const currentRemaining = (usage as any)[`remaining${serviceField}`] as number;
-    
+
     if (currentRemaining <= 0) {
       return amount; // No remaining quota in subscription
     }
@@ -700,7 +681,7 @@ export class UsageManager {
           }
         },
         creditPurchases: {
-          where: { 
+          where: {
             status: PurchaseStatus.ACTIVE,
             OR: [
               { expiresAt: null },
@@ -735,10 +716,6 @@ export class UsageManager {
         subUsage?.maxTeams || 0,
         subUsage?.remainingTeams || 0
       ),
-      proposals: this.calculateResourceUsage(
-        subUsage?.maxProposals || 0,
-        subUsage?.remainingProposals || 0
-      ),
       requests: this.calculateResourceUsage(
         subUsage?.maxRequests || 0,
         subUsage?.remainingRequests || 0
@@ -746,10 +723,9 @@ export class UsageManager {
       isApproachingLimit: false
     };
 
-    subscriptionState.isApproachingLimit = 
+    subscriptionState.isApproachingLimit =
       subscriptionState.projects.percentageUsed >= 80 ||
       subscriptionState.teams.percentageUsed >= 80 ||
-      subscriptionState.proposals.percentageUsed >= 80 ||
       subscriptionState.requests.percentageUsed >= 80;
 
     // Build active packages state
@@ -771,10 +747,6 @@ export class UsageManager {
         projectLimit: usage?.maxProjects || 0,
         remainingProjects: usage?.remainingProjects || 0,
 
-        proposalsUsed: (usage?.maxProposals || 0) - (usage?.remainingProposals || 0),
-        proposalLimit: usage?.maxProposals || 0,
-        remainingProposals: usage?.remainingProposals || 0,
-
         teamsUsed: (usage?.maxTeams || 0) - (usage?.remainingTeams || 0),
         teamLimit: usage?.maxTeams || 0,
         remainingTeams: usage?.remainingTeams || 0,
@@ -783,7 +755,7 @@ export class UsageManager {
         requestLimit: usage?.maxRequests || 0,
         remainingRequests: usage?.remainingRequests || 0,
 
-        isExpiringSoon: purchase.expiresAt 
+        isExpiringSoon: purchase.expiresAt
           ? DateTime.fromJSDate(purchase.expiresAt).diff(DateTime.now(), 'days').days <= 7
           : false,
         expiresAt: purchase.expiresAt || undefined
@@ -826,8 +798,6 @@ export class UsageManager {
       creditLimit: 0,
       projectsUsed: 0,
       projectLimit: 0,
-      proposalsUsed: 0,
-      proposalLimit: 0,
       teamsUsed: 0,
       teamLimit: 0,
       requestsUsed: 0,
@@ -839,8 +809,6 @@ export class UsageManager {
     totals.projectLimit += subscription.projects.limit;
     totals.teamsUsed += subscription.teams.used;
     totals.teamLimit += subscription.teams.limit;
-    totals.proposalsUsed += subscription.proposals.used;
-    totals.proposalLimit += subscription.proposals.limit;
     totals.requestsUsed += subscription.requests.used;
     totals.requestLimit += subscription.requests.limit;
 
@@ -852,8 +820,6 @@ export class UsageManager {
       totals.projectLimit += pkg.projectLimit;
       totals.teamsUsed += pkg.teamsUsed;
       totals.teamLimit += pkg.teamLimit;
-      totals.proposalsUsed += pkg.proposalsUsed;
-      totals.proposalLimit += pkg.proposalLimit;
       totals.requestsUsed += pkg.requestsUsed;
       totals.requestLimit += pkg.requestLimit;
     });
@@ -870,10 +836,6 @@ export class UsageManager {
       projectsUsed: totals.projectsUsed,
       projectLimit: totals.projectLimit,
       remainingProjects: totals.projectLimit - totals.projectsUsed,
-
-      proposalsUsed: totals.proposalsUsed,
-      proposalLimit: totals.proposalLimit,
-      remainingProposals: totals.proposalLimit - totals.proposalsUsed,
 
       teamsUsed: totals.teamsUsed,
       teamLimit: totals.teamLimit,
@@ -928,8 +890,8 @@ export class UsageManager {
       return;
     }
 
-    const notificationType = totalUsage.isOverLimit 
-      ? NotificationType.USAGE_OVER_LIMIT 
+    const notificationType = totalUsage.isOverLimit
+      ? NotificationType.USAGE_OVER_LIMIT
       : NotificationType.USAGE_APPROACHING_LIMIT;
 
     const hasRecentNotification = await this.checkLastNotification(
@@ -966,12 +928,12 @@ export class UsageManager {
 
     const config = this.getNotificationConfig(NotificationType.SUBSCRIPTION_EXPIRED);
 
-      await this.createNotification({
-        userId,
-        type: NotificationType.SUBSCRIPTION_EXPIRED,
-        title: config.title,
-        content: config.generateMessage(service),
-      });
+    await this.createNotification({
+      userId,
+      type: NotificationType.SUBSCRIPTION_EXPIRED,
+      title: config.title,
+      content: config.generateMessage(service),
+    });
   }
 
   private static async handlePackageExpired(
@@ -991,7 +953,7 @@ export class UsageManager {
 
     await prisma.creditPurchase.update({
       where: { id: purchase.id },
-      data: { 
+      data: {
         status: PurchaseStatus.EXPIRED
       }
     });
@@ -1001,14 +963,14 @@ export class UsageManager {
       packageName: purchase.package.name,
       activePackagesCount: activePackages.length
     };
-    
+
     await this.createNotification({
       userId,
       type: NotificationType.PACKAGE_EXPIRED,
       title: config.title,
       content: config.generateMessage(usageData),
     });
-      
+
   }
 
   private static async checkLastNotification(
@@ -1035,24 +997,24 @@ export class UsageManager {
     const configs = {
       [NotificationType.USAGE_OVER_LIMIT]: {
         title: 'Usage Limit Exceeded',
-        generateMessage: (usageState: UsageState) => 
+        generateMessage: (usageState: UsageState) =>
           `Your total usage has exceeded the limit (${usageState.totalUsage.percentageUsed.toFixed(1)}%). Please upgrade your plan or purchase additional credits.`
       },
       [NotificationType.USAGE_APPROACHING_LIMIT]: {
         title: 'Usage Limit Approaching',
-        generateMessage: (usageState: UsageState) => 
+        generateMessage: (usageState: UsageState) =>
           `Your total usage is approaching the limit (${usageState.totalUsage.percentageUsed.toFixed(1)}%). Consider upgrading your plan.`
       },
       [NotificationType.PACKAGE_EXPIRED]: {
         title: 'Credit Package Expired',
-        generateMessage: (data: { packageName: string; activePackagesCount: number }) => 
+        generateMessage: (data: { packageName: string; activePackagesCount: number }) =>
           data.activePackagesCount === 0
             ? `Your ${data.packageName} package has expired. You have no active packages remaining.`
             : `Your ${data.packageName} package has expired. You have ${data.activePackagesCount} active package(s) remaining.`
       },
       [NotificationType.SUBSCRIPTION_EXPIRED]: {
         title: 'Subscription Usage Limit Reached',
-        generateMessage: (service: Service) => 
+        generateMessage: (service: Service) =>
           `Your subscription usage for ${service} service has been reached. Doc2Product will use your active credit packages.`
       }
     };
@@ -1065,6 +1027,18 @@ export class UsageManager {
     title: string;
     content: string;
   }): Promise<void> {
-    await prisma.notification.create({ data });
+    await prisma.notification.create({
+      data: {
+        userId: data.userId,
+        type: data.type,
+        title: data.title,
+        message: data.content,
+        actorIds: [],
+        entityType: "USAGE",
+        entityId: data.userId,
+        metadata: {},
+        aggregateKey: `usage_${data.type}_${Date.now()}`
+      }
+    });
   }
 }

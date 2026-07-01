@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Loader2, Sparkles, Search, Bot, ArrowRight } from 'lucide-react';
 import { trpc } from '@/lib/trpc';
+import { agentService } from '@/services/agent.service';
 import { toast } from 'sonner';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
@@ -29,8 +30,6 @@ export function QuickAgentPopover({ contextId, contextType, onOpenChange }: Quic
     const [isCreating, setIsCreating] = useState(false);
 
     const createAgentMutation = trpc.agent.create.useMutation();
-    const initializeBuilderMutation = trpc.agent.builder.initialize.useMutation();
-    const messageMutation = trpc.agent.builder.message.useMutation();
 
     const handleCreate = async (agentData: any) => {
         if (isCreating) return;
@@ -45,12 +44,16 @@ export function QuickAgentPopover({ contextId, contextType, onOpenChange }: Quic
                 metadata: contextId ? { contextId, contextType } : undefined
             });
 
-            const builderData = await initializeBuilderMutation.mutateAsync({ agentId: agent.id, skipWelcome: true });
-            await messageMutation.mutateAsync({
+            const initRes = await agentService.agents.builder.initialize({ agentId: agent.id, skipWelcome: true });
+            if (!initRes.ok) throw new Error(await initRes.text());
+            const builderData = await initRes.json();
+
+            const msgRes = await agentService.agents.builder.message({
                 conversationId: builderData.conversationId,
                 message: agentData.message || agentData.title,
                 agentId: agent.id,
             });
+            if (!msgRes.ok) throw new Error(await msgRes.text());
 
             if (onOpenChange) onOpenChange(false);
             router.push(`/dashboard/agents/create/${agent.id}`);

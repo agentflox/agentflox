@@ -266,7 +266,7 @@ export class NotificationService {
             limit?: number;
             offset?: number;
             unreadOnly?: boolean;
-            category?: NotificationCategory;
+            category?: any;
         } = {}
     ) {
         const { limit = 50, offset = 0, unreadOnly = false, category } = options;

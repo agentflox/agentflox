@@ -668,7 +668,7 @@ export class StripeWebhookManager {
 
     const lastPayment = current.payments?.[0];
     if (!lastPayment) {
-      throw new Error(`No payment found for subscription ${subscriptionId}`);
+      throw new Error(`No payment found for subscription ${current.id}`);
     }
 
     // Prevent duplicate renewals

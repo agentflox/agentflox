@@ -10,13 +10,14 @@ import { ViewType } from "@/features/dashboard/components/modals/AddViewModal";
 
 type Props = {
     teamId: string;
+    workspaceId?: string;
     type?: ViewType;
     open: boolean;
     onClose: () => void;
     inline?: boolean;
 };
 
-export function TeamItemSidebar({ teamId, type, open, onClose, inline }: Props) {
+export function TeamItemSidebar({ teamId, workspaceId, type, open, onClose, inline }: Props) {
     // Stub implementation
     return (
         <div className={`${inline ? 'absolute inset-y-0 right-0' : 'fixed inset-y-0 right-0'} z-[60] w-auto min-w-[20rem] max-w-sm bg-background shadow-xl transition-transform duration-300 ${open ? '-translate-x-14' : 'translate-x-full'}`}>

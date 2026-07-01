@@ -6,13 +6,13 @@ import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { Bell, Inbox, Activity, FileText, CheckSquare, MessageSquare, MessageCircle, User } from 'lucide-react';
-import { NotificationsView } from '@/features/personal/tabs/NotificationsView';
-import { RequestsView } from '@/features/personal/tabs/RequestsView';
-import { ActivitiesView } from '@/features/personal/tabs/ActivitiesView';
-import { PostsView } from '@/features/personal/tabs/PostsView';
-import { TasksView } from '@/features/personal/tabs/TasksView';
-import { MessagesView } from '@/features/personal/tabs/MessagesView';
-import { CommentsView } from '@/features/personal/tabs/CommentsView';
+import { NotificationsView } from '@/features/dashboard/components/personal/NotificationsView';
+import { RequestsView } from '@/features/dashboard/components/personal/RequestsView';
+import { ActivitiesView } from '@/features/dashboard/components/personal/ActivitiesView';
+import { PostsView } from '@/features/dashboard/components/personal/PostsView';
+import { TasksView } from '@/features/dashboard/components/personal/TasksView';
+import { MessagesView } from '@/features/dashboard/components/personal/MessagesView';
+import { CommentsView } from '@/features/dashboard/components/personal/CommentsView';
 
 type PersonalTab = 'notifications' | 'requests' | 'activities' | 'posts' | 'tasks' | 'messages' | 'comments';
 
@@ -43,15 +43,16 @@ export default function SpacePersonalView({ spaceId, workspaceId }: SpacePersona
     };
 
     const renderContent = () => {
+        const props = { spaceId, workspaceId, context: "space" as const };
         switch (activeTab) {
-            case 'notifications': return <NotificationsView />;
-            case 'requests': return <RequestsView />;
-            case 'activities': return <ActivitiesView />;
-            case 'posts': return <PostsView />;
-            case 'tasks': return <TasksView />;
-            case 'messages': return <MessagesView />;
-            case 'comments': return <CommentsView />;
-            default: return <TasksView />;
+            case 'notifications': return <NotificationsView {...props} />;
+            case 'requests': return <RequestsView {...props} />;
+            case 'activities': return <ActivitiesView {...props} />;
+            case 'posts': return <PostsView {...props} />;
+            case 'tasks': return <TasksView {...props} />;
+            case 'messages': return <MessagesView {...props} />;
+            case 'comments': return <CommentsView {...props} />;
+            default: return <TasksView {...props} />;
         }
     };
 
@@ -79,7 +80,7 @@ export default function SpacePersonalView({ spaceId, workspaceId }: SpacePersona
                                     key={item.id}
                                     onClick={() => handleTabChange(item.id as PersonalTab)}
                                     className={cn(
-                                        "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors mb-1 text-left",
+                                        "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors mb-1 text-left cursor-pointer",
                                         isActive
                                             ? "bg-indigo-50 text-indigo-700"
                                             : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900"
@@ -104,7 +105,7 @@ export default function SpacePersonalView({ spaceId, workspaceId }: SpacePersona
                         {navItems.find(i => i.id === activeTab)?.label || activeTab}
                     </h2>
                 </header>
-                <div className="flex-1 overflow-auto p-6">
+                <div className="flex-1 p-6">
                     {renderContent()}
                 </div>
             </div>

@@ -4,8 +4,8 @@ import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import {
     Users, Bot, Search, Filter, Loader2, Files, List, Plus, X, BrainCircuit
 } from 'lucide-react';
-import { useWorkforceStore } from '../store/useWorkforceStore';
-import type { WorkforceNode } from '../store/useWorkforceStore';
+import { useWorkforceStore } from '../../../../../entities/workforce/hooks/useWorkforceStore';
+import type { WorkforceNode } from '../../../../../entities/workforce/hooks/useWorkforceStore';
 import { trpc } from '@/lib/trpc';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
