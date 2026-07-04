@@ -58,7 +58,7 @@ export const QuoteSection = () => {
                     {words.map((word, i) => {
                         const isHighlighted = ["manage", "work", "at", "every", "level,", "built-in", "AI", "automate", "your", "daily", "tasks."].includes(word);
                         return (
-                            <span key={i} className={`main-word mr-2 md:mr-3 mt-1 ${isHighlighted ? 'text-white font-bold' : 'text-[#8A8F98]'}`}>
+                            <span key={i} className={`main-word mr-2 md:mr-3 mt-1 ${isHighlighted ? 'bg-clip-text text-transparent bg-gradient-to-b from-white to-white/70 font-bold' : 'bg-clip-text text-transparent bg-gradient-to-b from-[#8A8F98] to-[#8A8F98]/70'}`}>
                                 {word}
                             </span>
                         );
@@ -68,12 +68,12 @@ export const QuoteSection = () => {
                 <div className="mt-10 md:mt-14 flex flex-col items-center gap-1">
                     <span className="text-base md:text-lg">
                         {"Alex Rivers".split(" ").map((word, i) => (
-                            <span key={`name-${i}`} className="author-word text-white font-bold mr-1">{word}</span>
+                            <span key={`name-${i}`} className="author-word bg-clip-text text-transparent bg-gradient-to-b from-white to-white/70 font-bold mr-1">{word}</span>
                         ))}
                     </span>
                     <span className="text-sm mt-1">
                         {"VP of Engineering · Agentflox".split(" ").map((word, i) => (
-                            <span key={`title-${i}`} className="author-word text-[#8A8F98] font-medium mr-1">{word}</span>
+                            <span key={`title-${i}`} className="author-word bg-clip-text text-transparent bg-gradient-to-b from-[#8A8F98] to-[#8A8F98]/70 font-medium mr-1">{word}</span>
                         ))}
                     </span>
                 </div>

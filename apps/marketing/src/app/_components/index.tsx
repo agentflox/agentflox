@@ -15,3 +15,4 @@ export * from './Footer';
 export * from './TransitionSection';
 export * from './QuoteSection';
 export * from './FeaturePageLayout';
+export * from './MarketplaceBridge';

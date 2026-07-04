@@ -241,8 +241,8 @@ export const AIAgentSection = () => {
                 <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-16 mb-20 w-full">
                     {/* Left: Text */}
                     <div className="max-w-4xl">
-                        <h2 className="text-3xl md:text-4xl lg:text-[42px] leading-[1.25] tracking-tight text-[#8A8F98] font-medium">
-                            <span className="text-white font-bold">From one agent to an entire digital department.</span> Deploy single sovereign agents with real guardrails to execute tasks, or chain them into a swarm for parallel, collaborative work.
+                        <h2 className="text-3xl md:text-4xl lg:text-[42px] leading-[1.25] text-transparent bg-clip-text bg-gradient-to-b from-[#8A8F98] to-[#8A8F98]/70 font-medium">
+                            <span className="bg-clip-text text-transparent bg-gradient-to-b from-white to-white/70 font-bold">From one agent to an entire digital department.</span> Deploy single sovereign agents with real guardrails to execute tasks, or chain them into a swarm for parallel, collaborative work.
                         </h2>
                     </div>
 
@@ -250,17 +250,17 @@ export const AIAgentSection = () => {
                     <div className="flex flex-wrap sm:flex-nowrap gap-10 xl:gap-12 shrink-0">
                         {/* Stat 1 */}
                         <div className="border-l border-white/15 pl-5 flex flex-col gap-1.5 py-0.5">
-                            <div className="text-3xl md:text-4xl lg:text-[40px] font-bold text-white tracking-tight leading-none">50M+</div>
+                            <div className="text-3xl md:text-4xl lg:text-[40px] font-bold bg-clip-text text-transparent bg-gradient-to-b from-white to-white/70 tracking-tight leading-none">50M+</div>
                             <div className="text-sm font-medium text-[#8A8F98]">Agentic workflow runs</div>
                         </div>
                         {/* Stat 2 */}
                         <div className="border-l border-white/15 pl-5 flex flex-col gap-1.5 py-0.5">
-                            <div className="text-3xl md:text-4xl lg:text-[40px] font-bold text-white tracking-tight leading-none">2,000+</div>
+                            <div className="text-3xl md:text-4xl lg:text-[40px] font-bold bg-clip-text text-transparent bg-gradient-to-b from-white to-white/70 tracking-tight leading-none">2,000+</div>
                             <div className="text-sm font-medium text-[#8A8F98]">Agents created</div>
                         </div>
                         {/* Stat 3 */}
                         <div className="border-l border-white/15 pl-5 flex flex-col gap-1.5 py-0.5">
-                            <div className="text-3xl md:text-4xl lg:text-[40px] font-bold text-white tracking-tight leading-none">1,000+</div>
+                            <div className="text-3xl md:text-4xl lg:text-[40px] font-bold bg-clip-text text-transparent bg-gradient-to-b from-white to-white/70 tracking-tight leading-none">1,000+</div>
                             <div className="text-sm font-medium text-[#8A8F98]">Workforces created</div>
                         </div>
                     </div>

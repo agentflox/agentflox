@@ -243,16 +243,9 @@ export const HeroSection = () => {
 
                     {/* Left: copy */}
                     <div className="max-w-2xl">
-                        <div className="hero-text-block mb-8">
-                            <span className="px-3 py-1 rounded-full border border-indigo-500/30 bg-indigo-500/10 text-xs font-medium text-indigo-300 uppercase tracking-widest inline-flex items-center gap-2">
-                                <Sparkles size={12} className="text-indigo-400" />
-                                The Agentic Workspace
-                            </span>
-                        </div>
-
-                        <h1 className="hero-text-block text-4xl sm:text-5xl md:text-6xl font-bold tracking-tighter leading-[1.05] mb-8 text-transparent bg-clip-text bg-gradient-to-br from-white to-gray-400">
+                        <h1 className="hero-text-block text-4xl sm:text-5xl md:text-6xl font-medium tracking-tighter leading-[1.05] mb-8 text-transparent bg-clip-text bg-gradient-to-b from-[#8A8F98] to-[#8A8F98]/70">
                             Run your work.<br />
-                            <span className="text-white">Delegate to your AI.</span><br />
+                            <span className="bg-clip-text text-transparent bg-gradient-to-b from-white to-white/70 font-bold">Delegate to your AI.</span><br />
                             One system.
                         </h1>
 
@@ -266,10 +259,10 @@ export const HeroSection = () => {
                             <Link href={ROUTES.SIGNUP} className="group relative inline-flex items-center justify-center px-8 py-4 font-bold text-white transition-all duration-500 rounded-xl hover:scale-[1.02]">
                                 {/* Full Gradient Background (Border) */}
                                 <div className="absolute inset-0 w-full h-full rounded-xl bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 opacity-80 group-hover:opacity-100 transition-opacity duration-500"></div>
-                                
+
                                 {/* Inner Dark Background (fades out on hover to reveal vibrant gradient) */}
                                 <div className="absolute inset-[1.5px] rounded-[10.5px] bg-[#050505] group-hover:bg-opacity-0 transition-all duration-500 z-0"></div>
-                                
+
                                 {/* Light Ray Sweep */}
                                 <div className="absolute inset-0 overflow-hidden rounded-xl z-10">
                                     <div className="absolute top-0 left-0 h-full w-[200%] -translate-x-[150%] group-hover:translate-x-[50%] transition-transform duration-1000 ease-out">
@@ -282,7 +275,7 @@ export const HeroSection = () => {
                                     Start Building Free
                                     <ArrowRight size={20} className="text-pink-400 group-hover:text-white group-hover:translate-x-1.5 transition-all duration-300" />
                                 </span>
-                                
+
                                 {/* Intense Ambient Glow */}
                                 <div className="absolute -inset-1 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 rounded-2xl blur-xl opacity-30 group-hover:opacity-70 transition-all duration-500 z-[-1]"></div>
                             </Link>

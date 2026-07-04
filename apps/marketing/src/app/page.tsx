@@ -9,6 +9,7 @@ import {
     AIAgentSection,
     ProjectManagementSection,
     TestimonialsSection,
+    MarketplaceBridge,
     MarketplaceBrowser,
     CTASection,
     Footer,
@@ -25,6 +26,7 @@ export default function LandingPage() {
             <ProjectManagementSection />
             <AIAgentSection />
             <QuoteSection />
+            <MarketplaceBridge />
             <MarketplaceBrowser />
             <TestimonialsSection />
             <CTASection />

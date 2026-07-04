@@ -322,8 +322,8 @@ export const ProjectManagementSection = () => {
             <div className="container mx-auto px-4 sm:px-10 lg:px-20 relative z-10">
                 {/* Header */}
                 <div className="flex flex-col items-center text-center max-w-5xl mx-auto mb-16">
-                    <h2 className="text-3xl md:text-4xl lg:text-[42px] text-[#8A8F98] font-medium leading-[1.25] tracking-tight">
-                        <span className="font-bold text-white">See work your way.</span> Manage your work at different levels based on your need. Whether it's a personal to-do list or an entire team's project, Agentflox adapts.
+                    <h2 className="text-3xl md:text-4xl lg:text-[42px] text-transparent bg-clip-text bg-gradient-to-b from-[#8A8F98] to-[#8A8F98]/70 font-medium leading-[1.25] tracking-tight">
+                        <span className="bg-clip-text text-transparent bg-gradient-to-b from-white to-white/70 font-bold">See work your way.</span> Manage your work at different levels based on your need. Whether it's a personal to-do list or an entire team's project, Agentflox adapts.
                     </h2>
                 </div>
 

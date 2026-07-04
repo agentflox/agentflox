@@ -93,14 +93,14 @@ export const CTASection = () => {
 
                             <div className="relative z-20 max-w-xl flex flex-col items-center">
                                 <h2 className="text-4xl sm:text-5xl font-bold text-white mb-6 tracking-tight leading-[1.1]">
-                                    Start building your <br />
+                                    Step into the era of the <br />
                                     <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-300 via-white to-indigo-300">
-                                        Venture Empire
+                                        Autonomous Workspace
                                     </span>
                                 </h2>
 
                                 <p className="text-lg text-gray-400 mb-8 max-w-lg font-light leading-relaxed">
-                                    Join thousands of founders, investors, and builders using Agentflox to orchestrate their vision.
+                                    Join forward-thinking teams using Agentflox to unify workflows, deploy AI agents, and scale operations on demand.
                                 </p>
 
                                 <div className="flex flex-col sm:flex-row gap-4 mb-10 justify-center">
@@ -129,7 +129,7 @@ export const CTASection = () => {
                                     </div>
                                     <div className="flex items-center gap-2 text-sm text-gray-400">
                                         <CheckCircle2 size={16} className="text-indigo-400" />
-                                        <span>Enterprise-grade security</span>
+                                        <span>Verified agents & talent</span>
                                     </div>
                                 </div>
                             </div>

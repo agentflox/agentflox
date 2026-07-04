@@ -73,7 +73,7 @@ export const Footer = () => {
                             </span>
                         </Link>
                         <p className="text-gray-500 mb-6 leading-relaxed font-light text-sm">
-                            The operating system for modern ventures. Orchestrate agents, automate workflows, and scale your ambition.
+                            The operating system for the autonomous workspace. Unify workflows, deploy AI agents, and access a global network of expert talent.
                         </p>
                         <div className="flex gap-4">
                             {socialLinks.map((item, i) => {

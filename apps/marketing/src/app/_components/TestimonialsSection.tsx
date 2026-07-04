@@ -118,7 +118,7 @@ export const TestimonialsSection = () => {
                             <span className="text-xs font-medium text-white-300 tracking-wide uppercase">See The Results</span>
                         </div>
                         <h2 className="text-3xl md:text-4xl lg:text-[42px] leading-[1.25] tracking-tight font-medium">
-                            <span className="text-white font-bold">Our customers love</span>{" "}
+                            <span className="bg-clip-text text-transparent bg-gradient-to-b from-white to-white/70 font-medium">Our customers love</span>{" "}
                             <motion.span
                                 animate={{ backgroundPosition: ["0% 50%", "100% 50%", "0% 50%"] }}
                                 transition={{ duration: 6, ease: "linear", repeat: Infinity }}
