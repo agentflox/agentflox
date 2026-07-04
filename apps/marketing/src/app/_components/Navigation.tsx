@@ -203,7 +203,7 @@ export const Navigation = () => {
                     <div className="absolute inset-0 w-full h-full pointer-events-none">
                         <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent -translate-x-[150%] animate-[shimmer_4s_infinite_ease-in-out]" />
                     </div>
-                    
+
                     <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex justify-center items-center text-[13px] font-light tracking-wide text-gray-400 gap-3 z-10">
                         {/* Polished Badge */}
                         <span className="relative flex items-center justify-center px-2.5 py-0.5 rounded-full bg-white/5 border border-white/10 shadow-[0_0_10px_rgba(34,211,238,0.1)]">
@@ -211,11 +211,11 @@ export const Navigation = () => {
                                 NEW
                             </span>
                         </span>
-                        
+
                         <span className="text-gray-300">
                             Agentflox Enterprise is now generally available.
                         </span>
-                        
+
                         {/* Premium Link */}
                         <Link href="/enterprise" className="group flex items-center gap-1.5 font-medium text-white transition-all hover:text-cyan-400">
                             <span className="relative">
