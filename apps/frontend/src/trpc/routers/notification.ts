@@ -87,27 +87,32 @@ export const notificationRouter = router({
 			});
 
 			// Send notification to the original sender that their request was viewed
-			if (notification.relatedType === "PROPOSAL" && notification.relatedId) {
+			if (notification.entityType === "PROPOSAL" && notification.entityId) {
 				try {
-					// Find the request to get the sender
 					const request = await prisma.request.findFirst({
 						where: {
-							proposalId: notification.relatedId,
-							message: notification.content,
+							message: notification.message,
+							receiverId: userId,
+							OR: [
+								{ projectId: notification.entityId },
+								{ teamId: notification.entityId },
+							],
 						},
 						select: { senderId: true }
 					});
 
 					if (request) {
-						// Create notification for the sender
 						const created = await prisma.notification.create({
 							data: {
 								userId: request.senderId,
 								type: "REQUEST_STATUS",
 								title: "Request Viewed",
-								content: `Your request has been viewed by the proposal owner.`,
-								relatedId: notification.relatedId,
-								relatedType: "PROPOSAL",
+								message: "Your request has been viewed by the proposal owner.",
+								entityType: notification.entityType,
+								entityId: notification.entityId,
+								actorIds: [userId],
+								metadata: {},
+								aggregateKey: `REQUEST_STATUS:${notification.entityId}:${request.senderId}`,
 							}
 						});
 
@@ -178,12 +183,18 @@ export const notificationRouter = router({
 		.input(z.object({
 			projectId: z.string(),
 			title: z.string().min(1),
-			content: z.string().min(1),
+			message: z.string().min(1).optional(),
+			content: z.string().min(1).optional(),
+			entityId: z.string().optional(),
 			relatedId: z.string().optional(),
-			relatedType: z.enum(["POST", "PROJECT", "PROPOSAL", "TEAM"]).default("POST"),
+			entityType: z.enum(["POST", "PROJECT", "PROPOSAL", "TEAM"]).default("POST"),
+			relatedType: z.enum(["POST", "PROJECT", "PROPOSAL", "TEAM"]).optional(),
 		}))
-		.mutation(async ({ ctx, input }: { ctx: { session: any }; input: { projectId: string; title: string; content: string; relatedId?: string; relatedType: "POST" | "PROJECT" | "PROPOSAL" | "TEAM" } }) => {
+		.mutation(async ({ ctx, input }: { ctx: { session: any }; input: { projectId: string; title: string; message?: string; content?: string; entityId?: string; relatedId?: string; entityType: "POST" | "PROJECT" | "PROPOSAL" | "TEAM"; relatedType?: "POST" | "PROJECT" | "PROPOSAL" | "TEAM" } }) => {
 			const actorId = ctx.session!.user!.id;
+			const message = input.message ?? input.content ?? "";
+			const entityType = input.entityType ?? input.relatedType ?? "POST";
+			const entityId = input.entityId ?? input.relatedId ?? input.projectId;
 
 			const project = await prisma.project.findUnique({
 				where: { id: input.projectId },
@@ -207,9 +218,12 @@ export const notificationRouter = router({
 					userId,
 					type: NotificationType.PROJECT_UPDATE,
 					title: input.title,
-					content: input.content,
-					relatedId: input.relatedId,
-					relatedType: input.relatedType,
+					message,
+					entityType,
+					entityId,
+					actorIds: [actorId],
+					metadata: {},
+					aggregateKey: `${entityType}:${entityId}:${NotificationType.PROJECT_UPDATE}`,
 				})),
 				skipDuplicates: true,
 			});
@@ -222,12 +236,18 @@ export const notificationRouter = router({
 		.input(z.object({
 			userIds: z.array(z.string()).min(1),
 			title: z.string().min(1),
-			content: z.string().min(1),
+			message: z.string().min(1).optional(),
+			content: z.string().min(1).optional(),
+			entityId: z.string().optional(),
 			relatedId: z.string().optional(),
-			relatedType: z.enum(["POST", "PROJECT", "PROPOSAL", "TEAM", "COMMENT"]).default("POST"),
+			entityType: z.enum(["POST", "PROJECT", "PROPOSAL", "TEAM", "COMMENT"]).default("POST"),
+			relatedType: z.enum(["POST", "PROJECT", "PROPOSAL", "TEAM", "COMMENT"]).optional(),
 		}))
-		.mutation(async ({ ctx, input }: { ctx: { session: any }; input: { userIds: string[]; title: string; content: string; relatedId?: string; relatedType: "POST" | "PROJECT" | "PROPOSAL" | "TEAM" | "COMMENT" } }) => {
+		.mutation(async ({ ctx, input }: { ctx: { session: any }; input: { userIds: string[]; title: string; message?: string; content?: string; entityId?: string; relatedId?: string; entityType: "POST" | "PROJECT" | "PROPOSAL" | "TEAM" | "COMMENT"; relatedType?: "POST" | "PROJECT" | "PROPOSAL" | "TEAM" | "COMMENT" } }) => {
 			const actorId = ctx.session!.user!.id;
+			const message = input.message ?? input.content ?? "";
+			const entityType = input.entityType ?? input.relatedType ?? "POST";
+			const entityId = input.entityId ?? input.relatedId ?? actorId;
 			const recipients = Array.from(new Set(input.userIds.filter((id) => id !== actorId)));
 			if (recipients.length === 0) return { created: 0, userIds: [] as string[] } as const;
 
@@ -236,9 +256,12 @@ export const notificationRouter = router({
 					userId,
 					type: NotificationType.MESSAGE_RECEIVED,
 					title: input.title,
-					content: input.content,
-					relatedId: input.relatedId,
-					relatedType: input.relatedType,
+					message,
+					entityType,
+					entityId,
+					actorIds: [actorId],
+					metadata: {},
+					aggregateKey: `${entityType}:${entityId}:${NotificationType.MESSAGE_RECEIVED}`,
 				})),
 				skipDuplicates: true,
 			});

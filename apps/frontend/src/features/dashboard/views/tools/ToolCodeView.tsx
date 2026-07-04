@@ -111,7 +111,7 @@ export function ToolCodeView({
                       </div>
                       <div className="flex items-center gap-1.5">
                         <span className="text-xs text-gray-400">Required</span>
-                        <Switch checked={field.required} readOnly />
+                        <Switch checked={field.required} disabled />
                         <Settings className="w-3.5 h-3.5 text-gray-300" />
                       </div>
                     </div>
@@ -124,11 +124,11 @@ export function ToolCodeView({
                     {/* Value input */}
                     <div className="relative">
                       <Input
-                        value={runInput[field.name] ?? field.defaultValue ?? ""}
+                        value={runInput[field.name] ?? (typeof field.defaultValue === 'string' ? field.defaultValue : "")}
                         onChange={(e) =>
                           setRunInput({ ...runInput, [field.name]: e.target.value })
                         }
-                        placeholder={field.defaultValue ?? "Type here..."}
+                        placeholder={field.placeholder ?? (typeof field.defaultValue === "string" ? field.defaultValue : "Type here...")}
                         className="font-mono text-sm pr-10 text-xs"
                       />
                       <div className="absolute right-2 top-1/2 -translate-y-1/2 border rounded px-1 py-0.5 bg-gray-50 text-[10px] text-gray-400 font-mono">

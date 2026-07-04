@@ -1,6 +1,9 @@
 "use client";
 
-import { useMemo, useState, useRef, useEffect, useCallback } from "react";
+import { TASK_LIST_PAGE_SIZE } from "@/features/dashboard/constants";
+import { useGenericTaskViewData } from "@/features/dashboard/hooks/useGenericTaskViewData";
+import { TaskListLoadMore } from "@/features/dashboard/components/shared/TaskListLoadMore";
+import React, { useMemo, useState, useRef, useEffect, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -37,7 +40,7 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { TaskCreationModal } from "@/entities/task/components/TaskCreationModal";
-import { TaskDetailModal } from "@/entities/task/components/TaskDetailModal";
+import { LazyTaskDetailModal as TaskDetailModal } from "@/entities/task/components/LazyTaskDetailModal";
 import { ViewToolbarSaveDropdown } from "@/features/dashboard/components/shared/ViewToolbarSaveDropdown";
 import { ViewToolbarClosedPopover } from "@/features/dashboard/components/shared/ViewToolbarClosedPopover";
 import { ShareViewPermissionModal } from "@/features/dashboard/components/shared/ShareViewPermissionModal";
@@ -48,20 +51,28 @@ import {
     DialogTitle,
     DialogFooter,
 } from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
+import { SingleDateCalendar } from "@/components/ui/date-picker";
+import { DestinationPicker } from "@/entities/task/components/DestinationPicker";
+import { TaskTypeIcon } from "@/entities/task/components/TaskTypeIcon";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, addDays, subDays, startOfDay, endOfDay, isToday as isTodayFns, isSameDay, getWeek, startOfWeek, endOfWeek, differenceInDays } from "date-fns";
 import { FILTER_OPTIONS, FIELD_OPERATORS, STANDARD_FIELD_CONFIG } from "./listViewConstants";
 import { evaluateGroup, hasFilterValue, hasAnyValueInGroup, evaluateCondition } from "./filterUtils";
 import type { FilterGroup, FilterCondition } from "./listViewTypes";
+import { parseEncodedTag } from "@/entities/task/utils/tags";
 
 interface WorkloadViewProps {
     spaceId?: string;
     projectId?: string;
     teamId?: string;
     listId?: string;
+    folderId?: string;
     viewId?: string;
+    workspaceId?: string;
     initialConfig?: any;
     selectedTaskIdFromParent?: string | null;
     onTaskSelect?: (taskId: string | null) => void;
+    refetchViewData?: () => void;
 }
 
 const CREATE_FIELD_TYPES = [
@@ -114,7 +125,7 @@ const CREATE_FIELD_TYPES = [
 type WorkloadMetric = "tasks" | "time_estimate" | "sprint_points";
 type Timeframe = "7" | "14" | "30";
 
-export function WorkloadView({ spaceId, projectId, teamId, listId, viewId, initialConfig, onTaskSelect }: WorkloadViewProps) {
+export function WorkloadView({ spaceId, projectId, teamId, listId, folderId, viewId, workspaceId, initialConfig, onTaskSelect, refetchViewData }: WorkloadViewProps) {
     const router = useRouter();
     const searchParams = useSearchParams();
     const utils = trpc.useUtils();
@@ -197,9 +208,24 @@ export function WorkloadView({ spaceId, projectId, teamId, listId, viewId, initi
     const updateViewMutation = trpc.view.update.useMutation();
     const createViewMutation = trpc.view.create.useMutation();
     const { data: viewData } = trpc.view.get.useQuery({ id: viewId as string }, { enabled: !!viewId });
-    const { data: space } = trpc.space.get.useQuery({ id: spaceId as string }, { enabled: !!spaceId });
-    const { data: project } = trpc.project.get.useQuery({ id: projectId as string }, { enabled: !!projectId });
-    const resolvedWorkspaceId = space?.workspaceId || project?.workspaceId || undefined;
+
+    const {
+        resolvedWorkspaceId,
+        space,
+        workspaceMembers,
+        customFields,
+        availableTaskTypes,
+        projectParticipants,
+        teamParticipants,
+        listsData,
+        currentList,
+        tasks,
+        isTasksLoading,
+        hasMore: hasMoreTasks,
+        isFetchingNextPage,
+        loadMoreRef,
+        total: taskTotal,
+    } = useGenericTaskViewData({ spaceId, projectId, teamId, listId, workspaceId, taskListEnabled: false });
 
     useEffect(() => {
         if (viewData) {
@@ -251,12 +277,20 @@ export function WorkloadView({ spaceId, projectId, teamId, listId, viewId, initi
         if (listId) utils.list?.get?.setData({ id: listId }, (old: any) => old ? { ...old, views: patchViews(old.views ?? []) } : old);
         
         // Use a generic approach to update list.byContext
+        const listByContextInput = resolvedWorkspaceId || spaceId || projectId || teamId
+            ? {
+                workspaceId: resolvedWorkspaceId || undefined,
+                spaceId: spaceId || undefined,
+                projectId: projectId || undefined,
+                teamId: teamId || undefined,
+                folderId: folderId || undefined,
+            }
+            : null;
+
         const updateListByContext = () => {
             try {
-                // @ts-ignore
-                if (utils.list?.byContext?.setData) {
-                    // @ts-ignore
-                    utils.list.byContext.setData(undefined, (old: any) => {
+                if (listByContextInput && utils.list?.byContext?.setData) {
+                    utils.list.byContext.setData(listByContextInput, (old: any) => {
                         if (!old || !old.items) return old;
                         return {
                             ...old,
@@ -341,9 +375,8 @@ export function WorkloadView({ spaceId, projectId, teamId, listId, viewId, initi
         if (next) await saveViewConfig(true);
     };
 
-    const saveAsNewView = async (name: string) => {
-        // Implementation for save as new view
-        toast.info("Save as new view not fully implemented in this demo");
+    const saveAsNewView = async (name?: string) => {
+        toast.info(name ? `Save as new view "${name}" not fully implemented` : "Save as new view not fully implemented in this demo");
     };
 
     const revertViewChanges = () => {
@@ -361,28 +394,35 @@ export function WorkloadView({ spaceId, projectId, teamId, listId, viewId, initi
         }
     };
 
-    const { data: tasksData, isLoading } = trpc.task.list.useQuery({
-        spaceId, projectId, teamId, listId,
-        includeRelations: true,
-        page: 1,
-        pageSize: 500,
-    }, { enabled: !!(spaceId || projectId || teamId || listId) });
 
-    const tasks = useMemo(() => (tasksData?.items || []) as any[], [tasksData]);
+    const workspaceUserById = useMemo(() => {
+        const map = new Map<string, { id: string; name: string; email?: string | null; image?: string | null }>();
+        for (const m of workspaceMembers ?? []) {
+            const u = (m as any).user;
+            if (u) map.set(u.id, { id: u.id, name: u.name || u.email || "Unknown", image: u.image, email: u.email });
+        }
+        return map;
+    }, [workspaceMembers]);
 
-    const { data: projectParticipants } = trpc.project.getParticipants.useQuery({ projectId: projectId as string }, { enabled: !!projectId });
-    const { data: teamParticipants } = trpc.team.getParticipants.useQuery({ teamId: teamId as string }, { enabled: !!teamId });
     const users = useMemo(() => {
-        const combined = [...(projectParticipants || []), ...(teamParticipants || [])];
-        const unique = new Map();
-        combined.forEach(u => unique.set(u.id, u));
-        return Array.from(unique.values());
-    }, [projectParticipants, teamParticipants]);
-
-    const { data: customFields = [] } = trpc.customFields.list.useQuery(
-        { workspaceId: resolvedWorkspaceId as string, applyTo: "TASK" },
-        { enabled: !!resolvedWorkspaceId }
-    );
+        if (teamId && teamParticipants?.users?.length) {
+            return (teamParticipants.users as any[]).map((u: any) => ({
+                id: u.id,
+                name: workspaceUserById.get(u.id)?.name || u.name || u.email || "Unknown",
+                image: workspaceUserById.get(u.id)?.image ?? null,
+                email: u.email ?? null,
+            }));
+        }
+        if (projectId && projectParticipants?.users?.length) {
+            return (projectParticipants.users as any[]).map((u: any) => ({
+                id: u.id,
+                name: workspaceUserById.get(u.id)?.name || u.name || u.email || "Unknown",
+                image: workspaceUserById.get(u.id)?.image ?? null,
+                email: u.email ?? null,
+            }));
+        }
+        return Array.from(workspaceUserById.values()).map(u => ({ id: u.id, name: u.name, image: u.image ?? null, email: u.email ?? null }));
+    }, [teamId, teamParticipants?.users, projectId, projectParticipants?.users, workspaceUserById]);
 
     const FIELD_CONFIG = useMemo(() => {
         const custom = (customFields || []).map((f: any) => ({
@@ -416,6 +456,21 @@ export function WorkloadView({ spaceId, projectId, teamId, listId, viewId, initi
         }
         return [];
     });
+
+    const applySavedFilter = (config: FilterGroup) => {
+        setFilterGroups(config);
+        setSavedFiltersPanelOpen(false);
+    };
+
+    const [filterSearch, setFilterSearch] = useState("");
+
+    const getPriorityStyles = (p: string) => {
+        if (p === "URGENT") return { badge: "text-red-700 bg-red-50 border-red-200", icon: "text-red-600" };
+        if (p === "HIGH") return { badge: "text-orange-700 bg-orange-50 border-orange-200", icon: "text-orange-600" };
+        if (p === "NORMAL") return { badge: "text-blue-700 bg-blue-50 border-blue-200", icon: "text-blue-600" };
+        if (p === "LOW") return { badge: "text-slate-600 bg-slate-100 border-slate-200", icon: "text-slate-500" };
+        return { badge: "text-slate-600 bg-slate-50 border-slate-200", icon: "text-slate-400" };
+    };
 
     const updateFilterGroupOperator = (groupId: string, operator: "AND" | "OR") => {
         const updateRecursive = (group: FilterGroup): FilterGroup => {
@@ -495,17 +550,30 @@ export function WorkloadView({ spaceId, projectId, teamId, listId, viewId, initi
                 const matchesSearch = (task.title || task.name || "").toLowerCase().includes(q) || (task.id || "").toLowerCase().includes(q);
                 if (!matchesSearch) return false;
             }
-            return filterGroups.conditions.length > 0 ? evaluateGroup(task, filterGroups, customFields) : true;
+            return filterGroups.conditions.length > 0 ? evaluateGroup(task, filterGroups) : true;
         });
     }, [tasks, filterGroups, customFields, showCompleted, searchQuery]);
-    const allAvailableStatus = useMemo(() => {
-        // Mock status list - normally fetched from list/project context
-        const statuses = new Map();
+    const allAvailableStatuses = useMemo(() => {
+        if (listId && currentList?.statuses) {
+            return (currentList.statuses as { id: string; name: string; color: string }[]).map((s: any) => ({ ...s, listId: currentList.id }));
+        }
+        if (listsData?.items) {
+            const statusMap = new Map<string, { id: string; name: string; color: string; listId: string }>();
+            (listsData.items as any[]).forEach((list: any) => {
+                (list.statuses || []).forEach((s: any) => {
+                    if (!statusMap.has(s.id)) statusMap.set(s.id, { ...s, listId: list.id });
+                });
+            });
+            return Array.from(statusMap.values());
+        }
+        const statuses = new Map<string, { id: string; name: string; color: string }>();
         tasks.forEach(t => {
             if (t.status) statuses.set(t.status.id, t.status);
         });
         return Array.from(statuses.values());
-    }, [tasks]);
+    }, [listId, currentList, listsData, tasks]);
+
+    const allAvailableTags = useMemo(() => Array.from(new Set(tasks.flatMap(t => t.tags || []))), [tasks]);
 
     const allGroups = useMemo(() => {
         if (groupBy === 'assignee') {
@@ -529,7 +597,7 @@ export function WorkloadView({ spaceId, projectId, teamId, listId, viewId, initi
         }
         // Default or other groupings
         return users.map(u => ({ id: u.id, name: u.name, image: u.image, type: 'user' }));
-    }, [groupBy, users, tasks, allAvailableStatus]);
+    }, [groupBy, users, tasks, allAvailableStatuses]);
 
     // Workload logic
     const timelineDays = useMemo(() => {
@@ -1250,7 +1318,7 @@ export function WorkloadView({ spaceId, projectId, teamId, listId, viewId, initi
     };
 
 
-    if (isLoading) {
+    if (isTasksLoading) {
         return (
             <div className="h-full flex items-center justify-center bg-white rounded-xl border border-zinc-200 p-20">
                 <div className="flex flex-col items-center gap-4">
@@ -1538,6 +1606,13 @@ export function WorkloadView({ spaceId, projectId, teamId, listId, viewId, initi
                         </p>
                     </div>
                 </div>
+                <TaskListLoadMore
+                    loadMoreRef={loadMoreRef}
+                    hasMore={hasMoreTasks}
+                    isFetchingNextPage={isFetchingNextPage}
+                    loaded={tasks.length}
+                    total={taskTotal}
+                />
             </div>
 
             {/* Fields panel (Columns click or + in last column) toggle show/hide columns */}
@@ -1797,7 +1872,7 @@ export function WorkloadView({ spaceId, projectId, teamId, listId, viewId, initi
                                         }}
                                     >
                                         <Avatar className="h-6 w-6 border border-zinc-100">
-                                            <AvatarImage src={user.image} />
+                                            <AvatarImage src={user.image ?? undefined} />
                                             <AvatarFallback className="text-[10px] bg-zinc-100 text-zinc-500">{user.name?.slice(0, 2).toUpperCase()}</AvatarFallback>
                                         </Avatar>
                                         <span className="text-sm font-medium flex-1 truncate">{user.name}</span>
@@ -1829,7 +1904,7 @@ export function WorkloadView({ spaceId, projectId, teamId, listId, viewId, initi
             />
             <ShareViewPermissionModal open={isShareModalOpen} onOpenChange={setIsShareModalOpen} viewId={viewId as string} workspaceId={resolvedWorkspaceId as string} />
 
-            {/* Create field modal – field types and Add existing fields */}
+            {/* Create field modal  Efield types and Add existing fields */}
             {createFieldModalOpen && (
                 <>
                     <div className="absolute inset-0 bg-black/20 z-[60]" onClick={() => { setCreateFieldModalOpen(false); setCreateFieldSearch(""); }} aria-hidden />

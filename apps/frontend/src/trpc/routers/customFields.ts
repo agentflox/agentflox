@@ -323,4 +323,127 @@ export const customFieldsRouter = router({
       await prisma.$transaction(updates);
       return { success: true };
     }),
+
+  addToLocation: protectedProcedure
+    .input(z.object({
+      fieldIds: z.array(z.string()).min(1),
+      locationType: z.enum(["WORKSPACE", "SPACE", "PROJECT", "TEAM", "FOLDER", "LIST", "PERSONAL"]),
+      locationId: z.string(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const userId = ctx.session!.user!.id;
+      const sourceFields = await prisma.customField.findMany({
+        where: { id: { in: input.fieldIds } },
+      });
+
+      if (sourceFields.length === 0) {
+        throw new Error("No custom fields found");
+      }
+
+      const locationData: {
+        workspaceId?: string | null;
+        spaceId?: string | null;
+        projectId?: string | null;
+        folderId?: string | null;
+        listId?: string | null;
+        teamId?: string | null;
+      } = {};
+
+      switch (input.locationType) {
+        case "WORKSPACE":
+          locationData.workspaceId = input.locationId;
+          break;
+        case "SPACE":
+          locationData.spaceId = input.locationId;
+          break;
+        case "PROJECT":
+          locationData.projectId = input.locationId;
+          break;
+        case "FOLDER":
+          locationData.folderId = input.locationId;
+          break;
+        case "LIST":
+          locationData.listId = input.locationId;
+          break;
+        case "TEAM":
+          locationData.teamId = input.locationId;
+          break;
+        case "PERSONAL":
+          break;
+      }
+
+      if (!locationData.workspaceId) {
+        if (locationData.spaceId) {
+          const space = await prisma.space.findUnique({
+            where: { id: locationData.spaceId },
+            select: { workspaceId: true },
+          });
+          locationData.workspaceId = space?.workspaceId ?? null;
+        } else if (locationData.projectId) {
+          const project = await prisma.project.findUnique({
+            where: { id: locationData.projectId },
+            select: { workspaceId: true },
+          });
+          locationData.workspaceId = project?.workspaceId ?? null;
+        } else if (locationData.listId) {
+          const list = await prisma.list.findUnique({
+            where: { id: locationData.listId },
+            select: { workspaceId: true },
+          });
+          locationData.workspaceId = list?.workspaceId ?? null;
+        } else if (locationData.folderId) {
+          const folder = await prisma.folder.findUnique({
+            where: { id: locationData.folderId },
+            select: { workspaceId: true },
+          });
+          locationData.workspaceId = folder?.workspaceId ?? null;
+        } else if (locationData.teamId) {
+          const team = await prisma.team.findUnique({
+            where: { id: locationData.teamId },
+            select: { workspaceId: true },
+          });
+          locationData.workspaceId = team?.workspaceId ?? null;
+        }
+      }
+
+      const whereContext: Record<string, string | null | undefined> = { ...locationData };
+      const maxPosition = await prisma.customField.findFirst({
+        where: whereContext,
+        orderBy: { position: "desc" },
+        select: { position: true },
+      });
+
+      let nextPosition = (maxPosition?.position ?? 0) + 1;
+      const created: Awaited<ReturnType<typeof prisma.customField.create>>[] = [];
+
+      for (const field of sourceFields) {
+        const copy = await prisma.customField.create({
+          data: {
+            createdBy: userId,
+            workspaceId: locationData.workspaceId ?? null,
+            spaceId: locationData.spaceId ?? null,
+            projectId: locationData.projectId ?? null,
+            folderId: locationData.folderId ?? null,
+            listId: locationData.listId ?? null,
+            teamId: locationData.teamId ?? null,
+            locationType: input.locationType,
+            name: field.name,
+            type: field.type,
+            config: field.config ?? undefined,
+            defaultValue: field.defaultValue ?? undefined,
+            isRequired: field.isRequired,
+            isPinned: field.isPinned,
+            isRequiredInTasks: field.isRequiredInTasks,
+            isVisibleToGuests: field.isVisibleToGuests,
+            visibility: field.visibility,
+            applyTo: field.applyTo,
+            inheritedFrom: field.id,
+            position: nextPosition++,
+          },
+        });
+        created.push(copy);
+      }
+
+      return { count: created.length, fields: created };
+    }),
 });

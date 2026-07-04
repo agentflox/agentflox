@@ -27,6 +27,17 @@ import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { Separator } from '@/components/ui/separator';
 
+function validateAndNormalizeUrl(input: string): string | null {
+    const trimmed = input.trim();
+    if (!trimmed) return null;
+    const withProtocol = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+    try {
+        return new URL(withProtocol).toString();
+    } catch {
+        return null;
+    }
+}
+
 const QUICK_ICONS = [
     { icon: FileText, label: 'Document', color: 'text-blue-600' },
     { icon: Youtube, label: 'YouTube', color: 'text-red-600' },

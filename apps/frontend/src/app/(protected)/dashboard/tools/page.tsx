@@ -12,7 +12,7 @@ import { useToast } from "@/hooks/useToast";
 import { ToolCard, ToolCreationModal, useToolList } from "@/entities/tools";
 import { DASHBOARD_ROUTES } from "@/constants/routes.config";
 import { Filter, MoreHorizontal, Eye, Trash, Wrench } from "lucide-react";
-import { DataTable } from "@/components/ui/data-table";
+import { LazyDataTable as DataTable } from "@/components/ui/lazy-data-table";
 import { DataTableColumnHeader } from "@/components/ui/data-table-column-header";
 import { ColumnDef } from "@tanstack/react-table";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -49,12 +49,11 @@ export default function ToolsPage() {
     setScope,
     filters,
     setFilters,
+    hasNextPage,
+    hasPreviousPage,
   } = useToolList("owned");
 
   const [showCreateModal, setShowCreateModal] = useState(false);
-
-  const hasNextPage = (data?.items?.length || 0) === pageSize;
-  const hasPreviousPage = page > 1;
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
 
   const [sort, setSort] = useState<Array<{ id: string; desc: boolean }>>([]);

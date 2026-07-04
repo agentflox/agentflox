@@ -1,22 +1,31 @@
 'use client';
 
-import { useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
+import { useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { trpc } from '@/lib/trpc';
 import { useSocket } from '@/components/providers/SocketProvider';
 import { useEffect, useRef, useCallback, useMemo } from 'react';
-import { useToast } from '@/hooks/useToast';
-import type { CreateCommentData } from '@agentflox/types/socket-events';
 import type { PostComment } from '@agentflox/database/src/generated/prisma/client';
+import { useCommentMutations } from './useCommentMutations';
+import { acquireCommentRoom, acquireCommentEventListeners } from '@/lib/socketRefCount';
+
 type CommentEntityType = 'post' | 'listing';
 
-export function useComments(postId: string, entityType: CommentEntityType = 'post') {
-  const { socket, isConnected, waitForConnection } = useSocket();
-  const { toast } = useToast();
+export interface UseCommentsOptions {
+  enabled?: boolean;
+}
+
+export function useComments(
+  postId: string,
+  entityType: CommentEntityType = 'post',
+  options: UseCommentsOptions = {}
+) {
+  const { enabled = true } = options;
+  const { socket, isConnected } = useSocket();
   const queryClient = useQueryClient();
   const utils = trpc.useUtils();
-  const subscribedRef = useRef(false);
   const postIdRef = useRef(postId);
   const processedEvents = useRef(new Set<string>());
+  const mutations = useCommentMutations(postId, entityType);
 
   useEffect(() => {
     postIdRef.current = postId;
@@ -45,7 +54,7 @@ export function useComments(postId: string, entityType: CommentEntityType = 'pos
   const postCommentsQuery = trpc.comments.list.useQuery(
     { postId, page: 1, pageSize: 100 },
     {
-      enabled: !!postId && entityType === 'post',
+      enabled: enabled && !!postId && entityType === 'post',
       staleTime: Infinity,
       gcTime: 300000,
       refetchInterval: false,
@@ -58,7 +67,7 @@ export function useComments(postId: string, entityType: CommentEntityType = 'pos
   const listingCommentsQuery = trpc.marketplace.listComments.useQuery(
     { listingId: postId, page: 1, pageSize: 100 },
     {
-      enabled: !!postId && entityType === 'listing',
+      enabled: enabled && !!postId && entityType === 'listing',
       staleTime: Infinity,
       gcTime: 300000,
       refetchInterval: false,
@@ -78,28 +87,11 @@ export function useComments(postId: string, entityType: CommentEntityType = 'pos
     return sourceItems.map((item) => normalizeComment(item)) as PostComment[];
   }, [queryClient.getQueryState(queryKey)?.dataUpdatedAt, commentsResp]); // Re-run when cache updates
 
-  // ✅ Subscribe to post room
+  // ✅ Subscribe to post/listing comment room (ref-counted)
   useEffect(() => {
-    if (!socket || !isConnected || !postId || subscribedRef.current) return;
-
-    if (entityType === 'listing') {
-      socket.emit('listing:comment:subscribe', { listingId: postId });
-    } else {
-      socket.emit('post:subscribe' as any, { postId });
-    }
-    subscribedRef.current = true;
-
-    return () => {
-      if (socket && subscribedRef.current) {
-        if (entityType === 'listing') {
-          socket.emit('listing:comment:unsubscribe', { listingId: postId });
-        } else {
-          socket.emit('post:unsubscribe' as any, { postId });
-        }
-        subscribedRef.current = false;
-      }
-    };
-  }, [socket, isConnected, postId, entityType]);
+    if (!enabled || !socket || !isConnected || !postId) return;
+    return acquireCommentRoom(socket, entityType, postId);
+  }, [enabled, socket, isConnected, postId, entityType]);
 
   // ✅ Helper: Update cache instantly
   const updateCommentCache = useCallback(
@@ -178,158 +170,21 @@ export function useComments(postId: string, entityType: CommentEntityType = 'pos
     );
   }, [updateCommentCache]);
 
-  // ✅ Register socket listeners
+  // ✅ Register socket listeners (ref-counted per post/listing)
   useEffect(() => {
-    if (!socket || !isConnected) return;
+    if (!enabled || !socket || !isConnected || !postId) return;
 
-    if (entityType === 'listing') {
-      socket.on('listing:comment:created', handleCommentCreated);
-    } else {
-      socket.on('comment:created', handleCommentCreated);
-      socket.on('comment:updated', handleCommentUpdated);
-      socket.on('comment:deleted', handleCommentDeleted);
-      socket.on('comment:voted', handleCommentVoted);
-    }
-
-    return () => {
-      if (entityType === 'listing') {
-        socket.off('listing:comment:created', handleCommentCreated);
-      } else {
-        socket.off('comment:created', handleCommentCreated);
-        socket.off('comment:updated', handleCommentUpdated);
-        socket.off('comment:deleted', handleCommentDeleted);
-        socket.off('comment:voted', handleCommentVoted);
-      }
-    };
-  }, [socket, isConnected, handleCommentCreated, handleCommentUpdated, handleCommentDeleted, handleCommentVoted, entityType]);
-
-  // ✅ Create comment with INSTANT optimistic update
-  const createComment = useMutation({
-    mutationFn: async (data: CreateCommentData) => {
-      const tempComment = {
-        id: data.id,
-        postId: data.postId,
-        listingId: entityType === 'listing' ? data.postId : undefined,
-        parentId: data.parentId,
-        content: data.content,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        isEdited: false,
-        upvotes: 0,
-        downvotes: 0,
-        isPending: true,
-      } as any;
-
-      // ✅ INSTANT optimistic update
-      updateCommentCache((items) => [...items, tempComment]);
-
-      try {
-        const s = await waitForConnection();
-        const response = await new Promise((resolve, reject) => {
-          const timeoutId = setTimeout(() => reject(new Error('Request timeout')), 60000);
-
-          const eventName = entityType === 'listing' ? 'listing:comment:create' : 'comment:create';
-          const payload = entityType === 'listing'
-            ? { listingId: data.postId, content: data.content, parentId: data.parentId }
-            : data;
-          s.emit(eventName as any, payload, (err: any, response?: any) => {
-            clearTimeout(timeoutId);
-            if (err) {
-              const message = typeof err === 'string' ? err : (err?.message || 'Request failed');
-              return reject(new Error(message));
-            }
-            resolve(response);
-          });
-        });
-
-        // ✅ Replace temp with real comment
-        const realComment = (response as any).comment;
-        updateCommentCache((items) => {
-          const withoutTemp = items.filter((c) => c.id !== data.id);
-          const normalizedReal = normalizeComment({ ...realComment, isPending: false });
-          if (withoutTemp.some((c) => c.id === normalizedReal.id)) {
-            return withoutTemp;
-          }
-          return [...withoutTemp, normalizedReal];
-        });
-
-        return response;
-      } catch (error) {
-        // ✅ Remove optimistic comment on error
-        updateCommentCache((items) => items.filter(c => c.id !== data.id));
-        throw error;
-      }
-    },
-    onSuccess: () => {
-      toast({
-        title: 'Comment added',
-        description: 'Your comment has been posted',
-      });
-    },
-    onError: (error: Error) => {
-      toast({
-        title: 'Error',
-        description: error.message,
-        variant: 'destructive',
-      });
-    },
-  });
-
-  // ✅ Vote comment with optimistic update
-  const voteComment = useMutation({
-    mutationFn: async ({
-      commentId,
-      voteType
-    }: {
-      commentId: string;
-      voteType: 'UPVOTE' | 'DOWNVOTE'
-    }) => {
-      // ✅ Optimistic update
-      const previousData = queryClient.getQueryData(queryKey);
-      updateCommentCache((items) =>
-        items.map(c => {
-          if (c.id !== commentId) return c;
-          return {
-            ...c,
-            upvotes: voteType === 'UPVOTE' ? (c.upvotes || 0) + 1 : c.upvotes,
-            downvotes: voteType === 'DOWNVOTE' ? (c.downvotes || 0) + 1 : c.downvotes,
-          };
-        })
-      );
-
-      try {
-        const s = await waitForConnection();
-        return await new Promise((resolve, reject) => {
-          const timeoutId = setTimeout(() => reject(new Error('Request timeout')), 60000);
-
-          s.emit('comment:vote', { commentId, voteType }, (err: any, response?: any) => {
-            clearTimeout(timeoutId);
-            if (err) {
-              const message = typeof err === 'string' ? err : (err?.message || 'Request failed');
-              return reject(new Error(message));
-            }
-            resolve(response);
-          });
-        });
-      } catch (error) {
-        // ✅ Revert on error
-        queryClient.setQueryData(queryKey, previousData);
-        throw error;
-      }
-    },
-    onError: (error: Error) => {
-      toast({
-        title: 'Error',
-        description: error.message,
-        variant: 'destructive',
-      });
-    },
-  });
+    return acquireCommentEventListeners(socket, entityType, postId, {
+      onCreated: handleCommentCreated,
+      onUpdated: handleCommentUpdated,
+      onDeleted: handleCommentDeleted,
+      onVoted: handleCommentVoted,
+    });
+  }, [enabled, socket, isConnected, postId, entityType, handleCommentCreated, handleCommentUpdated, handleCommentDeleted, handleCommentVoted]);
 
   return {
-    comments, // ✅ Return live-updated comments, not commentsResp.items
+    comments,
     isLoading,
-    createComment,
-    voteComment,
+    ...mutations,
   };
 }

@@ -33,7 +33,9 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
-const INPUT_TYPE_BUTTONS = [
+import type { InputUiType } from "../../../types/builder";
+
+const INPUT_TYPE_BUTTONS: { label: string; uiType: InputUiType }[] = [
   { label: "T Text", uiType: "text" },
   { label: "≡ Long text", uiType: "long_text" },
   { label: "# Number", uiType: "number" },

@@ -180,7 +180,7 @@ export function SkillsTab({
                   <button
                     type="button"
                     onClick={() => handleRemoveSingle(skill.skillId)}
-                    disabled={isReconfiguring || removeSkillMutation.isLoading}
+                    disabled={isReconfiguring || removeSkillMutation.isPending}
                     className="ml-1 rounded-full hover:bg-purple-100 focus:outline-none"
                     aria-label={`Remove ${skill.displayName || skill.name}`}
                   >
@@ -261,16 +261,16 @@ export function SkillsTab({
                       variant="outline"
                       size="sm"
                       onClick={() => setManageOpen(false)}
-                      disabled={addSkillMutation.isLoading || removeSkillMutation.isLoading}
+                      disabled={addSkillMutation.isPending || removeSkillMutation.isPending}
                     >
                       Cancel
                     </Button>
                     <Button
                       size="sm"
                       onClick={handleApply}
-                      disabled={addSkillMutation.isLoading || removeSkillMutation.isLoading}
+                      disabled={addSkillMutation.isPending || removeSkillMutation.isPending}
                     >
-                      {addSkillMutation.isLoading || removeSkillMutation.isLoading ? (
+                      {addSkillMutation.isPending || removeSkillMutation.isPending ? (
                         <>
                           <Loader2 className="w-3 h-3 mr-1 animate-spin" />
                           Saving...

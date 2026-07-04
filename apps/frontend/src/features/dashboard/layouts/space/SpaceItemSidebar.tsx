@@ -27,7 +27,7 @@ export function SpaceItemSidebar({ spaceId, workspaceId, type, open, onClose, in
   const projectList = trpc.project.list.useQuery({ scope: "owned", page: 1, pageSize: 50, query: query || undefined } as any, { enabled: open && normalizedType === "projects" });
   const teamList = trpc.team.list.useQuery({ scope: "owned", page: 1, pageSize: 50, query: query || undefined } as any, { enabled: open && normalizedType === "teams" });
   const toolList = trpc.tool.list.useQuery({ scope: "owned", page: 1, pageSize: 50, query: query || undefined } as any, { enabled: open && normalizedType === "tools" });
-  const materialList = trpc.material.list.useQuery({ scope: "owned", page: 1, pageSize: 50, query: query || undefined } as any, { enabled: open && normalizedType === "materials" });
+  const materialList = trpc.document.list.useQuery({ scope: "owned", page: 1, pageSize: 50, query: query || undefined } as any, { enabled: open && normalizedType === "materials" });
 
   const items = useMemo(() => {
     const list = normalizedType === "projects" ? projectList.data?.items
@@ -45,7 +45,7 @@ export function SpaceItemSidebar({ spaceId, workspaceId, type, open, onClose, in
   const addProject = trpc.project.update.useMutation();
   const addTeam = trpc.team.update.useMutation();
   const addTool = trpc.tool.update.useMutation();
-  const addMaterial = trpc.material.update.useMutation();
+  const addMaterial = trpc.document.update.useMutation();
 
   const handleAdd = async (id: string) => {
     try {
@@ -66,7 +66,7 @@ export function SpaceItemSidebar({ spaceId, workspaceId, type, open, onClose, in
         await utils.tool.list.invalidate();
       } else if (normalizedType === "materials") {
         await addMaterial.mutateAsync(updateData);
-        await utils.material.list.invalidate();
+        await utils.document.list.invalidate();
       }
       toast({ title: "Added", description: "Item added to space." });
       await utils.space.get.invalidate({ id: spaceId });

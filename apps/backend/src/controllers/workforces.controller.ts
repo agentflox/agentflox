@@ -61,7 +61,7 @@ export class WorkforcesController {
       }
 
       const workforce = await prisma.workforce.findFirst({
-        where: { id: workforceId, createdBy: userId },
+        where: { id: workforceId, ownerId: userId },
       });
       if (!workforce) {
         return res.status(404).json({ error: 'Workforce not found' });
@@ -117,7 +117,7 @@ export class WorkforcesController {
 
     try {
       const workforce = await prisma.workforce.findFirst({
-        where: { id: workforceId, createdBy: userId },
+        where: { id: workforceId, ownerId: userId },
       });
       if (!workforce) {
         emitter.error('Workforce not found or access denied');
@@ -416,7 +416,7 @@ export class WorkforcesController {
       const userId = req.userId!;
 
       const workforce = await prisma.workforce.findFirst({
-        where: { id: workforceId, createdBy: userId },
+        where: { id: workforceId, ownerId: userId },
         select: { id: true, workspaceId: true, graph: true, data: true },
       });
       if (!workforce) {

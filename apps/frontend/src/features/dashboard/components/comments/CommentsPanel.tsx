@@ -142,7 +142,11 @@ export function CommentsPanel({ documentId, onClose, scope = "workspace", worksp
 
     const utils = trpc.useUtils();
     const { socket } = useSocket();
-    const { data: allComments = [] } = trpc.document.listComments.useQuery({ documentId });
+    const { data: commentsResult } = trpc.document.listComments.useQuery(
+        { documentId, pageSize: 100 },
+        { enabled: !!documentId }
+    );
+    const allComments = commentsResult?.items ?? [];
 
     const createComment = trpc.document.createComment.useMutation({
         onSuccess: (data) => {

@@ -173,7 +173,7 @@ export default function AIChatView({
         contextCount={selectedContexts.length}
         selectedContexts={selectedContexts}
         chatId={activeChatId}
-        onChatIdChange={setActiveChatId}
+        onChatIdChange={(id) => setActiveChatId(id ?? undefined)}
       />
       <ChatContextModal
         workspaceId={workspaceId}

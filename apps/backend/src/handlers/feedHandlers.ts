@@ -135,7 +135,7 @@ export function registerFeedHandlers(io: any, socket: Socket) {
           result = await feedService.getEntityFeed('project', data.feedId, {
             limit,
             cursor: data.cursor,
-            cacheStratesgy
+            cacheStrategy
           });
           break;
         case 'team':

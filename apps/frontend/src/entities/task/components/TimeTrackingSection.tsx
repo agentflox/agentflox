@@ -126,7 +126,7 @@ export function TimeTrackingSection({ taskId, timeEstimate }: TimeTrackingSectio
                             variant="outline"
                             className="h-8 gap-1.5 border-red-200 text-red-600 hover:bg-red-50"
                             onClick={() => stopTimer.mutate({ id: runningTimer.id })}
-                            disabled={stopTimer.isLoading}
+                            disabled={stopTimer.isPending}
                         >
                             <Pause className="h-3.5 w-3.5" />
                             Stop
@@ -137,7 +137,7 @@ export function TimeTrackingSection({ taskId, timeEstimate }: TimeTrackingSectio
                             variant="outline"
                             className="h-8 gap-1.5 border-green-200 text-green-600 hover:bg-green-50"
                             onClick={() => startTimer.mutate({ taskId })}
-                            disabled={startTimer.isLoading}
+                            disabled={startTimer.isPending}
                         >
                             <Play className="h-3.5 w-3.5" />
                             Start

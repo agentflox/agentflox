@@ -91,13 +91,13 @@ export default function TeamListView({ teamId, workspaceId, selectedListId, onLi
 
     // Fetch lists for this team
     const { data: listsData, isLoading: isLoadingList, refetch: refetchList } = trpc.list.byContext.useQuery(
-        { teamId, workspaceId: workspaceId || undefined },
+        { teamId, workspaceId: workspaceId || undefined, includeViewDetails: false },
         { enabled: !!teamId }
     );
 
     // Fetch folders for this team
     const { data: foldersData, isLoading: isLoadingFolders } = trpc.folder.byContext.useQuery(
-        { teamId, workspaceId: workspaceId || undefined },
+        { teamId, workspaceId: workspaceId || undefined, includeViewDetails: false },
         { enabled: !!teamId }
     );
 
@@ -411,7 +411,13 @@ export default function TeamListView({ teamId, workspaceId, selectedListId, onLi
 
                                                         <div className="opacity-0 group-hover/folder:opacity-100 transition-opacity flex items-center" onClick={(e) => e.stopPropagation()}>
                                                             <FolderActionsMenu
-                                                                folder={item.data}
+                                                                workspaceId={workspaceId || ""}
+                                                                spaceId={(item.data as any)?.spaceId ?? ""}
+                                                                teamId={teamId}
+                                                                folderId={item.id}
+                                                                folderName={item.name}
+                                                                folderIcon={(item.data as any)?.icon}
+                                                                folderColor={(item.data as any)?.color}
                                                                 trigger={
                                                                     <Button
                                                                         variant="ghost"
@@ -421,7 +427,6 @@ export default function TeamListView({ teamId, workspaceId, selectedListId, onLi
                                                                         <MoreHorizontal className="h-3.5 w-3.5" />
                                                                     </Button>
                                                                 }
-                                                                onCreateList={() => handleOpenCreateListInFolder(item.id)}
                                                             />
                                                             <DropdownMenu>
                                                                 <DropdownMenuTrigger asChild>
@@ -494,7 +499,9 @@ export default function TeamListView({ teamId, workspaceId, selectedListId, onLi
                                                                                         </button>
                                                                                     )}
                                                                                     <ListActionsMenu
-                                                                                        list={list}
+                                                                                        workspaceId={workspaceId || ""}
+                                                                                        teamId={teamId}
+                                                                                        listId={list.id}
                                                                                         trigger={
                                                                                             <Button
                                                                                                 variant="ghost"
@@ -616,7 +623,9 @@ export default function TeamListView({ teamId, workspaceId, selectedListId, onLi
                                                                 </button>
                                                             )}
                                                             <ListActionsMenu
-                                                                list={list}
+                                                                workspaceId={workspaceId || ""}
+                                                                teamId={teamId}
+                                                                listId={list.id}
                                                                 trigger={
                                                                     <Button
                                                                         variant="ghost"
@@ -736,6 +745,8 @@ export default function TeamListView({ teamId, workspaceId, selectedListId, onLi
                     <div className={cn("flex-1 overflow-hidden bg-zinc-50 h-full", isSidebarCollapsed && "[&_.dashboard-tabs-container]:pl-12")}>
                         <DashboardListView
                             listId={activeListId}
+                            teamId={teamId}
+                            workspaceId={workspaceId}
                             viewId={activeViewId}
                             selectedTaskIdFromParent={selectedTaskIdFromParent}
                             onTaskSelect={onTaskSelect}
@@ -745,6 +756,8 @@ export default function TeamListView({ teamId, workspaceId, selectedListId, onLi
                     <div className={cn("flex-1 overflow-hidden bg-zinc-50 h-full", isSidebarCollapsed && "[&_.dashboard-tabs-container]:pl-12")}>
                         <DashboardFolderView
                             folderId={activeFolderId}
+                            teamId={teamId}
+                            workspaceId={workspaceId}
                             viewId={activeFolderViewId}
                         />
                     </div>
@@ -827,25 +840,20 @@ export default function TeamListView({ teamId, workspaceId, selectedListId, onLi
             <CreateOptionsModal
                 open={isCreateOptionsModalOpen}
                 onOpenChange={setIsCreateOptionsModalOpen}
-                onSelectList={() => {
-                    setIsCreateOptionsModalOpen(false);
-                    setIsListModalOpen(true);
-                }}
-                onSelectFolder={() => {
-                    setIsCreateOptionsModalOpen(false);
-                    setIsFolderModalOpen(true);
-                }}
+                workspaceId={workspaceId || ""}
+                teamId={teamId}
+                selectedListId={targetListId || activeListId || undefined}
+                selectedFolderId={targetFolderId}
             />
 
             {targetListId && (
                 <TaskCreationModal
+                    context="TEAM"
+                    contextId={teamId}
                     open={isTaskModalOpen}
                     onOpenChange={setIsTaskModalOpen}
-                    listId={targetListId}
-                    workspaceId={workspaceId || ''}
-                    onTaskCreated={() => {
-                        // Task created
-                    }}
+                    defaultListId={targetListId}
+                    workspaceId={workspaceId}
                 />
             )}
 

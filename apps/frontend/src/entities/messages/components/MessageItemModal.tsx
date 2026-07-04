@@ -28,7 +28,11 @@ export default function MessageItemModal({ userId, open, onClose }: Props) {
   
   const queryKey = ['messages.listWithUser', { userId, page: 1, pageSize: 100 }] as const;
 
-  const { markAsRead } = useMessages({ userId });
+  const { markAsRead } = useMessages({
+    userId,
+    fetchConversations: false,
+    enableSocketListeners: open,
+  });
 
   // ✅ Fetch with optimized settings
   const { data, isLoading } = trpc.messages.listWithUser.useQuery(

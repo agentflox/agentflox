@@ -24,16 +24,16 @@
 import type { Server, Socket } from 'socket.io';
 import Redis from 'ioredis';
 import { prisma } from '@/lib/prisma';
+import { redisPub } from '@/lib/redis';
 import { getLogChannel } from '@/services/tools/toolExecutionLogService';
 import type { ExecutionLogPayload } from '@/services/tools/toolExecutionLogService';
 import logger from '@/lib/logger';
 
 /** Re-use the same Redis config the rest of the app uses. */
 function createDedicatedSubscriber(): Redis {
-  // Grab config from the already-parsed environment; avoids circular imports.
-  const { redisPub } = require('@/lib/redis');
   return redisPub.duplicate();
 }
+
 
 /**
  * Register tool execution log streaming handlers on a socket connection.

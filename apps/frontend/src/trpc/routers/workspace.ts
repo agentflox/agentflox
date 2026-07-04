@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { protectedProcedure, router } from "@/trpc/init";
 import { prisma } from "@/lib/prisma";
+import { cachedQuery, trpcCacheKey, invalidateCacheKey } from "@/lib/trpcCache";
 import { WorkspaceRole } from '@agentflox/database/src/generated/prisma/client';
 import { ensureWorkspaceStatuses } from "@/trpc/routers/taskStatus";
 
@@ -162,6 +163,7 @@ export const workspaceRouter = router({
 					owner: { select: { id: true, name: true, email: true } },
 					members: {
 						orderBy: { joinedAt: "asc" },
+						take: 200,
 						select: {
 							id: true,
 							role: true,
@@ -171,10 +173,12 @@ export const workspaceRouter = router({
 					},
 					channels: {
 						orderBy: { createdAt: "desc" },
+						take: 100,
 						include: { _count: { select: { tasks: true } } },
 					},
 					spaces: {
 						orderBy: { updatedAt: "desc" },
+						take: 100,
 						select: {
 							id: true,
 							name: true,
@@ -183,16 +187,16 @@ export const workspaceRouter = router({
 							icon: true,
 							color: true,
 							updatedAt: true,
-							_count: { select: { members: true, tools: true, materials: true } },
+							_count: { select: { members: true, tools: true } },
 						},
 					},
 					projects: {
 						orderBy: { updatedAt: "desc" },
+						take: 100,
 						select: {
 							id: true,
 							name: true,
 							description: true,
-							stage: true,
 							status: true,
 							spaceId: true,
 							updatedAt: true,
@@ -201,6 +205,7 @@ export const workspaceRouter = router({
 					},
 					teams: {
 						orderBy: { updatedAt: "desc" },
+						take: 100,
 						select: {
 							id: true,
 							name: true,
@@ -208,7 +213,6 @@ export const workspaceRouter = router({
 							status: true,
 							size: true,
 							maxSize: true,
-							isHiring: true,
 							spaceId: true,
 							updatedAt: true,
 							_count: { select: { members: true, tasks: true } },
@@ -245,22 +249,6 @@ export const workspaceRouter = router({
 							updatedAt: true,
 						},
 					},
-					materials: {
-						orderBy: { updatedAt: "desc" },
-						take: 20,
-						select: {
-							id: true,
-							title: true,
-							description: true,
-							category: true,
-							priceUsd: true,
-							isPublic: true,
-							externalUrl: true,
-							fileUrl: true,
-							spaceId: true,
-							updatedAt: true,
-						},
-					},
 					_count: {
 						select: {
 							members: true,
@@ -270,7 +258,6 @@ export const workspaceRouter = router({
 							teams: true,
 							tasks: true,
 							tools: true,
-							materials: true,
 						},
 					},
 				},
@@ -281,6 +268,38 @@ export const workspaceRouter = router({
 			}
 
 			return workspace;
+		}),
+
+	getMembers: protectedProcedure
+		.input(z.object({ id: z.string() }))
+		.query(async ({ ctx, input }) => {
+			const userId = ctx.session!.user!.id;
+			const cacheKey = trpcCacheKey(["workspace", "members", input.id, userId]);
+
+			return (
+				(await cachedQuery(cacheKey, 120, async () => {
+					const workspace = await prisma.workspace.findFirst({
+						where: {
+							id: input.id,
+							OR: [{ ownerId: userId }, { members: { some: { userId } } }],
+						},
+						select: {
+							members: {
+								take: 200,
+								orderBy: { joinedAt: "asc" },
+								select: {
+									id: true,
+									role: true,
+									user: {
+										select: { id: true, name: true, email: true, image: true },
+									},
+								},
+							},
+						},
+					});
+					return workspace?.members ?? [];
+				})) ?? []
+			);
 		}),
 
 	update: protectedProcedure
@@ -311,6 +330,8 @@ export const workspaceRouter = router({
 					_count: { select: { members: true, projects: true, teams: true, tasks: true } },
 				},
 			});
+
+			await invalidateCacheKey(trpcCacheKey(["workspace", "members", id, userId]));
 
 			return updated;
 		}),
@@ -345,7 +366,6 @@ export const workspaceRouter = router({
 			await prisma.team.deleteMany({ where: { workspaceId: input.id } });
 			await prisma.task.deleteMany({ where: { workspaceId: input.id } });
 			await prisma.tool.deleteMany({ where: { workspaceId: input.id } });
-			await prisma.material.deleteMany({ where: { workspaceId: input.id } });
 			await prisma.folder.deleteMany({ where: { workspaceId: input.id } });
 			await prisma.list.deleteMany({ where: { workspaceId: input.id } });
 			return prisma.workspace.delete({ where: { id: input.id } });
@@ -372,6 +392,10 @@ export const workspaceRouter = router({
 				where: { workspaceId_userId: { workspaceId: input.workspaceId, userId: input.userId } },
 				update: { role: input.role ?? WorkspaceRole.MEMBER },
 				create: { workspaceId: input.workspaceId, userId: input.userId, role: input.role ?? WorkspaceRole.MEMBER },
+			}).then(async (member) => {
+				await invalidateCacheKey(trpcCacheKey(["workspace", "members", input.workspaceId, currentUserId]));
+				await invalidateCacheKey(trpcCacheKey(["workspace", "members", input.workspaceId, input.userId]));
+				return member;
 			});
 		}),
 
@@ -394,6 +418,9 @@ export const workspaceRouter = router({
 			await prisma.workspaceMember.deleteMany({
 				where: { workspaceId: input.workspaceId, userId: input.userId, role: { not: WorkspaceRole.OWNER } },
 			});
+
+			await invalidateCacheKey(trpcCacheKey(["workspace", "members", input.workspaceId, currentUserId]));
+			await invalidateCacheKey(trpcCacheKey(["workspace", "members", input.workspaceId, input.userId]));
 
 			return { removed: true as const };
 		}),

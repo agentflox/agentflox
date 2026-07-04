@@ -58,6 +58,7 @@ export function TriggersTab({
               s.repeatTime.includes('monthly') ? 'monthly' : 'custom',
       repeatDay: s.repeatTime.includes('day') ? parseInt(s.repeatTime.match(/\d+/)?.[0] || '0') : undefined,
       time: s.startTime ? format(new Date(s.startTime), 'HH:mm') : '09:00',
+      startDate: s.startTime ? new Date(s.startTime) : new Date(),
       instructions: s.instructions || undefined,
       isActive: s.isActive,
     }));
@@ -192,7 +193,7 @@ export function TriggersTab({
                   Run your agent on a daily, weekly, monthly, or custom schedule
                 </p>
                 <Button
-                  variant="default"
+                  variant="primary"
                   onClick={() => {
                     setEditingSchedule(undefined);
                     setScheduleModalOpen(true);

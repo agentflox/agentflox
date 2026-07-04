@@ -7,22 +7,24 @@ import { DashboardLoadingState, DashboardErrorState } from "@/features/dashboard
 import ProjectNavigationSidebar, { type ProjectView } from "@/features/dashboard/layouts/project/ProjectNavigationSidebar";
 import dynamic from "next/dynamic";
 const ProjectOverviewTab = dynamic(() => import("@/features/dashboard/views/project/ProjectOverviewTab").then(mod => mod.ProjectOverviewTab));
-const ListView = dynamic(() => import("@/features/dashboard/views/generic/ListView"));
-const BoardView = dynamic(() => import("@/features/dashboard/views/generic/BoardView").then(mod => mod.BoardView));
-const TableView = dynamic(() => import("@/features/dashboard/views/generic/TableView").then(mod => mod.TableView));
-const PeopleView = dynamic(() => import("@/features/dashboard/views/generic/PeopleView ").then(mod => mod.PeopleView));
-const ActivityView = dynamic(() => import("@/features/dashboard/views/generic/ActivityView").then(mod => mod.ActivityView));
-const CalendarView = dynamic(() => import("@/features/dashboard/views/generic/CalendarView").then(mod => mod.CalendarView));
-const GanttView = dynamic(() => import("@/features/dashboard/views/generic/GanttView").then(mod => mod.GanttView));
-const TimelineView = dynamic(() => import("@/features/dashboard/views/generic/TimelineView").then(mod => mod.TimelineView));
-const FormView = dynamic(() => import("@/features/dashboard/views/generic/FormView").then(mod => mod.FormView));
-const MindMapView = dynamic(() => import("@/features/dashboard/views/generic/MindMapView").then(mod => mod.MindMapView));
-const WorkloadView = dynamic(() => import("@/features/dashboard/views/generic/WorkloadView").then(mod => mod.WorkloadView));
-const WhiteboardView = dynamic(() => import("@/features/dashboard/views/generic/WhiteboardView"));
-const MapView = dynamic(() => import("@/features/dashboard/views/generic/MapView").then(mod => mod.MapView));
-const GenericDashboardView = dynamic(() => import("@/features/dashboard/views/generic/DashboardView").then(mod => mod.DashboardView));
-const EmbedView = dynamic(() => import("@/features/dashboard/views/generic/EmbedView").then(mod => mod.EmbedView));
-const DocView = dynamic(() => import("@/features/dashboard/views/generic/DocView").then(mod => mod.DocView));
+import {
+    ListView,
+    BoardView,
+    TableView,
+    PeopleView,
+    ActivityView,
+    CalendarView,
+    GanttView,
+    TimelineView,
+    FormView,
+    MindMapView,
+    WorkloadView,
+    WhiteboardView,
+    MapView,
+    GenericDashboardView,
+    EmbedView,
+    DocView,
+} from "@/features/dashboard/views/generic/dashboardViewDynamics";
 const ProjectListView = dynamic(() => import("@/features/dashboard/views/project/ProjectListView"));
 import { ShareModal } from "@/components/permissions/ShareModal";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -56,7 +58,7 @@ const SharedAIChatView = dynamic(() => import("@/features/dashboard/views/shared
 const ProjectPersonalView = dynamic(() => import("@/features/dashboard/views/project/ProjectPersonalView"));
 const ProjectDocsView = dynamic(() => import("@/features/dashboard/views/project/ProjectDocsView"));
 import { ProjectActionsMenu } from "@/features/dashboard/components/sidebar/ProjectActionsMenu";
-import { VerticalToolRail } from "@/features/dashboard/components/VerticalToolRail";
+import { VerticalToolRail } from "@/features/dashboard/components/shared/VerticalToolRail";
 import ProjectItemSidebar from "@/features/dashboard/layouts/project/ProjectItemSidebar";
 import ProjectSettingsSidebar from "@/features/dashboard/layouts/project/ProjectSettingsSidebar";
 import {
@@ -108,6 +110,7 @@ import {
     Star,
     Loader2
 } from "lucide-react";
+import { DashboardEntityProvider } from "@/features/dashboard/context/DashboardEntityContext";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -382,6 +385,7 @@ export default function ProjectDashboardView({ listId, spaceId, projectId, teamI
                 return (
                     <ListView
                         listId={listId || undefined}
+                        workspaceId={resolvedWorkspaceId}
                         spaceId={spaceId}
                         projectId={projectId}
                         teamId={teamId}
@@ -395,6 +399,7 @@ export default function ProjectDashboardView({ listId, spaceId, projectId, teamI
                 return (
                     <BoardView
                         listId={listId || undefined}
+                        workspaceId={resolvedWorkspaceId}
                         spaceId={spaceId}
                         projectId={projectId}
                         teamId={teamId}
@@ -408,6 +413,7 @@ export default function ProjectDashboardView({ listId, spaceId, projectId, teamI
                 return (
                     <TableView
                         listId={listId || undefined}
+                        workspaceId={resolvedWorkspaceId}
                         spaceId={spaceId}
                         projectId={projectId}
                         teamId={teamId}
@@ -421,6 +427,7 @@ export default function ProjectDashboardView({ listId, spaceId, projectId, teamI
                 return (
                     <CalendarView
                         listId={listId || undefined}
+                        workspaceId={resolvedWorkspaceId}
                         spaceId={spaceId}
                         projectId={projectId}
                         teamId={teamId}
@@ -434,6 +441,7 @@ export default function ProjectDashboardView({ listId, spaceId, projectId, teamI
                 return (
                     <GanttView
                         listId={listId || undefined}
+                        workspaceId={resolvedWorkspaceId}
                         spaceId={spaceId}
                         projectId={projectId}
                         teamId={teamId}
@@ -447,6 +455,7 @@ export default function ProjectDashboardView({ listId, spaceId, projectId, teamI
                 return (
                     <TimelineView
                         listId={listId || undefined}
+                        workspaceId={resolvedWorkspaceId}
                         spaceId={spaceId}
                         projectId={projectId}
                         teamId={teamId}
@@ -474,6 +483,7 @@ export default function ProjectDashboardView({ listId, spaceId, projectId, teamI
                 return (
                     <PeopleView
                         listId={listId || undefined}
+                        workspaceId={resolvedWorkspaceId}
                         spaceId={spaceId}
                         projectId={projectId}
                         teamId={teamId}
@@ -487,6 +497,7 @@ export default function ProjectDashboardView({ listId, spaceId, projectId, teamI
                 return (
                     <ActivityView
                         listId={listId || undefined}
+                        workspaceId={resolvedWorkspaceId}
                         spaceId={spaceId}
                         projectId={projectId}
                         teamId={teamId}
@@ -500,6 +511,7 @@ export default function ProjectDashboardView({ listId, spaceId, projectId, teamI
                 return (
                     <MindMapView
                         listId={listId || undefined}
+                        workspaceId={resolvedWorkspaceId}
                         spaceId={spaceId}
                         projectId={projectId}
                         teamId={teamId}
@@ -513,6 +525,7 @@ export default function ProjectDashboardView({ listId, spaceId, projectId, teamI
                 return (
                     <WorkloadView
                         listId={listId || undefined}
+                        workspaceId={resolvedWorkspaceId}
                         spaceId={spaceId}
                         projectId={projectId}
                         teamId={teamId}
@@ -526,6 +539,7 @@ export default function ProjectDashboardView({ listId, spaceId, projectId, teamI
                 return (
                     <WhiteboardView
                         listId={listId || undefined}
+                        workspaceId={resolvedWorkspaceId}
                         spaceId={spaceId}
                         projectId={projectId}
                         teamId={teamId}
@@ -539,6 +553,7 @@ export default function ProjectDashboardView({ listId, spaceId, projectId, teamI
                 return (
                     <MapView
                         listId={listId || undefined}
+                        workspaceId={resolvedWorkspaceId}
                         spaceId={spaceId}
                         projectId={projectId}
                         teamId={teamId}
@@ -552,6 +567,7 @@ export default function ProjectDashboardView({ listId, spaceId, projectId, teamI
                 return (
                     <GenericDashboardView
                         listId={listId || undefined}
+                        workspaceId={resolvedWorkspaceId}
                         spaceId={spaceId}
                         projectId={projectId}
                         teamId={teamId}
@@ -566,6 +582,7 @@ export default function ProjectDashboardView({ listId, spaceId, projectId, teamI
                 return (
                     <DocView
                         listId={listId || undefined}
+                        workspaceId={resolvedWorkspaceId}
                         spaceId={spaceId}
                         projectId={projectId}
                         teamId={teamId}
@@ -591,6 +608,7 @@ export default function ProjectDashboardView({ listId, spaceId, projectId, teamI
                 return (
                     <EmbedView
                         listId={listId || undefined}
+                        workspaceId={resolvedWorkspaceId}
                         spaceId={spaceId}
                         projectId={projectId}
                         teamId={teamId}
@@ -629,6 +647,12 @@ export default function ProjectDashboardView({ listId, spaceId, projectId, teamI
     }
 
     return (
+        <DashboardEntityProvider
+            workspaceId={resolvedWorkspaceId}
+            spaceId={spaceId}
+            projectId={projectId}
+            teamId={teamId}
+        >
         <div className="flex h-full flex-col">
             <div className="flex h-full gap-1 flex-1 overflow-hidden">
                 {layoutMode === "sidebar" && (
@@ -1128,5 +1152,6 @@ export default function ProjectDashboardView({ listId, spaceId, projectId, teamI
                 />
             )}
         </div>
+        </DashboardEntityProvider>
     );
 }

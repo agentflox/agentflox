@@ -1,5 +1,8 @@
 "use client";
 
+import { useGenericTaskViewData } from "@/features/dashboard/hooks/useGenericTaskViewData";
+import { TaskListLoadMore } from "@/features/dashboard/components/shared/TaskListLoadMore";
+import { VirtualizedDivRows } from "@/features/dashboard/components/shared/VirtualizedListRows";
 import { useState, useMemo, useCallback, useEffect, Fragment, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -74,14 +77,14 @@ import {
     Phone, Mail, MapPin, TrendingUp, Heart, PenTool, MousePointer, ListTodo, AlertCircle, Link, Clock, Target, ListChecks, AlignLeft,
     Spline, CircleMinus, ChevronDown, ChevronsUp, ChevronsLeft, Copy, CopyPlus, Slash,
     Save, ToggleLeft, Undo, RefreshCcw, UserRound, Box, ChevronLeft, Wand2, Pin, Lock, ShieldCheck, Home, ArrowUpDown, ChevronsUpDown,
-    ArrowDown, ArrowUp, ChevronUp,
+    ArrowDown, ArrowUp, ChevronUp, Bot,
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { CustomFieldRenderer } from "@/entities/task/components/CustomFieldRenderer";
 import { TaskCreationModal } from "@/entities/task/components/TaskCreationModal";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { TaskDetailModal } from "@/entities/task/components/TaskDetailModal";
+import { LazyTaskDetailModal as TaskDetailModal } from "@/entities/task/components/LazyTaskDetailModal";
 import { TagsPopover } from "@/entities/task/components/TagsPopover";
 import { TagsModal } from "@/entities/task/components/TagsModal";
 import { TaskDependenciesModal } from "@/entities/task/components/TaskDependenciesModal";
@@ -92,6 +95,7 @@ import { DuplicateTaskModal } from "@/entities/task/components/DuplicateTaskModa
 import { DestinationPicker } from "@/entities/task/components/DestinationPicker";
 import { TaskCalendar } from "@/entities/task/components/TaskCalendar";
 import { TaskTypeIcon } from "@/entities/task/components/TaskTypeIcon";
+import { SingleDateCalendar } from "@/components/ui/date-picker";
 import { ViewToolbarSaveDropdown } from "@/features/dashboard/components/shared/ViewToolbarSaveDropdown";
 import { ViewToolbarClosedPopover } from "@/features/dashboard/components/shared/ViewToolbarClosedPopover";
 import { format } from "date-fns";
@@ -126,6 +130,9 @@ type Task = {
     taskTypeId?: string | null;
     position?: string;
     order?: string;
+    coverImage?: string | null;
+    dependencies?: unknown[];
+    assigneeIds?: string[];
 };
 
 /**
@@ -174,7 +181,9 @@ interface BoardViewProps {
     projectId?: string;
     teamId?: string;
     listId?: string;
+    folderId?: string;
     viewId?: string;
+    workspaceId?: string;
     initialConfig?: any;
     selectedTaskIdFromParent?: string | null;
     onTaskSelect?: (taskId: string | null) => void;
@@ -190,7 +199,7 @@ const normalizeParentId = (id: string | null | undefined): string | null => {
 // Helper: Prevent circular dependency in task hierarchy
 const wouldCreateCircularDependency = (taskId: string, newParentId: string | null, allTasks: any[]): boolean => {
     if (!newParentId) return false;
-    let currentId = newParentId;
+    let currentId: string | null = newParentId;
     while (currentId) {
         if (currentId === taskId) return true;
         const parent = allTasks.find(t => t.id === currentId);
@@ -518,35 +527,6 @@ const CREATE_FIELD_TYPES = [
     { id: "ACTION_ITEMS", label: "Action Items", icon: ListChecks, type: "ACTION_ITEMS" },
 ];
 
-type Task = {
-    id: string;
-    title?: string;
-    name?: string;
-    description?: string | null;
-    status?: { id: string; name: string; color?: string } | null;
-    statusId?: string | null;
-    priority?: string | null;
-    dueDate?: string | Date | null;
-    startDate?: string | Date | null;
-    assignee?: { id: string; name?: string | null; email?: string | null; image?: string | null } | null;
-    assigneeId?: string | null;
-    assignees?: { user?: { id: string; name?: string | null; image?: string | null }; team?: { id: string; name?: string }; agent?: { id: string; name?: string; avatar?: string | null } }[];
-    listId?: string | null;
-    list?: { id: string; name: string; statuses?: { id: string; name: string; color: string }[] };
-    tags?: string[];
-    isStarred?: boolean;
-    timeTracked?: string | null;
-    timeEstimate?: string | null;
-    _count?: { comments?: number; attachments?: number; other_tasks?: number; checklists?: number };
-    parentId?: string | null;
-    customFieldValues?: { id: string; customFieldId: string; value: any }[];
-    isCompleted?: boolean;
-    assigneeIds?: string[];
-    order?: string;
-    taskType?: any;
-    taskTypeId?: string | null;
-};
-
 interface FilterState {
     assignees: string[];
     priorities: string[];
@@ -574,6 +554,7 @@ interface BoardSettings {
 
 type BoardViewSavedConfig = {
     groupBy?: string;
+    groupDirection?: "asc" | "desc";
     cardSize?: "compact" | "default" | "comfortable";
     showCover?: boolean;
     showSubtasks?: boolean;
@@ -838,7 +819,6 @@ function TaskCard({
                     taskType={taskType}
                     onTaskTypeChange={onTaskTypeChange}
                     availableTaskTypes={availableTaskTypes}
-                    agents={agents}
                     level={flat ? 1 : depthLevel + 1}
                 />
             </div>
@@ -1140,7 +1120,7 @@ function TaskCard({
                                             <h3 className="text-sm font-semibold mb-2">Goal</h3>
                                             <div
                                                 className="prose prose-sm max-w-none text-zinc-700 [&_a]:text-blue-600 [&_a]:underline"
-                                                dangerouslySetInnerHTML={{ __html: task.description }}
+                                                dangerouslySetInnerHTML={{ __html: task.description ?? "" }}
                                             />
                                         </HoverCardContent>
                                     </HoverCard>
@@ -1228,7 +1208,7 @@ function TaskCard({
                                     agents={agents}
                                     workspaceId={workspaceId}
                                     variant="compact"
-                                    value={formatAssigneeIdsForSelector(task.assignees)}
+                                    value={formatAssigneeIdsForSelector(task.assignees ?? [])}
                                     onChange={(newIds) => onTaskUpdate?.({ assigneeIds: newIds })}
                                     trigger={
                                         <div className="flex items-center -space-x-1.5 cursor-pointer hover:opacity-80 transition-opacity" onClick={(e) => e.stopPropagation()}>
@@ -1542,6 +1522,7 @@ function BoardColumn({
     allAvailableTags = [],
     availableTaskTypes = [],
     agents = [],
+    isDragActive = false,
 }: {
     column: Column;
     settings: BoardSettings;
@@ -1585,6 +1566,7 @@ function BoardColumn({
     allAvailableTags?: string[];
     availableTaskTypes?: any[];
     agents?: any[];
+    isDragActive?: boolean;
 }) {
     const { setNodeRef } = useDroppable({
         id: column.id,
@@ -1609,6 +1591,65 @@ function BoardColumn({
     };
 
     const statusStyle = getStatusStyle(column.title, column.color);
+
+    const columnScrollRef = useRef<HTMLDivElement>(null);
+    const cardRowEstimate =
+        settings.cardSize === "compact" ? 58 : settings.cardSize === "comfortable" ? 92 : 76;
+
+    const renderColumnItem = (item: (typeof column.items)[number]) => (
+        <Fragment key={item.id}>
+            <TaskCard
+                task={item}
+                spaceId={spaceId}
+                projectId={projectId}
+                workspaceId={workspaceId}
+                listId={listId}
+                cardSize={settings.cardSize}
+                cardCover={settings.cardCover}
+                showSubtasks={settings.showSubtasks}
+                showCustomFields={settings.showCustomFields}
+                stackFields={settings.stackFields}
+                visibleFields={settings.visibleFields}
+                showTaskLocations={settings.showTaskLocations}
+                showSubtaskParentNames={settings.showSubtaskParentNames}
+                onTaskSelect={onTaskSelect}
+                users={users}
+                lists={lists}
+                allAvailableStatuses={allAvailableStatuses}
+                onTaskDelete={onTaskDelete}
+                onTaskUpdate={(data) => onTaskUpdate?.(item.id, data)}
+                allTasks={allTasks}
+                agents={agents}
+                onAddSubtask={(parentId) => {
+                    onAddTask(column.id, parentId);
+                    onToggleExpand?.(parentId, true);
+                }}
+                inlineAddTaskId={inlineAddTaskId}
+                inlineAddTitle={inlineAddTitle}
+                inlineAddAssigneeIds={inlineAddAssigneeIds}
+                inlineAddStartDate={inlineAddStartDate}
+                inlineAddDueDate={inlineAddDueDate}
+                inlineAddPriority={inlineAddPriority}
+                inlineAddTags={inlineAddTags}
+                onInlineTitleChange={onInlineTitleChange}
+                onInlineAssigneeChange={onInlineAssigneeChange}
+                onInlineStartDateChange={onInlineStartDateChange}
+                onInlineDueDateChange={onInlineDueDateChange}
+                onInlinePriorityChange={onInlinePriorityChange}
+                onInlineTagsChange={onInlineTagsChange}
+                onSaveInline={onSaveInline}
+                onCancelInline={onCancelInline}
+                level={0}
+                isSelected={selectedTasks.includes(item.id)}
+                onSelect={onSelectTask}
+                expandedParents={expandedParents}
+                onToggleExpand={onToggleExpand}
+                onTaskTypeChange={onInlineTaskTypeChange}
+                availableTaskTypes={availableTaskTypes}
+            />
+            <DropSlotAfter taskId={item.id} />
+        </Fragment>
+    );
 
     // Status icon for collapsed column (TO DO = dashed circle, IN PROGRESS = solid circle, COMPLETE = checkmark)
     const getCollapsedIcon = () => {
@@ -1732,66 +1773,19 @@ function BoardColumn({
             </div>
 
             {/* Column Items */}
-            <ScrollArea className="-mr-2 pr-2 flex-1 min-h-0">
+            <ScrollArea ref={columnScrollRef} className="-mr-2 pr-2 flex-1 min-h-0">
                 <SortableContext
                     items={column.items.map(item => item.id)}
                     strategy={verticalListSortingStrategy}
                 >
                     <div className="flex flex-col pb-32 min-h-full">
-                        {column.items.map((item) => (
-                            <Fragment key={item.id}>
-                                <TaskCard
-                                    task={item}
-                                    spaceId={spaceId}
-                                    projectId={projectId}
-                                    workspaceId={workspaceId}
-                                    listId={listId}
-                                    cardSize={settings.cardSize}
-                                    cardCover={settings.cardCover}
-                                    showSubtasks={settings.showSubtasks}
-                                    showCustomFields={settings.showCustomFields}
-                                    stackFields={settings.stackFields}
-                                    visibleFields={settings.visibleFields}
-                                    showTaskLocations={settings.showTaskLocations}
-                                    showSubtaskParentNames={settings.showSubtaskParentNames}
-                                    onTaskSelect={onTaskSelect}
-                                    users={users}
-                                    lists={lists}
-                                    allAvailableStatuses={allAvailableStatuses}
-                                    onTaskDelete={onTaskDelete}
-                                    onTaskUpdate={(data) => onTaskUpdate?.(item.id, data)}
-                                    allTasks={allTasks}
-                                    agents={agents}
-                                    onAddSubtask={(parentId) => {
-                                        onAddTask(column.id, parentId);
-                                        onToggleExpand?.(parentId, true);
-                                    }}
-                                    inlineAddTaskId={inlineAddTaskId}
-                                    inlineAddTitle={inlineAddTitle}
-                                    inlineAddAssigneeIds={inlineAddAssigneeIds}
-                                    inlineAddStartDate={inlineAddStartDate}
-                                    inlineAddDueDate={inlineAddDueDate}
-                                    inlineAddPriority={inlineAddPriority}
-                                    inlineAddTags={inlineAddTags}
-                                    onInlineTitleChange={onInlineTitleChange}
-                                    onInlineAssigneeChange={onInlineAssigneeChange}
-                                    onInlineStartDateChange={onInlineStartDateChange}
-                                    onInlineDueDateChange={onInlineDueDateChange}
-                                    onInlinePriorityChange={onInlinePriorityChange}
-                                    onInlineTagsChange={onInlineTagsChange}
-                                    onSaveInline={onSaveInline}
-                                    onCancelInline={onCancelInline}
-                                    level={0}
-                                    isSelected={selectedTasks.includes(item.id)}
-                                    onSelect={onSelectTask}
-                                    expandedParents={expandedParents}
-                                    onToggleExpand={onToggleExpand}
-                                    onTaskTypeChange={onInlineTaskTypeChange}
-                                    availableTaskTypes={availableTaskTypes}
-                                />
-                                <DropSlotAfter taskId={item.id} />
-                            </Fragment>
-                        ))}
+                        <VirtualizedDivRows
+                            scrollRef={columnScrollRef}
+                            rowCount={column.items.length}
+                            estimateSize={cardRowEstimate}
+                            enabled={!isDragActive}
+                            renderRow={(i) => renderColumnItem(column.items[i])}
+                        />
                         {inlineAddColumnId === column.id && !inlineAddTaskId && (
                             <QuickAddCard
                                 title={inlineAddTitle}
@@ -1833,7 +1827,7 @@ function BoardColumn({
 }
 
 // Main Board View Component
-export function BoardView({ spaceId, projectId, teamId, listId, viewId, initialConfig, selectedTaskIdFromParent, onTaskSelect, scope }: BoardViewProps) {
+export function BoardView({ spaceId, projectId, teamId, listId, viewId, workspaceId, initialConfig, selectedTaskIdFromParent, onTaskSelect, scope }: BoardViewProps) {
     const [searchQuery, setSearchQuery] = useState("");
     const [isToolbarSearchOpen, setIsToolbarSearchOpen] = useState(false);
     const toolbarSearchContainerRef = useRef<HTMLDivElement | null>(null);
@@ -2025,37 +2019,38 @@ export function BoardView({ spaceId, projectId, teamId, listId, viewId, initialC
     }, [inlineAddColumnId, inlineAddTaskId]);
 
     const { data: viewData } = trpc.view.get.useQuery({ id: viewId as string }, { enabled: !!viewId });
-    const { data: space } = trpc.space.get.useQuery({ id: spaceId as string }, { enabled: !!spaceId });
     const updateSpaceMutation = trpc.space.update.useMutation({
         onSuccess: () => {
-            void utils.space.get.invalidate({ id: spaceId as string });
+            if (spaceId) void utils.space.getSummary.invalidate({ id: spaceId });
         },
     });
-    const { data: project } = trpc.project.get.useQuery({ id: projectId as string }, { enabled: !!projectId });
-    const resolvedWorkspaceId = space?.workspaceId || project?.workspaceId || undefined;
-    const { data: workspace } = trpc.workspace.get.useQuery({ id: resolvedWorkspaceId as string }, { enabled: !!resolvedWorkspaceId });
-    const { data: customFields = [] } = trpc.customFields.list.useQuery(
-        { workspaceId: resolvedWorkspaceId as string, applyTo: "TASK" },
-        { enabled: !!resolvedWorkspaceId }
-    );
-    const { data: availableTaskTypes = [] } = trpc.task.listTaskTypes.useQuery(
-        { workspaceId: resolvedWorkspaceId as string },
-        { enabled: !!resolvedWorkspaceId }
-    );
 
-    const { data: agentsData } = trpc.agent.list.useQuery({
+    const {
+        resolvedWorkspaceId,
+        space,
+        customFields,
+        availableTaskTypes,
+        agents,
+        workspaceMembers,
+        projectParticipants,
+        teamParticipants,
+        listsData,
+        currentList,
+        tasks,
+        total: taskTotal,
+        hasMore: hasMoreTasks,
+        isTasksLoading: isLoading,
+        isFetchingNextPage,
+        loadMoreRef,
+    } = useGenericTaskViewData({
+        spaceId,
+        projectId,
+        teamId,
+        listId,
+        workspaceId,
+        scope,
         includeRelations: true,
-    }, { enabled: !!resolvedWorkspaceId });
-
-    const agents = useMemo(() => {
-        if (!agentsData?.items) return [];
-        return agentsData.items.map(a => ({
-            id: a.id,
-            name: a.name,
-            image: a.avatar || null,
-            type: 'agent' as const
-        }));
-    }, [agentsData]);
+    });
 
     useEffect(() => {
         if (availableTaskTypes.length > 0 && !inlineAddTaskType) {
@@ -2074,15 +2069,6 @@ export function BoardView({ spaceId, projectId, teamId, listId, viewId, initialC
     const getGroupKey = useCallback((task: Task) => {
         return getTaskGroupKey(task, groupBy, defaultTaskType);
     }, [groupBy, defaultTaskType]);
-
-    const { data: projectParticipants } = trpc.project.getParticipants.useQuery({ projectId: projectId as string }, { enabled: !!projectId });
-    const { data: teamParticipants } = trpc.team.getParticipants.useQuery({ teamId: teamId as string }, { enabled: !!teamId });
-    const { data: listsData } = trpc.list.byContext.useQuery({ spaceId, projectId, workspaceId: resolvedWorkspaceId }, { enabled: !!(spaceId || projectId || resolvedWorkspaceId) });
-    const { data: currentList } = trpc.list.get.useQuery({ id: listId as string }, { enabled: !!listId });
-
-    const taskListInput = useMemo(() => ({ spaceId, projectId, teamId, listId, scope, includeRelations: true, page: 1, pageSize: 500 }), [spaceId, projectId, teamId, listId, scope]);
-    const { data: tasksData, isLoading } = trpc.task.list.useQuery(taskListInput, { enabled: !!(spaceId || projectId || teamId || listId || scope) });
-    const tasks = useMemo<Task[]>(() => ((tasksData?.items as Task[]) ?? []), [tasksData]);
 
     const allAvailableTags = useMemo(() => {
         const tags = new Set<string>();
@@ -2110,12 +2096,12 @@ export function BoardView({ spaceId, projectId, teamId, listId, viewId, initialC
 
     const workspaceUserById = useMemo(() => {
         const map = new Map<string, { id: string; name: string; email?: string | null; image?: string | null }>();
-        for (const m of workspace?.members ?? []) {
+        for (const m of workspaceMembers ?? []) {
             const u = (m as any).user;
             if (u) map.set(u.id, { id: u.id, name: u.name || u.email || "Unknown", image: u.image, email: u.email });
         }
         return map;
-    }, [workspace?.members]);
+    }, [workspaceMembers]);
 
     // Helper to get icon for custom field type
     const getCustomFieldIcon = (fieldType: string) => {
@@ -2362,56 +2348,25 @@ export function BoardView({ spaceId, projectId, teamId, listId, viewId, initialC
 
     // Mutations
     const updateTask = trpc.task.update.useMutation({
-        onMutate: async (variables) => {
-            // Cancel any outgoing refetches (so they don't overwrite our optimistic update)
-            await utils.task.list.cancel(taskListInput);
-
-            // Snapshot the previous value
-            const previousTasks = utils.task.list.getData(taskListInput);
-
-            // Optimistically update to the new value
-            if (previousTasks && (variables as any).tags) {
-                utils.task.list.setData(taskListInput, (old: any) => {
-                    if (!old) return old;
-                    return {
-                        ...old,
-                        items: old.items.map((task: any) =>
-                            task.id === variables.id
-                                ? { ...task, tags: (variables as any).tags }
-                                : task
-                        ),
-                    };
-                });
-            }
-
-            return { previousTasks };
-        },
-        onError: (err, variables, context: any) => {
-            // If the mutation fails, use the context returned from onMutate to roll back
-            if (context?.previousTasks) {
-                utils.task.list.setData(taskListInput, context.previousTasks);
-            }
-        },
-        onSettled: (data, error) => {
-            // Only refetch on error so drag-and-drop stays instant (cache already updated on success)
-            if (error) void utils.task.list.invalidate(taskListInput);
+        onSettled: (_data, error) => {
+            if (error) void utils.task.list.invalidate();
         },
     });
     const deleteTask = trpc.task.delete.useMutation({
-        onSuccess: () => { void utils.task.list.invalidate(taskListInput); },
+        onSuccess: () => { void utils.task.list.invalidate(); },
     });
     const createTask = trpc.task.create.useMutation({
-        onSuccess: () => { void utils.task.list.invalidate(taskListInput); },
-        onError: () => { void utils.task.list.invalidate(taskListInput); },
+        onSuccess: () => { void utils.task.list.invalidate(); },
+        onError: () => { void utils.task.list.invalidate(); },
     });
     const duplicateTask = trpc.task.duplicate.useMutation({
-        onSuccess: () => { void utils.task.list.invalidate(taskListInput); },
+        onSuccess: () => { void utils.task.list.invalidate(); },
     });
     const bulkDuplicateTask = trpc.task.bulkDuplicate.useMutation({
-        onSuccess: () => { void utils.task.list.invalidate(taskListInput); },
+        onSuccess: () => { void utils.task.list.invalidate(); },
     });
     const updateCustomField = trpc.task.customFields.update.useMutation({
-        onSuccess: () => { void utils.task.list.invalidate(taskListInput); },
+        onSuccess: () => { void utils.task.list.invalidate(); },
     });
 
     const handleTaskUpdate = async (taskId: string, data: Record<string, unknown>) => {
@@ -3343,7 +3298,7 @@ export function BoardView({ spaceId, projectId, teamId, listId, viewId, initialC
                                                                                                         </PopoverTrigger>
                                                                                                         <PopoverContent align="start" className="w-56 p-2">
                                                                                                             <div className="space-y-0.5">
-                                                                                                                {allAvailableStatuses.map(s => (
+                                                                                                                {statuses.map(s => (
                                                                                                                     <label key={s.id} className="flex items-center gap-2 p-2 hover:bg-zinc-50 rounded-lg cursor-pointer transition-colors">
                                                                                                                         <Checkbox
                                                                                                                             checked={Array.isArray(cond!.value) && cond!.value.includes(s.id)}
@@ -3650,6 +3605,13 @@ export function BoardView({ spaceId, projectId, teamId, listId, viewId, initialC
                         </div>
                     </ScrollArea>
                 )}
+                <TaskListLoadMore
+                    loadMoreRef={loadMoreRef}
+                    hasMore={hasMoreTasks}
+                    isFetchingNextPage={isFetchingNextPage}
+                    loaded={tasks.length}
+                    total={taskTotal}
+                />
                 {filterGroups.conditions.length > 0 && (
                     <div className="w-full p-4 border-t border-zinc-100 bg-white flex items-center justify-between z-10">
                         <Button
@@ -4087,7 +4049,7 @@ export function BoardView({ spaceId, projectId, teamId, listId, viewId, initialC
     const handleDragEnd = useCallback(async (event: DragEndEvent) => {
         const { active, over, delta } = event;
 
-        // ✅ Capture state values BEFORE clearing them
+        // ✁ECapture state values BEFORE clearing them
         const capturedDraggingIds = [...draggingIds];
         const capturedDropPosition = dropPosition;
 
@@ -4153,7 +4115,7 @@ export function BoardView({ spaceId, projectId, teamId, listId, viewId, initialC
         const overTask = !isOverColumn ? tasks.find(t => t.id === rawOverId) : null;
         const newParentId = isChildDrop && overTask ? overTask.id : (overTask ? normalizeParentId(overTask.parentId) : null);
 
-        // ✅ Validate: Prevent circular dependencies
+        // ✁EValidate: Prevent circular dependencies
         if (newParentId && wouldCreateCircularDependency(activeId, newParentId, tasks)) {
             console.warn('🔄 Circular dependency detected, aborting');
             toast.error("Circular dependency detected");
@@ -4237,38 +4199,15 @@ export function BoardView({ spaceId, projectId, teamId, listId, viewId, initialC
 
         if (updates.length === 0) return;
 
-        // Optimistic update
-        void utils.task.list.cancel(taskListInput);
-        const previousData = utils.task.list.getData(taskListInput);
-
-        utils.task.list.setData(taskListInput, (old: any) => {
-            if (!old || !old.items) return old;
-            const updatesMap = new Map(updates.map(u => [u.id, u]));
-            const updatedItems = old.items.map((t: any) => {
-                const u = updatesMap.get(t.id);
-                return u ? { ...t, ...u } : t;
-            });
-
-            return {
-                ...old,
-                items: updatedItems.sort((a: any, b: any) => {
-                    const kA = getGroupKey(a);
-                    const kB = getGroupKey(b);
-                    if (kA !== kB) return String(kA).localeCompare(String(kB));
-                    return (a.position || "").localeCompare(b.position || "");
-                }),
-            };
-        });
-
-        // Mutate
         try {
             await Promise.all(updates.map(u => updateTask.mutateAsync(u as any)));
             setOptimisticTasks([]);
+            void utils.task.list.invalidate();
         } catch (e) {
             toast.error("Failed to reorder tasks");
-            if (previousData) utils.task.list.setData(taskListInput, previousData);
+            void utils.task.list.invalidate();
         }
-    }, [tasks, groupBy, updateTask, displayColumns, statuses, taskListInput, utils, draggingIds, dropPosition, getGroupKey]);
+    }, [tasks, groupBy, updateTask, displayColumns, statuses, utils, draggingIds, dropPosition, getGroupKey]);
 
 
     const handleArchiveTasks = useCallback(async () => {
@@ -4421,7 +4360,7 @@ export function BoardView({ spaceId, projectId, teamId, listId, viewId, initialC
 
     return (
         <div className="h-full w-full flex flex-col bg-white border border-zinc-200/60 shadow-sm overflow-hidden font-sans relative min-w-0">
-            {/* Toolbar – ClickUp layout (matches ListView) */}
+            {/* Toolbar  EClickUp layout (matches ListView) */}
             <div className="border-b border-zinc-100 bg-white px-3 py-2 shrink-0">
                 <>
                     <div className="flex items-center justify-between gap-3 overflow-x-auto">
@@ -4720,7 +4659,7 @@ export function BoardView({ spaceId, projectId, teamId, listId, viewId, initialC
                                                             }
                                                         }}
                                                     >
-                                                        {isSelected &&
+                                                        {isSelected && currentSort &&
                                                             <Tooltip>
                                                                 <TooltipTrigger asChild>
                                                                     <div className="flex flex-col items-center -space-y-1">
@@ -4980,7 +4919,7 @@ export function BoardView({ spaceId, projectId, teamId, listId, viewId, initialC
                                             onInlineTagsChange={setInlineAddTags}
                                             onSaveInline={handleSaveInlineTask}
                                             onCancelInline={handleCancelInlineAdd}
-                                            inlineAddTaskType={inlineAddTaskType}
+                                            inlineAddTaskType={inlineAddTaskType ?? undefined}
                                             onInlineTaskTypeChange={setInlineAddTaskType}
                                             selectedTasks={selectedTasks}
                                             onSelectTask={handleSelectTask}
@@ -4990,6 +4929,7 @@ export function BoardView({ spaceId, projectId, teamId, listId, viewId, initialC
                                             allAvailableTags={allAvailableTags}
                                             availableTaskTypes={availableTaskTypes}
                                             agents={agents}
+                                            isDragActive={!!activeId}
                                         />
                                         {!groupedRunFirstColumnId && isFirstInRunOfConsecutiveCollapsed(idx) && (
                                             <button
@@ -5038,7 +4978,7 @@ export function BoardView({ spaceId, projectId, teamId, listId, viewId, initialC
                                     onInlineTagsChange={setInlineAddTags}
                                     onSaveInline={handleSaveInlineTask}
                                     onCancelInline={handleCancelInlineAdd}
-                                    inlineAddTaskType={inlineAddTaskType}
+                                    inlineAddTaskType={inlineAddTaskType ?? undefined}
                                     onInlineTaskTypeChange={setInlineAddTaskType}
                                     selectedTasks={selectedTasks}
                                     onSelectTask={handleSelectTask}
@@ -5048,6 +4988,7 @@ export function BoardView({ spaceId, projectId, teamId, listId, viewId, initialC
                                     allAvailableTags={allAvailableTags}
                                     availableTaskTypes={availableTaskTypes}
                                     agents={agents}
+                                    isDragActive={!!activeId}
                                 />
                             );
                         })}
@@ -5458,7 +5399,7 @@ export function BoardView({ spaceId, projectId, teamId, listId, viewId, initialC
                                                         "flex items-center gap-2.5 px-2 py-1.5 text-sm rounded-md cursor-pointer transition-colors text-red-600 hover:bg-red-50 hover:text-red-700",
                                                         groupBy === "none" && "bg-zinc-100"
                                                     )}
-                                                    onClick={() => { setGroupBy("none"); setCustomizeViewGroupOpen(false); }}
+                                                    onClick={() => { setGroupBy("none"); setCustomizePanelOpen(false); }}
                                                 >
                                                     <Trash2 className="h-4 w-4" />
                                                     <span className="flex-1">Remove grouping</span>
@@ -5551,7 +5492,7 @@ export function BoardView({ spaceId, projectId, teamId, listId, viewId, initialC
                                                                     }
                                                                 }}
                                                             >
-                                                                {isSelected &&
+                                                                {isSelected && currentSort &&
                                                                     <Tooltip>
                                                                         <TooltipTrigger asChild>
                                                                             <div className="flex flex-col items-center -space-y-1">

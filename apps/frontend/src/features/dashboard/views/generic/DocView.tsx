@@ -53,7 +53,7 @@ import {
     TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useRef } from "react";
-import * as LucideIcons from "lucide-react";
+import { DynamicLucideIcon } from "@/lib/lucideIcon";
 
 import {
     DndContext,
@@ -120,6 +120,7 @@ interface DocViewProps {
     projectId?: string;
     teamId?: string;
     folderId?: string;
+    workspaceId?: string;
     viewId: string;
     initialConfig?: any;
     selectedTaskIdFromParent?: string | null;
@@ -249,7 +250,8 @@ export function DocView({ listId, spaceId, projectId, viewId, teamId, folderId }
         workspaceId,
         viewId,
         parentId: null,
-        pageSize: 50
+        pageSize: 50,
+        includeChildren: true,
     }, { enabled: !!viewId });
 
     const createDocument = trpc.document.create.useMutation({
@@ -1351,9 +1353,8 @@ export function DocView({ listId, spaceId, projectId, viewId, teamId, folderId }
                                                                                 if (pageIcon.startsWith('http') || pageIcon.startsWith('/')) {
                                                                                     return <img src={pageIcon} alt="Icon" className="w-full h-full object-contain rounded-xl" />;
                                                                                 }
-                                                                                const IconComp = (LucideIcons as any)[pageIcon];
-                                                                                if (IconComp) {
-                                                                                    return <IconComp size={76} strokeWidth={2} style={{ color: pageIconColor }} />;
+                                                                                if (/^[A-Z]/.test(pageIcon)) {
+                                                                                    return <DynamicLucideIcon name={pageIcon} size={76} strokeWidth={2} style={{ color: pageIconColor }} />;
                                                                                 }
                                                                                 return <span className="text-[72px]" style={{ color: pageIconColor }}>{pageIcon}</span>;
                                                                             })()}

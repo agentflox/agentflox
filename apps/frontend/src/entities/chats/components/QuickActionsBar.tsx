@@ -69,7 +69,7 @@ export const QuickActionsBar: React.FC<QuickActionsBarProps> = ({
                     return (
                         <Button
                             key={action.id}
-                            variant={action.variant === 'primary' ? 'default' : 'outline'}
+                            variant={action.variant === 'primary' ? 'primary' : 'outline'}
                             size="sm"
                             onClick={() => onActionClick(action)}
                             className={cn(

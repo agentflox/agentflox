@@ -343,7 +343,7 @@ export class AuditLogger {
       },
       metadata: {
         createdAt: new Date().toISOString(),
-        draftVersion: draft.version,
+        draftVersion: (draft as { version?: string }).version,
       },
       ipAddress: context.ipAddress,
       userAgent: context.userAgent,

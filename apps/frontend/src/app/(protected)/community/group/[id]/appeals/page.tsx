@@ -344,8 +344,6 @@ export default function GroupAppealsPage() {
                   if (!selectedAppealId) return;
                   await report.mutateAsync({
                     appealId: selectedAppealId,
-                    reason: reportReason,
-                    explanation: reportExplanation
                   });
                   setReportDialogOpen(false);
                   toast({ title: "Appeal Reported", description: "Our team will review this moderation request." });

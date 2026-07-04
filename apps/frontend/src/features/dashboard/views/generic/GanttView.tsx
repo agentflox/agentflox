@@ -1,5 +1,8 @@
 "use client";
 
+import { useGenericTaskViewData } from "@/features/dashboard/hooks/useGenericTaskViewData";
+import { TaskListLoadMore } from "@/features/dashboard/components/shared/TaskListLoadMore";
+import { VirtualizedDivRows } from "@/features/dashboard/components/shared/VirtualizedListRows";
 import React, { useMemo, useState, useEffect, useCallback, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -57,7 +60,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { TaskCreationModal } from "@/entities/task/components/TaskCreationModal";
 import { ListCreationModal } from "@/entities/task/components/ListCreationModal";
 import { AssigneeSelector } from "@/entities/task/components/AssigneeSelector";
-import { TaskDetailModal } from "@/entities/task/components/TaskDetailModal";
+import { LazyTaskDetailModal as TaskDetailModal } from "@/entities/task/components/LazyTaskDetailModal";
 import { TaskActionsPopover } from "@/entities/task/components/TaskActionsPopover";
 import { ViewToolbarSaveDropdown } from "@/features/dashboard/components/shared/ViewToolbarSaveDropdown";
 import { ViewToolbarClosedPopover } from "@/features/dashboard/components/shared/ViewToolbarClosedPopover";
@@ -77,12 +80,14 @@ interface GanttViewProps {
     projectId?: string;
     teamId?: string;
     listId?: string;
+    folderId?: string;
     viewId?: string;
+    workspaceId?: string;
     initialConfig?: any;
     selectedTaskIdFromParent?: string | null;
     onTaskSelect?: (taskId: string | null) => void;
+    refetchViewData?: () => void;
     context?: "space" | "project" | "team" | "folder" | "list";
-
 }
 
 // Task type is imported or defined once.
@@ -98,6 +103,7 @@ export interface Task {
     startDate: Date | null;
     assignees: { user: { id: string; name: string; image?: string | null; email?: string | null } }[];
     assignee?: { id: string; name: string; image?: string | null; email?: string | null };
+    assigneeId?: string | null;
     tags: string[];
     position: string;
     parentId?: string | null;
@@ -246,7 +252,7 @@ const getPriorityColor = (p: string | null | undefined) => {
     }
 };
 
-export function GanttView({ spaceId, projectId, teamId, listId, viewId, initialConfig, selectedTaskIdFromParent, onTaskSelect }: GanttViewProps) {
+export function GanttView({ spaceId, projectId, teamId, listId, folderId, viewId, workspaceId, initialConfig, selectedTaskIdFromParent, onTaskSelect, refetchViewData }: GanttViewProps) {
     const router = useRouter();
     const searchParams = useSearchParams();
     const utils = trpc.useUtils();
@@ -296,7 +302,6 @@ export function GanttView({ spaceId, projectId, teamId, listId, viewId, initialC
     }, []);
 
     const { data: viewData } = trpc.view.get.useQuery({ id: viewId as string }, { enabled: !!viewId });
-    const { data: space } = trpc.space.get.useQuery({ id: spaceId as string }, { enabled: !!spaceId });
     const [savedSnapshot, setSavedSnapshot] = useState<string | null>(null);
     const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
     const [currentTime, setCurrentTime] = useState(new Date());
@@ -437,12 +442,20 @@ export function GanttView({ spaceId, projectId, teamId, listId, viewId, initialC
         if (listId) utils.list?.get?.setData({ id: listId }, (old: any) => old ? { ...old, views: patchViews(old.views ?? []) } : old);
         
         // Use a generic approach to update list.byContext
+        const listByContextInput = resolvedWorkspaceId || spaceId || projectId || teamId
+            ? {
+                workspaceId: resolvedWorkspaceId || undefined,
+                spaceId: spaceId || undefined,
+                projectId: projectId || undefined,
+                teamId: teamId || undefined,
+                folderId: folderId || undefined,
+            }
+            : null;
+
         const updateListByContext = () => {
             try {
-                // @ts-ignore
-                if (utils.list?.byContext?.setData) {
-                    // @ts-ignore
-                    utils.list.byContext.setData(undefined, (old: any) => {
+                if (listByContextInput && utils.list?.byContext?.setData) {
+                    utils.list.byContext.setData(listByContextInput, (old: any) => {
                         if (!old || !old.items) return old;
                         return {
                             ...old,
@@ -616,36 +629,39 @@ export function GanttView({ spaceId, projectId, teamId, listId, viewId, initialC
     const [defaultToMeMode, setDefaultToMeMode] = useState(false);
     const [pinDescription, setPinDescription] = useState(false);
     const [visibleColumns, setVisibleColumns] = useState<Set<string>>(new Set(["name", "assignee", "dueDate", "priority", "tags"]));
-    // Fetch tasks
-    const { data: projectParticipants } = trpc.project.getParticipants.useQuery({ projectId: projectId as string }, { enabled: !!projectId });
-    const { data: teamParticipants } = trpc.team.getParticipants.useQuery({ teamId: teamId as string }, { enabled: !!teamId });
-    const { data: currentList } = trpc.list.get.useQuery({ id: listId as string }, { enabled: !!listId });
+    const taskListSpaceId = spaceId && !projectId && !listId ? spaceId : undefined;
+    const taskListProjectId = projectId && !listId ? projectId : undefined;
 
-    const taskListInput = useMemo(() => ({
-        spaceId: spaceId && !projectId && !listId ? spaceId : undefined,
-        projectId: projectId && !listId ? projectId : undefined,
+    const {
+        resolvedWorkspaceId,
+        space,
+        project,
+        customFields,
+        availableTaskTypes,
+        currentUserId,
+        workspaceMembers,
+        projectParticipants,
+        teamParticipants,
+        listsData,
+        currentList,
+        tasks: rawTasks,
+        isTasksLoading,
+        hasMore: hasMoreTasks,
+        isFetchingNextPage,
+        loadMoreRef,
+        total: taskTotal,
+    } = useGenericTaskViewData({
+        spaceId,
+        projectId,
         teamId,
         listId,
-        includeRelations: true,
-        page: 1,
-        pageSize: 500,
-    }), [spaceId, projectId, teamId, listId]);
-    const { data: tasksData, isLoading } = trpc.task.list.useQuery(taskListInput, { enabled: !!(spaceId || projectId || teamId || listId) });
-    const tasks = useMemo<Task[]>(() => ((tasksData?.items as Task[]) ?? []), [tasksData]);
+        workspaceId,
+        taskListSpaceId,
+        taskListProjectId,
+        includeRelations: "card",
+    });
 
-    const { data: project } = trpc.project.get.useQuery({ id: projectId as string }, { enabled: !!projectId });
-    const resolvedWorkspaceId = space?.workspaceId || project?.workspaceId || undefined;
-    const { data: workspace } = trpc.workspace.get.useQuery({ id: resolvedWorkspaceId as string }, { enabled: !!resolvedWorkspaceId });
-    const { data: listsData } = trpc.list.byContext.useQuery({ spaceId, projectId, workspaceId: resolvedWorkspaceId }, { enabled: !!(spaceId || projectId || resolvedWorkspaceId) });
-
-    const { data: customFields = [] } = trpc.customFields.list.useQuery(
-        { workspaceId: resolvedWorkspaceId as string, applyTo: "TASK" },
-        { enabled: !!resolvedWorkspaceId }
-    );
-
-    const { data: availableTaskTypes = [] } = trpc.task.listTaskTypes.useQuery({ workspaceId: resolvedWorkspaceId as string }, { enabled: !!resolvedWorkspaceId });
-    const { data: me } = trpc.user.me.useQuery();
-    const currentUserId = me?.id;
+    const tasks = useMemo<Task[]>(() => rawTasks as Task[], [rawTasks]);
 
     const FIELD_CONFIG = useMemo(() => {
         const custom = (customFields || []).map((f: any) => ({
@@ -694,54 +710,23 @@ export function GanttView({ spaceId, projectId, teamId, listId, viewId, initialC
     }, [availableTaskTypes]);
 
     const updateTask = trpc.task.update.useMutation({
-        onMutate: async (variables) => {
-            // Cancel any outgoing refetches (so they don't overwrite our optimistic update)
-            await utils.task.list.cancel(taskListInput);
-
-            // Snapshot the previous value
-            const previousTasks = utils.task.list.getData(taskListInput);
-
-            // Optimistically update to the new value
-            if (previousTasks && (variables as any).tags) {
-                utils.task.list.setData(taskListInput, (old: any) => {
-                    if (!old) return old;
-                    return {
-                        ...old,
-                        items: old.items.map((task: any) =>
-                            task.id === variables.id
-                                ? { ...task, tags: (variables as any).tags }
-                                : task
-                        ),
-                    };
-                });
-            }
-
-            return { previousTasks };
-        },
-        onError: (err, variables, context: any) => {
-            // If the mutation fails, use the context returned from onMutate to roll back
-            if (context?.previousTasks) {
-                utils.task.list.setData(taskListInput, context.previousTasks);
-            }
-        },
         onSettled: () => {
-            // Always refetch after error or success:
-            void utils.task.list.invalidate(taskListInput);
+            void utils.task.list.invalidate();
         },
     });
     const deleteTask = trpc.task.delete.useMutation({
-        onSuccess: () => { void utils.task.list.invalidate(taskListInput); },
+        onSuccess: () => { void utils.task.list.invalidate(); },
     });
     const createTask = trpc.task.create.useMutation({
-        onSuccess: () => { void utils.task.list.invalidate(taskListInput); },
-        onError: () => { void utils.task.list.invalidate(taskListInput); },
+        onSuccess: () => { void utils.task.list.invalidate(); },
+        onError: () => { void utils.task.list.invalidate(); },
     });
     const duplicateTask = trpc.task.duplicate.useMutation({
-        onSuccess: () => { void utils.task.list.invalidate(taskListInput); },
+        onSuccess: () => { void utils.task.list.invalidate(); },
     });
     const bulkDuplicateTask = trpc.task.bulkDuplicate.useMutation({
         onSuccess: () => {
-            void utils.task.list.invalidate(taskListInput);
+            void utils.task.list.invalidate();
             setSelectedTasks([]);
         },
     });
@@ -755,7 +740,7 @@ export function GanttView({ spaceId, projectId, teamId, listId, viewId, initialC
         });
     };
     const updateCustomField = trpc.task.customFields.update.useMutation({
-        onSuccess: () => { void utils.task.list.invalidate(taskListInput); },
+        onSuccess: () => { void utils.task.list.invalidate(); },
     });
     const updateList = trpc.list.update.useMutation({
         onSuccess: () => {
@@ -955,12 +940,12 @@ export function GanttView({ spaceId, projectId, teamId, listId, viewId, initialC
 
     const workspaceUserById = useMemo(() => {
         const map = new Map<string, { id: string; name: string; email?: string | null; image?: string | null }>();
-        for (const m of workspace?.members ?? []) {
+        for (const m of workspaceMembers ?? []) {
             const u = (m as any).user;
             if (u) map.set(u.id, { id: u.id, name: u.name || u.email || "Unknown", image: u.image, email: u.email });
         }
         return map;
-    }, [workspace?.members]);
+    }, [workspaceMembers]);
 
     const users = useMemo(() => {
         if (teamId && teamParticipants?.users?.length) {
@@ -1808,7 +1793,7 @@ export function GanttView({ spaceId, projectId, teamId, listId, viewId, initialC
                     ? { ...prev, [snap.taskId]: { ...prev[snap.taskId], committed: true } }
                     : prev
                 );
-                void utils.task.list.invalidate(taskListInput);
+                void utils.task.list.invalidate();
             } catch (err) {
                 console.error(err);
                 toast.error("Failed to update task dates");
@@ -1826,7 +1811,7 @@ export function GanttView({ spaceId, projectId, teamId, listId, viewId, initialC
             window.removeEventListener("mousemove", onMouseMove);
             window.removeEventListener("mouseup", onMouseUp);
         };
-    }, [draggedBarStyle, dateRange.end, dateRange.start, totalTimelineWidthPx, updateTask, utils.task.list, taskListInput]);
+    }, [draggedBarStyle, dateRange.end, dateRange.start, totalTimelineWidthPx, updateTask, utils.task.list]);
 
     // Clear committed overrides once the server data catches up.
     useEffect(() => {
@@ -2636,7 +2621,7 @@ export function GanttView({ spaceId, projectId, teamId, listId, viewId, initialC
     };
 
 
-    if (isLoading) {
+    if (isTasksLoading) {
         return (
             <div className="h-full flex items-center justify-center">
                 <div className="flex flex-col items-center gap-3">
@@ -2871,7 +2856,7 @@ export function GanttView({ spaceId, projectId, teamId, listId, viewId, initialC
                                                     }
                                                 }}
                                             >
-                                                {isSelected &&
+                                                {isSelected && currentSort &&
                                                     <div className="flex flex-col items-center -space-y-1">
                                                         <ChevronUp
                                                             className={`h-3.5 w-3.5 ${currentSort.desc
@@ -3052,7 +3037,14 @@ export function GanttView({ spaceId, projectId, teamId, listId, viewId, initialC
                             </div>
                             <ScrollArea ref={leftScrollAreaRef} className="flex-1 [&_[data-radix-scroll-area-scrollbar]]:hidden">
                                 <div>
-                                    {displayedTasks.map((task) => (
+                                    <VirtualizedDivRows
+                                        scrollRef={rightScrollAreaRef}
+                                        rowCount={displayedTasks.length}
+                                        estimateSize={48}
+                                        enabled={!draggedBarStyle}
+                                        renderRow={(idx) => {
+                                            const task = displayedTasks[idx];
+                                            return (
                                         <TaskActionsPopover
                                             key={task.id}
                                             task={task}
@@ -3272,7 +3264,9 @@ export function GanttView({ spaceId, projectId, teamId, listId, viewId, initialC
                                             </div>
                                             </div>
                                         </TaskActionsPopover>
-                                    ))}
+                                            );
+                                        }}
+                                    />
                                 </div>
                             </ScrollArea>
                             <div
@@ -3501,7 +3495,13 @@ export function GanttView({ spaceId, projectId, teamId, listId, viewId, initialC
                                             />
                                         ))}
                                     </div>
-                                    {displayedTasks.map((task, idx) => {
+                                    <VirtualizedDivRows
+                                        scrollRef={rightScrollAreaRef}
+                                        rowCount={displayedTasks.length}
+                                        estimateSize={48}
+                                        enabled={!draggedBarStyle}
+                                        renderRow={(idx) => {
+                                            const task = displayedTasks[idx];
                                         const barStyle = getTaskBarStyle(task);
                                         const isDraggingThis = draggedBarStyle?.taskId === task.id;
                                         const barLeft = barStyle ? (isDraggingThis ? draggedBarStyle!.barLeft : barStyle.left) : 0;
@@ -3548,7 +3548,7 @@ export function GanttView({ spaceId, projectId, teamId, listId, viewId, initialC
                                                             ? { ...prev, [task.id]: { ...prev[task.id], committed: true } }
                                                             : prev
                                                         );
-                                                        void utils.task.list.invalidate(taskListInput);
+                                                        void utils.task.list.invalidate();
                                                     } catch (err) {
                                                         toast.error("Failed to schedule task");
                                                         setLocalTaskDates(prev => {
@@ -3594,7 +3594,7 @@ export function GanttView({ spaceId, projectId, teamId, listId, viewId, initialC
                                                         >
                                                         {showAssignees && task.assignee && (
                                                             <Avatar className="h-5 w-5 ml-2 border-white ring-1 ring-white/20">
-                                                                <AvatarImage src={task.assignee.image} />
+                                                                <AvatarImage src={task.assignee.image ?? undefined} />
                                                                 <AvatarFallback className="text-[8px] bg-white/20 text-white">{task.assignee.name?.slice(0, 1)}</AvatarFallback>
                                                             </Avatar>
                                                         )}
@@ -3648,7 +3648,8 @@ export function GanttView({ spaceId, projectId, teamId, listId, viewId, initialC
                                                 )}
                                             </div>
                                         );
-                                    })}
+                                        }}
+                                    />
                                 </div>
                             </div>
                             <ScrollBar orientation="horizontal" />
@@ -4146,6 +4147,13 @@ export function GanttView({ spaceId, projectId, teamId, listId, viewId, initialC
                 onOpenChange={setIsShareModalOpen}
                 viewId={viewId as string}
                 workspaceId={resolvedWorkspaceId as string}
+            />
+            <TaskListLoadMore
+                loadMoreRef={loadMoreRef}
+                hasMore={hasMoreTasks}
+                isFetchingNextPage={isFetchingNextPage}
+                loaded={tasks.length}
+                total={taskTotal}
             />
         </div>
     );

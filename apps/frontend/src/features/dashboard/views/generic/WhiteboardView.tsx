@@ -275,6 +275,8 @@ interface WhiteboardViewProps {
     spaceId?: string;
     projectId?: string;
     teamId?: string;
+    folderId?: string;
+    workspaceId?: string;
     viewId?: string;
     initialConfig?: any;
     selectedTaskIdFromParent?: string | null;
@@ -476,7 +478,7 @@ export default function WhiteboardView({ listId, spaceId, projectId, teamId, vie
             <div className="absolute top-4 left-1/2 -translate-x-1/2 z-40 bg-white p-1.5 rounded-xl shadow-xl border border-zinc-200 flex items-center gap-1">
                 <div className="flex items-center gap-1 pr-2 border-r border-zinc-200">
                     <Button
-                        variant={mode === 'select' ? 'default' : 'ghost'}
+                        variant={mode === 'select' ? 'primary' : 'ghost'}
                         size="sm"
                         onClick={() => setMode('select')}
                         title="Select (V)"
@@ -485,7 +487,7 @@ export default function WhiteboardView({ listId, spaceId, projectId, teamId, vie
                         Select
                     </Button>
                     <Button
-                        variant={mode === 'pan' ? 'default' : 'ghost'}
+                        variant={mode === 'pan' ? 'primary' : 'ghost'}
                         size="sm"
                         onClick={() => setMode('pan')}
                         title="Pan (H)"

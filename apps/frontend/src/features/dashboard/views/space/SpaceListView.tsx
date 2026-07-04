@@ -91,13 +91,13 @@ export default function SpaceListView({ spaceId, workspaceId, selectedListId, on
 
     // Fetch lists for this space
     const { data: listsData, isLoading: isLoadingList, refetch: refetchList } = trpc.list.byContext.useQuery(
-        { spaceId, workspaceId },
+        { spaceId, workspaceId, includeViewDetails: false },
         { enabled: !!spaceId }
     );
 
     // Fetch folders for this space
     const { data: foldersData, isLoading: isLoadingFolders } = trpc.folder.byContext.useQuery(
-        { spaceId, workspaceId },
+        { spaceId, workspaceId, includeViewDetails: false },
         { enabled: !!spaceId }
     );
 

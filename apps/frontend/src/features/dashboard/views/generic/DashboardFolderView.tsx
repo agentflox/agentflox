@@ -2,28 +2,29 @@
 
 import { useMemo, useState, useCallback, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import dynamic from "next/dynamic";
 import { trpc } from "@/lib/trpc";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { AddViewModal, ViewType } from "@/features/dashboard/components/modals/AddViewModal";
 import { SpaceViewContextMenu } from "@/features/dashboard/components/space/SpaceViewContextMenu";
-import ListView from "@/features/dashboard/views/generic/ListView";
-import { BoardView } from "@/features/dashboard/views/generic/BoardView";
-import { TableView } from "@/features/dashboard/views/generic/TableView";
-import { CalendarView } from "@/features/dashboard/views/generic/CalendarView";
-import { GanttView } from "@/features/dashboard/views/generic/GanttView";
-import { TimelineView } from "@/features/dashboard/views/generic/TimelineView";
-import { FormView } from "@/features/dashboard/views/generic/FormView";
-import { PeopleView } from "@/features/dashboard/views/generic/PeopleView ";
-import { ActivityView } from "@/features/dashboard/views/generic/ActivityView";
-import { MindMapView } from "@/features/dashboard/views/generic/MindMapView";
-import { WorkloadView } from "@/features/dashboard/views/generic/WorkloadView";
-import WhiteboardView from "@/features/dashboard/views/generic/WhiteboardView";
-import { MapView } from "@/features/dashboard/views/generic/MapView";
-const GenericDashboardView = dynamic(() => import("@/features/dashboard/views/generic/DashboardView").then(mod => mod.DashboardView));
-const EmbedView = dynamic(() => import("@/features/dashboard/views/generic/EmbedView").then(mod => mod.EmbedView));
-const DocView = dynamic(() => import("@/features/dashboard/views/generic/DocView").then(mod => mod.DocView));
+import {
+    ListView,
+    BoardView,
+    TableView,
+    CalendarView,
+    GanttView,
+    TimelineView,
+    FormView,
+    PeopleView,
+    ActivityView,
+    MindMapView,
+    WorkloadView,
+    WhiteboardView,
+    MapView,
+    GenericDashboardView,
+    EmbedView,
+    DocView,
+} from "@/features/dashboard/views/generic/dashboardViewDynamics";
 import {
     ContextMenu,
     ContextMenuTrigger,
@@ -61,6 +62,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { DashboardEntityProvider } from "@/features/dashboard/context/DashboardEntityContext";
 
 interface DashboardFolderViewProps {
     folderId: string;
@@ -68,18 +70,19 @@ interface DashboardFolderViewProps {
     projectId?: string;
     teamId?: string;
     workspaceId?: string;
+    viewId?: string;
     selectedTaskIdFromParent?: string | null;
     onTaskSelect?: (taskId: string | null) => void;
 }
 
-const viewConfig: Record<
+const viewConfig: Partial<Record<
     ViewType,
     {
         label: string;
         icon: React.ComponentType<{ className?: string; size?: number }>;
         description: string;
     }
-> = {
+>> = {
     LIST: { label: "List", icon: ListIcon, description: "List view" },
     BOARD: { label: "Board", icon: Kanban, description: "Kanban board" },
     TABLE: { label: "Table", icon: ClipboardList, description: "Table view" },
@@ -141,6 +144,7 @@ export default function DashboardFolderView({ folderId, spaceId, projectId, team
     );
 
     const folder = foldersData?.items?.find((f: any) => f.id === folderId);
+    const effectiveWorkspaceId = workspaceId || (folder as any)?.workspaceId;
     const views = useMemo(() => {
         if (!folder?.views) return [];
         return [...folder.views].sort((a: any, b: any) => {
@@ -274,31 +278,31 @@ export default function DashboardFolderView({ folderId, spaceId, projectId, team
 
         switch (viewType) {
             case "LIST":
-                return <ListView folderId={folderId} spaceId={spaceId} projectId={projectId} teamId={teamId} selectedTaskIdFromParent={selectedTaskIdFromParent} onTaskSelect={onTaskSelect} />;
+                return <ListView workspaceId={effectiveWorkspaceId} folderId={folderId} spaceId={spaceId} projectId={projectId} teamId={teamId} selectedTaskIdFromParent={selectedTaskIdFromParent} onTaskSelect={onTaskSelect} />;
             case "BOARD":
-                return <BoardView folderId={folderId} spaceId={spaceId} projectId={projectId} teamId={teamId} selectedTaskIdFromParent={selectedTaskIdFromParent} onTaskSelect={onTaskSelect} />;
+                return <BoardView workspaceId={effectiveWorkspaceId} folderId={folderId} spaceId={spaceId} projectId={projectId} teamId={teamId} selectedTaskIdFromParent={selectedTaskIdFromParent} onTaskSelect={onTaskSelect} />;
             case "TABLE":
-                return <TableView folderId={folderId} spaceId={spaceId} viewId={view.id} initialConfig={view.config} />;
+                return <TableView workspaceId={effectiveWorkspaceId} folderId={folderId} spaceId={spaceId} viewId={view.id} initialConfig={view.config} />;
             case "CALENDAR":
-                return <CalendarView folderId={folderId} spaceId={spaceId} />;
+                return <CalendarView workspaceId={effectiveWorkspaceId} folderId={folderId} spaceId={spaceId} />;
             case "GANTT":
-                return <GanttView folderId={folderId} spaceId={spaceId} />;
+                return <GanttView workspaceId={effectiveWorkspaceId} folderId={folderId} spaceId={spaceId} />;
             case "TIMELINE":
-                return <TimelineView folderId={folderId} spaceId={spaceId} viewId={view.id} initialConfig={view.config} />;
+                return <TimelineView workspaceId={effectiveWorkspaceId} folderId={folderId} spaceId={spaceId} viewId={view.id} initialConfig={view.config} />;
             case "FORM":
-                return <FormView folderId={folderId} spaceId={spaceId} viewId={view.id} initialConfig={view.config} />;
+                return <FormView workspaceId={effectiveWorkspaceId} folderId={folderId} spaceId={spaceId} viewId={view.id} initialConfig={view.config} />;
             case "PEOPLE":
-                return <PeopleView folderId={folderId} spaceId={spaceId} viewId={view.id} initialConfig={view.config as any} selectedTaskIdFromParent={selectedTaskIdFromParent} onTaskSelect={onTaskSelect} />;
+                return <PeopleView workspaceId={effectiveWorkspaceId} folderId={folderId} spaceId={spaceId} viewId={view.id} initialConfig={view.config as any} selectedTaskIdFromParent={selectedTaskIdFromParent} onTaskSelect={onTaskSelect} />;
             case "ACTIVITY":
-                return <ActivityView folderId={folderId} spaceId={spaceId} viewId={view.id} initialConfig={view.config as any} selectedTaskIdFromParent={selectedTaskIdFromParent} onTaskSelect={onTaskSelect} />;
+                return <ActivityView workspaceId={effectiveWorkspaceId} folderId={folderId} spaceId={spaceId} viewId={view.id} initialConfig={view.config as any} selectedTaskIdFromParent={selectedTaskIdFromParent} onTaskSelect={onTaskSelect} />;
             case "MIND_MAP":
-                return <MindMapView folderId={folderId} spaceId={spaceId} viewId={view.id} initialConfig={view.config} />;
+                return <MindMapView workspaceId={effectiveWorkspaceId} folderId={folderId} spaceId={spaceId} viewId={view.id} initialConfig={view.config} />;
             case "WORKLOAD":
-                return <WorkloadView folderId={folderId} spaceId={spaceId} viewId={view.id} initialConfig={view.config} />;
+                return <WorkloadView workspaceId={effectiveWorkspaceId} folderId={folderId} spaceId={spaceId} viewId={view.id} initialConfig={view.config} />;
             case "WHITEBOARD":
                 return <WhiteboardView folderId={folderId} spaceId={spaceId} viewId={view.id} initialConfig={view.config} />;
             case "MAP":
-                return <MapView folderId={folderId} spaceId={spaceId} viewId={view.id} initialConfig={view.config} />;
+                return <MapView workspaceId={effectiveWorkspaceId} folderId={folderId} spaceId={spaceId} viewId={view.id} initialConfig={view.config} />;
             case "DASHBOARD":
                 return <GenericDashboardView folderId={folderId} spaceId={spaceId} viewId={view.id} initialConfig={view.config} />;
             case "DOC":
@@ -403,6 +407,12 @@ export default function DashboardFolderView({ folderId, spaceId, projectId, team
     }
 
     return (
+        <DashboardEntityProvider
+            workspaceId={effectiveWorkspaceId}
+            spaceId={spaceId}
+            projectId={projectId}
+            teamId={teamId}
+        >
         <div className="flex h-full flex-col">
             <Tabs value={activeTab} onValueChange={handleTabChange} className="flex h-full flex-col">
                 <div className="border-b border-slate-200 bg-white px-6 py-1">
@@ -559,5 +569,6 @@ export default function DashboardFolderView({ folderId, spaceId, projectId, team
                 />
             )}
         </div>
+        </DashboardEntityProvider>
     );
 }

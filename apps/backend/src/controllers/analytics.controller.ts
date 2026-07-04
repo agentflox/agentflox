@@ -22,7 +22,10 @@ export class AnalyticsController {
       const userId = req.userId!;
       await assertProjectAccessForUser(userId, projectId);
 
-      const project = await prisma.project.findUnique({ where: { id: projectId } });
+      const project = await prisma.project.findUnique({
+        where: { id: projectId },
+        include: { _count: { select: { members: true } } },
+      });
       if (!project) return res.status(404).json({ error: 'Project not found' });
 
       const rateLimited = await checkRateLimit(req, { RPM: 30, RPD: 500 });
@@ -32,11 +35,12 @@ export class AnalyticsController {
         return res.status(rateLimited.status).type('application/json').send(text);
       }
 
-      const teamExperience = project.teamSize >= 3 ? 0.7 : 0.4;
-      const tractionLevel = (project.viewCount + project.likeCount) > 100 ? 0.6 : 0.3;
+      const teamSize = project._count.members;
+      const teamExperience = teamSize >= 3 ? 0.7 : 0.4;
+      const tractionLevel = project.tags.length > 3 ? 0.6 : 0.3;
       const productCompleteness = project.status === 'PUBLISHED' ? 0.7 : 0.4;
-      const marketSize = project.industry?.length ? 0.6 : 0.3;
-      const competitivePosition = project.competitiveEdge ? 0.6 : 0.3;
+      const marketSize = project.tags.length ? 0.6 : 0.3;
+      const competitivePosition = project.description.length > 100 ? 0.6 : 0.3;
 
       const fundingReadiness =
         0.25 * teamExperience +
@@ -56,7 +60,7 @@ export class AnalyticsController {
         {
           role: 'user',
           content:
-            `Project:\nName: ${project.name}\nDescription: ${project.description}\nIndustry: ${project.industry?.join(', ')}\nTags: ${project.tags?.join(', ')}\nTeam Size: ${project.teamSize}\nStatus: ${project.status}\n` +
+            `Project:\nName: ${project.name}\nDescription: ${project.description}\nTags: ${project.tags?.join(', ')}\nTeam Size: ${teamSize}\nStatus: ${project.status}\n` +
             `Provide:\n- Stage classification (one of: Pre-MVP, Early MVP, Ready for launch, Ready to raise seed)\n- 5 bullet actionable recommendations\n- One-paragraph competitive advice based on general best practices (no specific data)`,
         },
       ] as any;

@@ -82,8 +82,8 @@ export function ProjectGeneralSettingsModal({ projectId, open, onOpenChange }: P
             setName(project.name);
             setDescription(project.description || "");
             setVisibility((project.visibility as any) || "PRIVATE");
-            setColor(project.color || "#4F46E5");
-            setIcon(project.icon || "");
+            setColor("#4F46E5");
+            setIcon(project.logo || "");
         }
     }, [project]);
 
@@ -100,7 +100,7 @@ export function ProjectGeneralSettingsModal({ projectId, open, onOpenChange }: P
                         ...page,
                         items: page.items.map((item: any) =>
                             item.id === projectId
-                                ? { ...item, name, description, color, icon, visibility }
+                                ? { ...item, name, description, logo: icon, visibility }
                                 : item
                         )
                     }))
@@ -141,8 +141,7 @@ export function ProjectGeneralSettingsModal({ projectId, open, onOpenChange }: P
             name: name.trim(),
             description: description.trim(),
             visibility,
-            color,
-            icon
+            logo: icon,
         });
     };
 

@@ -163,11 +163,6 @@ export function CoverPickerPopover({
                         </div>
                     )}
 
-                    {activeTab === "search" && (
-                        <div className="flex items-center justify-center h-24 text-sm text-zinc-500 italic">
-                            Search functionality coming soon.
-                        </div>
-                    )}
                 </div>
             </PopoverContent>
         </Popover>

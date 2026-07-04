@@ -2,6 +2,7 @@ import { z } from "zod";
 import { router, protectedProcedure } from "@/trpc/init";
 import { prisma } from "@/lib/prisma";
 import { ViewType } from "@agentflox/database/src/generated/prisma/client";
+import { cachedQuery, trpcCacheKey, invalidateCacheKey } from "@/lib/trpcCache";
 
 const listInputSchema = z.object({
 	query: z.string().optional(),
@@ -33,6 +34,7 @@ const updateInputSchema = z.object({
 	visibility: z.enum(["PRIVATE", "ADMINS", "MEMBERS", "EVERYONE", "PUBLIC"]).optional(),
 	isActive: z.boolean().optional(),
 	settings: z.any().optional().nullable(),
+	workspaceId: z.string().optional().nullable(),
 });
 
 const memberMutationSchema = z.object({
@@ -75,7 +77,7 @@ async function assertSpaceAdmin(spaceId: string, userId: string) {
 			icon: true,
 			color: true,
 			visibility: true,
-			createdBy: true,
+			ownerId: true,
 			workspaceId: true,
 			workspace: { select: { ownerId: true } },
 		},
@@ -83,7 +85,7 @@ async function assertSpaceAdmin(spaceId: string, userId: string) {
 	if (!space) throw new Error("Space not found");
 
 	if (
-		space.createdBy !== userId &&
+		space.ownerId !== userId &&
 		space.workspace.ownerId !== userId
 	) {
 		const membership = await prisma.spaceMember.findFirst({
@@ -100,7 +102,7 @@ export const spaceRouter = router({
 		const userId = ctx.session!.user!.id;
 
 		const accessibleOr = [
-			{ createdBy: userId },
+			{ ownerId: userId },
 			{ members: { some: { userId } } },
 			{ workspace: { ownerId: userId } },
 			{ workspace: { members: { some: { userId } } } },
@@ -113,7 +115,7 @@ export const spaceRouter = router({
 		};
 
 		if (input.scope === "owned") {
-			where.createdBy = userId;
+			where.ownerId = userId;
 		} else if (input.scope === "member") {
 			where.members = { some: { userId } };
 		}
@@ -148,7 +150,6 @@ export const spaceRouter = router({
 				select: {
 					members: true,
 					tools: true,
-					materials: true,
 					lists: true,
 				},
 			};
@@ -185,7 +186,7 @@ export const spaceRouter = router({
 			const pageSize = input.pageSize ?? 12;
 
 			const accessibleOr = [
-				{ createdBy: userId },
+				{ ownerId: userId },
 				{ members: { some: { userId } } },
 				{ workspace: { ownerId: userId } },
 				{ workspace: { members: { some: { userId } } } },
@@ -198,7 +199,7 @@ export const spaceRouter = router({
 			};
 
 			if (input.scope === "owned") {
-				where.createdBy = userId;
+				where.ownerId = userId;
 			} else if (input.scope === "member") {
 				where.members = { some: { userId } };
 			}
@@ -233,7 +234,6 @@ export const spaceRouter = router({
 					select: {
 						members: true,
 						tools: true,
-						materials: true,
 						lists: true,
 					},
 				};
@@ -275,7 +275,7 @@ export const spaceRouter = router({
 				visibility: input.visibility ?? "PRIVATE",
 				isActive: input.isActive ?? true,
 				workspaceId: input.workspaceId,
-				createdBy: userId,
+				ownerId: userId,
 				members: {
 					create: {
 						userId,
@@ -285,22 +285,59 @@ export const spaceRouter = router({
 				views: {
 					createMany: {
 						data: [
-							{ name: "Overview", type: ViewType.OVERVIEW, position: 0, createdBy: userId, isDefault: true },
-							{ name: "List", type: ViewType.LIST, position: 1, createdBy: userId, isDefault: true },
-							{ name: "Projects", type: ViewType.PROJECTS, position: 2, createdBy: userId, isDefault: true },
-							{ name: "Teams", type: ViewType.TEAMS, position: 3, createdBy: userId, isDefault: true },
-							{ name: "Tasks", type: ViewType.TASKS, position: 4, createdBy: userId, isDefault: true },
+							{ name: "Overview", type: ViewType.OVERVIEW, position: 0, ownerId: userId, isDefault: true },
+							{ name: "List", type: ViewType.LIST, position: 1, ownerId: userId, isDefault: true },
+							{ name: "Projects", type: ViewType.PROJECTS, position: 2, ownerId: userId, isDefault: true },
+							{ name: "Teams", type: ViewType.TEAMS, position: 3, ownerId: userId, isDefault: true },
+							{ name: "Tasks", type: ViewType.TASKS, position: 4, ownerId: userId, isDefault: true },
 						]
 					}
 				}
 			},
 			include: {
 				workspace: { select: { id: true, name: true } },
-				_count: { select: { members: true, tools: true, materials: true, lists: true } },
+				_count: { select: { members: true, tools: true, lists: true } },
 			},
 		});
 
 		return space;
+	}),
+
+	getSummary: protectedProcedure.input(z.object({ id: z.string() })).query(async ({ ctx, input }) => {
+		const userId = ctx.session!.user!.id;
+		const cacheKey = trpcCacheKey(["space", "summary", input.id, userId]);
+
+		return cachedQuery(cacheKey, 60, async () =>
+			prisma.space.findFirst({
+				where: {
+					id: input.id,
+					OR: [
+						{ ownerId: userId },
+						{ members: { some: { userId } } },
+						{ workspace: { ownerId: userId } },
+						{ workspace: { members: { some: { userId } } } },
+					],
+				},
+				select: {
+					id: true,
+					name: true,
+					workspaceId: true,
+					icon: true,
+					color: true,
+					description: true,
+					isActive: true,
+					updatedAt: true,
+					settings: true,
+					_count: {
+						select: {
+							members: true,
+							projects: true,
+							tools: true,
+						},
+					},
+				},
+			})
+		);
 	}),
 
 	get: protectedProcedure.input(z.object({ id: z.string() })).query(async ({ ctx, input }) => {
@@ -310,7 +347,7 @@ export const spaceRouter = router({
 			where: {
 				id: input.id,
 				OR: [
-					{ createdBy: userId },
+					{ ownerId: userId },
 					{ members: { some: { userId } } },
 					{ workspace: { ownerId: userId } },
 					{ workspace: { members: { some: { userId } } } },
@@ -385,7 +422,6 @@ export const spaceRouter = router({
 						id: true,
 						name: true,
 						description: true,
-						teamType: true,
 						isActive: true,
 						updatedAt: true,
 						locationPermissions: {
@@ -425,20 +461,6 @@ export const spaceRouter = router({
 						updatedAt: true,
 					},
 				},
-				materials: {
-					orderBy: { updatedAt: "desc" },
-					select: {
-						id: true,
-						title: true,
-						description: true,
-						category: true,
-						priceUsd: true,
-						isPublic: true,
-						externalUrl: true,
-						fileUrl: true,
-						updatedAt: true,
-					},
-				},
 				lists: {
 					orderBy: { position: "asc" },
 					select: { id: true, name: true, description: true, color: true, icon: true },
@@ -453,7 +475,6 @@ export const spaceRouter = router({
 						projects: true,
 						teams: true,
 						tools: true,
-						materials: true,
 						lists: true
 					},
 				},
@@ -463,7 +484,7 @@ export const spaceRouter = router({
 		if (!space) return null;
 
 		const creator = await prisma.user.findUnique({
-			where: { id: space.createdBy },
+			where: { id: space.ownerId },
 			select: {
 				id: true,
 				name: true,
@@ -492,12 +513,15 @@ export const spaceRouter = router({
 				visibility: input.visibility ?? undefined,
 				isActive: input.isActive ?? undefined,
 				settings: input.settings ?? undefined,
+				workspaceId: input.workspaceId ?? undefined,
 			},
 			include: {
 				workspace: { select: { id: true, name: true } },
-				_count: { select: { members: true, tools: true, materials: true, lists: true } },
+				_count: { select: { members: true, tools: true, lists: true } },
 			},
 		});
+
+		await invalidateCacheKey(trpcCacheKey(["space", "summary", input.id, userId]));
 
 		return updated;
 	}),
@@ -508,7 +532,6 @@ export const spaceRouter = router({
 
 		await prisma.spaceMember.deleteMany({ where: { spaceId: space.id } });
 		await prisma.tool.updateMany({ where: { spaceId: space.id }, data: { spaceId: null } });
-		await prisma.material.updateMany({ where: { spaceId: space.id }, data: { spaceId: null } });
 		await prisma.folder.updateMany({ where: { spaceId: space.id }, data: { spaceId: null } });
 		await prisma.list.updateMany({ where: { spaceId: space.id }, data: { spaceId: null } });
 
@@ -584,7 +607,7 @@ export const spaceRouter = router({
 				color: input.color || sourceSpace.color,
 				description: sourceSpace.description,
 				visibility: sourceSpace.visibility, // Keep original visibility or default to PRIV? Let's copy.
-				createdBy: userId,
+				ownerId: userId,
 				members: {
 					create: {
 						userId,
@@ -610,6 +633,7 @@ export const spaceRouter = router({
 					data: {
 						workspaceId: newSpace.workspaceId,
 						spaceId: newSpace.id,
+						ownerId: userId,
 						name: folder.name,
 						description: folder.description,
 						color: folder.color,
@@ -635,6 +659,7 @@ export const spaceRouter = router({
 						workspaceId: newSpace.workspaceId,
 						spaceId: newSpace.id,
 						folderId: newFolderId,
+						ownerId: userId,
 						name: list.name,
 						description: list.description,
 						color: list.color,

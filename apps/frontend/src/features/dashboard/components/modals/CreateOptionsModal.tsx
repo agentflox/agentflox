@@ -16,8 +16,10 @@ import { TaskCreationModal } from "@/entities/task/components/TaskCreationModal"
 interface CreateOptionsModalProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
-    spaceId: string;
     workspaceId: string;
+    spaceId?: string;
+    teamId?: string;
+    projectId?: string;
     selectedListId?: string;
     selectedFolderId?: string;
     onListCreated?: (list: any) => void;
@@ -27,11 +29,15 @@ export function CreateOptionsModal({
     open,
     onOpenChange,
     spaceId,
+    teamId,
+    projectId,
     workspaceId,
     selectedListId,
     selectedFolderId,
     onListCreated,
 }: CreateOptionsModalProps) {
+    const listContext = teamId ? "TEAM" as const : projectId ? "PROJECT" as const : "SPACE" as const;
+    const listContextId = teamId ?? projectId ?? spaceId ?? "";
     const [showListModal, setShowListModal] = useState(false);
     const [showTaskModal, setShowTaskModal] = useState(false);
 
@@ -100,8 +106,8 @@ export function CreateOptionsModal({
 
             {/* List Creation Modal */}
             <ListCreationModal
-                context="SPACE"
-                contextId={spaceId}
+                context={listContext}
+                contextId={listContextId}
                 workspaceId={workspaceId}
                 folderId={selectedFolderId}
                 open={showListModal}
@@ -110,11 +116,10 @@ export function CreateOptionsModal({
                 trigger={<span className="hidden" />}
             />
 
-            {/* Task Creation Modal */}
             {selectedListId && (
                 <TaskCreationModal
-                    context="SPACE"
-                    contextId={spaceId}
+                    context={listContext}
+                    contextId={listContextId}
                     defaultListId={selectedListId}
                     workspaceId={workspaceId}
                     open={showTaskModal}

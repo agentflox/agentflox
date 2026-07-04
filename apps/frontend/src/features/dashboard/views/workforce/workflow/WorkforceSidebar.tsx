@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
+import dynamic from 'next/dynamic';
 import {
     X, Search, Bot, Plus, ChevronRight, Loader2,
     Wrench, Zap, GitBranch, ShoppingBag, ExternalLink,
@@ -12,7 +13,11 @@ import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
-import { ToolFlowBuilderView } from '../../tools/ToolFlowBuilderView';
+
+const ToolFlowBuilderView = dynamic(
+  () => import('../../tools/ToolFlowBuilderView').then((m) => m.ToolFlowBuilderView),
+  { ssr: false, loading: () => <div className="flex h-[60vh] items-center justify-center text-sm text-muted-foreground">Loading tool builder…</div> }
+);
 import { useWorkforceStore } from '../../../../../entities/workforce/hooks/useWorkforceStore';
 import type { ConditionGroup, ConditionRule, ConditionOperator } from '../../../../../entities/workforce/hooks/useWorkforceStore';
 import { trpc } from '@/lib/trpc';
@@ -29,7 +34,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-import { WorkforceAgentProfile } from '../WorkforceAgentProfile';
+import { WorkforceAgentProfile } from './WorkforceAgentProfile';
 
 // ─── Node type icon helper ─────────────────────────────────────────────────
 function NodeTypeIcon({ nodeType, size = 14 }: { nodeType?: string; size?: number }) {
@@ -575,11 +580,17 @@ export default function WorkforceSidebar({ workspaceId }: { workspaceId?: string
     );
 
     const { data: compositeToolsData, isLoading: isLoadingTools } = trpc.compositeTool.list.useQuery(
-        workspaceId ? { workspaceId, query: search || undefined } : undefined,
-        { enabled: !!workspaceId }
+        {
+            workspaceId: workspaceId!,
+            query: search || undefined,
+            includeSchema: true,
+            page: 1,
+            pageSize: 100,
+        },
+        { enabled: !!workspaceId, staleTime: 30_000 }
     );
     const dbTools = [
-        ...((compositeToolsData || []) as any[]),
+        ...((compositeToolsData?.items || []) as any[]),
     ];
 
     // ─── Static data ───────────────────────────────────────────────────────

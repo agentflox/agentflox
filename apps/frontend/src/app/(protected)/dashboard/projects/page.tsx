@@ -23,7 +23,7 @@ import { ConfirmDeleteModal } from "@/components/modals/ConfirmDeleteModal";
 import { useToast } from "@/hooks/useToast";
 import { trpc } from "@/lib/trpc";
 import { INDUSTRY_OPTIONS } from "@/constants/shares";
-import { DataTable } from "@/components/ui/data-table";
+import { LazyDataTable as DataTable } from "@/components/ui/lazy-data-table";
 import { DataTableColumnHeader } from "@/components/ui/data-table-column-header";
 import { ColumnDef } from "@tanstack/react-table";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -324,7 +324,7 @@ export default function ProjectsPage() {
 										<DropdownMenuSubContent>
 											<DropdownMenuCheckboxItem checked={scope === "all"} onCheckedChange={() => setScope("all")}>All Projects</DropdownMenuCheckboxItem>
 											<DropdownMenuCheckboxItem checked={scope === "owned"} onCheckedChange={() => setScope("owned")}>Owned by me</DropdownMenuCheckboxItem>
-											<DropdownMenuCheckboxItem checked={scope === "member"} onCheckedChange={() => setScope("member")}>Shared with me</DropdownMenuCheckboxItem>
+											<DropdownMenuCheckboxItem checked={scope === "participated"} onCheckedChange={() => setScope("participated")}>Shared with me</DropdownMenuCheckboxItem>
 										</DropdownMenuSubContent>
 									</DropdownMenuPortal>
 								</DropdownMenuSub>

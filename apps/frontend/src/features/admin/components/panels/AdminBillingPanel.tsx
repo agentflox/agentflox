@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { keepPreviousData } from "@tanstack/react-query";
 import { trpc } from "@/lib/trpc";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -36,7 +37,7 @@ export default function AdminBillingPanel() {
       page,
       pageSize,
     },
-    { keepPreviousData: true, staleTime: 10_000 }
+    { placeholderData: keepPreviousData, staleTime: 10_000 }
   );
 
   const failed = trpc.admin.failedPayments.useQuery({ days: 14, page: 1, pageSize: 25 }, { staleTime: 10_000 });

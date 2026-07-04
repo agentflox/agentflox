@@ -40,7 +40,7 @@ export default function SwarmView({
                     {/* Right Pane - Canvas + Agent Sidebar */}
                     <div className="flex-1 flex flex-row h-full relative overflow-hidden">
                         <div className="flex-1 flex flex-col h-full relative">
-                            <SwarmCanvas />
+                            <SwarmCanvas dataLoaded={true} />
                         </div>
                         {isSidebarOpen && (
                             <div className="w-[360px] h-full flex-shrink-0 border-l border-border bg-background z-20">

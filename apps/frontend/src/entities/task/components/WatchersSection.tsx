@@ -172,13 +172,13 @@ export function WatchersSection({
                     <TooltipTrigger asChild>
                         <Button
                             size="icon"
-                            variant={isWatching ? "default" : "outline"}
+                            variant={isWatching ? "primary" : "outline"}
                             className={cn(
                                 "h-7 w-7",
                                 isWatching && "bg-blue-600 hover:bg-blue-700"
                             )}
                             onClick={handleToggleWatch}
-                            disabled={addWatcher.isLoading || removeWatcher.isLoading}
+                            disabled={addWatcher.isPending || removeWatcher.isPending}
                         >
                             {isWatching ? (
                                 <Bell className="h-4 w-4 fill-current" />

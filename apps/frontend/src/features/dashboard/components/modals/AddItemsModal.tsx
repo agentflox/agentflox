@@ -27,7 +27,7 @@ export function AddItemsModal({ spaceId, workspaceId, type, open, onOpenChange, 
   const projectList = trpc.project.list.useQuery({ scope: "owned", page: 1, pageSize: 50, query: query || undefined } as any, { enabled: open && type === "projects" });
   const teamList = trpc.team.list.useQuery({ scope: "owned", page: 1, pageSize: 50, query: query || undefined } as any, { enabled: open && type === "teams" });
   const toolList = trpc.tool.list.useQuery({ scope: "owned", page: 1, pageSize: 50, query: query || undefined } as any, { enabled: open && type === "tools" });
-  const materialList = trpc.material.list.useQuery({ scope: "owned", page: 1, pageSize: 50, query: query || undefined } as any, { enabled: open && type === "materials" });
+  const materialList = trpc.document.list.useQuery({ scope: "owned", page: 1, pageSize: 50, query: query || undefined } as any, { enabled: open && type === "materials" });
 
   const items = useMemo(() => {
     const list = type === "projects" ? projectList.data?.items
@@ -45,7 +45,7 @@ export function AddItemsModal({ spaceId, workspaceId, type, open, onOpenChange, 
   const addProject = trpc.project.update.useMutation();
   const addTeam = trpc.team.update.useMutation();
   const addTool = trpc.tool.update.useMutation();
-  const addMaterial = trpc.material.update.useMutation();
+  const addMaterial = trpc.document.update.useMutation();
 
   const handleAdd = async (id: string) => {
     try {
@@ -60,7 +60,7 @@ export function AddItemsModal({ spaceId, workspaceId, type, open, onOpenChange, 
         await utils.tool.list.invalidate();
       } else if (type === "materials") {
         await addMaterial.mutateAsync({ id, spaceId } as any);
-        await utils.material.list.invalidate();
+        await utils.document.list.invalidate();
       }
       await utils.space.get.invalidate({ id: spaceId });
       if (workspaceId) await utils.workspace.get.invalidate({ id: workspaceId });

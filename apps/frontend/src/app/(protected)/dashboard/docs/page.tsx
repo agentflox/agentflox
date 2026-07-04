@@ -10,7 +10,7 @@ import { useRouter } from "next/navigation";
 import { formatDistanceToNow } from "date-fns";
 import { PageHeader } from "@/entities/shared/components/PageHeader";
 import { SearchSection } from "@/entities/shared/components/SearchSection";
-import { DataTable } from "@/components/ui/data-table";
+import { LazyDataTable as DataTable } from "@/components/ui/lazy-data-table";
 import { DataTableColumnHeader } from "@/components/ui/data-table-column-header";
 import { DataTableSkeleton } from "@/components/ui/data-table-skeleton";
 import { Skeleton } from "@/components/ui/skeleton";

@@ -53,7 +53,7 @@ export const documentRouter = router({
         where: {
           id: input.id,
           OR: [
-            { createdBy: userId },
+            { ownerId: userId },
             { collaborators: { some: { userId } } },
           ],
         },
@@ -77,6 +77,7 @@ export const documentRouter = router({
         query: z.string().optional(),
         page: z.number().int().min(1).optional().default(1),
         pageSize: z.number().int().min(1).max(50).optional().default(50),
+        includeChildren: z.boolean().optional().default(false),
       })
     )
     .query(async ({ ctx, input }) => {
@@ -119,7 +120,7 @@ export const documentRouter = router({
 
       // Filter by creator or collaborator, or allow workspace members to view workspace docs
       where.OR = [
-        { createdBy: userId },
+        { ownerId: userId },
         { collaborators: { some: { userId } } },
         {
           workspace: {
@@ -148,8 +149,25 @@ export const documentRouter = router({
         prisma.document.count({ where }),
         prisma.document.findMany({
           where,
-          include: {
-            creator: {
+          select: {
+            id: true,
+            title: true,
+            description: true,
+            icon: true,
+            coverImage: true,
+            position: true,
+            parentId: true,
+            workspaceId: true,
+            spaceId: true,
+            projectId: true,
+            teamId: true,
+            viewId: true,
+            isTemplate: true,
+            isArchived: true,
+            ownerId: true,
+            createdAt: true,
+            updatedAt: true,
+            owner: {
               select: {
                 id: true,
                 name: true,
@@ -158,7 +176,9 @@ export const documentRouter = router({
               },
             },
             collaborators: {
-              include: {
+              select: {
+                id: true,
+                userId: true,
                 user: {
                   select: {
                     id: true,
@@ -175,12 +195,14 @@ export const documentRouter = router({
           take,
         }),
       ]);
-      const itemsWithChildren = await Promise.all(
-        items.map(async (item) => ({
-          ...item,
-          children: await fetchDocumentChildren(item.id)
-        }))
-      );
+      const itemsWithChildren = input.includeChildren
+        ? await Promise.all(
+            items.map(async (item) => ({
+              ...item,
+              children: await fetchDocumentChildren(item.id),
+            }))
+          )
+        : items.map((item) => ({ ...item, children: [] }));
 
       return { items: itemsWithChildren, total, page: input.page, pageSize: input.pageSize };
     }),
@@ -193,7 +215,7 @@ export const documentRouter = router({
         where: {
           id: input.id,
           OR: [
-            { createdBy: userId },
+            { ownerId: userId },
             { collaborators: { some: { userId } } },
             // Also allow any workspace member to view documents in their workspace
             {
@@ -204,7 +226,7 @@ export const documentRouter = router({
           ],
         },
         include: {
-          creator: {
+          owner: {
             select: {
               id: true,
               name: true,
@@ -290,7 +312,7 @@ export const documentRouter = router({
         where: {
           id: input.targetDocId,
           OR: [
-            { createdBy: userId },
+            { ownerId: userId },
             {
               collaborators: {
                 some: {
@@ -356,7 +378,7 @@ export const documentRouter = router({
                 listId: existing.listId,
                 folderId: existing.folderId,
                 teamId: existing.teamId,
-                createdBy: userId,
+                ownerId: userId,
                 position: pos,
               },
             });
@@ -449,7 +471,7 @@ export const documentRouter = router({
       const document = await prisma.document.create({
         data: {
           workspaceId: resolvedWorkspaceId,
-          createdBy: userId,
+          ownerId: userId,
           title: input.title,
           description: input.description,
           content: input.content,
@@ -467,7 +489,7 @@ export const documentRouter = router({
           version: 1,
         },
         include: {
-          creator: {
+          owner: {
             select: {
               id: true,
               name: true,
@@ -514,7 +536,7 @@ export const documentRouter = router({
                 listId: input.listId,
                 folderId: input.folderId,
                 teamId: input.teamId,
-                createdBy: userId,
+                ownerId: userId,
                 position: pos,
               },
             });
@@ -555,7 +577,7 @@ export const documentRouter = router({
         where: {
           id: input.id,
           OR: [
-            { createdBy: userId },
+            { ownerId: userId },
             {
               collaborators: {
                 some: {
@@ -611,7 +633,7 @@ export const documentRouter = router({
         where: { id: input.id },
         data: updateData,
         include: {
-          creator: {
+          owner: {
             select: {
               id: true,
               name: true,
@@ -646,7 +668,7 @@ export const documentRouter = router({
       const document = await prisma.document.findFirst({
         where: {
           id: input.id,
-          createdBy: userId,
+          ownerId: userId,
         },
       });
 
@@ -674,7 +696,7 @@ export const documentRouter = router({
         where: {
           id: input.id,
           OR: [
-            { createdBy: userId },
+            { ownerId: userId },
             {
               collaborators: {
                 some: {
@@ -717,7 +739,7 @@ export const documentRouter = router({
         where: {
           id: input.id,
           OR: [
-            { createdBy: userId },
+            { ownerId: userId },
             {
               collaborators: {
                 some: {
@@ -758,7 +780,7 @@ export const documentRouter = router({
         where: {
           id: input.documentId,
           OR: [
-            { createdBy: userId },
+            { ownerId: userId },
             {
               collaborators: {
                 some: {
@@ -820,7 +842,7 @@ export const documentRouter = router({
         where: {
           id: input.documentId,
           OR: [
-            { createdBy: userId },
+            { ownerId: userId },
             {
               collaborators: {
                 some: {
@@ -865,7 +887,7 @@ export const documentRouter = router({
         where: {
           id: input.documentId,
           OR: [
-            { createdBy: userId },
+            { ownerId: userId },
             { collaborators: { some: { userId } } },
           ],
         },
@@ -915,7 +937,7 @@ export const documentRouter = router({
         where: {
           id: input.documentId,
           OR: [
-            { createdBy: userId },
+            { ownerId: userId },
             {
               collaborators: {
                 some: {
@@ -1017,20 +1039,41 @@ export const documentRouter = router({
   // ─── Comments ───────────────────────────────────────────────────────────────
 
   listComments: protectedProcedure
-    .input(z.object({ documentId: z.string() }))
-    .query(async ({ ctx, input }) => {
-      const comments = await prisma.documentComment.findMany({
-        where: { documentId: input.documentId },
-        include: {
-          user: { select: { id: true, name: true, email: true, avatar: true } },
-          assignee: { select: { id: true, name: true, avatar: true } },
-          resolvedBy: { select: { id: true, name: true, avatar: true } },
-          reactions: true,
-          attachments: true,
-        },
-        orderBy: { createdAt: "asc" },
-      });
-      return comments;
+    .input(
+      z.object({
+        documentId: z.string(),
+        page: z.number().int().min(1).optional().default(1),
+        pageSize: z.number().int().min(1).max(200).optional().default(50),
+      })
+    )
+    .query(async ({ input }) => {
+      const skip = (input.page - 1) * input.pageSize;
+      const where = { documentId: input.documentId };
+
+      const [total, comments] = await Promise.all([
+        prisma.documentComment.count({ where }),
+        prisma.documentComment.findMany({
+          where,
+          include: {
+            user: { select: { id: true, name: true, email: true, avatar: true } },
+            assignee: { select: { id: true, name: true, avatar: true } },
+            resolvedBy: { select: { id: true, name: true, avatar: true } },
+            reactions: true,
+            attachments: true,
+          },
+          orderBy: { createdAt: "asc" },
+          skip,
+          take: input.pageSize,
+        }),
+      ]);
+
+      return {
+        items: comments,
+        total,
+        page: input.page,
+        pageSize: input.pageSize,
+        hasMore: skip + comments.length < total,
+      };
     }),
 
   createComment: protectedProcedure
@@ -1251,7 +1294,7 @@ export const documentRouter = router({
     .query(async ({ ctx, input }) => {
       const userId = ctx.session!.user!.id;
       const document = await prisma.document.findFirst({
-        where: { id: input.documentId, OR: [{ createdBy: userId }, { collaborators: { some: { userId } } }] },
+        where: { id: input.documentId, OR: [{ ownerId: userId }, { collaborators: { some: { userId } } }] },
       });
       if (!document) throw new Error("Document not found or access denied");
       const skip = (input.page - 1) * input.pageSize;
@@ -1272,7 +1315,7 @@ export const documentRouter = router({
     .input(z.object({ documentId: z.string() }))
     .query(async ({ ctx, input }) => {
       const userId = ctx.session!.user!.id;
-      const document = await prisma.document.findFirst({ where: { id: input.documentId, createdBy: userId } });
+      const document = await prisma.document.findFirst({ where: { id: input.documentId, ownerId: userId } });
       if (!document) throw new Error("Document not found or access denied");
       const [totalViews, uniqueViewers, recentActivity] = await Promise.all([
         prisma.activityLog.count({ where: { entityType: "DOCUMENT", entityId: input.documentId, action: "DOCUMENT_VIEW" } }),
@@ -1285,5 +1328,69 @@ export const documentRouter = router({
         }),
       ]);
       return { totalViews, uniqueViewers: uniqueViewers.length, recentActivity };
+    }),
+
+  transferOwnership: protectedProcedure
+    .input(z.object({ id: z.string(), newOwnerId: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const userId = ctx.session!.user!.id;
+
+      const document = await prisma.document.findFirst({
+        where: { id: input.id, ownerId: userId },
+      });
+      if (!document) {
+        throw new Error("Document not found or you are not the owner");
+      }
+      if (input.newOwnerId === userId) {
+        throw new Error("Cannot transfer ownership to yourself");
+      }
+
+      const newOwner = await prisma.user.findUnique({
+        where: { id: input.newOwnerId },
+        select: { id: true },
+      });
+      if (!newOwner) {
+        throw new Error("New owner not found");
+      }
+
+      if (document.workspaceId) {
+        const membership = await prisma.workspaceMember.findFirst({
+          where: { workspaceId: document.workspaceId, userId: input.newOwnerId },
+        });
+        if (!membership) {
+          throw new Error("New owner must be a member of the document workspace");
+        }
+      }
+
+      const updated = await prisma.$transaction(async (tx) => {
+        await tx.documentOwnershipTransfer.create({
+          data: {
+            documentId: input.id,
+            fromOwnerId: userId,
+            toOwnerId: input.newOwnerId,
+            requestedBy: userId,
+            status: "COMPLETED",
+            requiresAcceptance: false,
+            completedAt: new Date(),
+            acceptedAt: new Date(),
+          },
+        });
+
+        return tx.document.update({
+          where: { id: input.id },
+          data: {
+            previousOwnerId: userId,
+            ownerId: input.newOwnerId,
+            transferredAt: new Date(),
+          },
+          include: {
+            owner: {
+              select: { id: true, name: true, email: true, avatar: true },
+            },
+          },
+        });
+      });
+
+      return updated;
     }),
 });

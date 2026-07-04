@@ -215,7 +215,7 @@ export async function verifyResourceAccess(
                             id: resourceId,
                             OR: [
                                 { visibility: 'PUBLIC' },
-                                { ownerId: userId },
+                                { userId: userId },
                                 // Add connection/friend check if needed
                             ],
                         },
@@ -249,7 +249,7 @@ export async function verifyResourceAccess(
                             workspaceId,
                             OR: [
                                 { isPublished: true },
-                                { createdBy: userId },
+                                { ownerId: userId },
                                 { collaborators: { some: { userId } } },
                             ],
                         },

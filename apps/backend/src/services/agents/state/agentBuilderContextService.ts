@@ -1142,7 +1142,7 @@ export class AgentBuilderContextService {
     // Fetch agents owned by user or shared, include active and inactive for reference
     const agents = await prisma.aiAgent.findMany({
       where: {
-        OR: [{ createdBy: userId }, { isShared: true }],
+        OR: [{ ownerId: userId }, { isShared: true }],
         isArchived: false, // Exclude archived agents
       },
       select: {
@@ -1321,7 +1321,7 @@ export class AgentBuilderContextService {
     const spaces = await prisma.space.findMany({
       where: {
         OR: [
-          { createdBy: userId }, // User is creator
+          { ownerId: userId }, // User is owner
           {
             members: {
               some: {

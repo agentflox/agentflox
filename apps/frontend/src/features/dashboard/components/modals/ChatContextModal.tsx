@@ -15,6 +15,7 @@ import {
 	DialogTitle,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { skipToken } from "@tanstack/react-query";
 import { trpc } from "@/lib/trpc";
 
 export type ContextEntity = {
@@ -44,7 +45,10 @@ export function ChatContextModal({
 		"workspaces"
 	);
 
-	const { data: workspace } = trpc.workspace.get.useQuery({ id: workspaceId }, { enabled: open && !!workspaceId });
+	const { data: workspace } = trpc.workspace.get.useQuery(
+		workspaceId ? { id: workspaceId } : skipToken,
+		{ enabled: open && !!workspaceId }
+	);
 	const { data: spaces } = trpc.space.list.useQuery(
 		{ workspaceId: workspaceId || "", page: 1, pageSize: 100 },
 		{ enabled: open && activeTab === "spaces" }

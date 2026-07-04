@@ -21,8 +21,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
-import { usePosts } from '../hooks/usePosts';
-import { useComments } from '@/entities/comments/hooks/useComments';
+import { usePostMutations } from '../hooks/usePostMutations';
 import { CommentSection } from '../../comments/components/CommentSection';
 import { useFormattedTime } from '@/hooks/useFormattedTime';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -68,8 +67,7 @@ export function PostCard({ post, feedType, feedId }: PostCardProps) {
     bookmarkPost, 
     followPost, 
     reportPost 
-  } = usePosts(feedType, feedId);
-  const { comments } = useComments(post.id);
+  } = usePostMutations(feedType, feedId);
   const [isLiked, setIsLiked] = useState(false); // TODO: Get from user's likes
 
   const handleLike = async () => {
@@ -189,7 +187,7 @@ export function PostCard({ post, feedType, feedId }: PostCardProps) {
   };
 
   // --- Strip legacy community markers if present ---
-  const cleanedContent = post.content.replace(/^\[\[COMMUNITY_SECTION\]\].*?\n/s, '');
+  const cleanedContent = post.content.replace(/^\[\[COMMUNITY_SECTION\]\][\s\S]*?\n/, '');
 
   return (
     <>
@@ -337,7 +335,7 @@ export function PostCard({ post, feedType, feedId }: PostCardProps) {
             className={`text-sm p-2 ${showComments ? 'text-blue-600' : ''}`}
           >
             <MessageCircle className="mr-2 h-4 w-4" />
-            {comments?.length || 0}
+            {post.commentCount ?? 0}
           </Button>
 
           <Button variant="ghost" className="text-sm p-2">

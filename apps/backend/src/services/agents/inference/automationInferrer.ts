@@ -69,7 +69,7 @@ export class AutomationInferrer {
    * Infer automations from conversation
    */
   async infer(
-    conversationHistory: Array<{ role: string; content: string }>,
+    conversationHistory: Array<{ role: 'user' | 'assistant' | 'system'; content: string }>,
     userMessage: string,
     draft: AgentDraft,
     userContext: UserContext,

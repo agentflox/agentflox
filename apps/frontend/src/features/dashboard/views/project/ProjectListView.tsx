@@ -91,13 +91,13 @@ export default function ProjectListView({ projectId, workspaceId, selectedListId
 
     // Fetch lists for this project
     const { data: listsData, isLoading: isLoadingList, refetch: refetchList } = trpc.list.byContext.useQuery(
-        { projectId, workspaceId: workspaceId || undefined },
+        { projectId, workspaceId: workspaceId || undefined, includeViewDetails: false },
         { enabled: !!projectId }
     );
 
     // Fetch folders for this project
     const { data: foldersData, isLoading: isLoadingFolders } = trpc.folder.byContext.useQuery(
-        { projectId, workspaceId: workspaceId || undefined },
+        { projectId, workspaceId: workspaceId || undefined, includeViewDetails: false },
         { enabled: !!projectId }
     );
 
@@ -426,7 +426,7 @@ export default function ProjectListView({ projectId, workspaceId, selectedListId
 
                                                         <div className="opacity-0 group-hover/folder:opacity-100 transition-opacity flex items-center" onClick={(e) => e.stopPropagation()}>
                                                             <FolderActionsMenu
-                                                                workspaceId={workspaceId}
+                                                                workspaceId={workspaceId ?? ""}
                                                                 projectId={projectId}
                                                                 folderId={item.id}
                                                                 folderName={item.name}
@@ -506,7 +506,7 @@ export default function ProjectListView({ projectId, workspaceId, selectedListId
                                                                                         </button>
                                                                                     )}
                                                                                     <ListActionsMenu
-                                                                                        workspaceId={workspaceId}
+                                                                                        workspaceId={workspaceId ?? ""}
                                                                                         projectId={projectId}
                                                                                         listId={list.id}
                                                                                     />
@@ -622,7 +622,7 @@ export default function ProjectListView({ projectId, workspaceId, selectedListId
                                                                 </button>
                                                             )}
                                                             <ListActionsMenu
-                                                                workspaceId={workspaceId}
+                                                                workspaceId={workspaceId ?? ""}
                                                                 projectId={projectId}
                                                                 listId={list.id}
                                                             />
@@ -727,7 +727,7 @@ export default function ProjectListView({ projectId, workspaceId, selectedListId
                                 <DashboardListView
                                     listId={activeListId}
                                     projectId={projectId}
-                                    workspaceId={workspaceId}
+                                    workspaceId={workspaceId ?? ""}
                                     selectedTaskIdFromParent={selectedTaskIdFromParent}
                                     onTaskSelect={onTaskSelect}
                                 />
@@ -737,7 +737,7 @@ export default function ProjectListView({ projectId, workspaceId, selectedListId
                                 <DashboardFolderView
                                     folderId={activeFolderId}
                                     projectId={projectId}
-                                    workspaceId={workspaceId}
+                                    workspaceId={workspaceId ?? ""}
                                     selectedTaskIdFromParent={selectedTaskIdFromParent}
                                     onTaskSelect={onTaskSelect}
                                 />
@@ -762,7 +762,7 @@ export default function ProjectListView({ projectId, workspaceId, selectedListId
                 context="PROJECT"
                 contextId={projectId}
                 folderId={targetFolderId}
-                workspaceId={workspaceId}
+                workspaceId={workspaceId ?? ""}
                 open={isListModalOpen}
                 onOpenChange={(open) => {
                     setIsListModalOpen(open);
@@ -775,7 +775,7 @@ export default function ProjectListView({ projectId, workspaceId, selectedListId
             <FolderCreationModal
                 context="PROJECT"
                 contextId={projectId}
-                workspaceId={workspaceId}
+                workspaceId={workspaceId ?? ""}
                 parentFolderId={targetFolderId}
                 open={isFolderModalOpen}
                 onOpenChange={(open) => {
@@ -792,7 +792,7 @@ export default function ProjectListView({ projectId, workspaceId, selectedListId
                 open={isCreateOptionsModalOpen}
                 onOpenChange={setIsCreateOptionsModalOpen}
                 projectId={projectId}
-                workspaceId={workspaceId}
+                workspaceId={workspaceId ?? ""}
                 selectedListId={selectedListId}
                 selectedFolderId={activeFolderId || undefined}
                 onListCreated={handleListCreated}
@@ -801,7 +801,7 @@ export default function ProjectListView({ projectId, workspaceId, selectedListId
             <TaskCreationModal
                 context="PROJECT"
                 contextId={projectId}
-                workspaceId={workspaceId}
+                workspaceId={workspaceId ?? ""}
                 open={isTaskModalOpen}
                 onOpenChange={(open) => {
                     setIsTaskModalOpen(open);

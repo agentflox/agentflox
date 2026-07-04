@@ -1,8 +1,9 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
-import { Bot, User, Shield, CheckCircle2, ArrowUp, Sparkles } from "lucide-react";
+import { Bot, User, Shield, CheckCircle2, ArrowUp, Sparkles, MessageSquare, Play, Calendar, FileText, Zap, Wrench, Brain } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // Types for our simulation
@@ -10,7 +11,8 @@ type Message = {
     id: string;
     role: "user" | "assistant";
     content: string;
-    stage?: "thinking" | "building" | "done";
+    stage?: "thinking" | "streaming" | "done";
+    thinkingSteps?: { label: string; status: 'active' | 'done' }[];
 };
 
 type AgentState = {
@@ -29,15 +31,50 @@ export function AgentBuilderSimulation() {
         status: "idle",
         capabilities: []
     });
+    const [showBlueImage, setShowBlueImage] = useState(false);
+    const [isAnimating, setIsAnimating] = useState(false);
+    const [currentStageIndex, setCurrentStageIndex] = useState(0);
+
+    const buildStages = [
+        { id: 'initialization', label: 'Initialization', description: 'Setting up agent context', progress: 10 },
+        { id: 'configuration', label: 'Configuration', description: 'Collecting agent details and settings', progress: 50 },
+        { id: 'launch', label: 'Launch', description: 'Agent is ready!', progress: 100 },
+    ];
+
+    // Cycle between robot images like AgentBuilderPreview
+    useEffect(() => {
+        const imageInterval = setInterval(() => {
+            setIsAnimating(true);
+            setTimeout(() => {
+                setShowBlueImage(prev => !prev);
+                setIsAnimating(false);
+            }, 400);
+        }, 4000);
+        return () => clearInterval(imageInterval);
+    }, []);
 
     // Simulation Sequence
     useEffect(() => {
         let timeoutIds: NodeJS.Timeout[] = [];
+        let typingInterval: NodeJS.Timeout | null = null;
+
+        const typeText = (text: string, speed: number) => {
+            let i = 0;
+            typingInterval = setInterval(() => {
+                setInputValue(text.substring(0, i + 1));
+                i++;
+                if (i >= text.length && typingInterval) {
+                    clearInterval(typingInterval);
+                }
+            }, speed);
+            timeoutIds.push(typingInterval as unknown as NodeJS.Timeout);
+        };
 
         const runSimulation = () => {
             setMessages([]);
             setInputValue("");
             setAgentState({ name: "", role: "", status: "idle", capabilities: [] });
+            setCurrentStageIndex(0);
 
             const steps = [
                 // Step 1: Type prompt
@@ -49,43 +86,162 @@ export function AgentBuilderSimulation() {
                 {
                     time: 3500,
                     action: () => {
+                        if (typingInterval) clearInterval(typingInterval);
                         setInputValue("");
                         addMessage("user", "Create a senior developer agent expert on python");
                     }
                 },
-                // Step 3: Agent Thinking
+                // Step 3: Thinking - Intent Analysis
                 {
-                    time: 4000,
+                    time: 3500,
                     action: () => {
-                        addMessage("assistant", "Analyzing requirements...", "thinking");
+                        addMessage("assistant", "", "thinking", [
+                            { label: "Inferring builder intent from message...", status: "active" }
+                        ]);
                     }
                 },
-                // Step 4: Agent Response & Building Start
+                // Step 3.1: Safety evaluation
                 {
-                    time: 6000,
+                    time: 4400,
                     action: () => {
-                        setMessages(prev => prev.map(m => m.stage === "thinking" ? { ...m, content: "I'll create a Senior Python Developer agent. Setting up environment...", stage: "building" } : m));
+                        setMessages(prev => prev.map(m => m.stage === "thinking" ? {
+                            ...m,
+                            thinkingSteps: [
+                                { label: "Inferring builder intent from message...", status: "done" },
+                                { label: "Running semantic safety evaluation...", status: "active" }
+                            ]
+                        } : m));
+                    }
+                },
+                // Step 3.2: Entity scope
+                {
+                    time: 5500,
+                    action: () => {
+                        setCurrentStageIndex(1);
+                        setMessages(prev => prev.map(m => m.stage === "thinking" ? {
+                            ...m,
+                            thinkingSteps: [
+                                { label: "Inferring builder intent from message...", status: "done" },
+                                { label: "Running semantic safety evaluation...", status: "done" },
+                                { label: "Scoping entity context & permissions...", status: "active" }
+                            ]
+                        } : m));
+                    }
+                },
+                // Step 3.3: Config extraction
+                {
+                    time: 6100,
+                    action: () => {
+                        setMessages(prev => prev.map(m => m.stage === "thinking" ? {
+                            ...m,
+                            thinkingSteps: [
+                                { label: "Inferring builder intent from message...", status: "done" },
+                                { label: "Running semantic safety evaluation...", status: "done" },
+                                { label: "Scoping entity context & permissions...", status: "done" },
+                                { label: "Extracting agent configuration schema...", status: "active" }
+                            ]
+                        } : m));
                         setAgentState(prev => ({ ...prev, status: "building", name: "DevBot-Alpha" }));
                     }
                 },
-                // Step 5: Progress Updates
+                // Step 3.4: Automation inference
                 {
-                    time: 7500,
+                    time: 7100,
                     action: () => {
+                        setMessages(prev => prev.map(m => m.stage === "thinking" ? {
+                            ...m,
+                            thinkingSteps: [
+                                { label: "Inferring builder intent from message...", status: "done" },
+                                { label: "Running semantic safety evaluation...", status: "done" },
+                                { label: "Scoping entity context & permissions...", status: "done" },
+                                { label: "Extracting agent configuration schema...", status: "done" },
+                                { label: "Inferring automation triggers & schedules...", status: "active" }
+                            ]
+                        } : m));
+                    }
+                },
+                // Step 3.5: Prompt generation
+                {
+                    time: 8100,
+                    action: () => {
+                        setMessages(prev => prev.map(m => m.stage === "thinking" ? {
+                            ...m,
+                            thinkingSteps: [
+                                { label: "Inferring builder intent from message...", status: "done" },
+                                { label: "Running semantic safety evaluation...", status: "done" },
+                                { label: "Scoping entity context & permissions...", status: "done" },
+                                { label: "Extracting agent configuration schema...", status: "done" },
+                                { label: "Inferring automation triggers & schedules...", status: "done" },
+                                { label: "Generating system prompt & capabilities...", status: "active" }
+                            ]
+                        } : m));
                         setAgentState(prev => ({ ...prev, role: "Senior Software Engineer", capabilities: ["Python 3.12", "Django", "FastAPI"] }));
                     }
                 },
-                // Step 6: Completion
+                // Step 3.6: Stage readiness check
                 {
-                    time: 9500,
+                    time: 9200,
                     action: () => {
-                        setMessages(prev => prev.map(m => m.stage === "building" ? { ...m, content: "Agent 'PyDev-Expert' is ready and deployed.", stage: "done" } : m));
+                        setMessages(prev => prev.map(m => m.stage === "thinking" ? {
+                            ...m,
+                            thinkingSteps: [
+                                { label: "Inferring builder intent from message...", status: "done" },
+                                { label: "Running semantic safety evaluation...", status: "done" },
+                                { label: "Scoping entity context & permissions...", status: "done" },
+                                { label: "Extracting agent configuration schema...", status: "done" },
+                                { label: "Inferring automation triggers & schedules...", status: "done" },
+                                { label: "Generating system prompt & capabilities...", status: "done" },
+                                { label: "Validating stage readiness & merging draft...", status: "active" }
+                            ]
+                        } : m));
+                    }
+                },
+                // Step 4: Start streaming response
+                {
+                    time: 10400,
+                    action: () => {
+                        setCurrentStageIndex(2);
+                        setMessages(prev => prev.map(m => m.stage === "thinking" ? {
+                            ...m,
+                            stage: "streaming",
+                            thinkingSteps: [
+                                { label: "Inferring builder intent from message...", status: "done" },
+                                { label: "Running semantic safety evaluation...", status: "done" },
+                                { label: "Scoping entity context & permissions...", status: "done" },
+                                { label: "Extracting agent configuration schema...", status: "done" },
+                                { label: "Inferring automation triggers & schedules...", status: "done" },
+                                { label: "Generating system prompt & capabilities...", status: "done" },
+                                { label: "Validating stage readiness & merging draft...", status: "done" }
+                            ]
+                        } : m));
+
+                        const fullText = `I've fully configured your Senior Python Developer agent. Here's a summary of what was set up:\n\nAgent Name: PyDev-Expert\nRole: Senior Python Architect & Code Reviewer\n\nCore Capabilities:\n- Python 3.12, asyncio, type hints, and modern PEP standards\n- Django 5.x REST framework with ORM query optimization\n- FastAPI with async endpoints, Pydantic v2, and auto OpenAPI docs\n- Pytest, coverage reporting, and CI/CD pipeline integration\n- Code review, refactoring, and runtime performance profiling\n- Security scanning with Bandit and dependency auditing\n\nSystem Prompt: The agent is instructed to follow clean code principles, write fully-tested modules, provide inline JSDoc-style documentation, proactively flag anti-patterns, and suggest architectural improvements when applicable.\n\nAutomation: A daily code health trigger has been inferred — it will scan open pull requests, flag anti-patterns, and post a structured review summary to your team channel.\n\nSecurity: Tool access is scoped to read-only repository access and sandboxed execution. No write permissions are granted by default.\n\nYour agent is fully configured and ready to deploy. Shall I launch PyDev-Expert now?`;
+
+                        let charIdx = 0;
+                        const streamInterval = setInterval(() => {
+                            charIdx += 4; // Type 4 chars per frame to reduce render thrashing
+                            setMessages(prev => prev.map(m => m.stage === "streaming" ? { ...m, content: fullText.substring(0, charIdx) } : m));
+                            
+                            if (charIdx >= fullText.length) {
+                                clearInterval(streamInterval);
+                                setMessages(prev => prev.map(m => m.stage === "streaming" ? { ...m, stage: "done", content: fullText } : m));
+                            }
+                        }, 25);
+                        
+                        // Add to timeoutIds so it gets cleared if component unmounts
+                        timeoutIds.push(streamInterval as unknown as NodeJS.Timeout);
+                    }
+                },
+                // Step 5: Agent active
+                {
+                    time: 18000,
+                    action: () => {
                         setAgentState(prev => ({ ...prev, status: "active", name: "PyDev-Expert", role: "Senior Python Architect" }));
                     }
                 },
                 // Reset loop
                 {
-                    time: 14000,
+                    time: 28000,
                     action: () => runSimulation()
                 }
             ];
@@ -100,92 +256,102 @@ export function AgentBuilderSimulation() {
         return () => timeoutIds.forEach(clearTimeout);
     }, []);
 
-    const typeText = (text: string, speed: number) => {
-        let i = 0;
-        const interval = setInterval(() => {
-            setInputValue(text.substring(0, i + 1));
-            i++;
-            if (i >= text.length) clearInterval(interval);
-        }, speed);
-    };
-
-    const addMessage = (role: "user" | "assistant", content: string, stage?: "thinking" | "building" | "done") => {
-        setMessages(prev => [...prev, { id: Math.random().toString(), role, content, stage }]);
+    const addMessage = (role: "user" | "assistant", content: string, stage?: "thinking" | "streaming" | "done", thinkingSteps?: { label: string; status: 'active' | 'done' }[]) => {
+        setMessages(prev => [...prev, { id: Math.random().toString(), role, content, stage, thinkingSteps }]);
     };
 
     return (
-        <div className="w-full h-[600px] bg-[#0A0A0A] rounded-2xl border border-white/10 shadow-2xl overflow-hidden flex flex-col md:flex-row">
+        <div className="w-full h-[600px] bg-white rounded-2xl border border-gray-200 shadow-2xl overflow-hidden flex flex-col md:flex-row">
             {/* Chat Area */}
-            <div className="flex-1 flex flex-col min-w-0">
+            <div className="flex-1 flex flex-col min-w-0 max-w-[55%]">
                 {/* Header */}
-                <div className="h-14 border-b border-white/5 flex items-center px-6 bg-[#0F0F0F]">
-                    <div className="w-3 h-3 rounded-full bg-red-500/20 border border-red-500/50 mr-2" />
-                    <div className="w-3 h-3 rounded-full bg-amber-500/20 border border-amber-500/50 mr-2" />
-                    <div className="w-3 h-3 rounded-full bg-emerald-500/20 border border-emerald-500/50 mr-4" />
+                <div className="h-14 border-b border-gray-100 flex items-center px-6 bg-gray-50">
+                    <div className="w-3 h-3 rounded-full bg-red-400 border border-red-500/50 mr-2" />
+                    <div className="w-3 h-3 rounded-full bg-yellow-400 border border-yellow-500/50 mr-2" />
+                    <div className="w-3 h-3 rounded-full bg-green-400 border border-emerald-500/50 mr-4" />
                     <span className="text-xs font-mono text-gray-500">Agent Builder v2.0</span>
                 </div>
 
                 {/* Messages */}
-                <div className="flex-1 p-6 space-y-6 overflow-hidden relative">
-                    <AnimatePresence mode="popLayout">
-                        {messages.map((msg) => (
-                            <motion.div
-                                key={msg.id}
-                                initial={{ opacity: 0, y: 10 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                className={cn(
-                                    "flex gap-4 max-w-[90%]",
-                                    msg.role === "user" ? "ml-auto flex-row-reverse" : ""
-                                )}
-                            >
-                                <div className={cn(
-                                    "w-8 h-8 rounded-lg flex items-center justify-center shrink-0",
-                                    msg.role === "assistant" ? "bg-indigo-600/20 text-indigo-400" : "bg-gray-700/20 text-gray-400"
-                                )}>
-                                    {msg.role === "assistant" ? <Bot size={16} /> : <User size={16} />}
-                                </div>
-                                <div className={cn(
-                                    "p-4 rounded-2xl text-sm leading-relaxed",
-                                    msg.role === "assistant" ? "bg-white/5 border border-white/5 text-gray-200" : "bg-indigo-600 text-white"
-                                )}>
-                                    {msg.content}
-                                    {msg.stage === "thinking" && (
-                                        <div className="mt-2 flex gap-1">
-                                            <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
-                                            <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
-                                            <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+                <div className="flex-1 p-6 space-y-6 overflow-y-auto relative bg-white scrollbar-thin scrollbar-thumb-gray-200">
+                    <AnimatePresence>
+                        {messages.map((msg) => {
+                            if (msg.role === "user") {
+                                return (
+                                    <motion.div
+                                        key={msg.id}
+                                        initial={{ opacity: 0, y: 10 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        className="flex justify-end gap-3 px-2 sm:px-4"
+                                    >
+                                        <div className="max-w-[72%] rounded-[20px] bg-slate-100 px-5 py-3 text-[15px] leading-relaxed text-slate-800">
+                                            {msg.content}
                                         </div>
-                                    )}
-                                    {msg.stage === "building" && (
-                                        <div className="mt-3 space-y-2">
-                                            <div className="h-1 w-full bg-white/10 rounded overflow-hidden">
-                                                <motion.div
-                                                    className="h-full bg-indigo-500"
-                                                    initial={{ width: "0%" }}
-                                                    animate={{ width: "100%" }}
-                                                    transition={{ duration: 2 }}
-                                                />
+                                        <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 overflow-hidden border border-gray-200 mt-1">
+                                            <img src="https://i.pravatar.cc/100?img=33" alt="User" className="w-full h-full object-cover" />
+                                        </div>
+                                    </motion.div>
+                                );
+                            }
+
+                            return (
+                                <motion.div
+                                    key={msg.id}
+                                    initial={{ opacity: 0, y: 10 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    className="px-2 sm:px-4 py-1 group"
+                                >
+                                    <div className="mb-2 flex items-center gap-2">
+                                        <div className="h-8 flex items-center shrink-0">
+                                            <img src="/images/logo.png" alt="Agentflox" className="h-full w-auto object-contain" />
+                                        </div>
+                                        <span className="text-sm font-semibold text-slate-900 tracking-tight">
+                                            Agent Builder
+                                        </span>
+                                    </div>
+                                    <div className="text-[15px] leading-relaxed text-slate-800">
+                                        {msg.thinkingSteps && msg.thinkingSteps.length > 0 && (
+                                            <div className="mb-3 space-y-2">
+                                                {msg.thinkingSteps.map((step, idx) => (
+                                                    <div key={idx} className="flex items-center gap-2 text-xs font-medium">
+                                                        {step.status === 'done' ? (
+                                                            <CheckCircle2 size={14} className="text-emerald-500" />
+                                                        ) : (
+                                                            <div className="w-3.5 h-3.5 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+                                                        )}
+                                                        <span className={step.status === 'done' ? "text-slate-500" : "text-indigo-600"}>
+                                                            {step.label}
+                                                        </span>
+                                                    </div>
+                                                ))}
                                             </div>
-                                            <div className="text-xs text-indigo-300 font-mono">Initializing neural weights...</div>
-                                        </div>
-                                    )}
-                                </div>
-                            </motion.div>
-                        ))}
+                                        )}
+                                        {msg.content && (
+                                            <div>
+                                                {msg.content}
+                                                {msg.stage === "streaming" && (
+                                                    <span className="inline-block w-1.5 h-4 ml-1 bg-indigo-500 animate-pulse align-middle rounded-sm" />
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+                                </motion.div>
+                            );
+                        })}
                     </AnimatePresence>
                 </div>
 
                 {/* Input Area */}
-                <div className="p-4 border-t border-white/5 bg-[#0F0F0F]">
-                    <div className="h-12 bg-black/50 border border-white/10 rounded-xl pl-4 pr-2 flex items-center justify-between text-sm text-gray-300">
+                <div className="p-4 border-t border-gray-100 bg-white">
+                    <div className="h-12 bg-gray-50 border border-gray-200 rounded-xl pl-4 pr-2 flex items-center justify-between text-sm text-gray-700">
                         <div className="flex items-center">
                             {inputValue}
-                            {inputValue.length === 0 && <span className="text-gray-600">Type a message...</span>}
+                            {inputValue.length === 0 && <span className="text-gray-400">Type a message...</span>}
                             <span className="w-0.5 h-5 bg-indigo-500 ml-1 animate-pulse" />
                         </div>
                         <button className={cn(
                             "w-8 h-8 rounded-lg flex items-center justify-center transition-all duration-300",
-                            inputValue.length > 0 ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/20" : "bg-white/5 text-gray-600"
+                            inputValue.length > 0 ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/20" : "bg-gray-200 text-gray-400"
                         )}>
                             <ArrowUp size={16} />
                         </button>
@@ -193,133 +359,306 @@ export function AgentBuilderSimulation() {
                 </div>
             </div>
 
-            {/* Sidebar (Agent Profile) */}
-            <div className="w-80 bg-[#0F0F0F] border-l border-white/5 p-6 flex flex-col gap-6 transform transition-all duration-500">
-                <div className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-2">Live Preview</div>
+            {/* Sidebar (Agent Profile / Preview Switch) */}
+            <div className="flex-1 bg-[#f8fafc] border-l border-gray-200 p-6 flex flex-col gap-6 transform transition-all duration-500 relative overflow-hidden">
+                <AnimatePresence mode="wait">
+                    {agentState.status !== "active" ? (
+                        <motion.div
+                            key="preview"
+                            initial={{ opacity: 0, x: 20 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            exit={{ opacity: 0, x: -20 }}
+                            transition={{ duration: 0.3 }}
+                            className="absolute inset-0 p-6 flex flex-col bg-[#f8fafc]"
+                        >
+                            {/* This recreates AgentBuilderPreview.tsx UI */}
+                            <div className="w-full mx-auto h-full flex flex-col bg-white overflow-hidden rounded-xl border border-gray-200 shadow-sm">
+                                {/* Progress Bar */}
+                                <div className="px-6 py-6 border-b border-gray-200">
+                                    <div className="space-y-2">
+                                        <div className="flex items-center justify-between text-sm">
+                                            <span className="text-gray-500 font-medium">
+                                                Stage {currentStageIndex + 1} of {buildStages.length}
+                                            </span>
+                                        </div>
+                                        <div className="flex gap-1.5 pt-2">
+                                            {buildStages.map((stage, index) => (
+                                                <motion.div
+                                                    key={stage.id}
+                                                    className={`flex-1 h-1.5 rounded-full transition-colors duration-300 ${index <= currentStageIndex
+                                                        ? showBlueImage && index >= 2
+                                                            ? "bg-blue-500"
+                                                            : "bg-pink-500"
+                                                        : "bg-gray-200"
+                                                        }`}
+                                                    initial={{ scaleX: 0 }}
+                                                    animate={{ scaleX: 1 }}
+                                                    transition={{ delay: index * 0.1 }}
+                                                />
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
 
-                {/* Agent Card */}
-                <motion.div
-                    className="bg-[#151515] rounded-xl p-6 border border-white/5 relative overflow-hidden group"
-                    animate={{
-                        opacity: agentState.status !== "idle" ? 1 : 0.5,
-                        scale: agentState.status !== "idle" ? 1 : 0.95
-                    }}
-                >
-                    <div className="absolute top-0 right-0 p-3 opacity-0 group-hover:opacity-100 transition-opacity z-10">
-                        <div className="px-2 py-0.5 bg-emerald-500/10 text-emerald-400 text-[10px] rounded border border-emerald-500/20">ACTIVE</div>
-                    </div>
+                                {/* Image Animation Container */}
+                                <div className="relative w-full bg-gray-50 flex items-center justify-center overflow-hidden h-[240px] border-b border-gray-100">
+                                    {/* Ambient Glow */}
+                                    <div className="absolute inset-0 bg-gradient-radial from-blue-500/5 via-transparent to-transparent" />
+                                    <motion.div
+                                        className="absolute inset-0 opacity-5"
+                                        animate={{ rotate: 360 }}
+                                        transition={{ duration: 40, repeat: Infinity, ease: "linear" }}
+                                        style={{
+                                            backgroundImage: `radial-gradient(circle, rgba(148, 163, 184, 0.3) 1px, transparent 1px)`,
+                                            backgroundSize: "30px 30px",
+                                        }}
+                                    />
 
-                    {/* Image of Robot (Builder) */}
-                    <div className="w-full aspect-square rounded-2xl bg-black/50 mb-4 overflow-hidden relative group-hover:scale-[1.02] transition-transform duration-500">
-                        {/* Using the generated image for builder robots */}
-                        <img
-                            src="/images/robot-6.png"
-                            alt="Agent Preview"
-                            className="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity"
-                        />
-                        <div className="absolute inset-0 bg-gradient-to-t from-[#151515] via-transparent to-transparent opacity-90" />
+                                    {/* Image Container */}
+                                    <div className="relative w-3/5 h-4/5">
+                                        <AnimatePresence mode="wait">
+                                            {!showBlueImage ? (
+                                                <motion.div
+                                                    key="pink"
+                                                    initial={{ opacity: 0, scale: 0.9, rotateY: -90 }}
+                                                    animate={{ opacity: 1, scale: 1, rotateY: 0 }}
+                                                    exit={{ opacity: 0, scale: 0.9, rotateY: 90 }}
+                                                    transition={{ duration: 0.8, ease: "easeInOut" }}
+                                                    className="absolute inset-0 flex items-center justify-center"
+                                                >
+                                                    <motion.div
+                                                        animate={{ y: [0, -8, 0] }}
+                                                        transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+                                                        className="relative w-full h-full"
+                                                    >
+                                                        <Image src="/images/robot-3.png" alt="Phase 1" fill className="object-contain filter drop-shadow-2xl" style={{ filter: "drop-shadow(0 0 30px rgba(236, 72, 153, 0.3))" }} />
+                                                        <motion.div className="absolute inset-0 bg-gradient-to-b from-transparent via-pink-500/10 to-transparent" animate={{ y: ["-100%", "100%"] }} transition={{ duration: 2, repeat: Infinity, ease: "linear" }} />
+                                                    </motion.div>
+                                                </motion.div>
+                                            ) : (
+                                                <motion.div
+                                                    key="blue"
+                                                    initial={{ opacity: 0, scale: 0.9, rotateY: -90 }}
+                                                    animate={{ opacity: 1, scale: 1, rotateY: 0 }}
+                                                    exit={{ opacity: 0, scale: 0.9, rotateY: 90 }}
+                                                    transition={{ duration: 0.8, ease: "easeInOut" }}
+                                                    className="absolute inset-0 flex items-center justify-center"
+                                                >
+                                                    <motion.div
+                                                        animate={{ y: [0, -8, 0] }}
+                                                        transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+                                                        className="relative w-full h-full"
+                                                    >
+                                                        <Image src="/images/robot-4.png" alt="Phase 2" fill className="object-contain filter drop-shadow-2xl" style={{ filter: "drop-shadow(0 0 30px rgba(59, 130, 246, 0.3))" }} />
+                                                        <motion.div className="absolute inset-0 bg-gradient-to-b from-transparent via-blue-500/10 to-transparent" animate={{ y: ["-100%", "100%"] }} transition={{ duration: 2, repeat: Infinity, ease: "linear" }} />
+                                                    </motion.div>
+                                                </motion.div>
+                                            )}
+                                        </AnimatePresence>
 
-                        {/* Building/Scanning Effect */}
-                        {agentState.status === "building" && (
-                            <div className="absolute inset-0 z-20 pointer-events-none">
-                                <motion.div
-                                    initial={{ opacity: 0 }}
-                                    animate={{ opacity: 1 }}
-                                    className="absolute inset-0 bg-indigo-500/10 mix-blend-overlay"
-                                />
-                                <motion.div
-                                    className="absolute left-0 right-0 h-[2px] bg-indigo-400 shadow-[0_0_15px_rgba(99,102,241,1)]"
-                                    animate={{ top: ["0%", "100%"] }}
-                                    transition={{ duration: 1.5, repeat: Infinity, ease: "linear" }}
-                                />
-                                <div className="absolute top-2 right-2">
-                                    <div className="flex items-center gap-1.5 px-2 py-1 bg-black/60 backdrop-blur rounded text-[10px] text-indigo-300 border border-indigo-500/30">
-                                        <Sparkles size={10} className="animate-pulse" />
-                                        BUILDING
+                                        {/* Particle Effects */}
+                                        {isAnimating && (
+                                            <div className="absolute inset-0 pointer-events-none">
+                                                {[...Array(8)].map((_, i) => (
+                                                    <motion.div
+                                                        key={i}
+                                                        className={`absolute w-1 h-1 rounded-full ${showBlueImage ? "bg-blue-400" : "bg-pink-400"}`}
+                                                        initial={{ x: "50%", y: "50%", opacity: 0 }}
+                                                        animate={{ x: `${50 + Math.cos((i / 8) * Math.PI * 2) * 50}%`, y: `${50 + Math.sin((i / 8) * Math.PI * 2) * 50}%`, opacity: [0, 1, 0] }}
+                                                        transition={{ duration: 2, repeat: Infinity, delay: i * 0.2, ease: "easeOut" }}
+                                                    />
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Corner Accents */}
+                                    <div className="absolute top-4 left-4 w-12 h-12 border-t-2 border-l-2 border-gray-300 rounded-tl-lg" />
+                                    <div className="absolute top-4 right-4 w-12 h-12 border-t-2 border-r-2 border-gray-300 rounded-tr-lg" />
+                                    <div className="absolute bottom-4 left-4 w-12 h-12 border-b-2 border-l-2 border-gray-300 rounded-bl-lg" />
+                                    <div className="absolute bottom-4 right-4 w-12 h-12 border-b-2 border-r-2 border-gray-300 rounded-br-lg" />
+                                </div>
+
+                                {/* Stage Information */}
+                                <div className="py-6 px-6 border-b border-gray-100">
+                                    <motion.div
+                                        key={buildStages[currentStageIndex]?.id}
+                                        initial={{ opacity: 0, x: -20 }}
+                                        animate={{ opacity: 1, x: 0 }}
+                                        transition={{ duration: 0.3 }}
+                                    >
+                                        <div className="flex items-center gap-3 mb-3">
+                                            <div className="relative -ml-2">
+                                                <div className={`w-3 h-3 rounded-full ${showBlueImage ? "bg-blue-500" : "bg-pink-500"}`} />
+                                                {agentState.status === "building" && (
+                                                    <motion.div
+                                                        className={`absolute inset-0 rounded-full ${showBlueImage ? "bg-blue-500" : "bg-pink-500"}`}
+                                                        animate={{ scale: [1, 2, 2], opacity: [0.5, 0, 0] }}
+                                                        transition={{ duration: 1.5, repeat: Infinity }}
+                                                    />
+                                                )}
+                                            </div>
+                                            <h3 className="text-lg font-semibold text-gray-900 leading-none">
+                                                {buildStages[currentStageIndex]?.label}
+                                            </h3>
+                                        </div>
+                                        <p className="text-gray-600 text-sm">
+                                            {buildStages[currentStageIndex]?.description}
+                                        </p>
+                                    </motion.div>
+                                </div>
+
+                                {/* Action Button */}
+                                <div className="flex items-center justify-center p-6 bg-gray-50/30 flex-1">
+                                    <div className="relative overflow-hidden w-full">
+                                        <motion.div
+                                            initial={{ opacity: 0, scale: 0.95 }}
+                                            animate={{ opacity: 1, scale: 1 }}
+                                        >
+                                            <div className="relative bg-gradient-to-r from-gray-100 to-gray-50 border border-gray-200 rounded-xl p-4 overflow-hidden shadow-sm">
+                                                {/* Animated progress shine */}
+                                                <motion.div
+                                                    className={`absolute inset-0 bg-gradient-to-r from-transparent ${showBlueImage ? "via-blue-100/40" : "via-pink-100/40"} to-transparent`}
+                                                    animate={{ x: ["-100%", "200%"] }}
+                                                    transition={{ duration: 2.5, repeat: Infinity, ease: "linear" }}
+                                                />
+
+                                                <div className="relative flex items-center justify-center gap-3">
+                                                    {/* Building spinner */}
+                                                    <div className="relative w-6 h-6">
+                                                        <motion.div
+                                                            className="absolute inset-0"
+                                                            animate={{ rotate: 360 }}
+                                                            transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+                                                        >
+                                                            <svg className="w-full h-full" viewBox="0 0 40 40">
+                                                                <circle cx="20" cy="20" r="16" fill="none" stroke="url(#buildGradientSim)" strokeWidth="3" strokeLinecap="round" strokeDasharray="80 20" />
+                                                                <defs>
+                                                                    <linearGradient id="buildGradientSim" x1="0%" y1="0%" x2="100%" y2="100%">
+                                                                        <stop offset="0%" stopColor={showBlueImage ? "#3b82f6" : "#ec4899"} />
+                                                                        <stop offset="100%" stopColor={showBlueImage ? "#8b5cf6" : "#f97316"} />
+                                                                    </linearGradient>
+                                                                </defs>
+                                                            </svg>
+                                                        </motion.div>
+                                                    </div>
+
+                                                    <span className="text-[15px] font-semibold text-gray-700">
+                                                        Building Agent
+                                                    </span>
+
+                                                    {/* Animated dots */}
+                                                    <motion.span
+                                                        className="text-gray-400 font-bold tracking-widest"
+                                                        animate={{ opacity: [0.3, 1, 0.3] }}
+                                                        transition={{ duration: 1.5, repeat: Infinity }}
+                                                    >
+                                                        ...
+                                                    </motion.span>
+                                                </div>
+                                            </div>
+                                        </motion.div>
                                     </div>
                                 </div>
                             </div>
-                        )}
+                        </motion.div>
+                    ) : (
+                        <motion.div
+                            key="profile"
+                            initial={{ opacity: 0, x: 20 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            exit={{ opacity: 0, x: -20 }}
+                            transition={{ duration: 0.4, type: "spring", bounce: 0 }}
+                            className="absolute inset-0 p-6 flex flex-col gap-6 bg-[#f8fafc]"
+                        >
+                            {/* This recreates AgentProfile.tsx UI */}
+                            <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                                <div className="space-y-4 px-6 py-6">
+                                    <div className="flex items-start justify-between gap-4">
+                                        <div className="flex items-start gap-4 min-w-0 flex-1">
+                                            <div className="flex-shrink-0 relative">
+                                                <div className="w-16 h-16 rounded-full bg-indigo-50/50 flex items-center justify-center border border-indigo-100/50 overflow-hidden shadow-sm">
+                                                    <Image src="/images/robot-4.png" alt="Agent Avatar" fill className="object-cover scale-110" />
+                                                </div>
+                                            </div>
+                                            <div className="flex-1 min-w-0 space-y-2 mt-1">
+                                                <div className="flex items-center gap-3 flex-wrap">
+                                                    <h3 className="text-xl font-bold truncate text-gray-900">{agentState.name}</h3>
+                                                    <div className="inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold bg-green-500/10 text-green-700 border-green-500/20 uppercase tracking-wider">
+                                                        <CheckCircle2 className="w-3 h-3 mr-1.5" />
+                                                        Live
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center gap-4 text-sm text-gray-500 flex-wrap">
+                                                    <div className="flex items-center gap-1.5">
+                                                        <Calendar className="w-4 h-4 text-gray-400" />
+                                                        <span>Created just now</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-2.5 flex-shrink-0 mt-2">
+                                            <div className="flex items-center rounded-lg border border-gray-200 bg-white shadow-sm overflow-hidden">
+                                                <div className="h-9 w-10 flex items-center justify-center text-gray-600 hover:bg-gray-50 cursor-pointer transition-colors">
+                                                    <MessageSquare className="w-4 h-4" />
+                                                </div>
+                                                <div className="h-9 w-px bg-gray-200" />
+                                                <div className="h-9 w-10 flex items-center justify-center text-gray-600 hover:bg-gray-50 cursor-pointer transition-colors">
+                                                    <Play className="w-4 h-4 ml-1" />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
 
-                        <div className="absolute bottom-4 left-4 right-4">
-                            <div className="h-6 w-3/4 bg-white/10 rounded animate-pulse mb-2" style={{ display: agentState.name ? 'none' : 'block' }} />
-                            {agentState.name && (
-                                <motion.h3 initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-xl font-bold text-white relative z-20">
-                                    {agentState.name}
-                                </motion.h3>
-                            )}
-
-                            <div className="h-4 w-1/2 bg-white/5 rounded animate-pulse" style={{ display: agentState.role ? 'none' : 'block' }} />
-                            {agentState.role && (
-                                <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-sm text-indigo-300 relative z-20">
-                                    {agentState.role}
-                                </motion.p>
-                            )}
-                        </div>
-                    </div>
-
-                    {/* Stats */}
-                    <div className="grid grid-cols-2 gap-2 mb-6">
-                        <div className="bg-black/40 p-2 rounded-lg border border-white/5">
-                            <div className="text-[10px] text-gray-500">IQ Score</div>
-                            <div className="text-sm font-mono text-white">142</div>
-                        </div>
-                        <div className="bg-black/40 p-2 rounded-lg border border-white/5">
-                            <div className="text-[10px] text-gray-500">Speed</div>
-                            <div className="text-sm font-mono text-white">45ms</div>
-                        </div>
-                    </div>
-
-                    {/* Capabilities */}
-                    <div className="space-y-2">
-                        <div className="text-xs text-gray-500 font-medium">Capabilities</div>
-                        <div className="flex flex-wrap gap-2">
-                            {agentState.capabilities.length > 0 ? (
-                                agentState.capabilities.map((cap, i) => (
-                                    <motion.span
-                                        key={cap}
-                                        initial={{ scale: 0 }}
-                                        animate={{ scale: 1 }}
-                                        transition={{ delay: i * 0.1 }}
-                                        className="px-2 py-1 bg-white/5 hover:bg-white/10 border border-white/10 rounded text-[10px] text-gray-300"
-                                    >
-                                        {cap}
-                                    </motion.span>
-                                ))
-                            ) : (
-                                <>
-                                    <div className="h-5 w-16 bg-white/5 rounded animate-pulse" />
-                                    <div className="h-5 w-12 bg-white/5 rounded animate-pulse" />
-                                    <div className="h-5 w-20 bg-white/5 rounded animate-pulse" />
-                                </>
-                            )}
-                        </div>
-                    </div>
-                </motion.div>
-
-                {/* System Status */}
-                <div className="flex-1 bg-[#151515] rounded-xl p-4 border border-white/5">
-                    <div className="flex items-center gap-2 mb-4">
-                        <Shield size={14} className="text-emerald-500" />
-                        <span className="text-xs text-gray-400">Security Protocols</span>
-                    </div>
-                    <div className="space-y-3">
-                        <div className="flex items-center justify-between text-xs">
-                            <span className="text-gray-500">Memory isolation</span>
-                            <span className="text-emerald-400 flex items-center gap-1"><CheckCircle2 size={10} /> Enabled</span>
-                        </div>
-                        <div className="flex items-center justify-between text-xs">
-                            <span className="text-gray-500">Tool permissions</span>
-                            <span className="text-emerald-400 flex items-center gap-1"><CheckCircle2 size={10} /> Restricted</span>
-                        </div>
-                        <div className="w-full bg-white/5 h-1 rounded overflow-hidden">
-                            <div className="h-full bg-emerald-500 w-full" />
-                        </div>
-                        <div className="text-[10px] text-gray-600 text-center mt-2">
-                            System verified safe for enterprise deployment
-                        </div>
-                    </div>
-                </div>
+                            {/* Dummy Tabs UI */}
+                            <div className="flex-1 bg-white rounded-xl border border-gray-200 shadow-sm flex flex-col overflow-hidden">
+                                <div className="border-b border-gray-200 bg-gray-50/50 p-2 overflow-x-auto">
+                                    <div className="flex gap-1">
+                                        <div className="px-3.5 py-2.5 rounded-xl bg-indigo-50/80 text-indigo-600 font-semibold flex items-center gap-2 whitespace-nowrap text-sm cursor-default">
+                                            <FileText className="w-4 h-4" />
+                                            Instructions
+                                        </div>
+                                        <div className="px-3.5 py-2.5 rounded-xl text-gray-500 font-semibold flex items-center gap-2 whitespace-nowrap text-sm cursor-default">
+                                            <Sparkles className="w-4 h-4" />
+                                            Skills
+                                        </div>
+                                        <div className="px-3.5 py-2.5 rounded-xl text-gray-500 font-semibold flex items-center gap-2 whitespace-nowrap text-sm cursor-default">
+                                            <Zap className="w-4 h-4" />
+                                            Triggers
+                                        </div>
+                                        <div className="px-3.5 py-2.5 rounded-xl text-gray-500 font-semibold flex items-center gap-2 whitespace-nowrap text-sm cursor-default">
+                                            <Wrench className="w-4 h-4" />
+                                            Tools
+                                        </div>
+                                        <div className="px-3.5 py-2.5 rounded-xl text-gray-500 font-semibold flex items-center gap-2 whitespace-nowrap text-sm cursor-default">
+                                            <Brain className="w-4 h-4" />
+                                            Knowledge
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="p-6 flex-1 bg-white relative">
+                                    <div className="max-w-prose">
+                                        <div className="mb-4">
+                                            <h4 className="text-sm font-semibold text-gray-900 mb-1">System Prompt</h4>
+                                            <p className="text-xs text-gray-500">The core instructions guiding {agentState.name}'s behavior.</p>
+                                        </div>
+                                        <div className="bg-gray-50 border border-gray-100 rounded-lg p-5 h-56 overflow-hidden relative shadow-sm">
+                                            <p className="text-[13px] font-mono text-gray-600 leading-relaxed whitespace-pre-wrap">
+                                                You are {agentState.name}, a highly skilled {agentState.role}.
+                                                {'\n\n'}Your core capabilities include:
+                                                {agentState.capabilities.map(c => `\n- ${c}`)}
+                                                {'\n\n'}Always follow clean code principles, write fully-tested modules, provide inline JSDoc-style documentation, proactively flag anti-patterns, and suggest architectural improvements when applicable.
+                                            </p>
+                                            <div className="absolute bottom-0 left-0 right-0 h-20 bg-gradient-to-t from-gray-50 to-transparent" />
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
             </div>
         </div>
     );

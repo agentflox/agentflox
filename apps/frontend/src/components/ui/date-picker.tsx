@@ -71,8 +71,8 @@ export function SingleDateCalendar({
         const match = input.match(timePattern)
 
         if (match) {
-            let [, hourStr, minuteStr, period] = match
-            let hour = parseInt(hourStr)
+            const [, hourStr, minuteStr, period] = match
+            const hour = parseInt(hourStr)
             const minute = parseInt(minuteStr)
 
             if (hour >= 1 && hour <= 12 && minute >= 0 && minute <= 59) {

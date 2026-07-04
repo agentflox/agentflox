@@ -3,27 +3,30 @@
 import { useMemo, useState, useCallback, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { trpc } from "@/lib/trpc";
+import { DashboardEntityProvider } from "@/features/dashboard/context/DashboardEntityContext";
 import { DashboardLoadingState, DashboardErrorState } from "@/features/dashboard/components/shared/DashboardStates";
 import TeamNavigationSidebar, { type TeamView } from "@/features/dashboard/layouts/team/TeamNavigationSidebar";
 import dynamic from "next/dynamic";
 const TeamOverviewTab = dynamic(() => import("@/features/dashboard/views/team/TeamOverviewTab").then(mod => mod.TeamOverviewTab));
 const TeamListView = dynamic(() => import("@/features/dashboard/views/team/TeamListView"));
-const ListView = dynamic(() => import("@/features/dashboard/views/generic/ListView"));
-const BoardView = dynamic(() => import("@/features/dashboard/views/generic/BoardView").then(mod => mod.BoardView));
-const TableView = dynamic(() => import("@/features/dashboard/views/generic/TableView").then(mod => mod.TableView));
-const PeopleView = dynamic(() => import("@/features/dashboard/views/generic/PeopleView ").then(mod => mod.PeopleView));
-const ActivityView = dynamic(() => import("@/features/dashboard/views/generic/ActivityView").then(mod => mod.ActivityView));
-const CalendarView = dynamic(() => import("@/features/dashboard/views/generic/CalendarView").then(mod => mod.CalendarView));
-const GanttView = dynamic(() => import("@/features/dashboard/views/generic/GanttView").then(mod => mod.GanttView));
-const TimelineView = dynamic(() => import("@/features/dashboard/views/generic/TimelineView").then(mod => mod.TimelineView));
-const FormView = dynamic(() => import("@/features/dashboard/views/generic/FormView").then(mod => mod.FormView));
-const MindMapView = dynamic(() => import("@/features/dashboard/views/generic/MindMapView").then(mod => mod.MindMapView));
-const WorkloadView = dynamic(() => import("@/features/dashboard/views/generic/WorkloadView").then(mod => mod.WorkloadView));
-const WhiteboardView = dynamic(() => import("@/features/dashboard/views/generic/WhiteboardView"));
-const MapView = dynamic(() => import("@/features/dashboard/views/generic/MapView").then(mod => mod.MapView));
-const GenericDashboardView = dynamic(() => import("@/features/dashboard/views/generic/DashboardView").then(mod => mod.DashboardView));
-const EmbedView = dynamic(() => import("@/features/dashboard/views/generic/EmbedView").then(mod => mod.EmbedView));
-const DocView = dynamic(() => import("@/features/dashboard/views/generic/DocView").then(mod => mod.DocView));
+import {
+    ListView,
+    BoardView,
+    TableView,
+    PeopleView,
+    ActivityView,
+    CalendarView,
+    GanttView,
+    TimelineView,
+    FormView,
+    MindMapView,
+    WorkloadView,
+    WhiteboardView,
+    MapView,
+    GenericDashboardView,
+    EmbedView,
+    DocView,
+} from "@/features/dashboard/views/generic/dashboardViewDynamics";
 import { ShareModal } from "@/components/permissions/ShareModal";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -370,6 +373,7 @@ export default function TeamDashboardView({ listId, spaceId, projectId, teamId, 
       case "LIST":
         return (
           <ListView
+            workspaceId={resolvedWorkspaceId}
             listId={listId || undefined}
             spaceId={spaceId}
             projectId={projectId}
@@ -383,6 +387,7 @@ export default function TeamDashboardView({ listId, spaceId, projectId, teamId, 
       case "BOARD":
         return (
           <BoardView
+            workspaceId={resolvedWorkspaceId}
             listId={listId || undefined}
             spaceId={spaceId}
             projectId={projectId}
@@ -396,6 +401,7 @@ export default function TeamDashboardView({ listId, spaceId, projectId, teamId, 
       case "TABLE":
         return (
           <TableView
+            workspaceId={resolvedWorkspaceId}
             listId={listId || undefined}
             spaceId={spaceId}
             projectId={projectId}
@@ -409,6 +415,7 @@ export default function TeamDashboardView({ listId, spaceId, projectId, teamId, 
       case "CALENDAR":
         return (
           <CalendarView
+            workspaceId={resolvedWorkspaceId}
             listId={listId || undefined}
             spaceId={spaceId}
             projectId={projectId}
@@ -422,6 +429,7 @@ export default function TeamDashboardView({ listId, spaceId, projectId, teamId, 
       case "GANTT":
         return (
           <GanttView
+            workspaceId={resolvedWorkspaceId}
             listId={listId || undefined}
             spaceId={spaceId}
             projectId={projectId}
@@ -435,6 +443,7 @@ export default function TeamDashboardView({ listId, spaceId, projectId, teamId, 
       case "TIMELINE":
         return (
           <TimelineView
+            workspaceId={resolvedWorkspaceId}
             listId={listId || undefined}
             spaceId={spaceId}
             projectId={projectId}
@@ -462,6 +471,7 @@ export default function TeamDashboardView({ listId, spaceId, projectId, teamId, 
       case "PEOPLE":
         return (
           <PeopleView
+            workspaceId={resolvedWorkspaceId}
             listId={listId || undefined}
             spaceId={spaceId}
             projectId={projectId}
@@ -475,6 +485,7 @@ export default function TeamDashboardView({ listId, spaceId, projectId, teamId, 
       case "ACTIVITY":
         return (
           <ActivityView
+            workspaceId={resolvedWorkspaceId}
             listId={listId || undefined}
             spaceId={spaceId}
             projectId={projectId}
@@ -488,6 +499,7 @@ export default function TeamDashboardView({ listId, spaceId, projectId, teamId, 
       case "MIND_MAP":
         return (
           <MindMapView
+            workspaceId={resolvedWorkspaceId}
             listId={listId || undefined}
             spaceId={spaceId}
             projectId={projectId}
@@ -501,6 +513,7 @@ export default function TeamDashboardView({ listId, spaceId, projectId, teamId, 
       case "WORKLOAD":
         return (
           <WorkloadView
+            workspaceId={resolvedWorkspaceId}
             listId={listId || undefined}
             spaceId={spaceId}
             projectId={projectId}
@@ -617,13 +630,22 @@ export default function TeamDashboardView({ listId, spaceId, projectId, teamId, 
     return <DashboardErrorState title="Team not found" message="We couldn't find the team you're looking for." />;
   }
 
+  const activeTeamId = team.id;
+  const activeWorkspaceId = team.workspaceId ?? workspaceId ?? "";
+
   return (
+    <DashboardEntityProvider
+      workspaceId={activeWorkspaceId}
+      spaceId={spaceId}
+      projectId={projectId}
+      teamId={activeTeamId}
+    >
     <div className="flex h-full flex-col">
       {/* Main Layout - Sidebar visibility controlled by layoutMode */}
       <div className="flex h-full gap-1 flex-1 overflow-hidden">
         {layoutMode === "sidebar" && (
           <TeamNavigationSidebar
-            teamId={teamId}
+            teamId={activeTeamId}
             activeView={(isListsTab ? "lists" : currentTab) as any}
             onViewChange={(viewId) => {
               const params = new URLSearchParams(searchParams.toString());
@@ -650,7 +672,7 @@ export default function TeamDashboardView({ listId, spaceId, projectId, teamId, 
             entityName={team.name || "Untitled Team"}
             entityType="team"
             entityIcon={<Users className="h-4 w-4" />}
-            isStarred={team.isStarred}
+            isStarred={false}
             onToggleStar={() => {
               toast.info("Star toggle coming soon");
             }}
@@ -676,8 +698,8 @@ export default function TeamDashboardView({ listId, spaceId, projectId, teamId, 
                 onClick: () => { },
                 render: () => (
                   <TeamActionsMenu
-                    workspaceId={resolvedWorkspaceId!}
-                    teamId={teamId}
+                    workspaceId={activeWorkspaceId}
+                    teamId={activeTeamId}
                     trigger={
                       <Button variant="ghost" size="sm" className="h-8 gap-2">
                         <Settings className="h-4 w-4" />
@@ -695,8 +717,8 @@ export default function TeamDashboardView({ listId, spaceId, projectId, teamId, 
                 <>
                   {isListsTab ? (
                     <TeamListView
-                      teamId={teamId}
-                      workspaceId={resolvedWorkspaceId}
+                      teamId={activeTeamId}
+                      workspaceId={activeWorkspaceId}
                       selectedListId={selectedListId || undefined}
                       onListSelect={handleListSelect}
                       selectedTaskIdFromParent={selectedTaskId}
@@ -933,7 +955,7 @@ export default function TeamDashboardView({ listId, spaceId, projectId, teamId, 
                   ) : currentTab === "docs" ? (
                     <TeamDocsView teamId={teamId!} workspaceId={resolvedWorkspaceId!} />
                   ) : currentTab === "chats" ? (
-                    <ChatView contextType="TEAM" contextId={teamId} contextName={team?.name} />
+                    <ChatView workspaceId={activeWorkspaceId} />
                   ) : currentTab === "ai-chat" ? (
                     <SharedAIChatView
                       contextType="TEAM"
@@ -1090,6 +1112,7 @@ export default function TeamDashboardView({ listId, spaceId, projectId, teamId, 
         />
       )}
     </div>
+    </DashboardEntityProvider>
   );
 }
 

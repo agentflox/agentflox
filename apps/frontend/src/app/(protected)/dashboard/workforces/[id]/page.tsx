@@ -1,11 +1,10 @@
 "use client";
 
 import React, { Suspense } from "react";
+import dynamic from "next/dynamic";
 import { useParams, useSearchParams, useRouter } from "next/navigation";
 import { LayoutGrid, Workflow, ArrowLeft, Home, Hammer, Play, Share2, PlayCircle, MoreHorizontal } from "lucide-react";
 import { useWorkforceStore } from "@/entities/workforce/hooks/useWorkforceStore";
-import WorkforceCanvas from "@/features/dashboard/views/workforce/workflow/WorkforceCanvas";
-import SwarmView from "@/features/dashboard/views/workforce/swarm/SwarmView";
 import { trpc } from "@/lib/trpc";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -18,50 +17,36 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { Copy, Download, History, HelpCircle, Store, Bug, Trash2, Settings2 } from "lucide-react";
 import { DASHBOARD_ROUTES } from "@/constants/routes.config";
-import WorkforceSidebar from "@/features/dashboard/views/workforce/workflow/WorkforceSidebar";
-import WorkforceRunView from "@/features/dashboard/views/workforce/workflow/WorkforceRunView";
-import WorkforceTestSidebar from "@/features/dashboard/views/workforce/workflow/WorkforceTestSidebar";
-import WorkforceRunSidebar from "@/features/dashboard/views/workforce/workflow/WorkforceRunSidebar";
-import SwarmRunView from "@/features/dashboard/views/workforce/swarm/SwarmRunView";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 function WorkforceLoadingState() {
     return (
         <div className="flex h-full min-h-[60vh] w-full flex-col items-center justify-center">
             <div className="relative flex items-center justify-center">
-                {/* Subtle background glow */}
                 <div className="absolute h-24 w-24 animate-pulse rounded-full bg-primary/5 blur-xl" />
-
-                {/* Outer rotating ring */}
                 <div className="absolute h-16 w-16 animate-[spin_3s_linear_infinite] rounded-full border-b-2 border-l-2 border-primary/30" />
-
-                {/* Inner rotating ring */}
                 <div className="absolute h-12 w-12 animate-[spin_1.5s_linear_infinite_reverse] rounded-full border-t-2 border-r-2 border-primary/60" />
-
-                {/* Center icon */}
                 <div className="relative flex h-8 w-8 items-center justify-center rounded-full bg-background ring-1 ring-border shadow-sm backdrop-blur-sm">
                     <Workflow className="h-4 w-4 text-primary animate-pulse" />
                 </div>
             </div>
-
             <div className="mt-8 flex flex-col items-center space-y-2">
                 <div className="flex items-center gap-2">
-                    <h3 className="text-sm font-medium tracking-widest text-foreground uppercase">
-                        Initializing
-                    </h3>
-                    <div className="flex gap-1">
-                        <div className="h-1.5 w-1.5 animate-bounce rounded-full bg-primary/80" style={{ animationDelay: "0ms" }} />
-                        <div className="h-1.5 w-1.5 animate-bounce rounded-full bg-primary/80" style={{ animationDelay: "150ms" }} />
-                        <div className="h-1.5 w-1.5 animate-bounce rounded-full bg-primary/80" style={{ animationDelay: "300ms" }} />
-                    </div>
+                    <h3 className="text-sm font-medium tracking-widest text-foreground uppercase">Initializing</h3>
                 </div>
-                <p className="text-xs text-muted-foreground animate-pulse">
-                    Loading workforce configuration...
-                </p>
+                <p className="text-xs text-muted-foreground animate-pulse">Loading workforce configuration...</p>
             </div>
         </div>
     );
 }
+
+const WorkforceCanvas = dynamic(() => import("@/features/dashboard/views/workforce/workflow/WorkforceCanvas"), { ssr: false, loading: () => <WorkforceLoadingState /> });
+const SwarmView = dynamic(() => import("@/features/dashboard/views/workforce/swarm/SwarmView"), { ssr: false, loading: () => <WorkforceLoadingState /> });
+const WorkforceSidebar = dynamic(() => import("@/features/dashboard/views/workforce/workflow/WorkforceSidebar"), { ssr: false });
+const WorkforceRunView = dynamic(() => import("@/features/dashboard/views/workforce/workflow/WorkforceRunView"), { ssr: false });
+const WorkforceTestSidebar = dynamic(() => import("@/features/dashboard/views/workforce/workflow/WorkforceTestSidebar"), { ssr: false });
+const WorkforceRunSidebar = dynamic(() => import("@/features/dashboard/views/workforce/workflow/WorkforceRunSidebar"), { ssr: false });
+const SwarmRunView = dynamic(() => import("@/features/dashboard/views/workforce/swarm/SwarmRunView"), { ssr: false, loading: () => <WorkforceLoadingState /> });
 
 function WorkforceDetailContent() {
     const params = useParams<{ id: string }>();

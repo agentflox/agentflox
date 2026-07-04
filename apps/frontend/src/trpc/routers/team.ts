@@ -69,6 +69,81 @@ export const teamRouter = router({
             return { items, total, page: input.page, pageSize: input.pageSize };
         }),
 
+    listInfinite: protectedProcedure
+        .input(z.object({
+            query: z.string().optional(),
+            teamType: z.enum(["DEVELOPMENT", "MARKETING", "SALES", "DESIGN", "ADVISORY", "GENERAL"]).optional(),
+            industry: z.array(z.string()).optional(),
+            isActive: z.boolean().optional(),
+            scope: z.enum(["all", "owned", "participated"]).optional().default("owned"),
+            status: z.enum(["DRAFT", "PUBLISHED", "ARCHIVED"]).optional(),
+            page: z.number().int().min(1).optional().default(1),
+            pageSize: z.number().int().min(1).max(50).optional().default(12),
+            spaceId: z.string().optional().nullable(),
+            workspaceId: z.string().optional(),
+            cursor: z.number().nullish(),
+        }))
+        .query(async ({ ctx, input }) => {
+            const userId = ctx.session!.user!.id;
+            await LimitGuard.ensureCycle(userId);
+            const page = input.cursor ?? input.page ?? 1;
+            const pageSize = input.pageSize ?? 12;
+            const where: any = {};
+
+            if (input.scope === "owned") {
+                where.ownerId = userId;
+            } else if (input.scope === "participated") {
+                where.members = { some: { userId } };
+            } else {
+                where.OR = [{ ownerId: userId }, { members: { some: { userId } } }];
+            }
+
+            if (input?.teamType) {
+                where.teamType = input.teamType;
+            }
+            if (input?.industry && input.industry.length > 0) {
+                where.industry = { hasSome: input.industry };
+            }
+            if (input?.isActive !== undefined) {
+                where.isActive = input.isActive;
+            }
+            if (input?.status) {
+                where.status = input.status;
+            }
+            if (input?.query) {
+                where.OR = [
+                    ...(where.OR || []),
+                    { name: { contains: input.query, mode: "insensitive" } },
+                    { description: { contains: input.query, mode: "insensitive" } },
+                ];
+            }
+
+            if (input.spaceId !== undefined) {
+                where.spaceId = input.spaceId;
+            }
+            if (input.workspaceId) {
+                where.workspaceId = input.workspaceId;
+            }
+
+            const skip = (page - 1) * pageSize;
+            const take = pageSize;
+            const [total, items] = await Promise.all([
+                prisma.team.count({ where }),
+                prisma.team.findMany({ where, orderBy: { updatedAt: "desc" }, skip, take }),
+            ]);
+
+            const totalPages = Math.ceil(total / pageSize);
+            const hasNextPage = page < totalPages;
+
+            return {
+                items,
+                total,
+                page,
+                pageSize,
+                nextCursor: hasNextPage ? page + 1 : undefined,
+            };
+        }),
+
     get: protectedProcedure
         .input(z.object({ id: z.string() }))
         .query(async ({ ctx, input }) => {
@@ -154,9 +229,9 @@ export const teamRouter = router({
                     views: {
                         createMany: {
                             data: [
-                                { name: "Overview", type: ViewType.OVERVIEW, position: 0, createdBy: ctx.session!.user!.id, isDefault: true },
-                                { name: "List", type: ViewType.LIST, position: 1, createdBy: ctx.session!.user!.id },
-                                { name: "Board", type: ViewType.BOARD, position: 2, createdBy: ctx.session!.user!.id },
+                                { name: "Overview", type: ViewType.OVERVIEW, position: 0, ownerId: ctx.session!.user!.id, isDefault: true },
+                                { name: "List", type: ViewType.LIST, position: 1, ownerId: ctx.session!.user!.id },
+                                { name: "Board", type: ViewType.BOARD, position: 2, ownerId: ctx.session!.user!.id },
                             ]
                         }
                     }
@@ -196,6 +271,7 @@ export const teamRouter = router({
                 isRemote: z.boolean().optional(),
                 isHiring: z.boolean().optional(),
                 isActive: z.boolean().optional(),
+                visibility: z.enum(["PRIVATE", "ADMINS", "MEMBERS", "EVERYONE", "PUBLIC"]).optional(),
                 maxSize: z.number().optional(),
                 spaceId: z.string().optional().nullable(),
                 workspaceId: z.string().optional().nullable(),
@@ -267,19 +343,6 @@ export const teamRouter = router({
             return updated.id;
         }),
 
-    // Public endpoints similar to proposals
-    getSinglePublicTeam: protectedProcedure
-        .input(z.object({ id: z.string() }))
-        .query(async ({ input }) => {
-            return prisma.team.findFirst({
-                where: { id: input.id, status: "PUBLISHED" },
-                include: {
-                    owner: { select: { id: true, name: true, email: true } },
-                    likes: { select: { userId: true } },
-                }
-            });
-        }),
-
     getPublicTeams: protectedProcedure
         .input(z.object({
             query: z.string().optional(),
@@ -305,21 +368,93 @@ export const teamRouter = router({
             const take = input.pageSize;
             const [total, items] = await Promise.all([
                 prisma.team.count({ where }),
-                prisma.team.findMany({ where, orderBy: { updatedAt: "desc" }, skip, take, include: { owner: true, likes: true } })
+                prisma.team.findMany({ where, orderBy: { updatedAt: "desc" }, skip, take, include: { owner: true } })
             ]);
             return { items, total, page: input.page, pageSize: input.pageSize };
         }),
 
-    toggleInterest: protectedProcedure
-        .input(z.object({ teamId: z.string() }))
+    duplicate: protectedProcedure
+        .input(z.object({
+            teamId: z.string(),
+            newName: z.string(),
+            icon: z.string().optional(),
+            color: z.string().optional(),
+            copyMode: z.enum(["everything", "customize"]),
+            includeMembers: z.boolean().optional(),
+            includeSettings: z.boolean().optional(),
+            includePermissions: z.boolean().optional(),
+        }))
         .mutation(async ({ ctx, input }) => {
             const userId = ctx.session!.user!.id;
-            const existing = await prisma.teamLike.findFirst({ where: { teamId: input.teamId, userId } });
-            if (existing) {
-                await prisma.teamLike.delete({ where: { id: existing.id } });
-                return { interested: false } as const;
-            }
-            await prisma.teamLike.create({ data: { teamId: input.teamId, userId } });
-            return { interested: true } as const;
+            const source = await prisma.team.findFirst({
+                where: {
+                    id: input.teamId,
+                    OR: [
+                        { ownerId: userId },
+                        { members: { some: { userId } } },
+                    ],
+                },
+                include: {
+                    members: true,
+                    views: { orderBy: { position: "asc" } },
+                },
+            });
+            if (!source) throw new Error("Team not found or permission denied");
+
+            const avatar = input.icon ?? source.avatar;
+            const copyMembers = input.copyMode === "everything" || input.includeMembers;
+
+            const newTeam = await prisma.team.create({
+                data: {
+                    name: input.newName,
+                    description: source.description,
+                    avatar,
+                    industry: source.industry,
+                    skills: source.skills,
+                    location: source.location,
+                    isRemote: source.isRemote,
+                    isActive: source.isActive,
+                    maxSize: source.maxSize,
+                    spaceId: source.spaceId,
+                    workspaceId: source.workspaceId,
+                    visibility: source.visibility,
+                    status: source.status,
+                    ownerId: userId,
+                    members: {
+                        create: [
+                            { userId, role: "ADMIN" },
+                            ...(copyMembers
+                                ? source.members
+                                    .filter((member) => member.userId !== userId)
+                                    .map((member) => ({ userId: member.userId, role: member.role }))
+                                : []),
+                        ],
+                    },
+                    views: {
+                        create: source.views.map((view, index) => ({
+                            name: view.name,
+                            type: view.type,
+                            position: index,
+                            ownerId: userId,
+                            isDefault: view.isDefault,
+                        })),
+                    },
+                },
+            });
+
+            return { id: newTeam.id };
+        }),
+
+    toggleInterest: protectedProcedure
+        .input(z.object({ teamId: z.string() }))
+        .mutation(async () => ({ success: true as const })),
+
+    getSinglePublicTeam: protectedProcedure
+        .input(z.object({ id: z.string() }))
+        .query(async ({ input }) => {
+            return prisma.team.findFirst({
+                where: { id: input.id, isPublic: true, status: "PUBLISHED" },
+                include: { owner: true },
+            });
         }),
 });

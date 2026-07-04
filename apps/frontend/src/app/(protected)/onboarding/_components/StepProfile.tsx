@@ -4,6 +4,7 @@ interface StepProfileProps {
   onNext: (data: any) => void;
   onBack: () => void;
   isLoading: boolean;
+  isFirstStep?: boolean;
   defaultValues?: any;
 }
 

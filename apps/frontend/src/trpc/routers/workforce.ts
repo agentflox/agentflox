@@ -39,7 +39,7 @@ export const workforceRouter = router({
                     mode: input.mode,
                     status: input.status,
                     workspaceId: firstWorkspace.id,
-                    createdBy: userId,
+                    ownerId: userId,
                 },
             });
 
@@ -65,7 +65,7 @@ export const workforceRouter = router({
             const userId = ctx.session.user.id;
 
             const where: Prisma.WorkforceWhereInput = {
-                createdBy: userId, // Assuming 'owned' scope maps to creator
+                ownerId: userId, // Assuming 'owned' scope maps to creator
             };
 
             if (query) {

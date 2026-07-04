@@ -228,7 +228,7 @@ export function TimeEntryModal({
                         </Button>
                         <Button
                             type="submit"
-                            disabled={createEntry.isLoading}
+                            disabled={createEntry.isPending}
                         >
                             {entry ? 'Update' : 'Add'} Entry
                         </Button>

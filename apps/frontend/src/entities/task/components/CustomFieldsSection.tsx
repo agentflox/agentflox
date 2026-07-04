@@ -35,7 +35,7 @@ export function CustomFieldsSection({ taskId, workspaceId }: CustomFieldsSection
         id: string;
         name: string;
         type: string;
-        config?: { description?: string };
+        config?: { description?: string; fieldType?: string };
     } | null>(null);
     const [deleteFieldId, setDeleteFieldId] = React.useState<string | null>(null);
     const utils = trpc.useUtils();
@@ -114,19 +114,21 @@ export function CustomFieldsSection({ taskId, workspaceId }: CustomFieldsSection
                             </tr>
                         </thead>
                         <tbody>
-                            {customFields.map((field: {
-                                id: string;
-                                name: string;
-                                type: string;
-                                config?: { description?: string };
-                            }) => (
+                            {customFields.map((field) => (
                                 <tr
                                     key={field.id}
                                     className="border-b border-zinc-100 last:border-b-0 hover:bg-zinc-50/50 transition-colors group"
                                 >
                                     <td
                                         className="py-2 px-3 align-top cursor-pointer"
-                                        onClick={() => setSettingsField(field)}
+                                        onClick={() => setSettingsField({
+                                            id: field.id,
+                                            name: field.name,
+                                            type: field.type,
+                                            config: (field.config && typeof field.config === 'object' && !Array.isArray(field.config))
+                                                ? field.config as { description?: string }
+                                                : undefined,
+                                        })}
                                     >
                                         <span className="font-medium text-zinc-900">{field.name}</span>
                                     </td>
@@ -136,7 +138,7 @@ export function CustomFieldsSection({ taskId, workspaceId }: CustomFieldsSection
                                                 field={field}
                                                 value={getFieldValue(field.id)}
                                                 onChange={(value) => handleValueChange(field.id, value)}
-                                                disabled={updateCustomField.isLoading}
+                                                disabled={updateCustomField.isPending}
                                                 hideLabel
                                             />
                                         </div>
@@ -154,7 +156,14 @@ export function CustomFieldsSection({ taskId, workspaceId }: CustomFieldsSection
                                             </DropdownMenuTrigger>
                                             <DropdownMenuContent align="end">
                                                 <DropdownMenuItem
-                                                    onClick={() => setSettingsField(field)}
+                                                    onClick={() => setSettingsField({
+                                            id: field.id,
+                                            name: field.name,
+                                            type: field.type,
+                                            config: (field.config && typeof field.config === 'object' && !Array.isArray(field.config))
+                                                ? field.config as { description?: string }
+                                                : undefined,
+                                        })}
                                                 >
                                                     <Settings className="h-4 w-4 mr-2" />
                                                     Settings
@@ -213,7 +222,7 @@ export function CustomFieldsSection({ taskId, workspaceId }: CustomFieldsSection
                             onClick={handleDeleteConfirm}
                             className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                         >
-                            {deleteCustomField.isLoading ? 'Deleting...' : 'Delete'}
+                            {deleteCustomField.isPending ? 'Deleting...' : 'Delete'}
                         </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>

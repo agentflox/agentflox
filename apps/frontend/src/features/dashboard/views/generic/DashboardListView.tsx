@@ -3,28 +3,29 @@
 import { useMemo, useState, useCallback, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { trpc } from "@/lib/trpc";
-import dynamic from "next/dynamic";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { ViewTabsOverflow } from "@/features/dashboard/components/shared/ViewTabsOverflow";
 import { AddViewModal, ViewType } from "@/features/dashboard/components/modals/AddViewModal";
 import { SpaceViewContextMenu } from "@/features/dashboard/components/space/SpaceViewContextMenu";
-import ListView from "@/features/dashboard/views/generic/ListView";
-import { BoardView } from "@/features/dashboard/views/generic/BoardView";
-import { TableView } from "@/features/dashboard/views/generic/TableView";
-import { PeopleView } from "@/features/dashboard/views/generic/PeopleView ";
-import { ActivityView } from "@/features/dashboard/views/generic/ActivityView";
-import { CalendarView } from "@/features/dashboard/views/generic/CalendarView";
-import { GanttView } from "@/features/dashboard/views/generic/GanttView";
-import { TimelineView } from "@/features/dashboard/views/generic/TimelineView";
-import { FormView } from "@/features/dashboard/views/generic/FormView";
-import { MindMapView } from "@/features/dashboard/views/generic/MindMapView";
-import { WorkloadView } from "@/features/dashboard/views/generic/WorkloadView";
-import WhiteboardView from "@/features/dashboard/views/generic/WhiteboardView";
-import { MapView } from "@/features/dashboard/views/generic/MapView";
-import { DashboardView as GenericDashboardView } from "@/features/dashboard/views/generic/DashboardView";
-import { EmbedView } from "@/features/dashboard/views/generic/EmbedView";
-import { DocView } from "@/features/dashboard/views/generic/DocView";
+import {
+    ListView,
+    BoardView,
+    TableView,
+    PeopleView,
+    ActivityView,
+    CalendarView,
+    GanttView,
+    TimelineView,
+    FormView,
+    MindMapView,
+    WorkloadView,
+    WhiteboardView,
+    MapView,
+    GenericDashboardView,
+    EmbedView,
+    DocView,
+} from "@/features/dashboard/views/generic/dashboardViewDynamics";
 import {
     ContextMenu,
     ContextMenuTrigger,
@@ -78,6 +79,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { DashboardEntityProvider } from "@/features/dashboard/context/DashboardEntityContext";
 
 interface DashboardListViewProps {
     listId: string;
@@ -85,6 +87,7 @@ interface DashboardListViewProps {
     projectId?: string;
     teamId?: string;
     workspaceId?: string;
+    viewId?: string;
     selectedTaskIdFromParent?: string | null;
     onTaskSelect?: (taskId: string | null) => void;
 }
@@ -182,6 +185,7 @@ export default function DashboardListView({ listId, spaceId, projectId, teamId, 
             views: (listFromContext as any).views ?? [],
         } as any;
     }, [listData, listFromContext]);
+    const effectiveWorkspaceId = workspaceId || (list as any)?.workspaceId;
     const views = useMemo(() => {
         if (!list?.views) return [];
         return [...list.views].sort((a: any, b: any) => {
@@ -342,6 +346,7 @@ export default function DashboardListView({ listId, spaceId, projectId, teamId, 
             case "LIST":
                 return (
                     <ListView
+                        workspaceId={effectiveWorkspaceId}
                         listId={listId}
                         spaceId={spaceId}
                         projectId={projectId}
@@ -355,6 +360,7 @@ export default function DashboardListView({ listId, spaceId, projectId, teamId, 
             case "BOARD":
                 return (
                     <BoardView
+                        workspaceId={effectiveWorkspaceId}
                         listId={listId}
                         spaceId={spaceId}
                         projectId={projectId}
@@ -368,6 +374,7 @@ export default function DashboardListView({ listId, spaceId, projectId, teamId, 
             case "TABLE":
                 return (
                     <TableView
+                        workspaceId={effectiveWorkspaceId}
                         listId={listId}
                         spaceId={spaceId}
                         projectId={projectId}
@@ -376,12 +383,12 @@ export default function DashboardListView({ listId, spaceId, projectId, teamId, 
                         initialConfig={view.config as any}
                         selectedTaskIdFromParent={selectedTaskIdFromParent}
                         onTaskSelect={onTaskSelect}
-                        context="list"
                     />
                 );
             case "CALENDAR":
                 return (
                     <CalendarView
+                        workspaceId={effectiveWorkspaceId}
                         listId={listId}
                         spaceId={spaceId}
                         projectId={projectId}
@@ -390,12 +397,12 @@ export default function DashboardListView({ listId, spaceId, projectId, teamId, 
                         initialConfig={view.config as any}
                         selectedTaskIdFromParent={selectedTaskIdFromParent}
                         onTaskSelect={onTaskSelect}
-                        context="list"
                     />
                 );
             case "GANTT":
                 return (
                     <GanttView
+                        workspaceId={effectiveWorkspaceId}
                         listId={listId}
                         spaceId={spaceId}
                         projectId={projectId}
@@ -404,12 +411,12 @@ export default function DashboardListView({ listId, spaceId, projectId, teamId, 
                         initialConfig={view.config as any}
                         selectedTaskIdFromParent={selectedTaskIdFromParent}
                         onTaskSelect={onTaskSelect}
-                        context="list"
                     />
                 );
             case "TIMELINE":
                 return (
                     <TimelineView
+                        workspaceId={effectiveWorkspaceId}
                         listId={listId}
                         spaceId={spaceId}
                         projectId={projectId}
@@ -418,13 +425,12 @@ export default function DashboardListView({ listId, spaceId, projectId, teamId, 
                         initialConfig={view.config as any}
                         selectedTaskIdFromParent={selectedTaskIdFromParent}
                         onTaskSelect={onTaskSelect}
-                        context="list"
                     />
                 );
             case "FORM":
                 return (
                     <FormView
-                        workspaceId={workspaceId}
+                        workspaceId={effectiveWorkspaceId}
                         listId={listId}
                         spaceId={spaceId}
                         projectId={projectId}
@@ -433,12 +439,12 @@ export default function DashboardListView({ listId, spaceId, projectId, teamId, 
                         initialConfig={view.config as any}
                         selectedTaskIdFromParent={selectedTaskIdFromParent}
                         onTaskSelect={onTaskSelect}
-                        context="list"
                     />
                 );
             case "PEOPLE":
                 return (
                     <PeopleView
+                        workspaceId={effectiveWorkspaceId}
                         listId={listId}
                         spaceId={spaceId}
                         projectId={projectId}
@@ -452,6 +458,7 @@ export default function DashboardListView({ listId, spaceId, projectId, teamId, 
             case "ACTIVITY":
                 return (
                     <ActivityView
+                        workspaceId={effectiveWorkspaceId}
                         listId={listId}
                         spaceId={spaceId}
                         projectId={projectId}
@@ -460,12 +467,12 @@ export default function DashboardListView({ listId, spaceId, projectId, teamId, 
                         initialConfig={view.config as any}
                         selectedTaskIdFromParent={selectedTaskIdFromParent}
                         onTaskSelect={onTaskSelect}
-                        context="list"
                     />
                 );
             case "MIND_MAP":
                 return (
                     <MindMapView
+                        workspaceId={effectiveWorkspaceId}
                         listId={listId}
                         spaceId={spaceId}
                         projectId={projectId}
@@ -474,12 +481,12 @@ export default function DashboardListView({ listId, spaceId, projectId, teamId, 
                         initialConfig={view.config as any}
                         selectedTaskIdFromParent={selectedTaskIdFromParent}
                         onTaskSelect={onTaskSelect}
-                        context="list"
                     />
                 );
             case "WORKLOAD":
                 return (
                     <WorkloadView
+                        workspaceId={effectiveWorkspaceId}
                         listId={listId}
                         spaceId={spaceId}
                         projectId={projectId}
@@ -488,7 +495,6 @@ export default function DashboardListView({ listId, spaceId, projectId, teamId, 
                         initialConfig={view.config as any}
                         selectedTaskIdFromParent={selectedTaskIdFromParent}
                         onTaskSelect={onTaskSelect}
-                        context="list"
                     />
                 );
             case "WHITEBOARD":
@@ -502,12 +508,12 @@ export default function DashboardListView({ listId, spaceId, projectId, teamId, 
                         initialConfig={view.config as any}
                         selectedTaskIdFromParent={selectedTaskIdFromParent}
                         onTaskSelect={onTaskSelect}
-                        context="list"
                     />
                 );
             case "MAP":
                 return (
                     <MapView
+                        workspaceId={effectiveWorkspaceId}
                         listId={listId}
                         spaceId={spaceId}
                         projectId={projectId}
@@ -516,7 +522,6 @@ export default function DashboardListView({ listId, spaceId, projectId, teamId, 
                         initialConfig={view.config as any}
                         selectedTaskIdFromParent={selectedTaskIdFromParent}
                         onTaskSelect={onTaskSelect}
-                        context="list"
                     />
                 );
             case "DASHBOARD":
@@ -530,7 +535,6 @@ export default function DashboardListView({ listId, spaceId, projectId, teamId, 
                         initialConfig={view.config as any}
                         selectedTaskIdFromParent={selectedTaskIdFromParent}
                         onTaskSelect={onTaskSelect}
-                        context="list"
                     />
                 );
             case "DOC":
@@ -544,7 +548,6 @@ export default function DashboardListView({ listId, spaceId, projectId, teamId, 
                         initialConfig={view.config as any}
                         selectedTaskIdFromParent={selectedTaskIdFromParent}
                         onTaskSelect={onTaskSelect}
-                        context="list"
                     />
                 );
             case "EMBED":
@@ -566,7 +569,6 @@ export default function DashboardListView({ listId, spaceId, projectId, teamId, 
                         teamId={teamId}
                         viewId={view.id}
                         initialConfig={view.config as any}
-                        context="list"
                     />
                 );
             default: {
@@ -638,6 +640,12 @@ export default function DashboardListView({ listId, spaceId, projectId, teamId, 
     }
 
     return (
+        <DashboardEntityProvider
+            workspaceId={effectiveWorkspaceId}
+            spaceId={spaceId}
+            projectId={projectId}
+            teamId={teamId}
+        >
         <div className="flex h-full flex-col">
             <Tabs value={activeTab} onValueChange={handleTabChange} className="flex h-full flex-col gap-0">
                 <div className="dashboard-tabs-container border-b border-slate-200 bg-white px-4 py-1 transition-all">
@@ -743,7 +751,7 @@ export default function DashboardListView({ listId, spaceId, projectId, teamId, 
                                                     <Switch checked={view.isDefault} />
                                                 </div>
                                                 <div className="h-px bg-slate-100 my-1 mx-2" />
-                                                <div role="button" className="flex items-center gap-2 px-2 py-1.5 text-sm hover:bg-slate-100 rounded-sm text-slate-700 w-full text-left cursor-pointer transition-colors" onClick={(e) => { e.stopPropagation(); createViewMutation.mutate({ name: `${view.name} Copy`, type: view.type, listId: listId }); }}>
+                                                <div role="button" className="flex items-center gap-2 px-2 py-1.5 text-sm hover:bg-slate-100 rounded-sm text-slate-700 w-full text-left cursor-pointer transition-colors" onClick={(e) => { e.stopPropagation(); createViewMutation.mutate({ name: `${view.name} Copy`, type: view.type as any, listId: listId }); }}>
                                                     <CopyPlus className="h-4 w-4 shrink-0" /> Duplicate view
                                                 </div>
                                                 <div role="button" className="flex items-center gap-2 px-2 py-1.5 text-sm hover:bg-slate-100 rounded-sm text-slate-700 w-full text-left cursor-pointer transition-colors" onClick={(e) => { e.stopPropagation(); setViewToTemplate(view); }}>
@@ -945,7 +953,7 @@ export default function DashboardListView({ listId, spaceId, projectId, teamId, 
             {viewToShare && (
                 <ShareViewPermissionModal
                     viewId={viewToShare.id}
-                    workspaceId={workspaceId || list.workspaceId as string}
+                    workspaceId={effectiveWorkspaceId || list.workspaceId as string}
                     open={!!viewToShare}
                     onOpenChange={(open) => !open && setViewToShare(null)}
                 />
@@ -960,5 +968,6 @@ export default function DashboardListView({ listId, spaceId, projectId, teamId, 
                 />
             )}
         </div>
+        </DashboardEntityProvider>
     );
 }

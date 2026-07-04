@@ -45,7 +45,7 @@ export class AgentRelationService {
         }
 
         // For now, assume user must own both or have admin rights (simplification)
-        if (parent.createdBy !== userId || child.createdBy !== userId) {
+        if (parent.ownerId !== userId || child.ownerId !== userId) {
             throw new AgentBuilderError(
                 'AGENT_RELATION_UNAUTHORIZED',
                 'Unauthorized relation',
@@ -89,7 +89,7 @@ export class AgentRelationService {
             throw new AgentBuilderError('RELATION_NOT_FOUND', 'Relation not found', '');
         }
 
-        if (relation.parent.createdBy !== userId) {
+        if (relation.parent.ownerId !== userId) {
             throw new AgentBuilderError('UNAUTHORIZED', 'Unauthorized', '');
         }
 

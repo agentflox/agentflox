@@ -28,6 +28,27 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import Link from "next/link";
 import { useSocket } from "@/components/providers/SocketProvider";
 
+type ProposalTerms = {
+  title?: string;
+  category?: string;
+  intent?: string;
+  industry?: string[];
+};
+
+function asProposalTerms(value: unknown): ProposalTerms | null {
+  if (!value || typeof value !== "object") return null;
+  const terms = value as Record<string, unknown>;
+  if (!terms.title && !terms.category && !terms.intent) return null;
+  return {
+    title: typeof terms.title === "string" ? terms.title : undefined,
+    category: typeof terms.category === "string" ? terms.category : undefined,
+    intent: typeof terms.intent === "string" ? terms.intent : undefined,
+    industry: Array.isArray(terms.industry)
+      ? terms.industry.filter((item): item is string => typeof item === "string")
+      : undefined,
+  };
+}
+
 export default function RequestDetailPage() {
   const params = useParams();
   const id = String(params?.id || "");
@@ -178,6 +199,11 @@ export default function RequestDetailPage() {
     [acceptMutation.isPending, rejectMutation.isPending]
   );
 
+  const proposal = useMemo(
+    () => asProposalTerms(data?.proposedTerms),
+    [data?.proposedTerms]
+  );
+
   // Loading state
   if (isLoading) {
     return (
@@ -257,10 +283,10 @@ export default function RequestDetailPage() {
                     <h2 className="text-2xl font-bold mb-1">
                       {data.sender?.name || data.sender?.email}
                     </h2>
-                    {data.sender?.userType && (
+                    {data.sender?.role && (
                       <Badge variant="secondary" className="mb-2">
                         <Briefcase className="h-3 w-3 mr-1" />
-                        {data.sender.userType}
+                        {data.sender.role}
                       </Badge>
                     )}
                   </div>
@@ -470,7 +496,7 @@ export default function RequestDetailPage() {
                 )}
 
                 {/* Proposal Info */}
-                {data.proposal && (
+                {proposal && (
                   <>
                     <Separator />
                     <div>
@@ -478,20 +504,24 @@ export default function RequestDetailPage() {
                         Related Proposal
                       </label>
                       <div className="mt-2 p-3 rounded-lg border bg-muted/30">
-                        <p className="text-sm font-semibold mb-2">{data.proposal.title}</p>
+                        <p className="text-sm font-semibold mb-2">{proposal.title}</p>
                         <div className="flex gap-2 flex-wrap">
-                          <Badge variant="secondary" className="text-xs">
-                            {data.proposal.category}
-                          </Badge>
-                          <Badge variant="outline" className="text-xs">
-                            {data.proposal.intent}
-                          </Badge>
+                          {proposal.category && (
+                            <Badge variant="secondary" className="text-xs">
+                              {proposal.category}
+                            </Badge>
+                          )}
+                          {proposal.intent && (
+                            <Badge variant="outline" className="text-xs">
+                              {proposal.intent}
+                            </Badge>
+                          )}
                         </div>
-                        {data.proposal.industry && data.proposal.industry.length > 0 && (
+                        {proposal.industry && proposal.industry.length > 0 && (
                           <div className="mt-3">
                             <p className="text-xs text-muted-foreground mb-1.5">Industries:</p>
                             <div className="flex flex-wrap gap-1">
-                              {data.proposal.industry.map((ind: string, idx: number) => (
+                              {proposal.industry.map((ind, idx) => (
                                 <Badge key={idx} variant="outline" className="text-xs">
                                   {ind}
                                 </Badge>

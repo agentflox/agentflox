@@ -1115,7 +1115,7 @@ export function EditListingModal({
         // Cover image
         const cover = (existingListing as any).coverImage;
         if (cover) {
-            setCoverMedia([{ url: cover, name: "cover", type: "image", size: 0 }]);
+            setCoverMedia([{ id: "cover", url: cover, path: cover, name: "cover", type: "image", size: 0 }]);
             setShowCoverUpload(true);
         } else {
             setCoverMedia([]);
@@ -1126,7 +1126,9 @@ export function EditListingModal({
         if (attachments.length > 0) {
             setAttachmentMedia(
                 attachments.map((url: string, i: number) => ({
+                    id: `attachment-${i + 1}`,
                     url,
+                    path: url,
                     name: `attachment-${i + 1}`,
                     type: "file",
                     size: 0,

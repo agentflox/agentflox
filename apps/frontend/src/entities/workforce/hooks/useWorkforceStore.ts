@@ -108,10 +108,16 @@ export interface WorkforceState {
     swarmSessionId: string | null;
     swarmEvents: any[];
     swarmTasks: any[];
+    swarmActiveTab: string;
+    pendingApprovals: any[];
+    backlogFilters: { search: string; status: string[] };
     setAutonomousMode: (isAutonomous: boolean) => void;
     setSwarmSessionId: (id: string | null) => void;
     addSwarmEvent: (event: any) => void;
     setSwarmTasks: (tasks: any[]) => void;
+    setSwarmActiveTab: (tab: string) => void;
+    setPendingApprovals: (approvals: any[]) => void;
+    setBacklogFilters: (filters: Partial<{ search: string; status: string[] }>) => void;
 }
 
 const initialNodes: WorkforceNode[] = [
@@ -142,12 +148,18 @@ export const useWorkforceStore = create<WorkforceState>((set, get) => ({
     swarmSessionId: null,
     swarmEvents: [],
     swarmTasks: [],
+    swarmActiveTab: "chat",
+    pendingApprovals: [],
+    backlogFilters: { search: '', status: [] as string[] },
 
     setMode: (mode) => set({ mode }),
     setAutonomousMode: (isAutonomousMode) => set({ isAutonomousMode }),
     setSwarmSessionId: (swarmSessionId) => set({ swarmSessionId }),
     addSwarmEvent: (event) => set((state) => ({ swarmEvents: [...state.swarmEvents, event] })),
     setSwarmTasks: (swarmTasks) => set({ swarmTasks }),
+    setSwarmActiveTab: (swarmActiveTab) => set({ swarmActiveTab }),
+    setPendingApprovals: (pendingApprovals) => set({ pendingApprovals }),
+    setBacklogFilters: (backlogFilters) => set((state) => ({ backlogFilters: { ...state.backlogFilters, ...backlogFilters } })),
     setHasChanges: (val) => set({ hasChanges: val }),
 
     onNodesChange: (changes: NodeChange<WorkforceNode>[]) => {

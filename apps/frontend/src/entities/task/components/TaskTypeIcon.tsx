@@ -1,6 +1,6 @@
 import React from 'react';
-import * as LucideIcons from 'lucide-react';
 import { Target, FileText, List as ListIcon, CheckCircle2, Box } from 'lucide-react';
+import { DynamicLucideIcon } from '@/lib/lucideIcon';
 import { cn } from '@/lib/utils';
 
 export interface TaskType {
@@ -30,13 +30,21 @@ export function TaskTypeIcon({ type, className, size = 14 }: TaskTypeIconProps) 
         typeColor = type.color || "";
     }
 
-    // Dynamic Lucide selection (matching SpaceIcon pattern)
-    const DynamicIcon = iconName ? (LucideIcons as any)[iconName] : null;
+    if (iconName) {
+        if (iconName.length <= 2) {
+            return (
+                <span
+                    className={cn("inline-block", className)}
+                    style={{ fontSize: size, lineHeight: 1, color: typeColor }}
+                >
+                    {iconName}
+                </span>
+            );
+        }
 
-    // If it's a found component, return it
-    if (DynamicIcon && typeof DynamicIcon !== 'string') {
         return (
-            <DynamicIcon
+            <DynamicLucideIcon
+                name={iconName}
                 size={size}
                 className={className}
                 style={typeColor ? { color: typeColor } : undefined}
@@ -44,12 +52,6 @@ export function TaskTypeIcon({ type, className, size = 14 }: TaskTypeIconProps) 
         );
     }
 
-    // Fallback to emoji/text if it looks like one
-    if (iconName && !DynamicIcon && iconName.length <= 2) {
-        return <span className={cn("inline-block", className)} style={{ fontSize: size, lineHeight: 1, color: typeColor }}>{iconName}</span>;
-    }
-
-    // Legacy/Hardcoded fallback Map
     const lowerName = typeName.toLowerCase();
     const lowerIcon = iconName.toLowerCase();
 

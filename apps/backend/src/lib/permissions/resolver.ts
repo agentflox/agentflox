@@ -692,7 +692,7 @@ export class PermissionResolver {
             task: 'createdBy',
             list: 'createdBy',
             folder: 'createdBy',
-            space: 'createdBy',
+            space: 'ownerId',
             project: 'ownerId',
             team: 'ownerId',
             workspace: 'ownerId',
@@ -886,7 +886,7 @@ export class PermissionResolver {
         status: 'healthy' | 'degraded' | 'unhealthy';
         cacheSize: number;
         dbConnected: boolean;
-        metrics: ReturnType<typeof this.getMetrics>;
+        metrics: ReturnType<PermissionResolver['getMetrics']>;
     }> {
         try {
             // Test database connection

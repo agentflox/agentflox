@@ -135,7 +135,7 @@ export const agentRouter = router({
 
       // Only show agents user has access to
       where.OR = [
-        { createdBy: userId },
+        { ownerId: userId },
         {
           collaborators: {
             some: { userId }
@@ -157,7 +157,7 @@ export const agentRouter = router({
 
       const include = input.includeRelations
         ? {
-          user: { select: { id: true, name: true, email: true, image: true } },
+          owner: { select: { id: true, name: true, email: true, image: true } },
           workspace: { select: { id: true, name: true } },
           aiModel: { select: { id: true, name: true } },
           _count: {
@@ -193,15 +193,70 @@ export const agentRouter = router({
     .input(z.object({
       id: z.string(),
       conversationType: z.string().optional(),
+      includeSections: z.object({
+        conversations: z.boolean().optional(),
+        tools: z.boolean().optional(),
+        triggers: z.boolean().optional(),
+        schedules: z.boolean().optional(),
+        collaborators: z.boolean().optional(),
+        counts: z.boolean().optional(),
+      }).optional(),
     }))
     .query(async ({ ctx, input }) => {
       const userId = ctx.session!.user!.id;
+      const sections = input.includeSections ?? {};
+
+      const include: Record<string, unknown> = {
+        owner: { select: { id: true, name: true, email: true, image: true } },
+        workspace: { select: { id: true, name: true } },
+        aiModel: true,
+      };
+
+      if (sections.collaborators) {
+        include.collaborators = {
+          include: {
+            user: { select: { id: true, name: true, email: true, image: true } }
+          }
+        };
+      }
+
+      if (sections.conversations) {
+        include.conversations = {
+          where: {
+            conversationType: (input.conversationType || 'AGENT_BUILDER') as any
+          },
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+        };
+      }
+
+      if (sections.triggers) {
+        include.triggers = { orderBy: { priority: 'asc' } };
+      }
+
+      if (sections.tools) {
+        include.tools = { orderBy: { createdAt: 'asc' } };
+      }
+
+      if (sections.schedules) {
+        include.schedules = { orderBy: { priority: 'asc' } };
+      }
+
+      if (sections.counts) {
+        include._count = {
+          select: {
+            tasks: true,
+            tools: true,
+            memories: true,
+          }
+        };
+      }
 
       const agent = await prisma.aiAgent.findFirst({
         where: {
           id: input.id,
           OR: [
-            { createdBy: userId },
+            { ownerId: userId },
             {
               collaborators: {
                 some: { userId }
@@ -209,39 +264,7 @@ export const agentRouter = router({
             }
           ]
         },
-        include: {
-          user: { select: { id: true, name: true, email: true, image: true } },
-          workspace: { select: { id: true, name: true } },
-          aiModel: true,
-          collaborators: {
-            include: {
-              user: { select: { id: true, name: true, email: true, image: true } }
-            }
-          },
-          conversations: {
-            where: {
-              conversationType: (input.conversationType || 'AGENT_BUILDER') as any
-            },
-            orderBy: { createdAt: 'desc' },
-            take: 1, // Get the most recent conversation of specified type
-          },
-          triggers: {
-            orderBy: { priority: 'asc' },
-          },
-          tools: {
-            orderBy: { createdAt: 'asc' },
-          },
-          schedules: {
-            orderBy: { priority: 'asc' },
-          },
-          _count: {
-            select: {
-              tasks: true,
-              tools: true,
-              memories: true,
-            }
-          }
-        },
+        include,
       });
 
       if (!agent) {
@@ -303,7 +326,7 @@ export const agentRouter = router({
           ...(input.spaceId && { spaceId: input.spaceId }),
           ...(input.projectId && { projectId: input.projectId }),
           ...(input.teamId && { teamId: input.teamId }),
-          user: {
+          owner: {
             connect: { id: userId },
           },
           ...(input.modelId && {
@@ -406,6 +429,7 @@ export const agentRouter = router({
       visibility: visibilityEnum.optional(),
       tags: z.array(z.string()).optional(),
       status: statusEnum.optional(),
+      metadata: z.any().optional(),
     }))
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.session!.user!.id;
@@ -414,7 +438,7 @@ export const agentRouter = router({
       const existing = await prisma.aiAgent.findFirst({
         where: {
           id,
-          createdBy: userId,
+          ownerId: userId,
         },
       });
 
@@ -443,7 +467,7 @@ export const agentRouter = router({
       const agent = await prisma.aiAgent.findFirst({
         where: {
           id: input.id,
-          createdBy: userId,
+          ownerId: userId,
         },
       });
 
@@ -464,12 +488,12 @@ export const agentRouter = router({
     }))
     .query(async ({ ctx, input }) => {
       const userId = ctx.session!.user!.id;
-      
+
       const agent = await prisma.aiAgent.findFirst({
         where: {
           id: input.agentId,
           OR: [
-            { createdBy: userId },
+            { ownerId: userId },
             {
               collaborators: {
                 some: { userId }
@@ -517,7 +541,7 @@ export const agentRouter = router({
           id: input.executionId,
           aiAgent: {
             OR: [
-              { createdBy: userId },
+              { ownerId: userId },
               { collaborators: { some: { userId } } },
             ],
           },
@@ -559,7 +583,7 @@ export const agentRouter = router({
         where: {
           id: input.agentId,
           OR: [
-            { createdBy: userId },
+            { ownerId: userId },
             {
               collaborators: {
                 some: { userId }
@@ -628,7 +652,7 @@ export const agentRouter = router({
         where: {
           id: input.agentId,
           OR: [
-            { createdBy: userId },
+            { ownerId: userId },
             {
               collaborators: {
                 some: { userId, canExecute: true }
@@ -681,7 +705,7 @@ export const agentRouter = router({
         where: {
           id: input.agentId,
           OR: [
-            { createdBy: userId },
+            { ownerId: userId },
             {
               collaborators: {
                 some: { userId, canExecute: true }
@@ -722,7 +746,7 @@ export const agentRouter = router({
         where: {
           id: input.agentId,
           OR: [
-            { createdBy: userId },
+            { ownerId: userId },
             {
               collaborators: {
                 some: { userId },
@@ -800,7 +824,7 @@ export const agentRouter = router({
         where: {
           id: input.agentId,
           OR: [
-            { createdBy: userId },
+            { ownerId: userId },
             {
               collaborators: {
                 some: { userId },
@@ -962,7 +986,7 @@ export const agentRouter = router({
         where: {
           id: input.agentId,
           OR: [
-            { createdBy: userId },
+            { ownerId: userId },
             {
               collaborators: {
                 some: { userId },
@@ -1071,7 +1095,7 @@ export const agentRouter = router({
         where: {
           id: input.agentId,
           OR: [
-            { createdBy: userId },
+            { ownerId: userId },
             {
               collaborators: {
                 some: { userId },
@@ -1160,7 +1184,7 @@ export const agentRouter = router({
         where: {
           id: input.agentId,
           OR: [
-            { createdBy: userId },
+            { ownerId: userId },
             {
               collaborators: {
                 some: { userId },
@@ -1247,7 +1271,7 @@ export const agentRouter = router({
         where: {
           id: input.agentId,
           OR: [
-            { createdBy: userId },
+            { ownerId: userId },
             {
               collaborators: {
                 some: { userId },

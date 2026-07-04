@@ -662,8 +662,8 @@ export const SlashCommand = Extension.create({
     },
 
     addProseMirrorPlugins() {
-        const extension = this;
         const suggestion = this.options.suggestion;
+        const editor = this.editor;
 
         return [
             Suggestion({
@@ -704,15 +704,15 @@ export const SlashCommand = Extension.create({
 
                     // Expose close method in editor storage
                     // Note: storage is read-only, so we can only add properties to it, not reassign it
-                    if (!(extension.editor as any).storage.slashCommand) {
-                        (extension.editor as any).storage.slashCommand = {
+                    if (!(editor as any).storage.slashCommand) {
+                        (editor as any).storage.slashCommand = {
                             close: () => {
                                 destroy();
                             },
                         };
                     } else {
                         // Update the close method if it already exists
-                        (extension.editor as any).storage.slashCommand.close = () => {
+                        (editor as any).storage.slashCommand.close = () => {
                             destroy();
                         };
                     }
@@ -720,12 +720,12 @@ export const SlashCommand = Extension.create({
                     return {
                         onStart: (props: any) => {
                             component = new ReactRenderer(SlashCommandList, {
-                                editor: extension.editor,
+                                editor: editor,
                                 props: {
                                     items: props.items as CommandItem[],
                                     command: (item: CommandItem) => {
                                         suggestion.command({
-                                            editor: extension.editor,
+                                            editor: editor,
                                             range: props.range,
                                             props: item,
                                         });
@@ -755,7 +755,7 @@ export const SlashCommand = Extension.create({
                                 items: props.items as CommandItem[],
                                 command: (item: CommandItem) => {
                                     suggestion.command({
-                                        editor: extension.editor,
+                                        editor: editor,
                                         range: props.range,
                                         props: item,
                                     });
@@ -788,7 +788,7 @@ export const SlashCommand = Extension.create({
                                     selectedIndex: nextIndex,
                                     command: (item: CommandItem) => {
                                         suggestion.command({
-                                            editor: extension.editor,
+                                            editor: editor,
                                             range: props.range,
                                             props: item,
                                         });
@@ -805,7 +805,7 @@ export const SlashCommand = Extension.create({
                                     selectedIndex: prevIndex,
                                     command: (item: CommandItem) => {
                                         suggestion.command({
-                                            editor: extension.editor,
+                                            editor: editor,
                                             range: props.range,
                                             props: item,
                                         });
@@ -818,7 +818,7 @@ export const SlashCommand = Extension.create({
                                 const item = items[props.selectedIndex];
                                 if (item) {
                                     suggestion.command({
-                                        editor: extension.editor,
+                                        editor: editor,
                                         range: props.range,
                                         props: item,
                                     });

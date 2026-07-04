@@ -50,12 +50,17 @@ export function ProjectPermissionsModal({ workspaceId, projectId, open, onOpenCh
     const [isUpdating, setIsUpdating] = useState(false);
     const [isSearching, setIsSearching] = useState(false);
 
-    const updateProject = trpc.project.update.useMutation();
-
     const { data: project, isLoading } = trpc.project.get.useQuery(
         { id: projectId || "" },
         { enabled: !!projectId && open }
     );
+
+    const { data: workspace } = trpc.workspace.get.useQuery(
+        { id: project?.workspaceId ?? "" },
+        { enabled: !!project?.workspaceId && open }
+    );
+
+    const updateProject = trpc.project.update.useMutation();
 
     // Initialize state from project data
     useEffect(() => {
@@ -128,9 +133,9 @@ export function ProjectPermissionsModal({ workspaceId, projectId, open, onOpenCh
         if (!project) return { workspaceMembers: [], teams: [], people: [] };
 
         const query = searchQuery.toLowerCase();
-        const workspaceOwnerId = project.workspace?.ownerId;
+        const workspaceOwnerId = workspace?.ownerId;
 
-        const wsMembers = (project.workspace?.members || [])
+        const wsMembers = (workspace?.members || [])
             .map((m: any) => ({
                 id: m.user.id,
                 name: m.user.name,
@@ -140,7 +145,7 @@ export function ProjectPermissionsModal({ workspaceId, projectId, open, onOpenCh
                 role: m.role,
                 isWorkspaceOwner: workspaceOwnerId === m.user.id,
                 isProjectOwner: project.members.some((sm: any) => sm.userId === m.user.id && sm.role === 'OWNER'),
-                permission: project.members.find((sm: any) => sm.userId === m.user.id)?.permission || "VIEW"
+                permission: project.members.find((sm: any) => sm.userId === m.user.id)?.permissions || "VIEW"
             }))
             .filter((m: any) => m.name?.toLowerCase().includes(query) || m.email?.toLowerCase().includes(query));
 
@@ -184,7 +189,7 @@ export function ProjectPermissionsModal({ workspaceId, projectId, open, onOpenCh
             teams: teamList,
             people: ppl
         };
-    }, [project, searchQuery]);
+    }, [project, workspace, searchQuery]);
 
     // Permission Change Handlers
     const handlePermissionChange = async (userId: string, permission: string) => {
@@ -323,9 +328,9 @@ export function ProjectPermissionsModal({ workspaceId, projectId, open, onOpenCh
                                             <div className="flex flex-col">
                                                 <div className="flex items-center gap-2">
                                                     <Avatar className="h-6 w-6 bg-green-500 flex items-center justify-center rounded-full">
-                                                        <span className="text-white text-xs font-bold">{project?.workspace?.name?.[0].toUpperCase()}</span>
+                                                        <span className="text-white text-xs font-bold">{workspace?.name?.[0]?.toUpperCase()}</span>
                                                     </Avatar>
-                                                    <span className="text-sm font-medium text-slate-900">{project?.workspace?.name}</span>
+                                                    <span className="text-sm font-medium text-slate-900">{workspace?.name}</span>
                                                     <span className="text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded-full border border-slate-200">Workspace</span>
                                                 </div>
                                             </div>

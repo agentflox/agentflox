@@ -18,9 +18,17 @@ export const compositeToolRouter = router({
     .input(z.object({
       workspaceId: z.string().optional(),
       query: z.string().optional(),
+      category: z.string().optional(),
+      isPublic: z.boolean().optional(),
+      page: z.number().int().min(1).optional().default(1),
+      pageSize: z.number().int().min(1).max(100).optional().default(12),
+      includeSchema: z.boolean().optional().default(false),
     }).optional())
     .query(async ({ ctx, input }) => {
       const userId = ctx.session!.user!.id;
+      const page = input?.page ?? 1;
+      const pageSize = input?.pageSize ?? 12;
+      const includeSchema = input?.includeSchema ?? false;
       const where: any = {};
 
       if (input?.workspaceId) {
@@ -38,25 +46,58 @@ export const compositeToolRouter = router({
         ];
       }
 
-      const items = await prisma.compositeTool.findMany({
-        where,
-        orderBy: { updatedAt: "desc" },
-      });
+      if (input?.category) {
+        where.category = input.category;
+      }
 
-      // Shape like SystemTool for WorkforceSidebar/dbTools usage
-      return items.map((t) => ({
-        id: t.id,
-        name: t.name,
-        description: t.description ?? undefined,
-        category: t.category ?? "Custom",
-        functionSchema: t.functionSchema as any,
-        isComposite: true,
-        workspaceId: t.workspaceId,
-        ownerId: t.ownerId,
-        isPublic: t.isPublic,
-        mode: t.mode,
-        updatedAt: t.updatedAt,
-      }));
+      if (typeof input?.isPublic === "boolean") {
+        where.isPublic = input.isPublic;
+      }
+
+      const select = {
+        id: true,
+        name: true,
+        description: true,
+        category: true,
+        workspaceId: true,
+        ownerId: true,
+        isPublic: true,
+        mode: true,
+        updatedAt: true,
+        ...(includeSchema ? { functionSchema: true } : {}),
+      } as const;
+
+      const [total, items] = await Promise.all([
+        prisma.compositeTool.count({ where }),
+        prisma.compositeTool.findMany({
+          where,
+          orderBy: { updatedAt: "desc" },
+          skip: (page - 1) * pageSize,
+          take: pageSize,
+          select,
+        }),
+      ]);
+
+      return {
+        items: items.map((t) => ({
+          id: t.id,
+          name: t.name,
+          description: t.description ?? undefined,
+          category: t.category ?? "Custom",
+          ...(includeSchema && "functionSchema" in t
+            ? { functionSchema: t.functionSchema as any }
+            : {}),
+          isComposite: true,
+          workspaceId: t.workspaceId,
+          ownerId: t.ownerId,
+          isPublic: t.isPublic,
+          mode: t.mode,
+          updatedAt: t.updatedAt,
+        })),
+        total,
+        page,
+        pageSize,
+      };
     }),
 
   get: protectedProcedure

@@ -272,7 +272,7 @@ async function executeOpenAIImage(params: any) {
   const result = await openai.images.generate({
     model,
     prompt,
-    size,
+    size: size as '256x256' | '512x512' | '1024x1024' | '1024x1792' | '1792x1024' | 'auto' | '1536x1024' | '1024x1536',
     quality: quality as any,
   });
 

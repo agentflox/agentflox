@@ -35,8 +35,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 
-interface DataTableProps<TData, TValue> {
-  columns: ColumnDef<TData, TValue>[]
+interface DataTableProps<TData = any, TValue = any> {
+  columns: ColumnDef<any, any>[]
   data: TData[]
   onDeleteSelected?: (rows: TData[]) => void
   onTableReady?: (table: import("@tanstack/react-table").Table<TData>) => void
@@ -49,7 +49,7 @@ interface DataTableProps<TData, TValue> {
   onColumnVisibilityChange?: React.Dispatch<React.SetStateAction<import("@tanstack/react-table").VisibilityState>>
 }
 
-export function DataTable<TData, TValue>({
+export function DataTable<TData = any, TValue = any>({
   columns,
   data,
   onDeleteSelected,

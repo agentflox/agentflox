@@ -6,6 +6,7 @@ import { useSocket } from "@/components/providers/SocketProvider";
 import { useSession } from "next-auth/react";
 import { v4 as uuidv4 } from "uuid";
 import type { JsonValue } from "@prisma/client/runtime/library";
+import { acquireChannelRoom, acquireChannelEventListeners } from "@/lib/socketRefCount";
 
 export interface ChannelMessage {
   id: string;
@@ -15,10 +16,17 @@ export interface ChannelMessage {
   createdAt: string | Date;
   attachments?: any[];
   reactions?: any[];
+  contexts?: any[];
+  mentions?: any[];
   parentId?: string | null;
   user: { id: string; name: string | null; email: string; image: string | null };
-  parent?: { id: string; content: string; userId: string; user?: { id: string; name: string | null; email: string; image: string | null } } | null;
+  parent: { id: string; content: string; userId: string; user: { id: string; name: string | null; email: string; image: string | null } } | null;
   isPending?: boolean;
+}
+
+function toCacheMessage(msg: ChannelMessage) {
+  const { isPending: _isPending, ...rest } = msg;
+  return { ...rest, parent: msg.parent ?? null };
 }
 
 export function useChannels(params: { channelId?: string }) {
@@ -37,71 +45,73 @@ export function useChannels(params: { channelId?: string }) {
   // Helpers to update cache
   const addMessageToCache = useCallback(
     (msg: ChannelMessage) => {
-      utils.channelMessage.list.setData({ channelId: msg.channelId, take: 100 }, (old) => {
+      utils.channelMessage.list.setData({ channelId: msg.channelId, take: 100 }, ((old) => {
         const base = (old as { items: ChannelMessage[]; nextCursor: string | null } | undefined) ?? {
           items: [] as ChannelMessage[],
           nextCursor: null as string | null,
         };
-        if (base.items.some((m) => m.id === msg.id)) return base;
-        const items = [...base.items, msg];
-        return { ...base, items };
-      });
+        if (base.items.some((m) => m.id === msg.id)) return base as typeof old;
+        const items = [...base.items, toCacheMessage(msg) as (typeof base.items)[number]];
+        return { ...base, items } as typeof old;
+      }) as any);
     },
     [utils.channelMessage.list]
   );
 
   const replaceTemp = useCallback(
     (msg: ChannelMessage) => {
-      utils.channelMessage.list.setData({ channelId: msg.channelId, take: 100 }, (old) => {
+      utils.channelMessage.list.setData({ channelId: msg.channelId, take: 100 }, ((old) => {
         const base = (old as { items: ChannelMessage[]; nextCursor: string | null } | undefined) ?? {
           items: [] as ChannelMessage[],
           nextCursor: null as string | null,
         };
-        const items = base.items.map((m) => (m.id === msg.id ? { ...msg, isPending: false } : m));
-        return { ...base, items };
-      });
+        const items = base.items.map((m) => (m.id === msg.id ? toCacheMessage({ ...msg, isPending: false }) : m));
+        return { ...base, items } as typeof old;
+      }) as any);
     },
     [utils.channelMessage.list]
   );
 
-  // Socket listeners
+  // Socket listeners + channel room (ref-counted)
   useEffect(() => {
-    if (!socket || !isConnected) return;
+    if (!socket || !isConnected || !channelId) return;
+
+    const releaseRoom = acquireChannelRoom(socket, channelId);
 
     const handleReceived = (data: ChannelMessage) => {
-      if (!data?.id || !data.channelId) return;
+      if (!data?.id || data.channelId !== channelId) return;
       if (processed.current.has(data.id)) return;
       processed.current.add(data.id);
       setTimeout(() => processed.current.delete(data.id), 5000);
       const cached = utils.channelMessage.list.getData({ channelId: data.channelId, take: 100 }) as
         | { items?: ChannelMessage[] }
         | undefined;
-      let enriched: ChannelMessage = data;
+      let enriched: ChannelMessage = toCacheMessage(data) as ChannelMessage;
       if (!data.parent && data.parentId && cached?.items?.length) {
         const p = cached.items!.find((m) => m.id === data.parentId);
         if (p) {
-          enriched = {
+          enriched = toCacheMessage({
             ...data,
             parent: { id: p.id, content: p.content, userId: p.userId, user: p.user },
-          } as ChannelMessage;
+          }) as ChannelMessage;
         }
       }
-      utils.channelMessage.list.setData({ channelId: data.channelId, take: 100 }, (old) => {
+      utils.channelMessage.list.setData({ channelId: data.channelId, take: 100 }, ((old) => {
         const base = (old as { items: ChannelMessage[]; nextCursor: string | null } | undefined) ?? {
           items: [] as ChannelMessage[],
           nextCursor: null as string | null,
         };
         const exists = base.items.some((m) => m.id === enriched.id);
         const items = exists
-          ? base.items.map((m) => (m.id === enriched.id ? { ...enriched, isPending: false } : m))
+          ? base.items.map((m) => (m.id === enriched.id ? toCacheMessage({ ...enriched, isPending: false }) : m))
           : [...base.items, enriched];
-        return { ...base, items };
-      });
+        return { ...base, items } as typeof old;
+      }) as any);
     };
 
-    const handleReaction = (data: { messageId: string; reactions: any[] }) => {
+    const handleReaction = (data: { messageId: string; reactions: JsonValue[] }) => {
       if (!data?.messageId) return;
-      utils.channelMessage.list.setData({ channelId: channelId ?? "", take: 100 }, (old) => {
+      utils.channelMessage.list.setData({ channelId, take: 100 }, ((old) => {
         const base = (old as { items: ChannelMessage[]; nextCursor: string | null } | undefined) ?? {
           items: [] as ChannelMessage[],
           nextCursor: null as string | null,
@@ -109,22 +119,18 @@ export function useChannels(params: { channelId?: string }) {
         const items = base.items.map((m) =>
           m.id === data.messageId ? { ...m, reactions: data.reactions as JsonValue[] } : m
         );
-        return { ...base, items };
-      });
+        return { ...base, items } as typeof old;
+      }) as any);
     };
 
-    socket.on("channel:message:received", handleReceived);
-    socket.on("channel:message:sent", handleReceived);
-    socket.on("channel:message:reaction", handleReaction);
-
-    if (channelId) {
-      socket.emit("channel:join", { channelId });
-    }
+    const releaseListeners = acquireChannelEventListeners(socket, channelId, {
+      onReceived: (data) => handleReceived(data as ChannelMessage),
+      onReaction: (data) => handleReaction(data as { messageId: string; reactions: JsonValue[] }),
+    });
 
     return () => {
-      socket.off("channel:message:received", handleReceived);
-      socket.off("channel:message:sent", handleReceived);
-      socket.off("channel:message:reaction", handleReaction);
+      releaseListeners();
+      releaseRoom();
     };
   }, [socket, isConnected, utils.channelMessage.list, channelId]);
 
@@ -150,6 +156,7 @@ export function useChannels(params: { channelId?: string }) {
           image: session?.user?.image ?? null,
         },
         reactions: [],
+        parent: null,
       };
       addMessageToCache(temp);
 
@@ -178,11 +185,14 @@ export function useChannels(params: { channelId?: string }) {
             const cached = utils.channelMessage.list.getData({ channelId: input.channelId, take: 100 }) as
               | { items?: ChannelMessage[] }
               | undefined;
-            let enriched = resp as ChannelMessage;
+            let enriched = toCacheMessage(resp as ChannelMessage) as ChannelMessage;
             if (!enriched.parent && enriched.parentId && cached?.items?.length) {
               const p = cached.items!.find((m) => m.id === enriched.parentId);
               if (p) {
-                enriched = { ...enriched, parent: { id: p.id, content: p.content, userId: p.userId, user: p.user } };
+                enriched = toCacheMessage({
+                  ...enriched,
+                  parent: { id: p.id, content: p.content, userId: p.userId, user: p.user },
+                }) as ChannelMessage;
               }
             }
             replaceTemp(enriched);

@@ -163,9 +163,9 @@ export function DuplicateTaskModal({ open, onOpenChange, task, taskIds = [], wor
                         <Button
                             className="bg-zinc-900 text-white hover:bg-zinc-800 h-9 px-6 rounded-lg font-medium shadow-lg shadow-zinc-200"
                             onClick={handleDuplicate}
-                            disabled={bulkDuplicateMutation.isLoading || !selectedListId}
+                            disabled={bulkDuplicateMutation.isPending || !selectedListId}
                         >
-                            {bulkDuplicateMutation.isLoading ? "Duplicating..." : "Duplicate"}
+                            {bulkDuplicateMutation.isPending ? "Duplicating..." : "Duplicate"}
                         </Button>
                     </div>
                 </DialogFooter>

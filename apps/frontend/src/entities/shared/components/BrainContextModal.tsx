@@ -79,7 +79,7 @@ export function BrainContextModal({
 
     const getFilteredItems = () => {
         const query = searchQuery.toLowerCase().trim();
-        const filter = (items: { name: string; description?: string }[]) =>
+        const filter = (items: BrainContextEntity[]) =>
             items.filter(
                 (item) =>
                     !query ||

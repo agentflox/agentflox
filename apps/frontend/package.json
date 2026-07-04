@@ -8,6 +8,7 @@
     "build": "pnpm --filter @agentflox/database db:generate && next build --turbopack && node scripts/copy-prisma-engine.js",
     "start": "next start",
     "lint": "eslint",
+    "typecheck": "node --max-old-space-size=8192 ./node_modules/typescript/bin/tsc --noEmit",
     "postinstall": "pnpm --filter @agentflox/database db:generate && node scripts/copy-prisma-engine.js"
   },
   "dependencies": {
@@ -48,6 +49,7 @@
     "@supabase/supabase-js": "^2.74.0",
     "@tanstack/react-query": "^5.89.0",
     "@tanstack/react-table": "^8.21.3",
+    "@tanstack/react-virtual": "^3.14.5",
     "@tiptap/core": "^3.19.0",
     "@tiptap/extension-bubble-menu": "^3.14.0",
     "@tiptap/extension-collaboration": "^3.19.0",

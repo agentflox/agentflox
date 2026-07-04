@@ -168,7 +168,7 @@ export default function RequestModal({
   }, [socket, isConnected, waitForConnection, proposalOwnerId]);
 
   // Mutation
-  const sendRequestMutation = trpc.proposal.sendRequest.useMutation({
+  const sendRequestMutation = trpc.request.create.useMutation({
     onSuccess: async (res) => {
       toast({
         title: "Request Sent",

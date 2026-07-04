@@ -48,9 +48,25 @@ export default function AgentLayout({ children }: AgentLayoutProps) {
     }
   }, [activeTab]);
 
+  const includeSections = useMemo(() => {
+    switch (activeTab) {
+      case 'settings':
+        return { tools: true, triggers: true, schedules: true, collaborators: true };
+      case 'automation':
+        return { triggers: true, schedules: true };
+      case 'overview':
+        return { counts: true };
+      case 'chat':
+      case 'ai-builder':
+        return { conversations: true };
+      default:
+        return {};
+    }
+  }, [activeTab]);
+
   const { data: agent, isLoading, refetch } = trpc.agent.get.useQuery(
-    { id: agentId, conversationType },
-    { enabled: !!agentId }
+    { id: agentId, conversationType, includeSections },
+    { enabled: !!agentId, staleTime: 30_000 }
   );
 
   const updateAgent = trpc.agent.update.useMutation({
@@ -61,7 +77,7 @@ export default function AgentLayout({ children }: AgentLayoutProps) {
 
   const isOwner = useMemo(() => {
     if (!agent || !session?.user) return false;
-    return agent.createdBy === session.user.id;
+    return (agent as { ownerId?: string }).ownerId === session.user.id;
   }, [agent, session]);
 
   const isPublished = agent?.status === 'ACTIVE';

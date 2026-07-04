@@ -216,6 +216,11 @@ export class CapabilityWhitelist {
       'provide_information',
       'assist_users',
     ],
+    [AgentType.STRATEGIST]: [
+      'plan_strategy',
+      'analyze_market',
+      'prioritize_initiatives',
+    ],
     [AgentType.CUSTOM]: [], // Custom agents can have any capabilities
   };
 
@@ -367,7 +372,7 @@ export class PolicyEngine {
       }
 
       // Creator has approval by default
-      if (agent.createdBy === userId) {
+      if (agent.ownerId === userId) {
         return true;
       }
 
@@ -430,7 +435,7 @@ export class ToolAccessController {
       }
 
       // If no workspace, check if user is creator or collaborator
-      if (agent.createdBy === userId) {
+      if (agent.ownerId === userId) {
         return true;
       }
 

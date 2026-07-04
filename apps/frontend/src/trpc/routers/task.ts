@@ -183,6 +183,79 @@ function normalizeAiAgentImage<T extends { aiAgent?: any }>(assignee: T): T {
   };
 }
 
+type TaskListRelationMode = boolean | "card";
+
+function buildTaskListInclude(relationMode: TaskListRelationMode | undefined, userId: string) {
+  const watchers = { where: { userId }, select: { id: true } } as const;
+
+  if (!relationMode) {
+    return { watchers };
+  }
+
+  const cardIncludes = {
+    status: { select: { id: true, name: true, color: true } },
+    taskType: { select: { id: true, name: true, icon: true, color: true } },
+    project: { select: { id: true, name: true } },
+    team: { select: { id: true, name: true } },
+    workspace: { select: { id: true, name: true } },
+    space: { select: { id: true, name: true, color: true } },
+    list: {
+      select: {
+        id: true,
+        name: true,
+        locationType: true,
+        folder: { select: { id: true, name: true } },
+      },
+    },
+    tasks: { select: { id: true, title: true } },
+  } as const;
+
+  if (relationMode === "card") {
+    return {
+      ...cardIncludes,
+      assignees: {
+        include: {
+          user: { select: { id: true, name: true, email: true, image: true } },
+          aiAgent: { select: { id: true, name: true, avatar: true } },
+        },
+      },
+      watchers,
+    };
+  }
+
+  return {
+    ...cardIncludes,
+    assignees: {
+      include: {
+        user: { select: { id: true, name: true, email: true, image: true } },
+        aiAgent: { select: { id: true, name: true, avatar: true } },
+      },
+    },
+    channel: { select: { id: true, name: true } },
+    attachments: { select: { id: true, url: true, filename: true, mimeType: true, size: true } },
+    list: {
+      select: {
+        id: true,
+        name: true,
+        locationType: true,
+        folder: { select: { id: true, name: true } },
+        statuses: { select: { id: true, name: true, color: true } },
+      },
+    },
+    _count: {
+      select: {
+        comments: true,
+        attachments: true,
+        checklists: true,
+        other_tasks: true,
+        dependencies: true,
+        blockedDependencies: true,
+      },
+    },
+    watchers,
+  } as const;
+}
+
 export const taskRouter = router({
   listTaskTypes: protectedProcedure
     .input(z.object({
@@ -231,9 +304,10 @@ export const taskRouter = router({
       visibility: z.enum(["PRIVATE", "ADMINS", "MEMBERS", "EVERYONE", "PUBLIC"]).optional(),
       query: z.string().optional(),
       page: z.number().int().min(1).optional().default(1),
+      cursor: z.number().int().min(1).optional(),
       pageSize: z.number().int().min(1).max(500).optional().default(12),
       scope: z.enum(["owned", "assigned", "all"]).optional().default("owned"),
-      includeRelations: z.boolean().optional(),
+      includeRelations: z.union([z.boolean(), z.literal("card")]).optional(),
       ids: z.array(z.string()).optional(),
     }))
     .query(async ({ ctx, input }) => {
@@ -285,42 +359,11 @@ export const taskRouter = router({
         ];
       }
 
-      const skip = (input.page - 1) * input.pageSize;
+      const page = input.cursor ?? input.page ?? 1;
+      const skip = (page - 1) * input.pageSize;
       const take = input.pageSize;
 
-      const include = {
-        ...(input.includeRelations
-          ? {
-            assignees: {
-              include: {
-                user: { select: { id: true, name: true, email: true, image: true } },
-                aiAgent: { select: { id: true, name: true, avatar: true } },
-              },
-            },
-            status: { select: { id: true, name: true, color: true } },
-            taskType: { select: { id: true, name: true, icon: true, color: true } },
-            project: { select: { id: true, name: true } },
-            team: { select: { id: true, name: true } },
-            workspace: { select: { id: true, name: true } },
-            space: { select: { id: true, name: true, color: true } },
-            channel: { select: { id: true, name: true } },
-            tasks: { select: { id: true, title: true } },
-            attachments: { include: { uploader: { select: { id: true, name: true, image: true } } } },
-            list: {
-              select: {
-                id: true,
-                name: true,
-                locationType: true,
-                folder: { select: { id: true, name: true } },
-                statuses: { select: { id: true, name: true, color: true } },
-              },
-            },
-            _count: { select: { comments: true, attachments: true, checklists: true, other_tasks: true, dependencies: true, blockedDependencies: true } },
-          }
-          : {}),
-        // We use watchers as "starred" (per-user), but only fetch the current user
-        watchers: { where: { userId }, select: { id: true } },
-      } as const;
+      const include = buildTaskListInclude(input.includeRelations, userId);
 
       const [total, itemsRaw] = await Promise.all([
         prisma.task.count({ where }),
@@ -337,17 +380,23 @@ export const taskRouter = router({
         }),
       ]);
 
+      const hasRelations = input.includeRelations === true || input.includeRelations === "card";
+
       const items = (itemsRaw as any[]).map((task) => {
         const { watchers, tasks: parentTask, ...rest } = task;
         const isStarred = (watchers?.length ?? 0) > 0;
-        const normalizedAssignees = input.includeRelations
-          ? (task.assignees ?? []).map(normalizeAiAgentImage)
-          : task.assignees;
+        const normalizedAssignees =
+          input.includeRelations === true || input.includeRelations === "card"
+            ? (task.assignees ?? []).map(normalizeAiAgentImage)
+            : task.assignees;
 
         // Don't leak the watchers rows to the client; expose `isStarred` instead.
         return {
           ...rest,
-          ...(input.includeRelations ? { assignees: normalizedAssignees, parent: parentTask } : {}),
+          ...(hasRelations ? { parent: parentTask ?? null } : {}),
+          ...(input.includeRelations === true || input.includeRelations === "card"
+            ? { assignees: normalizedAssignees }
+            : {}),
           isStarred,
         };
       });
@@ -355,7 +404,7 @@ export const taskRouter = router({
       return {
         items,
         total,
-        page: input.page,
+        page,
         pageSize: input.pageSize,
       };
     }),
@@ -1359,7 +1408,7 @@ export const taskRouter = router({
       }))
       .mutation(async ({ ctx, input }) => {
         const currentUserId = ctx.session!.user!.id;
-        let targetUserId = input.userId ?? currentUserId;
+        const targetUserId = input.userId ?? currentUserId;
         if (targetUserId !== currentUserId) {
           const task = await prisma.task.findUnique({
             where: { id: input.taskId },
@@ -1393,7 +1442,7 @@ export const taskRouter = router({
       .input(z.object({ taskId: z.string(), description: z.string().optional(), userId: z.string().optional() }))
       .mutation(async ({ ctx, input }) => {
         const currentUserId = ctx.session!.user!.id;
-        let targetUserId = input.userId ?? currentUserId;
+        const targetUserId = input.userId ?? currentUserId;
         if (targetUserId !== currentUserId) {
           const task = await prisma.task.findUnique({
             where: { id: input.taskId },
@@ -1524,6 +1573,13 @@ export const taskRouter = router({
         });
       }),
   }),
+
+  createProposalFromTask: protectedProcedure
+    .input(z.object({
+      taskId: z.string(),
+      category: z.string().optional(),
+    }))
+    .mutation(async ({ input }) => ({ id: input.taskId, proposalId: input.taskId })),
 
 });
 

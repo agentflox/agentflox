@@ -75,7 +75,7 @@ export function Editor({
   placeholder = "Start writing or type / for commands...",
 }: EditorProps) {
   const utils = trpc.useUtils();
-  const timeoutRef = useRef<NodeJS.Timeout>();
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const [height, setHeight] = useState(minHeight);
   const isResizing = useRef(false);
@@ -268,11 +268,7 @@ export function Editor({
     },
   });
 
-  const {
-    isBold, isItalic, isStrike, isCode,
-    isBulletList, isOrderedList, isTaskList,
-    isBlockquote, canUndo, canRedo,
-  } = useEditorState({
+  const editorState = useEditorState({
     editor,
     selector: (ctx) => {
       if (!ctx.editor) return {
@@ -293,7 +289,17 @@ export function Editor({
         canRedo: ctx.editor.can().redo(),
       };
     },
-  });
+  }) ?? {
+    isBold: false, isItalic: false, isStrike: false, isCode: false,
+    isBulletList: false, isOrderedList: false, isTaskList: false,
+    isBlockquote: false, canUndo: false, canRedo: false,
+  };
+
+  const {
+    isBold, isItalic, isStrike, isCode,
+    isBulletList, isOrderedList, isTaskList,
+    isBlockquote, canUndo, canRedo,
+  } = editorState;
 
   const setLink = useCallback(() => {
     const previousUrl = editor?.getAttributes("link").href;

@@ -6,7 +6,11 @@ import { keepPreviousData } from "@tanstack/react-query";
 
 const PAGE_SIZE = 12;
 
-export function useWorkforceList(initialScope: WorkforceScope = "owned") {
+export function useWorkforceList(
+	initialScope: WorkforceScope = "owned",
+	options: { includeCounts?: boolean } = {}
+) {
+	const { includeCounts = false } = options;
     const [page, setPage] = useState(1);
     const [query, setQuery] = useState("");
     const [scope, setScope] = useState<WorkforceScope>(initialScope);
@@ -20,9 +24,9 @@ export function useWorkforceList(initialScope: WorkforceScope = "owned") {
             query,
             status: filters.status,
             mode: filters.mode,
-            includeCounts: true,
+            includeCounts,
         }),
-        [page, scope, query, filters.status, filters.mode]
+        [page, scope, query, filters.status, filters.mode, includeCounts]
     );
 
     const queryResult = trpc.workforce.list.useQuery(listInput, {

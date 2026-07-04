@@ -13,6 +13,11 @@ import {
 } from "@/components/ui/popover";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
+function relationshipTargetLabel(target: { title?: string | null; name?: string | null } | null | undefined): string {
+    if (!target) return "Unknown";
+    return target.title ?? target.name ?? "Unknown";
+}
+
 interface RelationshipsPanelProps {
     documentId?: string;
     workspaceId?: string;
@@ -225,7 +230,7 @@ export function RelationshipsPanel({ documentId, workspaceId, spaceId, projectId
                                                 )}
                                             </div>
                                             <span className="text-sm font-medium text-zinc-800 truncate">
-                                                {rel.target?.title || rel.target?.name || 'Unknown'}
+                                                {relationshipTargetLabel(rel.target)}
                                             </span>
                                         </div>
                                         <Button
@@ -371,7 +376,7 @@ export function RelationshipsQuickMenu({ documentId, workspaceId, spaceId, proje
     const tasks = tasksData?.items || [];
 
     const { data: docsData } = trpc.document.list.useQuery(
-        { workspaceId, spaceId, projectId, teamId, limit: 50 },
+        { workspaceId, spaceId, projectId, teamId, pageSize: 50 },
         { enabled: !!(workspaceId || spaceId || projectId || teamId) && isAnyLinkPopoverOpen }
     );
     const documents = docsData?.items || [];
@@ -562,7 +567,7 @@ export function RelationshipsQuickMenu({ documentId, workspaceId, spaceId, proje
                                     )}
                                 </div>
                                 <span className="text-sm font-medium text-zinc-800 truncate">
-                                    {rel.target?.title || rel.target?.name || 'Unknown'}
+                                    {relationshipTargetLabel(rel.target)}
                                 </span>
                             </div>
                             <Button

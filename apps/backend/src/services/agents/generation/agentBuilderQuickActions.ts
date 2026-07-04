@@ -62,21 +62,7 @@ export class QuickActionGenerator {
 
         return configActions;
 
-      case 'testing':
-        return [
-          {
-            label: 'Run Test',
-            value: 'Run a test scenario',
-            description: 'Test the agent with a sample scenario',
-          },
-          {
-            label: 'Skip Testing',
-            value: 'Skip testing and proceed to review',
-            description: 'Move directly to review stage',
-          },
-        ];
-
-      case 'review':
+      case 'launch':
         return [
           {
             label: 'Launch Now',
@@ -88,10 +74,6 @@ export class QuickActionGenerator {
             value: 'I want to edit the configuration',
             description: 'Go back to configuration stage',
           },
-        ];
-
-      case 'launch':
-        return [
           {
             label: 'View Agent',
             value: 'Show me the agent',

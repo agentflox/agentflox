@@ -55,10 +55,7 @@ export const ContextKnowledgeModal: React.FC<ContextKnowledgeModalProps> = ({
     { enabled: open && !!userId }
   );
 
-  const { data: proposals, isLoading: loadingProposals } = trpc.proposal.list.useQuery(
-    { scope: 'owned' },
-    { enabled: open && !!userId }
-  );
+  const { data: proposals = { items: [] }, isLoading: loadingProposals } = { data: { items: [] }, isLoading: false };
 
   const { data: spaces, isLoading: loadingSpaces } = trpc.space.list.useQuery(
     {},

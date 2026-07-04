@@ -1,0 +1,137 @@
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(123,2): error TS1005: ',' expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(123,4): error TS1109: Expression expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(124,40): error TS1005: ';' expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(124,70): error TS1005: ';' expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(124,94): error TS1128: Declaration or statement expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(127,32): error TS1005: ';' expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(127,51): error TS1005: ';' expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(127,66): error TS1128: Declaration or statement expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(128,34): error TS1005: ';' expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(128,55): error TS1005: ';' expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(128,73): error TS1128: Declaration or statement expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(129,40): error TS1005: ';' expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(129,63): error TS1005: ';' expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(129,82): error TS1128: Declaration or statement expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(130,34): error TS1005: ';' expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(130,56): error TS1005: ';' expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(130,73): error TS1128: Declaration or statement expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(131,30): error TS1005: ';' expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(131,53): error TS1005: ';' expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(131,67): error TS1128: Declaration or statement expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(132,32): error TS1005: ';' expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(132,55): error TS1005: ';' expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(132,70): error TS1128: Declaration or statement expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(133,32): error TS1005: ';' expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(133,62): error TS1005: ';' expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(133,72): error TS1128: Declaration or statement expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(134,34): error TS1005: ';' expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(134,62): error TS1005: ';' expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(134,78): error TS1128: Declaration or statement expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(135,40): error TS1005: ';' expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(135,60): error TS1005: ';' expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(135,79): error TS1128: Declaration or statement expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(136,40): error TS1005: ';' expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(136,64): error TS1005: ';' expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(136,83): error TS1128: Declaration or statement expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(137,44): error TS1005: ';' expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(137,66): error TS1005: ';' expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(137,82): error TS1128: Declaration or statement expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(138,40): error TS1005: ';' expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(138,62): error TS1005: ';' expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(138,76): error TS1128: Declaration or statement expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(139,30): error TS1005: ';' expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(139,48): error TS1005: ';' expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(139,62): error TS1128: Declaration or statement expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(140,36): error TS1005: ';' expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(140,61): error TS1005: ';' expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(140,73): error TS1128: Declaration or statement expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(143,34): error TS1005: ';' expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(143,57): error TS1005: ';' expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(143,73): error TS1128: Declaration or statement expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(144,54): error TS1005: ';' expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(144,77): error TS1005: ';' expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(144,104): error TS1128: Declaration or statement expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(145,46): error TS1005: ';' expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(145,69): error TS1005: ';' expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(145,92): error TS1128: Declaration or statement expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(146,46): error TS1005: ';' expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(146,64): error TS1005: ';' expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(146,87): error TS1128: Declaration or statement expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(147,50): error TS1005: ';' expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(147,80): error TS1005: ';' expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(147,105): error TS1128: Declaration or statement expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(148,48): error TS1005: ';' expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(148,78): error TS1005: ';' expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(148,102): error TS1128: Declaration or statement expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(149,48): error TS1005: ';' expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(149,68): error TS1005: ';' expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(149,92): error TS1128: Declaration or statement expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(150,40): error TS1005: ';' expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(150,60): error TS1005: ';' expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(150,77): error TS1128: Declaration or statement expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(151,32): error TS1005: ';' expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(151,55): error TS1005: ';' expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(151,65): error TS1128: Declaration or statement expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(152,34): error TS1005: ';' expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(152,54): error TS1005: ';' expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(152,65): error TS1128: Declaration or statement expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(153,36): error TS1005: ';' expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(153,56): error TS1005: ';' expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(153,68): error TS1128: Declaration or statement expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(156,34): error TS1005: ';' expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(156,60): error TS1005: ';' expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(156,81): error TS1128: Declaration or statement expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(157,40): error TS1005: ';' expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(157,67): error TS1005: ';' expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(157,81): error TS1128: Declaration or statement expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(158,36): error TS1005: ';' expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(158,60): error TS1005: ';' expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(158,72): error TS1128: Declaration or statement expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(159,34): error TS1005: ';' expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(159,54): error TS1005: ';' expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(159,65): error TS1128: Declaration or statement expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(160,40): error TS1005: ';' expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(160,68): error TS1005: ';' expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(160,87): error TS1128: Declaration or statement expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(161,42): error TS1005: ';' expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(161,72): error TS1005: ';' expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(161,87): error TS1128: Declaration or statement expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(162,42): error TS1005: ';' expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(162,66): error TS1005: ';' expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(162,81): error TS1128: Declaration or statement expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(163,40): error TS1005: ';' expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(163,63): error TS1005: ';' expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(163,77): error TS1128: Declaration or statement expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(164,38): error TS1005: ';' expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(164,63): error TS1005: ';' expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(164,76): error TS1128: Declaration or statement expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(165,34): error TS1005: ';' expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(165,64): error TS1005: ';' expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(165,75): error TS1128: Declaration or statement expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(166,32): error TS1005: ';' expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(166,55): error TS1005: ';' expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(166,65): error TS1128: Declaration or statement expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(167,34): error TS1005: ';' expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(167,62): error TS1005: ';' expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(167,73): error TS1128: Declaration or statement expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(168,42): error TS1005: ';' expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(168,72): error TS1005: ';' expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(168,87): error TS1128: Declaration or statement expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(169,34): error TS1005: ';' expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(169,64): error TS1005: ';' expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(169,75): error TS1128: Declaration or statement expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(170,40): error TS1005: ';' expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(170,70): error TS1005: ';' expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(170,84): error TS1128: Declaration or statement expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(171,46): error TS1005: ';' expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(171,76): error TS1005: ';' expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(171,93): error TS1128: Declaration or statement expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(172,42): error TS1005: ';' expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(172,65): error TS1005: ';' expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(172,80): error TS1128: Declaration or statement expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(173,36): error TS1005: ';' expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(173,59): error TS1005: ';' expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(173,71): error TS1128: Declaration or statement expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(174,44): error TS1005: ';' expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(174,67): error TS1005: ';' expected.
+src/features/dashboard/views/workspace/WorkspaceDashboardView.tsx(174,83): error TS1128: Declaration or statement expected.

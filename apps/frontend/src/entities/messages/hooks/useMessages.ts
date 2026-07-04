@@ -5,6 +5,7 @@ import { trpc } from '@/lib/trpc';
 import { useSocket } from '@/components/providers/SocketProvider';
 import { useSession } from 'next-auth/react';
 import { useQueryClient } from '@tanstack/react-query';
+import { acquireMessageEventListeners } from '@/lib/socketRefCount';
 
 interface Message {
   id: string;
@@ -39,7 +40,9 @@ export function useMessages(params?: {
   userId?: string;
   conversationId?: string | null;
   marketplaceListingId?: string | null;
-  fetchConversations?: boolean
+  fetchConversations?: boolean;
+  /** When false, skips per-instance socket listeners (use at feed/thread level only). */
+  enableSocketListeners?: boolean;
 }) {
   const { socket, isConnected, waitForConnection } = useSocket();
   const utils = trpc.useUtils();
@@ -57,7 +60,7 @@ export function useMessages(params?: {
   //    never background-refetches and never flashes a loading state.
   //    All updates flow in via socket → setData calls below.
   const { data: threadData } = trpc.messages.listWithUser.useQuery(
-    { userId: params?.userId!, marketplaceListingId: params?.marketplaceListingId, page: 1, pageSize: 100 },
+    { userId: params?.userId ?? "", marketplaceListingId: params?.marketplaceListingId, page: 1, pageSize: 100 },
     {
       enabled: !!params?.userId,
       staleTime: Infinity,  // ✅ All updates flow via socket → setData; never background-refetch
@@ -69,6 +72,8 @@ export function useMessages(params?: {
   );
 
   const fetchConversations = params?.fetchConversations !== false;
+  const enableSocketListeners =
+    params?.enableSocketListeners ?? (fetchConversations && !params?.userId);
 
   const { data: conversationsData } = trpc.messages.listConversations.useQuery(
     { page: 1, pageSize: 50 },
@@ -353,7 +358,7 @@ export function useMessages(params?: {
 
   // ✅ Update a single message's reactions in both caches
   const updateReactionInCache = useCallback(
-    (messageId: string, userId: string, emoji: string) => {
+    (messageId: string, userId: string, emoji: string, options?: { add?: boolean }) => {
       const applyReactionUpdate = (old: any) => {
         const base = old
           ? Array.isArray(old)
@@ -365,22 +370,33 @@ export function useMessages(params?: {
         const items = base.items.map((m: any) => {
           if (m.id !== messageId) return m;
           const existing: Array<{ userId: string; emoji: string }> = Array.isArray(m.reactions) ? [...m.reactions] : [];
-          
+
+          if (options?.add === true) {
+            const withoutUser = existing.filter((r) => r.userId !== userId);
+            const alreadyHasEmoji = existing.some((r) => r.userId === userId && r.emoji === emoji);
+            if (alreadyHasEmoji) return m;
+            return { ...m, reactions: [...withoutUser, { userId, emoji }] };
+          }
+
+          if (options?.add === false) {
+            const next = existing.filter((r) => !(r.userId === userId && r.emoji === emoji));
+            if (next.length === existing.length) return m;
+            return { ...m, reactions: next };
+          }
+
           let hadSameEmoji = false;
           const withoutUser = existing.filter(r => {
             if (r.userId === userId) {
               if (r.emoji === emoji) hadSameEmoji = true;
-              return false; // remove all reactions from this user
+              return false;
             }
             return true;
           });
 
-          // If they didn't have the EXACT same emoji, it means we are adding/swapping to the new one
           if (!hadSameEmoji) {
             return { ...m, reactions: [...withoutUser, { userId, emoji }] };
-          } else {
-            return { ...m, reactions: withoutUser };
           }
+          return { ...m, reactions: withoutUser };
         });
 
         return { ...base, items };
@@ -437,7 +453,7 @@ export function useMessages(params?: {
             clearTimeout(timeout);
             if (err) {
               // Rollback optimistic update on error
-              updateReactionInCache(messageId, currentUserId, emoji, alreadyReacted);
+              updateReactionInCache(messageId, currentUserId, emoji, { add: alreadyReacted });
               return reject(new Error(err?.message || 'Failed to react'));
             }
             resolve();
@@ -451,28 +467,23 @@ export function useMessages(params?: {
     [currentUserId, waitForConnection, updateReactionInCache, utils]
   );
 
-  // ✅ Register socket listeners
+  // ✅ Register socket listeners (ref-counted globally)
   useEffect(() => {
-    if (!socket || !isConnected) return;
+    if (!enableSocketListeners || !socket || !isConnected) return;
 
     const handleReactionEvent = (data: any) => {
       const { messageId, userId: reactUserId, emoji, add } = data || {};
       if (!messageId || !reactUserId || !emoji) return;
-      updateReactionInCache(messageId, reactUserId, emoji, add !== false);
+      updateReactionInCache(messageId, reactUserId, emoji, { add: add !== false });
     };
 
-    socket.on('message:received', handleMessageReceived);
-    socket.on('message:sent', handleMessageSent);
-    socket.on('message:read:ack', handleReadAck);
-    socket.on('message:reacted', handleReactionEvent);
-
-    return () => {
-      socket.off('message:received', handleMessageReceived);
-      socket.off('message:sent', handleMessageSent);
-      socket.off('message:read:ack', handleReadAck);
-      socket.off('message:reacted', handleReactionEvent);
-    };
-  }, [socket, isConnected, handleMessageReceived, handleMessageSent, handleReadAck, updateReactionInCache]);
+    return acquireMessageEventListeners(socket, {
+      onReceived: handleMessageReceived,
+      onSent: handleMessageSent,
+      onReadAck: handleReadAck,
+      onReacted: handleReactionEvent,
+    });
+  }, [enableSocketListeners, socket, isConnected, handleMessageReceived, handleMessageSent, handleReadAck, updateReactionInCache]);
 
   // ✅ Send message with INSTANT optimistic update
   const sendMessage = useCallback(

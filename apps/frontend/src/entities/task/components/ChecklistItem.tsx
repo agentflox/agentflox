@@ -148,7 +148,7 @@ export function ChecklistItem({
                         ? "bg-green-500 border-green-500"
                         : "border-zinc-300 hover:border-green-500"
                 )}
-                disabled={toggleItem.isLoading}
+                disabled={toggleItem.isPending}
             >
                 {item.isCompleted && <Check className="h-3 w-3 text-white" />}
             </button>
@@ -230,7 +230,7 @@ export function ChecklistItem({
                 variant="ghost"
                 className="h-6 w-6 text-red-500 hover:text-red-600 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-opacity"
                 onClick={() => deleteItem.mutate({ id: item.id })}
-                disabled={deleteItem.isLoading}
+                disabled={deleteItem.isPending}
             >
                 <Trash2 className="h-3.5 w-3.5" />
             </Button>

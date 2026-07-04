@@ -122,7 +122,13 @@ export function Thread({
   };
 
   // ✅ Initialize socket listeners
-  const { markAsRead } = useMessages({ userId, conversationId, marketplaceListingId, fetchConversations: false });
+  const { markAsRead } = useMessages({
+    userId,
+    conversationId,
+    marketplaceListingId,
+    fetchConversations: false,
+    enableSocketListeners: true,
+  });
 
   // ✅ Fetch messages initially
   const [page, setPage] = useState(1);

@@ -160,7 +160,7 @@ export const viewRouter = router({
 				grouping: input.grouping as any,
 				sorting: input.sorting as any,
 				columns: input.columns as any,
-				createdBy: ctx.session!.user!.id,
+				ownerId: ctx.session!.user!.id,
 				position,
 			},
 		});
@@ -178,7 +178,7 @@ export const viewRouter = router({
 					teamId: input.teamId ?? null,
 					folderId: input.folderId ?? null,
 					locationType: (input.locationType as any) || "PERSONAL",
-					createdBy: ctx.session!.user!.id,
+					ownerId: ctx.session!.user!.id,
 				}
 			});
 		}
@@ -279,7 +279,7 @@ export const viewRouter = router({
 			where,
 			orderBy: { position: "asc" },
 			include: {
-				creator: {
+				owner: {
 					select: {
 						id: true,
 						name: true,
@@ -312,7 +312,7 @@ export const viewRouter = router({
 						},
 					},
 				},
-				creator: {
+				owner: {
 					select: {
 						id: true,
 						name: true,
@@ -325,12 +325,105 @@ export const viewRouter = router({
 		return view;
 	}),
 
+	getWithContext: protectedProcedure.input(z.object({ id: z.string() })).query(async ({ ctx, input }) => {
+		const userId = ctx.session!.user!.id;
+
+		const view = await prisma.view.findUnique({
+			where: { id: input.id },
+			include: {
+				owner: {
+					select: { id: true, name: true, image: true },
+				},
+			},
+		});
+		if (!view) throw new Error("View not found");
+
+		if (!view.spaceId) {
+			return { view, space: null, workspace: null };
+		}
+
+		const space = await prisma.space.findFirst({
+			where: {
+				id: view.spaceId,
+				OR: [
+					{ ownerId: userId },
+					{ members: { some: { userId } } },
+					{ workspace: { ownerId: userId } },
+					{ workspace: { members: { some: { userId } } } },
+				],
+			},
+			select: {
+				id: true,
+				name: true,
+				workspaceId: true,
+				tools: {
+					orderBy: { updatedAt: "desc" },
+					take: 50,
+					select: {
+						id: true,
+						name: true,
+						description: true,
+						category: true,
+						updatedAt: true,
+					},
+				},
+			},
+		});
+
+		if (!space) {
+			return { view, space: null, workspace: null };
+		}
+
+		const workspace = await prisma.workspace.findFirst({
+			where: {
+				id: space.workspaceId,
+				OR: [{ ownerId: userId }, { members: { some: { userId } } }],
+			},
+			select: {
+				id: true,
+				name: true,
+				projects: {
+					where: { spaceId: view.spaceId },
+					orderBy: { updatedAt: "desc" },
+					select: {
+						id: true,
+						name: true,
+						description: true,
+						status: true,
+						spaceId: true,
+						updatedAt: true,
+						_count: { select: { tasks: true } },
+					},
+				},
+				teams: {
+					where: { spaceId: view.spaceId },
+					orderBy: { updatedAt: "desc" },
+					select: {
+						id: true,
+						name: true,
+						description: true,
+						status: true,
+						size: true,
+						maxSize: true,
+						spaceId: true,
+						updatedAt: true,
+						_count: { select: { members: true, tasks: true } },
+					},
+				},
+			},
+		});
+
+		return { view, space, workspace };
+	}),
+
 	createFromTemplate: protectedProcedure.input(z.object({
 		templateId: z.string(),
+		workspaceId: z.string().optional(),
 		spaceId: z.string().optional(),
 		projectId: z.string().optional(),
 		teamId: z.string().optional(),
 		listId: z.string().optional(),
+		folderId: z.string().optional(),
 	})).mutation(async ({ ctx, input }) => {
 		const template = await prisma.template.findUnique({ where: { id: input.templateId } });
 		if (!template) throw new Error("Template not found");
@@ -354,6 +447,7 @@ export const viewRouter = router({
 			data: {
 				name: template.name,
 				type: content.type as ViewType,
+				workspaceId: input.workspaceId,
 				spaceId: input.spaceId,
 				projectId: input.projectId,
 				teamId: input.teamId,
@@ -363,7 +457,7 @@ export const viewRouter = router({
 				grouping: content.grouping ?? undefined,
 				sorting: content.sorting ?? undefined,
 				columns: content.columns ?? undefined,
-				createdBy: ctx.session!.user!.id,
+				ownerId: ctx.session!.user!.id,
 				position,
 			},
 		});
@@ -448,12 +542,122 @@ export const viewRouter = router({
 			where: { id: input.shareId },
 		});
 	}),
+
+	listResponses: protectedProcedure.input(z.object({
+		viewId: z.string(),
+		query: z.string().optional(),
+		status: z.string().optional(),
+		sortBy: z.enum(["submittedAt", "status"]).default("submittedAt"),
+		sortDir: z.enum(["asc", "desc"]).default("desc"),
+		page: z.number().int().min(1).default(1),
+		pageSize: z.number().int().min(1).max(500).default(20),
+	})).query(async ({ input }) => {
+		const view = await prisma.view.findUnique({ where: { id: input.viewId } });
+		if (!view) throw new Error("View not found");
+
+		const where: { viewId: string; status?: string } = { viewId: input.viewId };
+		if (input.status) where.status = input.status;
+
+		const orderBy = input.sortBy === "status"
+			? { status: input.sortDir as "asc" | "desc" }
+			: { submittedAt: input.sortDir as "asc" | "desc" };
+
+		const mapResponse = (row: { id: string; status: string; values: unknown; submittedAt: Date }) => ({
+			id: row.id,
+			status: row.status,
+			submittedAt: row.submittedAt.toISOString(),
+			values: (row.values ?? {}) as Record<string, unknown>,
+		});
+
+		if (input.query?.trim()) {
+			const all = await prisma.formResponse.findMany({ where, orderBy });
+			const q = input.query.trim().toLowerCase();
+			const filtered = all.filter((row) => {
+				const haystack = `${row.id} ${JSON.stringify(row.values ?? {})}`.toLowerCase();
+				return haystack.includes(q);
+			});
+			const total = filtered.length;
+			const totalPages = Math.max(1, Math.ceil(total / input.pageSize));
+			const start = (input.page - 1) * input.pageSize;
+			const items = filtered.slice(start, start + input.pageSize).map(mapResponse);
+			return { items, total, totalPages };
+		}
+
+		const total = await prisma.formResponse.count({ where });
+		const totalPages = Math.max(1, Math.ceil(total / input.pageSize));
+		const items = await prisma.formResponse.findMany({
+			where,
+			orderBy,
+			skip: (input.page - 1) * input.pageSize,
+			take: input.pageSize,
+		});
+
+		return {
+			items: items.map(mapResponse),
+			total,
+			totalPages,
+		};
+	}),
+
+	submitResponse: protectedProcedure.input(z.object({
+		viewId: z.string(),
+		values: z.any(),
+	})).mutation(async ({ input }) => {
+		const view = await prisma.view.findUnique({ where: { id: input.viewId } });
+		if (!view) throw new Error("View not found");
+
+		const row = await prisma.formResponse.create({
+			data: {
+				viewId: input.viewId,
+				values: input.values,
+				status: "submitted",
+			},
+		});
+
+		return {
+			id: row.id,
+			status: row.status,
+			submittedAt: row.submittedAt.toISOString(),
+			values: (row.values ?? {}) as Record<string, unknown>,
+		};
+	}),
+
+	deleteResponse: protectedProcedure.input(z.object({
+		viewId: z.string(),
+		responseId: z.string(),
+	})).mutation(async ({ input }) => {
+		const existing = await prisma.formResponse.findFirst({
+			where: { id: input.responseId, viewId: input.viewId },
+		});
+		if (!existing) throw new Error("Response not found");
+
+		await prisma.formResponse.delete({ where: { id: input.responseId } });
+		return { success: true };
+	}),
+
+	deleteAllResponses: protectedProcedure.input(z.object({
+		viewId: z.string(),
+	})).mutation(async ({ input }) => {
+		const view = await prisma.view.findUnique({ where: { id: input.viewId } });
+		if (!view) throw new Error("View not found");
+
+		await prisma.formResponse.deleteMany({ where: { viewId: input.viewId } });
+		return { success: true };
+	}),
+
 	submitPublicFormResponse: protectedProcedure // TODO: Make public when ready
 		.input(z.object({ viewId: z.string(), values: z.any() }))
 		.mutation(async ({ input }) => {
 			const view = await prisma.view.findUnique({ where: { id: input.viewId } });
 			if (!view || !view.isShared) throw new Error("View not found or not public");
-			// Store submission somewhere...
+
+			await prisma.formResponse.create({
+				data: {
+					viewId: input.viewId,
+					values: input.values,
+					status: "submitted",
+				},
+			});
 			return { success: true };
 		}),
 

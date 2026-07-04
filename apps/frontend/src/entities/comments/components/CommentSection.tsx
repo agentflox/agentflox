@@ -15,7 +15,7 @@ interface CommentSectionProps {
 }
 
 export function CommentSection({ postId, feedId, feedType, entityType = 'post' }: CommentSectionProps) {
-  const { comments, isLoading, createComment } = useComments(postId, entityType);
+  const { comments, isLoading, createComment, voteComment } = useComments(postId, entityType);
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
 
   if (isLoading) {
@@ -33,8 +33,6 @@ export function CommentSection({ postId, feedId, feedType, entityType = 'post' }
       {/* Comment Form */}
       <CommentForm
         postId={postId}
-        feedId={feedId}
-        feedType={feedType}
         submitting={createComment.isPending}
         onSubmit={(content) => {
           createComment.mutate({
@@ -57,6 +55,8 @@ export function CommentSection({ postId, feedId, feedType, entityType = 'post' }
             replyingTo={replyingTo}
             setReplyingTo={setReplyingTo}
             entityType={entityType}
+            createComment={createComment}
+            voteComment={voteComment}
           />
         ))}
       </div>

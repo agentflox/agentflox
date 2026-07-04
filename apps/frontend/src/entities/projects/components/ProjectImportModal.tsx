@@ -27,7 +27,7 @@ export function ProjectImportModal({ spaceId, open, onOpenChange }: ProjectImpor
         setSelectedSpaceId(spaceId);
     }
 
-    const { data: spacesData } = trpc.space.list.useQuery(undefined, { enabled: open && !spaceId });
+    const { data: spacesData } = trpc.space.list.useQuery({ scope: "all", pageSize: 50 }, { enabled: open && !spaceId });
     const spaces = spacesData?.items || [];
 
     const { data, isLoading } = trpc.project.list.useQuery({

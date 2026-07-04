@@ -17,11 +17,19 @@ interface DocumentGeneralSettingsModalProps {
     onOpenChange: (open: boolean) => void;
 }
 
+function getDocumentIconColor(settings: unknown): string {
+    if (settings && typeof settings === "object" && "iconColor" in settings) {
+        const color = (settings as { iconColor?: unknown }).iconColor;
+        return typeof color === "string" ? color : "#4F46E5";
+    }
+    return "#4F46E5";
+}
+
 export function DocumentGeneralSettingsModal({ documentId, open, onOpenChange }: DocumentGeneralSettingsModalProps) {
     const { toast } = useToast();
     const utils = trpc.useUtils();
     const queryClient = useQueryClient();
-    const [name, setName] = useState("");
+    const [title, setTitle] = useState("");
     const [color, setColor] = useState("#4F46E5");
     const [icon, setIcon] = useState("");
 
@@ -32,8 +40,8 @@ export function DocumentGeneralSettingsModal({ documentId, open, onOpenChange }:
 
     useEffect(() => {
         if (document) {
-            setName(document.name || "");
-            setColor(document.color || "#4F46E5");
+            setTitle(document.title || "");
+            setColor(getDocumentIconColor(document.settings));
             setIcon(document.icon || "");
         }
     }, [document]);
@@ -42,11 +50,24 @@ export function DocumentGeneralSettingsModal({ documentId, open, onOpenChange }:
         onMutate: async (variables) => {
             queryClient.setQueriesData({ queryKey: [['document', 'list']] }, (oldData: any) => {
                 if (!oldData) return oldData;
-                return oldData.map((item: any) =>
+                const items = Array.isArray(oldData) ? oldData : oldData.items;
+                if (!items) return oldData;
+
+                const nextSettings = variables.settings ?? document?.settings;
+                const patchItem = (item: any) =>
                     item.id === documentId
-                        ? { ...item, name: variables.name, icon: variables.icon, color: variables.color }
-                        : item
-                );
+                        ? {
+                            ...item,
+                            title: variables.title ?? item.title,
+                            icon: variables.icon ?? item.icon,
+                            settings: nextSettings,
+                        }
+                        : item;
+
+                if (Array.isArray(oldData)) {
+                    return oldData.map(patchItem);
+                }
+                return { ...oldData, items: items.map(patchItem) };
             });
         },
         onSuccess: () => {
@@ -66,18 +87,23 @@ export function DocumentGeneralSettingsModal({ documentId, open, onOpenChange }:
 
     const handleSave = () => {
         if (!documentId) return;
+        const existingSettings =
+            document?.settings && typeof document.settings === "object"
+                ? (document.settings as Record<string, unknown>)
+                : {};
+
         updateDocument.mutate({
             id: documentId,
-            name: name.trim(),
+            title: title.trim(),
             icon,
-            color,
+            settings: { ...existingSettings, iconColor: color },
         });
     };
 
     const isDirty = document && (
-        name.trim() !== document.name ||
-        color !== document.color ||
-        icon !== document.icon
+        title.trim() !== document.title ||
+        color !== getDocumentIconColor(document.settings) ||
+        icon !== (document.icon || "")
     );
 
     if (!documentId) return null;
@@ -100,12 +126,12 @@ export function DocumentGeneralSettingsModal({ documentId, open, onOpenChange }:
                     ) : (
                         <>
                             <div className="space-y-2">
-                                <Label htmlFor="document-name">Document Name</Label>
+                                <Label htmlFor="document-title">Document Title</Label>
                                 <Input
-                                    id="document-name"
-                                    value={name}
-                                    onChange={(e) => setName(e.target.value)}
-                                    placeholder="Enter document name"
+                                    id="document-title"
+                                    value={title}
+                                    onChange={(e) => setTitle(e.target.value)}
+                                    placeholder="Enter document title"
                                     maxLength={100}
                                 />
                             </div>
@@ -116,10 +142,19 @@ export function DocumentGeneralSettingsModal({ documentId, open, onOpenChange }:
                                     <IconColorSelector
                                         icon={icon}
                                         color={color}
+                                        entityName={title}
                                         onIconChange={setIcon}
                                         onColorChange={setColor}
-                                        label="Document Icon"
-                                    />
+                                    >
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            className="h-10 px-4"
+                                            style={{ backgroundColor: icon ? color : undefined }}
+                                        >
+                                            {icon || "Pick icon"}
+                                        </Button>
+                                    </IconColorSelector>
                                 </div>
                             </div>
                         </>
@@ -130,7 +165,7 @@ export function DocumentGeneralSettingsModal({ documentId, open, onOpenChange }:
                     <Button variant="outline" onClick={() => onOpenChange(false)} disabled={updateDocument.isPending}>
                         Cancel
                     </Button>
-                    <Button onClick={handleSave} disabled={!isDirty || !name.trim() || updateDocument.isPending}>
+                    <Button onClick={handleSave} disabled={!isDirty || !title.trim() || updateDocument.isPending}>
                         {updateDocument.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                         Save Changes
                     </Button>

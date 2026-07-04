@@ -1,5 +1,10 @@
 "use client";
 
+import { TASK_LIST_PAGE_SIZE } from "@/features/dashboard/constants";
+import { useGenericTaskViewData } from "@/features/dashboard/hooks/useGenericTaskViewData";
+import { VirtualizedDivRows } from "@/features/dashboard/components/shared/VirtualizedListRows";
+import { getCustomFieldIcon, collectUsedCustomFieldIds } from "@/features/dashboard/utils/taskViewUtils";
+import { TaskListLoadMore } from "@/features/dashboard/components/shared/TaskListLoadMore";
 import React, { useMemo, useState, useRef, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -47,7 +52,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { TaskCreationModal } from "@/entities/task/components/TaskCreationModal";
-import { TaskDetailModal } from "@/entities/task/components/TaskDetailModal";
+import { LazyTaskDetailModal as TaskDetailModal } from "@/entities/task/components/LazyTaskDetailModal";
 import { format } from "date-fns";
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
 import { SidePanel } from "@/features/dashboard/components/shared/SidePanel";
@@ -62,7 +67,9 @@ interface ActivityViewProps {
     projectId?: string;
     teamId?: string;
     listId?: string;
+    folderId?: string;
     viewId?: string;
+    workspaceId?: string;
     initialConfig?: any;
     selectedTaskIdFromParent?: string | null;
     onTaskSelect?: (taskId: string | null) => void;
@@ -83,45 +90,7 @@ const getPriorityIcon = (p: string | null | undefined) => {
     return <Flag className={cn("h-3 w-3", getPriorityColor(p)?.split(" ")[0])} />;
 };
 
-const getCustomFieldIcon = (fieldType: string) => {
-    const typeMap: Record<string, React.ComponentType<{ className?: string }>> = {
-        TEXT: Type,
-        TEXT_AREA: AlignLeft,
-        LONG_TEXT: AlignLeft,
-        NUMBER: Hash,
-        DROPDOWN: LayoutList,
-        DATE: Calendar,
-        CHECKBOX: CheckSquare,
-        URL: Globe,
-        EMAIL: Mail,
-        PHONE: Phone,
-        LABELS: Tag,
-        MONEY: DollarSign,
-        FORMULA: FunctionSquare,
-        FILES: Paperclip,
-        RELATIONSHIP: Link2,
-        PEOPLE: Users,
-        PROGRESS_AUTO: TrendingUp,
-        PROGRESS_MANUAL: SlidersHorizontal,
-        SUMMARY: FileText,
-        PROGRESS_UPDATES: MessageSquare,
-        TRANSLATION: Globe,
-        SENTIMENT: Heart,
-        LOCATION: MapPin,
-        RATING: Star,
-        VOTING: Users,
-        SIGNATURE: PenTool,
-        BUTTON: MousePointer,
-        ACTION_ITEMS: ListChecks,
-        CUSTOM_TEXT: Type,
-        CUSTOM_DROPDOWN: LayoutList,
-        CATEGORIZE: Target,
-        TSHIRT_SIZE: Users,
-    };
-    return typeMap[fieldType] || Type;
-};
-
-export function ActivityView({ spaceId, projectId, teamId, listId, viewId, initialConfig, selectedTaskIdFromParent, onTaskSelect }: ActivityViewProps) {
+export function ActivityView({ spaceId, projectId, teamId, listId, viewId, workspaceId, initialConfig, selectedTaskIdFromParent, onTaskSelect }: ActivityViewProps) {
     const [searchQuery, setSearchQuery] = useState("");
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [selectedTaskId, setSelectedTaskId] = useState<string | null>(selectedTaskIdFromParent || null);
@@ -130,6 +99,7 @@ export function ActivityView({ spaceId, projectId, teamId, listId, viewId, initi
     const [isToolbarSearchOpen, setIsToolbarSearchOpen] = useState(false);
     const toolbarSearchContainerRef = useRef<HTMLDivElement | null>(null);
     const toolbarSearchInputRef = useRef<HTMLInputElement | null>(null);
+    const activityScrollRef = useRef<HTMLDivElement | null>(null);
 
     // Customize Panel State
     const [customizePanelOpen, setCustomizePanelOpen] = useState(false);
@@ -349,52 +319,24 @@ export function ActivityView({ spaceId, projectId, teamId, listId, viewId, initi
         };
     }, [isToolbarSearchOpen]);
 
-    const { data: space } = trpc.space.get.useQuery({ id: spaceId as string }, { enabled: !!spaceId });
-    const { data: project } = trpc.project.get.useQuery({ id: projectId as string }, { enabled: !!projectId });
-    const resolvedWorkspaceId = space?.workspaceId || project?.workspaceId || undefined;
-    const { data: workspace } = trpc.workspace.get.useQuery({ id: resolvedWorkspaceId as string }, { enabled: !!resolvedWorkspaceId });
-    const { data: customFields = [] } = trpc.customFields.list.useQuery(
-        { workspaceId: resolvedWorkspaceId as string, applyTo: "TASK" },
-        { enabled: !!resolvedWorkspaceId },
-    );
-    const { data: availableTaskTypes = [] } = trpc.task.listTaskTypes.useQuery(
-        { workspaceId: resolvedWorkspaceId as string },
-        { enabled: !!resolvedWorkspaceId },
-    );
-    const { data: projectParticipants } = trpc.project.getParticipants.useQuery(
-        { projectId: projectId as string },
-        { enabled: !!projectId },
-    );
-    const { data: teamParticipants } = trpc.team.getParticipants.useQuery(
-        { teamId: teamId as string },
-        { enabled: !!teamId },
-    );
-    const { data: listsData } = trpc.list.byContext.useQuery(
-        { spaceId, projectId, workspaceId: resolvedWorkspaceId },
-        { enabled: !!(spaceId || projectId || resolvedWorkspaceId) },
-    );
-    const { data: currentList } = trpc.list.get.useQuery({ id: listId as string }, { enabled: !!listId });
+    const {
+        resolvedWorkspaceId,
+        customFields,
+        availableTaskTypes,
+        workspaceMembers,
+        projectParticipants,
+        teamParticipants,
+        listsData,
+        currentList,
+        tasks: rawTasks,
+        isTasksLoading,
+        hasMore: hasMoreTasks,
+        isFetchingNextPage,
+        loadMoreRef,
+        total: taskTotal,
+    } = useGenericTaskViewData({ spaceId, projectId, teamId, listId, workspaceId, includeRelations: "card" });
 
-    const taskListInput = useMemo(
-        () => ({ spaceId, projectId, teamId, listId, includeRelations: true, page: 1, pageSize: 500 }),
-        [spaceId, projectId, teamId, listId],
-    );
-
-    const { data: tasksData, isLoading: isTasksLoading } = trpc.task.list.useQuery(taskListInput, {
-        enabled: !!(spaceId || projectId || teamId || listId),
-    });
-
-    const rawTasks = useMemo(() => (tasksData?.items as any[]) ?? [], [tasksData?.items]);
-
-    const usedCustomFieldIds = useMemo(() => {
-        const fieldIds = new Set<string>();
-        rawTasks.forEach((task: { customFieldValues?: { customFieldId: string }[] }) => {
-            task.customFieldValues?.forEach((cfv: { customFieldId: string }) => {
-                fieldIds.add(cfv.customFieldId);
-            });
-        });
-        return fieldIds;
-    }, [rawTasks]);
+    const usedCustomFieldIds = useMemo(() => collectUsedCustomFieldIds(rawTasks), [rawTasks]);
 
     const FIELD_CONFIG = useMemo(() => {
         const standardFields = STANDARD_FIELD_CONFIG.map(f => ({ ...f, isCustom: false as const }));
@@ -442,12 +384,12 @@ export function ActivityView({ spaceId, projectId, teamId, listId, viewId, initi
 
     const workspaceUserById = useMemo(() => {
         const map = new Map<string, { id: string; name: string; email?: string | null; image?: string | null }>();
-        for (const m of workspace?.members ?? []) {
+        for (const m of workspaceMembers ?? []) {
             const u = (m as { user?: { id: string; name?: string | null; email?: string | null; image?: string | null } }).user;
             if (u) map.set(u.id, { id: u.id, name: u.name || u.email || "Unknown", image: u.image, email: u.email });
         }
         return map;
-    }, [workspace?.members]);
+    }, [workspaceMembers]);
 
     const users = useMemo(() => {
         if (teamId && teamParticipants?.users?.length) {
@@ -488,7 +430,7 @@ export function ActivityView({ spaceId, projectId, teamId, listId, viewId, initi
                 const assignees = t.assignees ?? [];
                 const hasAnyAssignee = assignees.length > 0;
                 const matchesAssigned =
-                    assigneeIds.length > 0 ? assignees.some((a: { user?: { id: string } }) => assigneeIds.includes(a.user?.id)) : false;
+                    assigneeIds.length > 0 ? assignees.some((a: { user?: { id: string } }) => assigneeIds.includes(a.user?.id ?? "")) : false;
                 const matchesUnassigned = hasUnassigned && !hasAnyAssignee;
                 return matchesAssigned || matchesUnassigned;
             });
@@ -701,7 +643,7 @@ export function ActivityView({ spaceId, projectId, teamId, listId, viewId, initi
 
                 {/* Content Area */}
                 <div className="flex-1 min-h-0 bg-[#f7f8f9] relative">
-                    <ScrollArea className="h-full">
+                    <ScrollArea ref={activityScrollRef} className="h-full">
                         <div className="max-w-4xl mx-auto p-6 md:p-8 space-y-6">
                             <div className="flex items-center justify-between mb-8">
                                 <div>
@@ -733,8 +675,14 @@ export function ActivityView({ spaceId, projectId, teamId, listId, viewId, initi
                                     <p className="text-zinc-500 mt-1 text-sm">There are no tasks or recent activities to show here.</p>
                                 </div>
                             ) : (
-                                <div className="space-y-4">
-                                    {tasks.map((task: any) => (
+                                <VirtualizedDivRows
+                                    scrollRef={activityScrollRef}
+                                    rowCount={tasks.length}
+                                    estimateSize={152}
+                                    className="space-y-4"
+                                    renderRow={(idx) => {
+                                        const task = tasks[idx] as any;
+                                        return (
                                         <div
                                             key={task.id}
                                             onClick={() => handleTaskClick(task.id)}
@@ -826,9 +774,17 @@ export function ActivityView({ spaceId, projectId, teamId, listId, viewId, initi
                                                 </div>
                                             </div>
                                         </div>
-                                    ))}
-                                </div>
+                                        );
+                                    }}
+                                />
                             )}
+                            <TaskListLoadMore
+                                loadMoreRef={loadMoreRef}
+                                hasMore={hasMoreTasks}
+                                isFetchingNextPage={isFetchingNextPage}
+                                loaded={tasks.length}
+                                total={taskTotal}
+                            />
                         </div>
                     </ScrollArea>
                 </div>
@@ -951,20 +907,24 @@ export function ActivityView({ spaceId, projectId, teamId, listId, viewId, initi
 
                 {isCreateModalOpen && (
                     <TaskCreationModal
-                        isOpen={isCreateModalOpen}
-                        onClose={() => setIsCreateModalOpen(false)}
-                        spaceId={spaceId}
-                        projectId={projectId}
-                        listId={listId}
-                        teamId={teamId}
+                        context={spaceId ? "SPACE" : projectId ? "PROJECT" : "GENERAL"}
+                        contextId={spaceId || projectId}
+                        workspaceId={resolvedWorkspaceId}
+                        users={users}
+                        lists={(listsData?.items ?? []).map((l: { id: string; name: string }) => ({ id: l.id, name: l.name }))}
+                        defaultListId={listId}
+                        availableStatuses={allAvailableStatuses}
+                        open={isCreateModalOpen}
+                        onOpenChange={setIsCreateModalOpen}
+                        trigger={<span className="sr-only" />}
                     />
                 )}
 
                 {selectedTaskIdFromParent === undefined && selectedTaskId && (
                     <TaskDetailModal
                         taskId={selectedTaskId}
-                        isOpen={!!selectedTaskId}
-                        onClose={() => setSelectedTaskId(null)}
+                        open={!!selectedTaskId}
+                        onOpenChange={(open) => !open && setSelectedTaskId(null)}
                     />
                 )}
             </div>

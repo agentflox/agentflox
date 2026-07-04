@@ -27,6 +27,14 @@ function peerPhoto(peer: { image?: string | null; avatar?: string | null }) {
   return peer.image || peer.avatar || null;
 }
 
+type ConnectionPeer = {
+  id: string;
+  name: string | null;
+  image: string | null;
+  username: string | null;
+  avatar: string | null;
+};
+
 export function MessagesSidebar({ activeId }: { activeId?: string }) {
   const router = useRouter();
   const [query, setQuery] = useState('');
@@ -368,7 +376,14 @@ export function MessagesSidebar({ activeId }: { activeId?: string }) {
                 </div>
                 <div className="max-h-[300px] overflow-y-auto py-1 scrollbar-thin scrollbar-thumb-zinc-200 dark:scrollbar-thumb-zinc-800">
                   {/* Reuse existing addConnPeer logic for connections */}
-                  {Array.from(new Map([...(connReceived.data?.items || []).map(c => [c.requester.id, c.requester]), ...(connSent.data?.items || []).map(c => [c.receiver.id, c.receiver])]).values())
+                  {Array.from(
+                    new Map(
+                      ([
+                        ...(connReceived.data?.items || []).map((c): [string, ConnectionPeer] => [c.requester.id, c.requester]),
+                        ...(connSent.data?.items || []).map((c): [string, ConnectionPeer] => [c.receiver.id, c.receiver]),
+                      ])
+                    ).values()
+                  )
                     .filter(user => user && (!newMsgQuery.trim() || (user.name || user.username || '').toLowerCase().includes(newMsgQuery.toLowerCase())))
                     .map(user => (
                       <button
@@ -801,7 +816,7 @@ export function MessagesSidebar({ activeId }: { activeId?: string }) {
                   <Button
                     className="h-7 px-3 shrink-0 ml-2 rounded-lg cursor-pointer bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm font-semibold text-[11px]"
                     disabled={sendConnectionRequest.isPending}
-                    onClick={() => sendConnectionRequest.mutate({ targetUserId: searchResult.id })}
+                    onClick={() => sendConnectionRequest.mutate({ userId: searchResult.id })}
                   >
                     {sendConnectionRequest.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Connect'}
                   </Button>

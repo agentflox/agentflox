@@ -213,11 +213,11 @@ export function TaskResultCard({ payload, time }: { payload: any; time: string }
 }
 
 // ─── Coordinator Tick ─────────────────────────────────────────────────────────
-export function CoordinatorTick({ label, time }: { label: string; time: string }) {
+export function CoordinatorTick({ agentLabel, time }: { agentLabel: string; time: string }) {
   return (
     <div className="flex items-center gap-2 py-0.5 px-1">
       <div className="flex-1 h-px bg-zinc-100" />
-      <span className="text-[9px] text-zinc-400 font-mono whitespace-nowrap">{label} · {time}</span>
+      <span className="text-[9px] text-zinc-400 font-mono whitespace-nowrap">{agentLabel} · {time}</span>
       <div className="flex-1 h-px bg-zinc-100" />
     </div>
   );
@@ -684,7 +684,7 @@ export function GroupedAiStepRow({
                   currentNode={null}
                   streamingContent={thinking.detail || ''}
                   isStreaming={isRunning}
-                  agentLabel="AI Reasoning"
+                  label="AI Reasoning"
                 />
               </div>
             )}
@@ -907,11 +907,11 @@ export function TaskExecutionCard({
   }
 
   const checklistItems = [
-    { label: "Planning", state: planningState },
-    { label: "Execution", state: executionState },
-    { label: "Peer Review", state: reviewState },
-    ...(hitlState !== 'none' ? [{ label: "Human Review", state: hitlState }] : []),
-    { label: "Final Result", state: finalState },
+    { agentLabel: "Planning", state: planningState },
+    { agentLabel: "Execution", state: executionState },
+    { agentLabel: "Peer Review", state: reviewState },
+    ...(hitlState !== 'none' ? [{ agentLabel: "Human Review", state: hitlState }] : []),
+    { agentLabel: "Final Result", state: finalState },
   ];
 
   // Calculate percentage progress for pipeline steps
@@ -1584,9 +1584,9 @@ export function SwarmStepItem({
   const stepInitials = stepAgentName.split(/\s+/).map((w: string) => w[0]).join("").slice(0, 2).toUpperCase() || 'A';
   const stepAvatarBg = colors[stepAgentName.charCodeAt(0) % colors.length] || avatarBg;
 
-  let badgeLabel = isPending ? "pending" : "status";
-  let badgeType: 'status' | 'pending' | 'result' | 'dispatch' = isPending ? "pending" : "status";
-  let timestamp = isPending ? "now" : time;
+  const badgeLabel = isPending ? "pending" : "status";
+  const badgeType: 'status' | 'pending' | 'result' | 'dispatch' = isPending ? "pending" : "status";
+  const timestamp = isPending ? "now" : time;
 
   let detailText = step.detail || "Working on task...";
   if (isAiGroup) {
@@ -1681,7 +1681,7 @@ export function SwarmStepItem({
                 currentNode={isPending ? currentNodeLabel : null}
                 streamingContent={streamingContentText}
                 isStreaming={!!streamingContentText}
-                agentLabel={`${stepAgentName} Cognition`}
+                label={`${stepAgentName} Cognition`}
               />
             </div>
           ) : (
@@ -1770,7 +1770,7 @@ export function SwarmChatFeed({
           const time = new Date(e.timestamp).toLocaleTimeString();
           if (e.type === "CYCLE_INSPECT") {
             const count = e.payload?.taskCount ?? e.payload?.taskIds?.length ?? 0;
-            return <CoordinatorTick key={item.id} label={count > 0 ? `${count} tasks in backlog` : "coordinator cycle"} time={time} />;
+            return <CoordinatorTick key={item.id} agentLabel={count > 0 ? `${count} tasks in backlog` : "coordinator cycle"} time={time} />;
           }
           return (
             <div key={item.id} className="flex items-start gap-2">
@@ -1997,12 +1997,12 @@ export function SwarmChatFeed({
             }
 
             if (type === 'CYCLE_IDLE') return (
-              <CoordinatorTick key={item.id} label={payload.label || 'coordinator idle'} time={time} />
+              <CoordinatorTick key={item.id} agentLabel={payload.agentLabel || 'coordinator idle'} time={time} />
             );
 
             if (type === 'CYCLE_INSPECT') {
               const count = payload?.taskCount ?? payload?.taskIds?.length ?? 0;
-              return <CoordinatorTick key={item.id} label={count > 0 ? `${count} tasks in backlog` : "coordinator cycle"} time={time} />;
+              return <CoordinatorTick key={item.id} agentLabel={count > 0 ? `${count} tasks in backlog` : "coordinator cycle"} time={time} />;
             }
 
             if (type === 'CYCLE_ERROR') return (
@@ -2018,7 +2018,7 @@ export function SwarmChatFeed({
             return (
               <CoordinatorTick
                 key={item.id}
-                label={`${type.toLowerCase().replace(/_/g, ' ')}${payload?.label || payload?.detail ? `: ${payload.label || payload.detail}` : ''}`}
+                agentLabel={`${type.toLowerCase().replace(/_/g, ' ')}${payload?.agentLabel || payload?.detail ? `: ${payload.agentLabel || payload.detail}` : ''}`}
                 time={time}
               />
             );
@@ -2213,7 +2213,7 @@ export function SwarmChatFeed({
               currentNode={thinkingNode}
               streamingContent={streamingContent}
               isStreaming={isStreaming}
-              agentLabel={workforceName}
+              label={workforceName}
             />
           </div>
         </div>

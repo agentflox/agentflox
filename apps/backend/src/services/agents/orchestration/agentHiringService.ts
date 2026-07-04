@@ -285,6 +285,7 @@ export class AgentHiringService {
                 description: roleDef.description,
                 status: 'ACTIVE',
                 capabilities: roleDef.capabilities,
+                ownerId: userId,
                 workspaceId: project.workspaceId ?? undefined,
                 isActive: true,
                 metadata: {

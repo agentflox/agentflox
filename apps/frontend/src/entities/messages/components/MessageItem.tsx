@@ -7,13 +7,12 @@ import {
 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Popover, PopoverContent, PopoverTrigger, PopoverAnchor } from '@/components/ui/popover';
-import { v4 as uuidv4 } from 'uuid';
 import EmojiPicker, { Theme, EmojiClickData } from 'emoji-picker-react';
 import { trpc } from '@/lib/trpc';
 import { useSession } from 'next-auth/react';
 import { MessageContent } from './MessageContent';
 import { MessageReplyTo } from './MessageReplyTo';
-import { useMessages } from '../hooks/useMessages';
+import { useMessageActions } from '../hooks/useMessageActions';
 import { useToast } from '@/hooks/useToast';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
@@ -52,16 +51,13 @@ export function MessageItem({ message, currentUserId, onReply }: MessageItemProp
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [showReactionMenu, setShowReactionMenu] = useState(false);
   const [showFullPicker, setShowFullPicker] = useState(false);
-  const [deleteMode, setDeleteMode] = useState<'everyone' | 'you'>('you');
+  const [deleteMode, setDeleteMode] = useState<'everyone' | 'for_me'>('for_me');
   const [taskModalOpen, setTaskModalOpen] = useState(false);
   const itemRef = useRef<HTMLDivElement>(null);
   const hasMarkedRead = useRef(false);
   const { toast } = useToast();
   const { data: session } = useSession();
-  const { markAsRead, toggleReaction } = useMessages({
-    userId: message.senderId === currentUserId ? message.receiverId : message.senderId,
-    fetchConversations: false,
-  });
+  const { markAsRead, toggleReaction } = useMessageActions();
 
   const [isForwardOpen, setIsForwardOpen] = useState(false);
   const [forwardQuery, setForwardQuery] = useState('');
@@ -463,7 +459,7 @@ export function MessageItem({ message, currentUserId, onReply }: MessageItemProp
                   </div>
                 </label>
                 <label className="flex items-start gap-3 p-3 rounded-lg border border-zinc-200 dark:border-zinc-800 cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-colors">
-                  <input type="radio" name="deleteMode" checked={deleteMode === 'you'} onChange={() => setDeleteMode('you')} className="mt-1" />
+                  <input type="radio" name="deleteMode" checked={deleteMode === 'for_me'} onChange={() => setDeleteMode('for_me')} className="mt-1" />
                   <div>
                     <div className="font-medium text-sm">Delete for you</div>
                     <div className="text-xs text-muted-foreground mt-0.5">This message will be deleted for you. Other chat members will still be able to see it.</div>
@@ -534,7 +530,6 @@ export function MessageItem({ message, currentUserId, onReply }: MessageItemProp
                   disabled={forwardMutation.isPending}
                   onClick={() => {
                     forwardMutation.mutate({
-                      id: uuidv4(),
                       toUserId: c.user_id,
                       content: message.content,
                       marketplaceListingId: c.marketplace_listing_id,

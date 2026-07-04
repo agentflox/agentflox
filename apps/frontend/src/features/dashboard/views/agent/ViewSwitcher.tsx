@@ -1,12 +1,13 @@
-import { OverviewView } from './OverviewView';
-import { OperatorView } from './OperatorView';
-import { AutomationView } from './AutomationView';
-import { ChatView } from './ChatView';
-import { ActivitiesView } from './ActivitiesView';
-import { TasksView } from './TasksView';
-import { LogsView } from './LogsView';
-import { SettingsView } from './SettingsView';
+import dynamic from "next/dynamic";
 
+const OverviewView = dynamic(() => import("./OverviewView").then((mod) => mod.OverviewView));
+const OperatorView = dynamic(() => import("./OperatorView").then((mod) => mod.OperatorView));
+const AutomationView = dynamic(() => import("./AutomationView").then((mod) => mod.AutomationView));
+const ChatView = dynamic(() => import("./ChatView").then((mod) => mod.ChatView));
+const ActivitiesView = dynamic(() => import("./ActivitiesView").then((mod) => mod.ActivitiesView));
+const TasksView = dynamic(() => import("./TasksView").then((mod) => mod.TasksView));
+const LogsView = dynamic(() => import("./LogsView").then((mod) => mod.LogsView));
+const SettingsView = dynamic(() => import("./SettingsView").then((mod) => mod.SettingsView));
 
 interface ViewSwitcherProps {
   activeTab: string;

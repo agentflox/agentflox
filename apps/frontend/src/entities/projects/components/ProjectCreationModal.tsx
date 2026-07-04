@@ -12,6 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/useToast";
 import { useAppDispatch } from "@/hooks/useReduxStore";
 import { useSession } from "next-auth/react";
+import { skipToken } from "@tanstack/react-query";
 import { trpc } from "@/lib/trpc";
 import { upsertProject } from "@/stores/slices/project.slice";
 import { serializeDates } from "@/stores/utils/serialize";
@@ -61,8 +62,8 @@ export function ProjectCreationModal({ open, onOpenChange, onCreated, defaultSpa
 	const isInsideWorkspace = !!params?.workspaceId;
 
 	// Fetch Data
-	const queryInput = !isInsideWorkspace ? { scope: "owned" as const } : undefined;
-	const { data: workspacesData } = trpc.workspace.list.useQuery(queryInput, { enabled: open });
+	const queryInput = !isInsideWorkspace ? { scope: "owned" as const } : skipToken;
+	const { data: workspacesData } = trpc.workspace.list.useQuery(queryInput, { enabled: open && !isInsideWorkspace });
 	const workspaces = workspacesData?.items || [];
 
 	const { data: spacesData } = trpc.space.list.useQuery(

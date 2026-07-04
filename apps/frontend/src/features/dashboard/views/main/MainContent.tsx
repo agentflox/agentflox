@@ -1,4 +1,4 @@
-import { ContentSection } from '../../components/ContentSection';
+import { ContentSection } from '../../components/shared/ContentSection';
 import { DashboardContentSection } from '../../types';
 
 interface MainContentProps {

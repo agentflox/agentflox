@@ -6,7 +6,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
-import { RefreshCw, Search, Settings2, Network, ArrowLeft, User, List, CheckCircle2, X, Tag as TagIcon, Trash2, UserPlus, Users } from "lucide-react";
+import { RefreshCw, Search, Settings2, Network, ArrowLeft, User, List, CheckCircle2, X, Tag as TagIcon, Trash2, UserPlus, Users, Wand2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/useToast";
 import { trpc } from "@/lib/trpc";
@@ -280,15 +280,16 @@ export function SaveTemplateModal({
 	const isSubmitting = createMutation.isPending || updateMutation.isPending;
 
 	const getCaptureConfig = () => {
-		if (importMode === "everything") return undefined;
-		if (entityImportMode === "task") return taskChecks;
+		if (importMode === "everything") return { importMode: "everything" as const };
+		if (entityImportMode === "task") return { importMode: "customize" as const, ...taskChecks };
 		if (entityImportMode === "container") {
 			return {
+				importMode: "customize" as const,
 				...containerToggles,
 				taskConfig: containerToggles.tasks ? taskChecks : undefined,
 			};
 		}
-		return undefined;
+		return { importMode: "customize" as const };
 	};
 
 	const getValidShares = () =>
@@ -308,7 +309,6 @@ export function SaveTemplateModal({
 				workspaceId: workspaceId ?? undefined,
 				shareWith,
 				publicSharing,
-				importMode,
 				captureConfig: getCaptureConfig(),
 				content: contentToSave || {},
 				shares: getValidShares(),
@@ -338,7 +338,6 @@ export function SaveTemplateModal({
 				entityType: entityType as any,
 				shareWith,
 				publicSharing,
-				importMode,
 				captureConfig: getCaptureConfig(),
 				content: contentToSave || {},
 				shares: getValidShares(),
@@ -377,12 +376,18 @@ export function SaveTemplateModal({
 		}
 	}, [open, initialMode]);
 
+	const templateListEntityTypes = [
+		"SPACE", "FOLDER", "LIST", "TASK", "DOC", "VIEW", "AGENT", "WORKFORCE", "LISTING", "PROJECT",
+	] as const;
+
 	// Fetch real templates for the update view
 	const updateTemplatesQuery = trpc.template.list.useQuery(
 		{
 			scope: "workspace",
 			workspaceId,
-			entityTypes: [entityType as TemplateEntityType],
+			entityTypes: templateListEntityTypes.includes(entityType as (typeof templateListEntityTypes)[number])
+				? [entityType as (typeof templateListEntityTypes)[number]]
+				: undefined,
 			editableOnly: true,
 			search: templateSearch || undefined,
 			pageSize: 20,

@@ -193,7 +193,7 @@ export function registerMessageHandlers(io: any, socket: Socket) {
         isRead: result.isRead,
         marketplaceListingId: data.marketplaceListingId ?? null,
         createdAt: result.createdAt,
-        sequenceNumber: result.sequenceNumber.toString(), // ✅ BigInt → string
+        sequenceNumber: result.sequenceNumber?.toString() ?? '0', // ✅ BigInt → string
       };
 
       // 8. Cache for deduplication

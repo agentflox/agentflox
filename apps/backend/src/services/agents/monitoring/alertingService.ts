@@ -161,8 +161,8 @@ export class AlertingService {
             data: {
                 agentId: alert.agentId,
                 action: 'ALERT_TRIGGERED',
-                actorId: 'system',
-                details: {
+                userId: null,
+                changes: {
                     alertName: alert.name,
                     severity: alert.severity,
                     condition: alert.condition,
@@ -170,6 +170,9 @@ export class AlertingService {
                     threshold: alert.threshold,
                     context,
                 },
+                diff: {},
+                metadata: { source: 'system' },
+                integrity: 'system-alert',
             },
         });
     }

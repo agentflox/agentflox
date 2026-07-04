@@ -117,7 +117,7 @@ export function MentionModalDialog({
         }
 
         // Add project participants
-        const participants = (projectParticipants as any[]) || [];
+        const participants = projectParticipants?.users ?? [];
         participants.forEach((participant: any) => {
             if (participant.user && !items.find((p) => p.id === participant.user.id)) {
                 items.push({

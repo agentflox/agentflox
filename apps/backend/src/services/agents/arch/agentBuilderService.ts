@@ -2147,7 +2147,7 @@ ${enrichedPrompt}`,
             .map(a => ({
               automationData: {
                 id: this.generateId(),
-                createdBy: userId,
+                ownerId: userId,
                 agentId: agent.id,
                 name: a.name,
                 description: a.description || a.reasoning,

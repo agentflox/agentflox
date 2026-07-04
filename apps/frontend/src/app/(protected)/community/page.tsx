@@ -2,11 +2,21 @@
 
 import { useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { StartHereView } from "../../../features/community/views/StartHereView";
-import { SectionFeedView } from "../../../features/community/views/SectionFeedView";
-import { DiscussionGroupsView } from "../../../features/community/views/DiscussionGroupsView";
-import { CommunityGuidelinesView } from "../../../features/community/views/CommunityGuidelinesView";
+import dynamic from "next/dynamic";
 import { WELCOME_ITEMS, SUPPORT_ITEMS } from "../../../features/community/components/CommunitySidebar";
+
+const StartHereView = dynamic(() =>
+  import("../../../features/community/views/StartHereView").then((mod) => mod.StartHereView)
+);
+const SectionFeedView = dynamic(() =>
+  import("../../../features/community/views/SectionFeedView").then((mod) => mod.SectionFeedView)
+);
+const DiscussionGroupsView = dynamic(() =>
+  import("../../../features/community/views/DiscussionGroupsView").then((mod) => mod.DiscussionGroupsView)
+);
+const CommunityGuidelinesView = dynamic(() =>
+  import("../../../features/community/views/CommunityGuidelinesView").then((mod) => mod.CommunityGuidelinesView)
+);
 
 export default function CommunityPage() {
   const router = useRouter();
@@ -20,10 +30,6 @@ export default function CommunityPage() {
   }, [searchParams, router]);
 
   const selectedSection = [...WELCOME_ITEMS, ...SUPPORT_ITEMS].find((item) => item.key === activeSection);
-
-  const handleSectionClick = (key: string) => {
-    router.push(`/community?space=${key}`);
-  };
 
   return (
     <>

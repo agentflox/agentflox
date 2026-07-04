@@ -10,7 +10,11 @@ type FilterState = {
 	status?: WorkspaceStatusFilter;
 };
 
-export function useWorkspaceList(initialScope: WorkspaceScope = "owned") {
+export function useWorkspaceList(
+	initialScope: WorkspaceScope = "owned",
+	options: { includeCounts?: boolean } = {}
+) {
+	const { includeCounts = true } = options;
 	const [page, setPage] = useState(1);
 	const pageSize = 12;
 	const [query, setQuery] = useState("");
@@ -27,12 +31,12 @@ export function useWorkspaceList(initialScope: WorkspaceScope = "owned") {
 		return {
 			page,
 			pageSize,
-			includeCounts: true,
+			includeCounts,
 			scope,
 			query: trimmedQuery || undefined,
 			status: normalizedStatus,
 		};
-	}, [page, pageSize, scope, query, filters.status]);
+	}, [page, pageSize, scope, query, filters.status, includeCounts]);
 
 	const queryResult = trpc.workspace.list.useQuery(listInput, {
 		staleTime: 30_000,

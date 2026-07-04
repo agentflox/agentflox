@@ -12,7 +12,7 @@ interface EntityRenameDialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     currentName: string;
-    entityType: "space" | "project" | "team" | "list" | "doc";
+    entityType: "space" | "project" | "team" | "list" | "doc" | "folder";
     onSave: (newName: string) => void;
     isSaving?: boolean;
 }
@@ -23,6 +23,7 @@ const IconMap = {
     team: Users,
     list: ListTodo,
     doc: FileText,
+    folder: FileText,
 };
 
 export function EntityRenameDialog({ open, onOpenChange, currentName, entityType, onSave, isSaving }: EntityRenameDialogProps) {

@@ -58,7 +58,7 @@ export class AgentBuilderAssistantService {
       where: {
         id: agentId,
         OR: [
-          { createdBy: userId },
+          { ownerId: userId },
           {
             collaborators: {
               some: { userId },

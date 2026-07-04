@@ -40,8 +40,9 @@ import { TemplateMenuPopover } from "@/entities/templates/components/TemplateMen
 
 interface FolderActionsMenuProps {
     workspaceId: string;
-    spaceId: string;
+    spaceId?: string;
     projectId?: string;
+    teamId?: string;
     folderId: string;
     folderName: string;
     folderIcon?: string;

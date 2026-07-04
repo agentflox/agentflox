@@ -71,6 +71,83 @@ export const projectRouter = router({
 			return { items, total, page: input.page, pageSize: input.pageSize };
 		}),
 
+	listInfinite: protectedProcedure
+		.input(z.object({
+			query: z.string().optional(),
+			stage: z.enum(["IDEA", "MVP", "BETA", "LAUNCHED", "GROWTH", "SCALE", "EXIT"]).optional(),
+			industry: z.array(z.string()).optional(),
+			isActive: z.boolean().optional(),
+			scope: z.enum(["all", "owned", "participated"]).optional().default("owned"),
+			status: z.enum(["DRAFT", "PUBLISHED", "ARCHIVED"]).optional(),
+			page: z.number().int().min(1).optional().default(1),
+			pageSize: z.number().int().min(1).max(50).optional().default(12),
+			spaceId: z.string().optional().nullable(),
+			workspaceId: z.string().optional(),
+			cursor: z.number().nullish(),
+		}))
+		.query(async ({ ctx, input }) => {
+			const userId = ctx.session!.user!.id;
+			await LimitGuard.ensureCycle(userId);
+			const page = input.cursor ?? input.page ?? 1;
+			const pageSize = input.pageSize ?? 12;
+			const where: any = {};
+
+			if (input.scope === "owned") {
+				where.ownerId = userId;
+			} else if (input.scope === "participated") {
+				where.members = { some: { userId } };
+			} else {
+				where.OR = [{ ownerId: userId }, { members: { some: { userId } } }];
+			}
+
+			if (input?.stage) {
+				where.stage = input.stage;
+			}
+			if (input?.industry && input.industry.length > 0) {
+				where.industry = { hasSome: input.industry };
+			}
+			if (input?.isActive !== undefined) {
+				where.isActive = input.isActive;
+			}
+			if (input?.status) {
+				where.status = input.status;
+			}
+			if (input?.query) {
+				where.OR = [
+					...(where.OR || []),
+					{ name: { contains: input.query, mode: "insensitive" } },
+					{ description: { contains: input.query, mode: "insensitive" } },
+					{ tagline: { contains: input.query, mode: "insensitive" } },
+				];
+			}
+
+			if (input.spaceId !== undefined) {
+				where.spaceId = input.spaceId;
+			}
+
+			if (input.workspaceId) {
+				where.workspaceId = input.workspaceId;
+			}
+
+			const skip = (page - 1) * pageSize;
+			const take = pageSize;
+			const [total, items] = await Promise.all([
+				prisma.project.count({ where }),
+				prisma.project.findMany({ where, orderBy: { updatedAt: "desc" }, skip, take }),
+			]);
+
+			const totalPages = Math.ceil(total / pageSize);
+			const hasNextPage = page < totalPages;
+
+			return {
+				items,
+				total,
+				page,
+				pageSize,
+				nextCursor: hasNextPage ? page + 1 : undefined,
+			};
+		}),
+
 	get: protectedProcedure
 		.input(z.object({ id: z.string() }))
 		.query(async ({ ctx, input }) => {
@@ -202,9 +279,9 @@ export const projectRouter = router({
 					views: {
 						createMany: {
 							data: [
-								{ name: "Overview", type: ViewType.OVERVIEW, position: 0, createdBy: ctx.session!.user!.id, isDefault: true },
-								{ name: "List", type: ViewType.LIST, position: 1, createdBy: ctx.session!.user!.id },
-								{ name: "Board", type: ViewType.BOARD, position: 2, createdBy: ctx.session!.user!.id },
+								{ name: "Overview", type: ViewType.OVERVIEW, position: 0, ownerId: ctx.session!.user!.id, isDefault: true },
+								{ name: "List", type: ViewType.LIST, position: 1, ownerId: ctx.session!.user!.id },
+								{ name: "Board", type: ViewType.BOARD, position: 2, ownerId: ctx.session!.user!.id },
 							]
 						}
 					}
@@ -246,9 +323,9 @@ export const projectRouter = router({
 				views: {
 					createMany: {
 						data: [
-							{ name: "Overview", type: ViewType.OVERVIEW, position: 0, createdBy: ctx.session!.user!.id, isDefault: true },
-							{ name: "List", type: ViewType.LIST, position: 1, createdBy: ctx.session!.user!.id },
-							{ name: "Board", type: ViewType.BOARD, position: 2, createdBy: ctx.session!.user!.id },
+							{ name: "Overview", type: ViewType.OVERVIEW, position: 0, ownerId: ctx.session!.user!.id, isDefault: true },
+							{ name: "List", type: ViewType.LIST, position: 1, ownerId: ctx.session!.user!.id },
+							{ name: "Board", type: ViewType.BOARD, position: 2, ownerId: ctx.session!.user!.id },
 						]
 					}
 				}
@@ -293,6 +370,7 @@ export const projectRouter = router({
 				isHiring: z.boolean().optional(),
 				isActive: z.boolean().optional(),
 				isPublic: z.boolean().optional(),
+				visibility: z.enum(["PRIVATE", "ADMINS", "MEMBERS", "EVERYONE", "PUBLIC"]).optional(),
 				spaceId: z.string().optional().nullable(),
 				workspaceId: z.string().optional().nullable(),
 			})
@@ -370,19 +448,6 @@ export const projectRouter = router({
 			return updated.id;
 		}),
 
-	// Public endpoints similar to proposals
-	getSinglePublicProject: protectedProcedure
-		.input(z.object({ id: z.string() }))
-		.query(async ({ input }) => {
-			return prisma.project.findFirst({
-				where: { id: input.id, isPublic: true, status: "PUBLISHED" },
-				include: {
-					owner: { select: { id: true, name: true, email: true } },
-					likes: { select: { userId: true } },
-				}
-			});
-		}),
-
 	getPublicProjects: protectedProcedure
 		.input(z.object({
 			query: z.string().optional(),
@@ -409,22 +474,9 @@ export const projectRouter = router({
 			const take = input.pageSize;
 			const [total, items] = await Promise.all([
 				prisma.project.count({ where }),
-				prisma.project.findMany({ where, orderBy: { updatedAt: "desc" }, skip, take, include: { owner: true, likes: true } })
+				prisma.project.findMany({ where, orderBy: { updatedAt: "desc" }, skip, take, include: { owner: true } })
 			]);
 			return { items, total, page: input.page, pageSize: input.pageSize };
-		}),
-
-	toggleInterest: protectedProcedure
-		.input(z.object({ projectId: z.string() }))
-		.mutation(async ({ ctx, input }) => {
-			const userId = ctx.session!.user!.id;
-			const existing = await prisma.projectLike.findFirst({ where: { projectId: input.projectId, userId } });
-			if (existing) {
-				await prisma.projectLike.delete({ where: { id: existing.id } });
-				return { interested: false } as const;
-			}
-			await prisma.projectLike.create({ data: { projectId: input.projectId, userId } });
-			return { interested: true } as const;
 		}),
 
 	getDiscussionViewPermission: protectedProcedure
@@ -446,5 +498,88 @@ export const projectRouter = router({
 			});
 			if (!canView) return null;
 			return post.projectId;
+		}),
+
+	duplicate: protectedProcedure
+		.input(z.object({
+			projectId: z.string(),
+			newName: z.string(),
+			icon: z.string().optional(),
+			color: z.string().optional(),
+			copyMode: z.enum(["everything", "customize"]),
+			includeAutomations: z.boolean().optional(),
+			includeViews: z.boolean().optional(),
+			includeTasks: z.boolean().optional(),
+			taskProperties: z.record(z.string(), z.boolean()).optional(),
+			archivedTasks: z.enum(["no", "include", "unarchive"]).optional(),
+		}))
+		.mutation(async ({ ctx, input }) => {
+			const userId = ctx.session!.user!.id;
+			const source = await prisma.project.findFirst({
+				where: {
+					id: input.projectId,
+					OR: [
+						{ ownerId: userId },
+						{ members: { some: { userId } } },
+					],
+				},
+				include: { views: { orderBy: { position: "asc" } } },
+			});
+			if (!source) throw new Error("Project not found or permission denied");
+
+			const logo = input.icon
+				? JSON.stringify({ icon: input.icon, color: input.color ?? "#4F46E5" })
+				: source.logo;
+
+			const shouldCopyViews = input.copyMode === "everything" || input.includeViews;
+
+			const newProject = await prisma.project.create({
+				data: {
+					name: input.newName,
+					description: source.description,
+					status: source.status,
+					visibility: source.visibility,
+					spaceId: source.spaceId,
+					workspaceId: source.workspaceId,
+					ownerId: userId,
+					logo,
+					members: { create: { userId, role: "ADMIN" } },
+					...(shouldCopyViews && source.views.length > 0
+						? {
+							views: {
+								create: source.views.map((view, index) => ({
+									name: view.name,
+									type: view.type,
+									position: index,
+									ownerId: userId,
+									config: view.config ?? undefined,
+									filters: view.filters ?? undefined,
+									grouping: view.grouping ?? undefined,
+									sorting: view.sorting ?? undefined,
+									columns: view.columns ?? undefined,
+									isDefault: view.isDefault,
+									isPrivate: view.isPrivate,
+									isLocked: view.isLocked,
+								})),
+							},
+						}
+						: {}),
+				},
+			});
+
+			return { id: newProject.id };
+		}),
+
+	toggleInterest: protectedProcedure
+		.input(z.object({ projectId: z.string() }))
+		.mutation(async () => ({ success: true as const })),
+
+	getSinglePublicProject: protectedProcedure
+		.input(z.object({ id: z.string() }))
+		.query(async ({ input }) => {
+			return prisma.project.findFirst({
+				where: { id: input.id, isPublic: true, status: "PUBLISHED" },
+				include: { owner: true },
+			});
 		}),
 });

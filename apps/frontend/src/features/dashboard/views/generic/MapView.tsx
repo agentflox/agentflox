@@ -4,6 +4,8 @@ import icon from "leaflet/dist/images/marker-icon.png";
 import iconShadow from "leaflet/dist/images/marker-shadow.png";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { useGenericTaskViewData } from "@/features/dashboard/hooks/useGenericTaskViewData";
+import { TaskListLoadMore } from "@/features/dashboard/components/shared/TaskListLoadMore";
 import { useSession } from "next-auth/react";
 import { LocationSearchInput } from "@/entities/task/components/LocationSearchInput";
 import { trpc } from "@/lib/trpc";
@@ -29,7 +31,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-import { DescriptionEditor } from "@/entities/shared/components/DescriptionEditor";
+import { LazyDescriptionEditor } from "@/entities/shared/components/LazyDescriptionEditor";
 import { AssigneeSelector } from "@/entities/task/components/AssigneeSelector";
 import {
     DropdownMenu,
@@ -58,13 +60,14 @@ import { DestinationPicker } from "@/entities/task/components/DestinationPicker"
 import { SingleDateCalendar } from "@/components/ui/date-picker";
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
 import { TaskTypeIcon } from "@/entities/task/components/TaskTypeIcon";
+import { TagsModal } from "@/entities/task/components/TagsModal";
 import { format } from "date-fns";
 import { Switch } from "@/components/ui/switch";
 import { ViewToolbarSaveDropdown } from "@/features/dashboard/components/shared/ViewToolbarSaveDropdown";
 import { ViewToolbarClosedPopover } from "@/features/dashboard/components/shared/ViewToolbarClosedPopover";
 import { SidePanel } from "@/features/dashboard/components/shared/SidePanel";
 import { TaskCreationModal } from "@/entities/task/components/TaskCreationModal";
-import { TaskDetailModal } from "@/entities/task/components/TaskDetailModal";
+import { LazyTaskDetailModal as TaskDetailModal } from "@/entities/task/components/LazyTaskDetailModal";
 import stableStringify from "json-stable-stringify";
 
 // Colors for the "Default" color picker
@@ -114,7 +117,10 @@ type Task = {
     position?: string;
 };
 
-let DefaultIcon = L.icon({
+type TaskLocation = { lat: number; lng: number };
+type TaskWithLocation = Task & { location: TaskLocation | null };
+
+const DefaultIcon = L.icon({
     iconUrl: (icon as any).src || icon,
     shadowUrl: (iconShadow as any).src || iconShadow,
     iconSize: [25, 41],
@@ -187,6 +193,7 @@ export interface MapViewProps {
     teamId?: string;
     listId?: string;
     viewId?: string;
+    workspaceId?: string;
     initialConfig?: Record<string, any> | null;
     selectedTaskIdFromParent?: string | null;
     onTaskSelect?: (taskId: string | null) => void;
@@ -334,7 +341,7 @@ function TaskMapPopup({ task, onUpdate, users, allAvailableTags, onMaximize, ses
             {/* Tags */}
             <div className="flex flex-wrap gap-1 min-h-[24px]">
                 <TagsModal
-                    value={task.tags || []}
+                    tags={task.tags || []}
                     onChange={(tags) => onUpdate(task.id, { tags })}
                     allAvailableTags={allAvailableTags || []}
                     trigger={
@@ -378,7 +385,7 @@ function TaskMapPopup({ task, onUpdate, users, allAvailableTags, onMaximize, ses
                 <DialogContent className="sm:max-w-[700px] h-[80vh] flex flex-col p-0 overflow-hidden">
                     <DialogTitle className="sr-only">Description</DialogTitle>
                     <div className="flex-1 overflow-hidden flex flex-col">
-                        <DescriptionEditor
+                        <LazyDescriptionEditor
                             content={task.description || ""}
                             onChange={handleDescriptionSave}
                             editable={true}
@@ -402,20 +409,31 @@ function TaskMapPopup({ task, onUpdate, users, allAvailableTags, onMaximize, ses
     );
 }
 
-export function MapView({ spaceId, projectId, teamId, listId, folderId, viewId, initialConfig, selectedTaskIdFromParent, onTaskSelect, context }: MapViewProps) {
+export function MapView({ spaceId, projectId, teamId, listId, folderId, viewId, workspaceId, initialConfig, selectedTaskIdFromParent, onTaskSelect, context }: MapViewProps) {
     const { data: session } = useSession();
     const mapRef = useRef<L.Map | null>(null);
     const mapContainerRef = useRef<HTMLDivElement>(null);
     const markersRef = useRef<L.Marker[]>([]);
     const utils = trpc.useUtils();
 
-    const { data: space } = trpc.space.get.useQuery({ id: spaceId as string }, { enabled: !!spaceId });
-    const { data: project } = trpc.project.get.useQuery({ id: projectId as string }, { enabled: !!projectId });
-    const resolvedWorkspaceId = space?.workspaceId || project?.workspaceId;
+    const {
+        resolvedWorkspaceId,
+        customFields = [],
+        availableTaskTypes = [],
+        currentUserId,
+        projectParticipants,
+        teamParticipants,
+        listsData,
+        currentList,
+        tasks: rawTasks,
+        isTasksLoading,
+        hasMore: hasMoreTasks,
+        isFetchingNextPage,
+        loadMoreRef,
+        total: taskTotal,
+    } = useGenericTaskViewData({ spaceId, projectId, teamId, listId, workspaceId, includeRelations: "card" });
 
-    // Participants
-    const { data: projectParticipants } = trpc.project.getParticipants.useQuery({ projectId: projectId as string }, { enabled: !!projectId });
-    const { data: teamParticipants } = trpc.team.getParticipants.useQuery({ teamId: teamId as string }, { enabled: !!teamId });
+    const tasks = useMemo<Task[]>(() => (rawTasks as Task[]) ?? [], [rawTasks]);
 
     const users = useMemo(() => {
         const u = new Map<string, any>();
@@ -431,34 +449,9 @@ export function MapView({ spaceId, projectId, teamId, listId, folderId, viewId, 
         return Array.from(u.values());
     }, [projectParticipants, teamParticipants]);
 
-
-    const { data: customFields = [] } = trpc.customFields.list.useQuery(
-        {
-            ...(resolvedWorkspaceId ? { workspaceId: resolvedWorkspaceId } : {}),
-            ...(listId ? { listId } : {}),
-            ...(folderId ? { folderId } : {}),
-            ...(spaceId ? { spaceId } : {}),
-            ...(projectId ? { projectId } : {}),
-            ...(teamId ? { teamId } : {})
-            , applyTo: "TASK"
-        },
-        { enabled: !!(resolvedWorkspaceId || listId || folderId || spaceId || projectId || teamId) }
-    );
-
-    const { data: availableTaskTypes = [] } = trpc.task.listTaskTypes.useQuery({ workspaceId: resolvedWorkspaceId as string }, { enabled: !!resolvedWorkspaceId });
-    const { data: listsData } = trpc.list.byContext.useQuery({ spaceId, projectId, workspaceId: resolvedWorkspaceId }, { enabled: !!(spaceId || projectId || resolvedWorkspaceId) });
-    const { data: currentList } = trpc.list.get.useQuery({ id: listId as string }, { enabled: !!listId });
-
-    const { data: currentUserData } = trpc.user.me.useQuery();
-    const currentUserId = currentUserData?.user?.id;
-
-    const taskListInput = useMemo(() => ({ spaceId, projectId, teamId, listId, includeRelations: true, page: 1, pageSize: 500 }), [spaceId, projectId, teamId, listId]);
-    const { data: tasksData, isLoading } = trpc.task.list.useQuery(taskListInput, { enabled: !!(spaceId || projectId || teamId || listId) });
-    const tasks = useMemo<Task[]>(() => ((tasksData?.items as Task[]) ?? []), [tasksData]);
-
     const updateCustomFieldMutation = trpc.task.customFields.update.useMutation({
         onSuccess: () => {
-            utils.task.list.invalidate(taskListInput);
+            void utils.task.list.invalidate();
             toast.success("Location updated");
         },
         onError: (e) => toast.error(e.message)
@@ -603,7 +596,7 @@ export function MapView({ spaceId, projectId, teamId, listId, folderId, viewId, 
     });
     const updateTaskMutation = trpc.task.update.useMutation({
         onSuccess: () => {
-            void utils.task.list.invalidate(taskListInput);
+            void utils.task.list.invalidate();
             toast.success("Task updated successfully");
         },
         onError: (error) => {
@@ -718,7 +711,7 @@ export function MapView({ spaceId, projectId, teamId, listId, folderId, viewId, 
                 projectId: projectId as string,
                 spaceId: spaceId as string,
                 type: 'MAP',
-                config: { ...viewData.config, name: viewNameDraft.trim(), mapView: currentViewConfig }
+                config: { ...((viewData?.config ?? {}) as Record<string, any>), name: viewNameDraft.trim(), mapView: currentViewConfig }
             });
         } catch (e) {
             toast.error("Failed to create view");
@@ -946,17 +939,17 @@ export function MapView({ spaceId, projectId, teamId, listId, folderId, viewId, 
     }, [customFields, selectedLocationFieldId]);
 
     // Real task data with location parsing
-    const tasksWithLocation = useMemo(() => {
+    const tasksWithLocation = useMemo((): TaskWithLocation[] => {
         if (!selectedLocationFieldId) return [];
 
         return tasks.map(task => {
             const cfv = task.customFieldValues?.find((c: any) => c.customFieldId === selectedLocationFieldId);
-            let location = null;
+            let location: TaskLocation | null = null;
             if (cfv?.value) {
                 try {
-                    const parsed = JSON.parse(cfv.value);
+                    const parsed = JSON.parse(cfv.value) as { lat?: number; lng?: number };
                     if (parsed.lat && parsed.lng) {
-                        location = parsed;
+                        location = { lat: parsed.lat, lng: parsed.lng };
                     }
                 } catch {
                     // ignore
@@ -967,7 +960,10 @@ export function MapView({ spaceId, projectId, teamId, listId, folderId, viewId, 
     }, [tasks, selectedLocationFieldId]);
 
     // Derived lists
-    const tasksWithValidLocation = useMemo(() => tasksWithLocation.filter(t => t.location), [tasksWithLocation]);
+    const tasksWithValidLocation = useMemo(
+        () => tasksWithLocation.filter((t): t is TaskWithLocation & { location: TaskLocation } => !!t.location),
+        [tasksWithLocation]
+    );
     const tasksWithoutLocation = useMemo(() => tasksWithLocation.filter(t => !t.location), [tasksWithLocation]);
 
     // Filter logic shared
@@ -1026,7 +1022,7 @@ export function MapView({ spaceId, projectId, teamId, listId, folderId, viewId, 
     }, [tasksWithValidLocation, filterTask]);
 
     const sortedTasks = useMemo(() => {
-        let result = [...filteredTasks];
+        const result = [...filteredTasks];
 
         if (sort.length > 0) {
             result.sort((a, b) => {
@@ -1930,7 +1926,7 @@ export function MapView({ spaceId, projectId, teamId, listId, folderId, viewId, 
 
     return (
         <div className="h-full w-full flex flex-col bg-white border border-zinc-200/60 shadow-sm overflow-hidden font-sans relative min-w-0">
-            {/* Toolbar – ClickUp layout */}
+            {/* Toolbar  EClickUp layout */}
             <div className="border-b border-zinc-100 bg-white px-3 py-2 shrink-0">
                 <>
                     <div className="flex items-center justify-between gap-3 overflow-x-auto">
@@ -2628,7 +2624,7 @@ export function MapView({ spaceId, projectId, teamId, listId, folderId, viewId, 
                                                                     }
                                                                 }}
                                                             >
-                                                                {isSelected &&
+                                                                {isSelected && currentSort &&
                                                                     <Tooltip>
                                                                         <TooltipTrigger asChild>
                                                                             <div className="flex flex-col items-center -space-y-1">
@@ -2730,7 +2726,7 @@ export function MapView({ spaceId, projectId, teamId, listId, folderId, viewId, 
 
                 {/* Loading State */}
                 {
-                    isLoading && (
+                    isTasksLoading && (
                         <div className="absolute inset-0 bg-white/80 backdrop-blur-sm flex items-center justify-center z-40">
                             <div className="text-center">
                                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>
@@ -2887,7 +2883,7 @@ export function MapView({ spaceId, projectId, teamId, listId, folderId, viewId, 
                                                                             onClick={() => {
                                                                                 setSelectedLocationFieldId(field.id);
                                                                                 updateViewProperty('config', {
-                                                                                    ...viewData?.config,
+                                                                                    ...((viewData?.config ?? {}) as Record<string, any>),
                                                                                     mapView: {
                                                                                         ...currentViewConfig,
                                                                                         selectedLocationFieldId: field.id
@@ -3293,7 +3289,7 @@ export function MapView({ spaceId, projectId, teamId, listId, folderId, viewId, 
                 )
             }
 
-            {/* Create field modal – field types and Add existing fields */}
+            {/* Create field modal  Efield types and Add existing fields */}
             {
                 createFieldModalOpen && (
                     <>
@@ -3358,7 +3354,7 @@ export function MapView({ spaceId, projectId, teamId, listId, folderId, viewId, 
                 )
             }
 
-            {/* Assignees panel – image 8 */}
+            {/* Assignees panel  Eimage 8 */}
             {
                 assigneesPanelOpen && (
                     <>
@@ -3432,6 +3428,13 @@ export function MapView({ spaceId, projectId, teamId, listId, folderId, viewId, 
                     }}
                 />
             )}
+            <TaskListLoadMore
+                loadMoreRef={loadMoreRef}
+                hasMore={hasMoreTasks}
+                isFetchingNextPage={isFetchingNextPage}
+                loaded={tasks.length}
+                total={taskTotal}
+            />
         </div >
     );
 }

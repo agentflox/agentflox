@@ -166,6 +166,16 @@ body {
   @apply bg-slate-800 rounded-full hover:bg-slate-700 transition-colors;
 }
 
+/* Hide scrollbar for clean UI elements */
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
 /* Utility Classes for Glow Effects */
 .glow-text {
   text-shadow: 0 0 20px rgba(99, 102, 241, 0.5);
@@ -197,4 +207,106 @@ body {
 
 .prose pre {
   @apply bg-slate-900/50 border border-white/5 p-4 rounded-lg overflow-x-auto;
+}
+
+/* Cycle Diagram Animations */
+@keyframes highlight-think {
+  0%, 10%, 90%, 100% {
+    color: #fff;
+    text-shadow: 0 0 10px rgba(255,255,255,0.8);
+  }
+  15%, 85% {
+    color: #6b7280;
+    text-shadow: 0 0 10px rgba(255,255,255,0);
+  }
+}
+
+@keyframes highlight-plan {
+  0%, 15%, 35%, 100% {
+    color: #6b7280;
+    text-shadow: 0 0 10px rgba(255,255,255,0);
+  }
+  20%, 30% {
+    color: #fff;
+    text-shadow: 0 0 10px rgba(255,255,255,0.8);
+  }
+}
+
+@keyframes highlight-execute {
+  0%, 40%, 60%, 100% {
+    color: #6b7280;
+    text-shadow: 0 0 10px rgba(255,255,255,0);
+  }
+  45%, 55% {
+    color: #fff;
+    text-shadow: 0 0 10px rgba(255,255,255,0.8);
+  }
+}
+
+@keyframes highlight-reflect {
+  0%, 65%, 85%, 100% {
+    color: #6b7280;
+    text-shadow: 0 0 10px rgba(255,255,255,0);
+  }
+  70%, 80% {
+    color: #fff;
+    text-shadow: 0 0 10px rgba(255,255,255,0.8);
+  }
+}
+
+@keyframes highlight-think-svg {
+  0%, 10%, 90%, 100% { filter: drop-shadow(0 0 5px rgba(255,255,255,0.8)); }
+  15%, 85% { filter: drop-shadow(0 0 5px rgba(255,255,255,0)); }
+}
+
+@keyframes highlight-plan-svg {
+  0%, 15%, 35%, 100% { filter: drop-shadow(0 0 5px rgba(255,255,255,0)); }
+  20%, 30% { filter: drop-shadow(0 0 5px rgba(255,255,255,0.8)); }
+}
+
+@keyframes highlight-execute-svg {
+  0%, 40%, 60%, 100% { filter: drop-shadow(0 0 5px rgba(255,255,255,0)); }
+  45%, 55% { filter: drop-shadow(0 0 5px rgba(255,255,255,0.8)); }
+}
+
+@keyframes highlight-reflect-svg {
+  0%, 65%, 85%, 100% { filter: drop-shadow(0 0 5px rgba(255,255,255,0)); }
+  70%, 80% { filter: drop-shadow(0 0 5px rgba(255,255,255,0.8)); }
+}
+
+.animate-highlight-think {
+  animation: highlight-think 20s linear infinite;
+}
+.animate-highlight-think svg {
+  animation: highlight-think-svg 20s linear infinite;
+}
+
+.animate-highlight-plan {
+  animation: highlight-plan 20s linear infinite;
+}
+.animate-highlight-plan svg {
+  animation: highlight-plan-svg 20s linear infinite;
+}
+
+.animate-highlight-execute {
+  animation: highlight-execute 20s linear infinite;
+}
+.animate-highlight-execute svg {
+  animation: highlight-execute-svg 20s linear infinite;
+}
+
+.animate-highlight-reflect {
+  animation: highlight-reflect 20s linear infinite;
+}
+.animate-highlight-reflect svg {
+  animation: highlight-reflect-svg 20s linear infinite;
+}
+
+@keyframes live-feed {
+  0% { transform: translateY(0); }
+  100% { transform: translateY(-50%); }
+}
+
+.animate-live-feed {
+  animation: live-feed 15s linear infinite;
 }

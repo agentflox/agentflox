@@ -62,8 +62,8 @@ export function TaskPermissionsModal({ workspaceId, taskId, open, onOpenChange }
         { enabled: !!taskId && open }
     );
 
-    const { data: workspaceMembersData } = trpc.workspace.members.useQuery(
-        { workspaceId: workspaceId || "" },
+    const { data: workspaceMembersData } = trpc.workspace.getMembers.useQuery(
+        { id: workspaceId || "" },
         { enabled: !!workspaceId && open }
     );
 

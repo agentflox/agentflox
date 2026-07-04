@@ -316,7 +316,7 @@ export function TimeTrackingModal({
                             />
                             <Button
                                 size="icon"
-                                variant={isTimerRunning ? 'destructive' : 'default'}
+                                variant={isTimerRunning ? 'destructive' : 'primary'}
                                 className={cn(
                                     'h-9 w-9 rounded-full shrink-0 text-white',
                                     isTimerRunning ? 'bg-red-600 hover:bg-red-700' : 'bg-zinc-400 hover:bg-zinc-500'
@@ -332,7 +332,7 @@ export function TimeTrackingModal({
                                         });
                                     }
                                 }}
-                                disabled={startTimer.isLoading || stopTimer.isLoading}
+                                disabled={startTimer.isPending || stopTimer.isPending}
                             >
                                 {isTimerRunning ? (
                                     <Square className="h-4 w-4 fill-current" />
@@ -412,7 +412,7 @@ export function TimeTrackingModal({
                             </div>
                             <Button
                                 size="sm"
-                                disabled={!canSave || createEntry.isLoading}
+                                disabled={!canSave || createEntry.isPending}
                                 onClick={handleSaveManual}
                                 className="h-8 w-16 text-sm bg-black text-white hover:bg-black/80"
                             >
@@ -469,9 +469,9 @@ export function TimeTrackingModal({
                                                     className="flex items-center justify-between gap-2 py-2 px-3 rounded-md border border-zinc-100 bg-white text-sm"
                                                 >
                                                     <span className="text-zinc-600 truncate flex-1 min-w-0">
-                                                        {(entry as { startTime?: string; endTime?: string }).startTime && (entry as { endTime?: string }).endTime
-                                                            ? `${format(new Date((entry as any).startTime), 'EEE, MMM d, h:mm a')} - ${format(new Date((entry as any).endTime), 'h:mm a')} +07 (UTC+7)`
-                                                            : format(new Date((entry as any).startTime ?? (entry as any).createdAt ?? Date.now()), 'EEE, MMM d')}
+                                                        {entry.startTime && entry.endTime
+                                                            ? `${format(new Date(entry.startTime), 'EEE, MMM d, h:mm a')} - ${format(new Date(entry.endTime), 'h:mm a')} +07 (UTC+7)`
+                                                            : format(new Date(entry.startTime ?? entry.createdAt), 'EEE, MMM d')}
                                                     </span>
                                                     <div className="flex items-center gap-2 shrink-0">
                                                         <span className="tabular-nums text-zinc-700 font-medium">
@@ -481,7 +481,7 @@ export function TimeTrackingModal({
                                                             type="button"
                                                             onClick={() => deleteEntry.mutate({ id: entry.id })}
                                                             className="p-1 rounded hover:bg-red-50 text-zinc-400 hover:text-red-600"
-                                                            disabled={deleteEntry.isLoading}
+                                                            disabled={deleteEntry.isPending}
                                                         >
                                                             <Trash2 className="h-4 w-4" />
                                                         </button>

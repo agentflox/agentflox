@@ -10,7 +10,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuLabel,
 } from '@/components/ui/dropdown-menu';
-import { PROJECT_PROPOSAL_TYPES } from '../constants';
+import { TEAM_PROPOSAL_TYPES } from '../constants';
 
 interface TeamActionsProps {
   isEditing: boolean;
@@ -92,7 +92,7 @@ export default function TeamActions({
               Select Proposal Type
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
-            {PROJECT_PROPOSAL_TYPES.map((type) => (
+            {TEAM_PROPOSAL_TYPES.map((type) => (
               <DropdownMenuItem
                 key={type.value}
                 onClick={() => {
@@ -183,7 +183,7 @@ export default function TeamActions({
               Create Proposal
             </DropdownMenuLabel>
             
-            {PROJECT_PROPOSAL_TYPES.map((type) => (
+            {TEAM_PROPOSAL_TYPES.map((type) => (
               <DropdownMenuItem
                 key={type.value}
                 onClick={() => {

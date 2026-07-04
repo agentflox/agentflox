@@ -81,8 +81,8 @@ export function TeamGeneralSettingsModal({ teamId, open, onOpenChange }: TeamGen
             setName(team.name);
             setDescription(team.description || "");
             setVisibility((team.visibility as any) || "PRIVATE");
-            setColor(team.color || "#8B5CF6");
-            setIcon(team.icon || "");
+            setColor("#8B5CF6");
+            setIcon(team.avatar || "");
         }
     }, [team]);
 
@@ -139,8 +139,7 @@ export function TeamGeneralSettingsModal({ teamId, open, onOpenChange }: TeamGen
             name: name.trim(),
             description: description.trim(),
             visibility,
-            color,
-            icon
+            avatar: icon || undefined,
         });
     };
 

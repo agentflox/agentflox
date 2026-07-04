@@ -37,15 +37,22 @@ export class SafetyMonitoringService {
             data: {
                 agentId,
                 action: 'SAFETY_VIOLATION',
-                actorId: 'system',
-                details: {
+                userId: null,
+                changes: {
                     executionId,
-                    score,
+                    score: {
+                        riskLevel: score.riskLevel,
+                        score: score.score,
+                        categories: score.categories,
+                        details: score.details,
+                    },
                     action: 'HIGH_RISK_DETECTED',
                 },
+                diff: {},
                 metadata: {
                     riskLevel: score.riskLevel,
                 },
+                integrity: 'safety-monitor',
             },
         });
 

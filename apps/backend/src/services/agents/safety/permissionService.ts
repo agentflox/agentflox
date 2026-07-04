@@ -50,7 +50,7 @@ export class PermissionService {
 
   /**
    * Resolve fine-grained agent roles for a user.
-   * - agent:owner   → createdBy === userId
+   * - agent:owner   → ownerId === userId
    * - agent:operator → collaborator with canEdit=true
    * - agent:viewer  → collaborator without edit rights
    */
@@ -75,7 +75,7 @@ export class PermissionService {
     }
 
     // Creator is the canonical owner
-    if (agent.createdBy === userId) {
+    if (agent.ownerId === userId) {
       roles.add('agent:owner');
       roles.add('agent:operator');
       roles.add('agent:viewer');

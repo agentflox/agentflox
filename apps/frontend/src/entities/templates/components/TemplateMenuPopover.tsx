@@ -44,7 +44,7 @@ export function TemplateMenuPopover({
         setDynamicContentToSave(contentToSave);
     }, [contentToSave]);
 
-    const queryEntityTypes = entityType && [
+    const supportedEntityTypes = [
         "SPACE",
         "FOLDER",
         "LIST",
@@ -53,10 +53,14 @@ export function TemplateMenuPopover({
         "VIEW",
         "AGENT",
         "WORKFORCE",
-        "PROPOSAL",
-    ].includes(entityType)
-        ? [entityType as "SPACE" | "FOLDER" | "LIST" | "TASK" | "DOC" | "VIEW" | "AGENT" | "WORKFORCE" | "PROPOSAL"]
-        : undefined;
+        "LISTING",
+        "PROJECT",
+    ] as const;
+
+    const queryEntityTypes =
+        entityType && supportedEntityTypes.includes(entityType as (typeof supportedEntityTypes)[number])
+            ? [entityType as (typeof supportedEntityTypes)[number]]
+            : undefined;
 
     const recentQuery = trpc.template.list.useQuery(
         {

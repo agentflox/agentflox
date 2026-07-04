@@ -249,8 +249,8 @@ export function AddCustomFieldModal({
                             >
                                 Cancel
                             </Button>
-                            <Button type="submit" disabled={createField.isLoading || !name.trim()}>
-                                {createField.isLoading ? 'Creating...' : 'Create'}
+                            <Button type="submit" disabled={createField.isPending || !name.trim()}>
+                                {createField.isPending ? 'Creating...' : 'Create'}
                             </Button>
                         </div>
                     </form>

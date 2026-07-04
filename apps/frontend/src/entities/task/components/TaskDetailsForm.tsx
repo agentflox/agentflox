@@ -4,7 +4,7 @@ import * as React from 'react';
 import { useFormContext } from 'react-hook-form';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { DescriptionEditor } from '@/entities/shared/components/DescriptionEditor';
+import { LazyDescriptionEditor } from '@/entities/shared/components/LazyDescriptionEditor';
 import {
   Select,
   SelectContent,
@@ -137,7 +137,7 @@ export function TaskDetailsForm({
 
         {/* Description - Rich editor (ClickUp-style) */}
         <div className="min-h-[100px] border border-zinc-200 rounded-md overflow-hidden bg-white">
-          <DescriptionEditor
+          <LazyDescriptionEditor
             minHeight={280}
             content={watch('description') || ''}
             onChange={(value) => setValue('description', value, { shouldDirty: true, shouldTouch: true })}

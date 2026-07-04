@@ -41,6 +41,7 @@ import { communityGroupRouter } from "@/trpc/routers/communityGroup";
 import { adminRouter } from "@/trpc/routers/admin";
 import { editorAssistantRouter } from "@/trpc/routers/editorAssistant";
 import { bugReportRouter } from "@/trpc/routers/bugReport";
+import { proposalRouter } from "@/trpc/routers/proposal";
 
 export const appRouter = router({
   project: projectRouter,
@@ -84,6 +85,7 @@ export const appRouter = router({
   admin: adminRouter,
   editorAssistant: editorAssistantRouter,
   bugReport: bugReportRouter,
+  proposal: proposalRouter,
 });
 
 export type AppRouter = typeof appRouter;

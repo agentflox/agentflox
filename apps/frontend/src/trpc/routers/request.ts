@@ -72,7 +72,6 @@ export const requestRouter = router({
             role: app.roleApplied,
             title: "Member",
             permissions: [],
-            compensationType: "PROJECT_BASED",
             status: "ACTIVE",
           },
           update: {},
@@ -90,7 +89,6 @@ export const requestRouter = router({
             role: "member",
             title: "Member",
             permissions: [],
-            compensationType: "PROJECT_BASED",
             status: "ACTIVE",
           },
           update: {},
@@ -155,6 +153,58 @@ export const requestRouter = router({
       });
 
       return { id: updated.id, status: updated.status };
+    }),
+
+  create: protectedProcedure
+    .input(z.object({
+      proposalId: z.string().optional(),
+      proposalOwnerId: z.string(),
+      title: z.string().min(1),
+      message: z.string().min(1),
+      projectId: z.string().optional(),
+      teamId: z.string().optional(),
+      intent: z.enum(["SEEKING", "OFFERING"]).optional(),
+      roleApplied: z.enum(["INVESTOR", "MENTOR", "TEAM", "COFOUNDER", "PARTNER", "CUSTOMER"]).optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const senderId = ctx.session!.user!.id;
+      if (senderId === input.proposalOwnerId) {
+        throw new Error("Cannot send a request to yourself");
+      }
+
+      const targetType = input.teamId ? "TEAM" : input.projectId ? "PROJECT" : "COLLABORATION";
+
+      const request = await prisma.request.create({
+        data: {
+          senderId,
+          receiverId: input.proposalOwnerId,
+          targetType,
+          projectId: input.projectId,
+          teamId: input.teamId,
+          message: input.message,
+          roleApplied: input.roleApplied,
+          proposedTerms: {
+            title: input.title,
+            proposalId: input.proposalId,
+            intent: input.intent,
+          },
+        },
+      });
+
+      const notification = await prisma.notification.create({
+        data: {
+          userId: input.proposalOwnerId,
+          type: "REQUEST_RECEIVED",
+          title: "New Request",
+          message: input.title,
+          entityId: request.id,
+          entityType: "REQUEST",
+          aggregateKey: `request:${request.id}`,
+          metadata: { requestId: request.id },
+        },
+      });
+
+      return { id: request.id, notificationId: notification.id };
     }),
 });
 

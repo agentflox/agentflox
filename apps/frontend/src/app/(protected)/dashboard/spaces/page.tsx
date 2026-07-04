@@ -20,7 +20,7 @@ import {
 import { Filter, MoreHorizontal, Eye, Trash, Trash2, Folder, ArrowUpDown, ChevronUp, ChevronDown, Check, Settings2, LayoutGrid, PenSquare } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-import { DataTable } from "@/components/ui/data-table";
+import { LazyDataTable as DataTable } from "@/components/ui/lazy-data-table";
 import { DataTableColumnHeader } from "@/components/ui/data-table-column-header";
 import { ColumnDef } from "@tanstack/react-table";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -46,6 +46,7 @@ import { ConfirmDeleteModal } from "@/components/modals/ConfirmDeleteModal";
 export default function SpacesPage() {
     const router = useRouter();
     const { toast } = useToast();
+    const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
     const {
         data,
         isLoading,
@@ -58,11 +59,10 @@ export default function SpacesPage() {
         setScope,
         filters,
         setFilters,
-    } = useSpaceList();
+    } = useSpaceList({ includeCounts: viewMode === "list" });
 
     const hasNextPage = (data?.items?.length || 0) === pageSize;
     const hasPreviousPage = page > 1;
-    const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [sort, setSort] = useState<Array<{ id: string; desc: boolean }>>([]);
     const [columnVisibility, setColumnVisibility] = useState<import("@tanstack/react-table").VisibilityState>({});

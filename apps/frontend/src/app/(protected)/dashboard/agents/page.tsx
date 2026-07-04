@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from 'react';
+import { keepPreviousData } from "@tanstack/react-query";
 import { useRouter } from 'next/navigation';
 import Shell from "@/components/layout/Shell";
 import { Button } from "@/components/ui/button";
@@ -23,9 +24,9 @@ import {
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/entities/shared/components/PageHeader";
 import { DataTableSkeleton } from "@/components/ui/data-table-skeleton";
+import { LazyDataTable as DataTable } from "@/components/ui/lazy-data-table";
 import { SearchSection } from "@/entities/shared/components/SearchSection";
 import { Pagination } from "@/components/ui/pagination";
-import { DataTable } from "@/components/ui/data-table";
 import { DataTableColumnHeader } from "@/components/ui/data-table-column-header";
 import { ColumnDef } from "@tanstack/react-table";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -105,9 +106,12 @@ export default function AgentsPage() {
     query: searchQuery || undefined,
     status: statusFilter !== "all" ? [statusFilter as any] : undefined,
     agentType: typeFilter !== "all" ? [typeFilter as any] : undefined,
-    includeRelations: true,
+    includeRelations: viewMode === "list",
     page,
     pageSize,
+  }, {
+    staleTime: 30_000,
+    placeholderData: keepPreviousData,
   });
 
   const deleteAgent = trpc.agent.delete.useMutation({

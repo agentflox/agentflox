@@ -97,7 +97,7 @@ import {
 } from '@/components/ui/tooltip';
 import './editor.css';
 
-interface DescriptionEditorProps {
+export interface DescriptionEditorProps {
     content: string;
     onChange: (content: string) => void;
     editable?: boolean;
@@ -122,6 +122,7 @@ interface DescriptionEditorProps {
             color?: string;
         };
     };
+    className?: string;
 }
 
 export interface DescriptionEditorRef {
@@ -326,6 +327,7 @@ export const DescriptionEditor = forwardRef<DescriptionEditorRef, DescriptionEdi
     minHeight = 300,
     maxHeight,
     collaboration,
+    className,
 }, ref) {
     const [brainEditOpen, setBrainEditOpen] = useState(false);
     const [brainEditMode, setBrainEditMode] = useState<BrainEditMode>('full');
@@ -718,7 +720,7 @@ export const DescriptionEditor = forwardRef<DescriptionEditorRef, DescriptionEdi
     } as React.CSSProperties;
 
     return (
-        <div className="relative group" style={editorSizeStyle}>
+        <div className={cn("relative group", className)} style={editorSizeStyle}>
             {/* Brain Edit Dialog (full or Write with AI mode) */}
             <BrainEditDialog
                 open={brainEditOpen}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { trpc } from "@/lib/trpc";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -194,6 +195,14 @@ function EmptyState({
 
 export default function WorkspaceOverviewView({ workspaceId }: Props) {
 	const { data: workspace, isLoading } = useWorkspaceDetail(workspaceId);
+	const { data: foldersResult } = trpc.folder.byContext.useQuery(
+		{ workspaceId, includeViewDetails: false },
+		{ enabled: !!workspaceId }
+	);
+	const { data: listsResult } = trpc.list.byContext.useQuery(
+		{ workspaceId, includeViewDetails: false },
+		{ enabled: !!workspaceId }
+	);
 
 	const [spaceModalOpen, setSpaceModalOpen] = useState(false);
 	const [teamModalOpen, setTeamModalOpen] = useState(false);
@@ -209,8 +218,8 @@ export default function WorkspaceOverviewView({ workspaceId }: Props) {
 	const projects = useMemo(() => workspace?.projects ?? [], [workspace]);
 	const teams = useMemo(() => workspace?.teams ?? [], [workspace]);
 	const channels = useMemo(() => workspace?.channels ?? [], [workspace]);
-	const folders = useMemo(() => workspace?.folders ?? [], [workspace]);
-	const lists = useMemo(() => workspace?.lists ?? [], [workspace]);
+	const folders = useMemo(() => foldersResult?.items ?? [], [foldersResult]);
+	const lists = useMemo(() => listsResult?.items ?? [], [listsResult]);
 
 	if (!workspace) return null;
 
@@ -652,7 +661,7 @@ export default function WorkspaceOverviewView({ workspaceId }: Props) {
 			/>
 
 			<FolderCreationModal
-				context="WORKSPACE"
+				context="GENERAL"
 				contextId={workspaceId}
 				workspaceId={workspaceId}
 				open={folderModalOpen}
@@ -660,7 +669,7 @@ export default function WorkspaceOverviewView({ workspaceId }: Props) {
 			/>
 
 			<ListCreationModal
-				context="WORKSPACE"
+				context="GENERAL"
 				contextId={workspaceId}
 				workspaceId={workspaceId}
 				open={listModalOpen}

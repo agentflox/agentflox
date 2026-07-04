@@ -8,6 +8,8 @@ async function main() {
     
     if (!execution) return console.log("no execution");
     
+    if (!execution.workflow) return console.log("no workflow");
+
     const def = execution.workflow.definition as any;
     console.log("WORKFLOW STEPS:");
     console.log(JSON.stringify(def.steps, null, 2));

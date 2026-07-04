@@ -1,22 +1,19 @@
 'use client';
 
-import { useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
+import { useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { trpc } from '@/lib/trpc';
 import { useSocket } from '@/components/providers/SocketProvider';
 import { useEffect, useRef, useCallback, useMemo } from 'react';
-import { useToast } from '@/hooks/useToast';
 import { normalizeTimestamp } from '@/utils/utilities/formatter';
-import { CreatePostData } from '@agentflox/types';
+import { usePostMutations } from './usePostMutations';
+import { acquireFeedSubscription, acquirePostEventListeners } from '@/lib/socketRefCount';
 
 export function usePosts(feedType: 'global' | 'user' | 'project' | 'team', feedId?: string) {
-  const { socket, isConnected, waitForConnection } = useSocket();
-  const { toast } = useToast();
+  const { socket, isConnected } = useSocket();
   const queryClient = useQueryClient();
   const utils = trpc.useUtils();
-  const subscribedRef = useRef(false);
   const processedEvents = useRef(new Set<string>());
-  const createProjectNotifications = trpc.notification.createForProjectMembers.useMutation();
-  const createTeamNotifications = (trpc.notification as any).createForTeamMembers?.useMutation?.();
+  const mutations = usePostMutations(feedType, feedId);
 
   const queryKey = ['posts.list', { feedId, page: 1, pageSize: 50 }] as const;
 
@@ -62,17 +59,10 @@ export function usePosts(feedType: 'global' | 'user' | 'project' | 'team', feedI
     return (cached?.items || postsResp?.items || []) as any[];
   }, [queryClient.getQueryState(queryKey)?.dataUpdatedAt, postsResp]);
 
-  // ✅ Subscribe to feed
+  // ✅ Subscribe to feed (ref-counted across hook instances)
   useEffect(() => {
-    if (!socket || !isConnected || subscribedRef.current) return;
-    socket.emit('feed:subscribe', { feedType, feedId });
-    subscribedRef.current = true;
-    return () => {
-      if (socket && subscribedRef.current) {
-        socket.emit('feed:unsubscribe', { feedType, feedId });
-        subscribedRef.current = false;
-      }
-    };
+    if (!socket || !isConnected || !feedId) return;
+    return acquireFeedSubscription(socket, feedType, feedId);
   }, [socket, isConnected, feedType, feedId]);
 
   // ✅ Cache updater helper
@@ -133,173 +123,21 @@ export function usePosts(feedType: 'global' | 'user' | 'project' | 'team', feedI
     [updatePostCache]
   );
 
-  // ✅ Register socket listeners
+  // ✅ Register socket listeners (ref-counted per feed)
   useEffect(() => {
-    if (!socket || !isConnected) return;
-    socket.on('post:created', handlePostCreated);
-    socket.on('post:updated', handlePostUpdated);
-    socket.on('post:deleted', handlePostDeleted);
-    socket.on('post:liked', handlePostLiked);
-    socket.on('post:unliked', handlePostLiked);
-    return () => {
-      socket.off('post:created', handlePostCreated);
-      socket.off('post:updated', handlePostUpdated);
-      socket.off('post:deleted', handlePostDeleted);
-      socket.off('post:liked', handlePostLiked);
-      socket.off('post:unliked', handlePostLiked);
-    };
-  }, [socket, isConnected, handlePostCreated, handlePostUpdated, handlePostDeleted, handlePostLiked]);
+    if (!socket || !isConnected || !feedId) return;
 
-  // ✅ Create post with optimistic update
-  const createPost = useMutation({
-    mutationFn: async (data: CreatePostData) => {
-      const tempPost = {
-        id: data.id,
-        content: data.content,
-        project_id: data.projectId,
-        team_id: data.teamId,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        likeCount: 0,
-        commentCount: 0,
-        isPending: true,
-      };
-
-      updatePostCache((items) => [tempPost, ...items]);
-
-      try {
-        const s = await waitForConnection();
-        const response = await new Promise((resolve, reject) => {
-          const timeoutId = setTimeout(() => reject(new Error('Request timeout')), 60000);
-          s.emit('post:create', data, (err: any, response?: any) => {
-            clearTimeout(timeoutId);
-            if (err) {
-              const message = typeof err === 'string' ? err : err?.message || 'Request failed';
-              return reject(new Error(message));
-            }
-            resolve(response);
-          });
-        });
-
-        updatePostCache((items) =>
-          items.map((p) => (p.id === data.id ? { ...(response as any).post, isPending: false } : p))
-        );
-
-        return response;
-      } catch (error) {
-        updatePostCache((items) => items.filter((p) => p.id !== data.id));
-        throw error;
-      }
-    },
-    onSuccess: async (resp: any) => {
-      toast({ title: 'Success', description: 'Post created successfully' });
-      const projectId = resp?.post?.project_id;
-      const teamId = resp?.post?.team_id;
-      try {
-        switch (true) {
-          case !!projectId: {
-            const result = await createProjectNotifications.mutateAsync({
-              projectId: projectId!,
-              title: 'New project post',
-              content: 'A new post has been added to your project.',
-              relatedId: resp?.post?.id,
-              relatedType: 'POST',
-            });
-            const s = await waitForConnection();
-            for (const uid of result.userIds || []) s.emit('notification:send', { userId: uid });
-            break;
-          }
-          case !!teamId: {
-            if (createTeamNotifications) {
-              const result = await createTeamNotifications.mutateAsync({
-                teamId: teamId!,
-                title: 'New team post',
-                content: 'A new post has been added to your team.',
-                relatedId: resp?.post?.id,
-                relatedType: 'POST',
-              } as any);
-              const s = await waitForConnection();
-              for (const uid of result.userIds || []) s.emit('notification:send', { userId: uid });
-            }
-            break;
-          }
-        }
-      } catch (e) {
-        console.warn('Failed to create/broadcast notifications', e);
-      }
-    },
-    onError: (error: Error) =>
-      toast({
-        title: 'Error',
-        description: error.message,
-        variant: 'destructive',
-      }),
-  });
-
-  const likePost = useMutation({
-    mutationFn: async (postId: string) => {
-      const previousData = queryClient.getQueryData(queryKey);
-      updatePostCache((items) =>
-        items.map((p) => (p.id === postId ? { ...p, likeCount: (p.likeCount || 0) + 1 } : p))
-      );
-      try {
-        const s = await waitForConnection();
-        s.emit('post:like', { postId });
-      } catch (error) {
-        queryClient.setQueryData(queryKey, previousData);
-        throw error;
-      }
-    },
-    onError: (error: Error) =>
-      toast({
-        title: 'Error',
-        description: error.message,
-        variant: 'destructive',
-      }),
-  });
-
-  const unlikePost = useMutation({
-    mutationFn: async (postId: string) => {
-      const previousData = queryClient.getQueryData(queryKey);
-      updatePostCache((items) =>
-        items.map((p) => (p.id === postId ? { ...p, likeCount: Math.max(0, (p.likeCount || 0) - 1) } : p))
-      );
-      try {
-        const s = await waitForConnection();
-        s.emit('post:unlike', { postId });
-      } catch (error) {
-        queryClient.setQueryData(queryKey, previousData);
-        throw error;
-      }
-    },
-  });
-
-  const bookmarkPost = trpc.posts.bookmark.useMutation({
-    onSuccess: (data) => {
-      toast({ title: data.bookmarked ? "Post bookmarked" : "Bookmark removed" });
-    },
-  });
-
-  const followPost = trpc.posts.follow.useMutation({
-    onSuccess: (data) => {
-      toast({ title: data.followed ? "Following post" : "Unfollowed post" });
-    },
-  });
-
-  const reportPost = trpc.posts.report.useMutation({
-    onSuccess: () => {
-      toast({ title: "Post reported", description: "Thank you for helping us keep the community safe." });
-    },
-  });
+    return acquirePostEventListeners(socket, feedType, feedId, {
+      onCreated: handlePostCreated,
+      onUpdated: handlePostUpdated,
+      onDeleted: handlePostDeleted,
+      onLiked: handlePostLiked,
+    });
+  }, [socket, isConnected, feedType, feedId, handlePostCreated, handlePostUpdated, handlePostDeleted, handlePostLiked]);
 
   return {
     posts,
     isLoading,
-    createPost,
-    likePost,
-    unlikePost,
-    bookmarkPost,
-    followPost,
-    reportPost,
+    ...mutations,
   };
 }

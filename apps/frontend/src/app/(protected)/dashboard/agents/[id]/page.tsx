@@ -1,19 +1,18 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { trpc } from "@/lib/trpc";
-import ViewSwitcher from '@/features/dashboard/views/agent/ViewSwitcher';
+import dynamic from "next/dynamic";
 import PageHeader from '@/entities/shared/components/PageHeader';
-import { useToast } from "@/hooks/useToast";
 import { useAgentContext } from "./layout";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 
-export default function agentDetailPage() {
+const ViewSwitcher = dynamic(() => import('@/features/dashboard/views/agent/ViewSwitcher'));
+
+export default function AgentDetailPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const { toast } = useToast();
   const activeTab = searchParams.get('tab') || 'overview';
 
   const {

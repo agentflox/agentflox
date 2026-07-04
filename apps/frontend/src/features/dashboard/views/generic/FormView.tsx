@@ -21,18 +21,18 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useTaskViewContext } from "@/features/dashboard/hooks/useTaskViewContext";
 import { trpc } from "@/lib/trpc";
 import Image from "next/image";
 import { LogoUpload } from "@/components/ui/logo-upload";
 import { MediaUpload, type MediaFile } from "@/components/ui/media-upload";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { DescriptionEditor } from "@/entities/shared/components/DescriptionEditor";
+import { LazyDescriptionEditor } from "@/entities/shared/components/LazyDescriptionEditor";
 import { CustomFieldsManagerModal } from "@/entities/customfields/components/CustomFieldsManagerModal";
 import { SingleDateCalendar } from "@/components/ui/date-picker";
 import { AssigneeSelector } from "@/entities/task/components/AssigneeSelector";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
-import * as XLSX from "xlsx";
 import {
     Plus,
     Settings,
@@ -1163,7 +1163,7 @@ function SortableField({ field, onDelete, onUpdate, onDuplicate, onOpenAdvancedS
                         <div className="mt-4 space-y-2">
                             <Label className="text-xs font-medium text-zinc-600">Information block content</Label>
                             <div className="rounded-md border border-zinc-200 bg-white min-h-[140px] overflow-hidden">
-                                <DescriptionEditor
+                                <LazyDescriptionEditor
                                     content={field.content || "<p>Add information for respondents...</p>"}
                                     onChange={(html) => onUpdate(field.id, { content: html })}
                                     editable
@@ -1290,30 +1290,14 @@ export function FormView({
         { enabled: !!viewId }
     );
     const updateViewMutation = trpc.view.update.useMutation();
-    const { data: space } = trpc.space.get.useQuery({ id: spaceId as string }, { enabled: !!spaceId });
-    const { data: project } = trpc.project.get.useQuery({ id: projectId as string }, { enabled: !!projectId });
-    const resolvedWorkspaceId = workspaceId || space?.workspaceId || project?.workspaceId || undefined;
-    const { data: workspace } = trpc.workspace.get.useQuery(
-        { id: resolvedWorkspaceId as string },
-        { enabled: !!resolvedWorkspaceId }
-    );
-    const { data: currentList } = trpc.list.get.useQuery({ id: listId as string }, { enabled: !!listId });
-    const { data: agentsData } = trpc.agent.list.useQuery(
-        { includeRelations: true },
-        { enabled: !!resolvedWorkspaceId }
-    );
-    const { data: customFields = [] } = trpc.customFields.list.useQuery(
-        {
-            workspaceId: resolvedWorkspaceId,
-            listId,
-            folderId,
-            spaceId,
-            projectId,
-            teamId,
-            applyTo: "TASK",
-        },
-        { enabled: !!(resolvedWorkspaceId || listId || folderId || spaceId || projectId || teamId) }
-    );
+    const {
+        resolvedWorkspaceId,
+        space,
+        customFields = [],
+        agents: contextAgents,
+        workspaceMembers: membersRaw = [],
+        currentList,
+    } = useTaskViewContext({ spaceId, projectId, teamId, listId, workspaceId });
     const [fields, setFields] = useState<FormField[]>([]);
 
     const [settings, setSettings] = useState<FormSettings>({
@@ -1559,24 +1543,15 @@ export function FormView({
     };
     const isValidHex = (v: string) => /^#[0-9a-fA-F]{6}$/.test(v.trim());
     const workspaceMembers = useMemo(() => {
-        if (!workspace?.members) return [];
-        return workspace.members.map((m: any) => ({
+        return (membersRaw as Array<{ user: { id: string; name?: string | null; email?: string | null; image?: string | null } }>).map((m) => ({
             id: m.user.id,
-            name: m.user.name || m.user.email,
+            name: m.user.name || m.user.email || "Unknown",
             image: m.user.image,
             email: m.user.email,
             type: "user",
         }));
-    }, [workspace]);
-    const agents = useMemo(() => {
-        if (!agentsData?.items) return [];
-        return agentsData.items.map((a: any) => ({
-            id: a.id,
-            name: a.name,
-            image: a.avatar || null,
-            type: "agent",
-        }));
-    }, [agentsData]);
+    }, [membersRaw]);
+    const agents = contextAgents;
     const listStatuses = useMemo(() => ((currentList as any)?.statuses ?? []) as Array<{ id: string; name: string; color?: string }>, [currentList]);
     const customFieldsById = useMemo(() => {
         const m = new Map<string, any>();
@@ -2175,6 +2150,7 @@ export function FormView({
                 });
                 return row;
             });
+            const XLSX = await import("xlsx");
             const worksheet = XLSX.utils.json_to_sheet(rows);
             const workbook = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(workbook, worksheet, "Responses");
@@ -3147,7 +3123,7 @@ export function FormView({
                                         </div>
                                         <div className="mx-auto max-w-xl">
                                             <div className="rounded-xl border border-zinc-200 bg-white overflow-hidden">
-                                                <DescriptionEditor
+                                                <LazyDescriptionEditor
                                                     content={endPageMessage}
                                                     onChange={(html) => {
                                                         setEndPageMessage(html);

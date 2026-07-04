@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { keepPreviousData } from "@tanstack/react-query";
 import { trpc } from "@/lib/trpc";
 import { Card } from "@/components/ui/card";
 import Button from "@/components/ui/button";
@@ -76,7 +77,7 @@ export default function AdminUsersPanel() {
       page,
       pageSize,
     },
-    { keepPreviousData: true, staleTime: 10_000 }
+    { placeholderData: keepPreviousData, staleTime: 10_000 }
   );
 
   const detail = trpc.admin.userDetail.useQuery({ userId: detailUserId || "" }, { enabled: !!detailUserId });
@@ -426,7 +427,7 @@ export default function AdminUsersPanel() {
                     </Select>
 
                     <Button
-                      variant={detailUser.isActive ? "outline" : "default"}
+                      variant={detailUser.isActive ? "outline" : "primary"}
                       className={cn(
                         "cursor-pointer gap-2",
                         detailUser.isActive

@@ -70,7 +70,7 @@ export const executeAgent = inngest.createFunction(
       if (!agent.isActive) throw new Error(`Agent ${agentId} is inactive`);
 
       // Access check: owner or collaborator with execute permission
-      const isOwner = agent.createdBy === userId;
+      const isOwner = agent.ownerId === userId;
       if (!isOwner) {
         const collaborator = await prisma.agentCollaborator.findFirst({
           where: { agentId, userId, canExecute: true },

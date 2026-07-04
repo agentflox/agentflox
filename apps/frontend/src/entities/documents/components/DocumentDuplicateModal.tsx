@@ -56,7 +56,7 @@ export function DocumentDuplicateModal({
             content: documentToCopy.content || "",
             icon: documentToCopy.icon || "",
             coverImage: documentToCopy.coverImage || "",
-            settings: documentToCopy.settings as any || {},
+            sourceDocId: documentId,
         });
     };
 

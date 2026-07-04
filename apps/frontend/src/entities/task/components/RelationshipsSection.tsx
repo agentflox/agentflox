@@ -54,7 +54,7 @@ export function RelationshipsSection({ taskId, workspaceId }: RelationshipsSecti
     const { data: task } = trpc.task.get.useQuery({ id: taskId });
     
     // Search tasks for adding relationships
-    const { data: searchResults = [] } = trpc.task.list.useQuery(
+    const { data: searchResultsData } = trpc.task.list.useQuery(
         {
             workspaceId,
             query: searchQuery,
@@ -63,6 +63,7 @@ export function RelationshipsSection({ taskId, workspaceId }: RelationshipsSecti
         },
         { enabled: addOpen && searchQuery.length > 0 }
     );
+    const searchResults = searchResultsData?.items ?? [];
 
     // Mutations
     const addDependency = trpc.task.addDependency.useMutation({
@@ -240,7 +241,7 @@ export function RelationshipsSection({ taskId, workspaceId }: RelationshipsSecti
                                             variant="ghost"
                                             className="h-7 w-7 text-red-500 hover:text-red-600 hover:bg-red-50"
                                             onClick={() => handleRemoveDependency(dep.dependsOnId)}
-                                            disabled={removeDependency.isLoading}
+                                            disabled={removeDependency.isPending}
                                         >
                                             <X className="h-3.5 w-3.5" />
                                         </Button>

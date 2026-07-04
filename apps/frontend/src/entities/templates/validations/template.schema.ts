@@ -16,9 +16,9 @@ export const saveTemplateSchema = z.object({
   /** "everything" = include all, "customize" = use captureConfig */
   importMode: z.enum(["everything", "customize"]).default("everything"),
   /** Flexible JSON bag; structure depends on entityType. */
-  captureConfig: z.record(z.unknown()).optional(),
+  captureConfig: z.record(z.string(), z.unknown()).optional(),
   /** The actual snapshot data content */
-  content: z.record(z.unknown()).optional().default({}),
+  content: z.record(z.string(), z.unknown()).optional().default({}),
   /** Custom invitees when shareWith === "custom" */
   shares: z.array(z.object({
     type: z.enum(["user", "team", "workspace"]),

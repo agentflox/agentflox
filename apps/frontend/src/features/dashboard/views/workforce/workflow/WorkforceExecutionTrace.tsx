@@ -405,11 +405,16 @@ function StepCard({
   const isRunning = statusLabel === "Running";
   const cap = (stepDef?.capability || "").toUpperCase();
   const isTrigger = cap === "WORKFLOW_TRIGGER";
+  const isThisNodeStreaming = currentNode === stepId;
+
+  React.useEffect(() => {
+    if (isThisNodeStreaming || isRunning) setExpanded(true);
+  }, [isThisNodeStreaming, isRunning]);
+
   if (isTrigger) return null;
 
   const name = stepDef?.name || stepDef?.label || stepId;
   const agentId = stepDef?.agentId;
-  const isThisNodeStreaming = currentNode === stepId;
   const nodeThinkingSteps = thinkingSteps?.filter(s => s.node === stepId) || [];
 
   // Determine output type
@@ -430,10 +435,6 @@ function StepCard({
   const artifactCount = hasAgentSteps
     ? result.output.filter((s: any) => s.success !== false && s.result).length + (finalResponse ? 1 : 0)
     : plainOutputText ? 1 : 0;
-
-  React.useEffect(() => {
-    if (isThisNodeStreaming || isRunning) setExpanded(true);
-  }, [isThisNodeStreaming, isRunning]);
 
   return (
     <div className="relative">
@@ -517,7 +518,7 @@ function StepCard({
                   currentNode={isThisNodeStreaming ? (currentNode ?? null) : null}
                   streamingContent={isThisNodeStreaming ? (streamingContent ?? "") : ""}
                   isStreaming={isStreaming || false}
-                  agentLabel={cap === "GENERAL" ? "Agent" : name}
+                  label={cap === "GENERAL" ? "Agent" : name}
                 />
               </div>
             )}
@@ -712,11 +713,11 @@ export function WorkforceExecutionTrace({
           <div className="bg-white border border-zinc-200 rounded-xl p-3 shadow-sm">
             <StreamingMessage
               thinkingSteps={thinkingSteps || []}
-              currentStep={currentStep}
-              currentNode={currentNode}
+              currentStep={currentStep ?? null}
+              currentNode={currentNode ?? null}
               streamingContent={streamingContent ?? ""}
               isStreaming={isStreaming || false}
-              agentLabel="System"
+              label="System"
             />
           </div>
         </div>

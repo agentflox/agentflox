@@ -1,6 +1,11 @@
 import { z } from "zod";
-import { router, protectedProcedure } from "../trpc";
-import { prisma } from "@agentflox/database";
+import { router, protectedProcedure } from "@/trpc/init";
+import { prisma } from "@/lib/prisma";
+import {
+	BugReportPriority,
+	BugReportSeverity,
+	BugReportStatus,
+} from "@agentflox/database/src/generated/prisma/client";
 // ─── Shared zod enums ─────────────────────────────────────────────────────────
 const categorySchema      = z.enum(["UI", "PERFORMANCE", "FUNCTIONALITY", "SECURITY", "DATA", "INTEGRATION", "OTHER"]);
 const severitySchema      = z.enum(["LOW", "MEDIUM", "HIGH", "CRITICAL"]);
@@ -150,7 +155,7 @@ export const bugReportRouter = router({
         skip:       z.number().min(0).default(0),
       }).optional()
     )
-    .query(async ({ _ctx, input }) => {
+    .query(async ({ input }) => {
       const where = {
         ...(input?.status     ? { status:     input.status }     : {}),
         ...(input?.severity   ? { severity:   input.severity }   : {}),

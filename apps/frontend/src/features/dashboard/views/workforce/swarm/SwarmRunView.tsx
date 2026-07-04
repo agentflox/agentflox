@@ -597,7 +597,7 @@ export default function SwarmRunView({
         const evt = msg.swarmEvent;
         // Key by type and timestamp to deduplicate
         const key = `${evt.type}_${evt.timestamp}`;
-        uniqueEventsMap.set(key, evt);
+        uniqueEventsMap.set(key, { ...evt, sessionId: swarmSessionId ?? "" });
         persistedTimestamps.add(evt.timestamp);
       } else {
         chatMessages.push({ msg, idx });
@@ -637,7 +637,7 @@ export default function SwarmRunView({
         // Force unstarted tasks to the bottom of the feed using a huge future timestamp offset
         ts: 4000000000000 + new Date(dbTask.createdAt).getTime(),
         steps: [],
-        metadata: { ...(dbTask.metadata as object || {}), inputData: dbTask.inputData },
+        metadata: { ...(dbTask.metadata as object || {}), inputData: (dbTask as any).inputData ?? dbTask.metadata?.inputData },
         pipeline: dbTask.metadata?.pipeline,
         currentStepIndex: dbTask.metadata?.currentStepIndex,
         blockedByTitles: blockedByTitles.length > 0 ? blockedByTitles : undefined,
@@ -774,7 +774,7 @@ export default function SwarmRunView({
         // Expose pipeline metadata to the UI
         taskExec.pipeline = dbTask.metadata?.pipeline;
         taskExec.currentStepIndex = dbTask.metadata?.currentStepIndex;
-        taskExec.metadata = { ...(dbTask.metadata as object || {}), inputData: dbTask.inputData };
+        taskExec.metadata = { ...(dbTask.metadata as object || {}), inputData: (dbTask as any).inputData ?? dbTask.metadata?.inputData };
 
         const dynamicBlockedByTitles = (dbTask.blockedBy as string[] || [])
           .map(blockingId => tasks.find(t => t.id === blockingId)?.title)
@@ -917,8 +917,8 @@ export default function SwarmRunView({
       if (item._type === 'message' && item.msg?.role === 'user') {
         return { activeSuggestedActions: [], activeSuggestedMessageId: null };
       }
-      if (item._type === 'message' && item.msg?.meta?.suggestedActions?.length > 0) {
-        return { activeSuggestedActions: item.msg.meta.suggestedActions, activeSuggestedMessageId: item.id };
+      if (item._type === 'message' && (item.msg?.meta?.suggestedActions?.length ?? 0) > 0) {
+        return { activeSuggestedActions: item.msg.meta!.suggestedActions, activeSuggestedMessageId: item.id };
       }
       if (item._type === 'task_exec' && (item.taskExec?.suggestedActions?.length ?? 0) > 0) {
         return { activeSuggestedActions: item.taskExec.suggestedActions!, activeSuggestedMessageId: item.id };

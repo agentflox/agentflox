@@ -189,7 +189,7 @@ export default function ListingCard({ listing }: ListingCardProps) {
             {(isAsset || listing.ratings) && (
               <div className="flex items-center gap-1.5 text-amber-600 bg-amber-500/10 px-2 py-1 rounded-md border border-amber-500/20">
                 <Star className="h-3.5 w-3.5 fill-amber-500" />
-                <span>{(listing.ratings?.average || 0).toFixed(1)} <span className="text-[10px] text-amber-600/60 ml-0.5">({listing.ratings?.count || 0})</span></span>
+                <span>{(listing.ratings?.average || 0).toFixed(1)} <span className="text-[10px] text-amber-600/60 ml-0.5">({listing.ratings?.totalReviews || 0})</span></span>
               </div>
             )}
             {listing.commentCount > 0 && (
@@ -220,7 +220,7 @@ export default function ListingCard({ listing }: ListingCardProps) {
                 )}
                 <Button
                   size="sm"
-                  variant={downloadState === 'installed' ? 'secondary' : 'default'}
+                  variant={downloadState === 'installed' ? 'secondary' : 'primary'}
                   onClick={handleDownload}
                   disabled={downloadState === 'downloading'}
                   className={cn(

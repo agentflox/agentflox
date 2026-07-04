@@ -64,7 +64,6 @@ export function FolderCreationModal({ context, contextId, workspaceId, parentFol
                 projectId: variables.projectId ?? undefined,
                 teamId: variables.teamId ?? undefined,
                 spaceId: variables.spaceId ?? undefined,
-                parentFolderId: variables.parentFolderId ?? undefined,
             })
         },
     })

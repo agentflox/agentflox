@@ -256,7 +256,7 @@ export function SharedManageTeamsView({ workspaceId, onTeamCreated }: SharedMana
                                     <DropdownMenuSubContent>
                                         <DropdownMenuCheckboxItem checked={scope === "all"} onCheckedChange={() => setScope("all")}>All Teams</DropdownMenuCheckboxItem>
                                         <DropdownMenuCheckboxItem checked={scope === "owned"} onCheckedChange={() => setScope("owned")}>Owned by me</DropdownMenuCheckboxItem>
-                                        <DropdownMenuCheckboxItem checked={scope === "member"} onCheckedChange={() => setScope("member")}>Shared with me</DropdownMenuCheckboxItem>
+                                        <DropdownMenuCheckboxItem checked={scope === "participated"} onCheckedChange={() => setScope("participated")}>Shared with me</DropdownMenuCheckboxItem>
                                     </DropdownMenuSubContent>
                                 </DropdownMenuPortal>
                             </DropdownMenuSub>

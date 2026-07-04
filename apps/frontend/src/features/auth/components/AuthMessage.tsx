@@ -1,6 +1,6 @@
 import React from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { AlertCircle, CheckCircle2, Info, AlertTriangle, X } from "lucide-react";
+import { CircleAlert, CheckCircle2, Info, TriangleAlert, X } from "lucide-react";
 
 export type MessageType = "error" | "success" | "info" | "warning";
 
@@ -24,7 +24,7 @@ const getMessageConfig = (message: string, type?: MessageType) => {
 
   const configs = {
     error: {
-      icon: AlertCircle,
+      icon: CircleAlert,
       bgClass: "bg-red-50",
       borderClass: "border-red-200",
       textClass: "text-red-800",
@@ -48,7 +48,7 @@ const getMessageConfig = (message: string, type?: MessageType) => {
       progressClass: "bg-blue-400",
     },
     warning: {
-      icon: AlertTriangle,
+      icon: TriangleAlert,
       bgClass: "bg-amber-50",
       borderClass: "border-amber-200",
       textClass: "text-amber-800",

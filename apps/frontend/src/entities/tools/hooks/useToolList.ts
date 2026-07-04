@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import { trpc } from "@/lib/trpc";
+import { keepPreviousData } from "@tanstack/react-query";
 
 export type ToolScope = "owned" | "all";
 
@@ -9,54 +10,30 @@ type FilterState = {
 	isPublic?: boolean;
 };
 
+const PAGE_SIZE = 12;
+
 export function useToolList(initialScope: ToolScope = "owned") {
 	const [page, setPage] = useState(1);
-	const pageSize = 12;
 	const [query, setQuery] = useState("");
 	const [scope, setScope] = useState<ToolScope>(initialScope);
 	const [filters, setFilters] = useState<FilterState>({});
 
-	const serverInput = useMemo(
+	const listInput = useMemo(
 		() => ({
 			query: query.trim() || undefined,
+			category: filters.category,
+			isPublic: filters.isPublic,
+			page,
+			pageSize: PAGE_SIZE,
+			includeSchema: false,
 		}),
-		[query],
+		[query, filters.category, filters.isPublic, page],
 	);
 
-	const queryResult = trpc.compositeTool.list.useQuery(serverInput, {
+	const queryResult = trpc.compositeTool.list.useQuery(listInput, {
 		staleTime: 30_000,
+		placeholderData: keepPreviousData,
 	});
-
-	const filteredItems = useMemo(() => {
-		let items = (queryResult.data || []) as any[];
-
-		if (filters.category) {
-			items = items.filter((item) => item.category === filters.category);
-		}
-
-		if (typeof filters.isPublic === "boolean") {
-			items = items.filter((item) => item.isPublic === filters.isPublic);
-		}
-
-		// For now, scope does not change the result set since composite tools
-		// are always owned by the current user. We still keep it in state so
-		// the UI remains consistent and can be extended later.
-
-		return items;
-	}, [queryResult.data, filters.category, filters.isPublic]);
-
-	const paginatedData = useMemo(() => {
-		const total = filteredItems.length;
-		const start = (page - 1) * pageSize;
-		const end = start + pageSize;
-
-		return {
-			items: filteredItems.slice(start, end),
-			total,
-			page,
-			pageSize,
-		};
-	}, [filteredItems, page, pageSize]);
 
 	useEffect(() => {
 		setPage(1);
@@ -75,11 +52,17 @@ export function useToolList(initialScope: ToolScope = "owned") {
 		}
 	}, [query, scope, filters.category, filters.isPublic, page]);
 
+	const hasNextPage =
+		queryResult.data?.items.length === PAGE_SIZE &&
+		page * PAGE_SIZE < (queryResult.data?.total ?? 0);
+	const hasPreviousPage = page > 1;
+
 	return {
-		...queryResult,
-		data: paginatedData,
+		data: queryResult.data,
+		isLoading: queryResult.isLoading,
+		isFetching: queryResult.isFetching,
 		page,
-		pageSize,
+		pageSize: PAGE_SIZE,
 		setPage,
 		query,
 		setQuery,
@@ -87,8 +70,8 @@ export function useToolList(initialScope: ToolScope = "owned") {
 		setScope,
 		filters,
 		setFilters,
+		hasNextPage,
+		hasPreviousPage,
 	};
 }
-
-
 

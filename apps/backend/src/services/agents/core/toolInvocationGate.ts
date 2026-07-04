@@ -181,7 +181,7 @@ export class ToolInvocationGate {
       }
 
       // Check if user is owner or collaborator with execute permission
-      const isOwner = agent.createdBy === request.userId;
+      const isOwner = agent.ownerId === request.userId;
       const isCollaborator = agent.collaborators.some(
         (c) => c.userId === request.userId && c.canExecute
       );

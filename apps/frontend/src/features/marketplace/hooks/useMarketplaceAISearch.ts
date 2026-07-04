@@ -19,8 +19,8 @@ export function useMarketplaceAISearch(query: string) {
       setTimeout(() => {
         const lowerQuery = query.toLowerCase();
         let inferredCategory: ListingType | undefined = undefined;
-        let inferredSkills: string[] = [];
-        let inferredDuration = undefined;
+        const inferredSkills: string[] = [];
+        let inferredDuration: string | undefined = undefined;
 
         if (lowerQuery.includes('developer') || lowerQuery.includes('dev') || lowerQuery.includes('designer')) {
           inferredCategory = 'talent';

@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { AppSidebar } from "@/components/layout/AppSidebar";
 import { ViewType } from "@/features/dashboard/components/modals/AddViewModal";
-import { viewConfig } from "./SpaceViewConfig";
+import { viewConfig } from "@/features/dashboard/views/space/SpaceViewConfig";
 import {
     MoreHorizontal,
     Plus,

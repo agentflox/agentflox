@@ -178,7 +178,7 @@ export class AgentsController {
           id: body.executionId,
           aiAgent: {
             OR: [
-              { createdBy: userId },
+              { ownerId: userId },
               {
                 collaborators: {
                   some: { userId, canExecute: true },
@@ -320,7 +320,7 @@ export class AgentsController {
         where: {
           id: agentId,
           OR: [
-            { createdBy: userId },
+            { ownerId: userId },
             {
               collaborators: {
                 some: { userId },
@@ -388,7 +388,7 @@ export class AgentsController {
           agentId,
           aiAgent: {
             OR: [
-              { createdBy: userId },
+              { ownerId: userId },
               {
                 collaborators: {
                   some: { userId },
@@ -439,7 +439,7 @@ export class AgentsController {
           agentId,
           aiAgent: {
             OR: [
-              { createdBy: userId },
+              { ownerId: userId },
               {
                 collaborators: {
                   some: { userId, canExecute: true },
@@ -499,7 +499,7 @@ export class AgentsController {
         where: {
           id: body.agentId,
           OR: [
-            { createdBy: userId },
+            { ownerId: userId },
             { collaborators: { some: { userId, canExecute: true } } }
           ]
         }
@@ -1430,7 +1430,7 @@ export class AgentsController {
           id: executionId,
           aiAgent: {
             OR: [
-              { createdBy: userId },
+              { ownerId: userId },
               {
                 collaborators: {
                   some: { userId, canExecute: true },
@@ -1504,7 +1504,7 @@ export class AgentsController {
           id: executionId,
           aiAgent: {
             OR: [
-              { createdBy: userId },
+              { ownerId: userId },
               {
                 collaborators: {
                   some: { userId, canExecute: true },
@@ -1570,7 +1570,7 @@ export class AgentsController {
           id: executionId,
           aiAgent: {
             OR: [
-              { createdBy: userId },
+              { ownerId: userId },
               {
                 collaborators: {
                   some: { userId, canExecute: true },

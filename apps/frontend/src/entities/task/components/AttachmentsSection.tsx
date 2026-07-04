@@ -53,14 +53,13 @@ export function AttachmentsSection({ taskId }: AttachmentsSectionProps) {
                     taskId,
                     filename: newAttachment.filename,
                     url: newAttachment.url,
-                    size: newAttachment.size,
+                    size: BigInt(newAttachment.size),
                     mimeType: newAttachment.mimeType,
                     createdAt: new Date(),
-                    uploaderId: 'current-user',
+                    uploadedBy: 'current-user',
                     uploader: {
                         id: 'current-user',
                         name: 'You',
-                        email: '',
                         image: null,
                     },
                 };
@@ -80,7 +79,7 @@ export function AttachmentsSection({ taskId }: AttachmentsSectionProps) {
             });
 
             // Also update in task list if present
-            utils.task.list.setData(undefined, (old: any) => {
+            utils.task.list.setData({}, (old: any) => {
                 if (!old?.items) return old;
                 return {
                     ...old,
@@ -151,7 +150,7 @@ export function AttachmentsSection({ taskId }: AttachmentsSectionProps) {
             });
 
             // Also update in task list if present
-            utils.task.list.setData(undefined, (old: any) => {
+            utils.task.list.setData({}, (old: any) => {
                 if (!old?.items) return old;
                 return {
                     ...old,

@@ -16,12 +16,15 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 export interface EmbedViewProps {
+    workspaceId?: string;
     spaceId?: string;
     projectId?: string;
     folderId?: string;
     teamId?: string;
     listId?: string;
     viewId?: string;
+    url?: string;
+    onUrlSave?: (url: string) => void;
     initialConfig?: Record<string, any> | null;
     selectedTaskIdFromParent?: string | null;
     onTaskSelect?: (taskId: string | null) => void;
@@ -189,6 +192,7 @@ const wrapHtmlForEmbed = (html: string): string => {
 };
 
 export function EmbedView({
+    workspaceId,
     viewId,
     spaceId,
     projectId,
@@ -280,13 +284,11 @@ export function EmbedView({
         if (folderId) utils.folder?.get?.setData({ id: folderId }, (old: any) => old ? { ...old, views: patchViews(old.views ?? []) } : old);
         if (listId) utils.list?.get?.setData({ id: listId }, (old: any) => old ? { ...old, views: patchViews(old.views ?? []) } : old);
 
-        // Use a generic approach to update list.byContext
+                // Use a generic approach to update list.byContext
         const updateListByContext = () => {
             try {
-                // @ts-ignore
                 if (utils.list?.byContext?.setData) {
-                    // @ts-ignore
-                    utils.list.byContext.setData(undefined, (old: any) => {
+                    utils.list.byContext.setData({ workspaceId, spaceId, projectId, teamId, folderId }, (old: any) => {
                         if (!old || !old.items) return old;
                         return {
                             ...old,
@@ -544,7 +546,7 @@ export function EmbedView({
                                 <AlertCircle className="h-4 w-4" />
                                 <AlertDescription>
                                     Unable to load this embed. The site may not allow iframe embedding.
-                                    <Button variant="link" size="sm" onClick={handleOpenExternal} className="ml-2 h-auto p-0">
+                                    <Button variant="ghost" size="sm" onClick={handleOpenExternal} className="ml-2 h-auto p-0">
                                         Open in new tab instead
                                     </Button>
                                 </AlertDescription>
@@ -774,14 +776,8 @@ export function EmbedView({
                 <ShareViewPermissionModal
                     open={isShareModalOpen}
                     onOpenChange={setIsShareModalOpen}
-                    viewId={viewId}
-                    spaceId={spaceId}
-                    projectId={projectId}
-                    folderId={folderId}
-                    teamId={teamId}
-                    viewName={viewData?.name || "View"}
-                    isPrivate={privateView}
-                    isLocked={false}
+                    viewId={viewId ?? null}
+                    workspaceId={workspaceId ?? null}
                 />
             </div>
         </TooltipProvider>

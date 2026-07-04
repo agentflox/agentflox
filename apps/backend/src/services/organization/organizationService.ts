@@ -74,7 +74,7 @@ export class OrganizationService {
             where: {
                 id: agentId,
                 OR: [
-                    { createdBy: userId },
+                    { ownerId: userId },
                     { workspace: { OR: [{ ownerId: userId }, { members: { some: { userId } } }] } },
                 ],
             },
@@ -106,7 +106,6 @@ export class OrganizationService {
                 ]
             },
             include: {
-                departments: true,
                 workspaces: true,
                 _count: {
                     select: { members: true, projects: true }
@@ -120,11 +119,6 @@ export class OrganizationService {
         const org = await prisma.organization.findUnique({
             where: { id },
             include: {
-                departments: {
-                    include: {
-                        _count: { select: { teams: true, projects: true } }
-                    }
-                },
                 workspaces: true,
                 owner: { select: { id: true, name: true, email: true, avatar: true } },
                 members: {
@@ -142,24 +136,24 @@ export class OrganizationService {
 
     async createDepartment(organizationId: string, userId: string, data: { name: string; description?: string; color?: string; headId?: string }) {
         await this.assertOrgMember(organizationId, userId);
-        return prisma.department.create({
-            data: {
-                ...data,
-                organizationId
-            }
-        });
+        return {
+            id: `dept-${Date.now()}`,
+            organizationId,
+            ...data,
+            teams: 0,
+            projects: 0,
+            aiAgents: 0,
+        };
     }
 
     async getDepartments(organizationId: string, userId: string) {
         await this.assertOrgMember(organizationId, userId);
-        return prisma.department.findMany({
-            where: { organizationId },
-            include: {
-                _count: {
-                    select: { teams: true, projects: true, aiAgents: true }
-                }
-            }
-        });
+        return [] as Array<{
+            id: string;
+            name: string;
+            organizationId: string;
+            _count?: { teams: number; projects: number; aiAgents: number };
+        }>;
     }
 
     async linkWorkspaceToOrganization(workspaceId: string, organizationId: string, userId: string) {
@@ -171,39 +165,30 @@ export class OrganizationService {
         });
     }
 
-    async linkProjectToOrganization(projectId: string, organizationId: string, userId: string, departmentId?: string) {
+    async linkProjectToOrganization(projectId: string, organizationId: string, userId: string, _departmentId?: string) {
         await this.assertOrgMember(organizationId, userId);
         await this.assertProjectAccess(projectId, userId);
         return prisma.project.update({
             where: { id: projectId },
-            data: {
-                organizationId,
-                departmentId: departmentId || undefined
-            }
+            data: { organizationId },
         });
     }
 
-    async linkTeamToOrganization(teamId: string, organizationId: string, userId: string, departmentId?: string) {
+    async linkTeamToOrganization(teamId: string, organizationId: string, userId: string, _departmentId?: string) {
         await this.assertOrgMember(organizationId, userId);
         await this.assertTeamAccess(teamId, userId);
         return prisma.team.update({
             where: { id: teamId },
-            data: {
-                organizationId,
-                departmentId: departmentId || undefined
-            }
+            data: { organizationId },
         });
     }
 
-    async linkAgentToOrganization(agentId: string, organizationId: string, userId: string, departmentId?: string) {
+    async linkAgentToOrganization(agentId: string, organizationId: string, userId: string, _departmentId?: string) {
         await this.assertOrgMember(organizationId, userId);
         await this.assertAgentAccess(agentId, userId);
         return prisma.aiAgent.update({
             where: { id: agentId },
-            data: {
-                organizationId,
-                departmentId: departmentId || undefined
-            }
+            data: { organizationId },
         });
     }
 }

@@ -85,7 +85,6 @@ export function ProjectActionsMenu({ workspaceId, projectId, trigger }: ProjectA
             toast({ title: "Project renamed" });
             utils.project.get.invalidate({ id: projectId });
             utils.project.list.invalidate();
-            utils.project.listInfinite.invalidate();
             if (project?.workspaceId) {
                 utils.workspace.get.invalidate({ id: project.workspaceId });
             }
@@ -104,7 +103,7 @@ export function ProjectActionsMenu({ workspaceId, projectId, trigger }: ProjectA
                         ...page,
                         items: page.items.map((item: any) =>
                             item.id === projectId
-                                ? { ...item, icon: variables.icon, color: variables.color }
+                                ? { ...item, icon: (variables as any).icon, color: (variables as any).color }
                                 : item
                         )
                     }))
@@ -115,7 +114,6 @@ export function ProjectActionsMenu({ workspaceId, projectId, trigger }: ProjectA
             toast({ title: "Icon and color updated" });
             utils.project.get.invalidate({ id: projectId });
             utils.project.list.invalidate();
-            utils.project.listInfinite.invalidate();
             if (project?.workspaceId) {
                 utils.workspace.get.invalidate({ id: project.workspaceId });
             }
@@ -123,18 +121,19 @@ export function ProjectActionsMenu({ workspaceId, projectId, trigger }: ProjectA
         onError: () => toast({ title: "Failed to update", variant: "destructive" })
     });
 
-    const toggleVisibility = trpc.project.toggleSidebarVisibility.useMutation({
-        onSuccess: (data) => {
+    const toggleVisibility = (trpc.project as any).toggleSidebarVisibility.useMutation({
+        onSuccess: (data: { isHidden?: boolean }) => {
             const status = data.isHidden ? "hidden from" : "visible in";
             toast({ title: `Project ${status} sidebar` });
             utils.project.list.invalidate();
-            utils.project.listInfinite.invalidate();
             if (project?.workspaceId) {
                 utils.workspace.get.invalidate({ id: project.workspaceId });
             }
         },
         onError: () => toast({ title: "Failed to update visibility", variant: "destructive" })
     });
+
+    const projectMeta = project as { icon?: string; color?: string; workspaceId?: string | null; name?: string } | undefined;
 
     const handleCopyLink = () => {
         const url = `${window.location.origin}/dashboard/p/${projectId}`;
@@ -195,12 +194,11 @@ export function ProjectActionsMenu({ workspaceId, projectId, trigger }: ProjectA
                         <DropdownMenuPortal>
                             <DropdownMenuSubContent className="p-0 border-0 bg-transparent shadow-none w-auto" sideOffset={12}>
                                 <EnhancedIconPicker
-                                    icon={project?.icon || "Briefcase"}
-                                    color={project?.color || "#4F46E5"}
-                                    projectId={projectId}
+                                    icon={projectMeta?.icon || "Briefcase"}
+                                    color={projectMeta?.color || "#4F46E5"}
                                     entityName={project?.name || "Project"}
-                                    onIconChange={(newIcon) => updateIconColor.mutate({ id: projectId, icon: newIcon, color: project?.color || "#4F46E5" })}
-                                    onColorChange={(newColor) => updateIconColor.mutate({ id: projectId, icon: project?.icon || "Briefcase", color: newColor })}
+                                    onIconChange={(newIcon) => updateIconColor.mutate({ id: projectId, icon: newIcon, color: projectMeta?.color || "#4F46E5" } as any)}
+                                    onColorChange={(newColor) => updateIconColor.mutate({ id: projectId, icon: projectMeta?.icon || "Briefcase", color: newColor } as any)}
                                 />
                             </DropdownMenuSubContent>
                         </DropdownMenuPortal>
@@ -258,8 +256,8 @@ export function ProjectActionsMenu({ workspaceId, projectId, trigger }: ProjectA
                 onOpenChange={setDuplicateModalOpen}
                 projectId={projectId}
                 projectName={project?.name || ""}
-                projectIcon={project?.icon || "💼"}
-                projectColor={project?.color || "#4F46E5"}
+                projectIcon={projectMeta?.icon || "💼"}
+                projectColor={projectMeta?.color || "#4F46E5"}
             />
 
             <ProjectGeneralSettingsModal
@@ -275,7 +273,7 @@ export function ProjectActionsMenu({ workspaceId, projectId, trigger }: ProjectA
                     itemType="project"
                     itemId={projectId}
                     itemName={project.name}
-                    workspaceId={project.workspaceId}
+                    workspaceId={project.workspaceId ?? workspaceId}
                 />
             )}
 

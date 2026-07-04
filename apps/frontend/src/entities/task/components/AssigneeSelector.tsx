@@ -21,7 +21,7 @@ import { UserIcon, X, Plus, Check, Mail, Globe, Users, Bot } from 'lucide-react'
 import { cn } from '@/lib/utils';
 import { PublishEntityModal } from '@/features/marketplace/components/PublishEntityModal';
 import { ShareModal } from '@/components/permissions/ShareModal';
-import { type Task } from '@/entities/tasks/types';
+import { type Task } from '@/entities/task/types';
 
 interface SelectOption {
     id: string;
@@ -361,15 +361,15 @@ export function AssigneeSelector({
                 entityType="task"
                 entityId={task?.id}
                 initialTitle={task?.title}
-                initialDescription={task?.description}
+                initialDescription={task?.description ?? undefined}
             />
 
             <ShareModal
                 isOpen={showInviteModal}
                 onClose={() => setShowInviteModal(false)}
-                workspaceId={workspaceId}
+                workspaceId={workspaceId ?? ''}
                 itemType={projectId ? 'project' : 'workspace'}
-                itemId={projectId || workspaceId}
+                itemId={projectId || workspaceId || ''}
                 itemName={projectId ? 'Project' : 'Workspace'}
             />
         </>

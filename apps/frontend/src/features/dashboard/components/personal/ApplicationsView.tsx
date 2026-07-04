@@ -187,7 +187,7 @@ function EmptyState({ mode }: { mode: "inbox" | "sent" }) {
 
       {mode === "sent" && (
         <Button
-          variant="default"
+          variant="primary"
           size="sm"
           className="bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white shadow-md hover:shadow-lg transition-all duration-200 font-medium"
           onClick={() => window.location.href = '/marketplace'}

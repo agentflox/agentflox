@@ -4,12 +4,12 @@ import { useState } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { ArrowBigUp, ArrowBigDown } from 'lucide-react';
-import { useComments } from '../hooks/useComments';
 import { CommentForm } from './CommentForm';
 import type { PostComment } from '@agentflox/database/src/generated/prisma/client';
 import { cn } from '@/lib/utils';
 import { useFormattedTime } from '@/hooks/useFormattedTime';
 import { v4 as uuidv4 } from 'uuid';
+import type { CommentMutations } from '../hooks/useCommentMutations';
 
 interface CommentItemProps {
   comment: PostComment;
@@ -19,6 +19,8 @@ interface CommentItemProps {
   setReplyingTo: (id: string | null) => void;
   depth?: number;
   entityType?: 'post' | 'listing';
+  createComment: CommentMutations['createComment'];
+  voteComment: CommentMutations['voteComment'];
 }
 
 export function CommentItem({
@@ -29,9 +31,10 @@ export function CommentItem({
   setReplyingTo,
   depth = 0,
   entityType = 'post',
+  createComment,
+  voteComment,
 }: CommentItemProps) {
   const formattedTime = useFormattedTime(comment.createdAt);
-  const { voteComment, createComment } = useComments(comment.postId, entityType);
   const [userVote, setUserVote] = useState<'UPVOTE' | 'DOWNVOTE' | null>(null);
   const [showReplies, setShowReplies] = useState(false);
 
@@ -197,6 +200,8 @@ export function CommentItem({
                 setReplyingTo={setReplyingTo}
                 depth={depth + 1}
                 entityType={entityType}
+                createComment={createComment}
+                voteComment={voteComment}
               />
             ))}
 

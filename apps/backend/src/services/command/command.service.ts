@@ -446,7 +446,7 @@ Respond ONLY with valid JSON in this exact format:
         if (query.length < 2 || !context.workspaceId) return [];
 
         try {
-            const materials = await this.prisma.material.findMany({
+            const documents = await this.prisma.document.findMany({
                 where: {
                     workspaceId: context.workspaceId,
                     OR: [
@@ -459,18 +459,17 @@ Respond ONLY with valid JSON in this exact format:
                     id: true,
                     title: true,
                     description: true,
-                    category: true,
                 },
             });
 
-            return materials.map((mat, idx) => ({
-                id: `mat-${mat.id}`,
+            return documents.map((doc, idx) => ({
+                id: `mat-${doc.id}`,
                 type: 'material' as const,
-                title: mat.title,
-                description: `${mat.category} • ${mat.description || 'Material'}`,
+                title: doc.title,
+                description: doc.description || 'Document',
                 icon: 'FileText',
                 score: 0.65 - (idx * 0.05),
-                metadata: { materialId: mat.id },
+                metadata: { materialId: doc.id },
                 actionable: true,
             }));
         } catch (error: any) {

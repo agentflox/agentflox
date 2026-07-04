@@ -120,7 +120,7 @@ export async function assertWorkforceAccess(userId: string, workforceId: string)
   const workforce = await prisma.workforce.findFirst({
     where: {
       id: workforceId,
-      createdBy: userId,
+      ownerId: userId,
     },
     select: { id: true },
   });

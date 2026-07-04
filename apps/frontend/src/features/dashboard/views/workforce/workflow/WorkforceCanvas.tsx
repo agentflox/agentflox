@@ -43,10 +43,15 @@ import {
     X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import dynamic from 'next/dynamic';
 import { WorkforceEditorAssistantPanel } from '@/entities/workforce/components/assistant/WorkforceEditorAssistantPanel';
 import type { WorkforceOp } from '@/entities/workforce/components/assistant/types';
 import { AgentSettingsModal } from '@/entities/agents/components/AgentSettingsModal';
-import { ToolBuilderView } from '../../tools/ToolFlowBuilderView';
+
+const ToolBuilderView = dynamic(
+    () => import('../../tools/ToolFlowBuilderView').then((m) => m.ToolBuilderView),
+    { ssr: false, loading: () => <div className="flex h-full items-center justify-center text-sm text-muted-foreground">Loading tool builder…</div> }
+);
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { TaskDetailModal } from '@/entities/task/components/TaskDetailModal';
 import { trpc } from '@/lib/trpc';

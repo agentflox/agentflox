@@ -1,5 +1,8 @@
 "use client";
 
+import { TASK_LIST_PAGE_SIZE } from "@/features/dashboard/constants";
+import { useGenericTaskViewData } from "@/features/dashboard/hooks/useGenericTaskViewData";
+import { TaskListLoadMore } from "@/features/dashboard/components/shared/TaskListLoadMore";
 import { useState, useRef, useCallback, useEffect, useMemo, useLayoutEffect } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -94,8 +97,8 @@ import {
     useEdgesState,
     addEdge,
     Connection,
-    Edge,
-    Node,
+    Node as FlowNode,
+    Edge as FlowEdge,
     MarkerType,
     ReactFlowProvider,
     ColorMode,
@@ -137,7 +140,7 @@ import { ViewToolbarClosedPopover } from "@/features/dashboard/components/shared
 import { ViewToolbarSaveDropdown } from "@/features/dashboard/components/shared/ViewToolbarSaveDropdown";
 import { ShareViewPermissionModal } from "@/features/dashboard/components/shared/ShareViewPermissionModal";
 import { TaskCreationModal } from "@/entities/task/components/TaskCreationModal";
-import { TaskDetailModal } from "@/entities/task/components/TaskDetailModal";
+import { LazyTaskDetailModal as TaskDetailModal } from "@/entities/task/components/LazyTaskDetailModal";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
@@ -174,7 +177,7 @@ import {
     STANDARD_FIELD_CONFIG
 } from "./listViewConstants";
 import { format } from "date-fns";
-import { DescriptionEditor } from "@/entities/shared/components/DescriptionEditor";
+import { LazyDescriptionEditor } from "@/entities/shared/components/LazyDescriptionEditor";
 import stableStringify from "json-stable-stringify";
 
 interface MindMapNodeData {
@@ -198,6 +201,14 @@ interface MindMapNodeData {
     childCount?: number;
 }
 
+const normalizeAgentList = (data: unknown): any[] => {
+    if (Array.isArray(data)) return data;
+    if (data && typeof data === "object" && Array.isArray((data as { items?: unknown }).items)) {
+        return (data as { items: any[] }).items;
+    }
+    return [];
+};
+
 const TasksListModal = ({ nodeId, anchorRect, onClose, workspaceId, projectId, onTaskSelect, nodes }: any) => {
     const node = nodes?.find((n: any) => n.id === nodeId);
     const taskIds = useMemo(() => {
@@ -207,7 +218,7 @@ const TasksListModal = ({ nodeId, anchorRect, onClose, workspaceId, projectId, o
     }, [node]);
 
     const { data: tasksData, isLoading } = trpc.task.list.useQuery(
-        { workspaceId: workspaceId as string, taskIds },
+        { workspaceId: workspaceId as string, ids: taskIds },
         { enabled: !!nodeId && taskIds.length > 0 }
     );
     const tasks = (tasksData as any)?.items || [];
@@ -217,7 +228,7 @@ const TasksListModal = ({ nodeId, anchorRect, onClose, workspaceId, projectId, o
     const modalRef = useRef<HTMLDivElement>(null);
     useEffect(() => {
         const handleClickOutside = (e: MouseEvent) => {
-            if (modalRef.current && !modalRef.current.contains(e.target as Node)) {
+            if (modalRef.current && !modalRef.current.contains(e.target as HTMLElement)) {
                 onClose();
             }
         };
@@ -377,6 +388,7 @@ interface MindMapViewProps {
 
     // Shared data
     resolvedWorkspaceId?: string;
+    workspaceId?: string;
     users?: any[];
     agents?: any[];
     lists?: any[];
@@ -655,7 +667,7 @@ function MindMapFlowNode({ data, selected }: { data: any, selected: boolean }) {
                                     <div className="space-y-4">
                                         {node.entityType === 'task' ? (
                                             <div className="border border-zinc-200 rounded-xl overflow-hidden focus-within:ring-2 focus-within:ring-indigo-500/10 focus-within:border-indigo-500/20 transition-all">
-                                                <DescriptionEditor content={descriptionDraft} onChange={setDescriptionDraft} editable={true} spaceId={spaceId} projectId={projectId} workspaceId={workspaceId} collaboration={{ enabled: true, documentId: getTaskId() || node.id, documentType: 'task', user: { id: session?.id || 'anonymous', name: session?.name || session?.email || 'User', color: session?.color } }} />
+                                                <LazyDescriptionEditor content={descriptionDraft} onChange={setDescriptionDraft} editable={true} spaceId={spaceId} projectId={projectId} workspaceId={workspaceId} collaboration={{ enabled: true, documentId: getTaskId() || node.id, documentType: 'task', user: { id: session?.id || 'anonymous', name: session?.name || session?.email || 'User', color: session?.color } }} />
                                             </div>
                                         ) : (
                                             <textarea className="w-full min-h-[300px] p-4 text-sm border border-zinc-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500/20 transition-all resize-none" placeholder="Write something..." value={descriptionDraft} onChange={(e) => setDescriptionDraft(e.target.value)} autoFocus />
@@ -1161,7 +1173,7 @@ function DraggableNode({
                                     <div className="space-y-4">
                                         {node.entityType === 'task' ? (
                                             <div className="border border-zinc-200 rounded-xl overflow-hidden focus-within:ring-2 focus-within:ring-indigo-500/10 focus-within:border-indigo-500/20 transition-all">
-                                                <DescriptionEditor
+                                                <LazyDescriptionEditor
                                                     content={descriptionDraft}
                                                     onChange={setDescriptionDraft}
                                                     editable={true}
@@ -1474,6 +1486,7 @@ interface MindMapHeaderProps {
     // Misc
     resolvedWorkspaceId?: string;
     users: any[];
+    agents?: any[];
     lists: any[];
     spaceId?: string;
     projectId?: string;
@@ -1517,6 +1530,12 @@ interface MindMapHeaderProps {
     selectedTaskIdFromParent?: string | null;
     onTaskSelect?: (taskId: string | null) => void;
     session?: any;
+    prefetchedTasks?: any[];
+    isTasksLoading?: boolean;
+    loadMoreRef?: React.RefObject<HTMLDivElement | null>;
+    hasMoreTasks?: boolean;
+    taskTotal?: number;
+    isFetchingNextPage?: boolean;
 }
 
 const getPriorityStyles = (p: string) => {
@@ -1626,7 +1645,7 @@ function MindMapHeader({
         toolbarSearchInputRef.current?.focus();
 
         const handleClickOutside = (event: MouseEvent) => {
-            const target = event.target as Node;
+            const target = event.target as HTMLElement;
             if (!toolbarSearchContainerRef.current?.contains(target)) {
                 setIsToolbarSearchOpen(false);
             }
@@ -1827,7 +1846,7 @@ function MindMapFreeformView(props: MindMapHeaderProps) {
     );
 
     const agents = useMemo(() => {
-        return agentsFromProps.length > 0 ? agentsFromProps : (agentsData || []);
+        return agentsFromProps.length > 0 ? agentsFromProps : normalizeAgentList(agentsData);
     }, [agentsFromProps, agentsData]);
 
     const [isFullscreen, setIsFullscreen] = useState(false);
@@ -1879,8 +1898,8 @@ function MindMapFreeformView(props: MindMapHeaderProps) {
 
     const followersRef = useRef<HTMLDivElement>(null);
     const draggingRootIdRef = useRef<string | null>(null);
-    const [rfNodes, setRfNodes, onNodesChange] = useNodesState([]);
-    const [rfEdges, setRfEdges, onEdgesChange] = useEdgesState([]);
+    const [rfNodes, setRfNodes, onNodesChange] = useNodesState<FlowNode>([]);
+    const [rfEdges, setRfEdges, onEdgesChange] = useEdgesState<FlowEdge>([]);
     const isPanningRef = useRef(false);
     const [isPanning, setIsPanning] = useState(false);
     const lastPanPosRef = useRef({ x: 0, y: 0 });
@@ -2267,8 +2286,8 @@ function MindMapFreeformView(props: MindMapHeaderProps) {
         }
 
         // Apply boundary constraints (confine nodes to the visible viewport)
-        let correctedDx = initialDx;
-        let correctedDy = initialDy;
+        const correctedDx = initialDx;
+        const correctedDy = initialDy;
 
         // Boundary constraints removed for infinite scrolling
 
@@ -2662,7 +2681,7 @@ function MindMapFreeformView(props: MindMapHeaderProps) {
 
     // Transform internal nodes to React Flow nodes and edges
     useEffect(() => {
-        const flowNodes: Node[] = visibleNodes.map(node => ({
+        const flowNodes: FlowNode[] = visibleNodes.map(node => ({
             id: node.id,
             type: 'mindMap',
             position: { x: node.x + worldBounds.offsetX, y: node.y + worldBounds.offsetY },
@@ -2688,7 +2707,7 @@ function MindMapFreeformView(props: MindMapHeaderProps) {
             },
         }));
 
-        const flowEdges: Edge[] = visibleNodes
+        const flowEdges: FlowEdge[] = visibleNodes
             .filter(n => n.parentId)
             .map(n => ({
                 id: `e-${n.parentId}-${n.id}`,
@@ -2713,7 +2732,7 @@ function MindMapFreeformView(props: MindMapHeaderProps) {
         viewAutosave,
     ]);
 
-    const onNodeDragStop = useCallback((event: any, node: Node) => {
+    const onNodeDragStop = useCallback((event: any, node: FlowNode) => {
         handleUpdateNode(node.id, {
             x: node.position.x - worldBounds.offsetX,
             y: node.position.y - worldBounds.offsetY
@@ -3512,7 +3531,7 @@ export function MindMapView(props: MindMapViewProps) {
     useEffect(() => {
         if (props.viewId && props.initialConfig) {
             const config = (props.initialConfig as any)?.mindMapView || {};
-            setSavedSnapshot(stableStringify(config));
+            setSavedSnapshot(stableStringify(config) ?? null);
         }
     }, [props.viewId]);
 
@@ -3554,7 +3573,7 @@ export function MindMapView(props: MindMapViewProps) {
         toolbarSearchInputRef.current?.focus();
 
         const handleClickOutside = (event: MouseEvent) => {
-            const target = event.target as Node;
+            const target = event.target as HTMLElement;
             if (!toolbarSearchContainerRef.current?.contains(target)) {
                 setIsToolbarSearchOpen(false);
             }
@@ -3580,22 +3599,38 @@ export function MindMapView(props: MindMapViewProps) {
 
     const utils = trpc.useUtils();
 
-    // Data Fetching
-    const { data: space } = trpc.space.get.useQuery({ id: props.spaceId as string }, { enabled: !!props.spaceId });
-    const { data: project } = trpc.project.get.useQuery({ id: props.projectId as string }, { enabled: !!props.projectId });
-    const resolvedWorkspaceId = space?.workspaceId || project?.workspaceId || props.resolvedWorkspaceId;
-    const { data: workspace } = trpc.workspace.get.useQuery({ id: resolvedWorkspaceId as string }, { enabled: !!resolvedWorkspaceId });
-    const { data: availableTaskTypes = [] } = trpc.task.listTaskTypes.useQuery({ workspaceId: resolvedWorkspaceId as string }, { enabled: !!resolvedWorkspaceId });
+    const taskListSpaceId = props.spaceId && !props.projectId && !props.listId ? props.spaceId : undefined;
+    const taskListProjectId = props.projectId && !props.listId ? props.projectId : undefined;
 
-    const { data: projectParticipants } = trpc.project.getParticipants.useQuery({ projectId: props.projectId as string }, { enabled: !!props.projectId });
-    const { data: teamParticipants } = trpc.team.getParticipants.useQuery({ teamId: props.teamId as string }, { enabled: !!props.teamId });
-    const { data: session } = trpc.user.me.useQuery();
-    const { data: listsData } = trpc.list.byContext.useQuery({ spaceId: props.spaceId, projectId: props.projectId, workspaceId: resolvedWorkspaceId }, { enabled: !!(props.spaceId || props.projectId || resolvedWorkspaceId) });
+    const {
+        resolvedWorkspaceId,
+        customFields = [],
+        availableTaskTypes = [],
+        currentUser,
+        projectParticipants,
+        teamParticipants,
+        listsData,
+        workspaceMembers,
+        agents,
+        tasks: prefetchedTasks,
+        isTasksLoading,
+        hasMore: hasMoreTasks,
+        isFetchingNextPage,
+        loadMoreRef,
+        total: taskTotal,
+    } = useGenericTaskViewData({
+        spaceId: props.spaceId,
+        projectId: props.projectId,
+        teamId: props.teamId,
+        listId: props.listId,
+        workspaceId: props.workspaceId ?? props.resolvedWorkspaceId,
+        taskListSpaceId,
+        taskListProjectId,
+        scope: "all",
+        includeRelations: "card",
+    });
 
-    const { data: customFields = [] } = trpc.customFields.list.useQuery(
-        { workspaceId: resolvedWorkspaceId as string, applyTo: "TASK" },
-        { enabled: !!resolvedWorkspaceId }
-    );
+    const session = currentUser;
 
     const allAvailableStatuses = useMemo(() => {
         if (props.listId && listsData?.items) {
@@ -3618,12 +3653,12 @@ export function MindMapView(props: MindMapViewProps) {
 
     const workspaceUserById = useMemo(() => {
         const map = new Map<string, { id: string; name: string; email?: string | null; image?: string | null }>();
-        for (const m of workspace?.members ?? []) {
+        for (const m of workspaceMembers ?? []) {
             const u = (m as any).user;
             if (u) map.set(u.id, { id: u.id, name: u.name || u.email || "Unknown", image: u.image, email: u.email });
         }
         return map;
-    }, [workspace?.members]);
+    }, [workspaceMembers]);
 
     const users = useMemo(() => {
         if (props?.teamId && teamParticipants?.users?.length) {
@@ -3793,7 +3828,7 @@ export function MindMapView(props: MindMapViewProps) {
         if (props.viewId) {
             const config = (props.initialConfig || {}) as Record<string, any>;
 
-            let updates: any = {
+            const updates: any = {
                 ...config,
                 mindMapMode: selectedMode
             };
@@ -4597,22 +4632,22 @@ export function MindMapView(props: MindMapViewProps) {
                 id: props.viewId,
                 config: { ...raw, mindMapView: configToSave }
             });
-            setSavedSnapshot(stableStringify(configToSave));
+            setSavedSnapshot(stableStringify(configToSave) ?? null);
             if (!silent) toast.success("View saved successfully");
         } catch (e) {
             toast.error("Failed to save view");
         }
     }, [props.viewId, viewData, currentViewConfig, updateViewMutation, stableStringify]);
 
-    const saveAsNewView = useCallback(async (name: string) => {
+    const saveAsNewView = useCallback(async (name?: string) => {
         if (!viewData) return;
         try {
             await createViewMutation.mutateAsync({
-                name: name.trim() || viewNameDraft.trim() || "New Mind Map",
+                name: (name ?? viewNameDraft).trim() || "New Mind Map",
                 projectId: props.projectId as string,
                 spaceId: props.spaceId as string,
                 type: 'MIND_MAP',
-                config: { ...viewData.config, mindMapView: currentViewConfig }
+                config: { ...(viewData.config ?? {}) as Record<string, any>, mindMapView: currentViewConfig }
             } as any);
         } catch (e) {
             toast.error("Failed to create view");
@@ -4661,7 +4696,7 @@ export function MindMapView(props: MindMapViewProps) {
         addTaskModalOpen, setAddTaskModalOpen, fieldsPanelOpen, setFieldsPanelOpen,
         assigneesPanelOpen, setAssigneesPanelOpen,
         resolvedWorkspaceId, users, lists, allAvailableStatuses, customFields,
-        allAvailableTags, availableTaskTypes,
+        allAvailableTags, availableTaskTypes, agents,
         isViewDirty,
         viewAutosave,
         isPending: updateViewMutation.isPending,
@@ -4684,19 +4719,26 @@ export function MindMapView(props: MindMapViewProps) {
         showSubtasksFromOtherLists, setShowSubtasksFromOtherLists,
         defaultToMeMode, setDefaultToMeMode,
         FIELD_CONFIG,
-        session
+        session,
+        prefetchedTasks,
+        isTasksLoading,
+        loadMoreRef,
+        hasMoreTasks,
+        taskTotal,
+        isFetchingNextPage,
     }), [
         props, filtersPanelOpen, appliedFilterCount, filterGroups, renderFilterContent,
         showCompleted, showCompletedSubtasks, showMinimap, groupBy, groupDirection,
         expandedSubtaskMode, searchQuery, customizePanelOpen, addTaskModalOpen,
         fieldsPanelOpen, assigneesPanelOpen, resolvedWorkspaceId, users, lists,
-        allAvailableStatuses, customFields, allAvailableTags, availableTaskTypes,
+        allAvailableStatuses, customFields, allAvailableTags, availableTaskTypes, agents,
         isViewDirty, viewAutosave, updateViewMutation.isPending, saveViewConfig,
         handleToggleAutosave, saveAsNewView, revertViewChanges, createViewMutation.isPending,
         layoutOptionsOpen, viewNameDraft, showEmptyStatuses, wrapText, showTaskLocations,
         showSubtaskParentNames, visibleColumns, toggleColumn, pinDescription,
         showTaskProperties, showTasksFromOtherLists, showSubtasksFromOtherLists,
-        defaultToMeMode, FIELD_CONFIG, session
+        defaultToMeMode, FIELD_CONFIG, session, prefetchedTasks, isTasksLoading,
+        loadMoreRef, hasMoreTasks, taskTotal, isFetchingNextPage
     ]);
 
     const renderPanels = () => (
@@ -4966,8 +5008,12 @@ function MindMapTasksView(props: MindMapHeaderProps) {
         listId, folderId, entity, allAvailableTags = [], spaceId, projectId, teamId,
         lists = [], allAvailableStatuses = [], availableTaskTypes = [], customFields = [],
         users = [], agents: agentsFromProps = [], resolvedWorkspaceId, session, viewAutosave,
-        showMinimap = true, setShowMinimap = () => { }
+        showMinimap = true, setShowMinimap = () => { },
+        loadMoreRef, hasMoreTasks, taskTotal, isFetchingNextPage,
     } = props;
+
+    const fallbackLoadMoreRef = useRef<HTMLDivElement>(null);
+    const effectiveLoadMoreRef = loadMoreRef ?? fallbackLoadMoreRef;
 
     // Fetch agents if not provided
     const { data: agentsData } = trpc.agent.list.useQuery(
@@ -4976,7 +5022,7 @@ function MindMapTasksView(props: MindMapHeaderProps) {
     );
 
     const agents = useMemo(() => {
-        return (agentsFromProps && agentsFromProps.length > 0) ? agentsFromProps : (agentsData || []);
+        return (agentsFromProps && agentsFromProps.length > 0) ? agentsFromProps : normalizeAgentList(agentsData);
     }, [agentsFromProps, agentsData]);
 
     const utils = trpc.useUtils();
@@ -4984,8 +5030,8 @@ function MindMapTasksView(props: MindMapHeaderProps) {
     const nodesRef = useRef(nodes);
     nodesRef.current = nodes;
 
-    const [rfNodes, setRfNodes, onNodesChange] = useNodesState([]);
-    const [rfEdges, setRfEdges, onEdgesChange] = useEdgesState([]);
+    const [rfNodes, setRfNodes, onNodesChange] = useNodesState<FlowNode>([]);
+    const [rfEdges, setRfEdges, onEdgesChange] = useEdgesState<FlowEdge>([]);
 
     // Stable refs for values that change but shouldn't break callback identity
     const availableTaskTypesRef = useRef(availableTaskTypes);
@@ -5102,29 +5148,11 @@ function MindMapTasksView(props: MindMapHeaderProps) {
         }
     }, [props.initialConfig]);
 
-    // Fetch tasks for this view context
-    const taskQueryInput = useMemo(() => {
-        const base: any = {
-            scope: 'all',
-            pageSize: 500,
-            includeSubtasks: true,
-        };
-        if (listId) base.listId = listId;
-        else if (folderId) base.folderId = folderId;
-        else if (projectId) base.projectId = projectId;
-        else if (spaceId) base.spaceId = spaceId;
-        return base;
-    }, [listId, folderId, projectId, spaceId]);
+    // Flat list of task items for bulk actions and inline add
+    const filteredTasks = useMemo(() => {
+        return (props.prefetchedTasks ?? []) as any[];
+    }, [props.prefetchedTasks]);
 
-    const { data: tasks } = trpc.task.list.useQuery(taskQueryInput, {
-        enabled: !!(listId || folderId || projectId || spaceId),
-    });
-
-    // Stable ref so callbacks can read latest tasks without being unstable
-    const tasksRef = useRef(tasks as any);
-    tasksRef.current = tasks as any;
-
-    // Compute the root entity (the container that becomes the center node)
     const rootEntity = useMemo(() => {
         if (listId) {
             const list = (props.lists || []).find((l: any) => l.id === listId);
@@ -5136,17 +5164,15 @@ function MindMapTasksView(props: MindMapHeaderProps) {
         return { id: 'root', name: 'Mind Map', type: 'list' };
     }, [listId, folderId, projectId, spaceId, props.lists]);
 
-    // Flat list of task items for bulk actions and inline add
-    const filteredTasks = useMemo(() => {
-        return (tasks as any)?.items || [];
-    }, [tasks]);
+    const tasksRef = useRef<{ items: any[] }>({ items: [] });
+    tasksRef.current = { items: filteredTasks };
 
     const rootEntityRef = useRef(rootEntity);
     rootEntityRef.current = rootEntity;
     const filteredTasksRef = useRef(filteredTasks);
     filteredTasksRef.current = filteredTasks;
 
-    const onNodeDragStop = useCallback((event: any, node: Node) => {
+    const onNodeDragStop = useCallback((event: any, node: FlowNode) => {
         const dx = (node.position.x - worldBounds.offsetX) - (nodesRef.current.find(n => n.id === node.id)?.x || 0);
         const dy = (node.position.y - worldBounds.offsetY) - (nodesRef.current.find(n => n.id === node.id)?.y || 0);
 
@@ -5438,13 +5464,13 @@ function MindMapTasksView(props: MindMapHeaderProps) {
     }), []);
 
     useEffect(() => {
-        if (!tasks || !rootEntity) return;
+        if (!filteredTasks.length || !rootEntity) return;
         const newNodes: MindMapNodeData[] = [];
         const rootId = rootEntity.id || 'root';
 
         const tasksByParent: Record<string, any[]> = {};
         const topLevelTasks: any[] = [];
-        const taskItems = (tasks as any)?.items || [];
+        const taskItems = filteredTasks;
 
         taskItems.forEach((task: any) => {
             if (task.parentId) {
@@ -5531,13 +5557,13 @@ function MindMapTasksView(props: MindMapHeaderProps) {
         }
 
         setNodes(newNodes);
-    }, [tasks, rootEntity, collapsedNodes, nodeStyles, listId, folderId, projectId, spaceId]);
+    }, [filteredTasks, rootEntity, collapsedNodes, nodeStyles, listId, folderId, projectId, spaceId]);
 
     // 2. React Flow mapping - depends on computed nodes and world transformation
     useEffect(() => {
         if (nodes.length === 0) return;
 
-        const flowNodes: Node[] = nodes.map(node => ({
+        const flowNodes: FlowNode[] = nodes.map(node => ({
             id: node.id,
             type: 'mindMap',
             position: { x: node.x + worldBounds.offsetX, y: node.y + worldBounds.offsetY },
@@ -5565,7 +5591,7 @@ function MindMapTasksView(props: MindMapHeaderProps) {
         }));
 
 
-        const flowEdges: Edge[] = nodes
+        const flowEdges: FlowEdge[] = nodes
             .filter(n => n.parentId)
             .map(n => ({
                 id: `e-${n.parentId}-${n.id}`,
@@ -6356,6 +6382,13 @@ function MindMapTasksView(props: MindMapHeaderProps) {
                     nodes={nodes}
                 />
             )}
+            <TaskListLoadMore
+                loadMoreRef={effectiveLoadMoreRef}
+                hasMore={!!hasMoreTasks}
+                isFetchingNextPage={!!isFetchingNextPage}
+                loaded={filteredTasks.length}
+                total={taskTotal ?? filteredTasks.length}
+            />
         </div>
     );
 }

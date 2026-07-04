@@ -4,6 +4,9 @@ import { Check } from 'lucide-react';
 interface StepFinishProps {
   onNext: () => void;
   isLoading: boolean;
+  isFirstStep?: boolean;
+  onBack?: () => void;
+  defaultValues?: any;
 }
 
 export default function StepFinish({ onNext, isLoading }: StepFinishProps) {

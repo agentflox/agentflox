@@ -61,7 +61,7 @@ import { DocLinksPanelContent } from '@/entities/task/components/DocLinksPanelCo
 import { useDebounce } from '@/hooks/useDebounce';
 import { RelatedPanelContent } from '@/entities/task/components/RelatedPanelContent';
 import { CustomFieldsSection } from '@/entities/task/components/CustomFieldsSection';
-import { ChatView } from '@/features/dashboard/views/project/ChatView';
+import { ChatView } from '@/features/dashboard/views/shared/SharedAIChatView';
 import { TaskCalendar } from '@/entities/task/components/TaskCalendar';
 import { TaskTypeIcon } from '@/entities/task/components/TaskTypeIcon';
 import { PublishEntityModal } from '@/features/marketplace/components/PublishEntityModal';
@@ -417,7 +417,7 @@ export function TaskDetailView({
     // ── Sync task data into local state ───────────────────────────────────────
     React.useEffect(() => {
         if (task) {
-            const content = optimisticDescription ?? task.description || '';
+            const content = optimisticDescription ?? (task.description || '');
             setDescription(content);
             setTitle(task.title || '');
         }
@@ -1231,7 +1231,7 @@ export function TaskDetailView({
                                                                     user: {
                                                                         id: currentUserId,
                                                                         name: session?.name || session?.email || 'User',
-                                                                        color: session?.color,
+                                                                        color: '#6366f1',
                                                                     },
                                                                 }}
                                                             />

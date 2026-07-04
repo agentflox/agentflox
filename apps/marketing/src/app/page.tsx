@@ -2,35 +2,33 @@
 import {
     Navigation,
     HeroSection,
+    SocialProofSection,
     PlatformFeaturesSection,
     BenefitSection,
     CoreFeatureSection,
     AIAgentSection,
     ProjectManagementSection,
-    WhyChooseUsSection,
     TestimonialsSection,
     MarketplaceBrowser,
     CTASection,
-    Footer
+    Footer,
+    QuoteSection
 } from "./_components";
-import { AnimatedBackground } from '@/components/layout/AnimatedBackground';
 
 export default function LandingPage() {
     return (
-        <div className="relative min-h-screen text-white overflow-x-hidden">
-            <AnimatedBackground />
+        <div className="relative min-h-screen bg-[#030303] text-white overflow-x-hidden">
             <Navigation />
             <HeroSection />
+            <SocialProofSection />
             <PlatformFeaturesSection />
-            <BenefitSection />
-            <CoreFeatureSection />
-            <AIAgentSection />
             <ProjectManagementSection />
+            <AIAgentSection />
+            <QuoteSection />
             <MarketplaceBrowser />
-            <WhyChooseUsSection />
             <TestimonialsSection />
             <CTASection />
             <Footer />
         </div>
     );
-};
+}

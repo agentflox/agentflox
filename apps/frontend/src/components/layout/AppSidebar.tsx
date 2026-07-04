@@ -15,7 +15,7 @@ export interface SidebarItem {
 }
 
 interface AppSidebarProps {
-    items?: SidebarItem[];
+    items?: readonly SidebarItem[];
     title?: React.ReactNode;
     mode?: "inline" | "overlay";
     onClose?: () => void;

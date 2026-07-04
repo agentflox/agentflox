@@ -47,6 +47,8 @@ interface CreateTaskModalProps {
   defaultListId?: string;
   defaultStatus?: string;
   defaultParentId?: string;
+  defaultStartDate?: Date | null;
+  defaultDueDate?: Date | null;
   availableStatuses?: Option[];
   trigger?: React.ReactNode;
 }
@@ -66,6 +68,8 @@ export function TaskCreationModal({
   defaultListId,
   defaultStatus,
   defaultParentId,
+  defaultStartDate,
+  defaultDueDate,
   availableStatuses = [],
   trigger,
   open,
@@ -232,8 +236,8 @@ export function TaskCreationModal({
       listId: defaultListId,
       statusId: defaultStatus,
       priority: 'NORMAL',
-      dueDate: null,
-      startDate: null,
+      dueDate: defaultDueDate ?? null,
+      startDate: defaultStartDate ?? null,
       parentId: defaultParentId ?? null,
       taskType: 'TASK',
       taskTypeId: undefined,
@@ -279,14 +283,14 @@ export function TaskCreationModal({
         listId: defaultListId,
         statusId: defaultStatus,
         priority: 'NORMAL',
-        dueDate: null,
-        startDate: null,
+        dueDate: defaultDueDate ?? null,
+        startDate: defaultStartDate ?? null,
         parentId: defaultParentId ?? null,
         taskType: 'TASK',
         taskTypeId: undefined,
       });
     }
-  }, [isOpen, defaultListId, defaultStatus, defaultParentId, context, contextId, workspaceId, methods]);
+  }, [isOpen, defaultListId, defaultStatus, defaultParentId, defaultStartDate, defaultDueDate, context, contextId, workspaceId, methods]);
 
   const onSubmit = async (data: TaskFormValues) => {
     setIsSubmitting(true);

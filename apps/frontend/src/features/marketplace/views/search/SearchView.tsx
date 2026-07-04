@@ -412,7 +412,7 @@ export default function SearchView() {
                 We couldn't track down any listings perfectly matching your criteria. Try loosening your parameters.
               </p>
               <Button
-                variant="default"
+                variant="primary"
                 className="mt-8 rounded-full shadow-lg font-bold px-8 h-12"
                 onClick={() => {
                   setQuery('');

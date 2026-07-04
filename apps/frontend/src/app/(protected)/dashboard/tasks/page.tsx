@@ -23,7 +23,7 @@ import { Filter, Eye, MoreHorizontal, Trash, ArrowUpDown, ChevronUp, ChevronDown
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { DataTableSkeleton } from "@/components/ui/data-table-skeleton";
 import { cn } from "@/lib/utils";
-import { DataTable } from "@/components/ui/data-table";
+import { LazyDataTable as DataTable } from "@/components/ui/lazy-data-table";
 import { DataTableColumnHeader } from "@/components/ui/data-table-column-header";
 import { ColumnDef } from "@tanstack/react-table";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -46,6 +46,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 export default function TasksPage() {
 	const router = useRouter();
 	const { toast } = useToast();
+	const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
 	const {
 		data,
 		isLoading,
@@ -59,7 +60,7 @@ export default function TasksPage() {
 		setScope,
 		filters,
 		setFilters,
-	} = useTaskList();
+	} = useTaskList("owned", { includeRelations: viewMode === "list" ? true : "card" });
 
 	const { data: workspaces } = trpc.workspace.list.useQuery({ includeCounts: false }, { staleTime: 30000 });
 	const defaultWorkspaceId = workspaces?.items?.[0]?.id;
@@ -83,7 +84,6 @@ export default function TasksPage() {
 
 	const hasNextPage = (data?.items?.length || 0) === pageSize;
 	const hasPreviousPage = page > 1;
-	const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
 	const [sort, setSort] = useState<Array<{ id: string; desc: boolean }>>([]);
 	const [columnVisibility, setColumnVisibility] = useState<import("@tanstack/react-table").VisibilityState>({});
 	const [table, setTable] = useState<import("@tanstack/react-table").Table<any> | null>(null);
@@ -168,7 +168,11 @@ export default function TasksPage() {
 			accessorKey: "status",
 			header: ({ column }) => <DataTableColumnHeader column={column} title="Status" />,
 			cell: ({ row }) => {
-				const status = row.original.status || "OPEN";
+				const rawStatus = row.original.status;
+				const status =
+					typeof rawStatus === "object" && rawStatus?.name
+						? rawStatus.name
+						: rawStatus || "OPEN";
 				return (
 					<Badge variant={status === "COMPLETED" ? "default" : status === "IN_PROGRESS" ? "secondary" : "outline"}>
 						{String(status).replace(/_/g, " ")}

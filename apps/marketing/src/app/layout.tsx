@@ -16,22 +16,22 @@ export const metadata: Metadata = {
     metadataBase: new URL(getServerSideURL()),
     openGraph: mergeOpenGraph(),
     twitter: {
-      card: 'summary_large_image',
-      title: "AgentFlox",
-      description: "The connected workspace where better, faster work happens.",
-      images: ['/images/logo.png'],
+        card: 'summary_large_image',
+        title: "AgentFlox",
+        description: "The connected workspace where better, faster work happens.",
+        images: ['/images/logo.png'],
     },
     icons: {
-      icon: [
-        { url: "/favicon.ico", media: "(prefers-color-scheme: light)" },
-        { url: "/favicon.ico", media: "(prefers-color-scheme: dark)" },
-      ],
-      apple: "/images/logo.png",
-      shortcut: "/images/logo.png",
+        icon: [
+            { url: "/favicon.ico", media: "(prefers-color-scheme: light)" },
+            { url: "/favicon.ico", media: "(prefers-color-scheme: dark)" },
+        ],
+        apple: "/images/logo.png",
+        shortcut: "/images/logo.png",
     },
     manifest: "/site.webmanifest",
     alternates: {
-      canonical: "https://agentflox.com",
+        canonical: "https://agentflox.com",
     },
 }
 
@@ -42,7 +42,7 @@ export default function RootLayout({
 }) {
     return (
         <html lang="en" suppressHydrationWarning>
-            <body className={`${inter.variable} font-sans antialiased bg-slate-950 text-white`}>
+            <body className={`${inter.variable} font-sans antialiased bg-[#030303] text-white`}>
                 <div className="relative h-full">
                     <main id="home-page" className="h-full">
                         <script

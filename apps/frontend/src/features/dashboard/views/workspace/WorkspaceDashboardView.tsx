@@ -3,6 +3,7 @@
 import { useMemo, useState, useCallback, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { trpc } from "@/lib/trpc";
+import { DashboardEntityProvider } from "@/features/dashboard/context/DashboardEntityContext";
 import { DashboardLoadingState, DashboardErrorState } from "@/features/dashboard/components/shared/DashboardStates";
 import NavigationSidebar, { type WorkspaceView as WorkspaceViewType } from "@/features/dashboard/layouts/workspace/NavigationSidebar";
 import dynamic from "next/dynamic";
@@ -15,22 +16,24 @@ const WorkspaceProjectView = dynamic(() => import("@/features/dashboard/views/wo
 const WorkspaceTeamView = dynamic(() => import("@/features/dashboard/views/workspace/WorkspaceTeamView"));
 const WorkspacePersonalView = dynamic(() => import("@/features/dashboard/views/workspace/WorkspacePersonalView"));
 const WorkspaceDocsView = dynamic(() => import("@/features/dashboard/views/workspace/WorkspaceDocsView"));
-const ListView = dynamic(() => import("@/features/dashboard/views/generic/ListView"));
-const BoardView = dynamic(() => import("@/features/dashboard/views/generic/BoardView").then(mod => mod.BoardView));
-const TableView = dynamic(() => import("@/features/dashboard/views/generic/TableView").then(mod => mod.TableView));
-const PeopleView = dynamic(() => import("@/features/dashboard/views/generic/PeopleView ").then(mod => mod.PeopleView));
-const ActivityView = dynamic(() => import("@/features/dashboard/views/generic/ActivityView").then(mod => mod.ActivityView));
-const CalendarView = dynamic(() => import("@/features/dashboard/views/generic/CalendarView").then(mod => mod.CalendarView));
-const GanttView = dynamic(() => import("@/features/dashboard/views/generic/GanttView").then(mod => mod.GanttView));
-const TimelineView = dynamic(() => import("@/features/dashboard/views/generic/TimelineView").then(mod => mod.TimelineView));
-const FormView = dynamic(() => import("@/features/dashboard/views/generic/FormView").then(mod => mod.FormView));
-const MindMapView = dynamic(() => import("@/features/dashboard/views/generic/MindMapView").then(mod => mod.MindMapView));
-const WorkloadView = dynamic(() => import("@/features/dashboard/views/generic/WorkloadView").then(mod => mod.WorkloadView));
-const WhiteboardView = dynamic(() => import("@/features/dashboard/views/generic/WhiteboardView"));
-const MapView = dynamic(() => import("@/features/dashboard/views/generic/MapView").then(mod => mod.MapView));
-const GenericDashboardView = dynamic(() => import("@/features/dashboard/views/generic/DashboardView").then(mod => mod.DashboardView));
-const EmbedView = dynamic(() => import("@/features/dashboard/views/generic/EmbedView").then(mod => mod.EmbedView));
-const DocView = dynamic(() => import("@/features/dashboard/views/generic/DocView").then(mod => mod.DocView));
+import {
+    ListView,
+    BoardView,
+    TableView,
+    PeopleView,
+    ActivityView,
+    CalendarView,
+    GanttView,
+    TimelineView,
+    FormView,
+    MindMapView,
+    WorkloadView,
+    WhiteboardView,
+    MapView,
+    GenericDashboardView,
+    EmbedView,
+    DocView,
+} from "@/features/dashboard/views/generic/dashboardViewDynamics";
 import { ShareModal } from "@/components/permissions/ShareModal";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -169,7 +172,7 @@ const viewConfig: Partial<Record<
     PROPOSALS: { label: "Proposals", icon: FileText, description: "Proposals" },
     APPEAL: { label: "Appeal", icon: FileText, description: "Appeal" },
     GOVERNANCE: { label: "Governance", icon: FileText, description: "Governance" },
-};
+} as Partial<Record<ViewType, { label: string; icon: React.ComponentType<{ className?: string; size?: number }>; description: string }>>;
 
 export default function WorkspaceDashboardView({ workspaceId }: WorkspaceViewProps) {
     const searchParams = useSearchParams();
@@ -866,6 +869,7 @@ export default function WorkspaceDashboardView({ workspaceId }: WorkspaceViewPro
     }
 
     return (
+        <DashboardEntityProvider workspaceId={workspaceId}>
         <div className="flex h-full flex-col">
             <div className="flex h-full gap-1 flex-1 overflow-hidden">
                 {/* Navigation Sidebar */}
@@ -1002,7 +1006,6 @@ export default function WorkspaceDashboardView({ workspaceId }: WorkspaceViewPro
                     open={!!viewToShare}
                     onOpenChange={(open) => !open && setViewToShare(null)}
                     viewId={viewToShare.id}
-                    viewName={viewToShare.name}
                     workspaceId={workspaceId}
                 />
             )}
@@ -1017,5 +1020,6 @@ export default function WorkspaceDashboardView({ workspaceId }: WorkspaceViewPro
                 />
             )}
         </div>
+        </DashboardEntityProvider>
     );
 }

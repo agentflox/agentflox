@@ -1,5 +1,8 @@
 "use client";
 
+import { TASK_LIST_PAGE_SIZE } from "@/features/dashboard/constants";
+import { useGenericTaskViewData } from "@/features/dashboard/hooks/useGenericTaskViewData";
+import { TaskListLoadMore } from "@/features/dashboard/components/shared/TaskListLoadMore";
 import React, { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { generateKeyBetween } from "fractional-indexing";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -79,7 +82,7 @@ import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/comp
 import { ListCreationModal } from "@/entities/task/components/ListCreationModal";
 import { AssigneeSelector, cleanAssigneeIdsFromSelector, formatAssigneeIdsForSelector } from "@/entities/task/components/AssigneeSelector";
 import { TaskActionsDropdown } from "@/entities/task/components/TaskActionsDropdown";
-import { TaskDetailModal } from "@/entities/task/components/TaskDetailModal";
+import { LazyTaskDetailModal as TaskDetailModal } from "@/entities/task/components/LazyTaskDetailModal";
 import { TaskDependenciesModal } from "@/entities/task/components/TaskDependenciesModal";
 import { TagsPopover } from "@/entities/task/components/TagsPopover";
 import { CustomFieldRenderer } from "@/entities/task/components/CustomFieldRenderer";
@@ -111,6 +114,7 @@ import {
     type DragEndEvent,
     type DragStartEvent,
     type DragOverEvent,
+    type DragMoveEvent,
 } from "@dnd-kit/core";
 import { DescriptionEditor } from "@/entities/shared/components/DescriptionEditor";
 import { CSS } from "@dnd-kit/utilities";
@@ -249,9 +253,11 @@ export interface PeopleViewProps {
     teamId?: string;
     listId?: string;
     viewId?: string;
+    workspaceId?: string;
     initialConfig?: Record<string, any> | null;
     selectedTaskIdFromParent?: string | null;
     onTaskSelect?: (taskId: string | null) => void;
+    refetchViewData?: () => void;
 }
 
 type PeopleContentUser = {
@@ -1141,7 +1147,7 @@ function stableStringify(obj: any) {
     return JSON.stringify(sortObject(obj));
 }
 
-export function PeopleView({ spaceId, projectId, teamId, listId, viewId, initialConfig, selectedTaskIdFromParent, onTaskSelect }: PeopleViewProps) {
+export function PeopleView({ spaceId, projectId, teamId, listId, folderId, viewId, workspaceId, initialConfig, selectedTaskIdFromParent, onTaskSelect, refetchViewData }: PeopleViewProps) {
     const router = useRouter();
     const searchParams = useSearchParams();
     const [searchQuery, setSearchQuery] = useState("");
@@ -1151,7 +1157,7 @@ export function PeopleView({ spaceId, projectId, teamId, listId, viewId, initial
 
     // Refs for batching updates to prevent UI stutter and race conditions
     const pendingUpdatesRef = useRef<Map<string, any>>(new Map());
-    const batchTimeoutRef = useRef<NodeJS.Timeout>();
+    const batchTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
     const toolbarSearchRef = useRef<HTMLDivElement | null>(null);
     const toolbarSearchInputRef = useRef<HTMLInputElement | null>(null);
     const openTaskDetail = (taskId: string) => {
@@ -1222,7 +1228,6 @@ export function PeopleView({ spaceId, projectId, teamId, listId, viewId, initial
         }
     });
     const { data: viewData } = trpc.view.get.useQuery({ id: viewId as string }, { enabled: !!viewId });
-    const { data: session } = trpc.user.me.useQuery();
     const [viewNameDraft, setViewNameDraft] = useState("");
 
     // Default view settings
@@ -1287,12 +1292,20 @@ export function PeopleView({ spaceId, projectId, teamId, listId, viewId, initial
         if (listId) utils.list?.get?.setData({ id: listId }, (old: any) => old ? { ...old, views: patchViews(old.views ?? []) } : old);
 
         // Use a generic approach to update list.byContext
+        const listByContextInput = workspaceId || spaceId || projectId || teamId
+            ? {
+                workspaceId: workspaceId || undefined,
+                spaceId: spaceId || undefined,
+                projectId: projectId || undefined,
+                teamId: teamId || undefined,
+                folderId: folderId || undefined,
+            }
+            : null;
+
         const updateListByContext = () => {
             try {
-                // @ts-ignore
-                if (utils.list?.byContext?.setData) {
-                    // @ts-ignore
-                    utils.list.byContext.setData(undefined, (old: any) => {
+                if (listByContextInput && utils.list?.byContext?.setData) {
+                    utils.list.byContext.setData(listByContextInput, (old: any) => {
                         if (!old || !old.items) return old;
                         return {
                             ...old,
@@ -1539,10 +1552,46 @@ export function PeopleView({ spaceId, projectId, teamId, listId, viewId, initial
         new Set(["name", "status", "assignee", "priority", "dueDate", "tags"])
     );
 
-    const { data: space } = trpc.space.get.useQuery({ id: spaceId as string }, { enabled: !!spaceId });
-    const { data: project } = trpc.project.get.useQuery({ id: projectId as string }, { enabled: !!projectId });
-    const resolvedWorkspaceId = space?.workspaceId || project?.workspaceId || undefined;
-    const { data: workspace } = trpc.workspace.get.useQuery({ id: resolvedWorkspaceId as string }, { enabled: !!resolvedWorkspaceId });
+    const taskListSpaceId = spaceId && !projectId && !listId ? spaceId : undefined;
+    const taskListProjectId = projectId && !listId ? projectId : undefined;
+
+    const {
+        resolvedWorkspaceId,
+        space: spaceSummary,
+        project,
+        customFields = [],
+        availableTaskTypes,
+        currentUser,
+        currentUserId,
+        agents,
+        workspaceMembers,
+        projectParticipants,
+        teamParticipants,
+        listsData,
+        currentList,
+        tasks,
+        isTasksLoading: isLoading,
+        hasMore: hasMoreTasks,
+        isFetchingNextPage,
+        loadMoreRef,
+        total: taskTotal,
+    } = useGenericTaskViewData({
+        spaceId,
+        projectId,
+        teamId,
+        listId,
+        workspaceId,
+        taskListSpaceId,
+        taskListProjectId,
+        includeRelations: true,
+    });
+
+    const { data: spaceWithMembers } = trpc.space.get.useQuery(
+        { id: spaceId as string },
+        { enabled: !!spaceId }
+    );
+    const space = spaceWithMembers ?? spaceSummary;
+
     const { data: teamsByContext } = trpc.team.list.useQuery(
         {
             workspaceId: resolvedWorkspaceId as string,
@@ -1552,13 +1601,6 @@ export function PeopleView({ spaceId, projectId, teamId, listId, viewId, initial
         },
         { enabled: !!resolvedWorkspaceId }
     );
-    const { data: customFields = [] } = trpc.customFields.list.useQuery(
-        { workspaceId: resolvedWorkspaceId as string, applyTo: "TASK" },
-        { enabled: !!resolvedWorkspaceId }
-    );
-    const { data: availableTaskTypes = [] } = trpc.task.listTaskTypes.useQuery({ workspaceId: resolvedWorkspaceId as string }, { enabled: !!resolvedWorkspaceId });
-    const { data: me } = trpc.user.me.useQuery();
-    const currentUserId = me?.id;
 
     useEffect(() => {
         if (availableTaskTypes.length > 0 && !inlineAddTaskType) {
@@ -1568,20 +1610,6 @@ export function PeopleView({ spaceId, projectId, teamId, listId, viewId, initial
             }
         }
     }, [availableTaskTypes, inlineAddTaskType]);
-
-    const { data: agentsData } = trpc.agent.list.useQuery({
-        includeRelations: true,
-    }, { enabled: !!resolvedWorkspaceId });
-
-    const agents = useMemo(() => {
-        if (!agentsData?.items) return [];
-        return agentsData.items.map(a => ({
-            id: a.id,
-            name: a.name,
-            image: a.avatar || null,
-            type: 'agent'
-        }));
-    }, [agentsData]);
 
     const defaultTaskType = useMemo(() => {
         if (availableTaskTypes.length === 0) return null;
@@ -1627,10 +1655,8 @@ export function PeopleView({ spaceId, projectId, teamId, listId, viewId, initial
         return typeMap[fieldType] || Type;
     };
 
-    const { data: projectParticipants } = trpc.project.getParticipants.useQuery({ projectId: projectId as string }, { enabled: !!projectId });
-    const { data: teamParticipants } = trpc.team.getParticipants.useQuery({ teamId: teamId as string }, { enabled: !!teamId });
     const scopedEntityRoster = useMemo(() => {
-        const workspaceMembers = (workspace?.members ?? []).map((m: any) => m.user).filter(Boolean);
+        const workspaceMemberUsers = (workspaceMembers ?? []).map((m: any) => m.user).filter(Boolean);
         const workspaceTeams = (teamsByContext?.items ?? []) as any[];
         const workspaceProjects = project ? [project] : [];
 
@@ -1658,57 +1684,18 @@ export function PeopleView({ spaceId, projectId, teamId, listId, viewId, initial
         if (spaceId) {
             return { scope: "space", members: spaceMembers, teams: spaceTeams, projects: spaceProjects };
         }
-        return { scope: "workspace", members: workspaceMembers, teams: workspaceTeams, projects: workspaceProjects };
+        return { scope: "workspace", members: workspaceMemberUsers, teams: workspaceTeams, projects: workspaceProjects };
     }, [
         teamId,
         projectId,
         spaceId,
-        workspace,
+        workspaceMembers,
         teamsByContext?.items,
         space,
         project,
         projectParticipants,
         teamParticipants,
     ]);
-
-    useEffect(() => {
-        // Debug: inspect source query payloads used for People/Members resolution
-        console.log("[PeopleView][debug] context ids", {
-            workspaceId: resolvedWorkspaceId,
-            spaceId,
-            projectId,
-            teamId,
-            listId,
-        });
-        console.log("[PeopleView][debug] source query sizes", {
-            workspaceMembers: workspace?.members?.length ?? 0,
-            spaceMembers: (space as any)?.members?.length ?? 0,
-            projectParticipantsUsers: (projectParticipants as any)?.users?.length ?? 0,
-            teamParticipantsUsers: (teamParticipants as any)?.users?.length ?? 0,
-            teamsByContext: teamsByContext?.items?.length ?? 0,
-            projectTeams: (project as any)?.teams?.length ?? 0,
-        });
-        console.log("[PeopleView][debug] scopedEntityRoster", {
-            scope: scopedEntityRoster.scope,
-            members: scopedEntityRoster.members?.length ?? 0,
-            teams: scopedEntityRoster.teams?.length ?? 0,
-            projects: scopedEntityRoster.projects?.length ?? 0,
-        });
-    }, [scopedEntityRoster]);
-    const { data: listsData } = trpc.list.byContext.useQuery({ spaceId, projectId, workspaceId: resolvedWorkspaceId }, { enabled: !!(spaceId || projectId || resolvedWorkspaceId) });
-    const { data: currentList } = trpc.list.get.useQuery({ id: listId as string }, { enabled: !!listId });
-
-    const taskListInput = useMemo(() => ({
-        spaceId: spaceId && !projectId && !listId ? spaceId : undefined,
-        projectId: projectId && !listId ? projectId : undefined,
-        teamId,
-        listId,
-        includeRelations: true,
-        page: 1,
-        pageSize: 500,
-    }), [spaceId, projectId, teamId, listId]);
-    const { data: tasksData, isLoading } = trpc.task.list.useQuery(taskListInput, { enabled: !!(spaceId || projectId || teamId || listId) });
-    const tasks = useMemo<Task[]>(() => ((tasksData?.items as Task[]) ?? []), [tasksData]);
 
     // Initialize per-parent ordering (UI-only) from current task order
     useEffect(() => {
@@ -1725,7 +1712,7 @@ export function PeopleView({ spaceId, projectId, teamId, listId, viewId, initial
             next[key].push(t.id);
         }
         setOrderByParent(next);
-    }, [tasks, tasksData?.items]);
+    }, [tasks]);
 
     // Extract custom field IDs that are actually used by tasks in the current list
     const usedCustomFieldIds = useMemo(() => {
@@ -1782,59 +1769,28 @@ export function PeopleView({ spaceId, projectId, teamId, listId, viewId, initial
     }, [tasks]);
 
     const updateTask = trpc.task.update.useMutation({
-        onMutate: async (variables) => {
-            // Cancel any outgoing refetches (so they don't overwrite our optimistic update)
-            await utils.task.list.cancel(taskListInput);
-
-            // Snapshot the previous value
-            const previousTasks = utils.task.list.getData(taskListInput);
-
-            // Optimistically update to the new value
-            if (previousTasks && (variables as any).tags) {
-                utils.task.list.setData(taskListInput, (old: any) => {
-                    if (!old) return old;
-                    return {
-                        ...old,
-                        items: old.items.map((task: any) =>
-                            task.id === variables.id
-                                ? { ...task, tags: (variables as any).tags }
-                                : task
-                        ),
-                    };
-                });
-            }
-
-            return { previousTasks };
-        },
-        onError: (err, variables, context: any) => {
-            // If the mutation fails, use the context returned from onMutate to roll back
-            if (context?.previousTasks) {
-                utils.task.list.setData(taskListInput, context.previousTasks);
-            }
-        },
         onSettled: () => {
-            // Always refetch after error or success:
-            void utils.task.list.invalidate(taskListInput);
+            void utils.task.list.invalidate();
         },
     });
     const deleteTask = trpc.task.delete.useMutation({
-        onSuccess: () => { void utils.task.list.invalidate(taskListInput); },
+        onSuccess: () => { void utils.task.list.invalidate(); },
     });
     const createTask = trpc.task.create.useMutation({
-        onSuccess: () => { void utils.task.list.invalidate(taskListInput); },
-        onError: () => { void utils.task.list.invalidate(taskListInput); },
+        onSuccess: () => { void utils.task.list.invalidate(); },
+        onError: () => { void utils.task.list.invalidate(); },
     });
     const duplicateTask = trpc.task.duplicate.useMutation({
-        onSuccess: () => { void utils.task.list.invalidate(taskListInput); },
+        onSuccess: () => { void utils.task.list.invalidate(); },
     });
     const bulkDuplicateTask = trpc.task.bulkDuplicate.useMutation({
         onSuccess: () => {
-            void utils.task.list.invalidate(taskListInput);
+            void utils.task.list.invalidate();
             setSelectedTasks([]);
         },
     });
     const updateCustomField = trpc.task.customFields.update.useMutation({
-        onSuccess: () => { void utils.task.list.invalidate(taskListInput); },
+        onSuccess: () => { void utils.task.list.invalidate(); },
     });
     const updateList = trpc.list.update.useMutation({
         onSuccess: () => {
@@ -1939,12 +1895,12 @@ export function PeopleView({ spaceId, projectId, teamId, listId, viewId, initial
 
     const workspaceUserById = useMemo(() => {
         const map = new Map<string, { id: string; name: string; email?: string | null; image?: string | null }>();
-        for (const m of workspace?.members ?? []) {
+        for (const m of workspaceMembers ?? []) {
             const u = (m as any).user;
             if (u) map.set(u.id, { id: u.id, name: u.name || u.email || "Unknown", image: u.image, email: u.email });
         }
         return map;
-    }, [workspace?.members]);
+    }, [workspaceMembers]);
 
     const users = useMemo(() => {
         const scopedMembers = (scopedEntityRoster.members ?? []) as any[];
@@ -2166,7 +2122,7 @@ export function PeopleView({ spaceId, projectId, teamId, listId, viewId, initial
                 hasWorkspaceUserMap: workspaceUserById.size,
                 teamParticipantsUsers: (teamParticipants as any)?.users?.length ?? 0,
                 projectParticipantsUsers: (projectParticipants as any)?.users?.length ?? 0,
-                workspaceMembers: workspace?.members?.length ?? 0,
+                workspaceMembers: workspaceMembers?.length ?? 0,
             });
         }
     }, [
@@ -2178,7 +2134,7 @@ export function PeopleView({ spaceId, projectId, teamId, listId, viewId, initial
         workspaceUserById.size,
         teamParticipants,
         projectParticipants,
-        workspace?.members,
+        workspaceMembers,
     ]);
 
     useEffect(() => {
@@ -2233,7 +2189,7 @@ export function PeopleView({ spaceId, projectId, teamId, listId, viewId, initial
             } else {
                 // Must be a custom field ID
                 const cf = FIELD_CONFIG.find(f => f.id === groupBy);
-                if (cf) {
+                if (cf && cf.isCustom && "customField" in cf) {
                     const value = getCustomFieldValue(task, groupBy);
                     key = (value !== null && value !== undefined) ? formatCustomFieldValue(value, cf.customField) : `No ${cf.label}`;
                 } else {
@@ -2978,7 +2934,7 @@ export function PeopleView({ spaceId, projectId, teamId, listId, viewId, initial
     const handleDragEnd = useCallback(async (event: DragEndEvent) => {
         const { active, over, delta } = event;
 
-        // ✁ECapture state values BEFORE clearing them
+        // ?ECapture state values BEFORE clearing them
         const capturedDraggingIds = [...draggingIds];
         const capturedDropPosition = dropPosition;
         const capturedOrderByParent = { ...orderByParent };
@@ -3012,17 +2968,17 @@ export function PeopleView({ spaceId, projectId, teamId, listId, viewId, initial
             setSortBy("manual");
         }
 
-        // ✁EUse captured values instead of state
+        // ?EUse captured values instead of state
         const idsToMove = capturedDraggingIds.length ? capturedDraggingIds : [activeId];
 
-        // ✁EFLAT LIST APPROACH: Work with ALL tasks as a single ordered list
+        // ?EFLAT LIST APPROACH: Work with ALL tasks as a single ordered list
         // Get all tasks sorted by current order
         const allTasksSorted = [...tasks].sort((a, b) => (a.order || "").localeCompare(b.order || ""));
         const currentGlobalOrder = allTasksSorted.map(t => t.id);
         const originalGlobalOrder = [...currentGlobalOrder];
 
         // Step 1: Remove all items being dragged
-        let tempOrder = currentGlobalOrder.filter(id => !idsToMove.includes(id));
+        const tempOrder = currentGlobalOrder.filter(id => !idsToMove.includes(id));
 
         // Step 2: Find where to insert in the temp order
         const targetIndex = tempOrder.indexOf(overId);
@@ -3050,12 +3006,12 @@ export function PeopleView({ spaceId, projectId, teamId, listId, viewId, initial
             ];
         }
 
-        // ✁ECheck if final order is different from original
+        // ?ECheck if final order is different from original
         if (originalGlobalOrder.join(',') === finalGlobalOrder.join(',')) {
             return;
         }
 
-        // ✁EUpdate orderByParent to reflect new global order
+        // ?EUpdate orderByParent to reflect new global order
         // Rebuild orderByParent from the new global order
         const nextOrderByParent: Record<string, string[]> = {};
         const rootKey = "root";
@@ -3092,7 +3048,7 @@ export function PeopleView({ spaceId, projectId, teamId, listId, viewId, initial
             }
         }
 
-        // ✁ERegenerate order for ALL tasks in global order
+        // ?ERegenerate order for ALL tasks in global order
         let prevOrder: string | null = null;
 
         finalGlobalOrder.forEach((taskId) => {
@@ -3105,7 +3061,7 @@ export function PeopleView({ spaceId, projectId, teamId, listId, viewId, initial
             const updatePayload: any = { id: taskId, order: newOrder };
             let changed = task.order !== newOrder;
 
-            // ✁ECRITICAL: NEVER change parentId - only update group fields for moved tasks
+            // ?ECRITICAL: NEVER change parentId - only update group fields for moved tasks
             if (idsToMove.includes(taskId)) {
                 Object.entries(targetGroupData).forEach(([key, value]) => {
                     if ((task as any)[key] !== value) {
@@ -3122,39 +3078,12 @@ export function PeopleView({ spaceId, projectId, teamId, listId, viewId, initial
 
         // If no changes needed, exit
         if (payloads.length === 0) {
-            console.log('⏹�E�E[DragEnd] No changes needed or generated');
+            console.log('??E?E?E?E[DragEnd] No changes needed or generated');
             return;
         }
 
-        // 🔥 1. Update orderByParent FIRST for immediate UI feedback
+        // ?? 1. Update orderByParent FIRST for immediate UI feedback
         setOrderByParent(nextOrderByParent);
-
-        // 🔥 2. Update cache state IMMEDIATELY after
-        const previousData = utils.task.list.getData(taskListInput);
-
-        // Apply optimistic update to cache
-        utils.task.list.setData(taskListInput, (old: any) => {
-            if (!old) return old;
-
-            const updatesMap = new Map(payloads.map(p => [p.id, p]));
-
-            const updatedItems = old.items.map((t: any) => {
-                const update = updatesMap.get(t.id);
-                if (update) {
-                    return { ...t, ...update };
-                }
-                return t;
-            });
-
-            updatedItems.sort((a: any, b: any) => {
-                return (a.order || "").localeCompare(b.order || "");
-            });
-
-            return { ...old, items: updatedItems };
-        });
-
-        // 🔥 3. Cleanup & Prep Background Sync
-        void utils.task.list.cancel(taskListInput);
 
         payloads.forEach(payload => {
             pendingUpdatesRef.current.set(payload.id, payload);
@@ -3171,15 +3100,11 @@ export function PeopleView({ spaceId, projectId, teamId, listId, viewId, initial
 
             try {
                 await Promise.all(batchedPayloads.map(p => updateTask.mutateAsync(p)));
-                await utils.task.list.invalidate(taskListInput);
-                console.log('✁E[DragEnd] Backend sync complete');
+                void utils.task.list.invalidate();
             } catch (e) {
-                console.error("❁E[DragEnd] Backend update failed:", e);
-                if (previousData) {
-                    console.log('⏪ [DragEnd] Rolling back cache and orderByParent');
-                    utils.task.list.setData(taskListInput, previousData);
-                    setOrderByParent(capturedOrderByParent);
-                }
+                console.error("PeopleView drag update failed:", e);
+                setOrderByParent(capturedOrderByParent);
+                void utils.task.list.invalidate();
             }
         }, 300);
 
@@ -3189,7 +3114,6 @@ export function PeopleView({ spaceId, projectId, teamId, listId, viewId, initial
         sortBy,
         updateTask,
         utils,
-        taskListInput,
         draggingIds,
         dropPosition,
         orderByParent,
@@ -3848,7 +3772,7 @@ export function PeopleView({ spaceId, projectId, teamId, listId, viewId, initial
 
     return (
         <div className="h-full w-full flex flex-col bg-white border border-zinc-200/60 shadow-sm overflow-hidden font-sans relative min-w-0">
-            {/* Toolbar  EClickUp layout */}
+            {/* Toolbar ?EClickUp layout */}
             <div className="border-b border-zinc-100 bg-white px-3 py-2 shrink-0">
                 <>
                     <div className="flex items-center justify-between gap-3 overflow-x-auto toolbar-scroll-x">
@@ -4128,6 +4052,13 @@ export function PeopleView({ spaceId, projectId, teamId, listId, viewId, initial
                         onCreateTask={handleCreateTaskFromCard}
                         onOpenTask={openTaskDetail}
                     />
+                    <TaskListLoadMore
+                        loadMoreRef={loadMoreRef}
+                        hasMore={hasMoreTasks}
+                        isFetchingNextPage={isFetchingNextPage}
+                        loaded={filteredTasks.length}
+                        total={taskTotal}
+                    />
                 </div>
 
                 {workloadSidebarOpen && (
@@ -4207,7 +4138,7 @@ export function PeopleView({ spaceId, projectId, teamId, listId, viewId, initial
                 )}
             </div>
 
-            {/* Fields panel (Columns click or + in last column)  Etoggle show/hide columns */}
+            {/* Fields panel (Columns click or + in last column) ?Etoggle show/hide columns */}
             <SidePanel open={fieldsPanelOpen && !createFieldModalOpen} onClose={() => setFieldsPanelOpen(false)} className="absolute right-0 bottom-0 top-0 w-[360px] max-w-[90vw] bg-white border-l border-zinc-200 shadow-xl z-50 flex flex-col">
                 <div className="flex items-center justify-between p-4 border-b border-zinc-100">
                     <h3 className="font-semibold text-zinc-900">Fields</h3>
@@ -4536,7 +4467,7 @@ export function PeopleView({ spaceId, projectId, teamId, listId, viewId, initial
                                                     </div>
                                                     <div className="h-px bg-zinc-100 my-2" />
                                                     <div className="space-y-1">
-                                                        <div className="flex items-center justify-between py-2.5 px-2 hover:bg-zinc-50 rounded-md transition-colors cursor-pointer" onClick={() => handleToggleAutosave()}>
+                                                        <div className="flex items-center justify-between py-2.5 px-2 hover:bg-zinc-50 rounded-md transition-colors cursor-pointer" onClick={() => handleToggleAutosave(!viewAutosave)}>
                                                             <div className="flex items-center gap-2">
                                                                 <Save className="h-4 w-4 text-zinc-400" />
                                                                 <span className="text-sm text-zinc-800">Autosave for me</span>
@@ -4711,7 +4642,7 @@ export function PeopleView({ spaceId, projectId, teamId, listId, viewId, initial
                                             </ScrollArea>
                                         </SidePanel>
 
-    {/* Create field modal  Efield types and Add existing fields */ }
+    {/* Create field modal ?Efield types and Add existing fields */ }
     <SidePanel open={createFieldModalOpen} onClose={() => { setCreateFieldModalOpen(false); setCreateFieldSearch(''); }} className="absolute right-0 bottom-0 top-0 w-[380px] max-w-[90vw] bg-white border-l border-zinc-200 shadow-xl z-[70] flex flex-col">
         <div className="flex items-center justify-between p-4 border-b border-zinc-100">
             <Button
@@ -4771,7 +4702,7 @@ export function PeopleView({ spaceId, projectId, teamId, listId, viewId, initial
 
     {/* Advanced Filters panel moved to Popover */ }
 
-    {/* Assignees panel  Eimage 8 */ }
+    {/* Assignees panel ?Eimage 8 */ }
     <SidePanel open={assigneesPanelOpen} onClose={() => setAssigneesPanelOpen(false)} className="absolute top-0 right-0 h-full w-[320px] max-w-[90vw] bg-white border-l border-zinc-200 shadow-xl z-50 flex flex-col">
         <div className="flex items-center justify-between p-4 border-b border-zinc-100">
             <h3 className="font-semibold text-zinc-900">Assignees</h3>
@@ -5428,15 +5359,14 @@ export function PeopleView({ spaceId, projectId, teamId, listId, viewId, initial
                         spaceId={spaceId}
                         projectId={projectId}
                         workspaceId={resolvedWorkspaceId}
-                        className="min-h-[120px] p-2"
                         collaboration={{
                             enabled: true,
                             documentId: currentList?.id || listId || '',
                             documentType: 'doc',
                             user: {
-                                id: session?.id || 'anonymous',
-                                name: session?.name || session?.email || 'User',
-                                color: session?.color
+                                id: currentUser?.id || 'anonymous',
+                                name: currentUser?.name || currentUser?.email || 'User',
+                                color: (currentUser as { color?: string } | undefined)?.color
                             }
                         }}
                     />

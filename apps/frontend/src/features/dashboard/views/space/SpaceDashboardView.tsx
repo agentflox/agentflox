@@ -6,6 +6,7 @@ import { trpc } from "@/lib/trpc";
 import SpaceNavigationSidebar, { type SpaceView } from "@/features/dashboard/layouts/space/SpaceNavigationSidebar";
 import dynamic from "next/dynamic";
 import { SpaceOverviewTab } from "@/features/dashboard/views/space/SpaceOverviewTab";
+import { DashboardEntityProvider } from "@/features/dashboard/context/DashboardEntityContext";
 import { DashboardLoadingState, DashboardErrorState } from "@/features/dashboard/components/shared/DashboardStates";
 
 const ChatView = dynamic(() => import("@/features/dashboard/views/shared/ChatView"));
@@ -24,22 +25,24 @@ import { ViewTabsOverflow } from "@/features/dashboard/components/shared/ViewTab
 import { AddViewModal, ViewType } from "@/features/dashboard/components/modals/AddViewModal";
 import { SpaceViewContextMenu } from "@/features/dashboard/components/space/SpaceViewContextMenu";
 
-const ListView = dynamic(() => import("@/features/dashboard/views/generic/ListView"));
-const BoardView = dynamic(() => import("@/features/dashboard/views/generic/BoardView").then(mod => mod.BoardView));
-const TableView = dynamic(() => import("@/features/dashboard/views/generic/TableView").then(mod => mod.TableView));
-const PeopleView = dynamic(() => import("@/features/dashboard/views/generic/PeopleView ").then(mod => mod.PeopleView));
-const ActivityView = dynamic(() => import("@/features/dashboard/views/generic/ActivityView").then(mod => mod.ActivityView));
-const CalendarView = dynamic(() => import("@/features/dashboard/views/generic/CalendarView").then(mod => mod.CalendarView));
-const GanttView = dynamic(() => import("@/features/dashboard/views/generic/GanttView").then(mod => mod.GanttView));
-const TimelineView = dynamic(() => import("@/features/dashboard/views/generic/TimelineView").then(mod => mod.TimelineView));
-const FormView = dynamic(() => import("@/features/dashboard/views/generic/FormView").then(mod => mod.FormView));
-const MindMapView = dynamic(() => import("@/features/dashboard/views/generic/MindMapView").then(mod => mod.MindMapView));
-const WorkloadView = dynamic(() => import("@/features/dashboard/views/generic/WorkloadView").then(mod => mod.WorkloadView));
-const WhiteboardView = dynamic(() => import("@/features/dashboard/views/generic/WhiteboardView"));
-const MapView = dynamic(() => import("@/features/dashboard/views/generic/MapView").then(mod => mod.MapView));
-const GenericDashboardView = dynamic(() => import("@/features/dashboard/views/generic/DashboardView").then(mod => mod.DashboardView));
-const EmbedView = dynamic(() => import("@/features/dashboard/views/generic/EmbedView").then(mod => mod.EmbedView));
-const DocView = dynamic(() => import("@/features/dashboard/views/generic/DocView").then(mod => mod.DocView));
+import {
+    ListView,
+    BoardView,
+    TableView,
+    PeopleView,
+    ActivityView,
+    CalendarView,
+    GanttView,
+    TimelineView,
+    FormView,
+    MindMapView,
+    WorkloadView,
+    WhiteboardView,
+    MapView,
+    GenericDashboardView,
+    EmbedView,
+    DocView,
+} from "@/features/dashboard/views/generic/dashboardViewDynamics";
 import {
     ContextMenu,
     ContextMenuTrigger,
@@ -229,6 +232,8 @@ export default function SpaceDashboardView({ listId, spaceId, projectId, teamId,
 
     // Fetch Data
     const { data: space, isLoading: isSpaceLoading } = trpc.space.get.useQuery({ id: spaceId! }, { enabled: !!spaceId });
+
+    const resolvedWorkspaceId = workspaceId || space?.workspaceId;
 
     const { data: selectedList } = trpc.list.get.useQuery(
         { id: selectedListId || "" },
@@ -501,6 +506,7 @@ export default function SpaceDashboardView({ listId, spaceId, projectId, teamId,
             case "LIST":
                 return (
                     <ListView
+                        workspaceId={resolvedWorkspaceId}
                         spaceId={spaceId!}
                         viewId={view.id}
                         initialConfig={view.config}
@@ -511,6 +517,7 @@ export default function SpaceDashboardView({ listId, spaceId, projectId, teamId,
             case "BOARD":
                 return (
                     <BoardView
+                        workspaceId={resolvedWorkspaceId}
                         spaceId={spaceId!}
                         viewId={view.id}
                         initialConfig={view.config}
@@ -521,6 +528,7 @@ export default function SpaceDashboardView({ listId, spaceId, projectId, teamId,
             case "TABLE":
                 return (
                     <TableView
+                        workspaceId={resolvedWorkspaceId}
                         spaceId={spaceId!}
                         viewId={view.id}
                         initialConfig={view.config}
@@ -531,6 +539,7 @@ export default function SpaceDashboardView({ listId, spaceId, projectId, teamId,
             case "CALENDAR":
                 return (
                     <CalendarView
+                        workspaceId={resolvedWorkspaceId}
                         spaceId={spaceId!}
                         viewId={view.id}
                         initialConfig={view.config}
@@ -541,6 +550,7 @@ export default function SpaceDashboardView({ listId, spaceId, projectId, teamId,
             case "GANTT":
                 return (
                     <GanttView
+                        workspaceId={resolvedWorkspaceId}
                         spaceId={spaceId!}
                         viewId={view.id}
                         initialConfig={view.config}
@@ -551,6 +561,7 @@ export default function SpaceDashboardView({ listId, spaceId, projectId, teamId,
             case "TIMELINE":
                 return (
                     <TimelineView
+                        workspaceId={resolvedWorkspaceId}
                         spaceId={spaceId!}
                         viewId={view.id}
                         initialConfig={view.config}
@@ -567,13 +578,12 @@ export default function SpaceDashboardView({ listId, spaceId, projectId, teamId,
                         initialConfig={view.config}
                         selectedTaskIdFromParent={selectedTaskId}
                         onTaskSelect={handleTaskSelect}
-                        entity={space}
-                        context="space"
                     />
                 );
             case "PEOPLE":
                 return (
                     <PeopleView
+                        workspaceId={resolvedWorkspaceId}
                         spaceId={spaceId!}
                         viewId={view.id}
                         initialConfig={view.config}
@@ -584,6 +594,7 @@ export default function SpaceDashboardView({ listId, spaceId, projectId, teamId,
             case "ACTIVITY":
                 return (
                     <ActivityView
+                        workspaceId={resolvedWorkspaceId}
                         spaceId={spaceId!}
                         viewId={view.id}
                         initialConfig={view.config}
@@ -594,37 +605,35 @@ export default function SpaceDashboardView({ listId, spaceId, projectId, teamId,
             case "MIND_MAP":
                 return (
                     <MindMapView
+                        workspaceId={resolvedWorkspaceId}
                         spaceId={spaceId!}
                         viewId={view.id}
                         initialConfig={view.config}
                         selectedTaskIdFromParent={selectedTaskId}
                         onTaskSelect={handleTaskSelect}
-                        entity={space}
-                        context="space"
                     />
                 );
             case "MAP":
                 return (
                     <MapView
+                        workspaceId={resolvedWorkspaceId}
                         spaceId={spaceId!}
                         viewId={view.id}
                         initialConfig={view.config}
                         selectedTaskIdFromParent={selectedTaskId}
                         onTaskSelect={handleTaskSelect}
-                        entity={space}
-                        context="space"
+
                     />
                 );
             case "WORKLOAD":
                 return (
                     <WorkloadView
+                        workspaceId={resolvedWorkspaceId}
                         spaceId={spaceId!}
                         viewId={view.id}
                         initialConfig={view.config}
                         selectedTaskIdFromParent={selectedTaskId}
                         onTaskSelect={handleTaskSelect}
-                        entity={space}
-                        context="space"
                     />
                 );
             case "WHITEBOARD":
@@ -635,8 +644,6 @@ export default function SpaceDashboardView({ listId, spaceId, projectId, teamId,
                         initialConfig={view.config}
                         selectedTaskIdFromParent={selectedTaskId}
                         onTaskSelect={handleTaskSelect}
-                        entity={space}
-                        context="space"
                     />
                 );
             case "DASHBOARD":
@@ -647,8 +654,6 @@ export default function SpaceDashboardView({ listId, spaceId, projectId, teamId,
                         initialConfig={view.config}
                         selectedTaskIdFromParent={selectedTaskId}
                         onTaskSelect={handleTaskSelect}
-                        entity={space}
-                        context="space"
                     />
                 );
 
@@ -719,6 +724,12 @@ export default function SpaceDashboardView({ listId, spaceId, projectId, teamId,
     }
 
     return (
+        <DashboardEntityProvider
+            workspaceId={resolvedWorkspaceId}
+            spaceId={spaceId}
+            projectId={projectId}
+            teamId={teamId}
+        >
         <div className="flex h-full flex-col">
             {/* Dashboard Header */}
             {/* DashboardHeader moved inside content area */}
@@ -1281,5 +1292,6 @@ export default function SpaceDashboardView({ listId, spaceId, projectId, teamId,
             }
 
         </div >
+        </DashboardEntityProvider>
     );
 }

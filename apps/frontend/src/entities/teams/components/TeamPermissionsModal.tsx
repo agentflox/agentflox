@@ -57,6 +57,11 @@ export function TeamPermissionsModal({ workspaceId, teamId, open, onOpenChange }
         { enabled: !!teamId && open }
     );
 
+    const { data: workspace } = trpc.workspace.get.useQuery(
+        { id: team?.workspaceId ?? "" },
+        { enabled: !!team?.workspaceId && open }
+    );
+
     // Initialize state from team data
     useEffect(() => {
         if (team) {
@@ -128,9 +133,9 @@ export function TeamPermissionsModal({ workspaceId, teamId, open, onOpenChange }
         if (!team) return { workspaceMembers: [], people: [] };
 
         const query = searchQuery.toLowerCase();
-        const workspaceOwnerId = team.workspace?.ownerId;
+        const workspaceOwnerId = workspace?.ownerId;
 
-        const wsMembers = (team.workspace?.members || [])
+        const wsMembers = ((workspace as any)?.members || [])
             .map((m: any) => ({
                 id: m.user.id,
                 name: m.user.name,
@@ -139,8 +144,8 @@ export function TeamPermissionsModal({ workspaceId, teamId, open, onOpenChange }
                 type: 'user',
                 role: m.role,
                 isWorkspaceOwner: workspaceOwnerId === m.user.id,
-                isTeamOwner: team.members.some((tm: any) => tm.userId === m.user.id && tm.role === 'OWNER'),
-                permission: team.members.find((tm: any) => tm.userId === m.user.id)?.permission || "VIEW"
+                isTeamOwner: team.members.some((tm: any) => tm.user?.id === m.user.id),
+                permission: (team.members.find((tm: any) => tm.user?.id === m.user.id) as any)?.role || "VIEW"
             }))
             .filter((m: any) => m.name?.toLowerCase().includes(query) || m.email?.toLowerCase().includes(query));
 
@@ -163,7 +168,7 @@ export function TeamPermissionsModal({ workspaceId, teamId, open, onOpenChange }
             workspaceMembers: wsMembers,
             people: ppl
         };
-    }, [team, searchQuery]);
+    }, [team, workspace, searchQuery]);
 
     // Permission Change Handlers
     const handlePermissionChange = async (userId: string, permission: string) => {
@@ -302,9 +307,9 @@ export function TeamPermissionsModal({ workspaceId, teamId, open, onOpenChange }
                                             <div className="flex flex-col">
                                                 <div className="flex items-center gap-2">
                                                     <Avatar className="h-6 w-6 bg-green-500 flex items-center justify-center rounded-full">
-                                                        <span className="text-white text-xs font-bold">{team?.workspace?.name?.[0].toUpperCase()}</span>
+                                                        <span className="text-white text-xs font-bold">{workspace?.name?.[0]?.toUpperCase()}</span>
                                                     </Avatar>
-                                                    <span className="text-sm font-medium text-slate-900">{team?.workspace?.name}</span>
+                                                    <span className="text-sm font-medium text-slate-900">{workspace?.name}</span>
                                                     <span className="text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded-full border border-slate-200">Workspace</span>
                                                 </div>
                                             </div>

@@ -130,7 +130,7 @@ export const listRouter = router({
       let list = await prisma.list.findFirst({
         where: {
           locationType: "PERSONAL",
-          createdBy: userId,
+          ownerId: userId,
         },
         include: {
           views: {
@@ -149,7 +149,7 @@ export const listRouter = router({
             data: {
               name: "Personal",
               locationType: "PERSONAL",
-              createdBy: userId,
+              ownerId: userId,
             },
           });
 
@@ -188,7 +188,7 @@ export const listRouter = router({
                   name: view.name,
                   type: view.type,
                   position: view.position,
-                  createdBy: userId,
+                  ownerId: userId,
                   isDefault: view.position === 0,
                   isPrivate: true,
                 },
@@ -219,7 +219,7 @@ export const listRouter = router({
                 name: view.name,
                 type: view.type,
                 position: view.position,
-                createdBy: userId,
+                ownerId: userId,
                 isDefault: view.position === 0,
                 isPrivate: true,
               },
@@ -245,6 +245,7 @@ export const listRouter = router({
       baseContextSchema
         .extend({
           archived: z.boolean().optional(),
+          includeViewDetails: z.boolean().optional().default(true),
         })
         .refine(
           (data) =>
@@ -282,6 +283,37 @@ export const listRouter = router({
         where.isArchived = false;
       }
 
+      const viewSelect = input.includeViewDetails
+        ? {
+            id: true,
+            name: true,
+            type: true,
+            description: true,
+            config: true,
+            filters: true,
+            grouping: true,
+            sorting: true,
+            columns: true,
+            position: true,
+            isDefault: true,
+            isShared: true,
+            isPrivate: true,
+            isPinned: true,
+            isLocked: true,
+            isAutosave: true,
+            ownerId: true,
+            createdAt: true,
+            updatedAt: true,
+          }
+        : {
+            id: true,
+            name: true,
+            type: true,
+            position: true,
+            isDefault: true,
+            isPinned: true,
+          };
+
       const lists = await prisma.list.findMany({
         where,
         orderBy: { position: "asc" },
@@ -297,27 +329,7 @@ export const listRouter = router({
           teamId: true,
           folderId: true,
           views: {
-            select: {
-              id: true,
-              name: true,
-              type: true,
-              description: true,
-              config: true,
-              filters: true,
-              grouping: true,
-              sorting: true,
-              columns: true,
-              position: true,
-              isDefault: true,
-              isShared: true,
-              isPrivate: true,
-              isPinned: true,
-              isLocked: true,
-              isAutosave: true,
-              createdBy: true,
-              createdAt: true,
-              updatedAt: true,
-            },
+            select: viewSelect,
             orderBy: { position: "asc" },
           },
           space: {
@@ -364,7 +376,7 @@ export const listRouter = router({
         where: {
           id: input.id,
           OR: [
-            { createdBy: userId },
+            { ownerId: userId },
             {
               workspace: {
                 OR: [
@@ -476,7 +488,7 @@ export const listRouter = router({
             projectId: input.projectId ?? undefined,
             teamId: input.teamId ?? undefined,
             folderId: input.folderId ?? undefined,
-            createdBy: userId,
+            ownerId: userId,
           },
           select: {
             id: true,
@@ -529,7 +541,7 @@ export const listRouter = router({
                 name: view.name,
                 type: view.type,
                 position: view.position,
-                createdBy: userId,
+                ownerId: userId,
                 isDefault: view.position === 0, // First view is default
               },
             })
@@ -563,7 +575,7 @@ export const listRouter = router({
         where: {
           id,
           OR: [
-            { createdBy: userId },
+            { ownerId: userId },
             {
               workspace: {
                 OR: [
@@ -613,7 +625,7 @@ export const listRouter = router({
         where: {
           id: input.id,
           OR: [
-            { createdBy: userId },
+            { ownerId: userId },
             {
               workspace: {
                 OR: [
@@ -651,7 +663,7 @@ export const listRouter = router({
         where: {
           id: input.id,
           OR: [
-            { createdBy: userId },
+            { ownerId: userId },
             {
               workspace: {
                 OR: [
@@ -682,6 +694,7 @@ export const listRouter = router({
             projectId: sourceList.projectId,
             teamId: sourceList.teamId,
             folderId: sourceList.folderId,
+            ownerId: userId,
             name: input.name ?? `${sourceList.name} (Copy)`,
             description: sourceList.description,
             color: sourceList.color,
@@ -731,7 +744,7 @@ export const listRouter = router({
                   isPinned: view.isPinned,
                   isLocked: view.isLocked,
                   isAutosave: view.isAutosave,
-                  createdBy: userId,
+                  ownerId: userId,
                 }
               })
             )

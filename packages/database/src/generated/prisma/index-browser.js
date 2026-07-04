@@ -208,25 +208,17 @@ exports.Prisma.OrganizationMemberScalarFieldEnum = {
   joinedAt: 'joinedAt'
 };
 
-exports.Prisma.DepartmentScalarFieldEnum = {
-  id: 'id',
-  organizationId: 'organizationId',
-  name: 'name',
-  description: 'description',
-  headId: 'headId',
-  color: 'color',
-  createdAt: 'createdAt',
-  updatedAt: 'updatedAt'
-};
-
 exports.Prisma.WorkspaceScalarFieldEnum = {
   id: 'id',
   ownerId: 'ownerId',
+  previousOwnerId: 'previousOwnerId',
   name: 'name',
   description: 'description',
+  status: 'status',
   isActive: 'isActive',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt',
+  transferredAt: 'transferredAt',
   archivedAt: 'archivedAt',
   avatar: 'avatar',
   color: 'color',
@@ -273,15 +265,38 @@ exports.Prisma.WorkspaceInvitationScalarFieldEnum = {
   createdAt: 'createdAt'
 };
 
+exports.Prisma.WorkspaceOwnershipTransferScalarFieldEnum = {
+  id: 'id',
+  workspaceId: 'workspaceId',
+  fromOwnerId: 'fromOwnerId',
+  toOwnerId: 'toOwnerId',
+  requestedBy: 'requestedBy',
+  reason: 'reason',
+  notes: 'notes',
+  status: 'status',
+  requestedAt: 'requestedAt',
+  acceptedAt: 'acceptedAt',
+  rejectedAt: 'rejectedAt',
+  cancelledAt: 'cancelledAt',
+  completedAt: 'completedAt',
+  requiresAcceptance: 'requiresAcceptance',
+  acceptanceTokenHash: 'acceptanceTokenHash',
+  expiresAt: 'expiresAt',
+  metadata: 'metadata'
+};
+
 exports.Prisma.SpaceScalarFieldEnum = {
   id: 'id',
   workspaceId: 'workspaceId',
+  ownerId: 'ownerId',
+  previousOwnerId: 'previousOwnerId',
   name: 'name',
   description: 'description',
+  status: 'status',
   isActive: 'isActive',
-  createdBy: 'createdBy',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt',
+  transferredAt: 'transferredAt',
   embeddingUpdatedAt: 'embeddingUpdatedAt',
   icon: 'icon',
   color: 'color',
@@ -289,6 +304,26 @@ exports.Prisma.SpaceScalarFieldEnum = {
   settings: 'settings',
   deletedAt: 'deletedAt',
   deletedById: 'deletedById'
+};
+
+exports.Prisma.SpaceOwnershipTransferScalarFieldEnum = {
+  id: 'id',
+  spaceId: 'spaceId',
+  fromOwnerId: 'fromOwnerId',
+  toOwnerId: 'toOwnerId',
+  requestedBy: 'requestedBy',
+  reason: 'reason',
+  notes: 'notes',
+  status: 'status',
+  requestedAt: 'requestedAt',
+  acceptedAt: 'acceptedAt',
+  rejectedAt: 'rejectedAt',
+  cancelledAt: 'cancelledAt',
+  completedAt: 'completedAt',
+  requiresAcceptance: 'requiresAcceptance',
+  acceptanceTokenHash: 'acceptanceTokenHash',
+  expiresAt: 'expiresAt',
+  metadata: 'metadata'
 };
 
 exports.Prisma.IntegrationScalarFieldEnum = {
@@ -514,9 +549,12 @@ exports.Prisma.FolderScalarFieldEnum = {
   spaceId: 'spaceId',
   projectId: 'projectId',
   teamId: 'teamId',
+  ownerId: 'ownerId',
+  previousOwnerId: 'previousOwnerId',
   parentId: 'parentId',
   name: 'name',
   description: 'description',
+  status: 'status',
   color: 'color',
   icon: 'icon',
   position: 'position',
@@ -524,9 +562,30 @@ exports.Prisma.FolderScalarFieldEnum = {
   settings: 'settings',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt',
+  transferredAt: 'transferredAt',
   archivedAt: 'archivedAt',
   deletedAt: 'deletedAt',
   deletedById: 'deletedById'
+};
+
+exports.Prisma.FolderOwnershipTransferScalarFieldEnum = {
+  id: 'id',
+  folderId: 'folderId',
+  fromOwnerId: 'fromOwnerId',
+  toOwnerId: 'toOwnerId',
+  requestedBy: 'requestedBy',
+  reason: 'reason',
+  notes: 'notes',
+  status: 'status',
+  requestedAt: 'requestedAt',
+  acceptedAt: 'acceptedAt',
+  rejectedAt: 'rejectedAt',
+  cancelledAt: 'cancelledAt',
+  completedAt: 'completedAt',
+  requiresAcceptance: 'requiresAcceptance',
+  acceptanceTokenHash: 'acceptanceTokenHash',
+  expiresAt: 'expiresAt',
+  metadata: 'metadata'
 };
 
 exports.Prisma.ListScalarFieldEnum = {
@@ -534,8 +593,11 @@ exports.Prisma.ListScalarFieldEnum = {
   workspaceId: 'workspaceId',
   spaceId: 'spaceId',
   folderId: 'folderId',
+  ownerId: 'ownerId',
+  previousOwnerId: 'previousOwnerId',
   name: 'name',
   description: 'description',
+  status: 'status',
   color: 'color',
   icon: 'icon',
   position: 'position',
@@ -544,6 +606,7 @@ exports.Prisma.ListScalarFieldEnum = {
   settings: 'settings',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt',
+  transferredAt: 'transferredAt',
   archivedAt: 'archivedAt',
   projectId: 'projectId',
   teamId: 'teamId',
@@ -551,6 +614,26 @@ exports.Prisma.ListScalarFieldEnum = {
   createdBy: 'createdBy',
   deletedAt: 'deletedAt',
   deletedById: 'deletedById'
+};
+
+exports.Prisma.ListOwnershipTransferScalarFieldEnum = {
+  id: 'id',
+  listId: 'listId',
+  fromOwnerId: 'fromOwnerId',
+  toOwnerId: 'toOwnerId',
+  requestedBy: 'requestedBy',
+  reason: 'reason',
+  notes: 'notes',
+  status: 'status',
+  requestedAt: 'requestedAt',
+  acceptedAt: 'acceptedAt',
+  rejectedAt: 'rejectedAt',
+  cancelledAt: 'cancelledAt',
+  completedAt: 'completedAt',
+  requiresAcceptance: 'requiresAcceptance',
+  acceptanceTokenHash: 'acceptanceTokenHash',
+  expiresAt: 'expiresAt',
+  metadata: 'metadata'
 };
 
 exports.Prisma.ViewScalarFieldEnum = {
@@ -561,10 +644,12 @@ exports.Prisma.ViewScalarFieldEnum = {
   spaceId: 'spaceId',
   projectId: 'projectId',
   teamId: 'teamId',
-  createdBy: 'createdBy',
+  ownerId: 'ownerId',
+  previousOwnerId: 'previousOwnerId',
   name: 'name',
   type: 'type',
   description: 'description',
+  status: 'status',
   config: 'config',
   filters: 'filters',
   grouping: 'grouping',
@@ -582,8 +667,29 @@ exports.Prisma.ViewScalarFieldEnum = {
   sidebarOrder: 'sidebarOrder',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt',
+  transferredAt: 'transferredAt',
   deletedAt: 'deletedAt',
   deletedById: 'deletedById'
+};
+
+exports.Prisma.ViewOwnershipTransferScalarFieldEnum = {
+  id: 'id',
+  viewId: 'viewId',
+  fromOwnerId: 'fromOwnerId',
+  toOwnerId: 'toOwnerId',
+  requestedBy: 'requestedBy',
+  reason: 'reason',
+  notes: 'notes',
+  status: 'status',
+  requestedAt: 'requestedAt',
+  acceptedAt: 'acceptedAt',
+  rejectedAt: 'rejectedAt',
+  cancelledAt: 'cancelledAt',
+  completedAt: 'completedAt',
+  requiresAcceptance: 'requiresAcceptance',
+  acceptanceTokenHash: 'acceptanceTokenHash',
+  expiresAt: 'expiresAt',
+  metadata: 'metadata'
 };
 
 exports.Prisma.FormResponseScalarFieldEnum = {
@@ -628,35 +734,6 @@ exports.Prisma.DashboardWidgetScalarFieldEnum = {
   updatedAt: 'updatedAt'
 };
 
-exports.Prisma.GoalScalarFieldEnum = {
-  id: 'id',
-  workspaceId: 'workspaceId',
-  parentId: 'parentId',
-  ownerId: 'ownerId',
-  name: 'name',
-  description: 'description',
-  type: 'type',
-  targetValue: 'targetValue',
-  currentValue: 'currentValue',
-  unit: 'unit',
-  startDate: 'startDate',
-  dueDate: 'dueDate',
-  status: 'status',
-  progress: 'progress',
-  isArchived: 'isArchived',
-  createdAt: 'createdAt',
-  updatedAt: 'updatedAt'
-};
-
-exports.Prisma.GoalUpdateScalarFieldEnum = {
-  id: 'id',
-  goalId: 'goalId',
-  userId: 'userId',
-  currentValue: 'currentValue',
-  note: 'note',
-  createdAt: 'createdAt'
-};
-
 exports.Prisma.DocumentScalarFieldEnum = {
   id: 'id',
   workspaceId: 'workspaceId',
@@ -667,12 +744,14 @@ exports.Prisma.DocumentScalarFieldEnum = {
   folderId: 'folderId',
   teamId: 'teamId',
   viewId: 'viewId',
-  createdBy: 'createdBy',
+  ownerId: 'ownerId',
+  previousOwnerId: 'previousOwnerId',
   title: 'title',
   description: 'description',
   content: 'content',
   icon: 'icon',
   coverImage: 'coverImage',
+  status: 'status',
   isPublished: 'isPublished',
   isArchived: 'isArchived',
   isTemplate: 'isTemplate',
@@ -680,11 +759,32 @@ exports.Prisma.DocumentScalarFieldEnum = {
   version: 'version',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt',
+  transferredAt: 'transferredAt',
   publishedAt: 'publishedAt',
   settings: 'settings',
   locationType: 'locationType',
   deletedAt: 'deletedAt',
   deletedById: 'deletedById'
+};
+
+exports.Prisma.DocumentOwnershipTransferScalarFieldEnum = {
+  id: 'id',
+  documentId: 'documentId',
+  fromOwnerId: 'fromOwnerId',
+  toOwnerId: 'toOwnerId',
+  requestedBy: 'requestedBy',
+  reason: 'reason',
+  notes: 'notes',
+  status: 'status',
+  requestedAt: 'requestedAt',
+  acceptedAt: 'acceptedAt',
+  rejectedAt: 'rejectedAt',
+  cancelledAt: 'cancelledAt',
+  completedAt: 'completedAt',
+  requiresAcceptance: 'requiresAcceptance',
+  acceptanceTokenHash: 'acceptanceTokenHash',
+  expiresAt: 'expiresAt',
+  metadata: 'metadata'
 };
 
 exports.Prisma.DocumentRelationshipScalarFieldEnum = {
@@ -841,9 +941,10 @@ exports.Prisma.WorkspaceAnalyticsScalarFieldEnum = {
 exports.Prisma.AutomationScalarFieldEnum = {
   id: 'id',
   workspaceId: 'workspaceId',
-  createdBy: 'createdBy',
+  ownerId: 'ownerId',
   name: 'name',
   description: 'description',
+  status: 'status',
   conditions: 'conditions',
   actions: 'actions',
   isActive: 'isActive',
@@ -1104,64 +1205,25 @@ exports.Prisma.EarningScalarFieldEnum = {
   createdAt: 'createdAt'
 };
 
-exports.Prisma.CapTableEntryScalarFieldEnum = {
-  id: 'id',
-  projectId: 'projectId',
-  holderName: 'holderName',
-  type: 'type',
-  shares: 'shares',
-  class: 'class',
-  createdAt: 'createdAt'
-};
-
-exports.Prisma.InvestorUpdateScalarFieldEnum = {
-  id: 'id',
-  projectId: 'projectId',
-  month: 'month',
-  content: 'content',
-  sentiment: 'sentiment',
-  status: 'status',
-  sentAt: 'sentAt'
-};
-
 exports.Prisma.ProjectScalarFieldEnum = {
   id: 'id',
   workspaceId: 'workspaceId',
   organizationId: 'organizationId',
-  departmentId: 'departmentId',
   ownerId: 'ownerId',
   previousOwnerId: 'previousOwnerId',
   name: 'name',
   description: 'description',
-  tagline: 'tagline',
   logo: 'logo',
-  website: 'website',
-  stage: 'stage',
-  industry: 'industry',
   tags: 'tags',
-  revenueModel: 'revenueModel',
-  targetMarket: 'targetMarket',
-  competitiveEdge: 'competitiveEdge',
-  fundingGoal: 'fundingGoal',
-  fundingRaised: 'fundingRaised',
-  valuationCap: 'valuationCap',
-  teamSize: 'teamSize',
-  isHiring: 'isHiring',
   status: 'status',
   isActive: 'isActive',
   visibility: 'visibility',
   isPublic: 'isPublic',
-  isFeatured: 'isFeatured',
-  location: 'location',
-  isRemoteFriendly: 'isRemoteFriendly',
-  viewCount: 'viewCount',
-  likeCount: 'likeCount',
   embeddingUpdatedAt: 'embeddingUpdatedAt',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt',
   launchedAt: 'launchedAt',
   transferredAt: 'transferredAt',
-  hiringRoles: 'hiringRoles',
   spaceId: 'spaceId',
   deletedAt: 'deletedAt',
   deletedById: 'deletedById'
@@ -1174,13 +1236,6 @@ exports.Prisma.ProjectMemberScalarFieldEnum = {
   role: 'role',
   title: 'title',
   permissions: 'permissions',
-  isCoFounder: 'isCoFounder',
-  isInvestor: 'isInvestor',
-  isMember: 'isMember',
-  compensationType: 'compensationType',
-  salaryAmount: 'salaryAmount',
-  equityPercentage: 'equityPercentage',
-  profitSharePercent: 'profitSharePercent',
   status: 'status',
   canPost: 'canPost',
   canComment: 'canComment',
@@ -1198,15 +1253,17 @@ exports.Prisma.ProjectOwnershipTransferScalarFieldEnum = {
   projectId: 'projectId',
   fromOwnerId: 'fromOwnerId',
   toOwnerId: 'toOwnerId',
+  requestedBy: 'requestedBy',
   reason: 'reason',
   notes: 'notes',
   status: 'status',
   requestedAt: 'requestedAt',
   acceptedAt: 'acceptedAt',
   rejectedAt: 'rejectedAt',
+  cancelledAt: 'cancelledAt',
   completedAt: 'completedAt',
   requiresAcceptance: 'requiresAcceptance',
-  acceptanceToken: 'acceptanceToken',
+  acceptanceTokenHash: 'acceptanceTokenHash',
   expiresAt: 'expiresAt',
   metadata: 'metadata'
 };
@@ -1395,19 +1452,17 @@ exports.Prisma.TeamScalarFieldEnum = {
   id: 'id',
   workspaceId: 'workspaceId',
   organizationId: 'organizationId',
-  departmentId: 'departmentId',
   ownerId: 'ownerId',
+  previousOwnerId: 'previousOwnerId',
   name: 'name',
   description: 'description',
   avatar: 'avatar',
-  teamType: 'teamType',
   industry: 'industry',
   skills: 'skills',
   status: 'status',
   isPublic: 'isPublic',
   visibility: 'visibility',
   isActive: 'isActive',
-  isHiring: 'isHiring',
   size: 'size',
   maxSize: 'maxSize',
   location: 'location',
@@ -1415,26 +1470,30 @@ exports.Prisma.TeamScalarFieldEnum = {
   embeddingUpdatedAt: 'embeddingUpdatedAt',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt',
-  hiringRoles: 'hiringRoles',
+  transferredAt: 'transferredAt',
   spaceId: 'spaceId',
   deletedAt: 'deletedAt',
   deletedById: 'deletedById'
 };
 
-exports.Prisma.TeamLikeScalarFieldEnum = {
+exports.Prisma.TeamOwnershipTransferScalarFieldEnum = {
   id: 'id',
   teamId: 'teamId',
-  userId: 'userId',
-  createdAt: 'createdAt'
-};
-
-exports.Prisma.TeamCommentScalarFieldEnum = {
-  id: 'id',
-  userId: 'userId',
-  teamId: 'teamId',
-  content: 'content',
-  createdAt: 'createdAt',
-  updatedAt: 'updatedAt'
+  fromOwnerId: 'fromOwnerId',
+  toOwnerId: 'toOwnerId',
+  requestedBy: 'requestedBy',
+  reason: 'reason',
+  notes: 'notes',
+  status: 'status',
+  requestedAt: 'requestedAt',
+  acceptedAt: 'acceptedAt',
+  rejectedAt: 'rejectedAt',
+  cancelledAt: 'cancelledAt',
+  completedAt: 'completedAt',
+  requiresAcceptance: 'requiresAcceptance',
+  acceptanceTokenHash: 'acceptanceTokenHash',
+  expiresAt: 'expiresAt',
+  metadata: 'metadata'
 };
 
 exports.Prisma.TeamMemberScalarFieldEnum = {
@@ -1445,7 +1504,6 @@ exports.Prisma.TeamMemberScalarFieldEnum = {
   title: 'title',
   status: 'status',
   permissions: 'permissions',
-  compensationType: 'compensationType',
   salaryAmount: 'salaryAmount',
   equityPercentage: 'equityPercentage',
   hourlyRate: 'hourlyRate',
@@ -1460,27 +1518,6 @@ exports.Prisma.ProjectTeamScalarFieldEnum = {
   role: 'role',
   status: 'status',
   assignedAt: 'assignedAt'
-};
-
-exports.Prisma.InvestmentScalarFieldEnum = {
-  id: 'id',
-  investorId: 'investorId',
-  projectId: 'projectId',
-  amount: 'amount',
-  investmentType: 'investmentType',
-  equityPercent: 'equityPercent',
-  valuation: 'valuation',
-  liquidationPref: 'liquidationPref',
-  antidilution: 'antidilution',
-  boardSeat: 'boardSeat',
-  status: 'status',
-  stage: 'stage',
-  dueDiligenceCompleted: 'dueDiligenceCompleted',
-  legalDocsComplete: 'legalDocsComplete',
-  proposedAt: 'proposedAt',
-  acceptedAt: 'acceptedAt',
-  completedAt: 'completedAt',
-  notes: 'notes'
 };
 
 exports.Prisma.RequestScalarFieldEnum = {
@@ -1552,30 +1589,6 @@ exports.Prisma.VerificationRequestScalarFieldEnum = {
   createdAt: 'createdAt'
 };
 
-exports.Prisma.SkillScalarFieldEnum = {
-  id: 'id',
-  name: 'name',
-  category: 'category',
-  description: 'description'
-};
-
-exports.Prisma.UserSkillScalarFieldEnum = {
-  id: 'id',
-  userId: 'userId',
-  skillId: 'skillId',
-  proficiency: 'proficiency',
-  yearsOfExp: 'yearsOfExp',
-  isVerified: 'isVerified'
-};
-
-exports.Prisma.SkillEndorsementScalarFieldEnum = {
-  id: 'id',
-  userSkillId: 'userSkillId',
-  endorserId: 'endorserId',
-  comment: 'comment',
-  createdAt: 'createdAt'
-};
-
 exports.Prisma.InterestScalarFieldEnum = {
   id: 'id',
   name: 'name',
@@ -1638,13 +1651,6 @@ exports.Prisma.MessageDeliveryScalarFieldEnum = {
   userId: 'userId',
   status: 'status',
   timestamp: 'timestamp'
-};
-
-exports.Prisma.ProjectLikeScalarFieldEnum = {
-  id: 'id',
-  userId: 'userId',
-  projectId: 'projectId',
-  createdAt: 'createdAt'
 };
 
 exports.Prisma.ProjectCommentScalarFieldEnum = {
@@ -1732,36 +1738,6 @@ exports.Prisma.VerificationTokenScalarFieldEnum = {
   expires: 'expires'
 };
 
-exports.Prisma.MaterialScalarFieldEnum = {
-  id: 'id',
-  ownerId: 'ownerId',
-  title: 'title',
-  description: 'description',
-  category: 'category',
-  priceUsd: 'priceUsd',
-  isPublic: 'isPublic',
-  fileUrl: 'fileUrl',
-  externalUrl: 'externalUrl',
-  createdAt: 'createdAt',
-  updatedAt: 'updatedAt',
-  spaceId: 'spaceId',
-  workspaceId: 'workspaceId',
-  isForSale: 'isForSale',
-  thumbnailUrl: 'thumbnailUrl',
-  status: 'status',
-  visibility: 'visibility'
-};
-
-exports.Prisma.MaterialPurchaseScalarFieldEnum = {
-  id: 'id',
-  materialId: 'materialId',
-  buyerId: 'buyerId',
-  amountUsd: 'amountUsd',
-  feeUsd: 'feeUsd',
-  netUsd: 'netUsd',
-  createdAt: 'createdAt'
-};
-
 exports.Prisma.ToolScalarFieldEnum = {
   id: 'id',
   ownerId: 'ownerId',
@@ -1794,7 +1770,6 @@ exports.Prisma.AttachmentScalarFieldEnum = {
   id: 'id',
   projectId: 'projectId',
   teamId: 'teamId',
-  investmentId: 'investmentId',
   verificationRequestId: 'verificationRequestId',
   filename: 'filename',
   url: 'url',
@@ -1810,8 +1785,6 @@ exports.Prisma.AttachmentScalarFieldEnum = {
   downloads: 'downloads',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt',
-  materialId: 'materialId',
-  resourceId: 'resourceId',
   toolId: 'toolId'
 };
 
@@ -2304,122 +2277,6 @@ exports.Prisma.AiUsageLogScalarFieldEnum = {
   createdAt: 'createdAt'
 };
 
-exports.Prisma.ResourceScalarFieldEnum = {
-  id: 'id',
-  ownerId: 'ownerId',
-  workspaceId: 'workspaceId',
-  spaceId: 'spaceId',
-  parentId: 'parentId',
-  title: 'title',
-  slug: 'slug',
-  description: 'description',
-  excerpt: 'excerpt',
-  content: 'content',
-  category: 'category',
-  type: 'type',
-  tags: 'tags',
-  priceUsd: 'priceUsd',
-  currency: 'currency',
-  visibility: 'visibility',
-  isPublic: 'isPublic',
-  isFeatured: 'isFeatured',
-  isPremium: 'isPremium',
-  requiresAuth: 'requiresAuth',
-  status: 'status',
-  version: 'version',
-  metaTitle: 'metaTitle',
-  metaDescription: 'metaDescription',
-  keywords: 'keywords',
-  externalUrl: 'externalUrl',
-  sourceUrl: 'sourceUrl',
-  documentationUrl: 'documentationUrl',
-  thumbnailUrl: 'thumbnailUrl',
-  viewCount: 'viewCount',
-  downloadCount: 'downloadCount',
-  likeCount: 'likeCount',
-  commentCount: 'commentCount',
-  shareCount: 'shareCount',
-  averageRating: 'averageRating',
-  metadata: 'metadata',
-  settings: 'settings',
-  license: 'license',
-  attribution: 'attribution',
-  copyrightYear: 'copyrightYear',
-  createdAt: 'createdAt',
-  updatedAt: 'updatedAt',
-  publishedAt: 'publishedAt',
-  archivedAt: 'archivedAt',
-  deletedAt: 'deletedAt',
-  lastViewedAt: 'lastViewedAt',
-  fileMimeType: 'fileMimeType',
-  fileName: 'fileName',
-  fileSize: 'fileSize',
-  fileUrl: 'fileUrl'
-};
-
-exports.Prisma.ResourceCommentScalarFieldEnum = {
-  id: 'id',
-  resourceId: 'resourceId',
-  userId: 'userId',
-  parentId: 'parentId',
-  content: 'content',
-  isEdited: 'isEdited',
-  createdAt: 'createdAt',
-  updatedAt: 'updatedAt'
-};
-
-exports.Prisma.ResourceRatingScalarFieldEnum = {
-  id: 'id',
-  resourceId: 'resourceId',
-  userId: 'userId',
-  score: 'score',
-  review: 'review',
-  createdAt: 'createdAt',
-  updatedAt: 'updatedAt'
-};
-
-exports.Prisma.ResourceBookmarkScalarFieldEnum = {
-  id: 'id',
-  resourceId: 'resourceId',
-  userId: 'userId',
-  folderId: 'folderId',
-  notes: 'notes',
-  createdAt: 'createdAt'
-};
-
-exports.Prisma.ResourceShareScalarFieldEnum = {
-  id: 'id',
-  resourceId: 'resourceId',
-  userId: 'userId',
-  sharedWith: 'sharedWith',
-  shareToken: 'shareToken',
-  expiresAt: 'expiresAt',
-  createdAt: 'createdAt'
-};
-
-exports.Prisma.ResourcePermissionScalarFieldEnum = {
-  id: 'id',
-  resourceId: 'resourceId',
-  userId: 'userId',
-  roleId: 'roleId',
-  canView: 'canView',
-  canEdit: 'canEdit',
-  canDelete: 'canDelete',
-  canShare: 'canShare',
-  createdAt: 'createdAt'
-};
-
-exports.Prisma.ResourceVersionScalarFieldEnum = {
-  id: 'id',
-  resourceId: 'resourceId',
-  version: 'version',
-  title: 'title',
-  content: 'content',
-  changeLog: 'changeLog',
-  createdBy: 'createdBy',
-  createdAt: 'createdAt'
-};
-
 exports.Prisma.AgentCollaboratorScalarFieldEnum = {
   id: 'id',
   agentId: 'agentId',
@@ -2731,11 +2588,10 @@ exports.Prisma.AiAgentScalarFieldEnum = {
   id: 'id',
   workspaceId: 'workspaceId',
   organizationId: 'organizationId',
-  departmentId: 'departmentId',
   spaceId: 'spaceId',
   projectId: 'projectId',
   teamId: 'teamId',
-  createdBy: 'createdBy',
+  ownerId: 'ownerId',
   name: 'name',
   description: 'description',
   avatar: 'avatar',
@@ -3014,7 +2870,7 @@ exports.Prisma.WorkforceScalarFieldEnum = {
   spaceId: 'spaceId',
   projectId: 'projectId',
   teamId: 'teamId',
-  createdBy: 'createdBy',
+  ownerId: 'ownerId',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt',
   visibility: 'visibility',
@@ -3193,6 +3049,12 @@ exports.VerificationLevel = exports.$Enums.VerificationLevel = {
   PREMIUM_VERIFIED: 'PREMIUM_VERIFIED'
 };
 
+exports.WorkspaceStatus = exports.$Enums.WorkspaceStatus = {
+  DRAFT: 'DRAFT',
+  ACTIVE: 'ACTIVE',
+  ARCHIVED: 'ARCHIVED'
+};
+
 exports.MemberStatus = exports.$Enums.MemberStatus = {
   ACTIVE: 'ACTIVE',
   INACTIVE: 'INACTIVE',
@@ -3207,6 +3069,21 @@ exports.WorkspaceRole = exports.$Enums.WorkspaceRole = {
   LIMITED_MEMBER: 'LIMITED_MEMBER',
   LIMITED_MEMBER_VIEW_ONLY: 'LIMITED_MEMBER_VIEW_ONLY',
   GUEST: 'GUEST'
+};
+
+exports.TransferStatus = exports.$Enums.TransferStatus = {
+  PENDING: 'PENDING',
+  ACCEPTED: 'ACCEPTED',
+  REJECTED: 'REJECTED',
+  COMPLETED: 'COMPLETED',
+  CANCELLED: 'CANCELLED',
+  EXPIRED: 'EXPIRED'
+};
+
+exports.SpaceStatus = exports.$Enums.SpaceStatus = {
+  DRAFT: 'DRAFT',
+  ACTIVE: 'ACTIVE',
+  ARCHIVED: 'ARCHIVED'
 };
 
 exports.Visibility = exports.$Enums.Visibility = {
@@ -3303,6 +3180,18 @@ exports.SpaceRole = exports.$Enums.SpaceRole = {
   VIEWER: 'VIEWER'
 };
 
+exports.FolderStatus = exports.$Enums.FolderStatus = {
+  DRAFT: 'DRAFT',
+  ACTIVE: 'ACTIVE',
+  ARCHIVED: 'ARCHIVED'
+};
+
+exports.ListStatus = exports.$Enums.ListStatus = {
+  DRAFT: 'DRAFT',
+  ACTIVE: 'ACTIVE',
+  ARCHIVED: 'ARCHIVED'
+};
+
 exports.ViewType = exports.$Enums.ViewType = {
   LIST: 'LIST',
   BOARD: 'BOARD',
@@ -3343,6 +3232,12 @@ exports.ViewType = exports.$Enums.ViewType = {
   MEMBERS: 'MEMBERS'
 };
 
+exports.ViewStatus = exports.$Enums.ViewStatus = {
+  DRAFT: 'DRAFT',
+  ACTIVE: 'ACTIVE',
+  ARCHIVED: 'ARCHIVED'
+};
+
 exports.ShareAccessLevel = exports.$Enums.ShareAccessLevel = {
   VIEW: 'VIEW',
   COMMENT: 'COMMENT',
@@ -3362,17 +3257,10 @@ exports.WidgetType = exports.$Enums.WidgetType = {
   VELOCITY: 'VELOCITY'
 };
 
-exports.GoalType = exports.$Enums.GoalType = {
-  OBJECTIVE: 'OBJECTIVE',
-  KEY_RESULT: 'KEY_RESULT',
-  TARGET: 'TARGET'
-};
-
-exports.GoalStatus = exports.$Enums.GoalStatus = {
-  ON_TRACK: 'ON_TRACK',
-  AT_RISK: 'AT_RISK',
-  OFF_TRACK: 'OFF_TRACK',
-  COMPLETED: 'COMPLETED'
+exports.DocumentStatus = exports.$Enums.DocumentStatus = {
+  DRAFT: 'DRAFT',
+  ACTIVE: 'ACTIVE',
+  ARCHIVED: 'ARCHIVED'
 };
 
 exports.DocumentPermission = exports.$Enums.DocumentPermission = {
@@ -3421,6 +3309,12 @@ exports.TaskAction = exports.$Enums.TaskAction = {
   COMMENTED: 'COMMENTED',
   ATTACHED: 'ATTACHED',
   MOVED: 'MOVED'
+};
+
+exports.AutomationEntityStatus = exports.$Enums.AutomationEntityStatus = {
+  DRAFT: 'DRAFT',
+  ACTIVE: 'ACTIVE',
+  ARCHIVED: 'ARCHIVED'
 };
 
 exports.AutomationTriggerType = exports.$Enums.AutomationTriggerType = {
@@ -3511,31 +3405,10 @@ exports.VoteType = exports.$Enums.VoteType = {
   DOWNVOTE: 'DOWNVOTE'
 };
 
-exports.ProjectStage = exports.$Enums.ProjectStage = {
-  IDEA: 'IDEA',
-  MVP: 'MVP',
-  BETA: 'BETA',
-  LAUNCHED: 'LAUNCHED',
-  GROWTH: 'GROWTH',
-  SCALE: 'SCALE',
-  EXIT: 'EXIT'
-};
-
 exports.ProjectStatus = exports.$Enums.ProjectStatus = {
   DRAFT: 'DRAFT',
   PUBLISHED: 'PUBLISHED',
   ARCHIVED: 'ARCHIVED'
-};
-
-exports.CompensationType = exports.$Enums.CompensationType = {
-  CASH_ONLY: 'CASH_ONLY',
-  EQUITY_ONLY: 'EQUITY_ONLY',
-  CASH_AND_EQUITY: 'CASH_AND_EQUITY',
-  DEFERRED_CASH: 'DEFERRED_CASH',
-  PROFIT_SHARING: 'PROFIT_SHARING',
-  HOURLY_RATE: 'HOURLY_RATE',
-  PROJECT_BASED: 'PROJECT_BASED',
-  REVENUE_SHARE: 'REVENUE_SHARE'
 };
 
 exports.Permission = exports.$Enums.Permission = {
@@ -3555,15 +3428,6 @@ exports.Permission = exports.$Enums.Permission = {
   TRANSFER_OWNERSHIP: 'TRANSFER_OWNERSHIP',
   BLOCK_MEMBERS: 'BLOCK_MEMBERS',
   MANAGE_PERMISSIONS: 'MANAGE_PERMISSIONS'
-};
-
-exports.TransferStatus = exports.$Enums.TransferStatus = {
-  PENDING: 'PENDING',
-  ACCEPTED: 'ACCEPTED',
-  REJECTED: 'REJECTED',
-  COMPLETED: 'COMPLETED',
-  CANCELLED: 'CANCELLED',
-  EXPIRED: 'EXPIRED'
 };
 
 exports.PostType = exports.$Enums.PostType = {
@@ -3678,47 +3542,10 @@ exports.LogVisibility = exports.$Enums.LogVisibility = {
   PRIVATE: 'PRIVATE'
 };
 
-exports.TeamType = exports.$Enums.TeamType = {
-  DEVELOPMENT: 'DEVELOPMENT',
-  MARKETING: 'MARKETING',
-  SALES: 'SALES',
-  DESIGN: 'DESIGN',
-  ADVISORY: 'ADVISORY',
-  GENERAL: 'GENERAL'
-};
-
 exports.TeamStatus = exports.$Enums.TeamStatus = {
   DRAFT: 'DRAFT',
   PUBLISHED: 'PUBLISHED',
   ARCHIVED: 'ARCHIVED'
-};
-
-exports.InvestmentType = exports.$Enums.InvestmentType = {
-  EQUITY: 'EQUITY',
-  CONVERTIBLE_NOTE: 'CONVERTIBLE_NOTE',
-  SAFE: 'SAFE',
-  DEBT: 'DEBT',
-  REVENUE_SHARE: 'REVENUE_SHARE',
-  GRANT: 'GRANT'
-};
-
-exports.InvestmentStatus = exports.$Enums.InvestmentStatus = {
-  PROPOSED: 'PROPOSED',
-  UNDER_REVIEW: 'UNDER_REVIEW',
-  DUE_DILIGENCE: 'DUE_DILIGENCE',
-  ACCEPTED: 'ACCEPTED',
-  COMPLETED: 'COMPLETED',
-  REJECTED: 'REJECTED',
-  CANCELLED: 'CANCELLED'
-};
-
-exports.InvestmentStage = exports.$Enums.InvestmentStage = {
-  INITIAL: 'INITIAL',
-  SERIES_A: 'SERIES_A',
-  SERIES_B: 'SERIES_B',
-  SERIES_C: 'SERIES_C',
-  BRIDGE: 'BRIDGE',
-  MEZZANINE: 'MEZZANINE'
 };
 
 exports.RequestTargetType = exports.$Enums.RequestTargetType = {
@@ -3767,13 +3594,6 @@ exports.VerificationStatus = exports.$Enums.VerificationStatus = {
   APPROVED: 'APPROVED',
   REJECTED: 'REJECTED',
   EXPIRED: 'EXPIRED'
-};
-
-exports.ProficiencyLevel = exports.$Enums.ProficiencyLevel = {
-  BEGINNER: 'BEGINNER',
-  INTERMEDIATE: 'INTERMEDIATE',
-  ADVANCED: 'ADVANCED',
-  EXPERT: 'EXPERT'
 };
 
 exports.ConnectionStatus = exports.$Enums.ConnectionStatus = {
@@ -3838,12 +3658,6 @@ exports.ActivityType = exports.$Enums.ActivityType = {
   MESSAGE_SEND: 'MESSAGE_SEND',
   CONNECTION_REQUEST: 'CONNECTION_REQUEST',
   REVIEW_GIVE: 'REVIEW_GIVE'
-};
-
-exports.MaterialStatus = exports.$Enums.MaterialStatus = {
-  DRAFT: 'DRAFT',
-  PUBLISHED: 'PUBLISHED',
-  ARCHIVED: 'ARCHIVED'
 };
 
 exports.ToolStatus = exports.$Enums.ToolStatus = {
@@ -4106,35 +3920,6 @@ exports.AiActionType = exports.$Enums.AiActionType = {
   SUMMARIZE: 'SUMMARIZE',
   ANALYZE: 'ANALYZE',
   GENERATE: 'GENERATE'
-};
-
-exports.ResourceCategory = exports.$Enums.ResourceCategory = {
-  LOCATION: 'LOCATION',
-  DOCUMENT: 'DOCUMENT',
-  TEMPLATE: 'TEMPLATE',
-  GUIDE: 'GUIDE',
-  TUTORIAL: 'TUTORIAL',
-  TOOL: 'TOOL',
-  ASSET: 'ASSET',
-  DATASET: 'DATASET',
-  REFERENCE: 'REFERENCE',
-  OTHER: 'OTHER'
-};
-
-exports.ResourceType = exports.$Enums.ResourceType = {
-  FILE: 'FILE',
-  LINK: 'LINK',
-  EMBEDDED: 'EMBEDDED',
-  TEXT: 'TEXT',
-  COLLECTION: 'COLLECTION'
-};
-
-exports.ResourceStatus = exports.$Enums.ResourceStatus = {
-  DRAFT: 'DRAFT',
-  PENDING_REVIEW: 'PENDING_REVIEW',
-  PUBLISHED: 'PUBLISHED',
-  ARCHIVED: 'ARCHIVED',
-  DELETED: 'DELETED'
 };
 
 exports.AgentCollaboratorRole = exports.$Enums.AgentCollaboratorRole = {
@@ -4456,11 +4241,12 @@ exports.Prisma.ModelName = {
   User: 'User',
   Organization: 'Organization',
   OrganizationMember: 'OrganizationMember',
-  Department: 'Department',
   Workspace: 'Workspace',
   WorkspaceMember: 'WorkspaceMember',
   WorkspaceInvitation: 'WorkspaceInvitation',
+  WorkspaceOwnershipTransfer: 'WorkspaceOwnershipTransfer',
   Space: 'Space',
+  SpaceOwnershipTransfer: 'SpaceOwnershipTransfer',
   Integration: 'Integration',
   AutomationLog: 'AutomationLog',
   Task: 'Task',
@@ -4478,15 +4264,17 @@ exports.Prisma.ModelName = {
   CustomFieldValue: 'CustomFieldValue',
   SpaceMember: 'SpaceMember',
   Folder: 'Folder',
+  FolderOwnershipTransfer: 'FolderOwnershipTransfer',
   List: 'List',
+  ListOwnershipTransfer: 'ListOwnershipTransfer',
   View: 'View',
+  ViewOwnershipTransfer: 'ViewOwnershipTransfer',
   FormResponse: 'FormResponse',
   ViewShare: 'ViewShare',
   Dashboard: 'Dashboard',
   DashboardWidget: 'DashboardWidget',
-  Goal: 'Goal',
-  GoalUpdate: 'GoalUpdate',
   Document: 'Document',
+  DocumentOwnershipTransfer: 'DocumentOwnershipTransfer',
   DocumentRelationship: 'DocumentRelationship',
   DocumentComment: 'DocumentComment',
   DocumentWatcher: 'DocumentWatcher',
@@ -4516,8 +4304,6 @@ exports.Prisma.ModelName = {
   ListingDownload: 'ListingDownload',
   ListingVersion: 'ListingVersion',
   Earning: 'Earning',
-  CapTableEntry: 'CapTableEntry',
-  InvestorUpdate: 'InvestorUpdate',
   Project: 'Project',
   ProjectMember: 'ProjectMember',
   ProjectOwnershipTransfer: 'ProjectOwnershipTransfer',
@@ -4536,33 +4322,25 @@ exports.Prisma.ModelName = {
   PostReport: 'PostReport',
   ActivityLog: 'ActivityLog',
   Team: 'Team',
-  TeamLike: 'TeamLike',
-  TeamComment: 'TeamComment',
+  TeamOwnershipTransfer: 'TeamOwnershipTransfer',
   TeamMember: 'TeamMember',
   ProjectTeam: 'ProjectTeam',
-  Investment: 'Investment',
   Request: 'Request',
   Invitation: 'Invitation',
   Review: 'Review',
   VerificationRequest: 'VerificationRequest',
-  Skill: 'Skill',
-  UserSkill: 'UserSkill',
-  SkillEndorsement: 'SkillEndorsement',
   Interest: 'Interest',
   UserInterest: 'UserInterest',
   Connection: 'Connection',
   Conversation: 'Conversation',
   Message: 'Message',
   MessageDelivery: 'MessageDelivery',
-  ProjectLike: 'ProjectLike',
   ProjectComment: 'ProjectComment',
   Notification: 'Notification',
   UserSettings: 'UserSettings',
   UserActivity: 'UserActivity',
   ProjectAnalytics: 'ProjectAnalytics',
   VerificationToken: 'VerificationToken',
-  Material: 'Material',
-  MaterialPurchase: 'MaterialPurchase',
   Tool: 'Tool',
   Payout: 'Payout',
   Attachment: 'Attachment',
@@ -4596,13 +4374,6 @@ exports.Prisma.ModelName = {
   AiConversationShare: 'AiConversationShare',
   AiMessageAnnotation: 'AiMessageAnnotation',
   AiUsageLog: 'AiUsageLog',
-  Resource: 'Resource',
-  ResourceComment: 'ResourceComment',
-  ResourceRating: 'ResourceRating',
-  ResourceBookmark: 'ResourceBookmark',
-  ResourceShare: 'ResourceShare',
-  ResourcePermission: 'ResourcePermission',
-  ResourceVersion: 'ResourceVersion',
   AgentCollaborator: 'AgentCollaborator',
   AgentExecutionStep: 'AgentExecutionStep',
   AgentExecution: 'AgentExecution',

@@ -13,7 +13,7 @@ import { trpc } from "@/lib/trpc";
 
 type Scope = "received" | "sent";
 type RequestStatus = "PENDING" | "ACCEPTED" | "REJECTED" | "WITHDRAWN" | "EXPIRED";
-type ConnectionStatus = "PENDING" | "ACCEPTED" | "REJECTED";
+type ConnectionStatus = "PENDING" | "ACCEPTED" | "REJECTED" | "BLOCKED";
 
 function userPhoto(u: { image?: string | null; avatar?: string | null }) {
   return u.image || u.avatar || "";
@@ -42,6 +42,7 @@ function ConnectionStatusBadge({ status }: { status: ConnectionStatus }) {
     PENDING: { bg: "bg-amber-50", text: "text-amber-700", border: "border-amber-200", icon: AlertCircle },
     ACCEPTED: { bg: "bg-emerald-50", text: "text-emerald-700", border: "border-emerald-200", icon: CheckCircle },
     REJECTED: { bg: "bg-rose-50", text: "text-rose-700", border: "border-rose-200", icon: XCircle },
+    BLOCKED: { bg: "bg-slate-50", text: "text-slate-600", border: "border-slate-200", icon: XCircle },
   };
   const style = styles[status];
   const Icon = style.icon;
@@ -95,10 +96,10 @@ export function RequestsView({ spaceId, projectId, workspaceId, teamId, context 
   const [activeTab, setActiveTab] = useState<Scope>("received");
   const [processingId, setProcessingId] = useState<string | null>(null);
 
-  const receivedQuery = trpc.request.list.useQuery({ scope: "received", page: 1, pageSize: 50, spaceId, projectId, workspaceId, teamId, context: context as any });
-  const sentQuery = trpc.request.list.useQuery({ scope: "sent", page: 1, pageSize: 50, spaceId, projectId, workspaceId, teamId, context: context as any });
-  const connReceivedQuery = trpc.connections.list.useQuery({ scope: "received", page: 1, pageSize: 50, spaceId, projectId, workspaceId, teamId, context: context as any });
-  const connSentQuery = trpc.connections.list.useQuery({ scope: "sent", page: 1, pageSize: 50, spaceId, projectId, workspaceId, teamId, context: context as any });
+  const receivedQuery = trpc.request.list.useQuery({ scope: "received", page: 1, pageSize: 50 });
+  const sentQuery = trpc.request.list.useQuery({ scope: "sent", page: 1, pageSize: 50 });
+  const connReceivedQuery = trpc.connections.list.useQuery({ scope: "received", page: 1, pageSize: 50 });
+  const connSentQuery = trpc.connections.list.useQuery({ scope: "sent", page: 1, pageSize: 50 });
   const acceptMutation = trpc.request.accept.useMutation();
   const rejectMutation = trpc.request.reject.useMutation();
   const respondConnMutation = trpc.connections.respond.useMutation();
@@ -307,7 +308,7 @@ export function RequestsView({ spaceId, projectId, workspaceId, teamId, context 
                             <div className="flex items-center gap-1.5">
                               <Mail className="h-3.5 w-3.5" strokeWidth={2} />
                               <span className="font-medium truncate max-w-[200px]">
-                                {peer.name || peer.email || "Unknown"}
+                                {peer.name || peer.username || "Unknown"}
                               </span>
                             </div>
                           )}
@@ -430,11 +431,11 @@ export function RequestsView({ spaceId, projectId, workspaceId, teamId, context 
                             {format(new Date(conn.requestedAt), "MMM d, yyyy 'at' h:mm a")}
                           </span>
                         </div>
-                        {(other?.username || other?.email) && (
+                        {other?.username && (
                           <div className="flex items-center gap-1.5">
                             <Mail className="h-3.5 w-3.5" strokeWidth={2} />
                             <span className="font-medium truncate max-w-[200px]">
-                              {other.username || other.email}
+                              @{other.username}
                             </span>
                           </div>
                         )}

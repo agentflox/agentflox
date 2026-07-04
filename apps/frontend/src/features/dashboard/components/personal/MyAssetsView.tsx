@@ -11,7 +11,7 @@ import {
   Download, Package, AlertTriangle, ChevronRight
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { AssetState, ListingType } from "../../marketplace/types/marketplace.types";
+import { AssetState, ListingType } from "@/features/marketplace/types/marketplace.types";
 import { useToast } from "@/hooks/useToast";
 
 // ─── Local type for a downloaded/purchased asset ──────────────────────────────
@@ -20,7 +20,7 @@ interface OwnedAsset {
   sourceListingId: string;
   title: string;
   description: string;
-  type: Extract<ListingType, 'agent' | 'tool' | 'template'>;
+  type: Extract<ListingType, 'agent' | 'tool' | 'template' | 'workforce'>;
   version: string;
   state: AssetState;
   installedAt: string;

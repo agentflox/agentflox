@@ -146,6 +146,7 @@ export function useSpaceList(options: UseSpaceListOptions = {}) {
 		// Query result
 		data: queryResult.data,
 		isLoading: queryResult.isLoading,
+		isFetching: queryResult.isFetching,
 		isError: queryResult.isError,
 		error: queryResult.error,
 		refetch: queryResult.refetch,

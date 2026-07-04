@@ -1,7 +1,7 @@
 "use client";
 
 import React from 'react';
-import { ChatView } from "@/features/dashboard/views/project/ChatView";
+import { ChatView } from "@/features/dashboard/views/shared/SharedAIChatView";
 import { X } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import {

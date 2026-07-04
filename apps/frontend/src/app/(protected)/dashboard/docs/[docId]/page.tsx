@@ -1,10 +1,22 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { use } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { DocView } from "@/features/dashboard/views/generic/DocView";
+
+const DocView = dynamic(
+  () => import("@/features/dashboard/views/generic/DocView").then((mod) => mod.DocView),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex flex-1 items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-primary" />
+      </div>
+    ),
+  }
+);
 
 interface PageProps {
   params: Promise<{ docId: string }>;
@@ -16,7 +28,6 @@ export default function DocumentPage({ params }: PageProps) {
 
   return (
     <div className="flex-1 h-full flex flex-col min-h-0 overflow-hidden bg-white">
-      {/* Top Header Section */}
       <div className="px-6 pt-2 flex-shrink-0 border-b sticky">
         <Button
           variant="ghost"

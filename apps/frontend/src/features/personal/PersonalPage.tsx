@@ -11,23 +11,25 @@ import {
     UserCheck, ListTodo, Briefcase, ArrowLeft
 } from 'lucide-react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
+import dynamic from 'next/dynamic';
 import { Button } from "@/components/ui/button";
-import { NotificationsView } from './tabs/NotificationsView';
-import { RequestsView } from './tabs/RequestsView';
-import { InvitationsView } from './tabs/InvitationsView';
-import { ActivitiesView } from './tabs/ActivitiesView';
-import { PostsView } from './tabs/PostsView';
-import { TasksView } from './tabs/TasksView';
-import type { TaskSubView } from './tabs/TasksView';
-import { MessagesView } from './tabs/MessagesView';
-import { CommentsView } from './tabs/CommentsView';
-import { ProfileView } from './tabs/ProfileView';
-import { ApplicationsView } from './tabs/ApplicationsView';
-import { MyAssetsView } from './tabs/MyAssetsView';
-import { MyListingsView } from './tabs/MyListingsView';
-import { EarningsView } from './tabs/EarningsView';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import type { TaskSubView } from './tabs/TasksView';
+
+const NotificationsView = dynamic(() => import('./tabs/NotificationsView').then(m => ({ default: m.NotificationsView })));
+const RequestsView = dynamic(() => import('./tabs/RequestsView').then(m => ({ default: m.RequestsView })));
+const InvitationsView = dynamic(() => import('./tabs/InvitationsView').then(m => ({ default: m.InvitationsView })));
+const ActivitiesView = dynamic(() => import('./tabs/ActivitiesView').then(m => ({ default: m.ActivitiesView })));
+const PostsView = dynamic(() => import('./tabs/PostsView').then(m => ({ default: m.PostsView })));
+const TasksView = dynamic(() => import('./tabs/TasksView').then(m => ({ default: m.TasksView })));
+const MessagesView = dynamic(() => import('./tabs/MessagesView').then(m => ({ default: m.MessagesView })));
+const CommentsView = dynamic(() => import('./tabs/CommentsView').then(m => ({ default: m.CommentsView })));
+const ProfileView = dynamic(() => import('./tabs/ProfileView').then(m => ({ default: m.ProfileView })));
+const ApplicationsView = dynamic(() => import('./tabs/ApplicationsView').then(m => ({ default: m.ApplicationsView })));
+const MyAssetsView = dynamic(() => import('./tabs/MyAssetsView').then(m => ({ default: m.MyAssetsView })));
+const MyListingsView = dynamic(() => import('./tabs/MyListingsView').then(m => ({ default: m.MyListingsView })));
+const EarningsView = dynamic(() => import('./tabs/EarningsView').then(m => ({ default: m.EarningsView })));
 
 type PersonalTab = 'profile' | 'notifications' | 'requests' | 'invitations' | 'activities' | 'posts' | 'tasks' | 'messages' | 'comments' | 'applications' | 'assets' | 'listings' | 'earnings';
 

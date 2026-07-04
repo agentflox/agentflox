@@ -192,13 +192,13 @@ export function UseTemplateModal({
 		setDestinationOpen(false);
 	}, [template?.id, open]);
 
-	if (!template) return null;
-
-	const entityImportMode = ENTITY_TYPE_IMPORT_MODE[template.entityType] ?? "none";
+	const entityTypeUpper = String(template?.entityType || "").toUpperCase();
+	const entityImportMode = ENTITY_TYPE_IMPORT_MODE[template?.entityType ?? ""] ?? "none";
 	const hasImportOptions = entityImportMode !== "none";
-	const entityTypeLabel = template.entityType.charAt(0) + template.entityType.slice(1).toLowerCase();
+	const entityTypeLabel = template
+		? template.entityType.charAt(0) + template.entityType.slice(1).toLowerCase()
+		: "";
 
-	const entityTypeUpper = String(template.entityType || "").toUpperCase();
 	const showAdvancedSectionsForNonTask = ["SPACE", "LIST", "FOLDER", "PROJECT", "TASK"].includes(entityTypeUpper);
 	const showArchivedTasksOption = !taskOnly && ["SPACE", "LIST", "FOLDER", "PROJECT"].includes(entityTypeUpper);
 	const workspaceOnlyTypes = new Set(["AGENT", "WORKFORCE", "PROPOSAL", "LISTING"]);
@@ -540,6 +540,7 @@ export function UseTemplateModal({
 		setTaskChecks((prev) => ({ ...prev, [id]: val }));
 
 	const handleUse = () => {
+		if (!template) return;
 		onUse?.({
 			templateId: template.id,
 			entityName,
@@ -561,6 +562,8 @@ export function UseTemplateModal({
 		});
 		onOpenChange(false);
 	};
+
+	if (!template) return null;
 
 	const content = (
 		<>

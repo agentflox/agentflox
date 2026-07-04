@@ -62,10 +62,10 @@ export function TeamActionsMenu({ workspaceId, teamId, trigger }: TeamActionsMen
     const [transferModalOpen, setTransferModalOpen] = useState(false);
 
     const { data: team } = trpc.team.get.useQuery({ id: teamId }, { enabled: !!teamId });
+    const teamMeta = team as { icon?: string; color?: string; workspaceId?: string | null; name?: string } | undefined;
 
     const renameTeam = trpc.team.update.useMutation({
         onMutate: async (variables) => {
-            // Optimistic update for instant UI feedback
             queryClient.setQueriesData({ queryKey: [['team', 'listInfinite']] }, (oldData: any) => {
                 if (!oldData || !oldData.pages) return oldData;
                 return {
@@ -85,7 +85,6 @@ export function TeamActionsMenu({ workspaceId, teamId, trigger }: TeamActionsMen
             toast({ title: "Team renamed" });
             utils.team.get.invalidate({ id: teamId });
             utils.team.list.invalidate();
-            utils.team.listInfinite.invalidate();
             if (team?.workspaceId) {
                 utils.workspace.get.invalidate({ id: team.workspaceId });
             }
@@ -95,7 +94,6 @@ export function TeamActionsMenu({ workspaceId, teamId, trigger }: TeamActionsMen
 
     const updateIconColor = trpc.team.update.useMutation({
         onMutate: async (variables) => {
-            // Optimistic update for instant UI feedback
             queryClient.setQueriesData({ queryKey: [['team', 'listInfinite']] }, (oldData: any) => {
                 if (!oldData || !oldData.pages) return oldData;
                 return {
@@ -104,7 +102,7 @@ export function TeamActionsMenu({ workspaceId, teamId, trigger }: TeamActionsMen
                         ...page,
                         items: page.items.map((item: any) =>
                             item.id === teamId
-                                ? { ...item, icon: variables.icon, color: variables.color }
+                                ? { ...item, icon: (variables as any).icon, color: (variables as any).color }
                                 : item
                         )
                     }))
@@ -115,7 +113,6 @@ export function TeamActionsMenu({ workspaceId, teamId, trigger }: TeamActionsMen
             toast({ title: "Icon and color updated" });
             utils.team.get.invalidate({ id: teamId });
             utils.team.list.invalidate();
-            utils.team.listInfinite.invalidate();
             if (team?.workspaceId) {
                 utils.workspace.get.invalidate({ id: team.workspaceId });
             }
@@ -123,12 +120,11 @@ export function TeamActionsMenu({ workspaceId, teamId, trigger }: TeamActionsMen
         onError: () => toast({ title: "Failed to update", variant: "destructive" })
     });
 
-    const toggleVisibility = trpc.team.toggleSidebarVisibility.useMutation({
-        onSuccess: (data) => {
+    const toggleVisibility = (trpc.team as any).toggleSidebarVisibility.useMutation({
+        onSuccess: (data: { isHidden?: boolean }) => {
             const status = data.isHidden ? "hidden from" : "visible in";
             toast({ title: `Team ${status} sidebar` });
             utils.team.list.invalidate();
-            utils.team.listInfinite.invalidate();
             if (team?.workspaceId) {
                 utils.workspace.get.invalidate({ id: team.workspaceId });
             }
@@ -195,12 +191,11 @@ export function TeamActionsMenu({ workspaceId, teamId, trigger }: TeamActionsMen
                         <DropdownMenuPortal>
                             <DropdownMenuSubContent className="p-0 border-0 bg-transparent shadow-none w-auto" sideOffset={12}>
                                 <EnhancedIconPicker
-                                    icon={team?.icon || "Users"}
-                                    color={team?.color || "#8B5CF6"}
-                                    teamId={teamId}
+                                    icon={teamMeta?.icon || "Users"}
+                                    color={teamMeta?.color || "#8B5CF6"}
                                     entityName={team?.name || "Team"}
-                                    onIconChange={(newIcon) => updateIconColor.mutate({ id: teamId, icon: newIcon, color: team?.color || "#8B5CF6" })}
-                                    onColorChange={(newColor) => updateIconColor.mutate({ id: teamId, icon: team?.icon || "Users", color: newColor })}
+                                    onIconChange={(newIcon) => updateIconColor.mutate({ id: teamId, icon: newIcon, color: teamMeta?.color || "#8B5CF6" } as any)}
+                                    onColorChange={(newColor) => updateIconColor.mutate({ id: teamId, icon: teamMeta?.icon || "Users", color: newColor } as any)}
                                 />
                             </DropdownMenuSubContent>
                         </DropdownMenuPortal>
@@ -212,7 +207,6 @@ export function TeamActionsMenu({ workspaceId, teamId, trigger }: TeamActionsMen
                         <EyeOff className="mr-2 h-4 w-4" /> Hide Team
                     </DropdownMenuItem>
 
-                    {/* Permissions Modal separate from Share for granular control */}
                     <DropdownMenuItem onClick={() => setPermissionsModalOpen(true)}>
                         <Shield className="mr-2 h-4 w-4" /> Manage Access
                     </DropdownMenuItem>
@@ -243,7 +237,6 @@ export function TeamActionsMenu({ workspaceId, teamId, trigger }: TeamActionsMen
                 </DropdownMenuContent>
             </DropdownMenu>
 
-            {/* Modals */}
             <EntityRenameDialog
                 open={renameDialogOpen}
                 onOpenChange={setRenameDialogOpen}
@@ -258,8 +251,8 @@ export function TeamActionsMenu({ workspaceId, teamId, trigger }: TeamActionsMen
                 onOpenChange={setDuplicateModalOpen}
                 teamId={teamId}
                 teamName={team?.name || ""}
-                teamIcon={team?.icon || "👥"}
-                teamColor={team?.color || "#8B5CF6"}
+                teamIcon={teamMeta?.icon || "👥"}
+                teamColor={teamMeta?.color || "#8B5CF6"}
             />
 
             <TeamGeneralSettingsModal
@@ -275,7 +268,7 @@ export function TeamActionsMenu({ workspaceId, teamId, trigger }: TeamActionsMen
                     itemType="team"
                     itemId={teamId}
                     itemName={team.name}
-                    workspaceId={team.workspaceId}
+                    workspaceId={team.workspaceId ?? workspaceId}
                 />
             )}
 

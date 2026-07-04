@@ -43,11 +43,12 @@ interface ListActionsMenuProps {
     workspaceId: string;
     spaceId?: string;
     projectId?: string;
+    teamId?: string;
     listId: string;
     trigger?: React.ReactNode;
 }
 
-export function ListActionsMenu({ workspaceId, spaceId, projectId, listId, trigger }: ListActionsMenuProps) {
+export function ListActionsMenu({ workspaceId, spaceId, projectId, teamId, listId, trigger }: ListActionsMenuProps) {
     const { toast } = useToast();
     const utils = trpc.useUtils();
     const queryClient = useQueryClient();

@@ -48,8 +48,14 @@ import {
     Code2,
     Book,
     Video,
-    GraduationCap
+    GraduationCap,
+    Box,
 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { SingleDateCalendar } from "@/components/ui/date-picker";
+import { DestinationPicker } from "@/entities/task/components/DestinationPicker";
+import { TaskTypeIcon } from "@/entities/task/components/TaskTypeIcon";
 import { trpc } from "@/lib/trpc";
 import { cn } from "@/lib/utils";
 import {
@@ -110,16 +116,23 @@ import { Switch } from "@/components/ui/switch";
 import { FILTER_OPTIONS, FIELD_OPERATORS, STANDARD_FIELD_CONFIG } from "./listViewConstants";
 import type { FilterCondition, FilterGroup, FilterOperator } from "./listViewTypes";
 import { evaluateGroup, hasAnyValueInGroup, hasFilterValue } from "./filterUtils";
+import { useGenericTaskViewData } from "@/features/dashboard/hooks/useGenericTaskViewData";
+import { format } from "date-fns";
+import { parseEncodedTag } from "@/entities/task/utils/tags";
 
 interface DashboardViewProps {
     spaceId?: string;
     projectId?: string;
     teamId?: string;
     listId?: string;
+    folderId?: string;
     viewId?: string;
+    workspaceId?: string;
     initialConfig?: any;
     selectedTaskIdFromParent?: string | null;
     onTaskSelect?: (taskId: string | null) => void;
+    refetchViewData?: () => void;
+    context?: string;
 }
 
 type WidgetType =
@@ -369,6 +382,7 @@ export function DashboardView({
         }
     });
     const [filterSearch, setFilterSearch] = useState("");
+    const [assigneesSearch, setAssigneesSearch] = useState("");
     const [showCompactCards, setShowCompactCards] = useState(false);
     const [showWidgetBorders, setShowWidgetBorders] = useState(true);
     const [showCardFooters, setShowCardFooters] = useState(true);
@@ -408,14 +422,73 @@ export function DashboardView({
     });
 
     const tasks = useMemo(() => tasksData?.items || [], [tasksData]);
+
+    const {
+        resolvedWorkspaceId,
+        workspaceMembers,
+        availableTaskTypes,
+        listsData,
+        currentList,
+    } = useGenericTaskViewData({
+        spaceId,
+        projectId,
+        teamId,
+        listId,
+        workspaceId: undefined,
+        taskListEnabled: false,
+    });
+
+    const workspaceUserById = useMemo(() => {
+        const map = new Map<string, { id: string; name: string; email?: string | null; image?: string | null }>();
+        for (const m of workspaceMembers ?? []) {
+            const u = (m as any).user;
+            if (u) map.set(u.id, { id: u.id, name: u.name || u.email || "Unknown", image: u.image, email: u.email });
+        }
+        return map;
+    }, [workspaceMembers]);
+
+    const users = useMemo(() => {
+        return Array.from(workspaceUserById.values()).map(u => ({ id: u.id, name: u.name, image: u.image ?? null, email: u.email ?? null }));
+    }, [workspaceUserById]);
+
+    const allAvailableStatuses = useMemo(() => {
+        if (listId && currentList?.statuses) {
+            return (currentList.statuses as { id: string; name: string; color: string }[]).map((s: any) => ({ ...s, listId: currentList.id }));
+        }
+        if (listsData?.items) {
+            const statusMap = new Map<string, { id: string; name: string; color: string; listId: string }>();
+            (listsData.items as any[]).forEach((list: any) => {
+                (list.statuses || []).forEach((s: any) => {
+                    if (!statusMap.has(s.id)) statusMap.set(s.id, { ...s, listId: list.id });
+                });
+            });
+            return Array.from(statusMap.values());
+        }
+        const statuses = new Map<string, { id: string; name: string; color: string }>();
+        tasks.forEach((t: any) => {
+            if (t.status) statuses.set(t.status.id, t.status);
+        });
+        return Array.from(statuses.values());
+    }, [listId, currentList, listsData, tasks]);
+
+    const allAvailableTags = useMemo(() => Array.from(new Set(tasks.flatMap((t: any) => t.tags || []))), [tasks]);
+
+    const getPriorityStyles = (p: string) => {
+        if (p === "URGENT") return { badge: "text-red-700 bg-red-50 border-red-200", icon: "text-red-600" };
+        if (p === "HIGH") return { badge: "text-orange-700 bg-orange-50 border-orange-200", icon: "text-orange-600" };
+        if (p === "NORMAL") return { badge: "text-blue-700 bg-blue-50 border-blue-200", icon: "text-blue-600" };
+        if (p === "LOW") return { badge: "text-slate-600 bg-slate-100 border-slate-200", icon: "text-slate-500" };
+        return { badge: "text-slate-600 bg-slate-50 border-slate-200", icon: "text-slate-400" };
+    };
+
     const filteredTasks = useMemo(() => {
         if (filterGroups.conditions.length === 0) return tasks;
         return tasks.filter((task: any) => evaluateGroup(task, filterGroups));
     }, [tasks, filterGroups]);
 
-    const { data: goals = [] } = trpc.goal.list.useQuery({ spaceId, projectId });
-    const { data: timeEntries = [] } = trpc.timeTracking.list.useQuery({ spaceId, projectId });
-    const { data: activities = [] } = trpc.activity.list.useQuery({ spaceId, projectId });
+    const goals: { id?: string; name?: string; progress?: number }[] = [];
+    const timeEntries: unknown[] = [];
+    const activities: { id?: string; type?: string; message?: string; user?: string; action?: string; target?: string; timestamp?: string; createdAt?: Date | string }[] = [];
 
     // Auto-refresh logic
     useEffect(() => {
@@ -1349,8 +1422,8 @@ export function DashboardView({
                     </div>
                 );
 
-            case 'pie-chart':
-                const pieData = Object.entries(metrics.statusBreakdown);
+            case 'pie-chart': {
+                const pieData = Object.entries(metrics.statusBreakdown) as [string, number][];
                 const colors = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
                 const total = pieData.reduce((sum, [, count]) => sum + count, 0);
 
@@ -1404,9 +1477,10 @@ export function DashboardView({
                         </div>
                     </div>
                 );
+            }
 
-            case 'bar-chart':
-                const barData = Object.entries(metrics.priorityBreakdown);
+            case 'bar-chart': {
+                const barData = Object.entries(metrics.priorityBreakdown) as [string, number][];
                 const maxCount = Math.max(...barData.map(([, count]) => count), 1);
 
                 return (
@@ -1434,9 +1508,10 @@ export function DashboardView({
                         </div>
                     </div>
                 );
+            }
 
-            case 'workload':
-                const workloadData = Object.entries(metrics.assigneeBreakdown).slice(0, 5);
+            case 'workload': {
+                const workloadData = Object.entries(metrics.assigneeBreakdown).slice(0, 5) as [string, number][];
                 const maxWorkload = Math.max(...workloadData.map(([, count]) => count), 1);
 
                 return (
@@ -1475,6 +1550,7 @@ export function DashboardView({
                         })}
                     </div>
                 );
+            }
 
             case 'activity':
                 return (

@@ -1,5 +1,10 @@
 "use client";
 
+import { TASK_LIST_PAGE_SIZE } from "@/features/dashboard/constants";
+import { useGenericTaskViewData } from "@/features/dashboard/hooks/useGenericTaskViewData";
+import { TaskListLoadMore } from "@/features/dashboard/components/shared/TaskListLoadMore";
+import { VirtualizedTableBody } from "@/features/dashboard/components/shared/VirtualizedListRows";
+import { buildFlatRowEntries, buildGroupedFlatRowEntries, type GroupedFlatRowEntry } from "@/features/dashboard/utils/taskViewFlatRows";
 import React, { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { generateKeyBetween } from "fractional-indexing";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -78,7 +83,7 @@ import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/comp
 import { ListCreationModal } from "@/entities/task/components/ListCreationModal";
 import { AssigneeSelector, formatAssigneeIdsForSelector } from "@/entities/task/components/AssigneeSelector";
 import { TaskActionsPopover } from "@/entities/task/components/TaskActionsPopover";
-import { TaskDetailModal } from "@/entities/task/components/TaskDetailModal";
+import { LazyTaskDetailModal as TaskDetailModal } from "@/entities/task/components/LazyTaskDetailModal";
 import { TaskDependenciesModal } from "@/entities/task/components/TaskDependenciesModal";
 import { TagsPopover } from "@/entities/task/components/TagsPopover";
 import { CustomFieldRenderer } from "@/entities/task/components/CustomFieldRenderer";
@@ -112,7 +117,7 @@ import {
     type DragStartEvent,
     type DragOverEvent,
 } from "@dnd-kit/core";
-import { DescriptionEditor } from "@/entities/shared/components/DescriptionEditor";
+import { LazyDescriptionEditor } from "@/entities/shared/components/LazyDescriptionEditor";
 import { CSS } from "@dnd-kit/utilities";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -139,6 +144,8 @@ type Task = {
     parentId?: string | null;
     customFieldValues?: { id: string; customFieldId: string; value: any }[];
     taskType?: any;
+    taskTypeId?: string;
+    createdAt?: string | Date;
     position?: string;
     order?: string;
 };
@@ -249,6 +256,7 @@ export interface ListViewProps {
     teamId?: string;
     listId?: string;
     viewId?: string;
+    workspaceId?: string;
     initialConfig?: Record<string, any> | null;
     selectedTaskIdFromParent?: string | null;
     onTaskSelect?: (taskId: string | null) => void;
@@ -324,7 +332,7 @@ function stableStringify(obj: any) {
     return JSON.stringify(sortObject(obj));
 }
 
-export default function ListView({ spaceId, projectId, teamId, listId, viewId, initialConfig, selectedTaskIdFromParent, onTaskSelect, scope }: ListViewProps) {
+export default function ListView({ spaceId, projectId, teamId, listId, viewId, workspaceId, initialConfig, selectedTaskIdFromParent, onTaskSelect, scope }: ListViewProps) {
     const router = useRouter();
     const searchParams = useSearchParams();
     const [searchQuery, setSearchQuery] = useState("");
@@ -334,7 +342,7 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, i
 
     // Refs for batching updates to prevent UI stutter and race conditions
     const pendingUpdatesRef = useRef<Map<string, any>>(new Map());
-    const batchTimeoutRef = useRef<NodeJS.Timeout>();
+    const batchTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
     const toolbarSearchContainerRef = useRef<HTMLDivElement | null>(null);
     const toolbarSearchInputRef = useRef<HTMLInputElement | null>(null);
     const openTaskDetail = (taskId: string) => {
@@ -386,7 +394,6 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, i
         }
     });
     const { data: viewData } = trpc.view.get.useQuery({ id: viewId as string }, { enabled: !!viewId });
-    const { data: session } = trpc.user.me.useQuery();
     const [viewNameDraft, setViewNameDraft] = useState("");
 
     // Default view settings
@@ -643,21 +650,35 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, i
         new Set(["name", "status", "assignee", "priority", "dueDate", "tags"])
     );
 
-    const { data: space } = trpc.space.get.useQuery({ id: spaceId as string }, { enabled: !!spaceId });
-    const { data: project } = trpc.project.get.useQuery({ id: projectId as string }, { enabled: !!projectId });
-    const resolvedWorkspaceId = space?.workspaceId || project?.workspaceId || undefined;
-    const { data: workspace } = trpc.workspace.get.useQuery({ id: resolvedWorkspaceId as string }, { enabled: !!resolvedWorkspaceId });
-    const { data: customFields = [] } = trpc.customFields.list.useQuery(
-        { workspaceId: resolvedWorkspaceId as string, applyTo: "TASK" },
-        { enabled: !!resolvedWorkspaceId }
-    );
-    const { data: availableTaskTypes = [] } = trpc.task.listTaskTypes.useQuery({ workspaceId: resolvedWorkspaceId as string }, { enabled: !!resolvedWorkspaceId });
-    const { data: me } = trpc.user.me.useQuery();
-    const currentUserId = me?.id;
-
-    const { data: agentsData } = trpc.agent.list.useQuery({
+    const {
+        resolvedWorkspaceId,
+        space,
+        workspaceMembers,
+        customFields,
+        availableTaskTypes,
+        currentUser,
+        currentUserId,
+        agents,
+        projectParticipants,
+        teamParticipants,
+        listsData,
+        currentList,
+        tasks,
+        total: taskTotal,
+        hasMore: hasMoreTasks,
+        isTasksLoading: isLoading,
+        isFetchingNextPage,
+        loadMoreRef,
+        taskListInput,
+    } = useGenericTaskViewData({
+        spaceId,
+        projectId,
+        teamId,
+        listId,
+        workspaceId,
+        scope,
         includeRelations: true,
-    }, { enabled: !!resolvedWorkspaceId });
+    });
 
     useEffect(() => {
         if (availableTaskTypes.length > 0 && !inlineAddTaskType) {
@@ -672,16 +693,6 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, i
         if (availableTaskTypes.length === 0) return null;
         return availableTaskTypes.find((t: any) => t.isDefault) || availableTaskTypes[0];
     }, [availableTaskTypes]);
-
-    const agents = useMemo(() => {
-        if (!agentsData?.items) return [];
-        return agentsData.items.map(a => ({
-            id: a.id,
-            name: a.name,
-            image: a.avatar || null,
-            type: 'agent'
-        }));
-    }, [agentsData]);
 
     // Helper to get icon for custom field type
     const getCustomFieldIcon = (fieldType: string) => {
@@ -721,15 +732,6 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, i
         };
         return typeMap[fieldType] || Type;
     };
-
-    const { data: projectParticipants } = trpc.project.getParticipants.useQuery({ projectId: projectId as string }, { enabled: !!projectId });
-    const { data: teamParticipants } = trpc.team.getParticipants.useQuery({ teamId: teamId as string }, { enabled: !!teamId });
-    const { data: listsData } = trpc.list.byContext.useQuery({ spaceId, projectId, workspaceId: resolvedWorkspaceId }, { enabled: !!(spaceId || projectId || resolvedWorkspaceId) });
-    const { data: currentList } = trpc.list.get.useQuery({ id: listId as string }, { enabled: !!listId });
-
-    const taskListInput = useMemo(() => ({ spaceId, projectId, teamId, listId, scope, includeRelations: true, page: 1, pageSize: 500 }), [spaceId, projectId, teamId, listId, scope]);
-    const { data: tasksData, isLoading } = trpc.task.list.useQuery(taskListInput, { enabled: !!(spaceId || projectId || teamId || listId || scope === "assigned") });
-    const tasks = useMemo<Task[]>(() => ((tasksData?.items as Task[]) ?? []), [tasksData]);
 
     useEffect(() => {
         const next: Record<string, string[]> = {};
@@ -864,6 +866,7 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, i
     });
 
     const inlineRowRef = useRef<HTMLTableRowElement>(null);
+    const listScrollRef = useRef<HTMLDivElement>(null);
 
     const handleCancelInlineAdd = useCallback((collapseParent = false) => {
         if (collapseParent && inlineAddParentId) {
@@ -933,12 +936,12 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, i
 
     const workspaceUserById = useMemo(() => {
         const map = new Map<string, { id: string; name: string; email?: string | null; image?: string | null }>();
-        for (const m of workspace?.members ?? []) {
+        for (const m of workspaceMembers ?? []) {
             const u = (m as any).user;
             if (u) map.set(u.id, { id: u.id, name: u.name || u.email || "Unknown", image: u.image, email: u.email });
         }
         return map;
-    }, [workspace?.members]);
+    }, [workspaceMembers]);
 
     const users = useMemo(() => {
         if (teamId && teamParticipants?.users?.length) {
@@ -1119,7 +1122,7 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, i
             } else {
                 // Must be a custom field ID
                 const cf = FIELD_CONFIG.find(f => f.id === groupBy);
-                if (cf) {
+                if (cf && cf.isCustom && "customField" in cf) {
                     const value = getCustomFieldValue(task, groupBy);
                     key = (value !== null && value !== undefined) ? formatCustomFieldValue(value, cf.customField) : `No ${cf.label}`;
                 } else {
@@ -1153,6 +1156,33 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, i
         });
         return Object.fromEntries(sortedEntries);
     }, [filteredTasks, groupBy, groupDirection, showEmptyStatuses, allAvailableStatuses]);
+
+    const flatRowEntries = useMemo(
+        () =>
+            buildFlatRowEntries({
+                groupBy,
+                filteredTasks,
+                orderByParent,
+                expandedParents,
+                inlineAddGroupKey,
+            }),
+        [groupBy, filteredTasks, orderByParent, expandedParents, inlineAddGroupKey]
+    );
+
+    const groupedFlatRowEntries = useMemo(
+        () =>
+            buildGroupedFlatRowEntries({
+                groupBy,
+                groupedTasks,
+                filteredTasks,
+                collapsedGroups,
+                orderByParent,
+                expandedParents,
+                inlineAddGroupKey,
+                expandedSubtaskMode,
+            }),
+        [groupBy, groupedTasks, filteredTasks, collapsedGroups, orderByParent, expandedParents, inlineAddGroupKey, expandedSubtaskMode]
+    );
 
     const orderedTasksForGroup = (groupTasks: Task[]) => {
         if (expandedSubtaskMode === "separate") {
@@ -1285,7 +1315,7 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, i
                     return String(value);
                 }
             case "CHECKBOX":
-                return value ? "✓" : "—";
+                return value ? "Yes" : "No";
             case "DROPDOWN":
             case "CUSTOM_DROPDOWN":
             case "LABELS":
@@ -1556,7 +1586,7 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, i
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="start" className="w-56">
                                 <DropdownMenuLabel className="text-xs">Create</DropdownMenuLabel>
-                                <DropdownMenuRadioGroup value={inlineAddTaskType} onValueChange={(v) => setInlineAddTaskType(v)}>
+                                <DropdownMenuRadioGroup value={inlineAddTaskType ?? undefined} onValueChange={(v) => setInlineAddTaskType(v)}>
                                     {availableTaskTypes?.length > 0 ? (
                                         availableTaskTypes.map((tt: any) => (
                                             <DropdownMenuRadioItem key={tt.id} value={tt.id} className="gap-2">
@@ -1643,7 +1673,7 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, i
                                 onClick={() => handleSaveInlineTask({ parentId, listIdForCreate, statusIdForCreate })}
                                 disabled={!inlineAddTitle.trim() || !listIdForCreate || !resolvedWorkspaceId || createTask.isPending}
                             >
-                                Save ↵
+                                Save
                             </Button>
                         </div>
                     </div>
@@ -1733,10 +1763,10 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, i
                                             onClick={() => {
                                                 const parentKey = `parent:${task.id}`;
                                                 if (!isExpanded && directSubtasks.length === 0) {
-                                                    // Expanding a parent with no visible children – open inline add automatically
+                                                    // Expanding a parent with no visible children ?Eopen inline add automatically
                                                     openInlineAdd(parentKey, task.id);
                                                 } else if (isExpanded && inlineAddGroupKey === parentKey && directSubtasks.length === 0) {
-                                                    // Collapsing again – close inline add row if it was auto-opened
+                                                    // Collapsing again ?Eclose inline add row if it was auto-opened
                                                     setInlineAddGroupKey(null);
                                                     setInlineAddParentId(null);
                                                 }
@@ -1861,7 +1891,7 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, i
                                                         <h3 className="text-sm font-semibold mb-2">Goal</h3>
                                                         <div
                                                             className="prose prose-sm max-w-none text-zinc-700 [&_a]:text-blue-600 [&_a]:underline"
-                                                            dangerouslySetInnerHTML={{ __html: task.description }}
+                                                            dangerouslySetInnerHTML={{ __html: task.description ?? "" }}
                                                         />
                                                     </HoverCardContent>
                                                 </HoverCard>
@@ -2042,7 +2072,7 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, i
                                         avoidCollisions={false}
                                         collisionPadding={12}
                                         sideOffset={8}
-                                        value={formatAssigneeIdsForSelector(task.assignees)}
+                                        value={formatAssigneeIdsForSelector(task.assignees ?? [])}
                                         onChange={(newIds) => {
                                             const cleanIds = newIds;
                                             void updateTask.mutateAsync({
@@ -2168,7 +2198,9 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, i
                                 </TableCell>
                             )}
                             {visibleColumns.has("dateCreated") && (
-                                <TableCell className="py-2 text-xs text-zinc-500 overflow-hidden" style={{ width: colWidths.dateCreated, minWidth: 80 }}>—</TableCell>
+                                <TableCell className="py-2 text-xs text-zinc-500 overflow-hidden" style={{ width: colWidths.dateCreated, minWidth: 80 }}>
+                                    {task.createdAt ? format(new Date(task.createdAt), "MMM d, yyyy") : "—"}
+                                </TableCell>
                             )}
                             {visibleColumns.has("timeEstimate") && (
                                 <TableCell className="py-2 text-xs text-zinc-500 overflow-hidden" style={{ width: colWidths.timeEstimate, minWidth: 80 }}>{task.timeEstimate ?? "—"}</TableCell>
@@ -2393,6 +2425,133 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, i
             </TableRow>
         );
     };
+
+    const renderGroupedFlatRowEntry = useCallback(
+        (entry: GroupedFlatRowEntry) => {
+            const groupTasks = groupedTasks[entry.groupName] ?? [];
+            const pillColor = getGroupPillColor(entry.groupName, groupTasks);
+            const listIdForGroup = getListIdForGroup(groupTasks);
+            const statusIdForGroup = getStatusIdForGroup(entry.groupName);
+            const isExpanded = !collapsedGroups.has(entry.groupName);
+
+            switch (entry.kind) {
+                case "group-header":
+                    return (
+                        <DroppableGroupRow key={`group-header:${entry.groupName}`} id={`group:${entry.groupName}`} className="border-none bg-transparent">
+                            <TableCell colSpan={20} className="py-1.5 px-4 align-top">
+                                <div className="flex items-center gap-2 py-1">
+                                    <button
+                                        type="button"
+                                        className="flex items-center gap-2 min-w-0 text-left rounded-md hover:bg-zinc-100/80 px-2 py-1 -mx-2"
+                                        onClick={() => toggleGroup(entry.groupName)}
+                                    >
+                                        <ChevronRight className={cn("h-3.5 w-3.5 text-zinc-500 shrink-0 transition-transform", isExpanded && "rotate-90")} />
+                                        <span
+                                            className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold uppercase tracking-wide text-white shrink-0"
+                                            style={{ backgroundColor: pillColor }}
+                                        >
+                                            {entry.groupName}
+                                        </span>
+                                        <span className="text-[10px] text-zinc-500 bg-zinc-100 px-1.5 rounded-full shrink-0">{groupTasks.length}</span>
+                                    </button>
+                                    <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                            <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0 text-zinc-400 hover:text-zinc-600">
+                                                <MoreHorizontal className="h-3.5 w-3.5" />
+                                            </Button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent align="end" className="w-56">
+                                            <DropdownMenuLabel className="text-xs text-zinc-500 font-normal">Group options</DropdownMenuLabel>
+                                            <DropdownMenuItem className="text-sm py-2 cursor-pointer" onClick={() => handleSelectAllInGroup(groupTasks)}>
+                                                <CheckCheck className="h-4 w-4 mr-2.5 text-zinc-500" />
+                                                <span>Select all</span>
+                                            </DropdownMenuItem>
+                                            <DropdownMenuItem className="text-sm py-2 cursor-pointer" onClick={() => toggleGroup(entry.groupName)}>
+                                                <ChevronUp className="h-4 w-4 mr-2.5 text-zinc-500" />
+                                                <span>Collapse group</span>
+                                            </DropdownMenuItem>
+                                            <DropdownMenuItem className="text-sm py-2 cursor-pointer" onClick={() => collapseAllGroups()}>
+                                                <ChevronsUp className="h-4 w-4 mr-2.5 text-zinc-500" />
+                                                <span>Collapse all groups</span>
+                                            </DropdownMenuItem>
+                                        </DropdownMenuContent>
+                                    </DropdownMenu>
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-6 w-6 shrink-0 text-zinc-500 hover:text-zinc-700"
+                                        onClick={() => {
+                                            setInlineAddGroupKey(entry.groupName);
+                                            setInlineAddTitle("");
+                                        }}
+                                    >
+                                        <Plus className="h-3.5 w-3.5" />
+                                    </Button>
+                                </div>
+                            </TableCell>
+                        </DroppableGroupRow>
+                    );
+                case "group-cols":
+                    return renderGroupColumnHeaderRow(`group:${entry.groupName}:cols`);
+                case "task": {
+                    const task = filteredTasks.find((t) => t.id === entry.taskId);
+                    if (!task) return null;
+                    return renderTaskRow(task, groupTasks, entry.depth);
+                }
+                case "inline-parent":
+                    return renderInlineEditorRow({
+                        parentId: entry.parentId,
+                        childDepth: entry.childDepth,
+                        dotColor: pillColor,
+                        listIdForCreate: listIdForGroup,
+                        statusIdForCreate: statusIdForGroup,
+                    });
+                case "inline-group":
+                    return renderInlineEditorRow({
+                        parentId: null,
+                        childDepth: 0,
+                        dotColor: pillColor,
+                        listIdForCreate: listIdForGroup,
+                        statusIdForCreate: statusIdForGroup,
+                    });
+                case "group-add":
+                    return (
+                        <TableRow key={`group-add:${entry.groupName}`} className="border-none bg-transparent">
+                            <TableCell colSpan={20} className="py-1 px-4">
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-7 text-xs text-zinc-500 hover:text-zinc-700 justify-start pl-[52px] cursor-pointer"
+                                    onClick={() => openInlineAdd(entry.groupName, null)}
+                                >
+                                    <Plus className="h-3.5 w-3.5 mr-1" />
+                                    <span className="hover:border-1 hover:border-cyan-500/80 hover:rounded-md p-1">Add Task</span>
+                                </Button>
+                            </TableCell>
+                        </TableRow>
+                    );
+                default:
+                    return null;
+            }
+        },
+        [
+            groupedTasks,
+            collapsedGroups,
+            filteredTasks,
+            getGroupPillColor,
+            getListIdForGroup,
+            getStatusIdForGroup,
+            toggleGroup,
+            handleSelectAllInGroup,
+            collapseAllGroups,
+            renderGroupColumnHeaderRow,
+            renderTaskRow,
+            renderInlineEditorRow,
+            openInlineAdd,
+            setInlineAddGroupKey,
+            setInlineAddTitle,
+        ]
+    );
 
     const groupLabel = useMemo(() => {
         if (groupBy === "none") return "None";
@@ -2769,7 +2928,7 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, i
     const handleDragEnd = useCallback(async (event: DragEndEvent) => {
         const { active, over, delta } = event;
 
-        // ✅ Capture state values BEFORE clearing them
+        // ?ECapture state values BEFORE clearing them
         const capturedDraggingIds = [...draggingIds];
         const capturedDropPosition = dropPosition;
         const capturedOrderByParent = { ...orderByParent };
@@ -2782,7 +2941,7 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, i
 
         // Early returns
         if (!over || active.id === over.id) {
-            console.log('⏹️ Early exit: no over or same element');
+            console.log('??E?EEarly exit: no over or same element');
             return;
         }
 
@@ -2796,11 +2955,11 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, i
         const overTask = isOverGroup ? null : tasks.find(t => t.id === overId);
 
         if (!activeTask || (!overTask && !isOverGroup)) {
-            console.warn('⚠️ Task or group not found', { activeId, overId });
+            console.warn('??E?ETask or group not found', { activeId, overId });
             return;
         }
 
-        // ✅ Use captured values instead of state
+        // ?EUse captured values instead of state
         const idsToMove = capturedDraggingIds.length ? capturedDraggingIds : [activeId];
         const rootKey = "root";
 
@@ -2834,10 +2993,10 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, i
             }
         }
 
-        // ✅ Validate: Prevent circular dependencies
+        // ?EValidate: Prevent circular dependencies
         for (const id of idsToMove) {
             if (wouldCreateCircularDependency(id, newParent, tasks)) {
-                console.warn('🔄 Circular dependency detected, aborting', { id, newParent });
+                console.warn('?? Circular dependency detected, aborting', { id, newParent });
                 return;
             }
         }
@@ -2917,7 +3076,7 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, i
             hasOrderChanged = true;
         }
 
-        // 🔥 FIX: If order changed in bucket, regenerate ALL positions for that bucket
+        // ?? FIX: If order changed in bucket, regenerate ALL positions for that bucket
         const payloads: any[] = [];
 
         // Define target group attributes based on what we dropped onto
@@ -2953,7 +3112,7 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, i
                 prevPos = newPosition;
 
                 if (task.position !== newPosition) {
-                    console.log(`  🔢 ${taskId.substring(0, 8)}: "${task.position}" → "${newPosition}"`);
+                    console.log(`  ?? ${taskId.substring(0, 8)}: "${task.position}" ?E"${newPosition}"`);
 
                     const updatePayload: any = { id: taskId, position: newPosition };
 
@@ -3035,11 +3194,11 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, i
 
         // If no changes needed, exit early
         if (payloads.length === 0) {
-            console.log('⏹️ No changes needed - exiting');
+            console.log('??E?ENo changes needed - exiting');
             return;
         }
 
-        // 🔥 2. Update cache state IMMEDIATELY
+        // ?? 2. Update cache state IMMEDIATELY
         const previousData = utils.task.list.getData(taskListInput);
 
         // Apply optimistic update to cache
@@ -3066,10 +3225,10 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, i
             };
         });
 
-        // 🔥 FIX: Update orderByParent to match the new sorted order
+        // ?? FIX: Update orderByParent to match the new sorted order
         setOrderByParent(nextOrderByParent);
 
-        // 🔥 3. Cleanup & Prep Background Sync
+        // ?? 3. Cleanup & Prep Background Sync
         void utils.task.list.cancel(taskListInput);
 
         payloads.forEach(payload => {
@@ -3098,7 +3257,7 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, i
                 if (previousData) {
                     utils.task.list.setData(taskListInput, previousData);
                     setOrderByParent(capturedOrderByParent);
-                    console.log('↩️ Rolled back due to backend error');
+                    console.log('??E?ERolled back due to backend error');
                 }
             }
         }, 300);
@@ -3154,7 +3313,7 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, i
 
     return (
         <div className="h-full w-full flex flex-col bg-white border border-zinc-200/60 shadow-sm overflow-hidden font-sans relative min-w-0">
-            {/* Toolbar – ClickUp layout */}
+            {/* Toolbar ?EClickUp layout */}
             <div className="border-b border-zinc-100 bg-white px-3 py-2 shrink-0">
                 <>
                     <div className="flex items-center justify-between gap-3 overflow-x-auto">
@@ -3510,7 +3669,7 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, i
             </div>
 
             {/* List content */}
-            <div className="flex-1 relative min-w-0 overflow-x-auto overflow-y-auto pt-2">
+            <div ref={listScrollRef} className="flex-1 relative min-w-0 overflow-x-auto overflow-y-auto pt-2">
                 {pinDescription && currentList && (
                     <div
                         className="shrink-0 px-4 py-3 bg-zinc-50 border-b border-zinc-100 cursor-pointer hover:bg-zinc-100 transition-colors"
@@ -3711,7 +3870,7 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, i
                                                             </DropdownMenuTrigger>
                                                             <DropdownMenuContent align="start" className="w-56">
                                                                 <DropdownMenuLabel className="text-xs">Create</DropdownMenuLabel>
-                                                                <DropdownMenuRadioGroup value={inlineAddTaskType} onValueChange={(v) => setInlineAddTaskType(v as any)}>
+                                                                <DropdownMenuRadioGroup value={inlineAddTaskType ?? undefined} onValueChange={(v) => setInlineAddTaskType(v as any)}>
                                                                     {availableTaskTypes?.map((t: any) => (
                                                                         <DropdownMenuRadioItem key={t.id} value={t.id} className="text-xs">
                                                                             <div className="flex items-center gap-2">
@@ -3789,7 +3948,7 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, i
                                                                 onClick={() => handleSaveInlineTask({ parentId: null, listIdForCreate: listId ?? lists[0]?.id })}
                                                                 disabled={!inlineAddTitle.trim() || (!listId && !lists[0]?.id) || !resolvedWorkspaceId || createTask.isPending}
                                                             >
-                                                                Save ↵
+                                                                Save
                                                             </Button>
                                                         </div>
                                                     </div>
@@ -3797,42 +3956,25 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, i
                                             </TableRow>
                                         )}
                                         {/* Render full nested tree with inline add per parent (all levels) */}
-                                        {(() => {
-                                            const rootKey = "root";
-                                            const byId = new Map(filteredTasks.map(t => [t.id, t]));
-                                            const rootOrder = orderByParent[rootKey] ?? filteredTasks.filter(t => !t.parentId).map(t => t.id);
+                                        <VirtualizedTableBody
+                                            scrollRef={listScrollRef}
+                                            rowCount={flatRowEntries.length}
+                                            enabled={groupBy === "none" && !dragActiveId}
+                                            renderRow={(i) => {
+                                                const entry = flatRowEntries[i];
                                             const listIdForCreate = listId ?? lists[0]?.id ?? null;
-                                            const rendered = new Set<string>();
-                                            let rowIndex = 0;
-
-                                            const buildRows = (taskId: string, depth: number): React.ReactNode[] => {
-                                                const task = byId.get(taskId) as Task | undefined;
-                                                if (!task || rendered.has(taskId)) return [];
-
-                                                rendered.add(taskId);
-                                                const rows: React.ReactNode[] = [];
-                                                const parentKey = `parent:${task.id}`;
-
-                                                rows.push(renderTaskRow(task, filteredTasks, depth, rowIndex++));
-
-                                                if (expandedParents.has(task.id)) {
-                                                    const childIds = (orderByParent[task.id] ?? filteredTasks.filter(t => t.parentId === task.id).map(t => t.id));
-                                                    childIds.forEach((cid) => rows.push(...buildRows(cid, depth + 1)));
-
-                                                    if (inlineAddGroupKey === parentKey) {
-                                                        rows.push(renderInlineEditorRow({
-                                                            parentId: task.id,
-                                                            childDepth: depth + 1,
+                                                if (entry.kind === "inline") {
+                                                    return renderInlineEditorRow({
+                                                        parentId: entry.parentId,
+                                                        childDepth: entry.childDepth,
                                                             listIdForCreate,
-                                                        }));
-                                                    }
+                                                    });
                                                 }
-
-                                                return rows;
-                                            };
-
-                                            return rootOrder.flatMap((id) => buildRows(id, 0));
-                                        })()}
+                                                const task = filteredTasks.find((t) => t.id === entry.taskId);
+                                                if (!task) return null;
+                                                return renderTaskRow(task, filteredTasks, entry.depth, entry.index);
+                                            }}
+                                        />
                                         {groupBy === "none" && inlineAddGroupKey !== "__top" && (
                                             <TableRow className="border-none bg-transparent">
                                                 <TableCell colSpan={20} className="py-1 px-4">
@@ -3852,245 +3994,22 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, i
                                         )}
                                     </>
                                 ) : (
-                                    // List renders all groups and rows; for 500+ tasks consider adding
-                                    // virtualization (e.g. react-window or @tanstack/react-virtual) for the table body.
-                                    Object.entries(groupedTasks).map(([groupName, groupTasks]) => {
-                                        const isExpanded = !collapsedGroups.has(groupName);
-                                        const pillColor = getGroupPillColor(groupName, groupTasks);
-                                        const ordered = orderedTasksForGroup(groupTasks);
-                                        const showInlineAdd = inlineAddGroupKey === groupName;
-                                        const listIdForGroup = getListIdForGroup(groupTasks);
-                                        const statusIdForGroup = getStatusIdForGroup(groupName);
-
-                                        return (
-                                            <React.Fragment key={groupName}>
-                                                <DroppableGroupRow id={`group:${groupName}`} className="border-none bg-transparent">
-                                                    <TableCell colSpan={20} className="py-1.5 px-4 align-top">
-                                                        <div className="flex items-center gap-2 py-1">
-                                                            <button type="button" className="flex items-center gap-2 min-w-0 text-left rounded-md hover:bg-zinc-100/80 px-2 py-1 -mx-2" onClick={() => toggleGroup(groupName)}>
-                                                                <ChevronRight className={cn("h-3.5 w-3.5 text-zinc-500 shrink-0 transition-transform", isExpanded && "rotate-90")} />
-                                                                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold uppercase tracking-wide text-white shrink-0" style={{ backgroundColor: pillColor }}>{groupName}</span>
-                                                                <span className="text-[10px] text-zinc-500 bg-zinc-100 px-1.5 rounded-full shrink-0">{groupTasks.length}</span>
-                                                            </button>
-                                                            <DropdownMenu>
-                                                                <DropdownMenuTrigger asChild>
-                                                                    <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0 text-zinc-400 hover:text-zinc-600"><MoreHorizontal className="h-3.5 w-3.5" /></Button>
-                                                                </DropdownMenuTrigger>
-                                                                <DropdownMenuContent align="end" className="w-56">
-                                                                    <DropdownMenuLabel className="text-xs text-zinc-500 font-normal">Group options</DropdownMenuLabel>
-                                                                    <DropdownMenuItem className="text-sm py-2 cursor-pointer" onClick={() => handleSelectAllInGroup(groupTasks)}>
-                                                                        <CheckCheck className="h-4 w-4 mr-2.5 text-zinc-500" />
-                                                                        <span>Select all</span>
-                                                                    </DropdownMenuItem>
-                                                                    <DropdownMenuItem className="text-sm py-2 cursor-pointer" onClick={() => toggleGroup(groupName)}>
-                                                                        <ChevronUp className="h-4 w-4 mr-2.5 text-zinc-500" />
-                                                                        <span>Collapse group</span>
-                                                                    </DropdownMenuItem>
-                                                                    <DropdownMenuItem className="text-sm py-2 cursor-pointer" onClick={() => collapseAllGroups()}>
-                                                                        <ChevronsUp className="h-4 w-4 mr-2.5 text-zinc-500" />
-                                                                        <span>Collapse all groups</span>
-                                                                    </DropdownMenuItem>
-                                                                </DropdownMenuContent>
-                                                            </DropdownMenu>
-                                                            <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0 text-zinc-500 hover:text-zinc-700" onClick={() => { setInlineAddGroupKey(groupName); setInlineAddTitle(""); }}><Plus className="h-3.5 w-3.5" /></Button>
-                                                        </div>
-                                                    </TableCell>
-                                                </DroppableGroupRow>
-                                                {isExpanded && (
-                                                    <>
-                                                        {renderGroupColumnHeaderRow(`group:${groupName}:cols`)}
-                                                        {(() => {
-                                                            const allById = new Map(filteredTasks.map(t => [t.id, t]));
-                                                            const scopeById = new Map(groupTasks.map(t => [t.id, t]));
-                                                            const rootKey = "root";
-                                                            const orderedAll = orderByParent[rootKey] ?? groupTasks.map(t => t.id);
-                                                            // A task is a root in this group if it's in the group AND (has no parent OR its parent is NOT in the overall filtered list)
-                                                            const roots = groupTasks.filter(t => !t.parentId || !allById.has(t.parentId));
-                                                            const rootSet = new Set(roots.map(r => r.id));
-                                                            const rootOrder = orderedAll.filter(id => rootSet.has(id));
-                                                            const rendered = new Set<string>();
-
-                                                            const getChildrenIds = (parentId: string) => {
-                                                                // Look for children in ALL filtered tasks to allow cross-group nesting
-                                                                const ordered = orderByParent[parentId] ?? filteredTasks.filter(t => t.parentId === parentId).map(t => t.id);
-                                                                return ordered.filter(id => allById.has(id));
-                                                            };
-
-                                                            const buildRows = (taskId: string, depth: number): React.ReactNode[] => {
-                                                                const task = allById.get(taskId) as Task | undefined;
-                                                                if (!task || rendered.has(taskId)) return [];
-
-                                                                rendered.add(taskId);
-                                                                const rows: React.ReactNode[] = [];
-                                                                const parentKey = `parent:${task.id}`;
-
-                                                                rows.push(renderTaskRow(task, groupTasks, depth));
-
-                                                                if (expandedParents.has(task.id)) {
-                                                                    const childIds = getChildrenIds(task.id);
-                                                                    childIds.forEach(cid => rows.push(...buildRows(cid, depth + 1)));
-
-                                                                    if (inlineAddGroupKey === parentKey) {
-                                                                        rows.push(renderInlineEditorRow({
-                                                                            parentId: task.id,
-                                                                            childDepth: depth + 1,
-                                                                            dotColor: pillColor,
-                                                                            listIdForCreate: listIdForGroup,
-                                                                            statusIdForCreate: statusIdForGroup,
-                                                                        }));
-                                                                    }
-                                                                }
-
-                                                                return rows;
-                                                            };
-
-                                                            return rootOrder.flatMap(id => buildRows(id, 0));
-                                                        })()}
-                                                        {showInlineAdd && (
-                                                            <TableRow ref={inlineRowRef} className="bg-violet-50/30 border-b border-zinc-100">
-                                                                <TableCell colSpan={20} className="py-2 pl-4">
-                                                                    <div className="flex items-center gap-2 justify-start pl-[72px]">
-                                                                        <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: pillColor }} />
-                                                                        <Input
-                                                                            variant="ghost"
-                                                                            className="flex-1 min-w-[200px] max-w-[400px] h-7 text-sm border-0 outline-none focus:outline-none"
-                                                                            placeholder="Task Name"
-                                                                            value={inlineAddTitle}
-                                                                            onChange={e => setInlineAddTitle(e.target.value)}
-                                                                            onKeyDown={async (e) => {
-                                                                                if (e.key === "Enter") {
-                                                                                    e.preventDefault();
-                                                                                    await handleSaveInlineTask({ parentId: null, listIdForCreate: listIdForGroup, statusIdForCreate: statusIdForGroup });
-                                                                                } else if (e.key === "Escape") {
-                                                                                    handleCancelInlineAdd();
-                                                                                }
-                                                                            }}
-                                                                            autoFocus
-                                                                        />
-
-                                                                        <DropdownMenu>
-                                                                            <DropdownMenuTrigger asChild>
-                                                                                <Button variant="outline" size="sm" className="h-7 px-2 text-xs text-zinc-700">
-                                                                                    {(() => {
-                                                                                        const tt = availableTaskTypes?.find((t: any) => t.id === inlineAddTaskType || t.name === inlineAddTaskType);
-                                                                                        return <TaskTypeIcon type={tt} className="h-3.5 w-3.5 mr-1" />;
-                                                                                    })()}
-                                                                                    {(() => {
-                                                                                        const tt = availableTaskTypes?.find((t: any) => t.id === inlineAddTaskType || t.name === inlineAddTaskType);
-                                                                                        if (!tt) {
-                                                                                            if (defaultTaskType && (inlineAddTaskType === "TASK" || inlineAddTaskType === defaultTaskType.id)) return defaultTaskType.name;
-                                                                                            return inlineAddTaskType || "No Type";
-                                                                                        }
-                                                                                        return tt.name;
-                                                                                    })()}
-                                                                                </Button>
-                                                                            </DropdownMenuTrigger>
-                                                                            <DropdownMenuContent align="start" className="w-56">
-                                                                                <DropdownMenuLabel className="text-xs">Create</DropdownMenuLabel>
-                                                                                <DropdownMenuRadioGroup value={inlineAddTaskType} onValueChange={(v) => setInlineAddTaskType(v as any)}>
-                                                                                    {availableTaskTypes?.map((t: any) => (
-                                                                                        <DropdownMenuRadioItem key={t.id} value={t.id} className="text-xs">
-                                                                                            <div className="flex items-center gap-2">
-                                                                                                <TaskTypeIcon type={t} className="h-3.5 w-3.5" />
-                                                                                                <span>{t.name}</span>
-                                                                                            </div>
-                                                                                        </DropdownMenuRadioItem>
-                                                                                    ))}
-                                                                                </DropdownMenuRadioGroup>
-                                                                            </DropdownMenuContent>
-                                                                        </DropdownMenu>
-
-                                                                        <AssigneeSelector
-                                                                            users={users as any}
-                                                                            agents={agents}
-                                                                            workspaceId={resolvedWorkspaceId}
-                                                                            variant="compact"
-                                                                            value={inlineAddAssigneeIds}
-                                                                            onChange={setInlineAddAssigneeIds}
-                                                                            trigger={
-                                                                                <Button variant="outline" size="icon" className="h-7 w-7 text-zinc-600">
-                                                                                    <Users className="h-3.5 w-3.5" />
-                                                                                </Button>
-                                                                            }
-                                                                        />
-
-                                                                        <Popover>
-                                                                            <PopoverTrigger asChild>
-                                                                                <Button variant="outline" size="icon" className="h-7 w-7 text-zinc-600">
-                                                                                    <Calendar className="h-3.5 w-3.5" />
-                                                                                </Button>
-                                                                            </PopoverTrigger>
-                                                                            <PopoverContent className="w-auto p-0" align="end" sideOffset={8} collisionPadding={10}>
-                                                                                <TaskCalendar
-                                                                                    startDate={inlineAddStartDate ?? undefined}
-                                                                                    endDate={inlineAddDueDate ?? undefined}
-                                                                                    onStartDateChange={(d) => setInlineAddStartDate(d ?? null)}
-                                                                                    onEndDateChange={(d) => setInlineAddDueDate(d ?? null)}
-                                                                                />
-                                                                            </PopoverContent>
-                                                                        </Popover>
-
-                                                                        <DropdownMenu>
-                                                                            <DropdownMenuTrigger asChild>
-                                                                                <Button variant="outline" size="icon" className="h-7 w-7 text-zinc-600">
-                                                                                    <Flag className="h-3.5 w-3.5" />
-                                                                                </Button>
-                                                                            </DropdownMenuTrigger>
-                                                                            <DropdownMenuContent align="end" className="w-44">
-                                                                                <DropdownMenuLabel className="text-xs">Task Priority</DropdownMenuLabel>
-                                                                                <DropdownMenuItem onClick={() => setInlineAddPriority("URGENT")}>Urgent</DropdownMenuItem>
-                                                                                <DropdownMenuItem onClick={() => setInlineAddPriority("HIGH")}>High</DropdownMenuItem>
-                                                                                <DropdownMenuItem onClick={() => setInlineAddPriority("NORMAL")}>Normal</DropdownMenuItem>
-                                                                                <DropdownMenuItem onClick={() => setInlineAddPriority("LOW")}>Low</DropdownMenuItem>
-                                                                                <DropdownMenuSeparator />
-                                                                                <DropdownMenuItem onClick={() => setInlineAddPriority(null)}>Clear</DropdownMenuItem>
-                                                                            </DropdownMenuContent>
-                                                                        </DropdownMenu>
-
-                                                                        <div className="flex items-center gap-1 ml-1">
-                                                                            <Button
-                                                                                variant="ghost"
-                                                                                size="sm"
-                                                                                className="h-7 text-xs text-zinc-600"
-                                                                                onClick={() => handleCancelInlineAdd(true)}
-                                                                            >
-                                                                                Cancel
-                                                                            </Button>
-                                                                            <Button
-                                                                                size="sm"
-                                                                                className="h-7 text-xs bg-zinc-900 hover:bg-zinc-800"
-                                                                                onClick={() => handleSaveInlineTask({ parentId: null, listIdForCreate: listIdForGroup, statusIdForCreate: statusIdForGroup })}
-                                                                                disabled={!inlineAddTitle.trim() || !listIdForGroup || !resolvedWorkspaceId || createTask.isPending}
-                                                                            >
-                                                                                Save ↵
-                                                                            </Button>
-                                                                        </div>
-                                                                    </div>
-                                                                </TableCell>
-                                                            </TableRow>
-                                                        )}
-                                                        <TableRow className="border-none bg-transparent">
-                                                            <TableCell colSpan={20} className="py-1 px-4">
-                                                                <Button
-                                                                    variant="ghost"
-                                                                    size="sm"
-                                                                    className="h-7 text-xs text-zinc-500 hover:text-zinc-700 justify-start pl-[52px] cursor-pointer"
-                                                                    onClick={() => {
-                                                                        openInlineAdd(groupName, null);
-                                                                    }}
-                                                                >
-                                                                    <Plus className="h-3.5 w-3.5 mr-1" />
-                                                                    <span className="hover:border-1 hover:border-cyan-500/80 hover:rounded-md p-1">Add Task</span>
-                                                                </Button>
-                                                            </TableCell>
-                                                        </TableRow>
-                                                    </>
-                                                )}
-                                            </React.Fragment>
-                                        );
-                                    }))}
+                                    <VirtualizedTableBody
+                                        scrollRef={listScrollRef}
+                                        rowCount={groupedFlatRowEntries.length}
+                                        enabled={!dragActiveId}
+                                        renderRow={(i) => renderGroupedFlatRowEntry(groupedFlatRowEntries[i])}
+                                    />
+                                )}
                             </TableBody>
                         </Table>
+                        <TaskListLoadMore
+                            loadMoreRef={loadMoreRef}
+                            hasMore={hasMoreTasks}
+                            isFetchingNextPage={isFetchingNextPage}
+                            loaded={tasks.length}
+                            total={taskTotal}
+                        />
                         {dragActiveId && (() => {
                             const overlayTask = draggingIds.length === 1 ? filteredTasks.find(t => t.id === dragActiveId) : null;
                             const overlayStyle = "text-zinc-900 opacity-50";
@@ -4161,7 +4080,7 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, i
                 )}
             </div>
 
-            {/* Fields panel (Columns click or + in last column) – toggle show/hide columns */}
+            {/* Fields panel (Columns click or + in last column) ?Etoggle show/hide columns */}
             {fieldsPanelOpen && !createFieldModalOpen && (
                 <>
                     <div className="absolute inset-0 bg-black/20 z-40" onClick={() => setFieldsPanelOpen(false)} aria-hidden />
@@ -4679,7 +4598,7 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, i
                 </ScrollArea>
             </SidePanel>
 
-            {/* Create field modal – field types and Add existing fields */}
+            {/* Create field modal ?Efield types and Add existing fields */}
             {
                 createFieldModalOpen && (
                     <>
@@ -4746,7 +4665,7 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, i
 
             {/* Advanced Filters panel moved to Popover */}
 
-            {/* Assignees panel – image 8 */}
+            {/* Assignees panel ?Eimage 8 */}
             {
                 assigneesPanelOpen && (
                     <>
@@ -5404,7 +5323,7 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, i
                         <DialogTitle>Edit Description</DialogTitle>
                     </DialogHeader>
                     <div className="py-4 border border-zinc-200 rounded-md">
-                        <DescriptionEditor
+                        <LazyDescriptionEditor
                             content={descriptionDraft}
                             onChange={setDescriptionDraft}
                             editable={true}
@@ -5417,9 +5336,9 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, i
                                 documentId: currentList?.id || listId || '',
                                 documentType: 'doc',
                                 user: {
-                                    id: session?.id || 'anonymous',
-                                    name: session?.name || session?.email || 'User',
-                                    color: session?.color
+                                    id: currentUser?.id || 'anonymous',
+                                    name: currentUser?.name || currentUser?.email || 'User',
+                                    color: (currentUser as { color?: string } | undefined)?.color
                                 }
                             }}
                         />

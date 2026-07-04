@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/select";
 import { Filter, Tag, MoreHorizontal, Eye, Trash, Users } from "lucide-react";
 import { INDUSTRY_OPTIONS } from "@/constants/shares";
-import { DataTable } from "@/components/ui/data-table";
+import { LazyDataTable as DataTable } from "@/components/ui/lazy-data-table";
 import { DataTableSkeleton } from "@/components/ui/data-table-skeleton";
 import { DataTableColumnHeader } from "@/components/ui/data-table-column-header";
 import { ColumnDef } from "@tanstack/react-table";

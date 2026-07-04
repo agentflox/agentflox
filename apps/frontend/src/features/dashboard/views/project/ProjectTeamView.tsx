@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { trpc } from "@/lib/trpc";
-import { Loader2, Plus, ChevronRight, Users, MoreHorizontal, Search, ChevronsLeft, ChevronsRight, X, Settings } from "lucide-react";
+import { Loader2, Plus, ChevronRight, Users, MoreHorizontal, Search, ChevronsLeft, ChevronsRight, X, Settings, LayoutGrid } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -62,15 +62,13 @@ export default function ProjectTeamView({ projectId, workspaceId, selectedTeamId
 
     const activeTeamId = !isManageView ? selectedTeamId : undefined;
 
-    // Fetch teams list for this space
-    const { data: teamsData, isLoading: isLoadingList, refetch: refetchList } = trpc.team.list.useQuery({
-        workspaceId,
-        projectId,
-        scope: "owned",
-        pageSize: 50
-    });
+    // Fetch teams linked to this project
+    const { data: projectData, isLoading: isLoadingList, refetch: refetchList } = trpc.project.get.useQuery({ id: projectId });
 
-    const teamsRaw = teamsData?.items ?? [];
+    const teamsRaw = useMemo(
+        () => (projectData?.teams ?? []).map((link) => link.team),
+        [projectData?.teams]
+    );
 
     // Client-side filter
     const teams = useMemo(() => {
@@ -258,7 +256,7 @@ export default function ProjectTeamView({ projectId, workspaceId, selectedTeamId
                                                             <p className="truncate text-sm font-semibold text-foreground">
                                                                 {team.name}
                                                             </p>
-                                                            {!team.isActive && (
+                                                            {!((team as { isActive?: boolean }).isActive ?? true) && (
                                                                 <Badge variant="secondary" className="shrink-0 text-xs px-1 h-5">
                                                                     Archived
                                                                 </Badge>
@@ -346,7 +344,7 @@ export default function ProjectTeamView({ projectId, workspaceId, selectedTeamId
                 onCreated={handleTeamCreated}
             />
             <TeamImportModal
-                projectId={projectId}
+                spaceId={projectData?.spaceId ?? ""}
                 open={importModalOpen}
                 onOpenChange={setImportModalOpen}
             />

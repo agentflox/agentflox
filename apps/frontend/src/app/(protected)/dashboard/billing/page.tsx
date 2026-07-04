@@ -298,8 +298,8 @@ export default function BillingPage() {
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {purchases.data?.items?.length > 0 ? (
-                            purchases.data.items.map((purchase: any) => (
+                          {(purchases.data?.items?.length ?? 0) > 0 ? (
+                            purchases.data!.items.map((purchase: any) => (
                               <TableRow key={purchase.id} className="hover:bg-zinc-50/80 dark:hover:bg-zinc-900/30 transition-colors border-zinc-100 dark:border-zinc-800/60">
                                 <TableCell className="font-medium text-foreground">${purchase.amount}</TableCell>
                                 <TableCell>
@@ -358,8 +358,8 @@ export default function BillingPage() {
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {payments.data?.items?.length > 0 ? (
-                            payments.data.items.map((pay: any) => (
+                          {(payments.data?.items?.length ?? 0) > 0 ? (
+                            payments.data!.items.map((pay: any) => (
                               <TableRow key={pay.id} className="hover:bg-zinc-50/80 dark:hover:bg-zinc-900/30 transition-colors border-zinc-100 dark:border-zinc-800/60">
                                 <TableCell className="font-medium text-foreground">
                                   {pay.currency} {pay.amount}

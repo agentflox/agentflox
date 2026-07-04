@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useWorkforceStore } from "../../../../entities/workforce/hooks/useWorkforceStore";
+import { useWorkforceStore } from "@/entities/workforce/hooks/useWorkforceStore";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";

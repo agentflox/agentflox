@@ -25,6 +25,12 @@ import { SpaceIcon } from "@/entities/spaces/components/SpaceIcon";
 import { ProjectIcon } from "@/entities/projects/components/ProjectIcon";
 import { WorkspaceIcon } from "@/entities/workspace/components/WorkspaceIcon";
 
+type ContextPathPart = {
+    icon: React.ReactNode;
+    name: string;
+    isLast?: boolean;
+};
+
 type LeftViewKey =
     | "all"
     | "workspace"
@@ -888,7 +894,7 @@ export function CustomFieldsManagerModal({
             const id = selectedView.split(":")[1];
             const space = spaceMap.get(id);
             const w = space?.workspaceId ? workspaceMap.get(space.workspaceId) : null;
-            const parts = [];
+            const parts: ContextPathPart[] = [];
             if (w) parts.push({ icon: <WorkspaceIcon icon={w.avatar} size={14} className="text-indigo-400" />, name: w.name });
             parts.push({
                 icon: space?.icon ? <span className="text-[14px] leading-none">{space.icon}</span> : <div className="p-0.5 rounded-sm bg-violet-500 text-white flex items-center justify-center"><Briefcase className="h-3 w-3" /></div>,
@@ -905,7 +911,7 @@ export function CustomFieldsManagerModal({
 
             const space = project.spaceId ? spaceMap.get(project.spaceId) : null;
             const w = project.workspaceId ? workspaceMap.get(project.workspaceId) : (space?.workspaceId ? workspaceMap.get(space.workspaceId) : null);
-            const parts = [];
+            const parts: ContextPathPart[] = [];
             if (w) parts.push({ icon: <WorkspaceIcon icon={w.avatar} size={14} className="text-indigo-400" />, name: w.name });
             if (space) parts.push({ icon: space.icon ? <span className="text-[14px] leading-none">{space.icon}</span> : <Briefcase className="h-3.5 w-3.5 text-violet-500" />, name: space.name });
             parts.push({ icon: <ProjectIcon icon={project.logo} size={16} className="text-indigo-500" />, name: project.name, isLast: true });
@@ -919,7 +925,7 @@ export function CustomFieldsManagerModal({
 
             const space = folder.spaceId ? spaceMap.get(folder.spaceId) : null;
             const w = space?.workspaceId ? workspaceMap.get(space.workspaceId) : null;
-            const parts = [];
+            const parts: ContextPathPart[] = [];
             if (w) parts.push({ icon: <WorkspaceIcon icon={w.avatar} size={14} className="text-indigo-400" />, name: w.name });
             if (space) parts.push({ icon: space.icon ? <span className="text-[14px] leading-none">{space.icon}</span> : <Briefcase className="h-3.5 w-3.5 text-violet-500" />, name: space.name });
             parts.push({ icon: <Folder className="h-4 w-4 text-amber-500" />, name: folder.name, isLast: true });
@@ -936,7 +942,7 @@ export function CustomFieldsManagerModal({
             const space = list.spaceId ? spaceMap.get(list.spaceId) : (folder?.spaceId ? spaceMap.get(folder.spaceId) : (project?.spaceId ? spaceMap.get(project.spaceId) : null));
             const w = list.workspaceId ? workspaceMap.get(list.workspaceId) : (space?.workspaceId ? workspaceMap.get(space.workspaceId) : null);
 
-            const parts = [];
+            const parts: ContextPathPart[] = [];
             if (w) parts.push({ icon: <WorkspaceIcon icon={w.avatar} size={14} className="text-indigo-400" />, name: w.name });
             if (space) parts.push({ icon: space.icon ? <span className="text-[14px] leading-none">{space.icon}</span> : <Briefcase className="h-3.5 w-3.5 text-violet-500" />, name: space.name });
             if (project) parts.push({ icon: <ProjectIcon icon={project.logo} size={16} className="text-indigo-500" />, name: project.name });

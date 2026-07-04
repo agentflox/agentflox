@@ -531,7 +531,6 @@ export function ProjectOverviewTab({ project }: { project: any }) {
       <TeamCreationModal
         open={teamModalOpen}
         onOpenChange={setTeamModalOpen}
-        defaultProjectId={project.id}
       />
 
       <FolderCreationModal

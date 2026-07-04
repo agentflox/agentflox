@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { trpc } from "@/lib/trpc";
-import { VerticalToolRail } from "@/features/dashboard/components/VerticalToolRail";
+import { VerticalToolRail } from "@/features/dashboard/components/shared/VerticalToolRail";
 import { useChannels } from "@/entities/channels/hooks/useChannels";
 import { ChannelMessageComposer } from "@/entities/channels/components/ChannelMessageComposer";
 import ChatCreationModal from "@/entities/channels/components/ChatCreationModal";
@@ -361,6 +361,7 @@ export default function ChatView({ workspaceId, selectedChatId, onChatSelect }: 
             handleStageGroup(members);
         } else {
             const space = await utils.space.get.fetch({ id: group.id });
+            if (!space) return;
             const members: SelectedMember[] = (space.members ?? [])
                 .map((m: any) => m.user ? ({
                     id: m.user.id,

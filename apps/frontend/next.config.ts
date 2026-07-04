@@ -1,9 +1,10 @@
 import { withSentryConfig } from "@sentry/nextjs";
 import type { NextConfig } from "next";
-//@ts-ignore
 import { PrismaPlugin } from '@prisma/nextjs-monorepo-workaround-plugin';
 
 const nextConfig: NextConfig = {
+
+
   async rewrites() {
     const explicitBackendUrl =
       process.env.NEXT_PUBLIC_API_URL ||

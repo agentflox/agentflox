@@ -38,6 +38,8 @@ export interface ExtractedConfiguration {
     confidence: number;
     reasoning: string;
   }>;
+  scopeType?: 'workspace' | 'space' | 'project' | 'team' | 'portable';
+  isPortable?: boolean;
   stage?: string;
   completedFields?: string[];
   confidenceScore?: number;

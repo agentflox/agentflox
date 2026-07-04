@@ -19,7 +19,7 @@ import {
 	SelectValue,
 } from "@/components/ui/select";
 import { Filter, MoreHorizontal, Eye, Trash, Briefcase, PenSquare } from "lucide-react";
-import { DataTable } from "@/components/ui/data-table";
+import { LazyDataTable as DataTable } from "@/components/ui/lazy-data-table";
 import { DataTableColumnHeader } from "@/components/ui/data-table-column-header";
 import { ColumnDef } from "@tanstack/react-table";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -43,6 +43,7 @@ import { ConfirmDeleteModal } from "@/components/modals/ConfirmDeleteModal";
 export default function WorkspacesPage() {
 	const router = useRouter();
 	const { toast } = useToast();
+	const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
 	const {
 		data,
 		isLoading,
@@ -56,13 +57,12 @@ export default function WorkspacesPage() {
 		setScope,
 		filters,
 		setFilters,
-	} = useWorkspaceList();
+	} = useWorkspaceList("owned", { includeCounts: viewMode === "list" });
 
 	const [showCreateModal, setShowCreateModal] = useState(false);
 
 	const hasNextPage = (data?.items?.length || 0) === pageSize;
 	const hasPreviousPage = page > 1;
-	const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
 
 	const [sort, setSort] = useState<Array<{ id: string; desc: boolean }>>([]);
 	const [columnVisibility, setColumnVisibility] = useState<import("@tanstack/react-table").VisibilityState>({});

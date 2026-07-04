@@ -4,18 +4,26 @@ import { trpc } from "@/lib/trpc";
 import { keepPreviousData } from "@tanstack/react-query";
 
 export type TaskScope = "owned" | "assigned" | "all";
+export type TaskListRelationMode = boolean | "card";
 
 type FilterState = {
 	statuses: string[];
 	visibility?: string;
 };
 
-export function useTaskList(initialScope: TaskScope = "owned") {
+export interface UseTaskListOptions {
+	includeRelations?: TaskListRelationMode;
+}
+
+export function useTaskList(initialScope: TaskScope = "owned", options: UseTaskListOptions = {}) {
+	const { includeRelations = true } = options;
 	const [page, setPage] = useState(1);
 	const pageSize = 12;
 	const [query, setQuery] = useState("");
 	const [scope, setScope] = useState<TaskScope>(initialScope);
 	const [filters, setFilters] = useState<FilterState>({ statuses: [] });
+
+	const parsedStatuses = filters.statuses.length ? filters.statuses : undefined;
 
 	const listInput = useMemo(
 		() => ({
@@ -23,30 +31,17 @@ export function useTaskList(initialScope: TaskScope = "owned") {
 			pageSize,
 			scope,
 			query: query.trim() || undefined,
-			status: filters.statuses.length ? filters.statuses.join(",") : undefined,
-			visibility: filters.visibility,
-			includeRelations: true,
-		}),
-		[page, pageSize, scope, query, filters],
-	);
-
-	const parsedStatuses = filters.statuses.length ? filters.statuses : undefined;
-
-	const queryResult = trpc.task.list.useQuery(
-		{
-			page: listInput.page,
-			pageSize: listInput.pageSize,
-			scope: listInput.scope,
-			query: listInput.query,
-			visibility: listInput.visibility,
 			status: parsedStatuses,
-			includeRelations: true,
-		} as any,
-		{
-			staleTime: 30_000,
-			placeholderData: keepPreviousData
-		},
+			visibility: filters.visibility,
+			includeRelations,
+		}),
+		[page, pageSize, scope, query, filters.visibility, parsedStatuses, includeRelations],
 	);
+
+	const queryResult = trpc.task.list.useQuery(listInput as any, {
+		staleTime: 30_000,
+		placeholderData: keepPreviousData,
+	});
 
 	const utils = trpc.useUtils();
 
@@ -75,9 +70,9 @@ export function useTaskList(initialScope: TaskScope = "owned") {
 			query: query.trim() || undefined,
 			visibility: filters.visibility,
 			status: parsedStatuses,
-			includeRelations: true,
+			includeRelations,
 		} as any);
-	}, [utils, pageSize, scope, query, filters.visibility, parsedStatuses]);
+	}, [utils, pageSize, scope, query, filters.visibility, parsedStatuses, includeRelations]);
 
 	useEffect(() => {
 		if ((queryResult.data?.items?.length || 0) === pageSize) {
@@ -88,10 +83,10 @@ export function useTaskList(initialScope: TaskScope = "owned") {
 				query: query.trim() || undefined,
 				visibility: filters.visibility,
 				status: parsedStatuses,
-				includeRelations: true,
+				includeRelations,
 			} as any);
 		}
-	}, [utils, queryResult.data?.items?.length, page, pageSize, scope, query, filters.visibility, parsedStatuses]);
+	}, [utils, queryResult.data?.items?.length, page, pageSize, scope, query, filters.visibility, parsedStatuses, includeRelations]);
 
 	return {
 		...queryResult,
@@ -106,6 +101,3 @@ export function useTaskList(initialScope: TaskScope = "owned") {
 		setFilters,
 	};
 }
-
-
-

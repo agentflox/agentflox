@@ -192,6 +192,13 @@ export const metrics = {
         labelNames: ['coordinator_id'],
         buckets: [0.1, 0.5, 1, 2, 5, 10, 30],
     }),
+
+    safetyScore: new Histogram({
+        name: 'agent_safety_score',
+        help: 'Agent safety score observations',
+        labelNames: ['agent_id', 'risk_level'],
+        buckets: [10, 25, 50, 75, 90, 100],
+    }),
 };
 
 // Health check endpoint helper

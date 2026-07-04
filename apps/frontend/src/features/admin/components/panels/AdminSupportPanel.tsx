@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { keepPreviousData } from "@tanstack/react-query";
 import { trpc } from "@/lib/trpc";
 import { Card } from "@/components/ui/card";
 import Button from "@/components/ui/button";
@@ -36,7 +37,7 @@ export default function AdminSupportPanel() {
       page: auditPage,
       pageSize: auditPageSize,
     },
-    { keepPreviousData: true, staleTime: 10_000 }
+    { placeholderData: keepPreviousData, staleTime: 10_000 }
   );
 
   const auditTotal = audit.data?.total ?? 0;
@@ -53,7 +54,7 @@ export default function AdminSupportPanel() {
       page: bugsPage,
       pageSize: bugsPageSize,
     },
-    { keepPreviousData: true, staleTime: 10_000 }
+    { placeholderData: keepPreviousData, staleTime: 10_000 }
   );
 
   const setHandledMutation = trpc.admin.setBugReportHandled.useMutation({

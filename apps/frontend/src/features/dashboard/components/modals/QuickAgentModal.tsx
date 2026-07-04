@@ -13,7 +13,7 @@ import { Separator } from '@/components/ui/separator';
 
 interface QuickAgentPopoverProps {
     contextId?: string;
-    contextType?: 'SPACE' | 'PROJECT' | 'TEAM';
+    contextType?: 'SPACE' | 'PROJECT' | 'TEAM' | 'WORKSPACE';
     onOpenChange?: (open: boolean) => void;
 }
 
@@ -41,9 +41,11 @@ export function QuickAgentPopover({ contextId, contextType, onOpenChange }: Quic
                 agentType: "TASK_EXECUTOR",
                 systemPrompt: `You are a helpful AI agent specialized in ${agentData.title.toLowerCase()}.`,
                 status: "DRAFT",
-                metadata: contextId ? { contextId, contextType } : undefined
+                ...(contextType === "SPACE" && contextId ? { spaceId: contextId } : {}),
+                ...(contextType === "PROJECT" && contextId ? { projectId: contextId } : {}),
+                ...(contextType === "TEAM" && contextId ? { teamId: contextId } : {}),
+                ...(contextType === "WORKSPACE" && contextId ? { workspaceId: contextId } : {}),
             });
-
             const initRes = await agentService.agents.builder.initialize({ agentId: agent.id, skipWelcome: true });
             if (!initRes.ok) throw new Error(await initRes.text());
             const builderData = await initRes.json();

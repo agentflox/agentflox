@@ -13,7 +13,6 @@ import {
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { CommentSection } from "@/entities/comments/components/CommentSection";
-import { useComments } from "@/entities/comments/hooks/useComments";
 import { trpc } from "@/lib/trpc";
 import Link from "next/link";
 import { useToast } from "@/hooks/useToast";
@@ -26,7 +25,6 @@ export default function ListingDetailView({ listing }: ListingDetailViewProps) {
   const router = useRouter();
   const { toast } = useToast();
   const { data: session } = useSession();
-  const { comments } = useComments(listing.id, 'listing');
   const isOwnListing = session?.user?.id === listing.author.id;
   const { data: existingApplication } = trpc.marketplace.myApplicationForListing.useQuery(
     { listingId: listing.id },
@@ -280,7 +278,7 @@ export default function ListingDetailView({ listing }: ListingDetailViewProps) {
 
               {/* Discussion */}
               <div className="pt-8 border-t border-border">
-                <h2 className="text-2xl font-semibold mb-6">Discussion ({comments?.length || 0})</h2>
+                <h2 className="text-2xl font-semibold mb-6">Discussion ({listing.commentCount ?? 0})</h2>
                 <CommentSection postId={listing.id} entityType="listing" />
               </div>
             </div>
@@ -334,13 +332,11 @@ export default function ListingDetailView({ listing }: ListingDetailViewProps) {
                 <h3 className="font-semibold text-sm mb-3 flex items-center gap-1.5">
                   <Layers className="h-4 w-4 text-zinc-400" /> Category
                 </h3>
-                {listing.categories && listing.categories.length > 0 ? (
+                {listing.category ? (
                   <div className="flex flex-wrap gap-2">
-                    {listing.categories.map(s => (
-                      <Badge key={s} variant="outline" className="bg-muted/50 font-normal text-xs">
-                        {s}
-                      </Badge>
-                    ))}
+                    <Badge variant="outline" className="bg-muted/50 font-normal text-xs">
+                      {listing.category}
+                    </Badge>
                   </div>
                 ) : (
                   <p className="text-sm font-medium text-zinc-400 dark:text-zinc-500 italic blur-[0.4px] select-none">No category specified</p>

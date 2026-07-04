@@ -147,7 +147,7 @@ export function ShareViewPermissionModal({ workspaceId, viewId, open, onOpenChan
         if (!view || !workspace) return { workspaceMembers: [], teams: [], people: [] };
 
         const query = searchQuery.toLowerCase();
-        const creatorId = view.createdBy;
+        const creatorId = view.owner?.id ?? (view as { ownerId?: string }).ownerId;
 
         // 1. Workspace Level (everyone in workspace)
         const wsMembers = (workspace.members || [])

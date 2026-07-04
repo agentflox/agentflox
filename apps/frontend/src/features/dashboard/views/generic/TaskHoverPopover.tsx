@@ -42,7 +42,7 @@ export const TaskHoverPopover = memo(function TaskHoverPopover({
     const clampedLeft = Math.min(Math.max(left, 8), window.innerWidth - cardWidth - 8);
     const top = anchorRect.top - 8;
 
-    const hierarchyPath = [];
+    const hierarchyPath: string[] = [];
     if (task.workspace?.name) hierarchyPath.push(task.workspace.name);
     if (task.space?.name) hierarchyPath.push(task.space.name);
     if (task.project?.name) hierarchyPath.push(task.project.name);
@@ -106,7 +106,7 @@ export const TaskHoverPopover = memo(function TaskHoverPopover({
                                 if (e.key === 'Enter') {
                                     const val = e.currentTarget.value.trim();
                                     if (val && val !== (task.title || task.name)) {
-                                        updateTaskDatesMutation.mutate({ id: task.id, name: val }, {
+                                        updateTaskDatesMutation.mutate({ id: task.id, title: val }, {
                                             onSuccess: () => {
                                                 utils.task.list.invalidate();
                                                 onClose();
@@ -121,7 +121,7 @@ export const TaskHoverPopover = memo(function TaskHoverPopover({
                             onBlur={(e) => {
                                 const val = e.currentTarget.value.trim();
                                 if (val && val !== (task.title || task.name)) {
-                                    updateTaskDatesMutation.mutate({ id: task.id, name: val }, {
+                                    updateTaskDatesMutation.mutate({ id: task.id, title: val }, {
                                         onSuccess: () => {
                                             utils.task.list.invalidate();
                                             onClose(); // force local refresh
@@ -209,7 +209,7 @@ export const TaskHoverPopover = memo(function TaskHoverPopover({
                                         <DropdownMenuItem
                                             key={p}
                                             onClick={() => {
-                                                updateTaskDatesMutation.mutate({ id: task.id, priority: p }, {
+                                                updateTaskDatesMutation.mutate({ id: task.id, priority: p as "URGENT" | "HIGH" | "NORMAL" | "LOW" }, {
                                                     onSuccess: () => {
                                                         utils.task.list.invalidate();
                                                         onClose();
@@ -229,7 +229,7 @@ export const TaskHoverPopover = memo(function TaskHoverPopover({
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem
                                     onClick={() => {
-                                        updateTaskDatesMutation.mutate({ id: task.id, priority: null }, {
+                                        updateTaskDatesMutation.mutate({ id: task.id, priority: undefined }, {
                                             onSuccess: () => {
                                                 utils.task.list.invalidate();
                                                 onClose();
@@ -259,7 +259,7 @@ export const TaskHoverPopover = memo(function TaskHoverPopover({
                                 contentClassName="z-[100000] shadow-xl"
                                 value={task.assignees?.map((a: any) => a.user.id) || []}
                                 onChange={(ids) => {
-                                    updateTaskDatesMutation.mutate({ id: task.id, userAssignees: ids }, {
+                                    updateTaskDatesMutation.mutate({ id: task.id, assigneeIds: ids }, {
                                         onSuccess: () => {
                                             utils.task.list.invalidate();
                                             onClose();

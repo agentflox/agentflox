@@ -57,9 +57,11 @@ export function ViewShareDialog({ viewId, viewName, open, onOpenChange }: ViewSh
     const { data: shares = [] } = trpc.view.getShares.useQuery({ viewId }, { enabled: open });
 
     // Fetch users to share with (could be workspace members, team members, etc.)
-    const { data: users = [] } = trpc.user.search.useQuery({ query: searchQuery }, {
-        enabled: open && searchQuery.length > 2
-    });
+    const { data: foundUser } = trpc.user.searchPeople.useQuery(
+        { query: searchQuery },
+        { enabled: open && searchQuery.length > 2 }
+    );
+    const users = foundUser ? [foundUser] : [];
 
     // Mutations
     const shareViewMutation = trpc.view.share.useMutation({
@@ -154,7 +156,7 @@ export function ViewShareDialog({ viewId, viewName, open, onOpenChange }: ViewSh
                                             </Avatar>
                                             <div>
                                                 <div className="text-sm font-medium text-zinc-900">{user.name}</div>
-                                                <div className="text-xs text-zinc-500">{user.email}</div>
+                                                <div className="text-xs text-zinc-500">{user.email ?? user.username ?? ""}</div>
                                             </div>
                                         </div>
                                     </div>

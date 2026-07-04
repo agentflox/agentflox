@@ -23,14 +23,12 @@ export function DocumentTransferModal({ documentId, documentName, workspaceId, o
     const queryClient = useQueryClient();
     const [selectedUserId, setSelectedUserId] = useState<string>("");
 
-    // Use a simpler query since we don't have getMembers for documents specifically.
-    // In a real app we might fetch workspace members
     const { data: members = [] } = trpc.workspace.getMembers.useQuery(
-        { workspaceId },
+        { id: workspaceId },
         { enabled: open && !!workspaceId }
     );
 
-    const transferOwnership = trpc.document.transferOwnership?.useMutation({
+    const transferOwnership = trpc.document.transferOwnership.useMutation({
         onSuccess: () => {
             toast({ title: "Ownership transferred successfully" });
             queryClient.invalidateQueries({ queryKey: [['document']] });
@@ -48,15 +46,7 @@ export function DocumentTransferModal({ documentId, documentName, workspaceId, o
 
     const handleTransfer = () => {
         if (!documentId || !selectedUserId) return;
-        
-        if (transferOwnership) {
-            transferOwnership.mutate({ id: documentId, newOwnerId: selectedUserId });
-        } else {
-            // Fallback for UI if mutation doesn't exist
-            toast({ title: "Ownership transferred (UI Simulation)" });
-            onOpenChange(false);
-            setSelectedUserId("");
-        }
+        transferOwnership.mutate({ id: documentId, newOwnerId: selectedUserId });
     };
 
     if (!documentId) return null;
@@ -86,7 +76,7 @@ export function DocumentTransferModal({ documentId, documentName, workspaceId, o
                                     <SelectItem value="loading" disabled>Loading members...</SelectItem>
                                 ) : (
                                     members.map((member: any) => (
-                                        <SelectItem key={member.id} value={member.userId}>
+                                        <SelectItem key={member.id} value={member.user.id}>
                                             {member.user?.name || member.user?.email || "Unknown User"}
                                         </SelectItem>
                                     ))
@@ -100,10 +90,10 @@ export function DocumentTransferModal({ documentId, documentName, workspaceId, o
                     <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
                     <Button 
                         onClick={handleTransfer} 
-                        disabled={!selectedUserId || transferOwnership?.isPending}
+                        disabled={!selectedUserId || transferOwnership.isPending}
                         className="bg-indigo-600 hover:bg-indigo-700 text-white"
                     >
-                        {transferOwnership?.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        {transferOwnership.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                         Transfer Ownership
                     </Button>
                 </DialogFooter>

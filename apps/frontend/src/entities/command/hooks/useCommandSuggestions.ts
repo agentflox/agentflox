@@ -75,8 +75,9 @@ export function useCommandSuggestions(input: string, context: CommandContext) {
 
             if (fetched && fetched.length > 0) {
                 // Ensure icons are stored as strings
-                const mapped = fetched.map(s => ({
+                const mapped: Suggestion[] = fetched.map((s) => ({
                     ...s,
+                    type: s.type as Suggestion['type'],
                     icon: typeof s.icon === 'string' ? s.icon : (s.icon || s.type),
                 }));
                 setSuggestions(mapped);
@@ -111,7 +112,7 @@ export function useCommandSuggestions(input: string, context: CommandContext) {
                             score: 0.9,
                             actionable: true,
                         },
-                    ].filter(s => s.title.includes(query)));
+                    ].filter(s => s.title.includes(query)) as Suggestion[]);
                 } else {
                     setSuggestions([]);
                 }

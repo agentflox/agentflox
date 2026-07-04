@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Card } from "@/components/ui/card";
@@ -13,7 +14,14 @@ import { ArrowLeft, Plus, Users, Filter } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { useToast } from "@/hooks/useToast";
 import { PostCard } from "@/entities/posts/components/PostCard";
-import { Editor } from "@/entities/shared/components/Editor";
+
+const Editor = dynamic(
+  () => import("@/entities/shared/components/Editor").then((mod) => mod.Editor),
+  {
+    ssr: false,
+    loading: () => <div className="min-h-[120px] animate-pulse rounded-md bg-muted/40" />,
+  }
+);
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { MediaUpload, type MediaFile } from "@/components/ui/media-upload";
 import { FaSmile } from "react-icons/fa";

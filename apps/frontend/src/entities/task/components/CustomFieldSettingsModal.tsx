@@ -121,8 +121,8 @@ export function CustomFieldSettingsModal({
                         >
                             Cancel
                         </Button>
-                        <Button type="submit" disabled={updateField.isLoading}>
-                            {updateField.isLoading ? 'Saving...' : 'Save'}
+                        <Button type="submit" disabled={updateField.isPending}>
+                            {updateField.isPending ? 'Saving...' : 'Save'}
                         </Button>
                     </div>
                 </form>

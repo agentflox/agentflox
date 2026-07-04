@@ -54,7 +54,7 @@ export function SaveTemplateModal({ open, onOpenChange, view, workspaceId }: Sav
             name,
             description,
             category,
-            type: "VIEW",
+            entityType: "VIEW",
             workspaceId,
             content: {
                 type: view.type,
@@ -120,8 +120,8 @@ export function SaveTemplateModal({ open, onOpenChange, view, workspaceId }: Sav
                     <Button variant="outline" onClick={() => onOpenChange(false)}>
                         Cancel
                     </Button>
-                    <Button onClick={handleSave} disabled={createTemplateMutation.isLoading}>
-                        {createTemplateMutation.isLoading ? "Saving..." : "Save Template"}
+                    <Button onClick={handleSave} disabled={createTemplateMutation.isPending}>
+                        {createTemplateMutation.isPending ? "Saving..." : "Save Template"}
                     </Button>
                 </DialogFooter>
             </DialogContent>

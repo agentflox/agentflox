@@ -336,7 +336,7 @@ export default function GroupMembersPage() {
                         {member.user.name || "Community Member"}
                       </h3>
                       <div className="mt-1.5 flex items-center justify-center gap-1.5 text-[13px] font-medium text-slate-500">
-                        {member.ban?.isActive ? (
+                        {(member.ban?.blockJoin || member.ban?.blockPost) ? (
                           <span className="flex items-center gap-1 text-red-500">
                             <Ban className="h-3.5 w-3.5" /> Blocked
                           </span>

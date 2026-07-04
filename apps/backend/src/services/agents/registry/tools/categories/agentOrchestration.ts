@@ -29,7 +29,7 @@ export const AGENT_ORCHESTRATION_TOOLS: ToolDefinition[] = [
     {
         name: 'sendMessageToAgent',
         description: 'Send a message or signal directly to another agent',
-        category: 'COMMUNICATION',
+        category: 'API_INTEGRATION',
         isDefault: true,
         functionSchema: {
             name: 'sendMessageToAgent',
@@ -62,18 +62,20 @@ export const AGENT_ORCHESTRATION_TOOLS: ToolDefinition[] = [
                 type: 'object',
                 properties: {
                     workspaceId: { type: 'string', description: 'Optional workspace ID to filter tasks' }
-                }
+                },
+                required: [],
             }
         },
         deterministic: true,
         requiresAuth: true,
         timeout: 20,
         rateLimit: 30,
+        examples: [],
     },
     {
         name: 'triggerWorkflow',
         description: 'Trigger a predefined multi-agent workflow',
-        category: 'ORCHESTRATION',
+        category: 'TASK_MANAGEMENT',
         isDefault: true,
         functionSchema: {
             name: 'triggerWorkflow',

@@ -1,4 +1,4 @@
-import { AgentEvent } from '../../execution/agentEvents';
+import { AgentEvent } from '../execution/agentEvents';
 
 /**
  * 3.1 The Governing Philosophy

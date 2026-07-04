@@ -75,8 +75,35 @@ import {
     type DragOverEvent,
     DragOverlay,
 } from '@dnd-kit/core';
+import { sortableKeyboardCoordinates } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import clsx from "clsx";
+
+const normalizeParentId = (parentId: unknown): string | null => {
+    return parentId && String(parentId).trim() !== "" ? String(parentId) : null;
+};
+
+const wouldCreateCircularDependency = (
+    taskId: string,
+    newParentId: string | null,
+    taskItems: { id: string; parentId?: unknown }[],
+): boolean => {
+    if (!newParentId) return false;
+
+    let currentId: string | null = newParentId;
+    const visited = new Set<string>();
+
+    while (currentId) {
+        if (currentId === taskId) return true;
+        if (visited.has(currentId)) return false;
+        visited.add(currentId);
+
+        const item = taskItems.find((t) => t.id === currentId);
+        currentId = normalizeParentId(item?.parentId);
+    }
+
+    return false;
+};
 
 const SUBTASK_FIELD_CONFIG: { id: string; label: string }[] = [
     { id: 'name', label: 'Name' },
@@ -109,7 +136,7 @@ const TAG_COLOR_PALETTE = [
 ];
 
 function collectAllSubtasks(tasks: any[], parentId: string): any[] {
-    let result: any[] = [];
+    const result: any[] = [];
     for (const t of tasks) {
         const task = { ...t, parentId };
         result.push(task);
@@ -178,7 +205,7 @@ export function SubtasksTable({
 
     // Refs for batching updates (optimizing backend calls)
     const pendingUpdatesRef = useRef<Map<string, any>>(new Map());
-    const batchTimeoutRef = useRef<NodeJS.Timeout>();
+    const batchTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
     // Column resizing logic
     const [colWidths, setColWidths] = useState<Record<string, number>>({
@@ -233,6 +260,8 @@ export function SubtasksTable({
     const [inlineAddStartDate, setInlineAddStartDate] = React.useState<Date | null>(null);
     const [inlineAddPriority, setInlineAddPriority] = React.useState<"URGENT" | "HIGH" | "NORMAL" | "LOW" | null>(null);
     const [draggingIds, setDraggingIds] = React.useState<string[]>([]);
+    const [orderByParent, setOrderByParent] = React.useState<Record<string, string[]>>({});
+    const groupBy: string | null = null;
     const [selectedTasks, setSelectedTasks] = React.useState<string[]>([]);
     const [renamingTaskId, setRenamingTaskId] = React.useState<string | null>(null);
     const [renameDraft, setRenameDraft] = React.useState("");
@@ -278,7 +307,10 @@ export function SubtasksTable({
         },
     });
 
-    const { data: availableTaskTypes = [] } = trpc.task.listTaskTypes.useQuery();
+    const { data: availableTaskTypes = [] } = trpc.task.listTaskTypes.useQuery(
+        { workspaceId: workspaceId || undefined },
+        { enabled: !!workspaceId }
+    );
 
     const inlineRowRef = useRef<HTMLTableRowElement>(null);
 
@@ -647,8 +679,8 @@ export function SubtasksTable({
 
         const activeId = String(active.id);
         const overId = String(over.id);
-        const activeTask = tasks.find(t => t.id === activeId);
-        const overTask = tasks.find(t => t.id === overId);
+        const activeTask = allSubtasks.find(t => t.id === activeId);
+        const overTask = allSubtasks.find(t => t.id === overId);
 
         if (!activeTask || !overTask) {
             console.warn('⚠️ Task not found', { activeId, overId });
@@ -686,7 +718,7 @@ export function SubtasksTable({
 
         // ✅ Validate: Prevent circular dependencies
         for (const id of idsToMove) {
-            if (wouldCreateCircularDependency(id, newParent, tasks)) {
+            if (wouldCreateCircularDependency(id, newParent, allSubtasks)) {
                 console.warn('🔄 Circular dependency detected, aborting', { id, newParent });
                 return;
             }
@@ -702,7 +734,7 @@ export function SubtasksTable({
         // Adjust insert position if dragging within same parent
         if (newParentKey === activeParentKey) {
             const currentBucket = capturedOrderByParent[newParentKey] ??
-                tasks
+                allSubtasks
                     .filter(t => (normalizeParentId(t.parentId) ?? rootKey) === newParentKey)
                     .map(t => t.id);
 
@@ -720,7 +752,7 @@ export function SubtasksTable({
 
         // Remove tasks from old buckets
         idsToMove.forEach(id => {
-            const t = tasks.find(task => task.id === id);
+            const t = allSubtasks.find(task => task.id === id);
             if (!t) return;
 
             const oldKey = normalizeParentId(t.parentId) ?? rootKey;
@@ -730,7 +762,7 @@ export function SubtasksTable({
 
         // Initialize new bucket if needed
         if (!nextOrderByParent[newParentKey] || nextOrderByParent[newParentKey].length === 0) {
-            const tasksInBucket = tasks.filter(t => {
+            const tasksInBucket = allSubtasks.filter(t => {
                 const taskParentKey = normalizeParentId(t.parentId) ?? rootKey;
                 return taskParentKey === newParentKey && !idsToMove.includes(t.id);
             });
@@ -776,7 +808,7 @@ export function SubtasksTable({
             let prevPos: string | null = null;
             
             newOrderForParent.forEach((taskId, index) => {
-                const task = tasks.find(t => t.id === taskId);
+                const task = allSubtasks.find(t => t.id === taskId);
                 if (!task) return;
 
                 const nextPos = index < newOrderForParent.length - 1 ? null : null; // Always generate after previous
@@ -821,14 +853,14 @@ export function SubtasksTable({
                 ? newOrderForParent[insertAt + moving.length]
                 : null;
 
-            const prevTask = prevId ? tasks.find(t => t.id === prevId) : null;
-            const nextTask = nextId ? tasks.find(t => t.id === nextId) : null;
+            const prevTask = prevId ? allSubtasks.find(t => t.id === prevId) : null;
+            const nextTask = nextId ? allSubtasks.find(t => t.id === nextId) : null;
 
             let lastPos = prevTask?.position ?? null;
             const nextPos = nextTask?.position ?? null;
 
             idsToMove.forEach((id, idx) => {
-                const task = tasks.find(t => t.id === id);
+                const task = allSubtasks.find(t => t.id === id);
                 if (!task) return;
 
                 const effectiveNextPos = (lastPos && nextPos && lastPos >= nextPos) ? null : nextPos;
@@ -879,38 +911,7 @@ export function SubtasksTable({
             return;
         }
 
-        // 🔥 2. Update cache state IMMEDIATELY
-        const previousData = utils.task.list.getData(taskListInput);
-
-        // Apply optimistic update to cache
-        utils.task.list.setData(taskListInput, (old: any) => {
-            if (!old) return old;
-
-            const updatesMap = new Map(payloads.map(p => [p.id, p]));
-
-            const updatedItems = old.items.map((t: any) => {
-                const update = updatesMap.get(t.id);
-                if (update) {
-                    return { ...t, ...update };
-                }
-                return t;
-            });
-
-            updatedItems.sort((a: any, b: any) => {
-                return (a.position || "").localeCompare(b.position || "");
-            });
-
-            return {
-                ...old,
-                items: updatedItems,
-            };
-        });
-
-        // 🔥 FIX: Update orderByParent to match the new sorted order
         setOrderByParent(nextOrderByParent);
-
-        // 🔥 3. Cleanup & Prep Background Sync
-        void utils.task.list.cancel(taskListInput);
 
         payloads.forEach(payload => {
             pendingUpdatesRef.current.set(payload.id, payload);
@@ -920,35 +921,31 @@ export function SubtasksTable({
             clearTimeout(batchTimeoutRef.current);
         }
 
+        const taskGetInput = { id: task.id };
+
         batchTimeoutRef.current = setTimeout(async () => {
             const batchedPayloads = Array.from(pendingUpdatesRef.current.values());
             pendingUpdatesRef.current.clear();
-                        
+
             if (batchedPayloads.length === 0) return;
 
             try {
                 await Promise.all(
-                    batchedPayloads.map(payload => updateTask.mutateAsync(payload))
+                    batchedPayloads.map(payload => updateTaskMutation.mutateAsync(payload))
                 );
-
-                // Silently sync with backend after success
-                await utils.task.list.invalidate(taskListInput);
-
-            } catch (e) {
-                if (previousData) {
-                    utils.task.list.setData(taskListInput, previousData);
-                    setOrderByParent(capturedOrderByParent);
-                    console.log('↩️ Rolled back due to backend error');
-                }
+                await utils.task.get.invalidate(taskGetInput);
+            } catch {
+                setOrderByParent(capturedOrderByParent);
+                await utils.task.get.invalidate(taskGetInput);
             }
         }, 300);
 
     }, [
-        tasks,
+        allSubtasks,
         groupBy,
-        updateTask,
+        updateTaskMutation,
         utils,
-        taskListInput,
+        task.id,
         draggingIds,
         dropPosition,
         orderByParent,
@@ -956,7 +953,6 @@ export function SubtasksTable({
         setDragActiveId,
         setDraggingIds,
         setDropPosition,
-        setOrderByParent,
     ]);
 
     const renderSubtaskRow = (subtask: any, depth: number, index: number) => {

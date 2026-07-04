@@ -5,6 +5,8 @@
  */
 
 import { capabilityProvider } from './capabilityProvider';
+import { prisma } from '@/lib/prisma';
+import type { Tool, ToolCall } from '../types/types';
 
 export interface ToolExecutionResult {
   success: boolean;
@@ -13,11 +15,17 @@ export interface ToolExecutionResult {
   duration: number;
 }
 
+export interface ToolExecutionRequest {
+  toolName: string;
+  parameters: Record<string, any>;
+  toolId?: string;
+}
+
 /**
  * Execute a tool call
  */
 export async function executeTool(
-  toolCall: Omit<ToolCall, 'id' | 'status' | 'startedAt' | 'completedAt' | 'duration'>,
+  toolCall: ToolExecutionRequest,
   userId: string,
   workspaceId?: string
 ): Promise<ToolExecutionResult> {

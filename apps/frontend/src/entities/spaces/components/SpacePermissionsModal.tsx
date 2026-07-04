@@ -192,7 +192,7 @@ export function SpacePermissionsModal({ workspaceId, spaceId, open, onOpenChange
                 isWorkspaceOwner: workspaceOwnerId === m.user.id,
                 isSpaceOwner: space.members.some((sm: any) => sm.userId === m.user.id && sm.role === 'OWNER'),
                 // Check if they have specific space permission overrides
-                permission: space.members.find((sm: any) => sm.userId === m.user.id)?.permission || "VIEW"
+                permission: space.members.find((sm: any) => sm.userId === m.user.id)?.role || "VIEW"
             }))
             .filter((m: any) => m.name?.toLowerCase().includes(query) || m.email?.toLowerCase().includes(query));
 

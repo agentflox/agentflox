@@ -5,6 +5,8 @@
  */
 
 import { prisma } from '@/lib/prisma';
+import { Prisma } from '@agentflox/database';
+import { randomBytes } from 'crypto';
 
 export interface AgentUpdateRequest {
   agentId: string;
@@ -62,7 +64,7 @@ export class AgentUpdateService {
       where: {
         id: request.agentId,
         OR: [
-          { createdBy: request.userId },
+          { ownerId: request.userId },
           {
             collaborators: {
               some: { userId: request.userId, canExecute: true },
@@ -247,21 +249,37 @@ export class AgentUpdateService {
     }
 
     // Create version snapshot
+    const latestVersion = await prisma.agentVersion.findFirst({
+      where: { agentId },
+      orderBy: { versionNumber: 'desc' },
+      select: { versionNumber: true },
+    });
+    const nextVersionNumber = (latestVersion?.versionNumber ?? 0) + 1;
+
+    const snapshot = {
+      name: agent.name,
+      description: agent.description,
+      systemPrompt: agent.systemPrompt,
+      personality: agent.personality,
+      capabilities: agent.capabilities,
+      constraints: agent.constraints,
+      modelId: agent.modelId,
+      temperature: agent.temperature,
+      maxTokens: agent.maxTokens,
+      metadata: agent.metadata,
+    };
+
     const version = await prisma.agentVersion.create({
       data: {
+        id: randomBytes(16).toString('hex'),
         agentId,
         version: agent.version,
-        name: agent.name,
-        description: agent.description,
-        systemPrompt: agent.systemPrompt,
-        personality: agent.personality,
-        capabilities: agent.capabilities,
-        constraints: agent.constraints,
-        modelId: agent.modelId,
-        temperature: agent.temperature,
-        maxTokens: agent.maxTokens,
-        metadata: agent.metadata,
-        createdBy: userId,
+        versionNumber: nextVersionNumber,
+        snapshot,
+        changedBy: userId,
+        changeType: 'MINOR',
+        isActive: false,
+        metadata: agent.metadata === null ? Prisma.JsonNull : (agent.metadata as Prisma.InputJsonValue),
       },
     });
 
@@ -274,7 +292,7 @@ export class AgentUpdateService {
       where: {
         id: agentId,
         OR: [
-          { createdBy: userId },
+          { ownerId: userId },
           {
             collaborators: {
               some: { userId },
@@ -307,7 +325,7 @@ export class AgentUpdateService {
       where: {
         id: agentId,
         OR: [
-          { createdBy: userId },
+          { ownerId: userId },
           {
             collaborators: {
               some: { userId, canExecute: true },
@@ -333,19 +351,24 @@ export class AgentUpdateService {
     await this.createAgentVersion(agentId, userId);
 
     // Restore version
+    const snapshot = (version.snapshot ?? {}) as Record<string, unknown>;
+
     const restored = await prisma.aiAgent.update({
       where: { id: agentId },
       data: {
-        name: version.name,
-        description: version.description,
-        systemPrompt: version.systemPrompt,
-        personality: version.personality,
-        capabilities: version.capabilities,
-        constraints: version.constraints,
-        modelId: version.modelId,
-        temperature: version.temperature,
-        maxTokens: version.maxTokens,
-        metadata: version.metadata,
+        name: typeof snapshot.name === 'string' ? snapshot.name : agent.name,
+        description: typeof snapshot.description === 'string' ? snapshot.description : agent.description,
+        systemPrompt: typeof snapshot.systemPrompt === 'string' ? snapshot.systemPrompt : agent.systemPrompt,
+        personality: snapshot.personality === null ? Prisma.JsonNull : (snapshot.personality as Prisma.InputJsonValue | undefined),
+        capabilities: Array.isArray(snapshot.capabilities) ? snapshot.capabilities as string[] : agent.capabilities,
+        constraints: Array.isArray(snapshot.constraints) ? snapshot.constraints as string[] : agent.constraints,
+        modelId: typeof snapshot.modelId === 'string' ? snapshot.modelId : agent.modelId,
+        temperature: typeof snapshot.temperature === 'number' ? snapshot.temperature : agent.temperature,
+        maxTokens: typeof snapshot.maxTokens === 'number' ? snapshot.maxTokens : agent.maxTokens,
+        metadata: (() => {
+          const value = snapshot.metadata !== undefined ? snapshot.metadata : agent.metadata;
+          return value === null ? Prisma.JsonNull : (value as Prisma.InputJsonValue);
+        })(),
         lastModifiedBy: userId,
       },
     });

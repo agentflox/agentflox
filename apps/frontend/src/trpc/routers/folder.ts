@@ -126,6 +126,7 @@ export const folderRouter = router({
             baseContextSchema
                 .extend({
                     archived: z.boolean().optional(),
+                    includeViewDetails: z.boolean().optional().default(true),
                 })
                 .refine(
                     (data) =>
@@ -160,6 +161,37 @@ export const folderRouter = router({
                 where.isArchived = false;
             }
 
+            const viewSelect = input.includeViewDetails
+                ? {
+                    id: true,
+                    name: true,
+                    type: true,
+                    description: true,
+                    config: true,
+                    filters: true,
+                    grouping: true,
+                    sorting: true,
+                    columns: true,
+                    position: true,
+                    isDefault: true,
+                    isShared: true,
+                    isPrivate: true,
+                    isPinned: true,
+                    isLocked: true,
+                    isAutosave: true,
+                    ownerId: true,
+                    createdAt: true,
+                    updatedAt: true,
+                }
+                : {
+                    id: true,
+                    name: true,
+                    type: true,
+                    position: true,
+                    isDefault: true,
+                    isPinned: true,
+                };
+
             const folders = await prisma.folder.findMany({
                 where,
                 orderBy: { position: "asc" },
@@ -174,27 +206,7 @@ export const folderRouter = router({
                     projectId: true,
                     teamId: true,
                     views: {
-                        select: {
-                            id: true,
-                            name: true,
-                            type: true,
-                            description: true,
-                            config: true,
-                            filters: true,
-                            grouping: true,
-                            sorting: true,
-                            columns: true,
-                            position: true,
-                            isDefault: true,
-                            isShared: true,
-                            isPrivate: true,
-                            isPinned: true,
-                            isLocked: true,
-                            isAutosave: true,
-                            createdBy: true,
-                            createdAt: true,
-                            updatedAt: true,
-                        },
+                        select: viewSelect,
                         orderBy: { position: "asc" },
                     },
                 },
@@ -259,6 +271,7 @@ export const folderRouter = router({
                         projectId: input.projectId ?? undefined,
                         teamId: input.teamId ?? undefined,
                         parentId: input.parentFolderId ?? undefined,
+                        ownerId: userId,
                     },
                     select: {
                         id: true,
@@ -288,7 +301,7 @@ export const folderRouter = router({
                                 name: view.name,
                                 type: view.type,
                                 position: view.position,
-                                createdBy: userId,
+                                ownerId: userId,
                                 isDefault: view.position === 0, // First view is default
                             },
                         })
@@ -349,7 +362,7 @@ export const folderRouter = router({
                             isPinned: true,
                             isLocked: true,
                             isAutosave: true,
-                            createdBy: true,
+                            ownerId: true,
                             createdAt: true,
                             updatedAt: true,
                         },

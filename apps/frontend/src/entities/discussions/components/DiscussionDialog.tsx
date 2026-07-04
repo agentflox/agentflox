@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { DiscussionForm } from './DiscussionForm';
-import { useDiscussions } from '@/entities/discussions/hooks/useDiscussions';
+import { useDiscussionMutations } from '@/entities/discussions/hooks/useDiscussionMutations';
 import { PostTopic, PostType } from '@agentflox/database/src/generated/prisma/client';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -18,7 +18,7 @@ interface DiscussionDialogProps {
 export function DiscussionDialog({ open, onOpenChange, projectId, teamId, onCreated }: DiscussionDialogProps) {
   const feedType: 'global' | 'project' | 'team' = projectId ? 'project' : teamId ? 'team' : 'global';
   const feedId = projectId || teamId;
-  const { createPost } = useDiscussions(feedType, feedId);
+  const { createPost } = useDiscussionMutations(feedType, feedId);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async ({

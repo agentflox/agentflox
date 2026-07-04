@@ -88,7 +88,7 @@ export function ExportPanel({ onClose, title = "Untitled", content = "" }: Expor
 
     const handleMarkdownExport = () => {
         // Very basic HTML to Markdown conversion since we don't have TurndownService
-        let md = content
+        const md = content
             .replace(/<h1>(.*?)<\/h1>/gi, '# $1\n\n')
             .replace(/<h2>(.*?)<\/h2>/gi, '## $1\n\n')
             .replace(/<h3>(.*?)<\/h3>/gi, '### $1\n\n')
@@ -98,10 +98,10 @@ export function ExportPanel({ onClose, title = "Untitled", content = "" }: Expor
             .replace(/<i>(.*?)<\/i>/gi, '*$1*')
             .replace(/<p>(.*?)<\/p>/gi, '$1\n\n')
             .replace(/<br\s*\/?>/gi, '\n')
-            .replace(/<ul>(.*?)<\/ul>/gis, (match, p1) => {
+            .replace(/<ul>([\s\S]*?)<\/ul>/gi, (_match, p1: string) => {
                 return p1.replace(/<li>(.*?)<\/li>/gi, '- $1\n') + '\n';
             })
-            .replace(/<ol>(.*?)<\/ol>/gis, (match, p1) => {
+            .replace(/<ol>([\s\S]*?)<\/ol>/gi, (_match, p1: string) => {
                 let i = 1;
                 return p1.replace(/<li>(.*?)<\/li>/gi, () => `${i++}. $1\n`) + '\n';
             })

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useCallback } from 'react'
 import { Loader2, Plus, Search, ChevronsLeft, ChevronsRight, X, MoreHorizontal } from 'lucide-react'
 import { ConversationList } from '@/entities/chats/components/ConversationList'
 import { ChatPanel } from '@/entities/chats/components/ChatPanel'
@@ -38,11 +38,13 @@ interface ChatViewProps {
   contextCount?: number
   selectedContexts?: Array<{ type: string; id: string; name: string }>
   hideSidebar?: boolean
+  chatId?: string | null
+  onChatIdChange?: (chatId: string | null) => void
 }
 
 const STORAGE_KEY_PREFIX = 'agentflox_active_chat_'
 
-export function ChatView({ contextType = 'PROJECT', contextId, contextName, contextOptions, onContextClick, contextCount = 0, selectedContexts = [], hideSidebar = false }: ChatViewProps) {
+export function ChatView({ contextType = 'PROJECT', contextId, contextName, contextOptions, onContextClick, contextCount = 0, selectedContexts = [], hideSidebar = false, chatId: controlledChatId, onChatIdChange }: ChatViewProps) {
   const initialType = (contextType ?? 'PROJECT').toLowerCase() as ChatContextType
   const initialId = contextId ?? contextOptions?.[0]?.entityId ?? ''
   const initialName = contextName ?? contextOptions?.find((o) => o.value === initialType)?.name ?? contextOptions?.[0]?.name
@@ -75,7 +77,7 @@ export function ChatView({ contextType = 'PROJECT', contextId, contextName, cont
   const storageKey = `${STORAGE_KEY_PREFIX}${selectedContext.type}_${selectedContext.entityId}`
 
   // Load active conversation from localStorage on mount
-  const [activeConversationId, setActiveConversationId] = useState<string | null>(() => {
+  const [internalActiveConversationId, setInternalActiveConversationId] = useState<string | null>(() => {
     if (typeof window !== 'undefined' && selectedContext.entityId) {
       const stored = localStorage.getItem(storageKey)
       return stored || null
@@ -83,10 +85,16 @@ export function ChatView({ contextType = 'PROJECT', contextId, contextName, cont
     return null
   })
 
+  const activeConversationId = controlledChatId !== undefined ? controlledChatId : internalActiveConversationId
+  const setActiveConversationId = useCallback((id: string | null) => {
+    if (onChatIdChange) onChatIdChange(id)
+    else setInternalActiveConversationId(id)
+  }, [onChatIdChange])
+
   useEffect(() => {
     setSelectedContext({ type: initialType, entityId: initialId, name: initialName })
     setActiveConversationId(null)
-  }, [initialType, initialId, initialName])
+  }, [initialType, initialId, initialName, setActiveConversationId])
 
   const {
     conversations,

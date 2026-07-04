@@ -4,7 +4,7 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Card } from '@/components/ui/card';
-import { usePosts } from '../hooks/usePosts';
+import { usePostMutations } from '../hooks/usePostMutations';
 import { Loader2, Image as ImageIcon, X } from 'lucide-react';
 import { MediaUpload, type MediaFile } from '@/components/ui/media-upload';
 import { trpc } from '@/lib/trpc';
@@ -42,7 +42,7 @@ export function PostComposer({
   const [showMediaDialog, setShowMediaDialog] = useState(false);
   const [caretPos, setCaretPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
-  const { createPost } = usePosts(feedType, feedId);
+  const { createPost } = usePostMutations(feedType, feedId);
   const notifyUsers = trpc.notification.createForUserIds.useMutation();
 
   const { data: projectParticipants } = trpc.project.getParticipants.useQuery(

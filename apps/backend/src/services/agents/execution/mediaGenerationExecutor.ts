@@ -34,12 +34,14 @@ async function executeGenerateImage(params: any) {
             n: 1,
         });
 
+        const imageData = response.data ?? [];
+
         return {
-            url: response.data[0]?.url || '',
+            url: imageData[0]?.url || '',
             prompt: params.prompt,
             size: imageSize,
             style: params.style,
-            revisedPrompt: response.data[0]?.revised_prompt,
+            revisedPrompt: imageData[0]?.revised_prompt,
         };
     } catch (error) {
         // Fallback to placeholder if DALL-E fails

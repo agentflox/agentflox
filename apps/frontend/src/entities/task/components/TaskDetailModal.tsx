@@ -46,7 +46,7 @@ import { TaskPermissionsModal } from './TaskPermissionsModal';
 import { TaskMoveAndAddPopover } from './TaskMoveAndAddPopover';
 import { TaskActionsDropdown } from './TaskActionsDropdown';
 import { AssigneeSelector, formatAssigneeIdsForSelector } from './AssigneeSelector';
-import { DescriptionEditor, type DescriptionEditorRef } from '@/entities/shared/components/DescriptionEditor';
+import { LazyDescriptionEditor, type DescriptionEditorRef } from '@/entities/shared/components/LazyDescriptionEditor';
 import { ResizableSplitLayout, SidePanelContainer } from '@/components/layout/ResizableSplitLayout';
 import { Panel, Group, Separator as ResizableSeparator } from 'react-resizable-panels';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -1369,7 +1369,7 @@ export function TaskDetailContent({
                                                             <span className="text-xs text-zinc-400 italic">Auto-saved</span>
                                                         </div>
                                                         <div className="border border-zinc-200 rounded-lg bg-white min-h-[300px] p-2 -ml-2">
-                                                            <DescriptionEditor
+                                                            <LazyDescriptionEditor
                                                                 ref={descriptionEditorRef}
                                                                 content={description}
                                                                 onChange={handleDescriptionChange}
@@ -1385,7 +1385,6 @@ export function TaskDetailContent({
                                                                     user: {
                                                                         id: currentUserId,
                                                                         name: session?.name || session?.email || 'User',
-                                                                        color: session?.color
                                                                     }
                                                                 }}
                                                             />

@@ -247,7 +247,7 @@ export class PermissionsController {
 
         // if excludeOwners is true, fetching the owners is needed to filter them out?
         // Actually, permissions model: OWNER role on SpaceMember/WorkspaceMember differs from Item Permission
-        // For 'space' itemType, owners are stored in SpaceMember with role='OWNER' or createdBy field on Space.
+        // For 'space' itemType, owners are stored in SpaceMember with role='OWNER' or ownerId field on Space.
         // But here we are dealing with unified permissions table (LocationPermission/TaskPermission).
         // If "Remove All" is clicked, we should remove all PERMISSION records.
         // The SpaceMember owner role is separate. 
@@ -307,12 +307,12 @@ export class PermissionsController {
 
         if (itemType === 'space') {
             const space = await prisma.space.findUnique({ where: { id: itemId } });
-            if (space?.createdBy !== userId) { // Strict owner check
+            if (space?.ownerId !== userId) { // Strict owner check
                 throw new Error('Only the owner can transfer ownership');
             }
             await prisma.space.update({
                 where: { id: itemId },
-                data: { createdBy: body.newOwnerId }
+                data: { ownerId: body.newOwnerId }
             });
             itemName = space.name;
             success = true;
@@ -337,8 +337,10 @@ export class PermissionsController {
             await import('../services/notification/notificationService').then(({ notificationService }) =>
                 notificationService.sendOwnershipTransferNotification({
                     recipientId: body.newOwnerId,
-                    programId: itemId, // terminology mixup, itemId
-                    itemName
+                    fromUserId: userId,
+                    itemType,
+                    itemId,
+                    itemName,
                 })
             );
         }

@@ -1,5 +1,9 @@
 "use client";
 
+import { useGenericTaskViewData } from "@/features/dashboard/hooks/useGenericTaskViewData";
+import { collectUsedCustomFieldIds } from "@/features/dashboard/utils/taskViewUtils";
+import { TaskListLoadMore } from "@/features/dashboard/components/shared/TaskListLoadMore";
+import { VirtualizedDivRows } from "@/features/dashboard/components/shared/VirtualizedListRows";
 import { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -90,7 +94,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { TaskCreationModal } from "@/entities/task/components/TaskCreationModal";
-import { TaskDetailModal } from "@/entities/task/components/TaskDetailModal";
+import { LazyTaskDetailModal as TaskDetailModal } from "@/entities/task/components/LazyTaskDetailModal";
 import { TagsModal } from "@/entities/task/components/TagsModal";
 import { AssigneeSelector } from "@/entities/task/components/AssigneeSelector";
 import { TaskTypeIcon } from "@/entities/task/components/TaskTypeIcon";
@@ -113,12 +117,13 @@ interface CalendarViewProps {
     teamId?: string;
     listId?: string;
     viewId?: string;
+    workspaceId?: string;
     initialConfig?: Record<string, any> | null;
     selectedTaskIdFromParent?: string | null;
     onTaskSelect?: (taskId: string | null) => void;
 }
 
-export function CalendarView({ spaceId, projectId, teamId, listId, viewId, initialConfig, selectedTaskIdFromParent, onTaskSelect }: CalendarViewProps) {
+export function CalendarView({ spaceId, projectId, teamId, folderId, listId, viewId, workspaceId, initialConfig, selectedTaskIdFromParent, onTaskSelect }: CalendarViewProps) {
     const utils = trpc.useUtils();
     const [currentDate, setCurrentDate] = useState(new Date());
     const [viewMode, setViewMode] = useState<"month" | "week" | "4days" | "day">("month");
@@ -165,40 +170,40 @@ export function CalendarView({ spaceId, projectId, teamId, listId, viewId, initi
     const [inlineNoStartTime, setInlineNoStartTime] = useState(false);
     const [inlineNoEndTime, setInlineNoEndTime] = useState(false);
 
-    const { data: space } = trpc.space.get.useQuery({ id: spaceId as string }, { enabled: !!spaceId });
-    const { data: project } = trpc.project.get.useQuery({ id: projectId as string }, { enabled: !!projectId });
-    const resolvedWorkspaceId = space?.workspaceId || project?.workspaceId || undefined;
+    const taskListSpaceId = spaceId && !projectId && !listId ? spaceId : undefined;
+    const taskListProjectId = projectId && !listId ? projectId : undefined;
 
-    const { data: currentList } = trpc.list.get.useQuery({ id: listId as string }, { enabled: !!listId });
-    const { data: availableTaskTypes = [] } = trpc.task.listTaskTypes.useQuery({ workspaceId: resolvedWorkspaceId as string }, { enabled: !!resolvedWorkspaceId });
-    const { data: workspace } = trpc.workspace.get.useQuery({ id: resolvedWorkspaceId as string }, { enabled: !!resolvedWorkspaceId });
-    const { data: agentsData } = trpc.agent.list.useQuery({ includeRelations: true }, { enabled: !!resolvedWorkspaceId });
-    const { data: customFields = [] } = trpc.customFields.list.useQuery(
-        { workspaceId: resolvedWorkspaceId as string, applyTo: "TASK" },
-        { enabled: !!resolvedWorkspaceId }
-    );
-
-    const taskListInput = useMemo(() => ({
-        spaceId: spaceId && !projectId && !listId ? spaceId : undefined,
-        projectId: projectId && !listId ? projectId : undefined,
+    const {
+        resolvedWorkspaceId,
+        customFields,
+        availableTaskTypes,
+        agents,
+        workspaceMembers,
+        currentList,
+        tasks: rawTasks,
+        isTasksLoading,
+        hasMore: hasMoreTasks,
+        isFetchingNextPage,
+        loadMoreRef,
+        total: taskTotal,
+    } = useGenericTaskViewData({
+        spaceId,
+        projectId,
         teamId,
         listId,
-        includeRelations: true,
-        page: 1,
-        pageSize: 500,
-    }), [spaceId, projectId, teamId, listId]);
+        workspaceId,
+        taskListSpaceId,
+        taskListProjectId,
+        includeRelations: "card",
+    });
 
     const users = useMemo(() => {
-        return (workspace?.members ?? []).map((m: any) => {
+        return (workspaceMembers ?? []).map((m: { user?: { id: string; name?: string | null; email?: string | null; image?: string | null } }) => {
             const u = m.user;
             if (!u) return null;
             return { id: u.id, name: u.name || u.email || 'Unknown', image: u.image ?? null, email: u.email ?? null };
         }).filter(Boolean) as { id: string; name: string; image: string | null; email: string | null }[];
-    }, [workspace?.members]);
-
-    const agents = useMemo(() => {
-        return (agentsData?.items ?? []).map((a: any) => ({ id: a.id, name: a.name, image: a.avatar || null, type: 'agent' }));
-    }, [agentsData?.items]);
+    }, [workspaceMembers]);
 
     useEffect(() => {
         if (availableTaskTypes.length > 0 && !inlineAddTaskType) {
@@ -210,35 +215,21 @@ export function CalendarView({ spaceId, projectId, teamId, listId, viewId, initi
     }, [availableTaskTypes, inlineAddTaskType]);
 
     const createTask = trpc.task.create.useMutation({
-        onSuccess: (newTask) => {
-            // Inject new task directly into cache for instant display
-            utils.task.list.setData(taskListInput, (old: any) => {
-                if (!old) return old;
-                const exists = old.items?.some((t: any) => t.id === newTask.id);
-                if (exists) {
-                    return old;
-                }
-                return { ...old, items: [...(old.items ?? []), newTask] };
-            });
-            // Deferred silent background sync – refetchType:'none' means we only
-            // mark the query as stale WITHOUT triggering a network refetch, so the
-            // view never fully re-renders from scratch.
-            setTimeout(() => {
-                void utils.task.list.invalidate(taskListInput, { refetchType: 'none' });
-            }, 2000);
-        }
+        onSuccess: () => {
+            void utils.task.list.invalidate();
+        },
     });
 
     const updateTask = trpc.task.update.useMutation({
         onSuccess: () => {
-            void utils.task.list.invalidate(taskListInput, { refetchType: 'none' });
-        }
+            void utils.task.list.invalidate();
+        },
     });
 
     const deleteTask = trpc.task.delete.useMutation({
         onSuccess: () => {
-            void utils.task.list.invalidate(taskListInput);
-        }
+            void utils.task.list.invalidate();
+        },
     });
 
     const ActionButtons = ({ task, className }: { task: any, className?: string }) => (
@@ -275,18 +266,6 @@ export function CalendarView({ spaceId, projectId, teamId, listId, viewId, initi
     const handleUpdateTaskStatus = async (taskId: string, statusId: string) => {
         try {
             await updateTask.mutateAsync({ id: taskId, statusId });
-            utils.task.list.setData(taskListInput, (old: any) => {
-                if (!old) return old;
-                return {
-                    ...old,
-                    items: old.items.map((t: any) => {
-                        if (t.id === taskId) {
-                            return { ...t, statusId, status: allAvailableStatuses.find(s => s.id === statusId) || t.status };
-                        }
-                        return t;
-                    })
-                };
-            });
             toast.success("Status updated");
         } catch (e) {
             toast.error("Failed to update status");
@@ -360,6 +339,7 @@ export function CalendarView({ spaceId, projectId, teamId, listId, viewId, initi
     const [isToolbarSearchOpen, setIsToolbarSearchOpen] = useState(false);
     const toolbarSearchContainerRef = useRef<HTMLDivElement | null>(null);
     const toolbarSearchInputRef = useRef<HTMLInputElement | null>(null);
+    const calendarSidebarScrollRef = useRef<HTMLDivElement | null>(null);
 
     // Autosave & Config Tracking States
     const [isViewDirty, setIsViewDirty] = useState(false);
@@ -623,22 +603,9 @@ export function CalendarView({ spaceId, projectId, teamId, listId, viewId, initi
         }).length;
     }, [filterGroups]);
 
-    const { data: tasksData, isLoading } = trpc.task.list.useQuery(taskListInput as any, {
-        enabled: !!(spaceId || projectId || teamId || listId),
-    });
+    const tasks = useMemo(() => rawTasks as any[], [rawTasks]);
 
-    const tasks = useMemo(() => (tasksData?.items || tasksData?.tasks || (Array.isArray(tasksData) ? tasksData : [])) as any[], [tasksData]);
-
-    // Extract custom field IDs actually used by visible tasks
-    const usedCustomFieldIds = useMemo(() => {
-        const fieldIds = new Set<string>();
-        tasks.forEach((task: any) => {
-            task.customFieldValues?.forEach((cfv: any) => {
-                fieldIds.add(cfv.customFieldId);
-            });
-        });
-        return fieldIds;
-    }, [tasks]);
+    const usedCustomFieldIds = useMemo(() => collectUsedCustomFieldIds(tasks), [tasks]);
 
     // Merge standard fields with custom fields (matching ListView/TableView pattern)
     const FIELD_CONFIG = useMemo(() => {
@@ -718,7 +685,6 @@ export function CalendarView({ spaceId, projectId, teamId, listId, viewId, initi
     }, [filteredTasks]);
 
     const timedTasksByDateHour = useMemo(() => {
-        console.log("DEBUG: Computing timedTasksByDateHour. Total filtered tasks:", filteredTasks.length);
         const map = new Map<string, Map<number, any[]>>();
         filteredTasks.forEach(task => {
             const startD = task.startDate ? new Date(task.startDate) : (task.dueDate ? new Date(task.dueDate) : null);
@@ -738,7 +704,6 @@ export function CalendarView({ spaceId, projectId, teamId, listId, viewId, initi
                 hourMap.get(hour)!.push(task);
             }
         });
-        console.log("DEBUG: Computed timedTasksByDateHour map keys:", Array.from(map.keys()));
         return map;
     }, [filteredTasks]);
 
@@ -1767,8 +1732,7 @@ export function CalendarView({ spaceId, projectId, teamId, listId, viewId, initi
 
 
 
-    if (isLoading) {
-        console.log("DEBUG: CalendarView is loading tasks...");
+    if (isTasksLoading) {
         return (
             <div className="h-full flex items-center justify-center bg-white rounded-xl border border-zinc-200">
                 <div className="flex flex-col items-center gap-4">
@@ -1778,8 +1742,6 @@ export function CalendarView({ spaceId, projectId, teamId, listId, viewId, initi
             </div>
         );
     }
-
-    console.log("DEBUG: CalendarView Rendering.", { viewMode, currentDate, calendarDaysStr: calendarDays.map(d => format(d, 'yyyy-MM-dd')), timedTasksByDateHourKeys: Array.from(timedTasksByDateHour.keys()) });
 
     const renderInlineCreateForm = (isAbsolute: boolean, colIndex?: number, totalCols?: number, isAllDay?: boolean) => {
         if (isAllDay) {
@@ -2126,8 +2088,6 @@ export function CalendarView({ spaceId, projectId, teamId, listId, viewId, initi
                                         onEndDateChange={(d) => {
                                             setInlineAddDueDate(d ?? null);
                                         }}
-                                        onNoStartTimeChange={setInlineNoStartTime}
-                                        onNoEndTimeChange={setInlineNoEndTime}
                                     />
                                 </PopoverContent>
                             </Popover>
@@ -2362,7 +2322,7 @@ export function CalendarView({ spaceId, projectId, teamId, listId, viewId, initi
                                 {viewMode !== "day" && (
                                     <div className="flex border-b border-zinc-200 shrink-0 bg-white">
                                         <div className="w-16 border-r border-zinc-200 shrink-0" />
-                                        <div className="flex-1 flex" style={{ paddingRight: viewMode === 'day' ? '124px' : viewMode === '4days' ? '40px' : viewMode === 'week' ? '20px' : '0px' }}>
+                                        <div className="flex-1 flex" style={{ paddingRight: viewMode === '4days' ? '40px' : viewMode === 'week' ? '20px' : '0px' }}>
                                             {calendarDays.map((day, i) => {
                                                 const dateKey = format(day, 'yyyy-MM-dd');
                                                 const isInlineAllDay = inlineCreateState?.dayKey === dateKey && inlineCreateState?.hour === -1;
@@ -2471,7 +2431,7 @@ export function CalendarView({ spaceId, projectId, teamId, listId, viewId, initi
                                                         setInlineNoEndTime(true);
                                                     }}
                                                 >
-                                                    {/* All Day Inline Task Creation — rendered first so it appears at top */}
+                                                    {/* All Day Inline Task Creation  Erendered first so it appears at top */}
                                                     {isInlineAllDay && renderInlineCreateForm(true, i, calendarDays.length, viewMode === 'day')}
 
 
@@ -3017,11 +2977,16 @@ export function CalendarView({ spaceId, projectId, teamId, listId, viewId, initi
                             <span className="text-[13px] text-zinc-500">{sortedSidebarTasks.length} tasks</span>
                         </div>
 
-                        <ScrollArea className="flex-1 px-3">
+                        <ScrollArea ref={calendarSidebarScrollRef} className="flex-1 px-3">
                             <div className="space-y-1 pb-4">
-                                {sortedSidebarTasks.map(task => {
-                                    const taskColor = task.status?.color || "#a1a1aa";
-                                    return (
+                                <VirtualizedDivRows
+                                    scrollRef={calendarSidebarScrollRef}
+                                    rowCount={sortedSidebarTasks.length}
+                                    estimateSize={44}
+                                    renderRow={(idx) => {
+                                        const task = sortedSidebarTasks[idx];
+                                        const taskColor = task.status?.color || "#a1a1aa";
+                                        return (
                                         <div key={task.id} className="group flex items-center justify-between px-3 py-2 hover:bg-zinc-50/80 rounded-lg cursor-pointer transition-colors"
                                             onClick={() => openTaskDetail(task.id)}
                                         >
@@ -3038,8 +3003,9 @@ export function CalendarView({ spaceId, projectId, teamId, listId, viewId, initi
                                                 </span>
                                             )}
                                         </div>
-                                    );
-                                })}
+                                        );
+                                    }}
+                                />
                                 {sortedSidebarTasks.length === 0 && (
                                     <div className="text-center py-10 text-[13px] text-zinc-500">
                                         No tasks found
@@ -3604,6 +3570,13 @@ export function CalendarView({ spaceId, projectId, teamId, listId, viewId, initi
                         </ScrollArea>
                 </SidePanel>
             )}
+            <TaskListLoadMore
+                loadMoreRef={loadMoreRef}
+                hasMore={hasMoreTasks}
+                isFetchingNextPage={isFetchingNextPage}
+                loaded={tasks.length}
+                total={taskTotal}
+            />
         </div>
     );
 }

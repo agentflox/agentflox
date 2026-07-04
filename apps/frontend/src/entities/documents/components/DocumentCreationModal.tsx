@@ -42,12 +42,20 @@ export function DocumentCreationModal({ open, onOpenChange, onSuccess, workspace
 	const [locationType, setLocationType] = useState<LocationType>("PERSONAL");
 	const [locationId, setLocationId] = useState<string>("");
 
+	const resolvedWorkspaceId = workspaceId !== "default" ? workspaceId : undefined;
+
 	const { data: workspacesData } = trpc.workspace.list.useQuery({ scope: "all", pageSize: 100 }, { enabled: locationType === "WORKSPACE" });
 	const { data: spacesData } = trpc.space.list.useQuery({ scope: "all", pageSize: 100 }, { enabled: locationType === "SPACE" });
 	const { data: projectsData } = trpc.project.list.useQuery({ scope: "all", pageSize: 100 }, { enabled: locationType === "PROJECT" });
 	const { data: teamsData } = trpc.team.list.useQuery({ scope: "all", pageSize: 100 }, { enabled: locationType === "TEAM" });
-	const { data: foldersData } = trpc.folder.list.useQuery({ scope: "all", pageSize: 100 }, { enabled: locationType === "FOLDER" });
-	const { data: listsData } = trpc.list.list.useQuery({ scope: "all", pageSize: 100 }, { enabled: locationType === "LIST" });
+	const { data: foldersData } = trpc.folder.byContext.useQuery(
+		{ workspaceId: resolvedWorkspaceId, archived: false },
+		{ enabled: locationType === "FOLDER" && !!resolvedWorkspaceId }
+	);
+	const { data: listsData } = trpc.list.byContext.useQuery(
+		{ workspaceId: resolvedWorkspaceId, archived: false },
+		{ enabled: locationType === "LIST" && !!resolvedWorkspaceId }
+	);
 
 	const locationOptions = (() => {
 		switch (locationType) {
@@ -73,7 +81,7 @@ export function DocumentCreationModal({ open, onOpenChange, onSuccess, workspace
 		createDocument.reset();
 	};
 
-	const createDocument = trpc.view.create.useMutation({
+	const createDocument = trpc.document.create.useMutation({
 		onSuccess: async (data) => {
 			toast({
 				title: "Document created",
@@ -107,20 +115,20 @@ export function DocumentCreationModal({ open, onOpenChange, onSuccess, workspace
 			return;
 		}
 
+		if ((locationType === "FOLDER" || locationType === "LIST") && !resolvedWorkspaceId) {
+			toast({ title: "Workspace context required", description: "Folder and list locations require a workspace.", variant: "destructive" });
+			return;
+		}
+
 		createDocument.mutate({
-			name: title.trim(),
+			title: title.trim(),
 			description: description.trim() || undefined,
-			type: "DOC",
-			locationType,
-			workspaceId: locationType === "WORKSPACE" ? locationId : (locationType === "PERSONAL" ? (workspaceId !== "default" ? workspaceId : undefined) : undefined),
+			workspaceId: locationType === "WORKSPACE" ? locationId : (locationType === "PERSONAL" ? resolvedWorkspaceId : resolvedWorkspaceId),
 			spaceId: locationType === "SPACE" ? locationId : undefined,
 			projectId: locationType === "PROJECT" ? locationId : undefined,
 			teamId: locationType === "TEAM" ? locationId : undefined,
 			folderId: locationType === "FOLDER" ? locationId : undefined,
 			listId: locationType === "LIST" ? locationId : undefined,
-			isPrivate: locationType === "PERSONAL",
-			config: {},
-			sidebarView: true
 		});
 	};
 
@@ -183,7 +191,9 @@ export function DocumentCreationModal({ open, onOpenChange, onSuccess, workspace
 												<SelectValue placeholder={`Select ${locationType.toLowerCase()}`} />
 											</SelectTrigger>
 											<SelectContent>
-												{locationOptions.length === 0 ? (
+												{(locationType === "FOLDER" || locationType === "LIST") && !resolvedWorkspaceId ? (
+													<SelectItem value="empty" disabled>Workspace context required</SelectItem>
+												) : locationOptions.length === 0 ? (
 													<SelectItem value="empty" disabled>No items found</SelectItem>
 												) : (
 													locationOptions.map((item: any) => (

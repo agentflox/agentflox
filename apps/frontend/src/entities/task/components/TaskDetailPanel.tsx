@@ -194,7 +194,7 @@ export function TaskDetailPanel({ taskId, onClose, layoutMode = 'sidebar', onLay
                                             onSelect={(date) => {
                                                 updateTask.mutate({
                                                     id: task.id,
-                                                    dueDate: date || null
+                                                    dueDate: date ? date.toISOString() : null
                                                 });
                                             }}
                                             initialFocus

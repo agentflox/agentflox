@@ -373,7 +373,7 @@ function TaskSelector({
     };
 
     const TreeNodeRender = ({ node }: { node: any }) => {
-        let icon = null;
+        let icon: React.ReactNode = null;
         if (node.type === 'workspace') icon = <div className="h-2 w-2 rounded-full flex-shrink-0" style={{ backgroundColor: node.color || '#4f46e5' }} />;
         else if (node.type === 'list') icon = <div className="flex items-center justify-center h-4 w-4 bg-zinc-100 rounded-sm shadow-sm flex-shrink-0"><List className="h-2.5 w-2.5 text-zinc-500" /></div>;
         else icon = <div className="h-1.5 w-1.5 rounded-[2px] bg-zinc-300 flex-shrink-0" />;

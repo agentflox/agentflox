@@ -12,7 +12,7 @@ import { randomUUID } from "crypto";
 
 const ENTITY_TYPES = [
   "SPACE", "FOLDER", "LIST", "TASK", "DOC",
-  "VIEW", "AGENT", "WORKFORCE", "LISTING",
+  "VIEW", "AGENT", "WORKFORCE", "LISTING", "PROJECT",
 ] as const;
 
 const COMPLEXITY_TYPES = ["BEGINNER", "INTERMEDIATE", "ADVANCED"] as const;
@@ -691,7 +691,7 @@ export const templateRouter = router({
             ]
           }
         ];
-        
+
         const allTeamMembers = await prisma.teamMember.findMany({
           where: { userId },
           select: { teamId: true }
@@ -1124,7 +1124,7 @@ export const templateRouter = router({
             description: content.description ?? undefined,
             icon: content.icon ?? undefined,
             color: content.color ?? undefined,
-            createdBy: userId,
+            ownerId: userId,
           },
           select: { id: true },
         });
@@ -1138,8 +1138,6 @@ export const templateRouter = router({
             name,
             description: String(content.description ?? ""),
             tags: Array.isArray(content.tags) ? content.tags : [],
-            industry: Array.isArray(content.industry) ? content.industry : [],
-            revenueModel: Array.isArray(content.revenueModel) ? content.revenueModel : [],
           },
           select: { id: true },
         });
@@ -1152,6 +1150,7 @@ export const templateRouter = router({
             projectId: destination.projectId ?? undefined,
             teamId: destination.teamId ?? undefined,
             parentId: destination.folderId ?? undefined,
+            ownerId: userId,
             name,
             description: content.description ?? undefined,
             icon: content.icon ?? undefined,
@@ -1168,6 +1167,7 @@ export const templateRouter = router({
             projectId: destination.projectId ?? undefined,
             teamId: destination.teamId ?? undefined,
             folderId: destination.folderId ?? undefined,
+            ownerId: userId,
             name,
             description: content.description ?? undefined,
             icon: content.icon ?? undefined,
@@ -1204,7 +1204,7 @@ export const templateRouter = router({
             teamId: destination.teamId ?? undefined,
             folderId: destination.folderId ?? undefined,
             listId: destination.listId ?? undefined,
-            createdBy: userId,
+            ownerId: userId,
             name,
             type: content.type ?? "LIST",
             description: content.description ?? undefined,
@@ -1222,7 +1222,7 @@ export const templateRouter = router({
           data: {
             id: randomUUID(),
             workspaceId: destination.kind === "standalone" ? undefined : resolvedWorkspaceId,
-            createdBy: userId,
+            ownerId: userId,
             name,
             description: content.description ?? undefined,
             agentType: content.agentType ?? "TASK_EXECUTOR",
@@ -1239,7 +1239,7 @@ export const templateRouter = router({
         const created = await prisma.workforce.create({
           data: {
             workspaceId: destination.kind === "standalone" ? undefined : resolvedWorkspaceId,
-            createdBy: userId,
+            ownerId: userId,
             name,
             description: content.description ?? undefined,
             mode: content.mode ?? "FLOW",
