@@ -267,7 +267,7 @@ export const PlatformFeaturesSection = () => {
 
                             {/* THE 4 BIG CENTER CARDS */}
                             <BigCard
-                                title="AI OS Core (Swarm)"
+                                title="AI OS Core"
                                 icon={Bot}
                                 hoverColor="from-purple-600 to-fuchsia-600"
                                 posClasses="lg:col-start-4 lg:row-start-2"

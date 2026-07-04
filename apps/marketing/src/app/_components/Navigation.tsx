@@ -198,12 +198,31 @@ export const Navigation = () => {
                     }`}
             >
                 {/* Announcement Bar */}
-                <div className="bg-[#080808] border-b border-white/5 py-2 hidden sm:block">
-                    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex justify-center items-center text-xs font-light tracking-wide text-gray-400 gap-2">
-                        <span className=" px-1.5 py-0.5 rounded-sm bg-indigo-500/10 text-indigo-400 font-medium">NEW</span>
-                        <span>Agentflox Enterprise is now generally available.</span>
-                        <Link href="/enterprise" className="text-white hover:text-indigo-400 font-medium flex items-center gap-1 transition-colors">
-                            Read Launch Post <ArrowRight size={10} />
+                <div className="relative bg-[#030303] border-b border-white/10 py-2.5 hidden sm:block overflow-hidden shadow-[0_4px_24px_rgba(0,0,0,0.4)]">
+                    {/* Subtle sweeping light effect */}
+                    <div className="absolute inset-0 w-full h-full pointer-events-none">
+                        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent -translate-x-[150%] animate-[shimmer_4s_infinite_ease-in-out]" />
+                    </div>
+                    
+                    <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex justify-center items-center text-[13px] font-light tracking-wide text-gray-400 gap-3 z-10">
+                        {/* Polished Badge */}
+                        <span className="relative flex items-center justify-center px-2.5 py-0.5 rounded-full bg-white/5 border border-white/10 shadow-[0_0_10px_rgba(34,211,238,0.1)]">
+                            <span className="bg-clip-text text-transparent bg-gradient-to-r from-teal-400 to-cyan-400 font-bold text-[10px] uppercase tracking-widest">
+                                NEW
+                            </span>
+                        </span>
+                        
+                        <span className="text-gray-300">
+                            Agentflox Enterprise is now generally available.
+                        </span>
+                        
+                        {/* Premium Link */}
+                        <Link href="/enterprise" className="group flex items-center gap-1.5 font-medium text-white transition-all hover:text-cyan-400">
+                            <span className="relative">
+                                Read Launch Post
+                                <span className="absolute -bottom-0.5 left-0 w-full h-[1px] bg-cyan-400/50 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-left"></span>
+                            </span>
+                            <ArrowRight size={13} className="text-cyan-400 transform group-hover:translate-x-1 transition-transform duration-300" />
                         </Link>
                     </div>
                 </div>
