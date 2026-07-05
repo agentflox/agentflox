@@ -765,9 +765,6 @@ importers:
       '@tanstack/react-table':
         specifier: ^8.21.3
         version: 8.21.3(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
-      '@tanstack/react-virtual':
-        specifier: ^3.14.5
-        version: 3.14.5(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
       '@tiptap/core':
         specifier: ^3.19.0
         version: 3.19.0(@tiptap/pm@3.19.0)
@@ -903,6 +900,12 @@ importers:
       i18next-browser-languagedetector:
         specifier: ^8.2.0
         version: 8.2.0
+      json-stable-stringify:
+        specifier: ^1.3.0
+        version: 1.3.0
+      jsonwebtoken:
+        specifier: ^9.0.2
+        version: 9.0.2
       leaflet:
         specifier: ^1.9.4
         version: 1.9.4
@@ -927,9 +930,6 @@ importers:
       nodemailer:
         specifier: ^6.10.1
         version: 6.10.1
-      openai:
-        specifier: ^6.8.1
-        version: 6.9.1(ws@8.18.3)(zod@4.1.12)
       pdf-parse:
         specifier: ^2.4.5
         version: 2.4.5
@@ -981,6 +981,9 @@ importers:
       stripe:
         specifier: ^19.1.0
         version: 19.3.1(@types/node@20.19.25)
+      superjson:
+        specifier: ^2.2.2
+        version: 2.2.6
       tailwind-merge:
         specifier: ^3.3.1
         version: 3.4.0
@@ -1351,8 +1354,6 @@ importers:
         version: 4.20.6
 
   packages/database/src/generated/prisma: {}
-
-  packages/database/src/generated/prisma_fixed: {}
 
   packages/errors:
     devDependencies:
@@ -6725,6 +6726,10 @@ packages:
     resolution: {integrity: sha512-9Kr/j4O16ISv8zBBhJoi4bXOYNTkFLOqSL3UDB0njXxCXNezjeyVrJyGOWtgfs/q2km1gwBcfH8q1yEGoMYunA==}
     engines: {node: '>=18'}
 
+  copy-anything@4.0.5:
+    resolution: {integrity: sha512-7Vv6asjS4gMOuILabD3l739tsaxFQmC+a7pLZm02zyvs8p977bL3zEgq3yDk5rn9B0PbYgIv++jmHcuUab4RhA==}
+    engines: {node: '>=18'}
+
   core-util-is@1.0.3:
     resolution: {integrity: sha512-ZQBvi1DcpJ4GDqanjucZ2Hj3wEO5pZDS89BWbkcrvdxksJorwUDDZamX9ldFkp9aw2lmBDLgkObEA4DWNJ9FYQ==}
 
@@ -8017,6 +8022,10 @@ packages:
     resolution: {integrity: sha512-mfcwb6IzQyOKTs84CQMrOwW4gQcaTOAWJ0zzJCl2WSPDrWk/OzDaImWFH3djXhb24g4eudZfLRozAvPGw4d9hQ==}
     engines: {node: '>= 0.4'}
 
+  is-what@5.5.0:
+    resolution: {integrity: sha512-oG7cgbmg5kLYae2N5IVd3jm2s+vldjxJzK1pcu9LfpGuQ93MQSzo0okvRna+7y5ifrD+20FE8FvjusyGaz14fw==}
+    engines: {node: '>=18'}
+
   isarray@1.0.0:
     resolution: {integrity: sha512-VLghIWNM6ELQzo7zwmcg0NmTVyWKYjvIeM83yjp0wRDTmUnrM678fQbcKBo6n2CJEF0szoG//ytg+TKla89ALQ==}
 
@@ -8248,6 +8257,10 @@ packages:
   json-stable-stringify-without-jsonify@1.0.1:
     resolution: {integrity: sha512-Bdboy+l7tA3OGW6FjyFHWkP5LuByj1Tk33Ljyq0axyzdk9//JSi2u3fP1QSmd1KNwq6VOKYGlAu87CisVir6Pw==}
 
+  json-stable-stringify@1.3.0:
+    resolution: {integrity: sha512-qtYiSSFlwot9XHtF9bD9c7rwKjr+RecWT//ZnPvSmEjpV5mmPOCN4j8UjY5hbjNkOwZ/jQv3J6R1/pL7RwgMsg==}
+    engines: {node: '>= 0.4'}
+
   json-stringify-safe@5.0.1:
     resolution: {integrity: sha512-ZClg6AaYvamvYEE82d3Iyd3vSSIjQ+odgjaTzRuO3s7toCdFKczob2i0zCh7JE8kWn17yvAWhUVxvqGwUalsRA==}
 
@@ -8259,6 +8272,9 @@ packages:
     resolution: {integrity: sha512-XmOWe7eyHYH14cLdVPoyg+GOH3rYX++KpzrylJwSW98t3Nk+U8XOl8FWKOgwtzdb8lXGf6zYwDUzeHMWfxasyg==}
     engines: {node: '>=6'}
     hasBin: true
+
+  jsonify@0.0.1:
+    resolution: {integrity: sha512-2/Ki0GcmuqSrgFyelQq9M05y7PS0mEwuIzrf3f1fPqkVDVRvZrPZtVSMHxdgo8Aq0sxAOb/cr2aqqA3LeWHVPg==}
 
   jsonpointer@5.0.1:
     resolution: {integrity: sha512-p/nXbhSEcu3pZRdkW1OfJhpsVtW1gd4Wa1fnQc9YLiTfAjn0312eMKimbdIQzuZl9aa9xUGaRlP9T/CJE/ditQ==}
@@ -9269,18 +9285,6 @@ packages:
     peerDependencies:
       ws: ^8.18.0
       zod: ^3.23.8
-    peerDependenciesMeta:
-      ws:
-        optional: true
-      zod:
-        optional: true
-
-  openai@6.9.1:
-    resolution: {integrity: sha512-vQ5Rlt0ZgB3/BNmTa7bIijYFhz3YBceAA3Z4JuoMSBftBF9YqFHIEhZakSs+O/Ad7EaoEimZvHxD5ylRjN11Lg==}
-    hasBin: true
-    peerDependencies:
-      ws: ^8.18.0
-      zod: ^3.25 || ^4.0
     peerDependenciesMeta:
       ws:
         optional: true
@@ -10429,6 +10433,10 @@ packages:
         optional: true
       babel-plugin-macros:
         optional: true
+
+  superjson@2.2.6:
+    resolution: {integrity: sha512-H+ue8Zo4vJmV2nRjpx86P35lzwDT3nItnIsocgumgr0hHMQ+ZGq5vrERg9kJBo5AWGmxZDhzDo+WVIJqkB0cGA==}
+    engines: {node: '>=16'}
 
   supports-color@7.2.0:
     resolution: {integrity: sha512-qpCAvRl9stuOHveKsn7HncJRvv501qIacKzQlO/+Lwxc9+0q2wLyv4Dfvt80/DPn2pqOBsJdDiogXGR9+OvwRw==}
@@ -17831,6 +17839,10 @@ snapshots:
 
   cookie@1.0.2: {}
 
+  copy-anything@4.0.5:
+    dependencies:
+      is-what: 5.5.0
+
   core-util-is@1.0.3: {}
 
   cors@2.8.5:
@@ -19380,6 +19392,8 @@ snapshots:
       call-bound: 1.0.4
       get-intrinsic: 1.3.0
 
+  is-what@5.5.0: {}
+
   isarray@1.0.0: {}
 
   isarray@2.0.5: {}
@@ -19803,6 +19817,14 @@ snapshots:
 
   json-stable-stringify-without-jsonify@1.0.1: {}
 
+  json-stable-stringify@1.3.0:
+    dependencies:
+      call-bind: 1.0.8
+      call-bound: 1.0.4
+      isarray: 2.0.5
+      jsonify: 0.0.1
+      object-keys: 1.1.1
+
   json-stringify-safe@5.0.1: {}
 
   json5@1.0.2:
@@ -19810,6 +19832,8 @@ snapshots:
       minimist: 1.2.8
 
   json5@2.2.3: {}
+
+  jsonify@0.0.1: {}
 
   jsonpointer@5.0.1: {}
 
@@ -21217,11 +21241,6 @@ snapshots:
     optionalDependencies:
       ws: 8.18.3
       zod: 3.25.76
-
-  openai@6.9.1(ws@8.18.3)(zod@4.1.12):
-    optionalDependencies:
-      ws: 8.18.3
-      zod: 4.1.12
 
   openapi-types@12.1.3: {}
 
@@ -22674,6 +22693,10 @@ snapshots:
       react: 19.1.0
     optionalDependencies:
       '@babel/core': 7.28.5
+
+  superjson@2.2.6:
+    dependencies:
+      copy-anything: 4.0.5
 
   supports-color@7.2.0:
     dependencies:

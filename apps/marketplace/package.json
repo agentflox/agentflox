@@ -1,5 +1,5 @@
 {
-  "name": "agentflox-marketplace",
+  "name": "@agentflox/marketplace",
   "version": "0.1.0",
   "private": true,
   "type": "module",

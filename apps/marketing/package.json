@@ -1,5 +1,5 @@
 {
-    "name": "agentflox-marketing",
+    "name": "@agentflox/marketing",
     "version": "0.1.0",
     "private": true,
     "scripts": {

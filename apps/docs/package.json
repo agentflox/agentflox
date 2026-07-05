@@ -1,5 +1,5 @@
 {
-  "name": "agentflox-docs",
+  "name": "@agentflox/docs",
   "version": "0.1.0",
   "private": true,
   "scripts": {
