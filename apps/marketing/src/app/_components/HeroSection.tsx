@@ -23,13 +23,13 @@ export const HeroSection = () => {
                     {/* Left: copy */}
                     <div className="max-w-2xl">
                         <h1 className="hero-text-block text-4xl sm:text-5xl md:text-6xl font-medium tracking-tighter leading-[1.05] mb-8 text-transparent bg-clip-text bg-gradient-to-b from-[#8A8F98] to-[#8A8F98]/70">
-                            Run your work.<br />
-                            <span className="bg-clip-text text-transparent bg-gradient-to-b from-white to-white/70 font-bold">Delegate to your AI.</span><br />
-                            One system.
+                            Build & Deploy<br />
+                            <span className="bg-clip-text text-transparent bg-gradient-to-b from-white to-white/70 font-bold">Autonomous AI Agents.</span><br />
+                            One Platform.
                         </h1>
 
                         <p className="hero-text-block text-lg md:text-xl text-gray-400 leading-relaxed mb-10 font-light">
-                            Agentflox brings your teams, projects, and autonomous agents into one workspace.
+                            AgentFlox is the AI agent platform that brings your teams, projects, and autonomous agents into one workspace.
                             Describe what you need done, and your AI workforce builds, executes, and reports back.
                         </p>
 

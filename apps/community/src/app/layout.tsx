@@ -17,15 +17,44 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "AgentFlox – The connected workspace where better, faster work happens.",
-  description: "The connected workspace where better, faster work happens.",
+  title: {
+    default: "AgentFlox Community – AI Agent Builders Forum & Discussion",
+    template: "%s | AgentFlox Community",
+  },
+  description: "Join the AgentFlox community. Share AI agent workflows, get expert help, discover ready-made templates, and connect with thousands of AI builders worldwide.",
+  keywords: [
+    "ai agent community",
+    "agentflox forum",
+    "ai builders community",
+    "ai agent help",
+    "ai workflow community",
+    "autonomous agent forum",
+    "ai agent templates",
+    "build ai agents together",
+    "AgentFlox",
+  ],
+  authors: [{ name: "AgentFlox", url: "https://agentflox.com" }],
+  creator: "AgentFlox",
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: { index: true, follow: true, 'max-snippet': -1, 'max-image-preview': 'large' },
+  },
   metadataBase: new URL(getServerSideURL()),
-  openGraph: mergeOpenGraph(),
+  openGraph: mergeOpenGraph({
+    title: "AgentFlox Community – AI Agent Builders Forum & Discussion",
+    description: "Join the AgentFlox community. Share AI agent workflows, get expert help, and connect with thousands of AI builders worldwide.",
+    siteName: "AgentFlox Community",
+    locale: "en_US",
+    type: "website",
+  }),
   twitter: {
     card: 'summary_large_image',
-    title: "AgentFlow",
-    description: "The connected workspace where better, faster work happens.",
-    images: ['/images/logo.png'],
+    site: '@agentflox',
+    creator: '@agentflox',
+    title: "AgentFlox Community – AI Agent Builders Forum",
+    description: "Join the AgentFlox community. Share AI agent workflows, get expert help, and connect with thousands of AI builders worldwide.",
+    images: [{ url: '/images/og-image.png', width: 1200, height: 630, alt: 'AgentFlox Community' }],
   },
   icons: {
     icon: [
@@ -37,7 +66,7 @@ export const metadata: Metadata = {
   },
   manifest: "/site.webmanifest",
   alternates: {
-    canonical: "https://app.agentflox.com",
+    canonical: "https://community.agentflox.com",
   },
 }
 

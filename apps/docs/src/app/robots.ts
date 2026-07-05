@@ -9,7 +9,6 @@ export default function robots(): MetadataRoute.Robots {
                 disallow: [
                     '/api/',
                     '/_next/',
-                    '/private/',
                     '*.json',
                 ],
             },
@@ -22,7 +21,7 @@ export default function robots(): MetadataRoute.Robots {
                 disallow: ['/'],
             }
         ],
-        sitemap: 'https://community.agentflox.com/sitemap.xml',
-        host: 'https://community.agentflox.com',
+        sitemap: 'https://docs.agentflox.com/sitemap.xml',
+        host: 'https://docs.agentflox.com',
     };
 }

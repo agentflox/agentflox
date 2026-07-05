@@ -11,15 +11,61 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-    title: "AgentFlox – The connected workspace where better, faster work happens.",
-    description: "The connected workspace where better, faster work happens.",
+    title: {
+        default: "AgentFlox – AI Agent Platform | Build & Deploy Autonomous Agents",
+        template: "%s | AgentFlox",
+    },
+    description: "The #1 AI agent platform. Build autonomous agents, orchestrate multi-agent swarms, automate workflows, and run your entire AI workforce in one connected workspace. Start free.",
+    keywords: [
+        "AI agent platform",
+        "autonomous AI agent",
+        "AI agent builder",
+        "multi-agent AI",
+        "AI workflow automation",
+        "AI agents for business",
+        "build AI agent",
+        "AI orchestration platform",
+        "AI agent marketplace",
+        "agentic AI",
+        "AI workforce",
+        "no-code AI agent",
+        "AI automation platform",
+        "AgentFlox",
+    ],
+    authors: [{ name: "AgentFlox", url: "https://agentflox.com" }],
+    creator: "AgentFlox",
+    publisher: "AgentFlox",
+    robots: {
+        index: true,
+        follow: true,
+        googleBot: {
+            index: true,
+            follow: true,
+            'max-snippet': -1,
+            'max-image-preview': 'large',
+            'max-video-preview': -1,
+        },
+    },
     metadataBase: new URL(getServerSideURL()),
-    openGraph: mergeOpenGraph(),
+    openGraph: mergeOpenGraph({
+        title: "AgentFlox – AI Agent Platform | Build & Deploy Autonomous Agents",
+        description: "The #1 AI agent platform. Build autonomous agents, orchestrate multi-agent swarms, automate workflows, and run your AI workforce in one connected workspace. Start free.",
+        siteName: "AgentFlox",
+        locale: "en_US",
+        type: "website",
+    }),
     twitter: {
         card: 'summary_large_image',
-        title: "AgentFlox",
-        description: "The connected workspace where better, faster work happens.",
-        images: ['/images/logo.png'],
+        site: '@agentflox',
+        creator: '@agentflox',
+        title: "AgentFlox – AI Agent Platform | Build & Deploy Autonomous Agents",
+        description: "The #1 AI agent platform. Build autonomous agents, orchestrate multi-agent swarms, automate workflows, and run your AI workforce in one workspace.",
+        images: [{
+            url: '/images/og-image.png',
+            width: 1200,
+            height: 630,
+            alt: 'AgentFlox – AI Agent Platform',
+        }],
     },
     icons: {
         icon: [
@@ -32,6 +78,9 @@ export const metadata: Metadata = {
     manifest: "/site.webmanifest",
     alternates: {
         canonical: "https://agentflox.com",
+    },
+    verification: {
+        google: undefined, // Add your Google Search Console verification token here
     },
 }
 
@@ -48,19 +97,72 @@ export default function RootLayout({
                         <script
                             type="application/ld+json"
                             dangerouslySetInnerHTML={{
-                                __html: JSON.stringify({
-                                    "@context": "https://schema.org",
-                                    "@type": "Organization",
-                                    "name": "Agentflox",
-                                    "url": "https://agentflox.com",
-                                    "logo": "https://agentflox.com/logo.png",
-                                    "description": "Agentflox is the ultimate platform where innovators, investors, and talented professionals converge to build the future together.",
-                                    "sameAs": [
-                                        "https://twitter.com/agentflox",
-                                        "https://www.linkedin.com/company/agentflox",
-                                        "https://www.facebook.com/agentflox"
-                                    ]
-                                })
+                                __html: JSON.stringify([
+                                    {
+                                        "@context": "https://schema.org",
+                                        "@type": "Organization",
+                                        "name": "AgentFlox",
+                                        "url": "https://agentflox.com",
+                                        "logo": {
+                                            "@type": "ImageObject",
+                                            "url": "https://agentflox.com/images/logo.png",
+                                            "width": 512,
+                                            "height": 512
+                                        },
+                                        "description": "AgentFlox is the leading AI agent platform for building, deploying, and orchestrating autonomous AI agents and multi-agent workforces.",
+                                        "foundingDate": "2024",
+                                        "sameAs": [
+                                            "https://twitter.com/agentflox",
+                                            "https://www.linkedin.com/company/agentflox",
+                                            "https://www.facebook.com/agentflox",
+                                            "https://github.com/agentflox"
+                                        ],
+                                        "contactPoint": {
+                                            "@type": "ContactPoint",
+                                            "contactType": "sales",
+                                            "url": "https://agentflox.com/contact"
+                                        }
+                                    },
+                                    {
+                                        "@context": "https://schema.org",
+                                        "@type": "SoftwareApplication",
+                                        "name": "AgentFlox",
+                                        "applicationCategory": "BusinessApplication",
+                                        "operatingSystem": "Web",
+                                        "url": "https://agentflox.com",
+                                        "description": "AI agent platform for building and deploying autonomous agents, multi-agent swarms, and AI-powered workflows. No code required.",
+                                        "offers": {
+                                            "@type": "Offer",
+                                            "price": "0",
+                                            "priceCurrency": "USD",
+                                            "priceValidUntil": "2027-12-31",
+                                            "availability": "https://schema.org/InStock"
+                                        },
+                                        "screenshot": "https://agentflox.com/images/og-image.png",
+                                        "featureList": [
+                                            "AI Agent Builder",
+                                            "Multi-Agent Orchestration",
+                                            "AI Workflow Automation",
+                                            "Agent Memory & RAG",
+                                            "MCP Tool Integration",
+                                            "Enterprise Security"
+                                        ]
+                                    },
+                                    {
+                                        "@context": "https://schema.org",
+                                        "@type": "WebSite",
+                                        "name": "AgentFlox",
+                                        "url": "https://agentflox.com",
+                                        "potentialAction": {
+                                            "@type": "SearchAction",
+                                            "target": {
+                                                "@type": "EntryPoint",
+                                                "urlTemplate": "https://agentflox.com/search?q={search_term_string}"
+                                            },
+                                            "query-input": "required name=search_term_string"
+                                        }
+                                    }
+                                ])
                             }}
                         />
                         {children}

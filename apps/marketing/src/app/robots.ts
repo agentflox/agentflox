@@ -9,10 +9,12 @@ export default function robots(): MetadataRoute.Robots {
                 disallow: [
                     '/api/',
                     '/_next/',
+                    '/admin/',
                     '/private/',
                     '*.json',
                 ],
             },
+            // Block AI training crawlers (protects content)
             {
                 userAgent: 'GPTBot',
                 disallow: ['/'],
@@ -20,9 +22,13 @@ export default function robots(): MetadataRoute.Robots {
             {
                 userAgent: 'ChatGPT-User',
                 disallow: ['/'],
-            }
+            },
+            {
+                userAgent: 'Google-Extended',
+                allow: ['/'],
+            },
         ],
-        sitemap: 'https://community.agentflox.com/sitemap.xml',
-        host: 'https://community.agentflox.com',
+        sitemap: 'https://agentflox.com/sitemap.xml',
+        host: 'https://agentflox.com',
     };
 }

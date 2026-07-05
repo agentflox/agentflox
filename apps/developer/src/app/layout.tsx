@@ -12,15 +12,45 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "AgentFlox – The connected workspace where better, faster work happens.",
-  description: "The connected workspace where better, faster work happens.",
+  title: {
+    default: "AgentFlox Developer Portal – AI Agent API, SDK & MCP Tools",
+    template: "%s | AgentFlox Developers",
+  },
+  description: "Build on the AgentFlox AI agent platform. Access REST APIs, Python SDK, MCP tool integrations, webhooks, and a full developer sandbox. Developer documentation and reference.",
+  keywords: [
+    "agentflox developer api",
+    "ai agent sdk",
+    "ai agent api",
+    "mcp tools api",
+    "model context protocol",
+    "build on agentflox",
+    "ai agent integration",
+    "autonomous agent developer",
+    "agentflox sdk",
+    "AgentFlox",
+  ],
+  authors: [{ name: "AgentFlox", url: "https://agentflox.com" }],
+  creator: "AgentFlox",
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: { index: true, follow: true, 'max-snippet': -1, 'max-image-preview': 'large' },
+  },
   metadataBase: new URL(getServerSideURL()),
-  openGraph: mergeOpenGraph(),
+  openGraph: mergeOpenGraph({
+    title: "AgentFlox Developer Portal – AI Agent API, SDK & MCP Tools",
+    description: "Build on the AgentFlox AI agent platform. REST APIs, Python SDK, MCP tool integrations, webhooks, and a full developer sandbox.",
+    siteName: "AgentFlox Developers",
+    locale: "en_US",
+    type: "website",
+  }),
   twitter: {
     card: 'summary_large_image',
-    title: "AgentFlow",
-    description: "The connected workspace where better, faster work happens.",
-    images: ['/images/logo.png'],
+    site: '@agentflox',
+    creator: '@agentflox',
+    title: "AgentFlox Developer Portal – AI Agent API & SDK",
+    description: "Build on the AgentFlox AI agent platform. REST APIs, Python SDK, MCP tool integrations, webhooks, and a full developer sandbox.",
+    images: [{ url: '/images/og-image.png', width: 1200, height: 630, alt: 'AgentFlox Developer Portal' }],
   },
   icons: {
     icon: [
@@ -32,7 +62,7 @@ export const metadata: Metadata = {
   },
   manifest: "/site.webmanifest",
   alternates: {
-    canonical: "https://docs.agentflox.com",
+    canonical: "https://developer.agentflox.com",
   },
 }
 

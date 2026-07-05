@@ -17,15 +17,45 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "AgentFlox – The connected workspace where better, faster work happens.",
-  description: "The connected workspace where better, faster work happens.",
+  title: {
+    default: "AgentFlox Marketplace – Browse AI Agents, Templates & Tools",
+    template: "%s | AgentFlox Marketplace",
+  },
+  description: "Browse and deploy 1,000+ pre-built AI agents, workflow templates, and automation tools on the AgentFlox Marketplace. Find the right agent for every job.",
+  keywords: [
+    "ai agent marketplace",
+    "pre-built ai agents",
+    "ai agent templates",
+    "browse ai agents",
+    "buy ai agents",
+    "ai workflow templates",
+    "automation marketplace",
+    "agentflox marketplace",
+    "ai tools directory",
+    "AgentFlox",
+  ],
+  authors: [{ name: "AgentFlox", url: "https://agentflox.com" }],
+  creator: "AgentFlox",
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: { index: true, follow: true, 'max-snippet': -1, 'max-image-preview': 'large' },
+  },
   metadataBase: new URL(getServerSideURL()),
-  openGraph: mergeOpenGraph(),
+  openGraph: mergeOpenGraph({
+    title: "AgentFlox Marketplace – Browse AI Agents, Templates & Tools",
+    description: "Browse and deploy 1,000+ pre-built AI agents, workflow templates, and automation tools. Find the right agent for every job.",
+    siteName: "AgentFlox Marketplace",
+    locale: "en_US",
+    type: "website",
+  }),
   twitter: {
     card: 'summary_large_image',
-    title: "AgentFlow",
-    description: "The connected workspace where better, faster work happens.",
-    images: ['/images/logo.png'],
+    site: '@agentflox',
+    creator: '@agentflox',
+    title: "AgentFlox Marketplace – Browse AI Agents & Templates",
+    description: "Browse and deploy 1,000+ pre-built AI agents, workflow templates, and automation tools. Find the right agent for every job.",
+    images: [{ url: '/images/og-image.png', width: 1200, height: 630, alt: 'AgentFlox Marketplace' }],
   },
   icons: {
     icon: [
@@ -37,7 +67,7 @@ export const metadata: Metadata = {
   },
   manifest: "/site.webmanifest",
   alternates: {
-    canonical: "https://app.agentflox.com",
+    canonical: "https://marketplace.agentflox.com",
   },
 }
 

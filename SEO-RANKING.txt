@@ -1,1 +1,570 @@
-1. Master Content Quality & "E-E-A-T"Content is still the foundation of SEO, but Google now prioritizes meaning and value over sheer word count or keyword density.  Search Intent: Before you write a word, understand why someone is searching. Are they looking to buy, to learn, or to compare? If a user searches "best running shoes," they want a review or comparison list, not a dictionary definition of a shoe. Your page must give them exactly what they are looking for immediately.  Information Gain: Do not just rewrite what is already on page one. Add unique value. This means including fresh examples, your own case studies, original data, or proprietary insights that competitors lack.  E-E-A-T (Experience, Expertise, Authoritativeness, Trustworthiness): Google heavily favors content written by real experts, especially in YMYL (Your Money or Your Life) topics like finance or health. Include clear author bios, link to your credentials, use first-hand experience, and maintain transparent "About Us" and contact pages.  2. Optimize On-Page Elements  You need to help Google understand your content while also enticing users to actually click on your link when it appears in search results.Title Tags & Meta Descriptions: Write compelling, accurate titles (under 60 characters) and meta descriptions. While meta descriptions aren't a direct ranking factor, they act as your "ad copy" in the search results. A higher Click-Through Rate (CTR) tells Google your result is relevant.  Scannable Structure: Break up your text using clear H1, H2, and H3 headings. Users (and search engines) skim. Use short paragraphs, bullet points, and bold text for key takeaways.  Internal Linking: Link your pages together naturally. If you write a new blog post, link back to your main "pillar" service pages. This helps Google crawl your site and distributes authority across your pages.3. Nail Technical SEO & User Experience (UX)If your website is slow, broken, or frustrating to use, users will hit the "back" button (called pogo-sticking), which destroys your rankings.  Technical FactorWhy It MattersMobile-First IndexingGoogle judges your site based on how it looks and performs on a phone, not a desktop. Ensure text is readable without zooming and buttons are easy to tap.Page SpeedFast load times are critical. Compress your images, minify code, and use a reliable web host.Clutter-Free UXAvoid intrusive, hard-to-close pop-ups or ads that cover the main content. Google penalizes sites that provide a frustrating mobile experience.4. Build Authority with Quality BacklinksA backlink is when another website links to yours. Google views this as a "vote of confidence."  Quality Over Quantity: Ten backlinks from low-quality, spammy directories are worthless (and potentially harmful) compared to one backlink from a highly respected, relevant industry blog.  How to Earn Them: Publish original research, create free tools/calculators, or offer expert quotes to journalists using platforms like Connectively (formerly HARO). When you create genuinely useful resources, people naturally link to them.  5. Structure for AI & "Zero-Click" SearchesWith the rise of AI-generated summaries at the top of search results, users often get their answers without clicking a link.  To optimize for this, include TL;DR summaries at the top of long articles. Directly answer common questions in a concise, 1-2 sentence format, and use FAQ Schema markup to help search engines easily extract your answers for Featured Snippets.  
+
+================================================================================
+ AGENTFLOX — MASTER SEO RANKING STRATEGY
+ Goal: Rank #1 on Google for "AI agent platform" and all related queries
+ Last Updated: 2026-07-06
+================================================================================
+
+SECTION 1 — PRIMARY KEYWORD STRATEGY (Tier 1 — High Volume, High Intent)
+================================================================================
+
+These are your money keywords. Every homepage H1/H2 and title tag must target these.
+
+TARGET KEYWORDS (RANK #1):
+  - "AI agent platform"                        [est. 40,500/mo — HIGH]
+  - "autonomous AI agent"                      [est. 33,100/mo — HIGH]
+  - "AI agent builder"                         [est. 22,200/mo — HIGH]
+  - "multi-agent AI"                           [est. 18,100/mo — HIGH]
+  - "AI workflow automation"                   [est. 60,500/mo — VERY HIGH]
+  - "AI agents for business"                   [est. 14,800/mo — HIGH]
+  - "build AI agent"                           [est. 12,100/mo — HIGH]
+  - "AI orchestration platform"                [est. 8,100/mo — MED-HIGH]
+  - "AI agent marketplace"                     [est. 6,600/mo — MED]
+  - "autonomous agents platform"               [est. 5,400/mo — MED]
+
+HOMEPAGE TITLE TAG:
+  "AgentFlox – AI Agent Platform | Build & Deploy Autonomous Agents"
+
+HOMEPAGE META DESCRIPTION:
+  "AgentFlox is the leading AI agent platform. Build autonomous agents,
+   orchestrate multi-agent swarms, automate workflows, and manage your entire
+   AI workforce in one connected workspace. Start free."
+
+
+SECTION 2 — SECONDARY KEYWORDS (Tier 2 — Long-Tail, Strong Intent)
+================================================================================
+
+PRODUCT PAGES:
+  /product/agents        -> "AI agent builder", "build autonomous AI agent",
+                            "sovereign AI agent", "no-code AI agent"
+  /product/automation    -> "AI workflow builder", "no-code automation AI",
+                            "automated workflow software", "visual workflow AI"
+  /product/collaboration -> "AI team collaboration", "AI workspace tool",
+                            "team AI platform", "collaborative AI"
+  /product/marketplace   -> "AI agent marketplace", "buy AI agents",
+                            "pre-built AI agents", "AI agent templates"
+  /product/api           -> "AI agent API", "AI agent SDK",
+                            "developer AI platform", "MCP tools API"
+  /product/security      -> "enterprise AI security", "secure AI platform",
+                            "AI data compliance", "GDPR AI agent"
+
+SOLUTION PAGES:
+  /solutions/enterprise       -> "enterprise AI agent platform",
+                                 "AI automation enterprise", "B2B AI agents"
+  /solutions/startups         -> "AI agents for startups", "startup automation AI",
+                                 "scale with AI agents"
+  /solutions/sales            -> "AI sales agent", "AI for sales automation",
+                                 "sales pipeline AI agent", "AI SDR"
+  /solutions/marketing        -> "AI marketing automation", "AI for content creation",
+                                 "AI marketing agent", "campaign automation AI"
+  /solutions/engineering      -> "AI DevOps automation", "AI for engineering teams",
+                                 "developer AI tools"
+  /solutions/hr               -> "AI HR automation", "AI recruiting agent",
+                                 "AI onboarding tool"
+  /solutions/project-management -> "AI project management", "AI task automation",
+                                    "AI sprint planning"
+  /solutions/operations       -> "AI operations platform", "AI process automation",
+                                  "workflow optimization AI"
+
+
+SECTION 3 — SEMANTIC / LSI KEYWORDS (Boost Topical Authority)
+================================================================================
+
+Weave these naturally into page copy, blog posts, and docs.
+
+CORE AI AGENT TERMS:
+  agentic AI, agentic workflows, AI workforce, AI swarm, agent swarm,
+  multi-agent system, LLM agent, AI reasoning engine, AI planning agent,
+  autonomous task execution, AI orchestration, agent memory, vector memory,
+  persistent memory AI, RAG retrieval AI, chain-of-thought agent,
+  tool-using AI agent, human-in-the-loop, guardrails AI, AI safety
+
+PLATFORM & PRODUCT TERMS:
+  connected workspace, AI workspace, AI operating system, AI OS,
+  AI workforce management, digital workforce, AI teammates,
+  no-code agent builder, visual agent builder, drag-and-drop AI,
+  workflow canvas, agent canvas, agent playground
+
+INTEGRATION & TECH TERMS:
+  MCP tools, Model Context Protocol, API integration AI, webhook automation,
+  Slack AI agent, GitHub AI agent, Google Workspace AI, Notion AI agent,
+  Jira automation AI, AI CRM integration, Salesforce AI, HubSpot AI
+
+COMPETITOR COMPARISON TERMS (rank for "vs" searches):
+  "AgentFlox vs AutoGPT", "AgentFlox vs LangChain",
+  "AgentFlox vs CrewAI", "AgentFlox vs n8n AI",
+  "AgentFlox vs Make.com AI", "AgentFlox vs Zapier AI",
+  "AgentFlox vs ClickUp AI", "AgentFlox vs Monday AI",
+  "best AI agent platform alternative"
+
+
+SECTION 4 — PAGE-LEVEL SEO MAP (All 6 Apps)
+================================================================================
+
+== MARKETING SITE (agentflox.com) ==
+
+  URL: /
+  Title: "AgentFlox – AI Agent Platform | Build & Deploy Autonomous Agents"
+  Desc:  "The #1 AI agent platform. Build autonomous agents, orchestrate
+          multi-agent swarms, automate workflows, and run your AI workforce
+          in one workspace. Free plan available."
+  H1:    "Build & Deploy Autonomous AI Agents"
+  Keywords: ai agent platform, autonomous ai agent, build ai agent, ai workforce
+
+  URL: /pricing
+  Title: "AgentFlox Pricing – AI Agent Plans Starting Free"
+  Desc:  "Start free with AgentFlox AI agents. Upgrade to Business at $99/mo
+          for unlimited agents and 50k executions. Enterprise plans available."
+  H1:    "Pricing That Scales With Your AI Workforce"
+  Keywords: ai agent platform pricing, ai agent cost, autonomous agent pricing
+
+  URL: /product/agents
+  Title: "AI Agent Builder – Build Autonomous Agents | AgentFlox"
+  Desc:  "Build and deploy sovereign autonomous AI agents in minutes. No code
+          required. Equip agents with tools, memory, and guardrails. Start free."
+  H1:    "The Most Powerful AI Agent Builder"
+  Keywords: ai agent builder, build autonomous ai agent, no-code ai agent
+
+  URL: /product/automation
+  Title: "AI Workflow Automation – Visual Builder | AgentFlox"
+  Desc:  "Build intelligent automations with AgentFlox's visual workflow builder.
+          Connect triggers, conditions, agents, and actions. No code needed."
+  H1:    "Visual AI Workflow Automation"
+  Keywords: ai workflow automation, visual workflow builder, workflow automation ai
+
+  URL: /product/marketplace
+  Title: "AI Agent Marketplace – Templates & Pre-Built Agents | AgentFlox"
+  Desc:  "Browse 1,000+ pre-built AI agents, workflow templates, and tools.
+          Deploy instantly or customize for your business needs."
+  H1:    "The AI Agent Marketplace"
+  Keywords: ai agent marketplace, pre-built ai agents, ai agent templates
+
+  URL: /product/api
+  Title: "AI Agent API & SDK – Developer Platform | AgentFlox"
+  Desc:  "Build on AgentFlox with our REST API, Python SDK, and MCP tool support.
+          Full developer access to orchestrate agents programmatically."
+  H1:    "Developer-First AI Agent Platform"
+  Keywords: ai agent api, ai sdk, mcp tools api, developer ai platform
+
+  URL: /solutions/enterprise
+  Title: "Enterprise AI Agent Platform – Security & Scale | AgentFlox"
+  Desc:  "Deploy AI agents at enterprise scale. SSO, SAML, audit logs, dedicated
+          infrastructure, and 99.99% SLA. Trusted by Fortune 500 teams."
+  H1:    "Enterprise-Grade AI Agent Platform"
+  Keywords: enterprise ai agent platform, enterprise ai automation, b2b ai agents
+
+  URL: /solutions/startups
+  Title: "AI Agents for Startups – Scale 10x Faster | AgentFlox"
+  Desc:  "Replace entire departments with AI agents. Automate sales, support,
+          and operations from day one. Startup pricing from $29/mo."
+  H1:    "AI Agents Built for Startups"
+  Keywords: ai agents for startups, startup ai automation, scale with ai agents
+
+  URL: /solutions/sales
+  Title: "AI Sales Agent – Automate Pipeline Intelligence | AgentFlox"
+  Desc:  "Deploy AI SDRs that find leads, write emails, and qualify prospects 24/7.
+          300% more leads with AgentFlox AI sales agents."
+  H1:    "AI Sales Agents That Close Deals"
+  Keywords: ai sales agent, ai sdr, sales automation ai, pipeline ai
+
+  URL: /solutions/marketing
+  Title: "AI Marketing Automation – Campaign AI Agents | AgentFlox"
+  Desc:  "Automate your entire marketing funnel with AI agents. Content creation,
+          campaign management, lead nurturing — all on autopilot."
+  H1:    "AI Marketing Agents"
+  Keywords: ai marketing automation, ai for marketing, campaign automation ai
+
+  URL: /agentflox-ai
+  Title: "AgentFlox AI – The Future of Autonomous Work"
+  Desc:  "AgentFlox AI is a proprietary reasoning engine powering the next generation
+          of autonomous agents. Chain-of-thought, memory, tool use, and more."
+  H1:    "AgentFlox AI – Proprietary Reasoning Engine"
+  Keywords: agentflox ai, ai reasoning engine, proprietary ai model
+
+  URL: /case-studies
+  Title: "AgentFlox Case Studies – AI Agent Success Stories"
+  Desc:  "See how companies use AgentFlox AI agents to save thousands of hours,
+          reduce costs, and scale faster. Read real customer case studies."
+  Keywords: ai agent case studies, agentflox customers, ai automation roi
+
+== MARKETPLACE (marketplace.agentflox.com) ==
+
+  Root Title: "AgentFlox Marketplace – Browse AI Agents & Templates"
+  Root Desc:  "Find, deploy, and share AI agents, workflow templates, and tools on
+               the AgentFlox Marketplace. 1,000+ ready-to-use automations."
+  Keywords: ai agent marketplace, buy ai agents, ai agent templates, browse ai agents
+
+== DOCS (docs.agentflox.com) ==
+
+  Root Title: "AgentFlox Documentation – AI Agent Platform Guides & API Reference"
+  Root Desc:  "Complete documentation for AgentFlox. Get started with AI agents,
+               API reference, workflow builder guides, and developer tutorials."
+  Keywords: agentflox docs, ai agent documentation, how to build ai agents,
+            agentflox api reference, ai agent tutorial
+
+== DEVELOPER PORTAL (developer.agentflox.com) ==
+
+  Root Title: "AgentFlox Developer Portal – Build on the AI Agent Platform"
+  Root Desc:  "APIs, SDKs, webhooks, and MCP tools to build custom AI agent
+               integrations on AgentFlox. Developer documentation and sandbox."
+  Keywords: agentflox developer api, ai agent sdk, mcp server tools,
+            build on agentflox, ai agent integration
+
+== COMMUNITY (community.agentflox.com) ==
+
+  Root Title: "AgentFlox Community – AI Agent Builders Forum"
+  Root Desc:  "Join the AgentFlox community. Share agent workflows, get help,
+               discover templates, and connect with AI builders worldwide."
+  Keywords: ai agent community, agentflox forum, ai builders community,
+            ai agent help, ai workflow community
+
+
+SECTION 5 — STRUCTURED DATA (JSON-LD SCHEMAS)
+================================================================================
+
+ALREADY IMPLEMENTED:
+  [OK] Organization schema in marketing layout.tsx
+
+NEEDED — Add to relevant pages:
+
+  1. SoftwareApplication (homepage + /product/agents):
+     "@type": "SoftwareApplication"
+     "applicationCategory": "BusinessApplication"
+     "operatingSystem": "Web"
+     "offers": price 0, USD
+     "description": "AI agent platform for building and deploying autonomous agents"
+     "aggregateRating": fill in once you have reviews
+
+  2. Product (pricing page):
+     "@type": "Product"
+     "name": "AgentFlox Business"
+     "offers": array of Free/Basic/Business/Enterprise price offers
+
+  3. FAQPage (pricing page — already has FAQ accordion, add the schema):
+     "@type": "FAQPage"
+     "mainEntity": array of Question + acceptedAnswer pairs
+
+  4. BreadcrumbList (all interior pages):
+     Add to all /product/, /solutions/, /learn/ pages
+
+  5. WebSite with SearchAction (homepage):
+     "@type": "WebSite"
+     "potentialAction": SearchAction targeting agentflox.com/search?q=
+
+  6. BlogPosting (each /learn/blog post):
+     "@type": "Article" or "BlogPosting"
+     Add author, datePublished, image, headline
+
+
+SECTION 6 — TECHNICAL SEO CHECKLIST
+================================================================================
+
+DONE:
+  [OK] Canonical URL set on marketing layout (https://agentflox.com)
+  [OK] Open Graph meta tags (mergeOpenGraph utility used)
+  [OK] Twitter Card set to summary_large_image
+  [OK] robots.ts on marketplace (allow / disallow API etc.)
+  [OK] sitemap exists on marketplace
+  [OK] Google Fonts (Inter) via next/font — no render-blocking
+  [OK] Next.js Image component used — auto WebP, lazy load, LCP optimization
+  [OK] Organization JSON-LD in marketing layout
+  [OK] lang="en" on <html>
+
+CRITICAL FIXES NEEDED:
+  [X] sitemap..ts double dot in marketplace — rename to sitemap.ts
+  [X] Marketing site has NO sitemap.ts — ADD IT (see Section 7)
+  [X] Marketing site has NO robots.ts — ADD IT
+  [X] Docs layout.tsx has no metadata export — ADD IT
+  [X] Developer layout.tsx has no metadata export — ADD IT
+  [X] Community layout.tsx has no metadata export — ADD IT
+  [X] robots.ts uses vercel.app URL — change all to https://agentflox.com
+  [X] Pricing page is "use client" — metadata must be in parent server layout
+  [X] Hero H1 is "Run your work. Delegate to your AI. One system." — not SEO.
+      Change to keyword-rich: "Build & Deploy Autonomous AI Agents"
+  [X] Twitter image uses /images/logo.png (too small) — use 1200x630 OG image
+  [X] No <meta name="keywords"> — add to all page metadata exports
+
+PERFORMANCE (Core Web Vitals — ranking signal):
+  [OK] next/image hero image (LCP optimization)
+  [OK] Inter font via next/font (prevents FOUT)
+  [!]  Heavy framer-motion animations in AIAgentSection — ensure SSR-safe
+  [!]  Large component files — consider dynamic imports for below-fold sections
+  ACTION: Run Lighthouse on agentflox.com, target 90+ on all four metrics
+
+MOBILE FIRST (Google ranks based on mobile version):
+  [OK] Responsive grid with mobile-first breakpoints
+  [OK] Mobile navigation menu implemented
+  [OK] overflow-x-hidden on body
+  ACTION: Test all pages at 390px width before publishing
+
+
+SECTION 7 — SITEMAP STRUCTURE (marketing site)
+================================================================================
+
+Add this as apps/marketing/src/app/sitemap.ts:
+
+  Priority 1.0 (changeFrequency: weekly):
+    https://agentflox.com/
+    https://agentflox.com/pricing
+    https://agentflox.com/product/agents
+    https://agentflox.com/product/automation
+    https://agentflox.com/agentflox-ai
+
+  Priority 0.9 (changeFrequency: weekly):
+    https://agentflox.com/product/marketplace
+    https://agentflox.com/product/collaboration
+    https://agentflox.com/product/api
+    https://agentflox.com/product/security
+    https://agentflox.com/product/project-management
+    https://agentflox.com/solutions/enterprise
+    https://agentflox.com/solutions/startups
+
+  Priority 0.8 (changeFrequency: monthly):
+    https://agentflox.com/solutions/sales
+    https://agentflox.com/solutions/marketing
+    https://agentflox.com/solutions/engineering
+    https://agentflox.com/solutions/hr
+    https://agentflox.com/solutions/operations
+    https://agentflox.com/solutions/project-management
+    https://agentflox.com/solutions/agencies
+    https://agentflox.com/solutions/smb
+    https://agentflox.com/solutions/finance
+    https://agentflox.com/solutions/education
+    https://agentflox.com/solutions/construction
+    https://agentflox.com/case-studies
+    https://agentflox.com/about
+
+  Priority 0.7 (changeFrequency: weekly):
+    https://agentflox.com/learn/blog
+    https://agentflox.com/learn/tutorials
+    https://agentflox.com/partners
+    https://agentflox.com/careers
+    https://agentflox.com/contact
+
+  Priority 0.5 (changeFrequency: yearly):
+    https://agentflox.com/legal/privacy
+    https://agentflox.com/legal/terms
+    https://agentflox.com/affiliates
+
+
+SECTION 8 — CONTENT STRATEGY (Rank for 1,000+ Long-Tail Keywords)
+================================================================================
+
+BLOG POSTS TO CREATE (ordered by priority):
+
+  1. "What is an AI Agent? Complete Guide 2026"
+     Target: "what is an ai agent", "ai agent explained"     [~30k/mo]
+
+  2. "Best AI Agent Platforms in 2026: Full Comparison"
+     Target: "best ai agent platform", "top ai agent tools"  [~15k/mo]
+     Include: AgentFlox vs AutoGPT vs LangChain vs CrewAI table
+
+  3. "How to Build Your First AI Agent (No Code)"
+     Target: "how to build an ai agent", "create ai agent"   [~12k/mo]
+
+  4. "Multi-Agent Systems Explained: Swarms, Orchestration & More"
+     Target: "multi-agent system", "ai agent swarm"          [~8k/mo]
+
+  5. "AI Workflow Automation: 20 Use Cases That Save 40+ Hours/Week"
+     Target: "ai workflow automation", "automate workflows"   [~20k/mo]
+
+  6. "AgentFlox vs AutoGPT: Which AI Agent Platform Wins in 2026?"
+     Target: "agentflox vs autogpt", "best autogpt alternative"  [~5k/mo]
+
+  7. "AI Sales Agents: The Complete Guide to Automating Your Pipeline"
+     Target: "ai sales agent", "ai sdr", "automate sales ai" [~10k/mo]
+
+  8. "How to Use MCP Tools to Supercharge Your AI Agents"
+     Target: "mcp tools ai", "model context protocol"        [~6k/mo]
+
+  9. "AI Agent Memory: How RAG and Vector Search Power Smarter Agents"
+     Target: "ai agent memory", "rag ai agent"               [~5k/mo]
+
+  10. "Top 10 AI Workflow Automations Every Business Should Deploy"
+      Target: "ai workflow examples", "workflow automation"   [~8k/mo]
+
+CONTENT PILLAR STRUCTURE:
+  Pillar 1: "AI Agents" (/learn/what-is-ai-agent)
+    -> Cluster: sovereign agents, multi-agent, agent memory, guardrails,
+       agent tools, MCP, human-in-the-loop, agent monitoring
+
+  Pillar 2: "AI Automation" (/learn/ai-workflow-automation)
+    -> Cluster: workflow builder, triggers, conditions, branching,
+       API connections, webhooks, no-code automation
+
+  Pillar 3: "AI Workforce" (/learn/ai-workforce)
+    -> Cluster: digital workforce, AI employees, agent team,
+       AI project management, AI collaboration
+
+  RULE: Every cluster post links back to its pillar page. Pillar pages
+        link to all cluster articles and to the relevant product pages.
+
+
+SECTION 9 — LINK BUILDING STRATEGY (Off-Page SEO)
+================================================================================
+
+HIGH-VALUE LINK SOURCES:
+  1. Product Hunt — launch campaign, aim 500+ upvotes
+  2. Hacker News "Show HN" — drives tech backlinks + community links
+  3. G2, Capterra, Trustpilot — review platform citations + profile links
+  4. GitHub — publish open-source SDKs/integrations, README links to agentflox.com
+  5. Dev.to, Hashnode, Medium — technical tutorials with backlinks
+  6. AI newsletters (The Batch, AI Weekly, Towards Data Science)
+  7. "Top AI Tools" roundup articles — pitch 10+ publications per quarter
+  8. Integration partner pages (Slack, Notion, GitHub) — mutual links
+  9. YouTube tutorials — video links back to product pages
+  10. Podcast appearances (AI/SaaS podcasts) — episode page links
+
+INTERNAL LINK RULES:
+  - Every product page links to /pricing with CTA button
+  - Every solution page links to 2+ relevant product pages
+  - Every blog post links to 2+ product/solution pages
+  - Footer covers all major sections (already done in Footer.tsx)
+  - Navigation covers all key pages (already done in Navigation.tsx)
+  - Use keyword-rich anchor text (e.g., "AI agent builder" not "click here")
+
+
+SECTION 10 — OPEN GRAPH & SOCIAL META
+================================================================================
+
+STANDARD META (add to all page metadata exports):
+  keywords: comma-separated from Section 2 above
+  author: "AgentFlox"
+  robots: "index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1"
+
+OG TAGS NEEDED ON EVERY PAGE:
+  og:title       — page-specific, keyword-rich (NOT generic "AgentFlox")
+  og:description — 155-160 chars with value proposition and CTA
+  og:image       — 1200x630px branded image per major page
+  og:url         — canonical URL of the page
+  og:type        — "website" for top pages, "article" for blog posts
+  og:site_name   — "AgentFlox"
+  og:locale      — "en_US"
+
+TWITTER (partially done, needs upgrade):
+  twitter:card        — "summary_large_image" [DONE]
+  twitter:title       — page-specific (not just "AgentFlox") [NEEDS FIX]
+  twitter:description — page-specific value prop [NEEDS FIX]
+  twitter:image       — 1200x630px per page [NEEDS FIX — currently uses logo.png]
+  twitter:site        — "@agentflox" [ADD]
+  twitter:creator     — "@agentflox" [ADD]
+
+
+SECTION 11 — IMPLEMENTATION PRIORITY
+================================================================================
+
+== WEEK 1 (Critical — affects crawling and indexing) ==
+
+  [1] Update apps/marketing/src/app/layout.tsx:
+      - Title: "AgentFlox – AI Agent Platform | Build & Deploy Autonomous Agents"
+      - Description: 155-char SEO description (see Section 4)
+      - Add keywords meta property
+      - Add SoftwareApplication JSON-LD schema
+      - Add WebSite+SearchAction JSON-LD schema
+      - Add twitter:site and twitter:creator
+      - Fix twitter:image to use 1200x630 image
+
+  [2] Create apps/marketing/src/app/sitemap.ts
+      (all pages from Section 7, with correct priorities)
+
+  [3] Create apps/marketing/src/app/robots.ts
+      (allow marketing pages, disallow /api/, /_next/)
+
+  [4] Fix apps/marketplace/src/app/robots.ts
+      (change vercel.app -> agentflox.com in sitemap and host fields)
+
+  [5] Rename apps/marketplace/src/app/sitemap..ts -> sitemap.ts
+
+  [6] Add metadata exports to:
+      apps/docs/src/app/layout.tsx
+      apps/developer/src/app/layout.tsx
+      apps/community/src/app/layout.tsx
+
+  [7] Add FAQPage JSON-LD to pricing page via a server component layout
+
+  [8] Change hero H1 in HeroSection.tsx to keyword-rich alternative
+
+== MONTH 1 (High priority — drives organic traffic) ==
+
+  [9]  Add per-page metadata to all /product/* pages
+  [10] Add per-page metadata to all /solutions/* pages
+  [11] Add BreadcrumbList JSON-LD to all interior pages
+  [12] Create 1200x630 OG images for homepage, pricing, agents, automation
+  [13] Publish blog posts #1, #2, #3 from Section 8
+  [14] Submit sitemaps to Google Search Console
+
+== QUARTER 1 (Compounds over time) ==
+
+  [15] Build out /case-studies with 3+ real customer stories
+  [16] Create /compare/ pages vs each major competitor
+  [17] Implement pillar + cluster content structure
+  [18] Add AggregateRating schema to homepage and case study pages
+  [19] Add Product schema with review markup to pricing page
+  [20] Set up rank tracking in Ahrefs/SEMrush for all Tier 1 keywords
+
+
+SECTION 12 — KEYWORD-TO-PAGE MATRIX
+================================================================================
+
+  Keyword                               | Page                    | H1  | Title
+  ─────────────────────────────────────────────────────────────────────────────
+  ai agent platform                     | /                       | YES | YES
+  autonomous ai agent                   | /                       | YES | YES
+  ai agent builder                      | /product/agents         | YES | YES
+  multi-agent ai                        | /product/agents         | YES | YES
+  ai workflow automation                | /product/automation     | YES | YES
+  ai agents for business                | /solutions/enterprise   | YES | YES
+  build ai agent                        | /product/agents         | YES | YES
+  ai orchestration platform             | /product/agents         | YES | YES
+  ai agent marketplace                  | /product/marketplace    | YES | YES
+  ai sales agent                        | /solutions/sales        | YES | YES
+  ai marketing automation               | /solutions/marketing    | YES | YES
+  enterprise ai agent                   | /solutions/enterprise   | YES | YES
+  no-code ai agent builder              | /product/agents         | YES | YES
+  ai workflow builder                   | /product/automation     | YES | YES
+  ai agent sdk                          | /product/api            | YES | YES
+  mcp tools api                         | /product/api            | YES | YES
+  secure ai platform                    | /product/security       | YES | YES
+  ai project management                 | /solutions/project-mgmt | YES | YES
+  ai agent pricing                      | /pricing                | YES | YES
+  agentflox                             | all pages               | YES | YES
+
+
+SECTION 13 — KPI TARGETS
+================================================================================
+
+TOOLS TO SET UP:
+  • Google Search Console — verify agentflox.com + all subdomains
+  • Google Analytics 4 (GA4) — track organic sessions + conversions
+  • Ahrefs or SEMrush — keyword rank tracking, competitor analysis
+  • PageSpeed Insights / Lighthouse — Core Web Vitals monitoring
+  • Screaming Frog — crawl errors, broken links, missing meta
+
+30-DAY TARGETS:
+  - All critical pages indexed in Google Search Console
+  - Core Web Vitals: LCP < 2.5s, CLS < 0.1, FID < 100ms on all pages
+  - Rank top 10 for brand query "agentflox"
+  - 3 blog posts published and indexed
+
+90-DAY TARGETS:
+  - Rank top 5 for "agentflox" brand queries
+  - Rank top 20 for "ai agent builder"
+  - Rank top 10 for long-tail: "build autonomous ai agent no code"
+  - 500+ organic sessions/week from non-brand keywords
+
+6-MONTH TARGETS:
+  - Rank top 5 for "ai agent platform"
+  - Rank top 3 for "ai agent builder"
+  - 2,000+ organic sessions/week
+  - Featured snippet for "what is an ai agent"
+
+12-MONTH TARGETS:
+  - Rank #1 for "ai agent platform"
+  - Rank #1 for "autonomous ai agent"
+  - 10,000+ organic sessions/week
+  - Ahrefs Domain Rating (DR) 50+
+  - 1,000+ referring domains
+
+================================================================================
+ END OF AGENTFLOX SEO RANKING STRATEGY
+================================================================================
