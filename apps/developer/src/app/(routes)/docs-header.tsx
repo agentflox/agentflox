@@ -41,7 +41,7 @@ export const DocsHeader = () => {
                 AgentFlox
               </span>
               <span className="text-[10px] font-medium uppercase tracking-[0.2em] text-indigo-400 -mt-1">
-                Documentation
+                Developer
               </span>
             </div>
           </Link>
@@ -106,7 +106,7 @@ export const DocsHeader = () => {
 
           <Link
             href={APP_URL}
-            className="hidden sm:flex items-center gap-2 px-5 py-2.5 bg-indigo-500/10 hover:bg-indigo-500 text-indigo-600 dark:text-indigo-400 hover:text-white border border-indigo-500/20 hover:border-transparent rounded-full text-sm font-semibold transition-all group shadow-sm hover:shadow-indigo-500/25 hover:-translate-y-0.5"
+            className="hidden sm:flex items-center gap-2 px-5 py-2.5 bg-indigo-500/10 hover:bg-indigo-500 text-indigo-600 dark:text-indigo-400 hover:text-white dark:hover:text-white border border-indigo-500/20 hover:border-transparent rounded-full text-sm font-semibold transition-all group shadow-sm hover:shadow-indigo-500/25 hover:-translate-y-0.5"
           >
             Go to Platform
             <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
