@@ -44,16 +44,9 @@ export default function AgentsPage() {
 
             {/* --- HERO SECTION --- */}
             <section className="relative min-h-[90vh] flex flex-col justify-center pt-32 pb-20 lg:pt-40 px-4 overflow-hidden">
-                {/* Background FX */}
-                <PixelBackground />
+                {/* Background FX removed */}
                 <div className="absolute inset-0 bg-gradient-to-b from-[#030303] via-transparent to-[#030303] z-0 pointer-events-none" />
-                <div className="absolute top-0 right-0 w-[60%] h-full bg-teal-600/5 blur-[120px] pointer-events-none -z-10" />
-
-                {/* Premium Enterprise Bottom Glow (Cyan/Orange) */}
-                <div className="absolute bottom-0 left-0 right-0 h-[500px] flex justify-center pointer-events-none z-0 mix-blend-screen">
-                    <div className="w-[45%] max-w-[600px] h-full bg-cyan-500/40 blur-[120px] -translate-x-1/4 rounded-full" />
-                    <div className="w-[45%] max-w-[600px] h-full bg-orange-500/40 blur-[120px] translate-x-1/4 rounded-full" />
-                </div>
+                <div className="absolute inset-0 w-full h-full bg-teal-600/5 blur-[120px] pointer-events-none -z-10" />
 
                 <div className="container mx-auto max-w-7xl relative z-10">
                     <div className="flex flex-col items-center text-center max-w-5xl mx-auto">
@@ -79,7 +72,7 @@ export default function AgentsPage() {
                             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 -z-10 w-[100vw] max-w-[1100px] h-[100vh] max-h-[1100px] pointer-events-none opacity-80 mix-blend-screen flex items-center justify-center">
                                 <div className="absolute inset-0 bg-teal-500/10 blur-[120px] rounded-full" />
                                 <img
-                                    src="/images/agent_face_wireframe.png"
+                                    src="/images/agent_face_wireframe-Photoroom.png"
                                     alt="AI Soul Wireframe"
                                     className="w-full h-full object-contain"
                                     style={{
