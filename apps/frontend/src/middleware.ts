@@ -34,7 +34,16 @@ export async function middleware(request: NextRequest) {
   const isProtectedRoute = pathname === "/" || PROTECTED_ROUTES.filter(route => route !== "/").some(route => pathname.startsWith(route));
   const isAdminRoute = pathname === "/dashboard/admin" || pathname.startsWith("/dashboard/admin/");
 
-  const token = await getToken({ req: request, secret: process.env.AUTH_SECRET, secureCookie: process.env.APP_ENV === 'production' });
+  const IS_PRODUCTION = process.env.APP_ENV === 'production';
+  const SHARED_COOKIE_NAME = IS_PRODUCTION
+    ? '__Secure-agentflox.session-token'
+    : 'agentflox.session-token';
+  const token = await getToken({
+    req: request,
+    secret: process.env.AUTH_SECRET,
+    cookieName: SHARED_COOKIE_NAME,
+    secureCookie: IS_PRODUCTION,
+  });
   const isAuthenticated = !!token;
 
   // Allow public access to invitation acceptance page

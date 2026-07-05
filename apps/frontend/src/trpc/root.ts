@@ -37,7 +37,6 @@ import { compositeToolRouter } from "@/trpc/routers/compositeTool";
 import { templateRouter } from "@/trpc/routers/template";
 import { taskStatusRouter } from "@/trpc/routers/taskStatus";
 import { settingsRouter } from "@/trpc/routers/settings";
-import { communityGroupRouter } from "@/trpc/routers/communityGroup";
 import { adminRouter } from "@/trpc/routers/admin";
 import { editorAssistantRouter } from "@/trpc/routers/editorAssistant";
 import { bugReportRouter } from "@/trpc/routers/bugReport";
@@ -81,7 +80,6 @@ export const appRouter = router({
   template: templateRouter,
   taskStatus: taskStatusRouter,
   settings: settingsRouter,
-  communityGroup: communityGroupRouter,
   admin: adminRouter,
   editorAssistant: editorAssistantRouter,
   bugReport: bugReportRouter,

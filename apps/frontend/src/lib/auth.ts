@@ -8,11 +8,36 @@ import { billingService } from "@/services/billing.service";
 const userCache = new Map<string, { data: any; timestamp: number }>();
 const CACHE_TTL = 5000; // 5 seconds (enough for rapid redirects)
 
+// Shared cookie name used by all Agentflox apps (frontend, community, marketplace, etc.)
+// In production both apps run on *.agentflox.com so setting the domain to .agentflox.com
+// makes the cookie visible to every subdomain — no second login needed.
+const IS_PRODUCTION = process.env.APP_ENV === "production";
+const SHARED_COOKIE_NAME = IS_PRODUCTION
+  ? "__Secure-agentflox.session-token"
+  : "agentflox.session-token";
+
 export const authOptions: NextAuthConfig = {
   ...authConfig,
   secret: process.env.AUTH_SECRET,
   trustHost: true,
-  useSecureCookies: process.env.APP_ENV === "production",
+  useSecureCookies: IS_PRODUCTION,
+
+  // ── Shared cross-subdomain cookie ─────────────────────────────────────────
+  // Both the frontend and community apps read this exact cookie.
+  // Domain is omitted in development (localhost shares cookies by default).
+  cookies: {
+    sessionToken: {
+      name: SHARED_COOKIE_NAME,
+      options: {
+        httpOnly: true,
+        sameSite: "lax" as const,
+        path: "/",
+        secure: IS_PRODUCTION,
+        // In production set to .agentflox.com so every subdomain can read it
+        ...(IS_PRODUCTION ? { domain: ".agentflox.com" } : {}),
+      },
+    },
+  },
 
   events: {
     async createUser({ user }) {

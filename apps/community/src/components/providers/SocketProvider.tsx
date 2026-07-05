@@ -1,0 +1,191 @@
+'use client';
+
+import { createContext, useContext, useEffect, useState, useRef, useCallback } from 'react';
+import { Socket } from 'socket.io-client';
+import { initSocket, disconnectSocket } from '@/lib/socket';
+import { useToast } from '@/hooks/useToast';
+import { useSession } from "next-auth/react";
+
+export type SocketScope = {
+  workspaceId?: string | null;
+  projectId?: string | null;
+  teamId?: string | null;
+  [key: string]: string | null | undefined;
+};
+
+interface SocketContextType {
+  socket: Socket | null;
+  isConnected: boolean;
+  waitForConnection: () => Promise<Socket>;
+  switchScope: (scope: SocketScope) => Promise<void>;
+}
+
+const SocketContext = createContext<SocketContextType>({
+  socket: null,
+  isConnected: false,
+  waitForConnection: async () => {
+    throw new Error('useSocket must be used within SocketProvider');
+  },
+  switchScope: async () => { },
+});
+
+export const useSocket = () => {
+  const context = useContext(SocketContext);
+  if (!context) {
+    throw new Error('useSocket must be used within SocketProvider');
+  }
+  return context;
+};
+
+export function SocketProvider({ children }: { children: React.ReactNode }) {
+  const { data: session, status } = useSession();
+  const [socket, setSocket] = useState<Socket | null>(null);
+  const [isConnected, setIsConnected] = useState(false);
+  const { toast } = useToast();
+  const initializingRef = useRef(false);
+  const toastShownRef = useRef(false);
+  const socketRef = useRef<Socket | null>(null);
+
+  // Store current scope to avoid unnecessary reconnects
+  const currentScopeRef = useRef<SocketScope>({});
+
+  const connectSocket = useCallback(async (scope: SocketScope) => {
+    // Check if scope is identical to current ref
+    const isSameScope =
+      currentScopeRef.current.workspaceId === scope.workspaceId &&
+      currentScopeRef.current.projectId === scope.projectId &&
+      currentScopeRef.current.teamId === scope.teamId;
+
+    if (initializingRef.current && isSameScope) return;
+    if (socket?.connected && isSameScope) return;
+
+    initializingRef.current = true;
+    currentScopeRef.current = scope;
+
+    try {
+      const socketInstance = await initSocket(scope);
+
+      setSocket(socketInstance);
+
+      // Connection handlers
+      const handleConnect = () => {
+        console.log('✅ Socket connected', scope);
+        setIsConnected(true);
+        toastShownRef.current = false;
+      };
+
+      const handleDisconnect = (reason: string) => {
+        console.log('❌ Socket disconnected:', reason);
+        setIsConnected(false);
+      };
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const handleConnectError = (error: any) => {
+        console.error('Socket connection error:', error);
+        if (!toastShownRef.current) {
+          toast({
+            title: 'Connection Error',
+            description: 'Failed to connect to real-time server',
+            variant: 'destructive',
+          });
+          toastShownRef.current = true;
+        }
+      };
+
+      // Remove existing listeners first
+      socketInstance.off('connect', handleConnect);
+      socketInstance.off('disconnect', handleDisconnect);
+      socketInstance.off('connect_error', handleConnectError);
+
+      // Add listeners
+      socketInstance.on('connect', handleConnect);
+      socketInstance.on('disconnect', handleDisconnect);
+      socketInstance.on('connect_error', handleConnectError);
+
+      setIsConnected(socketInstance.connected);
+
+    } catch (error) {
+      console.error('Error initializing socket:', error);
+      toast({
+        title: 'Connection Error',
+        description: 'Failed to initialize connection',
+        variant: 'destructive',
+      });
+      // Reset ref so we can try again
+      currentScopeRef.current = {};
+    } finally {
+      initializingRef.current = false;
+    }
+  }, [socket, toast]);
+
+  const switchScope = useCallback(async (scope: SocketScope) => {
+    const isSameScope =
+      currentScopeRef.current.workspaceId === scope.workspaceId &&
+      currentScopeRef.current.projectId === scope.projectId &&
+      currentScopeRef.current.teamId === scope.teamId;
+
+    if (isSameScope) {
+      return;
+    }
+    console.log('🔄 Switching socket scope:', scope);
+    await connectSocket(scope);
+  }, [connectSocket]);
+
+  const waitForConnection = useCallback(async (): Promise<Socket> => {
+    if (!socketRef.current) {
+      await connectSocket(currentScopeRef.current);
+    }
+
+    const activeSocket = socketRef.current;
+    if (!activeSocket) throw new Error('Socket not initialized');
+    if (activeSocket.connected) return activeSocket;
+
+    if (!activeSocket.active) {
+      activeSocket.connect();
+    }
+
+    return new Promise<Socket>((resolve, reject) => {
+      let lastErrorMessage: string | null = null;
+      const timeoutId = setTimeout(() => {
+        cleanup();
+        reject(new Error(lastErrorMessage ? `Connection timeout: ${lastErrorMessage}` : 'Connection timeout'));
+      }, 15000);
+
+      const handleConnect = () => {
+        cleanup();
+        resolve(activeSocket);
+      };
+
+      const handleError = (error: unknown) => {
+        // Keep waiting for auto-reconnects; do not fail fast on transient websocket errors.
+        lastErrorMessage = error instanceof Error ? error.message : 'Socket connect error';
+      };
+
+      const cleanup = () => {
+        clearTimeout(timeoutId);
+        activeSocket.off('connect', handleConnect);
+        activeSocket.off('connect_error', handleError);
+      };
+
+      activeSocket.once('connect', handleConnect);
+      activeSocket.once('connect_error', handleError);
+    });
+  }, [connectSocket]);
+
+  useEffect(() => {
+    socketRef.current = socket;
+  }, [socket]);
+
+  // Initial connection (global)
+  useEffect(() => {
+    if (status === 'authenticated' && !socket && !initializingRef.current) {
+      connectSocket({});
+    }
+  }, [status, connectSocket, socket]);
+
+  return (
+    <SocketContext.Provider value={{ socket, isConnected, waitForConnection, switchScope }}>
+      {children}
+    </SocketContext.Provider>
+  );
+}
