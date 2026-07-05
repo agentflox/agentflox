@@ -1,11 +1,11 @@
 "use client";
 
 import { FeaturePageLayout } from "@/app/_components/FeaturePageLayout";
-import { Terminal, GitMerge, Bug, Command, ShieldCheck, Zap } from "lucide-react";
+import { Terminal, Bug, Command, ShieldCheck, Zap } from "lucide-react";
 
 export default function EngineeringPage() {
     return (
-        <FeaturePageLayout 
+        <FeaturePageLayout
             swapVisuals={true}
             badge="For Engineering Teams"
             title="Ship Code, Not Overhead"
