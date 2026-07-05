@@ -5,7 +5,7 @@ import { TrendingUp, PhoneCall, Mail, UserCheck, Target, Zap } from "lucide-reac
 
 export default function SalesPage() {
     return (
-        <FeaturePageLayout
+        <FeaturePageLayout swapVisuals={true}
             badge="For Sales Teams"
             title="Close Deals in Your Sleep"
             description="Your AI salesforce never sleeps. Agents research leads, personalize outreach, and book meetings 24/7."
@@ -63,6 +63,7 @@ export default function SalesPage() {
                 { label: "Admin Time", value: "0", subtext: "CRM Updates" }
             ]}
             deepDive={{
+                image: "/images/wireframe_agencies.png",
                 title: "The top 1% Rep, Cloned",
                 description: "Imagine if your best BDR could work 24 hours a day. Agentflox agents follow your best playbooks without fatigue or deviation.",
                 bullets: [
@@ -76,3 +77,4 @@ export default function SalesPage() {
 }
 
 import { Search } from "lucide-react";
+

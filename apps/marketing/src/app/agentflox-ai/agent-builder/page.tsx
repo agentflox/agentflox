@@ -5,7 +5,7 @@ import { Hammer, Puzzle, Zap, Move, GitBranch, Settings } from "lucide-react";
 
 export default function AgentBuilderPage() {
     return (
-        <FeaturePageLayout
+        <FeaturePageLayout swapVisuals={true}
             badge="Agent Builder"
             title="Design Intelligence Visually"
             description="No code required. Build complex, multi-modal agents using our drag-and-drop canvas. Define personality, tools, and permissions in minutes."
@@ -71,3 +71,4 @@ export default function AgentBuilderPage() {
 }
 
 import { Brain as BrainIcon } from "lucide-react";
+

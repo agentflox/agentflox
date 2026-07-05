@@ -5,7 +5,7 @@ import { UserCheck, FileText, CalendarCheck, Users, Search, GraduationCap } from
 
 export default function HRPage() {
     return (
-        <FeaturePageLayout
+        <FeaturePageLayout swapVisuals={true}
             badge="For People Ops"
             title="Human Resources, Supercharged"
             description="Recruit faster, onboard better, and retain top talent. Let AI handle the paperwork so you can focus on the people."
@@ -59,6 +59,7 @@ export default function HRPage() {
                 { label: "Admin Hours", value: "-20/wk", subtext: "Saved per rep" }
             ]}
             deepDive={{
+                image: "/images/wireframe_project_management.png",
                 title: "Build the Culture You Want",
                 description: "HR is often buried in compliance and logs. Agentflox automates the 'boring stuff' so you can build programs that employees love.",
                 bullets: [
@@ -70,3 +71,4 @@ export default function HRPage() {
         />
     );
 }
+

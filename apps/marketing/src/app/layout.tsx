@@ -42,7 +42,7 @@ export default function RootLayout({
 }) {
     return (
         <html lang="en" suppressHydrationWarning>
-            <body className={`${inter.variable} font-sans antialiased bg-[#030303] text-white`}>
+            <body className={`${inter.variable} font-sans antialiased bg-[#030303] text-white overflow-x-hidden`}>
                 <div className="relative h-full">
                     <main id="home-page" className="h-full">
                         <script

@@ -86,21 +86,118 @@ const WorkManagementUI = () => (
     </div>
 );
 
-const AIAgentUI = () => (
-    <div className="w-full h-full relative flex items-center justify-center p-4">
-        <div className="absolute top-4 right-4 px-3 py-1.5 rounded-2xl rounded-tr-none bg-purple-500/20 border border-purple-500/30 text-[10px] text-purple-200 font-medium transform rotate-[5deg] group-hover:rotate-0 group-hover:-translate-y-1 transition-all duration-500 shadow-xl">
-            Processing Context...
+// --- AI Agent flow diagram (matches reference: rounded boxes + circles,
+// glowing teal borders, solid top-row connectors, dotted branch connectors) ---
+const AIAgentUI = () => {
+    const Dot = ({ x, y }: { x: number; y: number }) => (
+        <div
+            className="absolute w-[5px] h-[5px] rounded-full bg-teal-400 shadow-[0_0_4px_rgba(45,212,191,0.9)] -translate-x-1/2 -translate-y-1/2"
+            style={{ left: `${x}%`, top: `${y}%` }}
+        />
+    );
+
+    const Box = ({
+        x,
+        y,
+        label,
+        color = "white",
+        icon = false,
+        big = false,
+    }: {
+        x: number;
+        y: number;
+        label: string;
+        color?: "white" | "orange";
+        icon?: boolean;
+        big?: boolean;
+    }) => (
+        <div
+            className={`absolute -translate-x-1/2 -translate-y-1/2 flex items-center gap-1 rounded-xl border bg-[#0B0B0B] whitespace-nowrap
+                ${big ? "px-3 py-1.5 border-teal-300/80 shadow-[0_0_16px_rgba(45,212,191,0.55)]" : "px-2.5 py-1 border-teal-400/60 shadow-[0_0_8px_rgba(45,212,191,0.3)]"}`}
+            style={{ left: `${x}%`, top: `${y}%` }}
+        >
+            {icon && (
+                <span className="w-3.5 h-3.5 rounded-full border border-teal-300 flex items-center justify-center text-[7px] text-teal-300">
+                    ●
+                </span>
+            )}
+            <span
+                className={`text-[8px] md:text-[9px] font-semibold tracking-wide ${color === "orange" ? "text-orange-400" : "text-white"
+                    }`}
+            >
+                {label}
+            </span>
         </div>
-        <div className="w-[85%] bg-[#1A1A1A] rounded-xl border border-purple-500/20 p-3 shadow-2xl relative z-10 translate-y-3 group-hover:translate-y-0 transition-transform duration-500 flex flex-col gap-3 mt-4">
-            <div className="flex items-center gap-2">
-                <Bot size={16} className="text-purple-400 group-hover:animate-pulse" />
-                <div className="w-20 h-1.5 rounded-full bg-purple-400/60" />
-            </div>
-            <div className="w-full h-1.5 rounded-full bg-white/20" />
-            <div className="w-3/4 h-1.5 rounded-full bg-white/20" />
+    );
+
+    const Circle = ({
+        x,
+        y,
+        label,
+        color = "white",
+    }: {
+        x: number;
+        y: number;
+        label: string;
+        color?: "white" | "orange";
+    }) => (
+        <div
+            className="absolute -translate-x-1/2 -translate-y-1/2 w-11 h-11 md:w-12 md:h-12 rounded-full border border-teal-400/60 bg-[#0B0B0B] shadow-[0_0_10px_rgba(45,212,191,0.35)] flex items-center justify-center text-center px-1"
+            style={{ left: `${x}%`, top: `${y}%` }}
+        >
+            <span className={`text-[7px] md:text-[8px] font-semibold ${color === "orange" ? "text-orange-400" : "text-white"}`}>
+                {label}
+            </span>
         </div>
-    </div>
-);
+    );
+
+    return (
+        <div className="w-full h-full relative p-2">
+            <svg
+                className="absolute inset-0 w-full h-full pointer-events-none"
+                viewBox="0 0 200 100"
+                preserveAspectRatio="none"
+            >
+                {/* Top row — solid connectors */}
+                <path d="M 24,14 H 174" stroke="rgba(45,212,191,0.65)" strokeWidth="1" fill="none" />
+
+                {/* AI Agent -> Memory */}
+                <path d="M 92,20 V 34 H 50 V 46" stroke="rgba(45,212,191,0.55)" strokeDasharray="2 3" strokeWidth="1" fill="none" />
+                {/* AI Agent -> Tools */}
+                <path d="M 100,20 V 46" stroke="rgba(45,212,191,0.55)" strokeDasharray="2 3" strokeWidth="1" fill="none" />
+                {/* AI Agent -> Planner */}
+                <path d="M 108,20 V 34 H 150 V 46" stroke="rgba(45,212,191,0.55)" strokeDasharray="2 3" strokeWidth="1" fill="none" />
+                {/* AI Agent -> Observations (long branch, bypasses Memory column) */}
+                <path d="M 84,20 V 30 H 10 V 82 H 30" stroke="rgba(45,212,191,0.55)" strokeDasharray="2 3" strokeWidth="1" fill="none" />
+                {/* Tools -> Environment */}
+                <path d="M 100,58 V 70 H 150 V 82" stroke="rgba(45,212,191,0.55)" strokeDasharray="2 3" strokeWidth="1" fill="none" />
+                {/* Observations -> Environment */}
+                <path d="M 70,82 H 130" stroke="rgba(45,212,191,0.55)" strokeDasharray="2 3" strokeWidth="1" fill="none" />
+            </svg>
+
+            {/* Dots at dashed line corners (percentages match the 200x100 viewBox above) */}
+            <Dot x={25} y={34} /> {/* AI Agent -> Memory turn */}
+            <Dot x={75} y={34} /> {/* AI Agent -> Planner turn */}
+            <Dot x={5} y={30} />  {/* AI Agent -> Observations turn top */}
+            <Dot x={5} y={82} />  {/* AI Agent -> Observations turn bottom */}
+            <Dot x={75} y={70} /> {/* Tools -> Environment turn */}
+
+            {/* Top row */}
+            <Box x={15} y={14} label="Prompt" color="orange" />
+            <Box x={51} y={14} label="AI Agent" icon big />
+            <Box x={85} y={14} label="Output" color="orange" />
+
+            {/* Middle circles */}
+            <Circle x={25} y={52} label="Memory" color="orange" />
+            <Circle x={50} y={52} label="Tools" />
+            <Circle x={75} y={52} label="Planner" />
+
+            {/* Bottom row */}
+            <Box x={25} y={82} label="Observations" />
+            <Box x={75} y={82} label="Environment" color="orange" />
+        </div>
+    );
+};
 
 const MarketplaceUI = () => (
     <div className="w-full h-full relative flex items-center justify-center">
@@ -155,12 +252,12 @@ const BigCard = ({ title, icon: Icon, hoverColor, posClasses, children, onMouseE
         </div>
         <div className="h-14 shrink-0 w-full flex items-center justify-center gap-2.5 relative z-30 border-t border-white/10 bg-[#080808]/80 backdrop-blur-md rounded-b-3xl">
             <Icon size={16} strokeWidth={2} className="text-gray-400 group-hover:text-white transition-colors duration-500 ease-out" />
-            <h3 className="text-xs md:text-sm font-bold tracking-widest uppercase text-gray-400 group-hover:text-white transition-colors drop-shadow-md">{title}</h3>
+            <h3 className="text-xs md:text-sm font-bold tracking-widest uppercase text-gray-400 group-hover:text-white transition-colors drop-shadow-md text-center">{title}</h3>
         </div>
     </div>
 );
 
-const SmallCard = ({ item, activeHub }: { item: typeof smallFeatures[0], activeHub: string | null }) => {
+const SmallCard = ({ item, activeHub, className = '' }: { item: typeof smallFeatures[0], activeHub: string | null, className?: string }) => {
     const Icon = item.icon;
     const isActive = activeHub === item.hub;
     const isDimmed = activeHub !== null && !isActive;
@@ -200,7 +297,7 @@ const SmallCard = ({ item, activeHub }: { item: typeof smallFeatures[0], activeH
     };
 
     return (
-        <div className={`aspect-square lg:col-span-1 lg:row-span-1 ${item.pos} rounded-2xl border bg-[#050505] flex flex-col items-center justify-center gap-2 relative group overflow-hidden transition-all duration-500 cursor-default p-2 ${getContainerStyles()}`}>
+        <div className={`aspect-square lg:col-span-1 lg:row-span-1 ${item.pos} rounded-2xl border bg-[#050505] flex flex-col items-center justify-center gap-2 relative group overflow-hidden transition-all duration-500 cursor-default p-2 ${getContainerStyles()} ${className}`}>
             <div className="absolute inset-0 bg-gradient-to-br from-white/0 to-white/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
             <Icon size={20} strokeWidth={1.5} className={`relative z-10 transition-colors duration-500 ${getIconColorStyles()}`} />
             <span className={`text-[9px] md:text-[10px] font-semibold tracking-wider uppercase text-center px-1 transition-colors duration-500 ${getTextColorStyles()}`}>
@@ -212,9 +309,12 @@ const SmallCard = ({ item, activeHub }: { item: typeof smallFeatures[0], activeH
 
 export const PlatformFeaturesSection = () => {
     const [activeHub, setActiveHub] = useState<string | null>(null);
+    const [showAll, setShowAll] = useState(false);
+    // On mobile (grid-cols-4), 4 big cards = 1 row, so 20 small cards = 5 more rows = 6 rows total
+    const MOBILE_LIMIT = 20;
 
     return (
-        <section className="relative w-full pt-12 pb-12 bg-[#000000] overflow-hidden border-b border-white/5 flex flex-col justify-center">
+        <section className="relative w-full pt-12 pb-4 lg:pb-12 bg-[#000000] overflow-hidden border-b border-white/5 flex flex-col justify-center">
 
             {/* Text Content */}
             <div className="relative z-20 container mx-auto px-6 lg:px-12 mb-20 shrink-0 max-w-[1400px]">
@@ -260,7 +360,7 @@ export const PlatformFeaturesSection = () => {
             </div>
 
             {/* Dense Bento Grid Layout with Interactive Hover */}
-            <div className="relative z-10 w-full flex-1 flex items-center justify-center pb-8">
+            <div className="relative z-10 w-full flex-1 flex items-center justify-center pb-0 lg:pb-8">
                 <div className="[mask-image:radial-gradient(ellipse_95%_95%_at_50%_50%,#000_20%,transparent_90%)] w-full flex justify-center">
                     <div className="container px-2 sm:px-4 max-w-[1400px]">
                         <div className="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-10 gap-2 lg:gap-3 w-full">
@@ -312,12 +412,27 @@ export const PlatformFeaturesSection = () => {
 
                             {/* THE SURROUNDING SMALL CARDS (Full Perimeter) */}
                             {smallFeatures.map((item, idx) => (
-                                <SmallCard key={idx} item={item} activeHub={activeHub} />
+                                <SmallCard
+                                    key={idx}
+                                    item={item}
+                                    activeHub={activeHub}
+                                    className={!showAll && idx >= MOBILE_LIMIT ? 'hidden lg:flex' : ''}
+                                />
                             ))}
 
                         </div>
                     </div>
                 </div>
+            </div>
+
+            {/* Show More / Less button — mobile only */}
+            <div className="lg:hidden flex justify-center mt-4 pb-2 relative z-20">
+                <button
+                    onClick={() => setShowAll(prev => !prev)}
+                    className="flex items-center gap-2 px-6 py-2.5 rounded-full border border-white/10 bg-[#0A0A0A] text-gray-400 text-sm font-medium hover:bg-white/10 hover:text-white hover:border-white/20 transition-all cursor-pointer"
+                >
+                    {showAll ? 'Show less' : "Show more"}
+                </button>
             </div>
         </section>
     );

@@ -62,6 +62,7 @@ export default function ProjectManagementPage() {
                 { label: "Updates", value: "Auto", subtext: "Real-time sync" }
             ]}
             deepDive={{
+                image: "/images/wireframe_project_management.png",
                 title: "Everything Connected",
                 description: "Your project board shouldn't be an island. Agentflox connects code, design, and conversation into a single source of truth.",
                 bullets: [

@@ -62,6 +62,7 @@ export default function SecurityPage() {
                 { label: "Pen Tests", value: "4x/Yr", subtext: "By top firms" }
             ]}
             deepDive={{
+                image: "/images/wireframe_security.png",
                 title: "Complete Control",
                 description: "Security isn't a toggle; it's a granular permission system. You decide exactly what an agent can see and do.",
                 bullets: [

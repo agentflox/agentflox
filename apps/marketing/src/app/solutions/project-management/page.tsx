@@ -5,7 +5,7 @@ import { LayoutGrid, ListTodo, KanbanSquare, Calendar, PieChart, Users, ArrowUpR
 
 export default function ProjectManagementPage() {
     return (
-        <FeaturePageLayout
+        <FeaturePageLayout swapVisuals={true}
             badge="Project Management"
             title="Automate the Process, Focus on the Product"
             description="Let AI agents handle the busywork of tickets, status updates, and scheduling. Reclaim your time for strategy and team leadership."
@@ -61,6 +61,7 @@ export default function ProjectManagementPage() {
                 { label: "Task Velocity", value: "+40%", subtext: "Throughput" }
             ]}
             deepDive={{
+                image: "/images/wireframe_project_management.png",
                 title: "The Self-Driving Project Board",
                 description: "Agentflox listens to GitHub, Slack, and Figma to keep your project board in sync with reality. No more 'stale ticket' meetings.",
                 bullets: [
@@ -72,3 +73,4 @@ export default function ProjectManagementPage() {
         />
     );
 }
+

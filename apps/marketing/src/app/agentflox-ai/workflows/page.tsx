@@ -5,7 +5,7 @@ import { GitMerge, Workflow, Zap, Code2, Clock, CheckCircle } from "lucide-react
 
 export default function WorkflowsPage() {
     return (
-        <FeaturePageLayout
+        <FeaturePageLayout swapVisuals={true}
             badge="Intelligent Automation"
             title="Workflows That Think"
             description="Go beyond 'If This, Then That'. Build workflows that can reason, loop, and handle exceptions autonomously."
@@ -52,6 +52,7 @@ export default function WorkflowsPage() {
                 { label: "Latency", value: "Real-time", subtext: "Processing" }
             ]}
             deepDive={{
+                image: "/images/wireframe_project_management.png",
                 title: "Orchestration Layer",
                 description: "Manage complex business processes that span multiple departments and software tools.",
                 bullets: [
@@ -63,3 +64,4 @@ export default function WorkflowsPage() {
         />
     );
 }
+

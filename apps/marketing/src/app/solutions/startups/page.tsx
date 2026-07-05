@@ -5,7 +5,7 @@ import { Rocket, Zap, TrendingUp, Users, Target, BarChart } from "lucide-react";
 
 export default function StartupsPage() {
     return (
-        <FeaturePageLayout
+        <FeaturePageLayout swapVisuals={true}
             badge="For Startups"
             title="Move Fast. Break Nothing."
             description="Achieve product-market fit faster with an AI workforce. Scale your engineering and ops without bloating your burn rate."
@@ -54,6 +54,7 @@ export default function StartupsPage() {
                 { label: "Runway", value: "+9mo", subtext: "Extended" }
             ]}
             deepDive={{
+                image: "/images/wireframe_marketplace.png",
                 title: "Scale Like a unicorn, Spend like a Seed",
                 description: "The biggest killer of startups is premature scaling. Agentflox allows you to scale your output elastically without the fixed cost of headcount.",
                 bullets: [
@@ -65,3 +66,4 @@ export default function StartupsPage() {
         />
     );
 }
+

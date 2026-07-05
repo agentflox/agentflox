@@ -15,10 +15,10 @@ export const HeroSection = () => {
     return (
         <section
             ref={containerRef}
-            className="relative min-h-[95vh] w-full flex flex-col justify-center overflow-hidden bg-[#030303] text-white pt-32 pb-16"
+            className="relative min-h-[95vh] w-full flex flex-col justify-center overflow-hidden bg-[#030303] text-white pt-24 lg:pt-32 pb-8 lg:pb-16"
         >
-            <div className="container relative z-10 mx-auto px-6 lg:px-12">
-                <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
+            <div className="container relative z-10 mx-auto px-6 lg:px-12 max-w-[1400px]">
+                <div className="grid lg:grid-cols-2 gap-6 lg:gap-16 items-center">
 
                     {/* Left: copy */}
                     <div className="max-w-2xl">
@@ -68,7 +68,7 @@ export const HeroSection = () => {
                     <div
                         ref={demoRef}
                         className="hero-demo-box relative w-full aspect-square md:aspect-[16/10] rounded-3xl overflow-visible group"
-                        style={{ minHeight: 380, transform: 'translateY(2rem)' }}
+                        style={{ minHeight: 280, transform: 'translateY(2rem)' }}
                     >
                         {/* Wrapper scaled up slightly to make the image wider/larger */}
                         <div className="absolute inset-0 scale-[1.15] md:scale-[1.25]">

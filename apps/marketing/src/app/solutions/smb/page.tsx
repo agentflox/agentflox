@@ -5,7 +5,7 @@ import { Store, TrendingUp, Users, Clock, MessageCircle, BarChart3 } from "lucid
 
 export default function SMBPage() {
     return (
-        <FeaturePageLayout
+        <FeaturePageLayout swapVisuals={true}
             badge="Small & Growing Business"
             title="Enterprise Power, SMB Budget"
             description="Level the playing field. Access the same AI tools used by Fortune 500s to automate customer service, marketing, and operations."
@@ -55,6 +55,7 @@ export default function SMBPage() {
                 { label: "Growth", value: "3x", subtext: "Lead Gen" }
             ]}
             deepDive={{
+                image: "/images/wireframe_agencies.png",
                 title: "Punch Above Your Weight",
                 description: "You don't need a massive team to compete. Agentflox gives you a digital workforce that works 24/7/365 at a fraction of the cost.",
                 bullets: [
@@ -66,3 +67,4 @@ export default function SMBPage() {
         />
     );
 }
+

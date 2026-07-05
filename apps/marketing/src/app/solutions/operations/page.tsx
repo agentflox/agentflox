@@ -5,7 +5,7 @@ import { Workflow, ClipboardList, Gauge, Zap, Cog, Activity } from "lucide-react
 
 export default function OperationsPage() {
     return (
-        <FeaturePageLayout
+        <FeaturePageLayout swapVisuals={true}
             badge="For Operations"
             title="Operational Excellence as Code"
             description="Replace manual SOPs with self-executing workflows. Streamline procurement, facilities, and internal approvals."
@@ -61,6 +61,7 @@ export default function OperationsPage() {
                 { label: "Cost", value: "-30%", subtext: "Operational overhead" }
             ]}
             deepDive={{
+                image: "/images/wireframe_project_management.png",
                 title: "The Invisible Backpack",
                 description: "Ops teams carry the invisible weight of 'keeping the lights on'. Agentflox automates the maintenance so you can build new systems.",
                 bullets: [
@@ -72,3 +73,4 @@ export default function OperationsPage() {
         />
     );
 }
+

@@ -20,7 +20,7 @@ const itemVariants: Variants = {
 
 export const MarketplaceBridge = () => {
     return (
-        <section className="relative w-full pt-24 pb-24 bg-[#020202] overflow-hidden border-t border-white/[0.05]">
+        <section className="relative w-full pt-12 lg:pt-24 pb-12 lg:pb-24 bg-[#020202] overflow-hidden border-t border-white/[0.05]">
             {/* Enterprise Grade Ambient Backgrounds */}
             <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[120%] h-[1px] bg-gradient-to-r from-transparent via-white/10 to-transparent" />
             <div className="absolute -top-[20%] left-1/4 w-[600px] h-[600px] bg-cyan-500/10 rounded-full blur-[150px] pointer-events-none mix-blend-screen" />
@@ -34,7 +34,7 @@ export const MarketplaceBridge = () => {
                     viewport={{ once: true, margin: "-100px" }}
                 >
                     {/* Conceptual Bridge Header */}
-                    <motion.div variants={itemVariants} className="max-w-4xl mb-20">
+                    <motion.div variants={itemVariants} className="max-w-4xl mb-10 lg:mb-20">
                         <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/[0.03] border border-white/[0.08] backdrop-blur-md mb-8 shadow-2xl">
                             <Globe size={14} className="text-cyan-400" />
                             <span className="text-xs font-semibold text-gray-300 tracking-widest uppercase">
@@ -50,7 +50,7 @@ export const MarketplaceBridge = () => {
                     </motion.div>
 
                     {/* Premium Asymmetrical Bento Grid */}
-                    <div className="flex flex-col gap-6 mb-20">
+                    <div className="flex flex-col gap-6 mb-10 lg:mb-20">
 
                         {/* Top: Wide feature card — text on the left, image bleeding on the right of the parent container */}
                         <motion.div

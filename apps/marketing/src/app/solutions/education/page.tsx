@@ -5,7 +5,7 @@ import { GraduationCap, BookOpen, Users, BrainCircuit, FileSearch, Library } fro
 
 export default function EducationPage() {
     return (
-        <FeaturePageLayout
+        <FeaturePageLayout swapVisuals={true}
             badge="For Education"
             title="Personalized Learning at Scale"
             description="Give every student a dedicated 1:1 tutor. Empower educators with AI teaching assistants that handle grading and lesson planning."
@@ -65,6 +65,7 @@ export default function EducationPage() {
                 { label: "Engagement", value: "90%", subtext: "Student retention" }
             ]}
             deepDive={{
+                image: "/images/wireframe_marketplace.png",
                 title: "No Student Left Behind",
                 description: "In a classroom of 30, it's impossible to track everyone. AI provides the granular attention needed to catch learning gaps early.",
                 bullets: [
@@ -76,3 +77,4 @@ export default function EducationPage() {
         />
     );
 }
+

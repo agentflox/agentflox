@@ -72,7 +72,7 @@ export const CTASection = () => {
     }, []);
 
     return (
-        <section ref={sectionRef} className="relative py-24 overflow-hidden bg-[#030303]">
+        <section ref={sectionRef} className="relative py-10 lg:py-24 overflow-hidden bg-[#030303]">
 
             {/* Background Elements */}
             <div className="absolute inset-0 bg-[#030303]" />
@@ -86,7 +86,7 @@ export const CTASection = () => {
                         <div ref={blobRef} className="absolute -top-[400px] -left-[400px] w-[800px] h-[800px] rounded-full bg-indigo-500/10 blur-[100px] pointer-events-none transition-transform duration-300 ease-out z-0" />
                         <div className="absolute bottom-0 right-0 w-[600px] h-[600px] rounded-full bg-blue-500/5 blur-[100px] pointer-events-none z-0" />
 
-                        <div className="relative z-10 flex flex-col items-center justify-center text-center py-16 px-4 min-h-[500px]">
+                        <div className="relative z-10 flex flex-col items-center justify-center text-center py-8 lg:py-16 px-4 min-h-[500px]">
                             {/* Ambient glow in center */}
                             <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[600px] h-[400px] rounded-full bg-indigo-600/15 blur-[100px] pointer-events-none z-0" />
                             <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[300px] h-[200px] rounded-full bg-purple-500/10 blur-[50px] pointer-events-none z-0" />

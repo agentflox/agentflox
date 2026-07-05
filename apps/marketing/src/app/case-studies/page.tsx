@@ -7,25 +7,26 @@ import { AnimatedBackground } from '@/components/layout/AnimatedBackground';
 
 const CaseStudyCard = ({ company, title, description, metrics, icon: Icon, colorClass, delay }: any) => (
     <div 
-        className="group relative bg-[#0A0A0A] border border-white/10 rounded-3xl overflow-hidden hover:border-indigo-500/30 transition-all duration-500 flex flex-col h-full animate-fade-in"
+        className="group relative bg-[#050505] border border-white/5 rounded-[2rem] overflow-hidden hover:border-teal-500/30 transition-all duration-500 flex flex-col h-full animate-fade-in hover:-translate-y-2 hover:shadow-[0_0_40px_rgba(20,184,166,0.1)]"
         style={{ animationDelay: `${delay}s`, animationFillMode: 'both' }}
     >
         {/* Card Header Pattern */}
-        <div className={`h-32 relative overflow-hidden bg-gradient-to-br ${colorClass} opacity-20 group-hover:opacity-30 transition-opacity`}>
-            <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] mix-blend-overlay opacity-50" />
+        <div className={`h-40 relative overflow-hidden bg-gradient-to-br ${colorClass} opacity-10 group-hover:opacity-20 transition-opacity duration-700`}>
+            <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] mix-blend-overlay opacity-30" />
+            <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-[#050505] to-transparent" />
         </div>
         
-        <div className="p-8 flex-1 flex flex-col relative z-10 -mt-12">
-            <div className="w-16 h-16 rounded-2xl bg-black border border-white/10 flex items-center justify-center mb-6 shadow-xl text-white">
-                <Icon size={24} />
+        <div className="p-8 flex-1 flex flex-col relative z-10 -mt-16">
+            <div className="w-16 h-16 rounded-2xl bg-[#0A0A0A] border border-white/10 flex items-center justify-center mb-8 shadow-xl text-white group-hover:border-teal-500/30 group-hover:shadow-[0_0_20px_rgba(20,184,166,0.2)] transition-all duration-500">
+                <Icon size={24} className="drop-shadow-[0_0_8px_currentColor]" />
             </div>
             
-            <div className="flex items-center gap-2 mb-4 text-gray-400 font-mono text-xs uppercase tracking-widest">
+            <div className="flex items-center gap-2 mb-4 text-gray-500 font-mono text-xs uppercase tracking-widest font-semibold group-hover:text-teal-500 transition-colors">
                 <Building2 size={14} />
                 {company}
             </div>
             
-            <h3 className="text-2xl font-bold text-white mb-4 group-hover:text-indigo-300 transition-colors">
+            <h3 className="text-2xl font-semibold text-white mb-4 group-hover:text-teal-100 transition-colors tracking-tight leading-snug">
                 {title}
             </h3>
             
@@ -36,15 +37,15 @@ const CaseStudyCard = ({ company, title, description, metrics, icon: Icon, color
             {/* Metrics Grid */}
             <div className="grid grid-cols-2 gap-4 mb-8">
                 {metrics.map((metric: any, i: number) => (
-                    <div key={i} className="bg-white/5 border border-white/5 rounded-xl p-4">
-                        <div className="text-2xl font-bold text-white mb-1">{metric.value}</div>
-                        <div className="text-xs text-gray-500 uppercase">{metric.label}</div>
+                    <div key={i} className="bg-white/[0.02] border border-white/5 rounded-xl p-4 group-hover:bg-teal-500/[0.02] transition-colors duration-500">
+                        <div className="text-2xl font-medium text-white mb-1 tracking-tighter">{metric.value}</div>
+                        <div className="text-[11px] text-gray-500 uppercase tracking-widest">{metric.label}</div>
                     </div>
                 ))}
             </div>
             
-            <Link href={`/case-studies/${company.toLowerCase().replace(' ', '-')}`} className="inline-flex items-center gap-2 text-white font-medium hover:text-indigo-400 transition-colors">
-                Read full study <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
+            <Link href={`/case-studies/${company.toLowerCase().replace(' ', '-')}`} className="inline-flex items-center gap-2 text-teal-400 font-medium hover:text-teal-300 transition-colors group/link text-sm">
+                Read full study <ArrowRight size={16} className="group-hover/link:translate-x-1 transition-transform" />
             </Link>
         </div>
     </div>
@@ -57,7 +58,7 @@ export default function CaseStudiesPage() {
             title: "Shipping 3x faster with autonomous QA agents.",
             description: "How a leading e-commerce platform reduced their deployment cycle from 3 days to 45 minutes by implementing Agentflox's automated QA swarm.",
             icon: Zap,
-            colorClass: "from-indigo-500 to-blue-600",
+            colorClass: "from-teal-500 to-cyan-600",
             metrics: [
                 { value: "95%", label: "Faster Deploys" },
                 { value: "0", label: "P0 Bugs Escaped" }
@@ -69,7 +70,7 @@ export default function CaseStudiesPage() {
             title: "Scaling project capacity without scaling headcount.",
             description: "Nebula Systems utilized automated workflows and AI project managers to increase their active project load from 5 to 50, all with the same core team.",
             icon: TrendingUp,
-            colorClass: "from-purple-500 to-pink-600",
+            colorClass: "from-orange-500 to-amber-600",
             metrics: [
                 { value: "10x", label: "Project Throughput" },
                 { value: "$2M+", label: "Saved in Ops Costs" }
@@ -91,30 +92,32 @@ export default function CaseStudiesPage() {
     ];
 
     return (
-        <div className="relative min-h-screen bg-[#030303] text-white overflow-hidden">
+        <div className="relative min-h-screen bg-[#030303] text-white overflow-hidden selection:bg-teal-500/30">
             <AnimatedBackground />
             <Navigation />
             
-            <main className="pt-32 pb-24 relative z-10">
+            <main className="pt-40 pb-24 relative z-10">
+                <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[80%] max-w-4xl h-[500px] bg-teal-600/10 blur-[150px] rounded-full pointer-events-none -z-10" />
+
                 {/* Header */}
-                <div className="container mx-auto px-6 lg:px-12 text-center mb-24 max-w-4xl">
-                    <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/5 border border-white/10 rounded-full text-[10px] font-medium uppercase tracking-wider text-indigo-400 mb-6 backdrop-blur-sm animate-fade-in">
+                <div className="container mx-auto px-6 lg:px-12 text-center mb-24 max-w-4xl relative">
+                    <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-white/5 border border-white/10 rounded-full text-[10px] font-semibold uppercase tracking-widest text-teal-400 mb-8 backdrop-blur-md shadow-[0_0_20px_rgba(20,184,166,0.1)] animate-fade-in">
                         Customer Success
                     </div>
-                    <h1 className="text-5xl md:text-7xl font-bold tracking-tighter mb-8 animate-fade-in" style={{ animationDelay: '0.1s', animationFillMode: 'both' }}>
+                    <h1 className="text-5xl md:text-7xl lg:text-8xl font-medium tracking-tighter mb-8 animate-fade-in leading-[1.05]" style={{ animationDelay: '0.1s', animationFillMode: 'both' }}>
                         How the best teams <br />
-                        <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-400">
+                        <span className="text-transparent bg-clip-text bg-gradient-to-r from-teal-400 via-cyan-400 to-emerald-400 drop-shadow-2xl">
                             build with AI.
                         </span>
                     </h1>
-                    <p className="text-xl text-gray-400 font-light leading-relaxed animate-fade-in" style={{ animationDelay: '0.2s', animationFillMode: 'both' }}>
+                    <p className="text-lg md:text-xl text-gray-400 font-light leading-relaxed animate-fade-in max-w-3xl mx-auto" style={{ animationDelay: '0.2s', animationFillMode: 'both' }}>
                         Explore how forward-thinking companies are using Agentflox to automate workflows, manage complex projects, and deploy autonomous intelligence at scale.
                     </p>
                 </div>
 
                 {/* Grid */}
-                <div className="container mx-auto px-6 lg:px-12">
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <div className="container mx-auto px-6 lg:px-12 relative z-10">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                         {studies.map((study, idx) => (
                             <CaseStudyCard key={idx} {...study} />
                         ))}
@@ -129,3 +132,4 @@ export default function CaseStudiesPage() {
         </div>
     );
 }
+

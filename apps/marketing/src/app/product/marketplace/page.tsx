@@ -55,6 +55,7 @@ export default function MarketplacePage() {
                 { label: "Revenue", value: "$4M+", subtext: "Paid to creators" }
             ]}
             deepDive={{
+                image: "/images/wireframe_marketplace.png",
                 title: "Accelerate Your Roadmap",
                 description: "The marketplace allows you to outsource complex, non-core functions to AI specialized by experts. Focus on your USP.",
                 bullets: [

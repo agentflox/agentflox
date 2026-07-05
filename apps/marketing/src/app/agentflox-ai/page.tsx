@@ -5,7 +5,7 @@ import { Bot, Sparkles, Brain, Zap, Globe, Cpu } from "lucide-react";
 
 export default function AgentfloxAIPage() {
     return (
-        <FeaturePageLayout
+        <FeaturePageLayout swapVisuals={true}
             badge="Agentflox AI Platform"
             title="The Future of Work is Autonomous"
             description="Experience the world's most advanced autonomous agent platform. Beyond simple chatbots—build digital workers that think, plan, and execute."
@@ -55,6 +55,7 @@ export default function AgentfloxAIPage() {
                 { label: "Uptime", value: "99.99%", subtext: "Enterprise SLA" }
             ]}
             deepDive={{
+                image: "/images/wireframe_collaboration.png",
                 title: "Why Autonomous Agents?",
                 description: "Traditional automation is brittle. If a button moves, the script breaks. Agentflox Agents use vision and reasoning to adapt to changes automatically.",
                 bullets: [
@@ -66,3 +67,4 @@ export default function AgentfloxAIPage() {
         />
     );
 }
+

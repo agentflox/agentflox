@@ -5,7 +5,7 @@ import { Megaphone, BarChart, PenTool, Mail, Target, Layers } from "lucide-react
 
 export default function MarketingPage() {
     return (
-        <FeaturePageLayout
+        <FeaturePageLayout swapVisuals={true}
             badge="For Marketing Teams"
             title="The Infinite Creative Studio"
             description="Scale your content engine without scaling your headcount. AI agents research, write, design, and optimize campaigns 24/7."
@@ -58,6 +58,7 @@ export default function MarketingPage() {
                 { label: "Ranking Keys", value: "+200%", subtext: "SEO Growth" }
             ]}
             deepDive={{
+                image: "/images/wireframe_agencies.png",
                 title: "Personalization at Scale",
                 description: "The era of 'spray and pray' is over. Agentflox agents create unique, 1:1 messaging for every segment of your audience.",
                 bullets: [
@@ -69,3 +70,4 @@ export default function MarketingPage() {
         />
     );
 }
+

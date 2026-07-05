@@ -106,12 +106,12 @@ export const TestimonialsSection = () => {
     };
 
     return (
-        <section className="relative w-full py-20 bg-[#030303] overflow-hidden border-b border-white/5">
+        <section className="relative w-full py-10 lg:py-20 bg-[#030303] overflow-hidden border-b border-white/5">
             <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-5xl h-[1px] bg-gradient-to-r from-transparent via-white/20 to-transparent"></div>
 
             <div className="container mx-auto px-4 sm:px-10 lg:px-20 relative z-10">
                 {/* Header */}
-                <div className="mb-16 flex flex-col md:flex-row md:items-end justify-between gap-6">
+                <div className="mb-8 lg:mb-16 flex flex-col md:flex-row md:items-end justify-between gap-6">
                     <div className="max-w-4xl">
                         <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 mb-6">
                             <Heart size={14} className="text-pink-400 fill-pink-400/20" />
@@ -157,7 +157,7 @@ export const TestimonialsSection = () => {
                 </div>
 
                 {/* Featured Big Quote */}
-                <div className="mb-24 w-full bg-[#030303] rounded-3xl overflow-hidden flex flex-col md:flex-row shadow-2xl relative z-10 border border-white/10 group">
+                <div className="mb-12 lg:mb-24 w-full bg-[#030303] rounded-3xl overflow-hidden flex flex-col md:flex-row shadow-2xl relative z-10 border border-white/10 group">
                     {/* Grid Pattern Background */}
                     <div
                         className="absolute inset-0 z-0 pointer-events-none opacity-40 group-hover:opacity-70 transition-opacity duration-700"
@@ -210,7 +210,7 @@ export const TestimonialsSection = () => {
                 </div>
 
                 {/* Grid Carousel */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-8 overflow-hidden mb-12">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-8 overflow-hidden mb-6 lg:mb-12">
                     {testimonials.slice(currentIndex, currentIndex + 3).map((t, i) => (
                         <div key={i + currentIndex} className="h-full animate-in fade-in slide-in-from-right-8 duration-500">
                             <TestimonialCard {...t} index={i + currentIndex} />

@@ -5,7 +5,7 @@ import { Copy, Briefcase, LayoutGrid, Users, CheckSquare, Zap, Layers } from "lu
 
 export default function AgenciesPage() {
     return (
-        <FeaturePageLayout
+        <FeaturePageLayout swapVisuals={true}
             badge="For Agencies"
             title="Scale Client Operations"
             description="Manage more clients with less chaos. Automate detailed reporting, asset generation, and communication flows for every account."
@@ -48,6 +48,7 @@ export default function AgenciesPage() {
                 { label: "Retention", value: "95%", subtext: "Client satisfaction" }
             ]}
             deepDive={{
+                image: "/images/wireframe_agencies.png",
                 title: "The Profitable Agency Model",
                 description: "Move from selling hours to selling outcomes. Use AI to deliver results faster, increasing your effective hourly rate.",
                 bullets: [
@@ -59,3 +60,4 @@ export default function AgenciesPage() {
         />
     );
 }
+

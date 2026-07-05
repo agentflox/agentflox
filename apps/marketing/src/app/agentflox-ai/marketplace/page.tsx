@@ -5,7 +5,7 @@ import { ShoppingBag, Star, Download, Search, Tag, BadgeCheck } from "lucide-rea
 
 export default function AgentfloxMarketplacePage() {
     return (
-        <FeaturePageLayout
+        <FeaturePageLayout swapVisuals={true}
             badge="Global Ecosystem"
             title="The App Store for Intelligence"
             description="Accelerate your roadmap. Browse thousands of pre-built agents, workflows, and skills created by the community and vetted experts."
@@ -70,6 +70,7 @@ export default function AgentfloxMarketplacePage() {
                 { label: "Revenue", value: "$4M+", subtext: "Paid to creators" }
             ]}
             deepDive={{
+                image: "/images/wireframe_marketplace.png",
                 title: "Build Once, Sell Everywhere",
                 description: "The Agentflox Marketplace is the distribution channel for the AI era. Reach millions of enterprise users.",
                 bullets: [
@@ -81,3 +82,4 @@ export default function AgentfloxMarketplacePage() {
         />
     );
 }
+

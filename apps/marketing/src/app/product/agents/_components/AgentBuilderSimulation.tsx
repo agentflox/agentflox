@@ -263,7 +263,7 @@ export function AgentBuilderSimulation({ dark = false }: { dark?: boolean }) {
     return (
         <div className={`w-full h-[600px] rounded-2xl border shadow-2xl overflow-hidden flex flex-col md:flex-row ${dark ? 'bg-[#0A0A0A] border-white/10' : 'bg-white border-gray-200'}`}>
             {/* Chat Area */}
-            <div className="flex-1 flex flex-col min-w-0 max-w-[55%]">
+            <div className="flex-1 flex flex-col min-w-0 max-w-full md:max-w-[55%]">
                 {/* Header */}
                 <div className={`h-14 border-b flex items-center px-6 ${dark ? 'border-white/10 bg-[#111]' : 'border-gray-100 bg-gray-50'}`}>
                     <div className="w-3 h-3 rounded-full bg-red-400 border border-red-500/50 mr-2" />
@@ -360,7 +360,7 @@ export function AgentBuilderSimulation({ dark = false }: { dark?: boolean }) {
             </div>
 
             {/* Sidebar (Agent Profile / Preview Switch) */}
-            <div className={`flex-1 border-l p-6 flex flex-col gap-6 transform transition-all duration-500 relative overflow-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${dark ? 'bg-[#111] border-white/10' : 'bg-[#f8fafc] border-gray-200'}`}>
+            <div className={`hidden md:flex flex-1 border-l p-6 flex-col gap-6 transform transition-all duration-500 relative overflow-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${dark ? 'bg-[#111] border-white/10' : 'bg-[#f8fafc] border-gray-200'}`}>
                 <AnimatePresence mode="wait">
                     {agentState.status !== "active" ? (
                         <motion.div

@@ -5,7 +5,7 @@ import { HardHat, ClipboardList, Map, Hammer, Truck, ShieldCheck } from "lucide-
 
 export default function ConstructionPage() {
     return (
-        <FeaturePageLayout
+        <FeaturePageLayout swapVisuals={true}
             badge="For Architecture & Construction"
             title="Build Smarter, Build Safer"
             description="Bring digital intelligence to the job site. Automate safety compliance, material tracking, and project scheduling."
@@ -52,6 +52,7 @@ export default function ConstructionPage() {
                 { label: "Rework Cost", value: "-15%", subtext: "Error detection" }
             ]}
             deepDive={{
+                image: "/images/wireframe_integrations.png",
                 title: "The Connected Job Site",
                 description: "Construction projects die by a thousand cuts. Agentflox connects the field to the office, ensuring everyone is building off the latest plans.",
                 bullets: [
@@ -63,3 +64,4 @@ export default function ConstructionPage() {
         />
     );
 }
+

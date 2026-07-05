@@ -135,7 +135,7 @@ export const MarketplaceBrowser = () => {
     }
 
     return (
-        <section id="marketplace" className="relative py-24 px-4 sm:px-6 lg:px-8 overflow-hidden bg-[#030303]">
+        <section id="marketplace" className="relative py-10 lg:py-24 px-4 sm:px-6 lg:px-8 overflow-hidden bg-[#030303]">
             <div className="max-w-7xl mx-auto relative z-10">
                 <div className="max-w-5xl mx-auto mb-12 text-center flex flex-col items-center">
                     <h2 className="text-3xl md:text-4xl lg:text-[42px] leading-[1.25] tracking-tight bg-clip-text text-transparent bg-gradient-to-b from-[#8A8F98] to-[#8A8F98]/70 font-medium mb-8">
@@ -166,7 +166,7 @@ export const MarketplaceBrowser = () => {
                 </div>
 
                 {/* Main Visual Container */}
-                <div className="w-full relative min-h-[780px] rounded-3xl overflow-hidden mt-6 bg-[#050505] border border-white/5 shadow-[0_0_60px_rgba(255,255,255,0.01)] flex flex-col">
+                <div className="w-full relative min-h-[500px] lg:min-h-[780px] rounded-3xl overflow-hidden mt-6 bg-[#050505] border border-white/5 shadow-[0_0_60px_rgba(255,255,255,0.01)] flex flex-col">
 
                     {/* INTEGRATED ECOSYSTEM FILTER BAR — Anchored at top of browser to reconcile the split */}
                     <div className="w-full border-b border-white/5 bg-[#0A0A0A]/60 backdrop-blur-md px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-4 z-30 relative">
@@ -204,7 +204,7 @@ export const MarketplaceBrowser = () => {
                     </div>
 
                     {/* NETWORK GRAPH LAYOUT CONTAINER */}
-                    <div className="flex-1 w-full relative min-h-[650px]">
+                    <div className="flex-1 w-full relative min-h-[400px] lg:min-h-[650px]">
                         <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(21,29,43,0.35)_0%,rgba(5,5,5,1)_100%)]" />
 
                         {/* Earth Globe Wireframe */}

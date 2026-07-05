@@ -43,6 +43,7 @@ export default function IntegrationsPage() {
                 { label: "Requests", value: "50M+", subtext: "API calls daily" }
             ]}
             deepDive={{
+                image: "/images/wireframe_integrations.png",
                 title: "Safe & Controlled Access",
                 description: "You never have to give an agent 'God Mode'. Define precise scopes and permissions for every tool.",
                 bullets: [

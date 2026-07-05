@@ -5,7 +5,7 @@ import { Building2, Lock, FileCheck, Globe2, Server, Key, ShieldAlert, Fingerpri
 
 export default function EnterprisePage() {
     return (
-        <FeaturePageLayout
+        <FeaturePageLayout swapVisuals={true}
             badge="Agentflox Enterprise"
             title="Scale AI with Military-Grade Security"
             description="The power of autonomous agents meets the rigor of enterprise compliance. Deploy with confidence using our private cloud, RBAC, and audit infrastructure."
@@ -48,6 +48,7 @@ export default function EnterprisePage() {
                 { label: "Retention", value: "7 Yrs", subtext: "Audit Log Storage" }
             ]}
             deepDive={{
+                image: "/images/wireframe_security.png",
                 title: "Zero-Trust Architecture",
                 description: "We assume threats exist both inside and outside the network. Every agent interaction is authenticated, authorized, and encrypted.",
                 bullets: [
@@ -59,3 +60,4 @@ export default function EnterprisePage() {
         />
     );
 }
+

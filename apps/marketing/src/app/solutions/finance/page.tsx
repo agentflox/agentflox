@@ -5,7 +5,7 @@ import { Building2, Scale, SearchCheck, FileText, AlertTriangle, PieChart } from
 
 export default function FinancePage() {
     return (
-        <FeaturePageLayout
+        <FeaturePageLayout swapVisuals={true}
             badge="For Financial Services"
             title="Algorithmic Accuracy"
             description="Process loans, audit transactions, and analyze markets with zero human error. Bank-grade security meets autonomous speed."
@@ -66,6 +66,7 @@ export default function FinancePage() {
                 { label: "Audit Time", value: "Hrs", subtext: "Down from Weeks" }
             ]}
             deepDive={{
+                image: "/images/wireframe_security.png",
                 title: "Compliance Built-In",
                 description: "Financial regulations change constantly. Agentflox agents are updated in real-time to ensure every action adheres to KYC, AML, and GDPR rules.",
                 bullets: [
@@ -77,3 +78,4 @@ export default function FinancePage() {
         />
     );
 }
+

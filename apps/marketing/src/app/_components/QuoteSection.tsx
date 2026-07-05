@@ -49,7 +49,7 @@ export const QuoteSection = () => {
     return (
         <section
             ref={sectionRef}
-            className="min-h-screen w-full flex items-center justify-center bg-[#050505] border-t border-white/5 relative z-30 pt-[100px] pb-[60px]"
+            className="min-h-[50vh] lg:min-h-screen w-full flex items-center justify-center bg-[#050505] border-t border-white/5 relative z-30 pt-20 lg:pt-[100px] pb-10 lg:pb-[60px]"
         >
             <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-[0.03] pointer-events-none" />
             <div className="max-w-5xl relative px-8 w-full flex flex-col items-center justify-center z-10">

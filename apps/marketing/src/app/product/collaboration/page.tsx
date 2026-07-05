@@ -51,6 +51,7 @@ export default function CollaborationPage() {
                 { label: "Channels", value: "∞", subtext: "Unlimited threads" }
             ]}
             deepDive={{
+                image: "/images/wireframe_collaboration.png",
                 title: "A New Way to Work",
                 description: "Stop context switching between your IDE, Slack, and Jira. Bring the work to where the conversation is happening.",
                 bullets: [

@@ -5,7 +5,7 @@ import { Lightbulb, Target, MessageSquare, Map, Users, LineChart } from "lucide-
 
 export default function ProductManagementPage() {
     return (
-        <FeaturePageLayout
+        <FeaturePageLayout swapVisuals={true}
             badge="For Product Teams"
             title="Turn Feedback into Features"
             description="Synthesize user needs, prioritize your roadmap, and write specs 10x faster. Let AI handle the discovery grunt work."
@@ -61,6 +61,7 @@ export default function ProductManagementPage() {
                 { label: "Features Shipped", value: "+25%", subtext: "Quarterly" }
             ]}
             deepDive={{
+                image: "/images/wireframe_project_management.png",
                 title: "Build the Right Thing",
                 description: "Stop guessing what to build next. Agentflox gives you a data-backed confidence score for every item on your backlog.",
                 bullets: [
@@ -72,3 +73,4 @@ export default function ProductManagementPage() {
         />
     );
 }
+

@@ -176,13 +176,15 @@ const RealAppDemo = () => {
                             <Settings size={16} />
                         </div>
                         <div className="w-px h-4 bg-gray-200" />
-                        <div className="flex items-center gap-2 text-sm font-medium">
-                            <span className="text-gray-500 hover:text-gray-900 cursor-pointer transition-colors flex items-center gap-2">
-                                <Layout size={14} /> Agentflox Workspace
+                        <div className="flex items-center gap-2 text-sm font-medium min-w-0">
+                            <span className="text-gray-500 hover:text-gray-900 cursor-pointer transition-colors flex items-center gap-1.5 min-w-0">
+                                <Layout size={14} className="shrink-0" />
+                                <span className="truncate max-w-[80px] sm:max-w-[130px]">Agentflox Workspace</span>
                             </span>
-                            <span className="text-gray-300">/</span>
-                            <span className="font-semibold text-gray-900 flex items-center gap-2">
-                                <FolderKanban size={14} className="text-indigo-600" /> Q4 Product Launch
+                            <span className="text-gray-300 shrink-0">/</span>
+                            <span className="font-semibold text-gray-900 flex items-center gap-1.5 min-w-0">
+                                <FolderKanban size={14} className="text-indigo-600 shrink-0" />
+                                <span className="truncate max-w-[80px] sm:max-w-[130px]">Q4 Product Launch</span>
                             </span>
                         </div>
                     </div>
@@ -313,7 +315,7 @@ const RealAppDemo = () => {
 
 export const ProjectManagementSection = () => {
     return (
-        <section className="relative w-full pt-12 pb-24 bg-[#050505] overflow-hidden border-b border-white/5">
+        <section className="relative w-full pt-8 pb-8 lg:pb-20 bg-[#050505] overflow-hidden border-b border-white/5">
             {/* Top Gradient Divider */}
             <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-5xl h-[1px] bg-gradient-to-r from-transparent via-white/20 to-transparent" />
 
@@ -368,9 +370,9 @@ export const ProjectManagementSection = () => {
                 </div>
 
                 {/* Feature Cards Below Demo */}
-                <div className="mt-16 grid grid-cols-1 md:grid-cols-3 relative z-20">
+                <div className="mt-8 md:mt-16 grid grid-cols-1 md:grid-cols-3 relative z-20">
                     {/* Column 1 */}
-                    <div className="flex flex-col items-center text-center px-8 border-b md:border-b-0 md:border-r border-white/10 pb-12 md:pb-8">
+                    <div className="flex flex-col items-center text-center px-8 border-b md:border-b-0 md:border-r border-white/10 pt-8 pb-8 md:pt-0">
                         {/* Graphic */}
                         <div className="h-48 mb-4 flex items-center justify-center w-full relative">
                             {/* Concentric rings */}
@@ -401,7 +403,7 @@ export const ProjectManagementSection = () => {
                     </div>
 
                     {/* Column 2 */}
-                    <div className="flex flex-col items-center text-center px-8 border-b md:border-b-0 md:border-r border-white/10 py-12 md:pb-8 md:pt-0">
+                    <div className="flex flex-col items-center text-center px-8 border-b md:border-b-0 md:border-r border-white/10 py-8 md:pb-8 md:pt-0">
                         <div className="h-48 mb-4 flex items-center justify-center w-full">
                             <div className="relative">
                                 {/* Left fade */}
@@ -425,7 +427,7 @@ export const ProjectManagementSection = () => {
                     </div>
 
                     {/* Column 3 */}
-                    <div className="flex flex-col items-center text-center px-8 pt-12 md:pt-0 md:pb-8">
+                    <div className="flex flex-col items-center text-center px-8 py-8 md:pt-0 md:pb-8">
                         <div className="h-48 mb-4 flex items-center justify-center w-full relative">
                             {/* Stacked AI avatars */}
                             <div className="flex items-center justify-center relative w-full h-full">

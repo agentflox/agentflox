@@ -5,7 +5,7 @@ import { Terminal, GitMerge, Bug, Command, ShieldCheck, Zap } from "lucide-react
 
 export default function EngineeringPage() {
     return (
-        <FeaturePageLayout
+        <FeaturePageLayout swapVisuals={true}
             badge="For Engineering Teams"
             title="Ship Code, Not Overhead"
             description="Eliminate the friction in your SDLC. AI agents handle code reviews, write comprehensive tests, and manage your CI/CD pipeline."
@@ -13,16 +13,16 @@ export default function EngineeringPage() {
                 <div className="w-full h-full bg-[#0d1117] p-4 text-xs font-mono text-gray-400 overflow-hidden flex flex-col">
                     <div className="border-b border-gray-800 pb-2 mb-2 flex items-center gap-2">
                         <Terminal size={12} />
-                        <span>agent-ops — zsh</span>
+                        <span>agent-ops  Ezsh</span>
                     </div>
-                    <div><span className="text-green-400">➜</span> <span className="text-blue-400">~</span> git push origin feature/auth-v2</div>
+                    <div><span className="text-green-400">➁E/span> <span className="text-blue-400">~</span> git push origin feature/auth-v2</div>
                     <div className="mt-2 text-white">Enumerating objects: 15, done.</div>
                     <div className="text-white">Writing objects: 100% (15/15), 3.24 KiB, done.</div>
                     <div className="mt-4 text-yellow-400">⚡ Agentflox Agent intercepted push...</div>
                     <div className="ml-2 text-gray-500">Running security scan... <span className="text-green-400">PASS</span></div>
                     <div className="ml-2 text-gray-500">Checking type safety... <span className="text-green-400">PASS</span></div>
                     <div className="ml-2 text-gray-500">Generating documentation... <span className="text-green-400">DONE</span></div>
-                    <div className="mt-2 text-green-400">✔ PR #42 created & assigned to @senior-dev</div>
+                    <div className="mt-2 text-green-400">✁EPR #42 created & assigned to @senior-dev</div>
                 </div>
             }
             features={[
@@ -48,6 +48,7 @@ export default function EngineeringPage() {
                 { label: "Bugs Found", value: "+40%", subtext: "Pre-production" }
             ]}
             deepDive={{
+                image: "/images/wireframe_integrations.png",
                 title: "The 10x Developer Experience",
                 description: "Engineers spend 40% of their time on non-coding tasks. Agentflox gives that time back so they can focus on solving hard problems.",
                 bullets: [
@@ -59,3 +60,4 @@ export default function EngineeringPage() {
         />
     );
 }
+
