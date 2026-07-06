@@ -7,7 +7,6 @@ import { postsRouter } from "@/trpc/routers/posts";
 import { commentsRouter } from "@/trpc/routers/comments";
 import { logsRouter } from "@/trpc/routers/logs";
 import { discussionsRouter } from "@/trpc/routers/discussions";
-import { chatRouter } from "@/trpc/routers/chat"
 import { communityGroupRouter } from "@/trpc/routers/communityGroup";
 import { adminRouter } from "@/trpc/routers/admin";
 
@@ -19,7 +18,6 @@ export const appRouter = router({
   comments: commentsRouter,
   logs: logsRouter,
   discussions: discussionsRouter,
-  chat: chatRouter,
   communityGroup: communityGroupRouter,
   admin: adminRouter
 });

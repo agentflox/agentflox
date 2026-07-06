@@ -6,7 +6,6 @@ import { ReduxProvider } from './ReduxProvider';
 import { ThemeProvider } from './ThemeProvider';
 import { GoogleAnalyticsProvider } from './GoogleAnalyticsProvider';
 import { SocketProvider } from './SocketProvider';
-import { CollaborationProvider } from './CollaborationProvider';
 import { type Session } from "next-auth";
 import '@/lib/i18n'; // Initialize i18next
 
@@ -28,16 +27,7 @@ export default function Providers({
           <ReduxProvider>
             <TRPCProvider>
               <SocketProvider>
-                {session?.user ? (
-                  <CollaborationProvider
-                    userId={session.user.id}
-                    username={session.user.name || session.user.email || 'User'}
-                  >
-                    {children}
-                  </CollaborationProvider>
-                ) : (
-                  children
-                )}
+                {children}
               </SocketProvider>
             </TRPCProvider>
           </ReduxProvider>
