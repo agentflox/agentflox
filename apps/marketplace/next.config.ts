@@ -1,10 +1,9 @@
 import { withSentryConfig } from "@sentry/nextjs";
 import type { NextConfig } from "next";
+//@ts-ignore
 import { PrismaPlugin } from '@prisma/nextjs-monorepo-workaround-plugin';
 
 const nextConfig: NextConfig = {
-
-
   async rewrites() {
     const explicitBackendUrl =
       process.env.NEXT_PUBLIC_API_URL ||
@@ -48,7 +47,6 @@ const nextConfig: NextConfig = {
     return config;
   },
   transpilePackages: ["@agentflox/types"],
-  serverExternalPackages: ['@prisma/client', '@agentflox/database'],
   outputFileTracingIncludes: {
     '/api/**': [
       '../../packages/database/src/generated/prisma/schema.prisma',
@@ -92,12 +90,17 @@ export default withSentryConfig(nextConfig, {
   // side errors will fail.
   tunnelRoute: "/monitoring",
 
+  // Disable telemetry network requests which can hang the build without an auth token
+  telemetry: false,
+
+  // Do not try to upload source maps if no token is present, preventing deadlocks
+  sourcemaps: {
+    disable: !process.env.SENTRY_AUTH_TOKEN,
+  },
+
   // Automatically tree-shake Sentry logger statements to reduce bundle size
   disableLogger: true,
 
-  // Enables automatic instrumentation of Vercel Cron Monitors. (Does not yet work with App Router route handlers.)
-  // See the following for more information:
-  // https://docs.sentry.io/product/crons/
-  // https://vercel.com/docs/cron-jobs
-  automaticVercelMonitors: true
+  // Enables automatic instrumentation of Vercel Cron Monitors
+  automaticVercelMonitors: true,
 });
