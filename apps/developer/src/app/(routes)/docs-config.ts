@@ -27,3 +27,10 @@ export const DOCS_CONFIG = [
     ],
   }
 ];
+
+export interface NavItem {
+  title: string;
+  href?: string;
+  isActive?: boolean;
+  items?: NavItem[];
+}

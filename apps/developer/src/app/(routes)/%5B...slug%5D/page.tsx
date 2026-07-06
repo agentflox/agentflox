@@ -11,13 +11,33 @@ import {
   MessageSquare,
 } from "lucide-react";
 
+// Tell Next.js which slugs to statically generate at build time.
+export function generateStaticParams() {
+  return [
+    { slug: ["introduction"] },
+    { slug: ["quick-start"] },
+    { slug: ["concepts", "workspaces"] },
+    { slug: ["agent-builder", "visual-config"] },
+    { slug: ["api", "overview"] },
+    { slug: ["sdk", "typescript"] },
+  ];
+}
+
+// Allow slugs not listed above to still render on-demand
+// (falls through to the "default" / under-construction content)
+// instead of failing at build time.
+export const dynamicParams = true;
+
 export default async function DocsPage({
   params,
 }: {
   params: Promise<{ slug: string[] }>;
 }) {
   const { slug } = await params;
-  const slugPath = slug.join("/");
+
+  // Defensive guard: avoids crashing if slug is undefined/empty
+  // during prerendering.
+  const slugPath = slug?.join("/") ?? "";
 
   const getContent = (slugValue: string) => {
     switch (slugValue) {
@@ -306,4 +326,3 @@ export default async function DocsPage({
     </div>
   );
 }
-
