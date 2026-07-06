@@ -19,7 +19,7 @@ export async function middleware(request: NextRequest) {
   }
 
   const isAccessingAuthRoute = AUTH_ROUTES.some(route => pathname.startsWith(route));
-  const isProtectedRoute = pathname === "/" || PROTECTED_ROUTES.filter(route => route !== "/").some(route => pathname.startsWith(route));
+  const isProtectedRoute = PROTECTED_ROUTES.some(route => pathname.startsWith(route));
   const isAdminRoute = pathname === "/admin" || pathname.startsWith("/admin/");
 
   const IS_PRODUCTION = process.env.APP_ENV === 'production';
@@ -43,9 +43,8 @@ export async function middleware(request: NextRequest) {
   // The main app sets the shared cookie, so the user only ever logs in once.
   // After login, the main app redirects back to the community URL.
   if (!isAuthenticated && isProtectedRoute) {
-    const mainAppLoginUrl = process.env.NEXT_PUBLIC_MAIN_APP_URL || 'http://localhost:3000';
-    const callbackUrl = encodeURIComponent(`${process.env.NEXT_PUBLIC_BASE_URL}${pathname}`);
-    return NextResponse.redirect(new URL(`${mainAppLoginUrl}/login?callbackUrl=${callbackUrl}`, url));
+    const callbackUrl = encodeURIComponent(`${pathname}`);
+    return NextResponse.redirect(new URL(`/login?callbackUrl=${callbackUrl}`, url));
   }
 
   // Handle authenticated user flows
@@ -57,7 +56,6 @@ export async function middleware(request: NextRequest) {
         return NextResponse.redirect(new URL("/", url));
       }
     }
-    return NextResponse.redirect(new URL("/", url));
   }
 
   return NextResponse.next();

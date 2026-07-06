@@ -11,6 +11,7 @@ import { useToast } from "@/hooks/useToast";
 import { trpc } from "@/lib/trpc";
 import { Plus, Users } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 
 import { GroupCardSkeleton } from "../components/GroupSkeletons";
 
@@ -32,6 +33,20 @@ export function DiscussionGroupsView() {
       await utils.communityGroup.list.invalidate({});
     },
   });
+  const { data: session } = useSession();
+
+  const requireAuth = (actionName: string) => {
+    if (!session) {
+      toast({
+        title: `Hi there! You need to login to ${actionName}.`,
+      });
+      setTimeout(() => {
+        window.location.href = `/login?callbackUrl=${encodeURIComponent(window.location.pathname)}`;
+      }, 1500);
+      return false;
+    }
+    return true;
+  };
 
   const handleCreateGroup = async () => {
     const name = newGroupName.trim();
@@ -61,6 +76,7 @@ export function DiscussionGroupsView() {
   const handleOpenGroup = async (group: { id: string; isMember: boolean }) => {
     try {
       if (!group.isMember) {
+        if (!requireAuth('join groups')) return;
         await joinGroup.mutateAsync({ groupId: group.id });
         toast({ title: "Joined group" });
       }
@@ -88,7 +104,7 @@ export function DiscussionGroupsView() {
               type="button" 
               size="sm"
               className="cursor-pointer" 
-              onClick={() => setIsModalOpen(true)}
+              onClick={() => { if (requireAuth('create groups')) setIsModalOpen(true); }}
             >
               New Group
             </Button>

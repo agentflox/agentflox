@@ -22,7 +22,6 @@ export const AUTH_ROUTES = [
 ];
 
 export const PROTECTED_ROUTES = [
-    "/",
     "/dashboard",
     "/mp" // marketplace
 ];

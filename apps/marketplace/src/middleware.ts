@@ -36,11 +36,10 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL("/", url));
   }
 
-  // Redirect unauthenticated users to the MAIN app's login page.
+  // Redirect unauthenticated users to the login page.
   if (!isAuthenticated && isProtectedRoute) {
-    const mainAppLoginUrl = process.env.NEXT_PUBLIC_MAIN_APP_URL || "http://localhost:3000";
-    const callbackUrl = encodeURIComponent(`${process.env.NEXT_PUBLIC_BASE_URL}${pathname}${url.search}`);
-    return NextResponse.redirect(new URL(`${mainAppLoginUrl}/login?callbackUrl=${callbackUrl}`, url));
+    const callbackUrl = encodeURIComponent(`${pathname}${url.search}`);
+    return NextResponse.redirect(new URL(`/login?callbackUrl=${callbackUrl}`, url));
   }
 
   // Handle authenticated user flows

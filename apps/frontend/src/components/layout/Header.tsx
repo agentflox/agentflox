@@ -39,7 +39,7 @@ export default function Header() {
               priority
             />
           </span>
-          <span className="text-lg font-semibold tracking-tight">agentflox</span>
+          <span className="text-lg font-semibold tracking-tight">Agentflox</span>
         </Link>
         <nav className="flex items-center gap-4">
           {session?.user ? (

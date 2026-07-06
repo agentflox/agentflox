@@ -16,6 +16,9 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import EmojiPicker, { Theme } from 'emoji-picker-react';
 import { PostType } from '@agentflox/database/src/generated/prisma/client';
 import { v4 as uuidv4 } from 'uuid';
+import { useSession } from 'next-auth/react';
+import Link from 'next/link';
+import { useEffect } from 'react';
 
 interface PostComposerProps {
   feedType: 'global' | 'user' | 'project' | 'team';
@@ -42,6 +45,13 @@ export function PostComposer({
   const [showMediaDialog, setShowMediaDialog] = useState(false);
   const [caretPos, setCaretPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const { data: session, status } = useSession();
+  const [currentPath, setCurrentPath] = useState('');
+
+  useEffect(() => {
+    setCurrentPath(window.location.pathname);
+  }, []);
+
   const { createPost } = usePostMutations(feedType, feedId);
   const notifyUsers = trpc.notification.createForUserIds.useMutation();
 
@@ -250,6 +260,19 @@ export function PostComposer({
 
   return (
     <Card className="p-4">
+      {status === 'unauthenticated' ? (
+        <div className="flex flex-col items-center justify-center py-8 space-y-4 border rounded-xl bg-zinc-50 dark:bg-zinc-900/50">
+          <h3 className="font-semibold text-lg text-slate-800 dark:text-slate-200">Log in to post</h3>
+          <div className="flex gap-3">
+            <Link href={`/login?callbackUrl=${encodeURIComponent(currentPath)}`}>
+              <Button variant="outline" className="rounded-full px-6 font-semibold h-10 bg-white hover:bg-zinc-100">Log in</Button>
+            </Link>
+            <Link href={`/register?callbackUrl=${encodeURIComponent(currentPath)}`}>
+              <Button className="rounded-full px-6 font-semibold h-10 bg-blue-600 hover:bg-blue-700 text-white shadow-sm">Sign up</Button>
+            </Link>
+          </div>
+        </div>
+      ) : (
       <form onSubmit={handleSubmit} className="space-y-4 relative">
         <div className="relative">
           <Textarea
@@ -410,6 +433,7 @@ export function PostComposer({
           </div>
         </div>
       </form>
+      )}
     </Card>
   );
 }

@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { useSession } from 'next-auth/react';
 import { 
   Heart, 
   MessageCircle, 
@@ -60,6 +61,20 @@ export function PostCard({ post, feedType, feedId }: PostCardProps) {
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [reportReason, setReportReason] = useState("");
   const [reportExplanation, setReportExplanation] = useState("");
+  const { data: session } = useSession();
+
+  const requireAuth = (actionName: string) => {
+    if (!session) {
+      toast({
+        title: `Hi there! You need to login to ${actionName}.`,
+      });
+      setTimeout(() => {
+        window.location.href = `/login?callbackUrl=${encodeURIComponent(window.location.pathname)}`;
+      }, 1500);
+      return false;
+    }
+    return true;
+  };
 
   const { 
     likePost, 
@@ -71,6 +86,7 @@ export function PostCard({ post, feedType, feedId }: PostCardProps) {
   const [isLiked, setIsLiked] = useState(false); // TODO: Get from user's likes
 
   const handleLike = async () => {
+    if (!requireAuth('like posts')) return;
     try {
       if (isLiked) {
         await unlikePost.mutateAsync(post.id);
@@ -156,10 +172,12 @@ export function PostCard({ post, feedType, feedId }: PostCardProps) {
   };
 
   const handleBookmark = () => {
+    if (!requireAuth('bookmark posts')) return;
     bookmarkPost.mutate({ postId: post.id });
   };
 
   const handleFollow = () => {
+    if (!requireAuth('follow posts')) return;
     followPost.mutate({ postId: post.id });
   };
 
@@ -223,7 +241,7 @@ export function PostCard({ post, feedType, feedId }: PostCardProps) {
                     <Bell className="mr-2 h-4 w-4" />
                     <span>Follow post</span>
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setIsReportModalOpen(true)} className="cursor-pointer text-red-600 focus:text-red-600">
+                  <DropdownMenuItem onClick={() => { if (requireAuth('report posts')) setIsReportModalOpen(true); }} className="cursor-pointer text-red-600 focus:text-red-600">
                     <Flag className="mr-2 h-4 w-4" />
                     <span>Report post</span>
                   </DropdownMenuItem>
