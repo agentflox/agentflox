@@ -144,7 +144,7 @@ export default function Header() {
               </div>
             </TooltipProvider>
           ) : (
-            <Link href="/login">
+            <Link href={`${process.env.NEXT_PUBLIC_MAIN_APP_URL || 'https://app.agentflox.com'}/login`}>
               <Button className="h-9 rounded-full bg-zinc-900 px-4 text-sm font-medium text-white shadow-sm hover:bg-zinc-800">
                 {t("header.login")}
               </Button>

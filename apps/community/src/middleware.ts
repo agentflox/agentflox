@@ -43,8 +43,9 @@ export async function middleware(request: NextRequest) {
   // The main app sets the shared cookie, so the user only ever logs in once.
   // After login, the main app redirects back to the community URL.
   if (!isAuthenticated && isProtectedRoute) {
-    const callbackUrl = encodeURIComponent(`${pathname}`);
-    return NextResponse.redirect(new URL(`/login?callbackUrl=${callbackUrl}`, url));
+    const callbackUrl = encodeURIComponent(`${url.origin}${pathname}${url.search}`);
+    const mainAppUrl = process.env.NEXT_PUBLIC_MAIN_APP_URL || "https://app.agentflox.com";
+    return NextResponse.redirect(`${mainAppUrl}/login?callbackUrl=${callbackUrl}`);
   }
 
   // Handle authenticated user flows

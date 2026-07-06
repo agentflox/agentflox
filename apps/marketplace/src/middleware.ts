@@ -38,9 +38,9 @@ export async function middleware(request: NextRequest) {
 
   // Redirect unauthenticated users to the MAIN app's login page.
   if (!isAuthenticated && isProtectedRoute) {
-    const mainAppLoginUrl = process.env.NEXT_PUBLIC_MAIN_APP_URL || "http://localhost:3000";
-    const callbackUrl = encodeURIComponent(`${process.env.NEXT_PUBLIC_BASE_URL}${pathname}${url.search}`);
-    return NextResponse.redirect(new URL(`${mainAppLoginUrl}/login?callbackUrl=${callbackUrl}`, url));
+    const callbackUrl = encodeURIComponent(`${url.origin}${pathname}${url.search}`);
+    const mainAppUrl = process.env.NEXT_PUBLIC_MAIN_APP_URL || "https://app.agentflox.com";
+    return NextResponse.redirect(`${mainAppUrl}/login?callbackUrl=${callbackUrl}`);
   }
 
   // Handle authenticated user flows

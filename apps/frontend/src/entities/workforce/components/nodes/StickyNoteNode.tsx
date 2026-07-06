@@ -7,7 +7,7 @@ import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import UnderlineExtension from '@tiptap/extension-underline';
 import { useWorkforceStore } from '../../hooks/useWorkforceStore';
-import '@/entities/workforce/nodes/sticky-note-editor.css';
+import '@/entities/workforce/components/nodes/sticky-note-editor.css';
 
 /**
  * If content was previously saved as raw markdown (e.g. "**bold**") instead of

@@ -25,7 +25,7 @@ export default function CommunityPage() {
 
   useEffect(() => {
     if (!searchParams.has("space") && !searchParams.has("section")) {
-      router.replace("/community?space=start-here");
+      router.replace("/?space=start-here");
     }
   }, [searchParams, router]);
 

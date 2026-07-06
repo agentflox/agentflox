@@ -25,7 +25,8 @@ import {
   HelpCircle,
   LogOut,
   Grid3x3,
-  CreditCard
+  CreditCard,
+  ExternalLink
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useInterfaceSettings } from '@/hooks/useInterfaceSettings';
@@ -71,8 +72,8 @@ export default function MainSidebar({ mode = "inline", onClose }: { mode?: "inli
   ];
 
   const supportNav = [
-    { label: "Documentation", href: "https://docs.agentflox.com", icon: BookOpen },
-    { label: "Community", href: "/community", icon: MessagesSquare },
+    { label: "Documentation", href: "https://docs.agentflox.com", icon: BookOpen, isExternal: true },
+    { label: "Community", href: "https://community.agentflox.com", icon: MessagesSquare, isExternal: true },
     { label: "Help", onClick: () => dispatch(setSupportAssistantOpen(true)), icon: HelpCircle },
   ];
 
@@ -139,7 +140,10 @@ export default function MainSidebar({ mode = "inline", onClose }: { mode?: "inli
             {isMainCollapsed ? (
               <span className="text-center max-w-[68px] break-words leading-tight">{item.label}</span>
             ) : (
-              <span>{item.label}</span>
+              <div className="flex w-full items-center justify-between">
+                <span>{item.label}</span>
+                {item.isExternal && <ExternalLink size={14} className="text-zinc-400 opacity-50 group-hover:opacity-100 transition-opacity" />}
+              </div>
             )}
           </>
         );
@@ -158,6 +162,7 @@ export default function MainSidebar({ mode = "inline", onClose }: { mode?: "inli
               onClick={handleItemClick}
               className={className}
               title={isMainCollapsed ? item.label : undefined}
+              {...(item.isExternal ? { target: "_blank", rel: "noopener noreferrer" } : {})}
             >
               {content}
             </Link>
