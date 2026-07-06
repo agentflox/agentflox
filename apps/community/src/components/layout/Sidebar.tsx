@@ -142,7 +142,7 @@ export default function MainSidebar({ mode = "inline", onClose }: { mode?: "inli
             ) : (
               <div className="flex w-full items-center justify-between">
                 <span>{item.label}</span>
-                {item.isExternal && <ExternalLink size={14} className="text-zinc-400 opacity-50 group-hover:opacity-100 transition-opacity" />}
+                {item.isExternal && <ExternalLink size={14} className="text-zinc-400 opacity-0 group-hover:opacity-100 transition-opacity" />}
               </div>
             )}
           </>
