@@ -4,93 +4,58 @@ import React from "react";
 import Link from "next/link";
 import { Terminal, Code2, Layers, Sparkles, Rocket, MessageSquare, ArrowRight, Github, BookOpen } from "lucide-react";
 
+type Category = {
+  title: string;
+  description: string;
+  icon: React.ReactElement<{ size?: number; className?: string }>;
+  href: string;
+  items: string[];
+};
+
 export default function DocsIndex() {
-  const categories = [
-
+  const categories: Category[] = [
     {
-
       title: "Getting Started",
-
       description: "Fundamental concepts and quick start guide for new developers.",
-
       icon: <Rocket className="text-indigo-400" size={24} />,
-
       href: "/docs/introduction",
-
       items: ["Architecture", "CLI Installation", "CLI Commands"],
-
     },
-
     {
-
       title: "Core Concepts",
-
       description: "Deep dive into multi-tenant workspaces and the proposal system.",
-
       icon: <Layers className="text-purple-400" size={24} />,
-
       href: "/docs/concepts/workspaces",
-
       items: ["Isolation", "RBAC", "Venture Discovery"],
-
     },
-
     {
-
       title: "Agent Builder",
-
       description: "Visual environment for crafting and refining intelligent agents.",
-
       icon: <Sparkles className="text-cyan-400" size={24} />,
-
       href: "/docs/agent-builder/visual-config",
-
       items: ["Tool Registry", "Safety Guardrails", "Output Validation"],
-
     },
-
     {
-
       title: "API Reference",
-
       description: "Complete OpenAPI specification for all endpoints and webhooks.",
-
       icon: <Terminal className="text-indigo-400" size={24} />,
-
       href: "/docs/api/overview",
-
       items: ["Authentication", "Rate Limits", "Event Types"],
-
     },
-
     {
-
       title: "SDK Guides",
-
       description: "Idiomatic usage patterns for our TypeScript, Python, and Go SDKs.",
-
       icon: <Code2 className="text-purple-400" size={24} />,
-
       href: "/docs/sdk/typescript",
-
       items: ["Installation", "Authentication", "Usage Examples"],
-
     },
-
     {
-
       title: "Community & Support",
-
       description: "Troubleshooting, FAQs, and connecting with other developers.",
-
       icon: <MessageSquare className="text-cyan-400" size={24} />,
-
       href: "/learn/community",
-
       items: ["Community Forum", "Discord", "Support Tickets"],
-
     },
-
   ];
 
   return (
@@ -125,7 +90,10 @@ export default function DocsIndex() {
               className="group relative bg-white/60 dark:bg-[#0B0F19]/60 backdrop-blur-md p-8 hover:bg-white dark:hover:bg-[#0F1422] transition-all duration-500 hover:shadow-2xl hover:shadow-indigo-500/10 hover:-translate-y-1 z-10 hover:z-20 border border-transparent hover:border-slate-200 dark:hover:border-slate-700/50 rounded-2xl m-[1px]"
             >
               <div className="mb-8 p-3 w-fit rounded-2xl bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-700/50 group-hover:border-indigo-500/50 group-hover:bg-indigo-50 dark:group-hover:bg-indigo-500/10 transition-all shadow-sm">
-                {React.cloneElement(cat.icon as React.ReactElement, { size: 26, className: "text-indigo-600 dark:text-indigo-400 drop-shadow-sm group-hover:scale-110 transition-transform duration-300" })}
+                {React.cloneElement(cat.icon, {
+                  size: 26,
+                  className: "text-indigo-600 dark:text-indigo-400 drop-shadow-sm group-hover:scale-110 transition-transform duration-300",
+                })}
               </div>
               <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-3 tracking-tight">{cat.title}</h3>
               <p className="text-sm text-slate-600 dark:text-slate-400 mb-8 leading-relaxed group-hover:text-slate-700 dark:group-hover:text-slate-300 transition-colors">{cat.description}</p>
