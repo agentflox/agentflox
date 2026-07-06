@@ -6,7 +6,6 @@ import Button from "@/components/ui/button";
 import { useSession, signOut } from "next-auth/react";
 import { useState, useRef, useEffect } from "react";
 import NotificationBell from "@/entities/notifications/components/NotificationBell";
-import MessageBell from "@/entities/messages/components/MessageBell";
 import { cn } from "@/lib/utils";
 import { User, LineChart, Settings, LifeBuoy, BookOpen, MessagesSquare, HelpCircle, LogOut } from "lucide-react";
 import {
@@ -44,17 +43,6 @@ export default function Header() {
           {session?.user ? (
             <TooltipProvider delayDuration={300}>
               <div className="flex items-center gap-2 text-zinc-500 pr-1">
-                {showMessageIcon && (
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <span className="cursor-pointer">
-                        <MessageBell />
-                      </span>
-                    </TooltipTrigger>
-                    <TooltipContent>Messages</TooltipContent>
-                  </Tooltip>
-                )}
-
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <span className="cursor-pointer">
