@@ -4,14 +4,6 @@ import type { NextConfig } from "next";
 import { PrismaPlugin } from '@prisma/nextjs-monorepo-workaround-plugin';
 
 const nextConfig: NextConfig = {
-  experimental: {
-    // Run webpack in a separate worker process with its own heap –
-    // prevents OOM on machines with limited RAM (< 8 GB free).
-    webpackBuildWorker: true,
-  },
-  productionBrowserSourceMaps: false,
-
-
   async rewrites() {
     const explicitBackendUrl =
       process.env.NEXT_PUBLIC_API_URL ||
@@ -55,7 +47,6 @@ const nextConfig: NextConfig = {
     return config;
   },
   transpilePackages: ["@agentflox/types"],
-  serverExternalPackages: ['@prisma/client', '@agentflox/database'],
   outputFileTracingIncludes: {
     '/api/**': [
       '../../packages/database/src/generated/prisma/schema.prisma',
