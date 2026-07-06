@@ -81,8 +81,8 @@ export default withSentryConfig(nextConfig, {
   // For all available options, see:
   // https://docs.sentry.io/platforms/javascript/guides/nextjs/manual-setup/
 
-  // Upload a larger set of source maps for prettier stack traces (increases build time)
-  widenClientFileUpload: true,
+  // Disabled — widenClientFileUpload causes OOM on Vercel build containers (exit 137)
+  widenClientFileUpload: false,
 
   // Disable telemetry network requests which can hang the build without an auth token
   telemetry: false,
