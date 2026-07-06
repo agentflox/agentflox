@@ -8,7 +8,6 @@ export async function middleware(request: NextRequest) {
   const url = request.nextUrl;
   const pathname = url.pathname;
   const host = (request.headers.get("host") || "").split(":")[0].toLowerCase();
-  const formsHost = (process.env.NEXT_PUBLIC_FORMS_HOST || "").toLowerCase();
 
   // Skip middleware for static files and API routes
   const isStatic = pathname.startsWith("/_next") || /\.(?:svg|png|jpg|jpeg|gif|webp|ico)$/.test(pathname);
@@ -19,20 +18,9 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Forms subdomain rewrite: forms host serves public forms at /:viewId via app/f/[viewId]
-  if (formsHost && host === formsHost) {
-    if (pathname.startsWith("/f")) {
-      return NextResponse.next();
-    }
-    const targetPath = pathname === "/" ? "/f" : `/f${pathname}`;
-    return NextResponse.rewrite(new URL(targetPath, request.url));
-  }
-
   const isAccessingAuthRoute = AUTH_ROUTES.some(route => pathname.startsWith(route));
-  const isOnboarding = pathname.startsWith("/onboarding");
-  const isInviteAccept = pathname.startsWith("/invite/accept");
   const isProtectedRoute = pathname === "/" || PROTECTED_ROUTES.filter(route => route !== "/").some(route => pathname.startsWith(route));
-  const isAdminRoute = pathname === "/dashboard/admin" || pathname.startsWith("/dashboard/admin/");
+  const isAdminRoute = pathname === "/admin" || pathname.startsWith("/admin/");
 
   const IS_PRODUCTION = process.env.APP_ENV === 'production';
   const SHARED_COOKIE_NAME = IS_PRODUCTION
@@ -45,11 +33,6 @@ export async function middleware(request: NextRequest) {
     secureCookie: IS_PRODUCTION,
   });
   const isAuthenticated = !!token;
-
-  // Allow public access to invitation acceptance page
-  if (isInviteAccept) {
-    return NextResponse.next();
-  }
 
   // Redirect authenticated users away from auth routes
   if (isAuthenticated && isAccessingAuthRoute) {
@@ -74,15 +57,7 @@ export async function middleware(request: NextRequest) {
         return NextResponse.redirect(new URL("/", url));
       }
     }
-
-    const onboardingCompleted = Boolean(token?.onboardingCompleted);
-    if (!onboardingCompleted && !isOnboarding) {
-      return NextResponse.redirect(new URL("/onboarding", url));
-    }
-
-    if (onboardingCompleted && isOnboarding) {
-      return NextResponse.redirect(new URL("/", url));
-    }
+    return NextResponse.redirect(new URL("/", url));
   }
 
   return NextResponse.next();

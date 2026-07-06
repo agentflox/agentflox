@@ -22,7 +22,7 @@ export const AUTH_ROUTES = [
 ];
 
 export const PROTECTED_ROUTES = [
-    "/personal", // My Listings and Earnings
+    "/admin", // My Listings and Earnings
     "/dashboard" // Assuming dashboard is protected if used
 ];
 
