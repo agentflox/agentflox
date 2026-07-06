@@ -45,7 +45,23 @@ export default function ListingDetailView({ listing }: ListingDetailViewProps) {
   const isAsset = ['agent', 'tool', 'template', 'workforce'].includes(listing.type);
   const isOpportunity = !isAsset;
 
+  const requireAuth = (actionName: string) => {
+    if (!session) {
+      toast({
+        title: `Hi there! You need to login to ${actionName}.`,
+      });
+      const mainAppUrl = process.env.NEXT_PUBLIC_MAIN_APP_URL || 'http://localhost:3000';
+      const callbackUrl = encodeURIComponent(`${process.env.NEXT_PUBLIC_BASE_URL || ''}${window.location.pathname}`);
+      setTimeout(() => {
+        window.location.href = `${mainAppUrl}/login?callbackUrl=${callbackUrl}`;
+      }, 1500);
+      return false;
+    }
+    return true;
+  };
+
   const handleDownload = () => {
+    if (!requireAuth('install assets')) return;
     if (downloadState !== 'idle') return;
     setDownloadState('downloading');
     setProgress(0);
@@ -77,7 +93,7 @@ export default function ListingDetailView({ listing }: ListingDetailViewProps) {
               <ArrowLeft className="w-4 h-4" /> Back to Marketplace
             </Button>
             <div className="flex items-center gap-1">
-              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setIsSaved(!isSaved)}>
+              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { if (requireAuth('save listings')) setIsSaved(!isSaved); }}>
                 {isSaved
                   ? <BookmarkCheck className="h-4 w-4 text-amber-500" />
                   : <BookmarkPlus className="h-4 w-4" />}
@@ -225,7 +241,7 @@ export default function ListingDetailView({ listing }: ListingDetailViewProps) {
               ) : (
                 <Button
                   className="h-11 px-7 text-sm font-semibold gap-2"
-                  onClick={() => router.push(`/marketplace/listing/${listing.id}/apply`)}
+                  onClick={() => { if (requireAuth('apply to listings')) router.push(`/marketplace/listing/${listing.id}/apply`); }}
                   disabled={isOwnListing}
                 >
                   {isOwnListing
@@ -313,6 +329,7 @@ export default function ListingDetailView({ listing }: ListingDetailViewProps) {
                             key={value}
                             type="button"
                             onClick={async () => {
+                              if (!requireAuth('rate listings')) return;
                               setSelectedRating(value);
                               await rateListingMutation.mutateAsync({ listingId: listing.id, rating: value });
                             }}

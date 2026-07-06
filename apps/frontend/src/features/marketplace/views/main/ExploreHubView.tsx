@@ -8,264 +8,6 @@ import { Button } from "@/components/ui/button";
 import { trpc } from "@/lib/trpc";
 import ListingCard from "@/features/marketplace/components/ListingCard";
 
-// ─── SVG icon paths per node ───────────────────────────────────────────────
-const ICON_PATHS: Record<string, string> = {
-  task: `<path d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2M9 12h6M9 16h4" stroke="white" stroke-width="1.5" fill="none" stroke-linecap="round"/>`,
-  agent: `<rect x="2" y="7" width="20" height="13" rx="2" stroke="white" stroke-width="1.5" fill="none"/><path d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2M12 12v.01M8 12v.01M16 12v.01" stroke="white" stroke-width="1.5" fill="none" stroke-linecap="round"/>`,
-  workforce: `<circle cx="12" cy="5" r="3" stroke="white" stroke-width="1.5" fill="none"/><circle cx="5" cy="19" r="3" stroke="white" stroke-width="1.5" fill="none"/><circle cx="19" cy="19" r="3" stroke="white" stroke-width="1.5" fill="none"/><path d="M10.4 7.2l-3.8 9.6M13.6 7.2l3.8 9.6M7.8 19h8.4" stroke="white" stroke-width="1.5" fill="none" stroke-linecap="round"/>`,
-  project: `<path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" stroke="white" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`,
-  template: `<rect x="3" y="3" width="18" height="18" rx="2" stroke="white" stroke-width="1.5" fill="none"/><path d="M3 9h18M9 21V9" stroke="white" stroke-width="1.5" fill="none" stroke-linecap="round"/>`,
-  tool: `<path d="M14.7 6.3a1 1 0 010 1.4l-8 8a1 1 0 01-1.4 0l-1-1a1 1 0 010-1.4l8-8a1 1 0 011.4 0l1 1z" stroke="white" stroke-width="1.5" fill="none"/><circle cx="6" cy="18" r="3" stroke="white" stroke-width="1.5" fill="none"/>`,
-  team: `<path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2" stroke="white" stroke-width="1.5" fill="none" stroke-linecap="round"/><circle cx="9" cy="7" r="4" stroke="white" stroke-width="1.5" fill="none"/><path d="M22 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75" stroke="white" stroke-width="1.5" fill="none" stroke-linecap="round"/>`,
-  talent: `<path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" stroke="white" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`,
-};
-
-// ─── Node definitions ───────────────────────────────────────────────────────
-const NODES = [
-  { id: "task", name: "Task", sub: "Central hub", cx: 0.50, cy: 0.50, isCenter: true, acc: "#a78bfa", acc2: "#7c3aed" },
-  { id: "talent", name: "Talent", sub: "Expert humans", cx: 0.50, cy: 0.10, isCenter: false, acc: "#22d3ee", acc2: "#0891b2" },
-  { id: "agent", name: "AI Agent", sub: "Autonomous", cx: 0.83, cy: 0.27, isCenter: false, acc: "#38bdf8", acc2: "#0284c7" },
-  { id: "template", name: "Template", sub: "Ready workflows", cx: 0.83, cy: 0.72, isCenter: false, acc: "#818cf8", acc2: "#4f46e5" },
-  { id: "workforce", name: "Workforce", sub: "Swarm AI", cx: 0.50, cy: 0.90, isCenter: false, acc: "#fb923c", acc2: "#d97706" },
-  { id: "team", name: "Team", sub: "Collaborative", cx: 0.17, cy: 0.72, isCenter: false, acc: "#f472b6", acc2: "#db2777" },
-  { id: "tool", name: "Tool", sub: "Modular scripts", cx: 0.17, cy: 0.27, isCenter: false, acc: "#e879f9", acc2: "#a21caf" },
-  { id: "project", name: "Project", sub: "Large scale", cx: 0.50, cy: 0.50, isCenter: false, acc: "#34d399", acc2: "#059669" }, // hidden, used for edge only
-];
-
-const EDGES = [
-  ["task", "talent"], ["task", "agent"], ["task", "template"],
-  ["task", "workforce"], ["task", "team"], ["task", "tool"],
-];
-
-// We render 6 outer nodes + task center (project removed from visual, kept for data)
-const VISUAL_NODES = NODES.filter(n => n.id !== "project");
-
-export function HeroNetwork() {
-  const sceneRef = useRef<HTMLDivElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const wrapRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const scene = sceneRef.current!;
-    const cvs = canvasRef.current!;
-    const wrap = wrapRef.current!;
-    const ctx = cvs.getContext("2d")!;
-    const H = 460;
-
-    const getW = () => scene.offsetWidth;
-
-    function npos(id: string) {
-      const n = VISUAL_NODES.find(x => x.id === id)!;
-      return { x: n.cx * getW(), y: n.cy * H };
-    }
-
-    function resize() {
-      cvs.width = getW();
-      cvs.height = H;
-    }
-
-    function buildNodes() {
-      wrap.innerHTML = "";
-
-      // Inject keyframe animation once
-      if (!document.getElementById("hn-style")) {
-        const s = document.createElement("style");
-        s.id = "hn-style";
-        s.textContent = `
-          @keyframes hn-spin  { to { transform: rotate(360deg); } }
-          @keyframes hn-spin2 { to { transform: rotate(-360deg); } }
-          @keyframes hn-float { 0%,100% { transform:translateY(0); } 50% { transform:translateY(-6px); } }
-        `;
-        document.head.appendChild(s);
-      }
-
-      VISUAL_NODES.forEach(n => {
-        const W = getW();
-        const px = n.cx * W;
-        const py = n.cy * H;
-
-        const R = n.isCenter ? 52 : 36; // disc radius
-        const BW = n.isCenter ? 160 : 120; // bounding box width (for label)
-
-        const el = document.createElement("div");
-        el.setAttribute("data-id", n.id);
-        el.style.cssText = [
-          `position:absolute`,
-          `width:${BW}px`,
-          `left:${px - BW / 2}px`,
-          `top:${py - R - 6}px`,
-          `display:flex`,
-          `flex-direction:column`,
-          `align-items:center`,
-          `gap:7px`,
-          `cursor:pointer`,
-          `animation:hn-float ${3.5 + Math.random()}s ease-in-out infinite`,
-          `animation-delay:${Math.random() * 2}s`,
-        ].join(";");
-
-        // Hexagonal clip path via SVG polygon for the icon disc background
-        const hexPts = (r: number, cx: number, cy: number) =>
-          Array.from({ length: 6 }, (_, i) => {
-            const a = (Math.PI / 180) * (60 * i - 30);
-            return `${cx + r * Math.cos(a)},${cy + r * Math.sin(a)}`;
-          }).join(" ");
-
-        const discSize = R * 2;
-        const hexR = R - 2;
-
-        el.innerHTML = `
-          <div style="position:relative;width:${discSize}px;height:${discSize}px;flex-shrink:0">
-
-            <!-- outer dashed spin ring -->
-            <svg style="position:absolute;inset:-10px;width:${discSize + 20}px;height:${discSize + 20}px;animation:hn-spin ${n.isCenter ? 18 : 12}s linear infinite;pointer-events:none" viewBox="0 0 ${discSize + 20} ${discSize + 20}">
-              <polygon
-                points="${hexPts(R + 6, (discSize + 20) / 2, (discSize + 20) / 2)}"
-                fill="none"
-                stroke="${n.acc}"
-                stroke-width="1"
-                stroke-dasharray="${n.isCenter ? "6 4" : "4 5"}"
-                opacity="${n.isCenter ? "0.5" : "0.35"}"
-              />
-            </svg>
-
-            <!-- inner counter-spin ring -->
-            <svg style="position:absolute;inset:-4px;width:${discSize + 8}px;height:${discSize + 8}px;animation:hn-spin2 ${n.isCenter ? 24 : 16}s linear infinite;pointer-events:none" viewBox="0 0 ${discSize + 8} ${discSize + 8}">
-              <polygon
-                points="${hexPts(R + 1, (discSize + 8) / 2, (discSize + 8) / 2)}"
-                fill="none"
-                stroke="${n.acc}"
-                stroke-width="0.5"
-                stroke-dasharray="2 8"
-                opacity="0.25"
-              />
-            </svg>
-
-            <!-- hex disc body -->
-            <svg style="position:absolute;inset:0;width:${discSize}px;height:${discSize}px" viewBox="0 0 ${discSize} ${discSize}">
-              <defs>
-                <radialGradient id="rg-${n.id}" cx="40%" cy="35%">
-                  <stop offset="0%" stop-color="${n.acc}" stop-opacity="0.22"/>
-                  <stop offset="100%" stop-color="${n.acc2}" stop-opacity="0.06"/>
-                </radialGradient>
-              </defs>
-              <polygon
-                points="${hexPts(hexR, R, R)}"
-                fill="url(#rg-${n.id})"
-                stroke="${n.acc}"
-                stroke-width="1.2"
-                opacity="0.9"
-                class="hex-body-${n.id}"
-              />
-            </svg>
-
-            <!-- icon -->
-            <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center">
-              <svg width="${n.isCenter ? 26 : 20}" height="${n.isCenter ? 26 : 20}" viewBox="0 0 24 24" fill="none">${ICON_PATHS[n.id] ?? ""}</svg>
-            </div>
-
-
-          </div>
-
-          <!-- label -->
-          <div style="text-align:center;pointer-events:none">
-            <div style="font-size:${n.isCenter ? 13 : 11}px;font-weight:800;color:rgba(255,255,255,${n.isCenter ? ".95" : ".82"});letter-spacing:.06em;text-transform:uppercase;text-shadow:0 2px 8px rgba(0,0,0,.7)">${n.name}</div>
-            <div style="font-size:9px;font-weight:500;color:${n.acc};letter-spacing:.04em;text-transform:uppercase;margin-top:1px;opacity:.8">${n.sub}</div>
-          </div>
-        `;
-
-        // Hover
-        const hexBody = el.querySelector<SVGPolygonElement>(`.hex-body-${n.id}`);
-        el.addEventListener("mouseenter", () => {
-          el.style.zIndex = "10";
-          if (hexBody) {
-            hexBody.style.stroke = n.acc;
-            hexBody.style.opacity = "1";
-            hexBody.style.filter = `drop-shadow(0 0 10px ${n.acc}88)`;
-            hexBody.style.strokeWidth = "2";
-          }
-        });
-        el.addEventListener("mouseleave", () => {
-          el.style.zIndex = "";
-          if (hexBody) {
-            hexBody.style.stroke = n.acc;
-            hexBody.style.opacity = "0.9";
-            hexBody.style.filter = "";
-            hexBody.style.strokeWidth = "1.2";
-          }
-        });
-
-        wrap.appendChild(el);
-      });
-    }
-
-    function drawEdges() {
-      ctx.clearRect(0, 0, getW(), H);
-      EDGES.forEach(([a, b]) => {
-        const pa = npos(a);
-        const pb = npos(b);
-        const na = VISUAL_NODES.find(n => n.id === a)!;
-        const nb = VISUAL_NODES.find(n => n.id === b)!;
-        const g = ctx.createLinearGradient(pa.x, pa.y, pb.x, pb.y);
-        g.addColorStop(0, na.acc + "40");
-        g.addColorStop(1, nb.acc + "40");
-        ctx.beginPath();
-        ctx.moveTo(pa.x, pa.y);
-        ctx.lineTo(pb.x, pb.y);
-        ctx.strokeStyle = g;
-        ctx.lineWidth = 0.8;
-        ctx.stroke();
-      });
-    }
-
-    resize();
-    buildNodes();
-    drawEdges();
-
-    const ro = new ResizeObserver(() => { resize(); buildNodes(); drawEdges(); });
-    ro.observe(scene);
-
-    return () => {
-      ro.disconnect();
-    };
-  }, []);
-
-  return (
-    <div
-      ref={sceneRef}
-      style={{ width: "100%", height: 460, position: "relative", overflow: "visible" }}
-    >
-      {/* ambient glows — one per accent colour */}
-      {[
-        { l: "50%", t: "50%", c: "rgba(167,139,250,0.18)", r: 200 },
-        { l: "83%", t: "27%", c: "rgba(56,189,248,0.12)", r: 140 },
-        { l: "83%", t: "72%", c: "rgba(129,140,248,0.12)", r: 140 },
-        { l: "50%", t: "90%", c: "rgba(251,146,60,0.12)", r: 140 },
-        { l: "17%", t: "72%", c: "rgba(244,114,182,0.12)", r: 140 },
-        { l: "17%", t: "27%", c: "rgba(232,121,249,0.12)", r: 140 },
-        { l: "50%", t: "10%", c: "rgba(34,211,238,0.12)", r: 140 },
-      ].map((g, i) => (
-        <div key={i} style={{
-          position: "absolute", left: g.l, top: g.t,
-          width: g.r * 2, height: g.r * 2, borderRadius: "50%",
-          background: `radial-gradient(circle,${g.c} 0%,transparent 70%)`,
-          transform: "translate(-50%,-50%)", pointerEvents: "none", zIndex: 0,
-        }} />
-      ))}
-
-      <canvas
-        ref={canvasRef}
-        style={{ position: "absolute", inset: 0, width: "100%", height: "100%", zIndex: 1 }}
-      />
-      <div
-        ref={wrapRef}
-        style={{ position: "absolute", inset: 0, zIndex: 2 }}
-      />
-    </div>
-  );
-}
-
-// ─── Rest of the page (unchanged) ──────────────────────────────────────────
-
 export default function ExploreHubView() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
@@ -300,10 +42,10 @@ export default function ExploreHubView() {
       {/* 1. HERO SECTION */}
       <div className="p-4 lg:p-8">
         <div
-          className="relative w-full h-auto min-h-[540px] flex items-center overflow-hidden rounded-3xl shadow-xl py-16 lg:py-0 border border-border/10"
+          className="relative w-full h-full flex items-center overflow-hidden rounded-3xl shadow-xl border border-border/10"
           style={{ background: "linear-gradient(135deg, #05081a 0%, #0d1130 30%, #110a2a 60%, #070e1f 100%)" }}
         >
-          <div className="relative z-10 w-full max-w-7xl mx-auto px-6 lg:px-8 flex flex-col lg:flex-row items-center gap-12">
+          <div className="relative z-10 w-full mx-auto py-8 px-8 lg:px-16 flex flex-col lg:flex-row items-center gap-12">
 
             {/* Left: Content */}
             <motion.div
@@ -340,15 +82,15 @@ export default function ExploreHubView() {
               </form>
             </motion.div>
 
-            {/* Right: Orbital Network */}
+            {/* Right: Static Image Network */}
             <div className="flex-1 w-full hidden lg:flex items-center justify-center relative">
-              <HeroNetwork />
+              <img src="/images/image_mkp-nobg.png" alt="Marketplace Network" className="w-full h-auto object-contain max-h-[460px] drop-shadow-2xl" />
             </div>
           </div>
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-6 lg:px-8 py-16 w-full z-10 flex flex-col gap-24">
+      <div className="mx-auto px-6 lg:px-8 py-16 w-full z-10 flex flex-col gap-24">
 
         {/* 2. PREMIUM CATEGORIES GRID */}
         <section>
@@ -504,7 +246,6 @@ export default function ExploreHubView() {
   );
 }
 
-// ─── Feed helper (unchanged) ────────────────────────────────────────────────
 function FeedSection({ type, limit }: { type: string; limit: number }) {
   const { data: listings, isLoading } = trpc.marketplace.searchListings.useQuery({
     type,

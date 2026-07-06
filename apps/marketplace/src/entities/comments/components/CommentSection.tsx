@@ -1,11 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useComments } from '../hooks/useComments';
 import { CommentItem } from './CommentItem';
 import { CommentForm } from './CommentForm';
 import { Loader2 } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
+import { useSession } from 'next-auth/react';
+import { Button } from '@/components/ui/button';
 
 interface CommentSectionProps {
   postId: string;
@@ -15,8 +17,14 @@ interface CommentSectionProps {
 }
 
 export function CommentSection({ postId, feedId, feedType, entityType = 'post' }: CommentSectionProps) {
+  const { data: session, status } = useSession();
   const { comments, isLoading, createComment, voteComment } = useComments(postId, entityType);
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
+  const [currentPath, setCurrentPath] = useState('');
+
+  useEffect(() => {
+    setCurrentPath(window.location.pathname);
+  }, []);
 
   if (isLoading) {
     return (
@@ -28,21 +36,38 @@ export function CommentSection({ postId, feedId, feedType, entityType = 'post' }
 
   const topLevelComments = comments.filter((c: any) => !c.parentId);
 
+  const mainAppUrl = process.env.NEXT_PUBLIC_MAIN_APP_URL || 'http://localhost:3000';
+  const callbackUrl = encodeURIComponent(`${process.env.NEXT_PUBLIC_BASE_URL || ''}${currentPath}`);
+
   return (
     <div className="space-y-4">
-      {/* Comment Form */}
-      <CommentForm
-        postId={postId}
-        submitting={createComment.isPending}
-        onSubmit={(content) => {
-          createComment.mutate({
-            id: uuidv4(),
-            postId,
-            content,
-          });
-        }}
-        placeholder="Write a comment..."
-      />
+      {/* Comment Form or Login Prompt */}
+      {status === 'unauthenticated' ? (
+        <div className="flex flex-col items-center justify-center py-8 space-y-4 border rounded-xl bg-zinc-50 dark:bg-zinc-900/50">
+          <h3 className="font-semibold text-lg text-slate-800 dark:text-slate-200">Post a comment</h3>
+          <div className="flex gap-3">
+            <a href={`${mainAppUrl}/login?callbackUrl=${callbackUrl}`}>
+              <Button variant="outline" className="rounded-full px-6 font-semibold h-10 bg-white hover:bg-zinc-100">Log in</Button>
+            </a>
+            <a href={`${mainAppUrl}/register?callbackUrl=${callbackUrl}`}>
+              <Button className="rounded-full px-6 font-semibold h-10 bg-blue-600 hover:bg-blue-700 text-white shadow-sm">Sign up</Button>
+            </a>
+          </div>
+        </div>
+      ) : (
+        <CommentForm
+          postId={postId}
+          submitting={createComment.isPending}
+          onSubmit={(content) => {
+            createComment.mutate({
+              id: uuidv4(),
+              postId,
+              content,
+            });
+          }}
+          placeholder="Write a comment..."
+        />
+      )}
 
       {/* Comments List */}
       <div className="space-y-4">
