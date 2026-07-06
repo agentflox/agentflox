@@ -5,7 +5,7 @@ import { useWorkforceStore } from '../../hooks/useWorkforceStore';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import UnderlineExtension from '@tiptap/extension-underline';
-import '@/features/dashboard/views/workforce/nodes/sticky-note-editor.css';
+import '@/entities/workforce/components/nodes/sticky-note-editor.css';
 
 const NOTE_COLORS = [
     {
