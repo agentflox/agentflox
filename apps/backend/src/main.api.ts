@@ -69,13 +69,16 @@ async function bootstrapApiServer() {
         next();
     });
 
+    // Inngest handler MUST be registered before json() body parser
+    // so it can read the raw request body for signature verification.
+    app.use('/api/inngest', inngestHandler);
+
     app.use(json({ limit: '1mb' }));
     app.enableCors({
         origin: env.CORS_ORIGIN === '*' ? true : env.CORS_ORIGIN.split(','),
         credentials: true,
     });
 
-    app.use('/api/inngest', inngestHandler);
 
     const httpServer = app.getHttpServer();
 
