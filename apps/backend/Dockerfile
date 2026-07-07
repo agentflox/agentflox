@@ -42,14 +42,9 @@ COPY --from=deps /app/packages/config/package.json ./packages/config/
 COPY --from=deps /app/packages/errors/package.json ./packages/errors/
 COPY --from=deps /app/apps/backend/package.json ./apps/backend/
 
-# Copy dependencies from deps stage
+# Copy dependencies from deps stage (shamefully-hoist=true puts everything in root node_modules)
 COPY --from=deps /app/node_modules ./node_modules
-COPY --from=deps /app/packages/database/node_modules ./packages/database/node_modules
-COPY --from=deps /app/packages/types/node_modules ./packages/types/node_modules
-COPY --from=deps /app/packages/logger/node_modules ./packages/logger/node_modules
-COPY --from=deps /app/packages/config/node_modules ./packages/config/node_modules
-COPY --from=deps /app/packages/errors/node_modules ./packages/errors/node_modules
-COPY --from=deps /app/apps/backend/node_modules ./apps/backend/node_modules
+COPY --from=deps /app/.npmrc ./
 
 # Copy source files
 COPY packages/database ./packages/database
@@ -98,9 +93,8 @@ RUN addgroup --system --gid 1001 nodejs \
 
 WORKDIR /app
 
-# Copy production dependencies
+# Copy production dependencies (all hoisted to root node_modules via shamefully-hoist)
 COPY --from=prod-deps --chown=serviceio:nodejs /app/node_modules ./node_modules
-COPY --from=prod-deps --chown=serviceio:nodejs /app/packages/database/node_modules ./packages/database/node_modules
 
 # Copy built artifacts
 COPY --from=builder --chown=serviceio:nodejs /app/packages/database/src/generated ./packages/database/src/generated
