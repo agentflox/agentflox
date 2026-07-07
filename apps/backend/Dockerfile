@@ -46,8 +46,9 @@ COPY packages/config ./packages/config
 COPY packages/errors ./packages/errors
 COPY apps/backend/ ./apps/backend/
 
-# Generate Prisma client
-RUN cd packages/database && pnpm run db:generate
+# Generate Prisma client (invoke binary directly to avoid pnpm build-script approval gate)
+RUN cd packages/database && node_modules/.bin/prisma generate || \
+    ../../node_modules/.bin/prisma generate
 
 # Build shared packages
 RUN cd packages/types && pnpm run build

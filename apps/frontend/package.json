@@ -8,7 +8,7 @@
     "build": "pnpm --filter @agentflox/database db:generate && next build && node scripts/copy-prisma-engine.js",
     "start": "next start",
     "lint": "eslint",
-    "postinstall": "pnpm --filter @agentflox/database db:generate && node scripts/copy-prisma-engine.js"
+    "postinstall": "node scripts/copy-prisma-engine.js"
   },
   "dependencies": {
     "@agentflox/database": "workspace:^",

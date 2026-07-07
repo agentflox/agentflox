@@ -9,7 +9,7 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "node --max-old-space-size=8192 ./node_modules/typescript/bin/tsc --noEmit",
-    "postinstall": "pnpm --filter @agentflox/database db:generate && node scripts/copy-prisma-engine.js"
+    "postinstall": "node scripts/copy-prisma-engine.js"
   },
   "dependencies": {
     "@agentflox/database": "workspace:^",
