@@ -40,7 +40,7 @@ export const executeAgent = inngest.createFunction(
     // Concurrency limit per-function. Tenant-level limits are enforced
     // inside AgentGovernanceGate.checkRunEntry() before any work begins.
     concurrency: {
-      limit: 50,
+      limit: 5,
     },
     // Cancel any run that exceeds 10 minutes wall-clock.
     // The FSM's transitionCount cap (50) should terminate it well before this.

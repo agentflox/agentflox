@@ -9,7 +9,7 @@ export const agentExecutorWorkflow = inngest.createFunction(
         name: 'Agent Executor ReAct Loop',
         retries: 2,
         concurrency: {
-            limit: 10,
+            limit: 5,
         },
         triggers: [{ event: 'agent/executor.requested' }],
         cancelOn: [

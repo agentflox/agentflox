@@ -7,7 +7,7 @@ export const agentOperatorWorkflow = inngest.createFunction(
         name: 'Agent Operator ReAct Loop',
         retries: 2,
         concurrency: {
-            limit: 10,
+            limit: 5,
         },
         triggers: [{ event: 'agent/operator.requested'  }],
         cancelOn: [

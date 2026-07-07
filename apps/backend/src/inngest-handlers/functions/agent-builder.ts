@@ -15,7 +15,7 @@ export const agentBuilderWorkflow = inngest.createFunction(
     name: 'Agent Builder Workflow',
     retries: 2,
     concurrency: {
-      limit: 10,
+      limit: 5,
     },
     triggers: [{ event: 'agent/builder.requested' }],
   },
