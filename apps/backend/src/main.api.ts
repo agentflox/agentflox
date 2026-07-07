@@ -70,12 +70,10 @@ async function bootstrapApiServer() {
     });
 
     app.use(json({ limit: '1mb' }));
-    app.use(
-        cors({
-            origin: env.CORS_ORIGIN.split(','),
-            credentials: true,
-        })
-    );
+    app.enableCors({
+        origin: env.CORS_ORIGIN === '*' ? true : env.CORS_ORIGIN.split(','),
+        credentials: true,
+    });
 
     app.use('/api/inngest', inngestHandler);
 
@@ -83,7 +81,7 @@ async function bootstrapApiServer() {
 
     const io: Server<ClientToServerEvents, ServerToClientEvents, InterServerEvents, SocketData> = new Server(httpServer, {
         cors: {
-            origin: env.CORS_ORIGIN.split(','),
+            origin: env.CORS_ORIGIN === '*' ? true : env.CORS_ORIGIN.split(','),
             methods: ['GET', 'POST'],
             credentials: true,
         },
