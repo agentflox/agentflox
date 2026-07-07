@@ -1,5 +1,3 @@
-import * as CreateWebStorage from "redux-persist/lib/storage/createWebStorage";
-
 const isBrowser = typeof window !== "undefined";
 
 const createNoopStorage = () => ({
@@ -14,8 +12,20 @@ const createNoopStorage = () => ({
   },
 });
 
-const createWebStorage = CreateWebStorage.default ?? CreateWebStorage;
+const createLocalStorageWrapper = () => ({
+  getItem(key) {
+    return Promise.resolve(window.localStorage.getItem(key));
+  },
+  setItem(key, value) {
+    window.localStorage.setItem(key, value);
+    return Promise.resolve(value);
+  },
+  removeItem(key) {
+    window.localStorage.removeItem(key);
+    return Promise.resolve();
+  },
+});
 
-const storage = isBrowser ? createWebStorage("local") : createNoopStorage();
+const storage = isBrowser ? createLocalStorageWrapper() : createNoopStorage();
 
 export default storage;
