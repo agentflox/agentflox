@@ -26,7 +26,6 @@
     "clean": "turbo run clean && npx rimraf node_modules",
     "lint": "turbo run lint",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
-    "postinstall": "pnpm --filter @agentflox/database db:generate",
     "webhook-processor": "ts-node scripts/webhook-processor.ts"
   },
   "devDependencies": {
@@ -42,6 +41,7 @@
   },
   "pnpm": {
     "onlyBuiltDependencies": [
+      "@agentflox/database",
       "@prisma/client",
       "@prisma/engines",
       "prisma",
