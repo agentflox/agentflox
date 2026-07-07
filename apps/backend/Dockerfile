@@ -85,6 +85,11 @@ WORKDIR /app
 # Copy production dependencies
 COPY --from=prod-deps --chown=serviceio:nodejs /app/node_modules ./node_modules
 COPY --from=prod-deps --chown=serviceio:nodejs /app/packages/database/node_modules ./packages/database/node_modules
+COPY --from=prod-deps --chown=serviceio:nodejs /app/packages/types/node_modules ./packages/types/node_modules
+COPY --from=prod-deps --chown=serviceio:nodejs /app/packages/logger/node_modules ./packages/logger/node_modules
+COPY --from=prod-deps --chown=serviceio:nodejs /app/packages/config/node_modules ./packages/config/node_modules
+COPY --from=prod-deps --chown=serviceio:nodejs /app/packages/errors/node_modules ./packages/errors/node_modules
+COPY --from=prod-deps --chown=serviceio:nodejs /app/apps/backend/node_modules ./apps/backend/node_modules
 
 # Copy built artifacts
 COPY --from=builder --chown=serviceio:nodejs /app/packages/database/src/generated ./packages/database/src/generated
