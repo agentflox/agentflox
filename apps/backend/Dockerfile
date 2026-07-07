@@ -4,7 +4,7 @@
 # ===================================================================
 
 # ===== Base image =====
-FROM node:20-alpine AS base
+FROM node:22-alpine AS base
 RUN apk add --no-cache libc6-compat
 RUN corepack enable && corepack prepare pnpm@latest --activate
 WORKDIR /app
@@ -74,7 +74,7 @@ COPY apps/backend/package.json ./apps/backend/
 RUN pnpm install --frozen-lockfile --ignore-scripts --prod
 
 # ===== Runtime layer (API) =====
-FROM node:20-alpine AS api
+FROM node:22-alpine AS api
 
 # Security: Run as non-root user
 RUN addgroup --system --gid 1001 nodejs \
