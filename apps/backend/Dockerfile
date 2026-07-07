@@ -6,7 +6,7 @@
 # ===== Base image =====
 FROM node:22-alpine AS base
 RUN apk add --no-cache libc6-compat python3 make g++
-RUN corepack enable && corepack prepare pnpm@latest --activate
+RUN corepack enable && corepack prepare pnpm@9.12.0 --activate
 WORKDIR /app
 
 # ===== Dependencies layer =====
@@ -54,9 +54,10 @@ COPY packages/config ./packages/config
 COPY packages/errors ./packages/errors
 COPY apps/backend/ ./apps/backend/
 
-# Generate Prisma client (invoke binary directly to avoid pnpm build-script approval gate)
-RUN cd packages/database && node_modules/.bin/prisma generate || \
-    ../../node_modules/.bin/prisma generate
+# Generate Prisma client — run from the database package root so schema path resolves correctly
+WORKDIR /app/packages/database
+RUN /app/node_modules/.bin/prisma generate
+WORKDIR /app
 
 # Build shared packages
 RUN cd packages/types && pnpm run build
@@ -97,7 +98,9 @@ WORKDIR /app
 COPY --from=prod-deps --chown=serviceio:nodejs /app/node_modules ./node_modules
 
 # Copy built artifacts
-COPY --from=builder --chown=serviceio:nodejs /app/packages/database/src/generated ./packages/database/src/generated
+# packages/database: copy full source so node_modules/@agentflox/database symlink resolves at runtime
+# (package.json main points to ./index.ts which Node.js needs to find)
+COPY --from=builder --chown=serviceio:nodejs /app/packages/database ./packages/database
 COPY --from=builder --chown=serviceio:nodejs /app/packages/types/dist ./packages/types/dist
 COPY --from=builder --chown=serviceio:nodejs /app/packages/logger/dist ./packages/logger/dist
 COPY --from=builder --chown=serviceio:nodejs /app/packages/config/dist ./packages/config/dist
@@ -106,7 +109,7 @@ COPY --from=builder --chown=serviceio:nodejs /app/apps/backend/dist ./apps/backe
 
 # Copy package.json files for module resolution
 COPY --from=builder --chown=serviceio:nodejs /app/package.json ./
-COPY --from=builder --chown=serviceio:nodejs /app/packages/database/package.json ./packages/database/
+# packages/database/package.json already included via full COPY above
 COPY --from=builder --chown=serviceio:nodejs /app/packages/types/package.json ./packages/types/
 COPY --from=builder --chown=serviceio:nodejs /app/packages/logger/package.json ./packages/logger/
 COPY --from=builder --chown=serviceio:nodejs /app/packages/config/package.json ./packages/config/

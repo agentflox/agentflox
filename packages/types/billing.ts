@@ -1,7 +1,5 @@
 import { DateTime } from 'luxon';
-// We import directly from the generated client which is available via node resolution in the workspace
-// assuming @agentflox/database is installed
-import { PaymentGateway, PaymentMethod, PaymentStatus, PurchaseStatus, BillingType } from '@agentflox/database/src/generated/prisma';
+import { PaymentGateway, PaymentMethod, PaymentStatus, PurchaseStatus, BillingType } from '@agentflox/database';
 
 export enum PAYMENT_METHOD {
     CREDIT_CARD = "CREDIT_CARD",
