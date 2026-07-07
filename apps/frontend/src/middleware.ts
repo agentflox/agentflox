@@ -51,14 +51,19 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Redirect authenticated users away from auth routes
+  // Redirect authenticated users away from auth routes, honoring the preserved destination
   if (isAuthenticated && isAccessingAuthRoute) {
-    return NextResponse.redirect(new URL("/", url));
+    const callbackUrl = url.searchParams.get("callbackUrl");
+    // Guard against open-redirect: only allow relative paths
+    const safeDest = callbackUrl && callbackUrl.startsWith("/") ? callbackUrl : "/";
+    return NextResponse.redirect(new URL(safeDest, url));
   }
 
-  // Redirect unauthenticated users to login
+  // Redirect unauthenticated users to login, preserving their destination
   if (!isAuthenticated && isProtectedRoute) {
-    return NextResponse.redirect(new URL("/login", url));
+    const loginUrl = new URL("/login", url);
+    loginUrl.searchParams.set("callbackUrl", pathname + url.search);
+    return NextResponse.redirect(loginUrl);
   }
 
   // Handle authenticated user flows

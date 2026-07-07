@@ -158,14 +158,14 @@ export const LoginView = () => {
       <div className="flex p-1.5 bg-gray-50 rounded-xl mb-5 border border-gray-100">
         <button
           onClick={() => setLoginMethod("password")}
-          className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all duration-200 ${loginMethod === "password" ? "bg-white shadow-[0_2px_10px_rgba(0,0,0,0.03)] text-black border border-gray-100" : "text-gray-500 hover:text-gray-900"
+          className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all duration-200 ${loginMethod === "password" ? "bg-white shadow-[0_2px_10px_rgba(0,0,0,0.03)] text-black border border-gray-100" : "text-gray-500 hover:text-gray-900 cursor-pointer"
             }`}
         >
           Password
         </button>
         <button
           onClick={() => setLoginMethod("magiclink")}
-          className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all duration-200 ${loginMethod === "magiclink" ? "bg-white shadow-[0_2px_10px_rgba(0,0,0,0.03)] text-black border border-gray-100" : "text-gray-500 hover:text-gray-900"
+          className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all duration-200 ${loginMethod === "magiclink" ? "bg-white shadow-[0_2px_10px_rgba(0,0,0,0.03)] text-black border border-gray-100" : "text-gray-500 hover:text-gray-900 cursor-pointer"
             }`}
         >
           Magic Link

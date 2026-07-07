@@ -9,6 +9,12 @@ import {
   ERROR_CODE_TO_STATUS
 } from '@/features/auth/types/apiResponse';
 
+// Must match the custom cookie name configured in auth.ts
+const IS_PRODUCTION = process.env.APP_ENV === 'production';
+const SHARED_COOKIE_NAME = IS_PRODUCTION
+  ? '__Secure-agentflox.session-token'
+  : 'agentflox.session-token';
+
 export async function GET(req: Request) {
   try {
     const secret = process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET;
@@ -27,7 +33,8 @@ export async function GET(req: Request) {
     const token = await getToken({
       req,
       secret,
-      secureCookie: process.env.APP_ENV === 'production'
+      secureCookie: IS_PRODUCTION,
+      cookieName: SHARED_COOKIE_NAME,
     });
 
     if (!token) {

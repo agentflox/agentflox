@@ -2,7 +2,7 @@ import React from "react";
 import type { Metadata } from "next";
 import { Inter } from 'next/font/google';
 import Providers from "@/components/providers/Providers";
-import { mergeOpenGraph } from '@/utils/utilities//mergeOpenGraph';
+import { mergeOpenGraph } from '@/utils/utilities/mergeOpenGraph';
 import { getServerSideURL } from '@/utils/utilities/getURL';
 import { auth } from "@/lib/auth";
 import '@llamaindex/chat-ui/styles/markdown.css'

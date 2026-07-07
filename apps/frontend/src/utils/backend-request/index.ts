@@ -33,7 +33,9 @@ export async function fetchAuthToken(session?: any): Promise<string | null> {
 }
 
 /**
- * Make authenticated request to backend
+ * Make authenticated request to backend.
+ * Automatically handles 401 responses by signing out and redirecting to /login
+ * with the current page preserved as callbackUrl.
  */
 export async function sendBackendRequest(
   endpoint: string,
@@ -63,6 +65,14 @@ export async function sendBackendRequest(
       headers,
     });
 
+    // Handle expired/invalid access token — sign out and redirect to login
+    if (response.status === 401 && typeof window !== 'undefined') {
+      const { signOut } = await import('next-auth/react');
+      const callbackUrl = encodeURIComponent(window.location.pathname + window.location.search);
+      await signOut({ redirect: false });
+      window.location.href = `/login?callbackUrl=${callbackUrl}`;
+    }
+
     return response;
   } catch (error: any) {
     if (error.code === 'ECONNREFUSED' || error.message?.includes('fetch failed')) {
@@ -74,3 +84,4 @@ export async function sendBackendRequest(
     throw error;
   }
 }
+
