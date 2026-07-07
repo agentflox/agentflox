@@ -15,7 +15,7 @@ const hasExtension = (specifier) => {
   }
   const [, base] = match;
   const ext = path.extname(base);
-  return Boolean(ext);
+  return ['.js', '.cjs', '.mjs', '.json', '.node'].includes(ext);
 };
 
 const shouldHandle = (specifier) =>
