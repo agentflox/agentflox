@@ -26,7 +26,7 @@ import { registerToolExecutionHandlers } from './handlers/toolExecutionHandlers'
 import { PresenceService } from './services/socket/presenceService';
 import { getFriendIds, getTeamMemberIds } from './utils/socket/authorization';
 import { AppModule } from './app.module';
-import { inngestHandler } from './inngest/serve';
+import { inngestHandler } from './inngest-handlers/serve';
 import { createLifecycleManager } from './lib/lifecycleManager';
 import { metricsAuthMiddleware, requestTimeoutMiddleware } from './middleware/httpSecurity';
 import { PRESENCE_CONFIG } from './lib/presenceConfig';
