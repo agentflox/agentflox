@@ -2,8 +2,9 @@
   "name": "@agentflox/database",
   "version": "1.0.0",
   "private": true,
-  "main": "./index.ts",
-  "types": "./index.ts",
+  "type": "module",
+  "main": "./index.js",
+  "types": "./index.d.ts",
   "scripts": {
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
