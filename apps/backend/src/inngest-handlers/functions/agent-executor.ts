@@ -8,9 +8,12 @@ export const agentExecutorWorkflow = inngest.createFunction(
         id: 'agent-executor-workflow',
         name: 'Agent Executor ReAct Loop',
         retries: 2,
-        concurrency: {
-            limit: 5,
-        },
+        concurrency: [
+            // Fairness: each user can run at most 2 agents simultaneously
+            { limit: 2, key: 'event.data.userId' },
+            // Reality ceiling: matches IN-XS plan cap (5 account-wide)
+            { limit: 5, scope: 'account', key: '"global-agent-ceiling"' },
+        ],
         triggers: [{ event: 'agent/executor.requested' }],
         cancelOn: [
             {

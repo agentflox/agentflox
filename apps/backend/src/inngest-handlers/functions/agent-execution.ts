@@ -39,9 +39,12 @@ export const executeAgent = inngest.createFunction(
     retries: 3,
     // Concurrency limit per-function. Tenant-level limits are enforced
     // inside AgentGovernanceGate.checkRunEntry() before any work begins.
-    concurrency: {
-      limit: 5,
-    },
+    concurrency: [
+      // Fairness: each user can run at most 2 agents simultaneously
+      { limit: 2, key: 'event.data.userId' },
+      // Reality ceiling: matches IN-XS plan cap (5 account-wide)
+      { limit: 5, scope: 'account', key: '"global-agent-ceiling"' },
+    ],
     // Cancel any run that exceeds 10 minutes wall-clock.
     // The FSM's transitionCount cap (50) should terminate it well before this.
     timeouts: { finish: '10m' } as any,
