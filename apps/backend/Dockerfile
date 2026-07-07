@@ -22,8 +22,10 @@ COPY packages/config/package.json ./packages/config/
 COPY packages/errors/package.json ./packages/errors/
 COPY apps/backend/package.json ./apps/backend/
 
-# Install dependencies (onlyBuiltDependencies in package.json controls which scripts run)
-RUN pnpm install --frozen-lockfile
+# Install dependencies; skip lifecycle scripts (no source files yet for workspace packages)
+# isolated-vm is rebuilt explicitly below so the native addon is compiled
+RUN pnpm install --frozen-lockfile --ignore-scripts
+RUN pnpm rebuild isolated-vm
 
 # ===== Build layer =====
 FROM base AS builder
@@ -82,8 +84,10 @@ COPY packages/config/package.json ./packages/config/
 COPY packages/errors/package.json ./packages/errors/
 COPY apps/backend/package.json ./apps/backend/
 
-# Install production dependencies only (onlyBuiltDependencies in package.json controls which scripts run)
-RUN pnpm install --frozen-lockfile --prod
+# Install production dependencies only; skip lifecycle scripts (no source files for workspace packages)
+# isolated-vm is rebuilt explicitly so the native addon binary is available at runtime
+RUN pnpm install --frozen-lockfile --ignore-scripts --prod
+RUN pnpm rebuild isolated-vm
 
 # ===== Runtime layer (API) =====
 FROM node:22-alpine AS api
