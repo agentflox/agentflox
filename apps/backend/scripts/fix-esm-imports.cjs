@@ -21,7 +21,7 @@ const hasExtension = (specifier) => {
 const shouldHandle = (specifier) =>
   (specifier.startsWith('./') || specifier.startsWith('../')) && !hasExtension(specifier);
 
-const ensureJsExtension = (specifier) => {
+const ensureJsExtension = (specifier, currentFilePath) => {
   if (!shouldHandle(specifier)) {
     return specifier;
   }
@@ -31,13 +31,31 @@ const ensureJsExtension = (specifier) => {
     return specifier;
   }
 
-  const updatedBase = base.endsWith('/') ? `${base}index.js` : `${base}.js`;
+  const currentDir = path.dirname(currentFilePath);
+  const resolvedPath = path.resolve(currentDir, base);
+  
+  let isDir = false;
+  try {
+    isDir = fs.statSync(resolvedPath).isDirectory();
+  } catch (e) {
+    // ignore
+  }
+
+  let updatedBase;
+  if (base.endsWith('/')) {
+    updatedBase = `${base}index.js`;
+  } else if (isDir) {
+    updatedBase = `${base}/index.js`;
+  } else {
+    updatedBase = `${base}.js`;
+  }
+
   return `${updatedBase}${trailing}`;
 };
 
-const replaceSpecifier = (content, pattern) =>
+const replaceSpecifier = (content, pattern, currentFilePath) =>
   content.replace(pattern, (_, prefix, specifier, suffix) => {
-    const updated = ensureJsExtension(specifier);
+    const updated = ensureJsExtension(specifier, currentFilePath);
     return `${prefix}${updated}${suffix}`;
   });
 
@@ -52,7 +70,7 @@ const processFile = (filePath) => {
   ];
 
   patterns.forEach((pattern) => {
-    updated = replaceSpecifier(updated, pattern);
+    updated = replaceSpecifier(updated, pattern, filePath);
   });
 
   if (updated !== original) {

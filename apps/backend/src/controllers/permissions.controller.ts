@@ -7,7 +7,6 @@ import { Controller, Get, Post, Delete, Body, Param, Query, UseGuards, Request }
 import { permissionResolver, permissionCache } from '../lib/permissions';
 import { PermissionLevel } from '@agentflox/database';
 import { prisma } from '@/lib/prisma';
-
 import { JwtAuthGuard, AuthenticatedRequest } from '@/middleware/httpAuth';
 
 @Controller('api/permissions')
@@ -256,12 +255,12 @@ export class PermissionsController {
         // User Verification required: "Remove all - Removes access for all invited people at once".
         // "Invited people" implies those with explicit permissions.
 
-            const where: any = { locationType: itemType, locationId: itemId };
+        const where: any = { locationType: itemType, locationId: itemId };
 
-            if (body.userIds?.length) where.userId = { in: body.userIds };
-            if (body.teamIds?.length) where.teamId = { in: body.teamIds };
+        if (body.userIds?.length) where.userId = { in: body.userIds };
+        if (body.teamIds?.length) where.teamId = { in: body.teamIds };
 
-            await prisma.locationPermission.deleteMany({ where });
+        await prisma.locationPermission.deleteMany({ where });
 
         // Invalidate cache
         if (body.userIds) {
