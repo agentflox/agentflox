@@ -25,20 +25,22 @@ export default function Providers({
           refetchOnWindowFocus={false}
           session={session}
         >
-          <TRPCProvider>
-            <SocketProvider>
-              {session?.user ? (
-                <CollaborationProvider
-                  userId={session.user.id}
-                  username={session.user.name || session.user.email || 'User'}
-                >
-                  {children}
-                </CollaborationProvider>
-              ) : (
-                children
-              )}
-            </SocketProvider>
-          </TRPCProvider>
+          <ReduxProvider>
+            <TRPCProvider>
+              <SocketProvider>
+                {session?.user ? (
+                  <CollaborationProvider
+                    userId={session.user.id}
+                    username={session.user.name || session.user.email || 'User'}
+                  >
+                    {children}
+                  </CollaborationProvider>
+                ) : (
+                  children
+                )}
+              </SocketProvider>
+            </TRPCProvider>
+          </ReduxProvider>
         </SessionProvider>
       </ThemeProvider>
       <Toaster position="bottom-center" />
