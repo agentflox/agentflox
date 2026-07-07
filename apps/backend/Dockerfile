@@ -14,7 +14,7 @@ FROM base AS deps
 WORKDIR /app
 
 # Copy package files for all workspaces
-COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml .npmrc ./
 COPY packages/database/package.json ./packages/database/
 COPY packages/types/package.json ./packages/types/
 COPY packages/logger/package.json ./packages/logger/
@@ -76,7 +76,7 @@ RUN cd apps/backend/ && pnpm run build
 FROM base AS prod-deps
 WORKDIR /app
 
-COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml .npmrc ./
 COPY packages/database/package.json ./packages/database/
 COPY packages/types/package.json ./packages/types/
 COPY packages/logger/package.json ./packages/logger/
