@@ -44,7 +44,7 @@ async function bootstrapApiServer() {
     const redisRealtimeDisabled = String(env.DISABLE_REDIS_REALTIME || '').toLowerCase() === 'true';
     const apiSingletonsDisabled = String(env.DISABLE_API_SINGLETON_HOOKS || '').toLowerCase() === 'true';
 
-    const app = await NestFactory.create(AppModule, { cors: false });
+    const app = await NestFactory.create(AppModule, { cors: false, bodyParser: false });
 
     app.use(helmet({
         contentSecurityPolicy: false,
