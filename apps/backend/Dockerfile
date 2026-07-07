@@ -29,6 +29,17 @@ RUN pnpm install --frozen-lockfile --ignore-scripts
 FROM base AS builder
 WORKDIR /app
 
+# Copy workspace config (required for pnpm workspace resolution)
+COPY --from=deps /app/package.json ./
+COPY --from=deps /app/pnpm-workspace.yaml ./
+COPY --from=deps /app/pnpm-lock.yaml ./
+COPY --from=deps /app/packages/database/package.json ./packages/database/
+COPY --from=deps /app/packages/types/package.json ./packages/types/
+COPY --from=deps /app/packages/logger/package.json ./packages/logger/
+COPY --from=deps /app/packages/config/package.json ./packages/config/
+COPY --from=deps /app/packages/errors/package.json ./packages/errors/
+COPY --from=deps /app/apps/backend/package.json ./apps/backend/
+
 # Copy dependencies from deps stage
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/packages/database/node_modules ./packages/database/node_modules
