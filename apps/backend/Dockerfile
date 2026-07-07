@@ -111,6 +111,7 @@ COPY --from=prod-deps --chown=serviceio:nodejs /app/apps/backend/node_modules ./
 
 # Copy built artifacts
 COPY --from=builder --chown=serviceio:nodejs /app/packages/database/src/generated ./packages/database/src/generated
+COPY --from=builder --chown=serviceio:nodejs /app/packages/database/index.js ./packages/database/index.js
 COPY --from=builder --chown=serviceio:nodejs /app/packages/types/dist ./packages/types/dist
 COPY --from=builder --chown=serviceio:nodejs /app/packages/logger/dist ./packages/logger/dist
 COPY --from=builder --chown=serviceio:nodejs /app/packages/config/dist ./packages/config/dist
