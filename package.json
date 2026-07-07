@@ -45,7 +45,8 @@
       "@prisma/client",
       "@prisma/engines",
       "prisma",
-      "esbuild"
+      "esbuild",
+      "isolated-vm"
     ]
   }
 }

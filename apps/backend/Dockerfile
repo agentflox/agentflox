@@ -5,7 +5,7 @@
 
 # ===== Base image =====
 FROM node:22-alpine AS base
-RUN apk add --no-cache libc6-compat
+RUN apk add --no-cache libc6-compat python3 make g++
 RUN corepack enable && corepack prepare pnpm@latest --activate
 WORKDIR /app
 
@@ -22,8 +22,8 @@ COPY packages/config/package.json ./packages/config/
 COPY packages/errors/package.json ./packages/errors/
 COPY apps/backend/package.json ./apps/backend/
 
-# Install dependencies
-RUN pnpm install --frozen-lockfile --ignore-scripts
+# Install dependencies (onlyBuiltDependencies in package.json controls which scripts run)
+RUN pnpm install --frozen-lockfile
 
 # ===== Build layer =====
 FROM base AS builder
@@ -82,8 +82,8 @@ COPY packages/config/package.json ./packages/config/
 COPY packages/errors/package.json ./packages/errors/
 COPY apps/backend/package.json ./apps/backend/
 
-# Install production dependencies only
-RUN pnpm install --frozen-lockfile --ignore-scripts --prod
+# Install production dependencies only (onlyBuiltDependencies in package.json controls which scripts run)
+RUN pnpm install --frozen-lockfile --prod
 
 # ===== Runtime layer (API) =====
 FROM node:22-alpine AS api
