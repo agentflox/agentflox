@@ -42,8 +42,15 @@ COPY --from=deps /app/packages/config/package.json ./packages/config/
 COPY --from=deps /app/packages/errors/package.json ./packages/errors/
 COPY --from=deps /app/apps/backend/package.json ./apps/backend/
 
-# Copy dependencies from deps stage (shamefully-hoist=true puts everything in root node_modules)
+# Copy dependencies from deps stage (shamefully-hoist=true puts third-party deps in root node_modules)
+# But workspace package symlinks are still placed in per-package node_modules, so we must copy them too!
 COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/packages/database/node_modules ./packages/database/node_modules/
+COPY --from=deps /app/packages/types/node_modules ./packages/types/node_modules/
+COPY --from=deps /app/packages/logger/node_modules ./packages/logger/node_modules/
+COPY --from=deps /app/packages/config/node_modules ./packages/config/node_modules/
+COPY --from=deps /app/packages/errors/node_modules ./packages/errors/node_modules/
+COPY --from=deps /app/apps/backend/node_modules ./apps/backend/node_modules/
 COPY --from=deps /app/.npmrc ./
 
 # Copy source files
