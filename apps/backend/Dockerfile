@@ -95,13 +95,13 @@ COPY --from=builder --chown=serviceio:nodejs /app/packages/errors/dist ./package
 COPY --from=builder --chown=serviceio:nodejs /app/apps/backend/dist ./apps/backend/dist
 
 # Copy package.json files for module resolution
-COPY --from=builder --chown=serviceio:nodejs /app/package.json ./
-COPY --from=builder --chown=serviceio:nodejs /app/packages/database/package.json ./packages/database/
-COPY --from=builder --chown=serviceio:nodejs /app/packages/types/package.json ./packages/types/
-COPY --from=builder --chown=serviceio:nodejs /app/packages/logger/package.json ./packages/logger/
-COPY --from=builder --chown=serviceio:nodejs /app/packages/config/package.json ./packages/config/
-COPY --from=builder --chown=serviceio:nodejs /app/packages/errors/package.json ./packages/errors/
-COPY --from=builder --chown=serviceio:nodejs /app/apps/backend/package.json ./apps/backend/
+COPY --from=prod-deps --chown=serviceio:nodejs /app/package.json ./
+COPY --from=prod-deps --chown=serviceio:nodejs /app/packages/database/package.json ./packages/database/
+COPY --from=prod-deps --chown=serviceio:nodejs /app/packages/types/package.json ./packages/types/
+COPY --from=prod-deps --chown=serviceio:nodejs /app/packages/logger/package.json ./packages/logger/
+COPY --from=prod-deps --chown=serviceio:nodejs /app/packages/config/package.json ./packages/config/
+COPY --from=prod-deps --chown=serviceio:nodejs /app/packages/errors/package.json ./packages/errors/
+COPY --from=prod-deps --chown=serviceio:nodejs /app/apps/backend/package.json ./apps/backend/
         
 WORKDIR /app/apps/backend/
 
