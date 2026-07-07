@@ -4,7 +4,7 @@
   "scripts": {
     "dev": "turbo run dev --parallel",
     "dev:web": "turbo run dev --filter=@agentflox/frontend",
-	"dev:app": "turbo run dev --filter=@agentflox/frontend --filter=@agentflox/backend --parallel",
+    "dev:app": "turbo run dev --filter=@agentflox/frontend --filter=@agentflox/backend --parallel",
     "dev:docs": "turbo run dev --filter=@agentflox/docs",
     "dev:developer": "turbo run dev --filter=@agentflox/developer",
     "dev:community": "turbo run dev --filter=@agentflox/community",
@@ -29,6 +29,7 @@
     "webhook-processor": "ts-node scripts/webhook-processor.ts"
   },
   "devDependencies": {
+    "@types/node": "^26.1.0",
     "concurrently": "^8.2.2",
     "prettier": "^3.1.1",
     "turbo": "^1.11.3",
