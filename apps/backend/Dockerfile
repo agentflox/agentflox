@@ -23,7 +23,16 @@ COPY packages/errors/package.json ./packages/errors/
 COPY apps/backend/package.json ./apps/backend/
 
 # Install dependencies
-RUN pnpm install --frozen-lockfile --ignore-scripts
+# NOTE: mkdir -p guarantees every workspace has a node_modules dir to COPY later,
+# even if pnpm found no packages to hoist there (e.g. a dep-less package like "errors").
+RUN pnpm install --frozen-lockfile --ignore-scripts \
+    && mkdir -p \
+       packages/database/node_modules \
+       packages/types/node_modules \
+       packages/logger/node_modules \
+       packages/config/node_modules \
+       packages/errors/node_modules \
+       apps/backend/node_modules
 
 # ===== Build layer =====
 FROM base AS builder
@@ -71,7 +80,16 @@ COPY packages/errors/package.json ./packages/errors/
 COPY apps/backend/package.json ./apps/backend/
 
 # Install production dependencies only
-RUN pnpm install --frozen-lockfile --ignore-scripts --prod
+# Same defensive mkdir -p as above — this is the fix for the reported build failure:
+# "packages/errors/node_modules": not found
+RUN pnpm install --frozen-lockfile --ignore-scripts --prod \
+    && mkdir -p \
+       packages/database/node_modules \
+       packages/types/node_modules \
+       packages/logger/node_modules \
+       packages/config/node_modules \
+       packages/errors/node_modules \
+       apps/backend/node_modules
 
 # ===== Runtime layer (API) =====
 FROM node:20-alpine AS api
@@ -107,7 +125,7 @@ COPY --from=prod-deps --chown=serviceio:nodejs /app/packages/logger/package.json
 COPY --from=prod-deps --chown=serviceio:nodejs /app/packages/config/package.json ./packages/config/
 COPY --from=prod-deps --chown=serviceio:nodejs /app/packages/errors/package.json ./packages/errors/
 COPY --from=prod-deps --chown=serviceio:nodejs /app/apps/backend/package.json ./apps/backend/
-        
+
 WORKDIR /app/apps/backend/
 
 USER serviceio
