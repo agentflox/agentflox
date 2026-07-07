@@ -4,14 +4,7 @@
   "private": true,
   "main": "./index.ts",
   "types": "./index.ts",
-  "exports": {
-    ".": {
-      "import": "./index.ts",
-      "types": "./index.ts"
-    }
-  },
   "scripts": {
-    "postinstall": "node -e \"const fs=require('fs');if(fs.existsSync('./prisma/schema.prisma')){const {execSync}=require('child_process');execSync('prisma generate',{stdio:'inherit'})}else{console.log('[database] Skipping prisma generate: schema not found')}\"",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev",
