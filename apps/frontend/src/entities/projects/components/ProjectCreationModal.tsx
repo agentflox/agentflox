@@ -3,6 +3,7 @@
 import React, { useEffect } from "react";
 import { Sparkles, FolderKanban } from "lucide-react";
 import { useParams } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -18,7 +19,7 @@ import { upsertProject } from "@/stores/slices/project.slice";
 import { serializeDates } from "@/stores/utils/serialize";
 import { cn } from "@/lib/utils";
 import { IconColorSelector } from "@/components/ui/icon-color-selector";
-
+import { ProjectIcon } from "@/entities/projects/components/ProjectIcon";
 
 type ProjectCreationModalProps = {
 	open: boolean;
@@ -32,10 +33,27 @@ const STATUS_OPTIONS = [
 	{ label: "Draft", value: "DRAFT", helper: "Perfect while you're still polishing the details." },
 ] as const;
 
-const VISIBILITY_OPTIONS = [
-	{ label: "Private - Only members", value: "PRIVATE" },
-	{ label: "Internal - All Workspace members", value: "INTERNAL" },
-	{ label: "Public - Anyone with link", value: "PUBLIC" },
+const visibilityOptions = [
+  {
+    label: "Only Owners",
+    value: "PRIVATE",
+    description: "Only space owners can view and edit"
+  },
+  {
+    label: "Owners & Admins",
+    value: "ADMINS",
+    description: "Owners and admins can view and edit"
+  },
+  {
+    label: "Owners, Admins & Members",
+    value: "MEMBERS",
+    description: "All space members can view"
+  },
+  {
+    label: "Anyone with Link",
+    value: "PUBLIC",
+    description: "Anyone with the link can view"
+  },
 ];
 
 const INITIAL_STATE = {
@@ -44,9 +62,10 @@ const INITIAL_STATE = {
 	status: "PUBLISHED",
 	workspaceId: "",
 	spaceId: "",
-	icon: "💼",
-	color: "#4F46E5",
-	visibility: "PRIVATE" as "PRIVATE" | "INTERNAL" | "PUBLIC",
+	icon: "P",
+	color: "#3B82F6",
+	hasManualIcon: false,
+	visibility: "ADMINS" as "PRIVATE" | "ADMINS" | "MEMBERS" | "EVERYONE" | "PUBLIC"
 };
 
 export function ProjectCreationModal({ open, onOpenChange, onCreated, defaultSpaceId }: ProjectCreationModalProps) {
@@ -57,6 +76,7 @@ export function ProjectCreationModal({ open, onOpenChange, onCreated, defaultSpa
 	const createMutation = trpc.project.publish.useMutation();
 	const isSubmitting = createMutation.isPending;
 	const utils = trpc.useUtils();
+	const queryClient = useQueryClient();
 
 	const { data: session } = useSession();
 	const isInsideWorkspace = !!params?.workspaceId;
@@ -90,10 +110,10 @@ export function ProjectCreationModal({ open, onOpenChange, onCreated, defaultSpa
 
 	const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
 		event.preventDefault();
-		if (!form.name.trim() || !form.description.trim()) {
+		if (!form.name.trim()) {
 			toast({
 				title: "Missing details",
-				description: "Please provide both a title and a short description.",
+				description: "Please provide a project name.",
 				variant: "destructive",
 			});
 			return;
@@ -102,7 +122,7 @@ export function ProjectCreationModal({ open, onOpenChange, onCreated, defaultSpa
 		try {
 			const { id, data } = await createMutation.mutateAsync({
 				name: form.name.trim(),
-				description: form.description.trim(),
+				description: form.description.trim() || undefined,
 				status: form.status,
 				workspaceId: form.workspaceId || undefined,
 				spaceId: form.spaceId || undefined,
@@ -114,21 +134,20 @@ export function ProjectCreationModal({ open, onOpenChange, onCreated, defaultSpa
 			dispatch(upsertProject({ id, data: serializeDates(data as any) }));
 
 			// Optimistically update project list cache for sidebar
-			utils.project.list.setData(
-				{ workspaceId: form.workspaceId, scope: "owned", pageSize: 50 },
-				(oldData: any) => {
-					if (!oldData) return undefined;
-
-					// Avoid duplicates
-					const existingItems = oldData.items || [];
-					if (existingItems.some((i: any) => i.id === data.id)) return oldData;
-
-					return {
-						...oldData,
-						items: [data, ...existingItems]
-					};
-				}
-			);
+			queryClient.setQueriesData({ queryKey: [['project', 'list']] }, (oldData: any) => {
+				if (!oldData || !oldData.items) return oldData;
+				if (oldData.items.some((i: any) => i.id === data.id)) return oldData;
+				return { ...oldData, items: [data, ...oldData.items], total: (oldData.total || 0) + 1 };
+			});
+			queryClient.setQueriesData({ queryKey: [['project', 'listInfinite']] }, (oldData: any) => {
+				if (!oldData || !oldData.pages) return oldData;
+				return {
+					...oldData,
+					pages: oldData.pages.map((page: any, index: number) => 
+						index === 0 ? { ...page, items: [data, ...page.items.filter((i: any) => i.id !== data.id)] } : page
+					)
+				};
+			});
 
 			if (form.spaceId) await utils.space.get.invalidate({ id: form.spaceId });
 
@@ -157,31 +176,31 @@ export function ProjectCreationModal({ open, onOpenChange, onCreated, defaultSpa
 		<Dialog open={open} onOpenChange={onOpenChange}>
 			<DialogContent className="sm:max-w-xl gap-6">
 				<div className="pb-2">
-		          <div className="flex items-start gap-5">
-		            <div className={cn(
-		              "mt-1 p-3 rounded-2xl border transition-all duration-300",
-		              "bg-primary/5 border-primary/10 text-primary shadow-[0_0_15px_-3px_rgba(0,0,0,0.1)]",
-		              "group-hover:scale-105"
-		            )}>
-		              <FolderKanban className="w-5 h-5 md:w-6 md:h-6" strokeWidth={1.5} />
-		            </div>
-		            <div className="pt-1">
-		              <DialogTitle className="text-xl font-bold tracking-tight text-foreground/95">
-		                Create a project
-		              </DialogTitle>
-		              <DialogDescription className="text-muted-foreground text-sm leading-relaxed">
-		                Organize team members.
-		              </DialogDescription>
-		            </div>
-		          </div>
-		        </div>
+					<div className="flex items-start gap-5">
+						<div className={cn(
+							"mt-1 p-3 rounded-2xl border transition-all duration-300",
+							"bg-primary/5 border-primary/10 text-primary shadow-[0_0_15px_-3px_rgba(0,0,0,0.1)]",
+							"group-hover:scale-105"
+						)}>
+							<FolderKanban className="w-5 h-5 md:w-6 md:h-6" strokeWidth={1.5} />
+						</div>
+						<div className="pt-1">
+							<DialogTitle className="text-xl font-bold tracking-tight text-foreground/95">
+								Create a project
+							</DialogTitle>
+							<DialogDescription className="text-muted-foreground text-sm leading-relaxed">
+								Organize team members.
+							</DialogDescription>
+						</div>
+					</div>
+				</div>
 
 				<form className="flex flex-col gap-5" onSubmit={handleSubmit}>
 					{/* Location Selectors */}
 					<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
 						{!isInsideWorkspace && (
 							<div className="space-y-2">
-								<Label className="text-sm font-medium text-slate-700">Workspace</Label>
+								<Label className="text-sm font-medium text-slate-700">Workspace <span className="text-[10px] font-normal lowercase">(optional)</span></Label>
 								<Select
 									value={form.workspaceId}
 									onValueChange={(val) => setForm(prev => ({ ...prev, workspaceId: val, spaceId: "" }))} // Reset space on workspace change
@@ -198,7 +217,7 @@ export function ProjectCreationModal({ open, onOpenChange, onCreated, defaultSpa
 							</div>
 						)}
 						<div className="space-y-2">
-							<Label className="text-sm font-medium text-slate-700">Space (Optional)</Label>
+							<Label className="text-sm font-medium text-slate-700">Space <span className="text-[10px] font-normal lowercase">(optional)</span></Label>
 							<Select
 								value={form.spaceId}
 								onValueChange={(val) => setForm(prev => ({ ...prev, spaceId: val }))}
@@ -218,23 +237,23 @@ export function ProjectCreationModal({ open, onOpenChange, onCreated, defaultSpa
 
 					<div className="space-y-2">
 						<Label htmlFor="project-name" className="text-sm font-medium text-slate-700">
-							Icon & name
+							Icon & name <span className="text-destructive">*</span>
 						</Label>
 						<div className="flex items-center gap-2">
 							<IconColorSelector
 								icon={form.icon}
 								color={form.color}
-								onIconChange={(icon) => setForm(prev => ({ ...prev, icon }))}
+								onIconChange={(icon) => setForm(prev => ({ ...prev, icon, hasManualIcon: true }))}
 								onColorChange={(color) => setForm(prev => ({ ...prev, color }))}
 							>
 								<Button
 									type="button"
 									variant="outline"
 									size="icon"
-									className="h-10 w-10 rounded-lg shrink-0"
-									style={{ backgroundColor: form.color }}
+									className="h-10 w-10 rounded-lg shrink-0 overflow-hidden grid place-items-center"
+									style={{ backgroundColor: form.icon ? form.color : 'transparent' }}
 								>
-									<span className="text-lg">{form.icon}</span>
+									<ProjectIcon icon={form.icon} className="text-white" size={20} fill />
 								</Button>
 							</IconColorSelector>
 							<Input
@@ -242,17 +261,24 @@ export function ProjectCreationModal({ open, onOpenChange, onCreated, defaultSpa
 								name="name"
 								placeholder="Ex: Horizon AI Workbench"
 								value={form.name}
-								onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))}
+								onChange={(event) => {
+									const newName = event.target.value;
+									setForm((prev) => ({
+										...prev,
+										name: newName,
+										...(!prev.hasManualIcon && { icon: newName.trim().charAt(0).toUpperCase() || "P" })
+									}));
+								}}
 								className="flex-1 rounded-md border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-900 shadow-xs placeholder:text-slate-400 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200"
 								required
 							/>
 						</div>
 					</div>
 
-					<div className="space-y-2">
+					<div className="space-y-0">
 						<div className="flex items-center justify-between">
 							<Label htmlFor="project-description" className="text-sm font-medium text-slate-700">
-								Description
+								Description <span className="text-[10px] font-normal lowercase">(optional)</span>
 							</Label>
 						</div>
 						<Textarea
@@ -262,50 +288,30 @@ export function ProjectCreationModal({ open, onOpenChange, onCreated, defaultSpa
 							value={form.description}
 							onChange={(event) => setForm((prev) => ({ ...prev, description: event.target.value }))}
 							className="min-h-[100px] rounded-md border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 shadow-xs placeholder:text-slate-400 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200"
-							required
 						/>
 					</div>
 
-					<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-						<div className="space-y-2">
-							<Label htmlFor="project-status" className="text-sm font-medium text-slate-700">
-								Status
-							</Label>
-							<Select value={form.status} onValueChange={(value) => setForm((prev) => ({ ...prev, status: value }))}>
-								<SelectTrigger id="project-status" className="w-full rounded-md border border-slate-200 bg-white px-4 py-2.5 text-left text-sm text-slate-900 shadow-xs focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200">
-								  <SelectValue placeholder="Choose status">
-								    {STATUS_OPTIONS.find(o => o.value === form.status)?.label ?? "Choose status"}
-								  </SelectValue>
-								</SelectTrigger>
-								<SelectContent className="rounded-2xl border border-slate-100 shadow-xl">
-								  {STATUS_OPTIONS.map((option) => (
-								    <SelectItem key={option.value} value={option.value} className="rounded-lg px-3 py-2.5">
-								      <span className="flex flex-col items-start gap-0.5">
-								        <span className="text-sm font-normal text-slate-900">{option.label}</span>
-								        <span className="text-xs text-muted-foreground">{option.helper}</span>
-								      </span>
-								    </SelectItem>
-								  ))}
-								</SelectContent>
-							</Select>
-						</div>
-						<div className="space-y-2">
-							<Label htmlFor="project-visibility" className="text-sm font-medium text-slate-700">
-								Visibility
-							</Label>
-							<Select value={form.visibility} onValueChange={(value: any) => setForm((prev) => ({ ...prev, visibility: value }))}>
-								<SelectTrigger id="project-visibility" className="w-full rounded-md border border-slate-200 bg-white px-4 py-2.5 text-left text-sm text-slate-900 shadow-xs focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200">
-									<SelectValue placeholder="Choose visibility" />
-								</SelectTrigger>
-								<SelectContent className="rounded-2xl border border-slate-100 shadow-xl">
-									{VISIBILITY_OPTIONS.map((option) => (
-										<SelectItem key={option.value} value={option.value} className="rounded-lg px-3 py-2.5">
-											{option.label}
-										</SelectItem>
-									))}
-								</SelectContent>
-							</Select>
-						</div>
+					<div className="space-y-2">
+						<Label htmlFor="project-visibility" className="text-sm font-medium text-slate-700">
+							Visibility
+						</Label>
+						<Select
+			              value={form.visibility}
+			              onValueChange={(value: any) => setForm(prev => ({ ...prev, visibility: value }))}
+			            >
+			              <SelectTrigger id="workspace-visibility" className="h-11 bg-muted/30 border-input/60">
+			                <SelectValue placeholder="Select visibility">
+			                  {visibilityOptions.find((o) => o.value === form.visibility)?.label}
+			                </SelectValue>
+			              </SelectTrigger>
+			              <SelectContent>
+			                {visibilityOptions.map(({ value, label, description }) => (
+			                  <SelectItem key={value} value={value} description={description}>
+			                    {label}
+			                  </SelectItem>
+			                ))}
+			              </SelectContent>
+			            </Select>
 					</div>
 
 					<DialogFooter className="gap-3">
@@ -321,19 +327,19 @@ export function ProjectCreationModal({ open, onOpenChange, onCreated, defaultSpa
 						<Button
 							type="submit"
 							className={cn(
-								"w-full rounded-xl bg-gradient-to-r from-cyan-500 via-cyan-600 to-blue-600 text-white shadow-lg shadow-cyan-500/30 transition hover:shadow-2xl sm:w-auto",
-								isSubmitting && "opacity-90"
-							)}
+				            	"w-full rounded-xl bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 text-white shadow-lg shadow-orange-500/30 transition-all hover:scale-[1.02] hover:shadow-xl hover:shadow-orange-500/40 sm:w-auto",
+				                isSubmitting && "opacity-90"
+				             )}
 							disabled={isSubmitting}
 						>
 							{isSubmitting ? (
-								<span className="flex items-center gap-2">
-									<span className="size-4 animate-spin rounded-full border-2 border-white/60 border-t-white" />
-									Creating...
-								</span>
-							) : (
-								"Create project"
-							)}
+				                <span className="flex items-center gap-2">
+				                  <span className="size-4 animate-spin rounded-full border-2 border-white/60 border-t-white" />
+				                  Creating...
+				                </span>
+				              ) : (
+				                "Create project"
+				              )}
 						</Button>
 					</DialogFooter>
 				</form>

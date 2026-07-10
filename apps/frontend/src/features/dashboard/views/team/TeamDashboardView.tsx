@@ -210,9 +210,9 @@ export default function TeamDashboardView({ listId, spaceId, projectId, teamId, 
   const openSettingsSidebar = () => setSettingsSidebarOpen(true);
 
   // Fetch Data
-  const { data: team, isLoading: isTeamLoading } = trpc.team.get.useQuery({ id: teamId ?? "" }, { enabled: !!teamId });
+  const { data: team, isLoading: isTeamLoading } = trpc.team.get.useQuery({ id: teamId ?? "" }, { enabled: !!teamId, staleTime: 60_000, gcTime: 5 * 60_000 });
 
-  const resolvedWorkspaceId = team?.workspaceId || workspaceId;
+  const resolvedWorkspaceId: string | undefined = (team?.workspaceId || workspaceId) ?? undefined;
   const isLoading = isTeamLoading;
 
   // Mutations
@@ -357,7 +357,7 @@ export default function TeamDashboardView({ listId, spaceId, projectId, teamId, 
       const params = new URLSearchParams(searchParams.toString());
       params.set("tab", "overview");
       params.set("v", views[0].id);
-      router.replace(`?${params.toString()}`, { scroll: false });
+      history.replaceState(null, "", `?${params.toString()}`);
     }
   }, [urlTabId, views, isOverviewTab, searchParams, router]);
 
@@ -721,7 +721,7 @@ export default function TeamDashboardView({ listId, spaceId, projectId, teamId, 
                       workspaceId={activeWorkspaceId}
                       selectedListId={selectedListId || undefined}
                       onListSelect={handleListSelect}
-                      selectedTaskIdFromParent={selectedTaskId}
+                      selectedTaskIdFromParent={selectedTaskId ?? undefined}
                       onTaskSelect={handleTaskSelect}
                     />
                   ) : isOverviewTab && activeView ? (

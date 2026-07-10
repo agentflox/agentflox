@@ -312,10 +312,7 @@ export function TaskDetailView({
     const debouncedDescription = useDebounce(description, 1000);
 
     // ── Data fetching ─────────────────────────────────────────────────────────
-    const { data: task, isLoading } = trpc.task.get.useQuery(
-        { id: taskId },
-        { enabled: !!taskId }
-    );
+    const { data: task, isLoading } = trpc.task.get.useQuery({ id: taskId }, { enabled: !!taskId, staleTime: 60_000, gcTime: 5 * 60_000 });
 
     const { data: availableTaskTypes } = trpc.task.listTaskTypes.useQuery(
         { workspaceId: task?.workspaceId || undefined },

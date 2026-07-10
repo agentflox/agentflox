@@ -162,8 +162,8 @@ function ChatViewSkeleton() {
 }
 
 export default function ChatView({ workspaceId, selectedChatId, onChatSelect }: ChatViewProps) {
-    const { data: workspace, isLoading } = trpc.workspace.get.useQuery({ id: workspaceId });
-    const channelsQuery = trpc.channel.list.useQuery({ workspaceId, withCounts: false });
+    const { data: workspace, isLoading } = trpc.workspace.get.useQuery({ id: workspaceId }, { staleTime: 60_000, gcTime: 5 * 60_000 });
+    const channelsQuery = trpc.channel.list.useQuery({ workspaceId, withCounts: false }, { staleTime: 60_000, gcTime: 5 * 60_000 });
     const utils = trpc.useUtils();
     const createChannel = trpc.channel.create.useMutation();
     const updateChannel = trpc.channel.update.useMutation();
@@ -286,9 +286,9 @@ export default function ChatView({ workspaceId, selectedChatId, onChatSelect }: 
         return dedupeMembers(members);
     }, [workspace]);
 
-    const ownedProjects = trpc.project.list.useQuery({ scope: "owned", page: 1, pageSize: 50 });
-    const ownedTeams = trpc.team.list.useQuery({ scope: "owned", page: 1, pageSize: 50 });
-    const ownedSpaces = trpc.space.list.useQuery({ scope: "owned", page: 1, pageSize: 50 });
+    const ownedProjects = trpc.project.list.useQuery({ scope: "owned", page: 1, pageSize: 50 }, { staleTime: 60_000, gcTime: 5 * 60_000 });
+    const ownedTeams = trpc.team.list.useQuery({ scope: "owned", page: 1, pageSize: 50 }, { staleTime: 60_000, gcTime: 5 * 60_000 });
+    const ownedSpaces = trpc.space.list.useQuery({ scope: "owned", page: 1, pageSize: 50 }, { staleTime: 60_000, gcTime: 5 * 60_000 });
 
     const projectGroups = useMemo(() => {
         return (ownedProjects.data?.items ?? []).map((p: any) => ({ id: p.id, name: p.name, type: "project" as const, members: [] as SelectedMember[] }));

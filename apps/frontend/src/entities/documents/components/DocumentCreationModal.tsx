@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { FileText, Loader2, Sparkles } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
@@ -36,6 +37,7 @@ type DocumentCreationModalProps = {
 export function DocumentCreationModal({ open, onOpenChange, onSuccess, workspaceId = "default" }: DocumentCreationModalProps) {
 	const { toast } = useToast();
 	const router = useRouter();
+	const queryClient = useQueryClient();
 	const [title, setTitle] = useState("");
 	const [description, setDescription] = useState("");
 	const [focusedField, setFocusedField] = useState<"title" | "description" | null>(null);
@@ -87,6 +89,22 @@ export function DocumentCreationModal({ open, onOpenChange, onSuccess, workspace
 				title: "Document created",
 				description: "Your document has been created successfully.",
 			});
+
+			queryClient.setQueriesData({ queryKey: [['document', 'list']] }, (oldData: any) => {
+				if (!oldData || !oldData.items) return oldData;
+				if (oldData.items.some((i: any) => i.id === data.id)) return oldData;
+				return { ...oldData, items: [data, ...oldData.items], total: (oldData.total || 0) + 1 };
+			});
+			queryClient.setQueriesData({ queryKey: [['document', 'listInfinite']] }, (oldData: any) => {
+				if (!oldData || !oldData.pages) return oldData;
+				return {
+					...oldData,
+					pages: oldData.pages.map((page: any, index: number) =>
+						index === 0 ? { ...page, items: [data, ...page.items.filter((i: any) => i.id !== data.id)] } : page
+					)
+				};
+			});
+
 			onOpenChange(false);
 			handleClearForm();
 			onSuccess?.(data.id);
@@ -166,7 +184,7 @@ export function DocumentCreationModal({ open, onOpenChange, onSuccess, workspace
 				<form className="flex flex-col" onSubmit={handleSubmit}>
 					<div className="px-6 py-6 space-y-6">
 						<div className="space-y-2.5">
-							<Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+							<Label className="text-sm font-medium text-slate-700">
 								Scope
 							</Label>
 							<div className="flex gap-4">
@@ -211,10 +229,7 @@ export function DocumentCreationModal({ open, onOpenChange, onSuccess, workspace
 						<div className="space-y-2.5">
 							<Label
 								htmlFor="document-title"
-								className={cn(
-									"text-xs font-semibold uppercase tracking-wider transition-colors duration-200",
-									focusedField === "title" ? "text-primary" : "text-muted-foreground"
-								)}
+								className="text-sm font-medium text-slate-700"
 							>
 								Title <span className="text-destructive">*</span>
 							</Label>
@@ -236,12 +251,9 @@ export function DocumentCreationModal({ open, onOpenChange, onSuccess, workspace
 						<div className="space-y-2.5">
 							<Label
 								htmlFor="document-description"
-								className={cn(
-									"text-xs font-semibold uppercase tracking-wider transition-colors duration-200",
-									focusedField === "description" ? "text-primary" : "text-muted-foreground"
-								)}
+								className="text-sm font-medium text-slate-700"
 							>
-								Description <span className="text-muted-foreground font-normal lowercase">(optional)</span>
+								Description <span className="text-[10px] font-normal lowercase">(optional)</span>
 							</Label>
 							<div className="relative">
 								<Textarea
@@ -267,8 +279,7 @@ export function DocumentCreationModal({ open, onOpenChange, onSuccess, workspace
 						<Button
 							type="button"
 							variant="ghost"
-							className="h-10 px-4 hover:bg-transparent hover:text-foreground text-muted-foreground font-medium transition-colors"
-							onClick={() => {
+							className="w-full rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 sm:w-auto" onClick={() => {
 								handleClearForm();
 								onOpenChange(false);
 							}}
@@ -279,18 +290,18 @@ export function DocumentCreationModal({ open, onOpenChange, onSuccess, workspace
 						<Button
 							type="submit"
 							disabled={isSubmitting}
-							className="h-10 px-5 font-semibold shadow-lg hover:shadow-primary/25 transition-all duration-300"
+							className={cn(
+								"w-full rounded-xl bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 text-white shadow-lg shadow-purple-500/30 transition-all hover:scale-[1.02] hover:shadow-xl hover:shadow-purple-500/40 sm:w-auto",
+								isSubmitting && "opacity-90"
+							)}
 						>
 							{isSubmitting ? (
-								<>
-									<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+								<span className="flex items-center gap-2">
+									<span className="size-4 animate-spin rounded-full border-2 border-white/60 border-t-white" />
 									Creating...
-								</>
+								</span>
 							) : (
-								<>
-									<Sparkles className="mr-2 h-4 w-4" />
-									Create Document
-								</>
+								"Create document"
 							)}
 						</Button>
 					</div>

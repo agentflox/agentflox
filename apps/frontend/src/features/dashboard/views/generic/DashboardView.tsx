@@ -419,7 +419,7 @@ export function DashboardView({
         projectId,
         teamId,
         listId,
-    });
+    }, { staleTime: 60_000, gcTime: 5 * 60_000 });
 
     const tasks = useMemo(() => tasksData?.items || [], [tasksData]);
 

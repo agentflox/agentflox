@@ -67,7 +67,7 @@ export default function SpaceTeamView({ spaceId, workspaceId, selectedTeamId, on
         spaceId,
         scope: "owned",
         pageSize: 50
-    });
+    }, { staleTime: 60_000, gcTime: 5 * 60_000 });
 
     const teamsRaw = teamsData?.items ?? [];
 

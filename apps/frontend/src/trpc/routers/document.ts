@@ -145,9 +145,11 @@ export const documentRouter = router({
       const skip = (input.page - 1) * input.pageSize;
       const take = input.pageSize;
 
-      const [total, items] = await Promise.all([
-        prisma.document.count({ where }),
-        prisma.document.findMany({
+      let items;
+      let total;
+
+      if (input.page === 1) {
+        items = await prisma.document.findMany({
           where,
           select: {
             id: true,
@@ -193,8 +195,60 @@ export const documentRouter = router({
           orderBy: [{ position: "asc" }, { updatedAt: "desc" }],
           skip,
           take,
-        }),
-      ]);
+        });
+        total = items.length < take ? items.length : await prisma.document.count({ where });
+      } else {
+        [total, items] = await Promise.all([
+          prisma.document.count({ where }),
+          prisma.document.findMany({
+            where,
+            select: {
+              id: true,
+              title: true,
+              description: true,
+              icon: true,
+              coverImage: true,
+              position: true,
+              parentId: true,
+              workspaceId: true,
+              spaceId: true,
+              projectId: true,
+              teamId: true,
+              viewId: true,
+              isTemplate: true,
+              isArchived: true,
+              ownerId: true,
+              createdAt: true,
+              updatedAt: true,
+              owner: {
+                select: {
+                  id: true,
+                  name: true,
+                  email: true,
+                  avatar: true,
+                },
+              },
+              collaborators: {
+                select: {
+                  id: true,
+                  userId: true,
+                  user: {
+                    select: {
+                      id: true,
+                      name: true,
+                      email: true,
+                      avatar: true,
+                    },
+                  },
+                },
+              },
+            },
+            orderBy: [{ position: "asc" }, { updatedAt: "desc" }],
+            skip,
+            take,
+          }),
+        ]);
+      }
       const itemsWithChildren = input.includeChildren
         ? await Promise.all(
             items.map(async (item) => ({
@@ -454,9 +508,7 @@ export const documentRouter = router({
         }
       }
 
-      if (!resolvedWorkspaceId) {
-        throw new Error("Workspace ID could not be determined. Please provide a workspaceId or a valid container ID.");
-      }
+      // workspaceId is optional for personal documents
 
       // Get the last item to compute the next position
       const lastItem = await prisma.document.findFirst({

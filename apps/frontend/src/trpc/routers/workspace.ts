@@ -2,7 +2,7 @@ import { z } from "zod";
 import { protectedProcedure, router } from "@/trpc/init";
 import { prisma } from "@/lib/prisma";
 import { cachedQuery, trpcCacheKey, invalidateCacheKey } from "@/lib/trpcCache";
-import { WorkspaceRole } from '@agentflox/database/src/generated/prisma/client';
+import { WorkspaceRole, Visibility } from '@agentflox/database/src/generated/prisma/client';
 import { ensureWorkspaceStatuses } from "@/trpc/routers/taskStatus";
 
 type WorkspaceScope = "owned" | "member" | "all" | "editable";
@@ -65,16 +65,30 @@ export const workspaceRouter = router({
 			? { _count: { select: { members: true, projects: true, teams: true, tasks: true, channels: true } } }
 			: undefined;
 
-		const [total, items] = await Promise.all([
-			prisma.workspace.count({ where }),
-			prisma.workspace.findMany({
+		let items;
+		let total;
+
+		if (input.page === 1) {
+			items = await prisma.workspace.findMany({
 				where,
 				orderBy: { updatedAt: "desc" },
 				skip,
 				take,
 				include,
-			}),
-		]);
+			});
+			total = items.length < take ? items.length : await prisma.workspace.count({ where });
+		} else {
+			[total, items] = await Promise.all([
+				prisma.workspace.count({ where }),
+				prisma.workspace.findMany({
+					where,
+					orderBy: { updatedAt: "desc" },
+					skip,
+					take,
+					include,
+				}),
+			]);
+		}
 
 		return {
 			items,
@@ -89,7 +103,10 @@ export const workspaceRouter = router({
 			z.object({
 				name: z.string().min(1),
 				description: z.string().optional(),
+				icon: z.string().optional().nullable(),
+				color: z.string().optional().nullable(),
 				isActive: z.boolean().optional(),
+				visibility: z.nativeEnum(Visibility).optional(),
 			})
 		)
 		.mutation(async ({ ctx, input }) => {
@@ -102,7 +119,10 @@ export const workspaceRouter = router({
 						owner: { connect: { id: userId } },
 						name: input.name,
 						description: input.description,
+						icon: input.icon ?? undefined,
+						color: input.color ?? undefined,
 						isActive: input.isActive ?? true,
+						visibility: input.visibility ?? Visibility.PRIVATE,
 						members: { create: { userId, role: WorkspaceRole.OWNER } },
 					},
 					include: {
@@ -143,7 +163,7 @@ export const workspaceRouter = router({
 				}
 
 				// Seed default workspace-level statuses
-				await ensureWorkspaceStatuses(ws.id);
+				await ensureWorkspaceStatuses(ws.id, tx);
 
 				return ws;
 			});

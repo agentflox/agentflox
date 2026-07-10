@@ -379,7 +379,7 @@ export function TimelineView({ spaceId, projectId, teamId, listId, folderId, vie
         return { badge: "text-slate-600 bg-slate-50 border-slate-200", icon: "text-slate-400" };
     };
 
-    const { data: viewData } = trpc.view.get.useQuery({ id: viewId as string }, { enabled: !!viewId });
+    const { data: viewData } = trpc.view.get.useQuery({ id: viewId as string }, { staleTime: 60_000, gcTime: 5 * 60_000, enabled: !!viewId });
 
     const taskListSpaceId = spaceId && !projectId && !listId ? spaceId : undefined;
     const taskListProjectId = projectId && !listId ? projectId : undefined;
@@ -650,7 +650,7 @@ export function TimelineView({ spaceId, projectId, teamId, listId, folderId, vie
         }
         return Array.from(workspaceUserById.values()).map(u => ({ id: u.id, name: u.name, image: u.image ?? null, email: u.email ?? null }));
     }, [teamId, teamParticipants?.users, projectId, projectParticipants?.users, workspaceUserById]);
-    const { data: agentsData } = trpc.agent.list.useQuery({ workspaceId: resolvedWorkspaceId as string }, { enabled: !!resolvedWorkspaceId });
+    const { data: agentsData } = trpc.agent.list.useQuery({ workspaceId: resolvedWorkspaceId as string }, { staleTime: 60_000, gcTime: 5 * 60_000, enabled: !!resolvedWorkspaceId });
     const agents = agentsData?.items || [];
 
     useEffect(() => {

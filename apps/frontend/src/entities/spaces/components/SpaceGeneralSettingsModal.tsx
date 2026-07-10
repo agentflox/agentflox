@@ -172,7 +172,7 @@ export function SpaceGeneralSettingsModal({ spaceId, open, onOpenChange }: Space
                                             className="h-10 w-10 rounded-lg shrink-0 overflow-hidden"
                                             style={{ backgroundColor: icon ? color : 'transparent' }}
                                         >
-                                            <SpaceIcon icon={icon} className="text-white" size={20} />
+                                            <SpaceIcon icon={icon} className="text-white" size={20} fill />
                                         </Button>
                                     </IconColorSelector>
                                     <Input

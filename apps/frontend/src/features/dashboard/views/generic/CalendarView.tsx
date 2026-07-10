@@ -406,7 +406,7 @@ export function CalendarView({ spaceId, projectId, teamId, folderId, listId, vie
         }
     }, [initialConfig]);
 
-    const { data: viewData, refetch: refetchViewData } = trpc.view.get.useQuery({ id: viewId as string }, { enabled: !!viewId });
+    const { data: viewData, refetch: refetchViewData } = trpc.view.get.useQuery({ id: viewId as string }, { staleTime: 60_000, gcTime: 5 * 60_000, enabled: !!viewId });
     const updateManyViewsMutation = trpc.view.updateMany.useMutation({
         onSuccess: () => {
             void utils.view.list.invalidate();

@@ -1,10 +1,14 @@
 "use client";
-import React from "react";
+import React, { Suspense } from "react";
 import dynamic from "next/dynamic";
+import { DashboardLoadingState } from "@/features/dashboard/components/shared/DashboardStates";
 
 const ProjectDashboardView = dynamic(
   () => import("@/features/dashboard/views/project/ProjectDashboardView"),
-  { loading: () => <div className="flex h-full items-center justify-center"><div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-primary" /></div> }
+  { 
+    ssr: false, 
+    loading: () => <DashboardLoadingState message="Loading project..." /> 
+  }
 );
 
 export default function ProjectPage({ params }: { params: Promise<{ projectId: string }> }) {

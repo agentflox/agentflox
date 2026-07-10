@@ -207,7 +207,7 @@ export function WorkloadView({ spaceId, projectId, teamId, listId, folderId, vie
     // Data Fetching
     const updateViewMutation = trpc.view.update.useMutation();
     const createViewMutation = trpc.view.create.useMutation();
-    const { data: viewData } = trpc.view.get.useQuery({ id: viewId as string }, { enabled: !!viewId });
+    const { data: viewData } = trpc.view.get.useQuery({ id: viewId as string }, { staleTime: 60_000, gcTime: 5 * 60_000, enabled: !!viewId });
 
     const {
         resolvedWorkspaceId,

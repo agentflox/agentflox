@@ -209,10 +209,13 @@ export default function ProjectDashboardView({ listId, spaceId, projectId, teamI
     const openSettingsSidebar = () => setSettingsSidebarOpen(true);
 
     // Fetch Data
-    const { data: project, isLoading: isProjectLoading } = trpc.project.get.useQuery({ id: projectId ?? "" }, { enabled: !!projectId });
+    const { data: project, isLoading: isProjectLoading } = trpc.project.get.useQuery(
+        { id: projectId ?? "" },
+        { enabled: !!projectId, staleTime: 60_000, gcTime: 5 * 60_000 }
+    );
 
     const isLoading = isProjectLoading;
-    const resolvedWorkspaceId = project?.workspaceId || workspaceId;
+    const resolvedWorkspaceId: string | undefined = (project?.workspaceId || workspaceId) ?? undefined;
 
     // Mutations
     const createViewMutation = trpc.view.create.useMutation({
@@ -368,9 +371,11 @@ export default function ProjectDashboardView({ listId, spaceId, projectId, teamI
             const params = new URLSearchParams(searchParams.toString());
             if (!params.get("tab")) params.set("tab", "overview");
             params.set("v", views[0].id);
-            router.replace(`?${params.toString()}`, { scroll: false });
+            // Use history.replaceState instead of router.replace to avoid
+            // triggering a React re-render cycle on every first-load navigation
+            history.replaceState(null, "", `?${params.toString()}`);
         }
-    }, [urlTabId, views, isViewsTab, searchParams, router]);
+    }, [urlTabId, views, isViewsTab, searchParams]);
 
     const renderViewContent = (view: any) => {
         if (!view || !project) return null;
@@ -653,255 +658,205 @@ export default function ProjectDashboardView({ listId, spaceId, projectId, teamI
             projectId={projectId}
             teamId={teamId}
         >
-        <div className="flex h-full flex-col">
-            <div className="flex h-full gap-1 flex-1 overflow-hidden">
-                {layoutMode === "sidebar" && (
-                    <ProjectNavigationSidebar
-                        projectId={projectId!}
-                        activeView={(currentTab as any) || (activeView?.type?.toLowerCase() || 'overview') as any}
-                        onViewChange={(viewId) => {
-                            const params = new URLSearchParams(searchParams.toString());
+            <div className="flex h-full flex-col">
+                <div className="flex h-full gap-1 flex-1 overflow-hidden">
+                    {layoutMode === "sidebar" && (
+                        <ProjectNavigationSidebar
+                            projectId={projectId!}
+                            activeView={(currentTab as any) || (activeView?.type?.toLowerCase() || 'overview') as any}
+                            onViewChange={(viewId) => {
+                                const params = new URLSearchParams(searchParams.toString());
 
-                            if (viewId === "lists") {
-                                params.set("tab", "lists");
-                                router.push(`?${params.toString()}`, { scroll: false });
-                                return;
+                                if (viewId === "lists") {
+                                    params.set("tab", "lists");
+                                    router.push(`?${params.toString()}`, { scroll: false });
+                                    return;
+                                }
+
+                                const type = viewId.toUpperCase();
+                                const targetView = views.find((v: any) => v.type === type);
+                                if (targetView) {
+                                    params.set("tab", "overview");
+                                    params.set("v", targetView.id);
+                                    router.push(`?${params.toString()}`, { scroll: false });
+                                } else {
+                                    params.set("tab", viewId);
+                                    router.push(`?${params.toString()}`, { scroll: false });
+                                }
+                            }}
+                            collapsed={sidebarCollapsed}
+                            onToggleCollapse={() => setSidebarCollapsed((prev) => !prev)}
+                        />
+                    )}
+
+                    <div className="flex-1 overflow-hidden w-full max-w-full h-full bg-slate-50 flex flex-col">
+                        <DashboardHeader
+                            entityName={project.name || "Untitled Project"}
+                            entityType="project"
+                            entityIcon={<FolderKanban className="h-4 w-4" />}
+                            shareUrl={`${window.location.origin}${window.location.pathname}?projectId=${projectId}`}
+                            showSettings={false}
+                            onAskAIClick={() => setIsAskAIOpen(!isAskAIOpen)}
+                            onShareClick={() => setIsShareModalOpen(true)}
+                            showExit={true}
+                            agentPopoverContent={
+                                <QuickAgentModal
+                                    contextId={projectId}
+                                    contextType="PROJECT"
+                                    onOpenChange={setIsAgentModalOpen}
+                                />
                             }
-
-                            const type = viewId.toUpperCase();
-                            const targetView = views.find((v: any) => v.type === type);
-                            if (targetView) {
-                                params.set("tab", "overview");
-                                params.set("v", targetView.id);
-                                router.push(`?${params.toString()}`, { scroll: false });
-                            } else {
-                                params.set("tab", viewId);
-                                router.push(`?${params.toString()}`, { scroll: false });
-                            }
-                        }}
-                        collapsed={sidebarCollapsed}
-                        onToggleCollapse={() => setSidebarCollapsed((prev) => !prev)}
-                    />
-                )}
-
-                <div className="flex-1 overflow-hidden w-full max-w-full h-full bg-slate-50 flex flex-col">
-                    <DashboardHeader
-                        entityName={project.name || "Untitled Project"}
-                        entityType="project"
-                        entityIcon={<FolderKanban className="h-4 w-4" />}
-                        shareUrl={`${window.location.origin}${window.location.pathname}?projectId=${projectId}`}
-                        showSettings={false}
-                        onAskAIClick={() => setIsAskAIOpen(!isAskAIOpen)}
-                        onShareClick={() => setIsShareModalOpen(true)}
-                        showExit={true}
-                        agentPopoverContent={
-                            <QuickAgentModal
-                                contextId={projectId}
-                                contextType="PROJECT"
-                                onOpenChange={setIsAgentModalOpen}
-                            />
-                        }
-                        agentOpen={isAgentModalOpen}
-                        onAgentOpenChange={setIsAgentModalOpen}
-                        leftActions={[
-                            {
-                                id: "settings",
-                                label: "Settings",
-                                icon: Settings,
-                                onClick: () => { },
-                                render: () => (
-                                    <ProjectActionsMenu
-                                        workspaceId={resolvedWorkspaceId!}
-                                        projectId={projectId!}
-                                        trigger={
-                                            <Button variant="ghost" size="sm" className="h-8 relative group transition-all duration-200 ease-in-out w-8 hover:w-auto px-0 hover:px-3 justify-center hover:justify-start">
-                                                <div className="flex items-center justify-center w-8 h-8 shrink-0">
-                                                    <Settings className="h-4 w-4" />
-                                                </div>
-                                                <span className="hidden group-hover:inline overflow-hidden whitespace-nowrap transition-all duration-200">Settings</span>
-                                            </Button>
-                                        }
-                                    />
-                                )
-                            },
-                            {
-                                id: "layout-mode",
-                                label: layoutMode === "sidebar" ? "Sidebar" : "Top",
-                                icon: layoutMode === "sidebar" ? Sidebar : LayoutPanelTop,
-                                onClick: () => { },
-                                tooltip: "Switch layout mode",
-                                dropdownItems: [
-                                    {
-                                        id: "sidebar",
-                                        label: "Sidebar",
-                                        icon: Sidebar,
-                                        onClick: () => setLayoutMode("sidebar")
-                                    },
-                                    {
-                                        id: "top",
-                                        label: "Top",
-                                        icon: LayoutPanelTop,
-                                        onClick: () => setLayoutMode("top")
-                                    }
-                                ]
-                            }
-                        ]}
-                    />
-
-                    <div className="flex-1 overflow-hidden relative">
-                        <ResizableSplitLayout
-                            MainContent={
-                                <>
-                                    {isListsTab ? (
-                                        <ProjectListView
+                            agentOpen={isAgentModalOpen}
+                            onAgentOpenChange={setIsAgentModalOpen}
+                            leftActions={[
+                                {
+                                    id: "settings",
+                                    label: "Settings",
+                                    icon: Settings,
+                                    onClick: () => { },
+                                    render: () => (
+                                        <ProjectActionsMenu
+                                            workspaceId={resolvedWorkspaceId!}
                                             projectId={projectId!}
-                                            workspaceId={resolvedWorkspaceId}
-                                            selectedListId={selectedListId || undefined}
-                                            onListSelect={handleListSelect}
-                                            selectedTaskIdFromParent={selectedTaskId}
-                                            onTaskSelect={handleTaskSelect}
+                                            trigger={
+                                                <Button variant="ghost" size="sm" className="h-8 relative group transition-all duration-200 ease-in-out w-8 hover:w-auto px-0 hover:px-3 justify-center hover:justify-start">
+                                                    <div className="flex items-center justify-center w-8 h-8 shrink-0">
+                                                        <Settings className="h-4 w-4" />
+                                                    </div>
+                                                    <span className="hidden group-hover:inline overflow-hidden whitespace-nowrap transition-all duration-200">Settings</span>
+                                                </Button>
+                                            }
                                         />
-                                    ) : isViewsTab && activeView ? (
-                                        <div className="flex-1 overflow-hidden relative">
-                                            <Tabs value={activeTab || undefined} onValueChange={handleTabChange} className="h-full flex flex-col">
-                                                <div className="border-b border-slate-200 bg-white px-4 py-1">
-                                                    <div className="flex items-center gap-1 min-w-0 overflow-visible">
-                                                        <TabsList className="h-auto bg-transparent p-0 flex-1 min-w-0 flex items-center overflow-visible">
-                                                            <ViewTabsOverflow
-                                                                views={views}
-                                                                activeTab={activeTab}
-                                                                onTabChange={handleTabChange}
-                                                                onAddView={() => setAddViewModalOpen(true)}
-                                                                onReorderViews={(activeId, overId, dropPosition) => {
-                                                                    const activeView = views.find((v: any) => v.id === activeId);
-                                                                    const overView = views.find((v: any) => v.id === overId);
-                                                                    if (!activeView || !overView || activeId === overId) return;
-                                                                    const otherViews = views.filter((v: any) => v.id !== activeId);
-                                                                    let targetViewId: string | null = overId;
-                                                                    if (dropPosition === "after") {
-                                                                        const idx = otherViews.findIndex((v: any) => v.id === overId);
-                                                                        targetViewId = idx >= 0 && idx < otherViews.length - 1 ? otherViews[idx + 1].id : null;
-                                                                    }
-                                                                    let newSortedViews: any[];
-                                                                    if (targetViewId) {
-                                                                        const idx = otherViews.findIndex((v: any) => v.id === targetViewId);
-                                                                        newSortedViews = [...otherViews.slice(0, idx), activeView, ...otherViews.slice(idx)];
-                                                                    } else {
-                                                                        newSortedViews = [...otherViews, activeView];
-                                                                    }
-                                                                    const moved = newSortedViews.find((v: any) => v.id === activeId);
-                                                                    if (moved) moved.isPinned = overView.isPinned;
-                                                                    newSortedViews.forEach((v: any, i: number) => { v.position = i * 1000; });
-                                                                    utils.project.get.setData({ id: projectId! }, (old: any) => old ? { ...old, views: newSortedViews } : old);
-                                                                    reorderViewsMutation.mutate(newSortedViews.map((v: any, i: number) => ({ id: v.id, position: i * 1000 })));
-                                                                }}
-                                                                getIcon={(view) => {
-                                                                    const viewType = view.type as ViewType;
-                                                                    const config = viewConfig[viewType] || { icon: FileText };
-                                                                    const Icon = config.icon;
-                                                                    return <Icon className="h-full w-full" />;
-                                                                }}
-                                                                onTogglePin={(view) => updateViewMutation.mutate({ id: view.id, isPinned: !view.isPinned })}
-                                                                renderMoreAction={(view) => (
-                                                                    <Popover modal={false}>
-                                                                        <PopoverTrigger asChild>
-                                                                            <div role="button" className="h-6 w-6 p-0 flex items-center justify-center rounded hover:bg-slate-200" onClick={e => e.stopPropagation()}>
-                                                                                <MoreHorizontal className="h-4 w-4 text-muted-foreground shrink-0 m-auto" />
-                                                                            </div>
-                                                                        </PopoverTrigger>
-                                                                        <PopoverContent className="w-56 p-1" sideOffset={8} side="right" align="start">
-                                                                            <div className="flex flex-col">
-                                                                                <div role="button" className="flex items-center gap-2 px-2 py-1.5 text-sm hover:bg-slate-100 rounded-sm text-slate-700 w-full text-left cursor-pointer transition-colors" onClick={(e) => { e.stopPropagation(); setViewToRename({ id: view.id, name: view.name || "" }); }}>
-                                                                                    <Edit className="h-4 w-4 shrink-0" /> Rename
-                                                                                </div>
-                                                                                <div role="button" className="flex items-center gap-2 px-2 py-1.5 text-sm hover:bg-slate-100 rounded-sm text-slate-700 w-full text-left cursor-pointer transition-colors" onClick={(e) => { e.stopPropagation(); handleCopyViewLink(view); }}>
-                                                                                    <Copy className="h-4 w-4 shrink-0" /> Copy link
-                                                                                </div>
-                                                                                <div role="button" className="flex items-center gap-2 px-2 py-1.5 text-sm hover:bg-slate-100 rounded-sm text-slate-700 w-full text-left cursor-pointer transition-colors" onClick={(e) => { e.stopPropagation(); setViewToShare({ id: view.id, name: view.name || "" }); }}>
-                                                                                    <Shield className="h-4 w-4 shrink-0" /> Permissions
-                                                                                </div>
-                                                                                <div className="h-px bg-slate-100 my-1 mx-2" />
-                                                                                <div role="button" className="flex items-center justify-between px-2 py-1.5 text-sm hover:bg-slate-100 rounded-sm text-slate-700 w-full text-left cursor-pointer transition-colors" onClick={(e) => { e.stopPropagation(); updateViewMutation.mutate({ id: view.id, isPinned: !view.isPinned }); }}>
-                                                                                    <div className="flex items-center gap-2"><Pin className="h-4 w-4 shrink-0" /> Pin view</div>
-                                                                                    <Switch checked={view.isPinned} />
-                                                                                </div>
-                                                                                <div role="button" className="flex items-center justify-between px-2 py-1.5 text-sm hover:bg-slate-100 rounded-sm text-slate-700 w-full text-left cursor-pointer transition-colors" onClick={(e) => { e.stopPropagation(); updateViewMutation.mutate({ id: view.id, isPrivate: !view.isPrivate }); }}>
-                                                                                    <div className="flex items-center gap-2"><EyeOff className="h-4 w-4 shrink-0" /> Private</div>
-                                                                                    <Switch checked={view.isPrivate} />
-                                                                                </div>
-                                                                                <div role="button" className="flex items-center justify-between px-2 py-1.5 text-sm hover:bg-slate-100 rounded-sm text-slate-700 w-full text-left cursor-pointer transition-colors" onClick={(e) => { e.stopPropagation(); updateViewMutation.mutate({ id: view.id, isDefault: !view.isDefault }); }}>
-                                                                                    <div className="flex items-center gap-2"><Star className="h-4 w-4 shrink-0" /> Set default</div>
-                                                                                    <Switch checked={view.isDefault} />
-                                                                                </div>
-                                                                                <div className="h-px bg-slate-100 my-1 mx-2" />
-                                                                                <div role="button" className="flex items-center gap-2 px-2 py-1.5 text-sm hover:bg-slate-100 rounded-sm text-slate-700 w-full text-left cursor-pointer transition-colors" onClick={(e) => { e.stopPropagation(); duplicateViewMutation.mutate({ name: `${view.name} (Copy)`, type: view.type as any, projectId, config: view.config || {} }); }}>
-                                                                                    <CopyPlus className="h-4 w-4 shrink-0" /> Duplicate
-                                                                                </div>
-                                                                                <div role="button" className="flex items-center gap-2 px-2 py-1.5 text-sm hover:bg-slate-100 rounded-sm text-slate-700 w-full text-left cursor-pointer transition-colors" onClick={(e) => { e.stopPropagation(); setViewToTemplate(view); }}>
-                                                                                    <Save className="h-4 w-4 shrink-0" /> Save as template
-                                                                                </div>
-                                                                                <div className="h-px bg-slate-100 my-1 mx-2" />
-                                                                                <div role="button" className="flex items-center gap-2 px-2 py-1.5 text-sm hover:bg-red-50 hover:text-red-700 rounded-sm text-red-600 w-full text-left cursor-pointer transition-colors" onClick={(e) => { e.stopPropagation(); setViewToDelete({ id: view.id, name: view.name || "" }); }}>
-                                                                                    <Trash2 className="h-4 w-4 shrink-0" /> Delete view
-                                                                                </div>
-                                                                            </div>
-                                                                        </PopoverContent>
-                                                                    </Popover>
-                                                                )}
-                                                                renderDropdownItem={(view, trigger) => (
-                                                                    <ContextMenu key={`dd-${view.id}`}>
-                                                                        <ContextMenuTrigger asChild>
-                                                                            {trigger}
-                                                                        </ContextMenuTrigger>
-                                                                        <ProjectViewContextMenu
-                                                                            view={view}
-                                                                            onRename={() => setViewToRename({ id: view.id, name: view.name || "" })}
-                                                                            onDelete={() => setViewToDelete({ id: view.id, name: view.name || "" })}
-                                                                            onShare={() => setViewToShare({ id: view.id, name: view.name || "" })}
-                                                                            onTogglePin={() => updateViewMutation.mutate({ id: view.id, isPinned: !view.isPinned })}
-                                                                            onTogglePrivate={() => updateViewMutation.mutate({ id: view.id, isPrivate: !view.isPrivate })}
-                                                                            onToggleLock={() => updateViewMutation.mutate({ id: view.id, isLocked: !view.isLocked })}
-                                                                            onToggleDefault={() => updateViewMutation.mutate({ id: view.id, isDefault: !view.isDefault })}
-                                                                            onDuplicate={() => duplicateViewMutation.mutate({
-                                                                                name: `${view.name} (Copy)`,
-                                                                                type: view.type as any,
-                                                                                projectId: projectId,
-                                                                                config: view.config || {}
-                                                                            })}
-                                                                            onCopyLink={() => handleCopyViewLink(view)}
-                                                                            onSaveTemplate={() => setViewToTemplate(view)}
-                                                                        />
-                                                                    </ContextMenu>
-                                                                )}
-                                                                renderTab={(view, isActive) => {
-                                                                    const viewType = view.type as ViewType;
-                                                                    const config = viewConfig[viewType] || { icon: FileText };
-                                                                    const Icon = config.icon;
-                                                                    return (
-                                                                        <ContextMenu key={view.id}>
-                                                                            <ContextMenuTrigger>
-                                                                                <Tooltip>
-                                                                                    <TooltipTrigger asChild>
-                                                                                        <TabsTrigger value={view.id} asChild>
-                                                                                            <div className={cn(
-                                                                                                "group relative flex items-center gap-1.5 h-10 px-3 py-2 text-sm cursor-pointer whitespace-nowrap transition-colors rounded-md",
-                                                                                                activeTab === view.id
-                                                                                                    ? "text-primary font-medium"
-                                                                                                    : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
-                                                                                            )}>
-                                                                                                <Icon className={cn("h-4 w-4 shrink-0", activeTab === view.id ? "text-primary" : "text-slate-500 group-hover:text-slate-700")} />
-                                                                                                <span className="inline-block max-w-[120px] truncate align-bottom">{view.name || viewConfig[viewType]?.label || viewType}</span>
-                                                                                                {view.isPinned && <Pin className="h-3 w-3 shrink-0 rotate-45 text-muted-foreground" />}
-                                                                                                {view.isPrivate && <Lock className="h-3 w-3 shrink-0 text-muted-foreground" />}
+                                    )
+                                },
+                                {
+                                    id: "layout-mode",
+                                    label: layoutMode === "sidebar" ? "Sidebar" : "Top",
+                                    icon: layoutMode === "sidebar" ? Sidebar : LayoutPanelTop,
+                                    onClick: () => { },
+                                    tooltip: "Switch layout mode",
+                                    dropdownItems: [
+                                        {
+                                            id: "sidebar",
+                                            label: "Sidebar",
+                                            icon: Sidebar,
+                                            onClick: () => setLayoutMode("sidebar")
+                                        },
+                                        {
+                                            id: "top",
+                                            label: "Top",
+                                            icon: LayoutPanelTop,
+                                            onClick: () => setLayoutMode("top")
+                                        }
+                                    ]
+                                }
+                            ]}
+                        />
 
-                                                                                                {activeTab === view.id && (
-                                                                                                    <div className="absolute left-0 right-0 h-0.5 bg-primary rounded-t-full" style={{ bottom: "-5px" }} />
-                                                                                                )}
-                                                                                            </div>
-                                                                                        </TabsTrigger>
-                                                                                    </TooltipTrigger>
-                                                                                    <TooltipContent>{view.name || viewConfig[viewType]?.label || viewType}</TooltipContent>
-                                                                                </Tooltip>
+                        <div className="flex-1 overflow-hidden relative">
+                            <ResizableSplitLayout
+                                MainContent={
+                                    <>
+                                        {isListsTab ? (
+                                            <ProjectListView
+                                                projectId={projectId!}
+                                                workspaceId={resolvedWorkspaceId}
+                                                selectedListId={selectedListId || undefined}
+                                                onListSelect={handleListSelect}
+                                                selectedTaskIdFromParent={selectedTaskId ?? undefined}
+                                                onTaskSelect={handleTaskSelect}
+                                            />
+                                        ) : isViewsTab && activeView ? (
+                                            <div className="flex-1 overflow-hidden relative">
+                                                <Tabs value={activeTab || undefined} onValueChange={handleTabChange} className="h-full flex flex-col">
+                                                    <div className="border-b border-slate-200 bg-white px-4 py-1">
+                                                        <div className="flex items-center gap-1 min-w-0 overflow-visible">
+                                                            <TabsList className="h-auto bg-transparent p-0 flex-1 min-w-0 flex items-center overflow-visible">
+                                                                <ViewTabsOverflow
+                                                                    views={views}
+                                                                    activeTab={activeTab}
+                                                                    onTabChange={handleTabChange}
+                                                                    onAddView={() => setAddViewModalOpen(true)}
+                                                                    onReorderViews={(activeId, overId, dropPosition) => {
+                                                                        const activeView = views.find((v: any) => v.id === activeId);
+                                                                        const overView = views.find((v: any) => v.id === overId);
+                                                                        if (!activeView || !overView || activeId === overId) return;
+                                                                        const otherViews = views.filter((v: any) => v.id !== activeId);
+                                                                        let targetViewId: string | null = overId;
+                                                                        if (dropPosition === "after") {
+                                                                            const idx = otherViews.findIndex((v: any) => v.id === overId);
+                                                                            targetViewId = idx >= 0 && idx < otherViews.length - 1 ? otherViews[idx + 1].id : null;
+                                                                        }
+                                                                        let newSortedViews: any[];
+                                                                        if (targetViewId) {
+                                                                            const idx = otherViews.findIndex((v: any) => v.id === targetViewId);
+                                                                            newSortedViews = [...otherViews.slice(0, idx), activeView, ...otherViews.slice(idx)];
+                                                                        } else {
+                                                                            newSortedViews = [...otherViews, activeView];
+                                                                        }
+                                                                        const moved = newSortedViews.find((v: any) => v.id === activeId);
+                                                                        if (moved) moved.isPinned = overView.isPinned;
+                                                                        newSortedViews.forEach((v: any, i: number) => { v.position = i * 1000; });
+                                                                        utils.project.get.setData({ id: projectId! }, (old: any) => old ? { ...old, views: newSortedViews } : old);
+                                                                        reorderViewsMutation.mutate(newSortedViews.map((v: any, i: number) => ({ id: v.id, position: i * 1000 })));
+                                                                    }}
+                                                                    getIcon={(view) => {
+                                                                        const viewType = view.type as ViewType;
+                                                                        const config = viewConfig[viewType] || { icon: FileText };
+                                                                        const Icon = config.icon;
+                                                                        return <Icon className="h-full w-full" />;
+                                                                    }}
+                                                                    onTogglePin={(view) => updateViewMutation.mutate({ id: view.id, isPinned: !view.isPinned })}
+                                                                    renderMoreAction={(view) => (
+                                                                        <Popover modal={false}>
+                                                                            <PopoverTrigger asChild>
+                                                                                <div role="button" className="h-6 w-6 p-0 flex items-center justify-center rounded hover:bg-slate-200" onClick={e => e.stopPropagation()}>
+                                                                                    <MoreHorizontal className="h-4 w-4 text-muted-foreground shrink-0 m-auto" />
+                                                                                </div>
+                                                                            </PopoverTrigger>
+                                                                            <PopoverContent className="w-56 p-1" sideOffset={8} side="right" align="start">
+                                                                                <div className="flex flex-col">
+                                                                                    <div role="button" className="flex items-center gap-2 px-2 py-1.5 text-sm hover:bg-slate-100 rounded-sm text-slate-700 w-full text-left cursor-pointer transition-colors" onClick={(e) => { e.stopPropagation(); setViewToRename({ id: view.id, name: view.name || "" }); }}>
+                                                                                        <Edit className="h-4 w-4 shrink-0" /> Rename
+                                                                                    </div>
+                                                                                    <div role="button" className="flex items-center gap-2 px-2 py-1.5 text-sm hover:bg-slate-100 rounded-sm text-slate-700 w-full text-left cursor-pointer transition-colors" onClick={(e) => { e.stopPropagation(); handleCopyViewLink(view); }}>
+                                                                                        <Copy className="h-4 w-4 shrink-0" /> Copy link
+                                                                                    </div>
+                                                                                    <div role="button" className="flex items-center gap-2 px-2 py-1.5 text-sm hover:bg-slate-100 rounded-sm text-slate-700 w-full text-left cursor-pointer transition-colors" onClick={(e) => { e.stopPropagation(); setViewToShare({ id: view.id, name: view.name || "" }); }}>
+                                                                                        <Shield className="h-4 w-4 shrink-0" /> Permissions
+                                                                                    </div>
+                                                                                    <div className="h-px bg-slate-100 my-1 mx-2" />
+                                                                                    <div role="button" className="flex items-center justify-between px-2 py-1.5 text-sm hover:bg-slate-100 rounded-sm text-slate-700 w-full text-left cursor-pointer transition-colors" onClick={(e) => { e.stopPropagation(); updateViewMutation.mutate({ id: view.id, isPinned: !view.isPinned }); }}>
+                                                                                        <div className="flex items-center gap-2"><Pin className="h-4 w-4 shrink-0" /> Pin view</div>
+                                                                                        <Switch checked={view.isPinned} />
+                                                                                    </div>
+                                                                                    <div role="button" className="flex items-center justify-between px-2 py-1.5 text-sm hover:bg-slate-100 rounded-sm text-slate-700 w-full text-left cursor-pointer transition-colors" onClick={(e) => { e.stopPropagation(); updateViewMutation.mutate({ id: view.id, isPrivate: !view.isPrivate }); }}>
+                                                                                        <div className="flex items-center gap-2"><EyeOff className="h-4 w-4 shrink-0" /> Private</div>
+                                                                                        <Switch checked={view.isPrivate} />
+                                                                                    </div>
+                                                                                    <div role="button" className="flex items-center justify-between px-2 py-1.5 text-sm hover:bg-slate-100 rounded-sm text-slate-700 w-full text-left cursor-pointer transition-colors" onClick={(e) => { e.stopPropagation(); updateViewMutation.mutate({ id: view.id, isDefault: !view.isDefault }); }}>
+                                                                                        <div className="flex items-center gap-2"><Star className="h-4 w-4 shrink-0" /> Set default</div>
+                                                                                        <Switch checked={view.isDefault} />
+                                                                                    </div>
+                                                                                    <div className="h-px bg-slate-100 my-1 mx-2" />
+                                                                                    <div role="button" className="flex items-center gap-2 px-2 py-1.5 text-sm hover:bg-slate-100 rounded-sm text-slate-700 w-full text-left cursor-pointer transition-colors" onClick={(e) => { e.stopPropagation(); duplicateViewMutation.mutate({ name: `${view.name} (Copy)`, type: view.type as any, projectId, config: view.config || {} }); }}>
+                                                                                        <CopyPlus className="h-4 w-4 shrink-0" /> Duplicate
+                                                                                    </div>
+                                                                                    <div role="button" className="flex items-center gap-2 px-2 py-1.5 text-sm hover:bg-slate-100 rounded-sm text-slate-700 w-full text-left cursor-pointer transition-colors" onClick={(e) => { e.stopPropagation(); setViewToTemplate(view); }}>
+                                                                                        <Save className="h-4 w-4 shrink-0" /> Save as template
+                                                                                    </div>
+                                                                                    <div className="h-px bg-slate-100 my-1 mx-2" />
+                                                                                    <div role="button" className="flex items-center gap-2 px-2 py-1.5 text-sm hover:bg-red-50 hover:text-red-700 rounded-sm text-red-600 w-full text-left cursor-pointer transition-colors" onClick={(e) => { e.stopPropagation(); setViewToDelete({ id: view.id, name: view.name || "" }); }}>
+                                                                                        <Trash2 className="h-4 w-4 shrink-0" /> Delete view
+                                                                                    </div>
+                                                                                </div>
+                                                                            </PopoverContent>
+                                                                        </Popover>
+                                                                    )}
+                                                                    renderDropdownItem={(view, trigger) => (
+                                                                        <ContextMenu key={`dd-${view.id}`}>
+                                                                            <ContextMenuTrigger asChild>
+                                                                                {trigger}
                                                                             </ContextMenuTrigger>
                                                                             <ProjectViewContextMenu
                                                                                 view={view}
@@ -922,236 +877,286 @@ export default function ProjectDashboardView({ listId, spaceId, projectId, teamI
                                                                                 onSaveTemplate={() => setViewToTemplate(view)}
                                                                             />
                                                                         </ContextMenu>
-                                                                    );
-                                                                }}
-                                                                renderMeasureTab={(view) => {
-                                                                    const viewType = view.type as ViewType;
-                                                                    const config = viewConfig[viewType] || { icon: FileText };
-                                                                    const Icon = config.icon;
-                                                                    return (
-                                                                        <div className="flex items-center gap-1.5 h-10 px-3 py-2 text-sm whitespace-nowrap font-medium">
-                                                                            <Icon className="h-4 w-4 shrink-0" />
-                                                                            <span className="max-w-[120px] truncate">{view.name || viewConfig[viewType]?.label || viewType}</span>
-                                                                            {view.isPinned && <Pin className="h-3 w-3 shrink-0 rotate-45" />}
-                                                                            {view.isPrivate && <Lock className="h-3 w-3 shrink-0" />}
-                                                                        </div>
-                                                                    );
-                                                                }}
-                                                            />
-                                                        </TabsList>
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="sm"
-                                                            className="h-8 w-8 p-0 rounded-md hover:bg-slate-100 shrink-0 self-center"
-                                                            onClick={() => setAddViewModalOpen(true)}
-                                                        >
-                                                            <Plus className="h-4 w-4" />
-                                                        </Button>
-                                                    </div>
-                                                </div>
+                                                                    )}
+                                                                    renderTab={(view, isActive) => {
+                                                                        const viewType = view.type as ViewType;
+                                                                        const config = viewConfig[viewType] || { icon: FileText };
+                                                                        const Icon = config.icon;
+                                                                        return (
+                                                                            <ContextMenu key={view.id}>
+                                                                                <ContextMenuTrigger>
+                                                                                    <Tooltip>
+                                                                                        <TooltipTrigger asChild>
+                                                                                            <TabsTrigger value={view.id} asChild>
+                                                                                                <div className={cn(
+                                                                                                    "group relative flex items-center gap-1.5 h-10 px-3 py-2 text-sm cursor-pointer whitespace-nowrap transition-colors rounded-md",
+                                                                                                    activeTab === view.id
+                                                                                                        ? "text-primary font-medium"
+                                                                                                        : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                                                                                                )}>
+                                                                                                    <Icon className={cn("h-4 w-4 shrink-0", activeTab === view.id ? "text-primary" : "text-slate-500 group-hover:text-slate-700")} />
+                                                                                                    <span className="inline-block max-w-[120px] truncate align-bottom">{view.name || viewConfig[viewType]?.label || viewType}</span>
+                                                                                                    {view.isPinned && <Pin className="h-3 w-3 shrink-0 rotate-45 text-muted-foreground" />}
+                                                                                                    {view.isPrivate && <Lock className="h-3 w-3 shrink-0 text-muted-foreground" />}
 
-                                                <div className={cn(
-                                                    "relative min-h-0 flex-1 min-w-0 max-w-full",
-                                                    (activeView && ["TASKS", "LIST", "BOARD", "TABLE", "CALENDAR", "GANTT", "TIMELINE", "WORKLOAD", "WHITEBOARD", "MIND_MAP", "MAP", "EMBED", "SPREADSHEET", "FILE", "VIDEO", "DESIGN", "DOC", "FORM", "DASHBOARD", "PEOPLE", "GOOGLE_CALENDAR", "GOOGLE_DOCS", "GOOGLE_MAPS", "GOOGLE_SLIDES", "GOOGLE_FORMS", "GOOGLE_DRIVE"].includes(activeView.type))
-                                                        ? "overflow-hidden"
-                                                        : "overflow-y-auto px-6 py-6"
-                                                )}>
-                                                    {activeView && (
-                                                        <TabsContent value={activeView.id} className="mt-0 h-full min-h-0 min-w-0 w-full max-w-full">
-                                                            {renderViewContent(activeView)}
-                                                        </TabsContent>
-                                                    )}
-
-                                                    {views.length === 0 && (
-                                                        <div className="flex flex-col items-center justify-center h-full p-8 text-center animate-in fade-in zoom-in-95 duration-700 ease-out fill-mode-both">
-                                                            <div className="relative mb-6 group">
-                                                                <div className="absolute inset-0 bg-primary/10 blur-2xl rounded-full transition-all duration-700 group-hover:bg-primary/20 group-hover:blur-3xl" />
-                                                                <div className="relative h-20 w-20 bg-gradient-to-br from-white to-slate-50 border border-slate-200/60 shadow-lg shadow-slate-200/20 rounded-3xl flex items-center justify-center text-primary transform transition-transform duration-500 group-hover:scale-105 group-hover:-translate-y-1">
-                                                                    <LayoutDashboard className="h-9 w-9 stroke-[1.5]" />
-                                                                </div>
-                                                            </div>
-                                                            <h3 className="text-xl font-semibold text-slate-900 tracking-tight mb-2">No views configured</h3>
-                                                            <p className="text-sm text-slate-500 max-w-md mb-8 leading-relaxed">
-                                                                Your project is currently a blank canvas. Add a view to start visualizing your data, tracking tasks, and organizing your workflow.
-                                                            </p>
+                                                                                                    {activeTab === view.id && (
+                                                                                                        <div className="absolute left-0 right-0 h-0.5 bg-primary rounded-t-full" style={{ bottom: "-5px" }} />
+                                                                                                    )}
+                                                                                                </div>
+                                                                                            </TabsTrigger>
+                                                                                        </TooltipTrigger>
+                                                                                        <TooltipContent>{view.name || viewConfig[viewType]?.label || viewType}</TooltipContent>
+                                                                                    </Tooltip>
+                                                                                </ContextMenuTrigger>
+                                                                                <ProjectViewContextMenu
+                                                                                    view={view}
+                                                                                    onRename={() => setViewToRename({ id: view.id, name: view.name || "" })}
+                                                                                    onDelete={() => setViewToDelete({ id: view.id, name: view.name || "" })}
+                                                                                    onShare={() => setViewToShare({ id: view.id, name: view.name || "" })}
+                                                                                    onTogglePin={() => updateViewMutation.mutate({ id: view.id, isPinned: !view.isPinned })}
+                                                                                    onTogglePrivate={() => updateViewMutation.mutate({ id: view.id, isPrivate: !view.isPrivate })}
+                                                                                    onToggleLock={() => updateViewMutation.mutate({ id: view.id, isLocked: !view.isLocked })}
+                                                                                    onToggleDefault={() => updateViewMutation.mutate({ id: view.id, isDefault: !view.isDefault })}
+                                                                                    onDuplicate={() => duplicateViewMutation.mutate({
+                                                                                        name: `${view.name} (Copy)`,
+                                                                                        type: view.type as any,
+                                                                                        projectId: projectId,
+                                                                                        config: view.config || {}
+                                                                                    })}
+                                                                                    onCopyLink={() => handleCopyViewLink(view)}
+                                                                                    onSaveTemplate={() => setViewToTemplate(view)}
+                                                                                />
+                                                                            </ContextMenu>
+                                                                        );
+                                                                    }}
+                                                                    renderMeasureTab={(view) => {
+                                                                        const viewType = view.type as ViewType;
+                                                                        const config = viewConfig[viewType] || { icon: FileText };
+                                                                        const Icon = config.icon;
+                                                                        return (
+                                                                            <div className="flex items-center gap-1.5 h-10 px-3 py-2 text-sm whitespace-nowrap font-medium">
+                                                                                <Icon className="h-4 w-4 shrink-0" />
+                                                                                <span className="max-w-[120px] truncate">{view.name || viewConfig[viewType]?.label || viewType}</span>
+                                                                                {view.isPinned && <Pin className="h-3 w-3 shrink-0 rotate-45" />}
+                                                                                {view.isPrivate && <Lock className="h-3 w-3 shrink-0" />}
+                                                                            </div>
+                                                                        );
+                                                                    }}
+                                                                />
+                                                            </TabsList>
                                                             <Button
-                                                                size="default"
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                className="h-8 w-8 p-0 rounded-md hover:bg-slate-100 shrink-0 self-center"
                                                                 onClick={() => setAddViewModalOpen(true)}
-                                                                className="shadow-sm hover:shadow-md transition-all group rounded-full px-6"
                                                             >
-                                                                <Plus className="h-4 w-4 mr-2 transition-transform duration-300 group-hover:rotate-90" />
-                                                                Create your first view
+                                                                <Plus className="h-4 w-4" />
                                                             </Button>
                                                         </div>
-                                                    )}
-                                                </div>
-                                            </Tabs>
-                                        </div>
-                                    ) : currentTab === "docs" ? (
-                                        <ProjectDocsView projectId={projectId!} workspaceId={resolvedWorkspaceId!} />
-                                    ) : currentTab === "personal" ? (
-                                        <ProjectPersonalView projectId={projectId!} workspaceId={resolvedWorkspaceId!} />
-                                    ) : currentTab === "teams" ? (
-                                        <ProjectTeamView
-                                            projectId={projectId!}
-                                            workspaceId={resolvedWorkspaceId!}
-                                            selectedTeamId={selectedTeamId}
-                                            onTeamSelect={handleTeamSelect}
-                                        />
-                                    ) : currentTab === "chats" ? (
-                                        <ChatView workspaceId={resolvedWorkspaceId!} />
-                                    ) : currentTab === "ai-chat" ? (
-                                        <SharedAIChatView
-                                            contextType="PROJECT"
-                                            contextId={projectId!}
-                                            contextName={project?.name || "Project"}
-                                        />
-                                    ) : (
-                                        <div className="flex-1 overflow-y-auto p-4">
-                                            <ProjectOverviewTab project={project} />
-                                        </div>
-                                    )}
-                                </>
-                            }
-                            SidePanelContent={
-                                <>
-                                    {isAskAIOpen && (
-                                        <SidePanelContainer
-                                            onClose={() => setIsAskAIOpen(false)}
-                                            title={<span className="text-xs font-semibold text-zinc-600 uppercase tracking-wider">AI Assistant</span>}
-                                            icon={<div className="h-2 w-2 rounded-full bg-indigo-500 animate-pulse" />}
-                                        >
-                                            <AIChatView
+                                                    </div>
+
+                                                    <div className={cn(
+                                                        "relative min-h-0 flex-1 min-w-0 max-w-full",
+                                                        (activeView && ["TASKS", "LIST", "BOARD", "TABLE", "CALENDAR", "GANTT", "TIMELINE", "WORKLOAD", "WHITEBOARD", "MIND_MAP", "MAP", "EMBED", "SPREADSHEET", "FILE", "VIDEO", "DESIGN", "DOC", "FORM", "DASHBOARD", "PEOPLE", "GOOGLE_CALENDAR", "GOOGLE_DOCS", "GOOGLE_MAPS", "GOOGLE_SLIDES", "GOOGLE_FORMS", "GOOGLE_DRIVE"].includes(activeView.type))
+                                                            ? "overflow-hidden"
+                                                            : "overflow-y-auto px-6 py-6"
+                                                    )}>
+                                                        {activeView && (
+                                                            <TabsContent value={activeView.id} className="mt-0 h-full min-h-0 min-w-0 w-full max-w-full">
+                                                                {renderViewContent(activeView)}
+                                                            </TabsContent>
+                                                        )}
+
+                                                        {views.length === 0 && (
+                                                            <div className="flex flex-col items-center justify-center h-full p-8 text-center animate-in fade-in zoom-in-95 duration-700 ease-out fill-mode-both">
+                                                                <div className="relative mb-6 group">
+                                                                    <div className="absolute inset-0 bg-primary/10 blur-2xl rounded-full transition-all duration-700 group-hover:bg-primary/20 group-hover:blur-3xl" />
+                                                                    <div className="relative h-20 w-20 bg-gradient-to-br from-white to-slate-50 border border-slate-200/60 shadow-lg shadow-slate-200/20 rounded-3xl flex items-center justify-center text-primary transform transition-transform duration-500 group-hover:scale-105 group-hover:-translate-y-1">
+                                                                        <LayoutDashboard className="h-9 w-9 stroke-[1.5]" />
+                                                                    </div>
+                                                                </div>
+                                                                <h3 className="text-xl font-semibold text-slate-900 tracking-tight mb-2">No views configured</h3>
+                                                                <p className="text-sm text-slate-500 max-w-md mb-8 leading-relaxed">
+                                                                    Your project is currently a blank canvas. Add a view to start visualizing your data, tracking tasks, and organizing your workflow.
+                                                                </p>
+                                                                <Button
+                                                                    size="default"
+                                                                    onClick={() => setAddViewModalOpen(true)}
+                                                                    className="shadow-sm hover:shadow-md transition-all group rounded-full px-6"
+                                                                >
+                                                                    <Plus className="h-4 w-4 mr-2 transition-transform duration-300 group-hover:rotate-90" />
+                                                                    Create your first view
+                                                                </Button>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </Tabs>
+                                            </div>
+                                        ) : currentTab === "docs" ? (
+                                            <ProjectDocsView projectId={projectId!} workspaceId={resolvedWorkspaceId!} />
+                                        ) : currentTab === "personal" ? (
+                                            <ProjectPersonalView projectId={projectId!} workspaceId={resolvedWorkspaceId!} />
+                                        ) : currentTab === "teams" ? (
+                                            <ProjectTeamView
+                                                projectId={projectId!}
                                                 workspaceId={resolvedWorkspaceId!}
+                                                selectedTeamId={selectedTeamId}
+                                                onTeamSelect={handleTeamSelect}
                                             />
-                                        </SidePanelContainer>
-                                    )}
-                                    {selectedTaskId && !isAskAIOpen && taskViewMode === 'sidebar' && (
-                                        <div className="h-full border-l border-zinc-200 bg-white">
-                                            <TaskDetailPanel
-                                                taskId={selectedTaskId}
-                                                layoutMode="sidebar"
-                                                onLayoutChange={setTaskViewMode}
-                                                onClose={() => {
-                                                    const params = new URLSearchParams(searchParams.toString());
-                                                    params.delete("task");
-                                                    router.push(`?${params.toString()}`);
-                                                }}
+                                        ) : currentTab === "chats" ? (
+                                            <ChatView workspaceId={resolvedWorkspaceId!} />
+                                        ) : currentTab === "ai-chat" ? (
+                                            <SharedAIChatView
+                                                contextType="PROJECT"
+                                                contextId={projectId!}
+                                                contextName={project?.name || "Project"}
                                             />
-                                        </div>
-                                    )}
-                                </>
-                            }
-                            isPanelOpen={isAskAIOpen || (!!selectedTaskId && taskViewMode === 'sidebar')}
-                        />
+                                        ) : (
+                                            <div className="flex-1 overflow-y-auto p-4">
+                                                <ProjectOverviewTab project={project} />
+                                            </div>
+                                        )}
+                                    </>
+                                }
+                                SidePanelContent={
+                                    <>
+                                        {isAskAIOpen && (
+                                            <SidePanelContainer
+                                                onClose={() => setIsAskAIOpen(false)}
+                                                title={<span className="text-xs font-semibold text-zinc-600 uppercase tracking-wider">AI Assistant</span>}
+                                                icon={<div className="h-2 w-2 rounded-full bg-indigo-500 animate-pulse" />}
+                                            >
+                                                <AIChatView
+                                                    workspaceId={resolvedWorkspaceId!}
+                                                />
+                                            </SidePanelContainer>
+                                        )}
+                                        {selectedTaskId && !isAskAIOpen && taskViewMode === 'sidebar' && (
+                                            <div className="h-full border-l border-zinc-200 bg-white">
+                                                <TaskDetailPanel
+                                                    taskId={selectedTaskId}
+                                                    layoutMode="sidebar"
+                                                    onLayoutChange={setTaskViewMode}
+                                                    onClose={() => {
+                                                        const params = new URLSearchParams(searchParams.toString());
+                                                        params.delete("task");
+                                                        router.push(`?${params.toString()}`);
+                                                    }}
+                                                />
+                                            </div>
+                                        )}
+                                    </>
+                                }
+                                isPanelOpen={isAskAIOpen || (!!selectedTaskId && taskViewMode === 'sidebar')}
+                            />
+                        </div>
                     </div>
                 </div>
-            </div>
 
-            {/* Task Detail Modal / Fullscreen */}
-            {selectedTaskId && taskViewMode !== 'sidebar' && (
-                <Dialog open={true} onOpenChange={(open) => {
-                    if (!open) {
-                        const params = new URLSearchParams(searchParams.toString());
-                        params.delete("task");
-                        router.push(`?${params.toString()}`);
-                    }
-                }}>
-                    <DialogContent className={cn(
-                        "p-0 gap-0 overflow-hidden bg-white",
-                        taskViewMode === 'fullscreen' ? "max-w-[95vw] w-[95vw] h-[95vh]" : "max-w-4xl w-full h-[85vh]"
-                    )}>
-                        <TaskDetailPanel
-                            taskId={selectedTaskId}
-                            layoutMode={taskViewMode}
-                            onLayoutChange={setTaskViewMode}
-                            onClose={() => {
-                                const params = new URLSearchParams(searchParams.toString());
-                                params.delete("task");
-                                router.push(`?${params.toString()}`);
-                            }}
-                        />
+                {/* Task Detail Modal / Fullscreen */}
+                {selectedTaskId && taskViewMode !== 'sidebar' && (
+                    <Dialog open={true} onOpenChange={(open) => {
+                        if (!open) {
+                            const params = new URLSearchParams(searchParams.toString());
+                            params.delete("task");
+                            router.push(`?${params.toString()}`);
+                        }
+                    }}>
+                        <DialogContent className={cn(
+                            "p-0 gap-0 overflow-hidden bg-white",
+                            taskViewMode === 'fullscreen' ? "max-w-[95vw] w-[95vw] h-[95vh]" : "max-w-4xl w-full h-[85vh]"
+                        )}>
+                            <TaskDetailPanel
+                                taskId={selectedTaskId}
+                                layoutMode={taskViewMode}
+                                onLayoutChange={setTaskViewMode}
+                                onClose={() => {
+                                    const params = new URLSearchParams(searchParams.toString());
+                                    params.delete("task");
+                                    router.push(`?${params.toString()}`);
+                                }}
+                            />
+                        </DialogContent>
+                    </Dialog>
+                )}
+
+                <AddViewModal
+                    open={addViewModalOpen}
+                    onOpenChange={setAddViewModalOpen}
+                    existingViews={views.map((v: any) => v.type as ViewType)}
+                    onAddViews={handleAddViews}
+                    onAddFromTemplate={handleAddFromTemplate}
+                />
+
+                <ShareModal
+                    isOpen={isShareModalOpen}
+                    onClose={() => setIsShareModalOpen(false)}
+                    itemType="project"
+                    itemId={projectId}
+                    itemName={project.name || "Project"}
+                    workspaceId={resolvedWorkspaceId!}
+                />
+
+                <Dialog open={!!viewToRename} onOpenChange={(open) => !open && setViewToRename(null)}>
+                    <DialogContent>
+                        <DialogHeader>
+                            <DialogTitle>Rename View</DialogTitle>
+                            <DialogDescription>Enter a new name for this view.</DialogDescription>
+                        </DialogHeader>
+                        <div className="py-4">
+                            <Input
+                                value={viewToRename?.name || ""}
+                                onChange={(e) => setViewToRename(prev => prev ? { ...prev, name: e.target.value } : null)}
+                                onKeyDown={(e) => e.key === "Enter" && handleRenameView(viewToRename?.name || "")}
+                                autoFocus
+                            />
+                        </div>
+                        <DialogFooter>
+                            <Button variant="outline" onClick={() => setViewToRename(null)}>Cancel</Button>
+                            <Button onClick={() => handleRenameView(viewToRename?.name || "")}>Rename</Button>
+                        </DialogFooter>
                     </DialogContent>
                 </Dialog>
-            )}
 
-            <AddViewModal
-                open={addViewModalOpen}
-                onOpenChange={setAddViewModalOpen}
-                existingViews={views.map((v: any) => v.type as ViewType)}
-                onAddViews={handleAddViews}
-                onAddFromTemplate={handleAddFromTemplate}
-            />
+                <Dialog open={!!viewToDelete} onOpenChange={(open) => !open && setViewToDelete(null)}>
+                    <DialogContent>
+                        <DialogHeader>
+                            <DialogTitle>Delete View?</DialogTitle>
+                            <DialogDescription>Are you sure you want to delete <strong>{viewToDelete?.name}</strong>? This action cannot be undone.</DialogDescription>
+                        </DialogHeader>
+                        <DialogFooter>
+                            <Button
+                                className="flex-1 sm:flex-none inline-flex items-center justify-center h-9 px-4 rounded-lg border border-zinc-200 bg-white text-[13.5px] font-medium text-zinc-600 hover:bg-zinc-50 hover:border-zinc-300 hover:text-zinc-800 transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 focus-visible:ring-offset-1"
+                                onClick={() => setViewToDelete(null)}>
+                                Cancel
+                            </Button>
+                            <Button
+                                onClick={() => viewToDelete && handleDeleteView(viewToDelete.id)}
+                                className="flex-1 sm:flex-none h-9 px-4 rounded-lg bg-red-600 hover:bg-red-700 text-[13.5px] font-medium shadow-sm shadow-red-900/10 transition-all duration-150">
+                                Delete
+                            </Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
 
-            <ShareModal
-                isOpen={isShareModalOpen}
-                onClose={() => setIsShareModalOpen(false)}
-                itemType="project"
-                itemId={projectId}
-                itemName={project.name || "Project"}
-                workspaceId={resolvedWorkspaceId!}
-            />
+                {viewToShare && (
+                    <ShareViewPermissionModal
+                        viewId={viewToShare.id}
+                        workspaceId={resolvedWorkspaceId as string}
+                        open={!!viewToShare}
+                        onOpenChange={(open) => !open && setViewToShare(null)}
+                    />
+                )}
 
-            <Dialog open={!!viewToRename} onOpenChange={(open) => !open && setViewToRename(null)}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>Rename View</DialogTitle>
-                        <DialogDescription>Enter a new name for this view.</DialogDescription>
-                    </DialogHeader>
-                    <div className="py-4">
-                        <Input
-                            value={viewToRename?.name || ""}
-                            onChange={(e) => setViewToRename(prev => prev ? { ...prev, name: e.target.value } : null)}
-                            onKeyDown={(e) => e.key === "Enter" && handleRenameView(viewToRename?.name || "")}
-                            autoFocus
-                        />
-                    </div>
-                    <DialogFooter>
-                        <Button variant="outline" onClick={() => setViewToRename(null)}>Cancel</Button>
-                        <Button onClick={() => handleRenameView(viewToRename?.name || "")}>Rename</Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
-
-            <Dialog open={!!viewToDelete} onOpenChange={(open) => !open && setViewToDelete(null)}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>Delete View?</DialogTitle>
-                        <DialogDescription>Are you sure you want to delete <strong>{viewToDelete?.name}</strong>? This action cannot be undone.</DialogDescription>
-                    </DialogHeader>
-                    <DialogFooter>
-                        <Button
-                            className="flex-1 sm:flex-none inline-flex items-center justify-center h-9 px-4 rounded-lg border border-zinc-200 bg-white text-[13.5px] font-medium text-zinc-600 hover:bg-zinc-50 hover:border-zinc-300 hover:text-zinc-800 transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 focus-visible:ring-offset-1"
-                            onClick={() => setViewToDelete(null)}>
-                            Cancel
-                        </Button>
-                        <Button
-                            onClick={() => viewToDelete && handleDeleteView(viewToDelete.id)}
-                            className="flex-1 sm:flex-none h-9 px-4 rounded-lg bg-red-600 hover:bg-red-700 text-[13.5px] font-medium shadow-sm shadow-red-900/10 transition-all duration-150">
-                            Delete
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
-
-            {viewToShare && (
-                <ShareViewPermissionModal
-                    viewId={viewToShare.id}
-                    workspaceId={resolvedWorkspaceId as string}
-                    open={!!viewToShare}
-                    onOpenChange={(open) => !open && setViewToShare(null)}
-                />
-            )}
-
-            {viewToTemplate && (
-                <SaveTemplateModal
-                    open={!!viewToTemplate}
-                    onOpenChange={(open) => !open && setViewToTemplate(null)}
-                    view={viewToTemplate}
-                    workspaceId={project?.workspaceId || ""}
-                />
-            )}
-        </div>
+                {viewToTemplate && (
+                    <SaveTemplateModal
+                        open={!!viewToTemplate}
+                        onOpenChange={(open) => !open && setViewToTemplate(null)}
+                        view={viewToTemplate}
+                        workspaceId={project?.workspaceId || ""}
+                    />
+                )}
+            </div>
         </DashboardEntityProvider>
     );
 }

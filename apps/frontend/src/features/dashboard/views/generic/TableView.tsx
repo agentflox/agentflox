@@ -392,7 +392,7 @@ export function TableView({ spaceId, projectId, teamId, listId, viewId, workspac
             void utils.view.get.invalidate();
         }
     });
-    const { data: viewData } = trpc.view.get.useQuery({ id: viewId as string }, { enabled: !!viewId });
+    const { data: viewData } = trpc.view.get.useQuery({ id: viewId as string }, { staleTime: 60_000, gcTime: 5 * 60_000, enabled: !!viewId });
     const [viewNameDraft, setViewNameDraft] = useState("");
 
     // Default view settings

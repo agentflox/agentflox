@@ -1,5 +1,6 @@
 "use client";
 import { useMemo, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Plus, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Shell from "@/components/layout/Shell";
@@ -46,6 +47,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 export default function TasksPage() {
 	const router = useRouter();
 	const { toast } = useToast();
+	const utils = trpc.useUtils();
+	const queryClient = useQueryClient();
 	const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
 	const {
 		data,
@@ -68,12 +71,36 @@ export default function TasksPage() {
 	const createTask = trpc.task.create.useMutation();
 	const convertTask = trpc.task.createProposalFromTask.useMutation();
 	const deleteMutation = trpc.task.delete.useMutation({
+		onMutate: async (variables) => {
+			queryClient.setQueriesData({ queryKey: [['task', 'list']] }, (oldData: any) => {
+				if (!oldData || !oldData.items) return oldData;
+				return {
+					...oldData,
+					items: oldData.items.filter((t: any) => t.id !== variables.id),
+					total: Math.max(0, oldData.total - 1)
+				};
+			});
+			queryClient.setQueriesData({ queryKey: [['task', 'listInfinite']] }, (oldData: any) => {
+                if (!oldData || !oldData.pages) return oldData;
+                return {
+                    ...oldData,
+                    pages: oldData.pages.map((page: any) => ({
+                        ...page,
+                        items: page.items.filter((t: any) => t.id !== variables.id),
+                    }))
+                };
+            });
+		},
 		onSuccess: () => {
 			toast({ title: "Task deleted successfully" });
-			trpc.useUtils().task.list.invalidate();
 		},
 		onError: (error) => {
 			toast({ title: "Failed to delete task", description: error.message, variant: "destructive" });
+		},
+		onSettled: () => {
+			utils.task.list.invalidate();
+			// @ts-ignore
+			if (utils.task.listInfinite) utils.task.listInfinite.invalidate();
 		}
 	});
 
@@ -110,13 +137,14 @@ export default function TasksPage() {
 	};
 
 	const handleConfirmDelete = async () => {
+		setDeleteModalOpen(false); // Close modal immediately
 		if (bulkDeleteRows.length > 0) {
 			for (const row of bulkDeleteRows) {
-				await deleteMutation.mutateAsync({ id: row.id });
+				deleteMutation.mutate({ id: row.id });
 			}
 			setSelectedGridIds(new Set());
 		} else if (deleteTarget) {
-			await deleteMutation.mutateAsync({ id: deleteTarget.id });
+			deleteMutation.mutate({ id: deleteTarget.id });
 		}
 	};
 
@@ -282,7 +310,7 @@ export default function TasksPage() {
 	return (
 		<Shell>
 			<div className="space-y-6">
-				<div className="space-y-4">
+				<div className="space-y-6 pb-6">
 					<PageHeader
 						title="Tasks"
 						description="Capture work items and collaboration opportunities across your workspace."

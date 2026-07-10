@@ -1,4 +1,5 @@
 "use client";
+import { useCallback } from "react";
 import Button from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
@@ -10,6 +11,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { ProjectIcon } from "./ProjectIcon";
+import { trpc } from "@/lib/trpc";
 
 export default function ProjectCard({
   item,
@@ -24,12 +27,20 @@ export default function ProjectCard({
   onSelect?: (id: string, selected: boolean) => void;
   onDelete?: (id: string) => void;
 }) {
+  const utils = trpc.useUtils();
+
+  const handleMouseEnter = useCallback(() => {
+    // Prefetch project data on hover so it's already in cache when the user clicks
+    utils.project.get.prefetch({ id: item.id });
+  }, [item.id, utils]);
+
   return (
     <div
       className={cn(
         "group relative flex flex-col bg-white rounded-lg border shadow-sm hover:shadow-md transition-all duration-300 cursor-pointer overflow-hidden h-full",
         isSelected ? "border-blue-300 ring-2 ring-blue-200 bg-blue-50/20" : "border-slate-200 hover:border-blue-300 hover:shadow-blue-500/10"
       )}
+      onMouseEnter={handleMouseEnter}
       onClick={() => onOpen?.(item.id)}
     >
       {/* Checkbox — top left */}
@@ -75,6 +86,14 @@ export default function ProjectCard({
         <div className="min-w-0 space-y-2.5 flex-1">
           <div className="flex items-start justify-between gap-4">
             <div className="flex items-center gap-2">
+              {item.icon && (
+                <div
+                    className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md overflow-hidden"
+                    style={{ backgroundColor: item.color || "#6366f1" }}
+                >
+                    <ProjectIcon icon={item.icon} className="text-white" size={14} fill />
+                </div>
+              )}
               <h3 className={cn(
                 "font-medium text-base leading-snug line-clamp-1 transition-colors duration-200",
                 isSelected ? "text-indigo-700" : "text-slate-900 group-hover:text-indigo-700"

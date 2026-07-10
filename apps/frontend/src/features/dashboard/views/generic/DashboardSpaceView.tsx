@@ -162,7 +162,7 @@ export default function DashboardProjectView({ listId, spaceId, projectId, teamI
     // Fetch space data with views
     const { data: spaceData } = trpc.space.get.useQuery(
         { id: spaceId! },
-        { enabled: !!spaceId }
+        { enabled: !!spaceId, staleTime: 60_000, gcTime: 5 * 60_000 }
     );
 
     const views = useMemo(() => {
@@ -302,7 +302,7 @@ export default function DashboardProjectView({ listId, spaceId, projectId, teamI
         if (!urlViewId && views.length > 0) {
             const params = new URLSearchParams(searchParams.toString());
             params.set("lv", views[0].id);
-            router.replace(`?${params.toString()}`, { scroll: false });
+            history.replaceState(null, "", `?${params.toString()}`);
         }
     }, [urlViewId, views, searchParams, router]);
 

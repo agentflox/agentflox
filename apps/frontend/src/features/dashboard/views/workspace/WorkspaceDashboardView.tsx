@@ -207,8 +207,10 @@ export default function WorkspaceDashboardView({ workspaceId }: WorkspaceViewPro
     // Fetch Data
     const { data: workspace, isLoading } = trpc.workspace.get.useQuery(
         { id: workspaceId },
-        { enabled: !!workspaceId }
+        { enabled: !!workspaceId, staleTime: 60_000, gcTime: 5 * 60_000 }
     );
+    
+    console.log("[WorkspaceDashboard] Render tick - isLoading:", isLoading, "views:", (workspace as any)?.views?.length);
 
     // Mutations
     const createViewMutation = trpc.view.create.useMutation({
@@ -351,12 +353,13 @@ export default function WorkspaceDashboardView({ workspaceId }: WorkspaceViewPro
 
     useEffect(() => {
         if (isViewsTab && !urlTabId && views.length > 0) {
+            console.log("[WorkspaceDashboard] Fixing URL state with history.replaceState");
             const params = new URLSearchParams(searchParams.toString());
             if (!params.get("tab")) params.set("tab", "overview");
             params.set("v", views[0].id);
-            router.replace(`?${params.toString()}`, { scroll: false });
+            history.replaceState(null, "", `?${params.toString()}`);
         }
-    }, [urlTabId, views, isViewsTab, searchParams, router]);
+    }, [urlTabId, views, isViewsTab, searchParams]);
 
     const renderViewContent = (view: any) => {
         if (!view) return null;
@@ -373,7 +376,7 @@ export default function WorkspaceDashboardView({ workspaceId }: WorkspaceViewPro
                         workspaceId={workspaceId}
                         viewId={view.id}
                         initialConfig={view.config as any}
-                        selectedTaskIdFromParent={selectedTaskId}
+                        selectedTaskIdFromParent={selectedTaskId ?? undefined}
                         onTaskSelect={handleTaskSelect}
                     />
                 );
@@ -383,7 +386,7 @@ export default function WorkspaceDashboardView({ workspaceId }: WorkspaceViewPro
                         workspaceId={workspaceId}
                         viewId={view.id}
                         initialConfig={view.config as any}
-                        selectedTaskIdFromParent={selectedTaskId}
+                        selectedTaskIdFromParent={selectedTaskId ?? undefined}
                         onTaskSelect={handleTaskSelect}
                     />
                 );
@@ -393,7 +396,7 @@ export default function WorkspaceDashboardView({ workspaceId }: WorkspaceViewPro
                         workspaceId={workspaceId}
                         viewId={view.id}
                         initialConfig={view.config as any}
-                        selectedTaskIdFromParent={selectedTaskId}
+                        selectedTaskIdFromParent={selectedTaskId ?? undefined}
                         onTaskSelect={handleTaskSelect}
                     />
                 );
@@ -403,7 +406,7 @@ export default function WorkspaceDashboardView({ workspaceId }: WorkspaceViewPro
                         workspaceId={workspaceId}
                         viewId={view.id}
                         initialConfig={view.config as any}
-                        selectedTaskIdFromParent={selectedTaskId}
+                        selectedTaskIdFromParent={selectedTaskId ?? undefined}
                         onTaskSelect={handleTaskSelect}
                     />
                 );
@@ -413,7 +416,7 @@ export default function WorkspaceDashboardView({ workspaceId }: WorkspaceViewPro
                         workspaceId={workspaceId}
                         viewId={view.id}
                         initialConfig={view.config as any}
-                        selectedTaskIdFromParent={selectedTaskId}
+                        selectedTaskIdFromParent={selectedTaskId ?? undefined}
                         onTaskSelect={handleTaskSelect}
                     />
                 );
@@ -423,7 +426,7 @@ export default function WorkspaceDashboardView({ workspaceId }: WorkspaceViewPro
                         workspaceId={workspaceId}
                         viewId={view.id}
                         initialConfig={view.config as any}
-                        selectedTaskIdFromParent={selectedTaskId}
+                        selectedTaskIdFromParent={selectedTaskId ?? undefined}
                         onTaskSelect={handleTaskSelect}
                     />
                 );
@@ -433,7 +436,7 @@ export default function WorkspaceDashboardView({ workspaceId }: WorkspaceViewPro
                         workspaceId={workspaceId}
                         viewId={view.id}
                         initialConfig={view.config as any}
-                        selectedTaskIdFromParent={selectedTaskId}
+                        selectedTaskIdFromParent={selectedTaskId ?? undefined}
                         onTaskSelect={handleTaskSelect}
                     />
                 );
@@ -443,7 +446,7 @@ export default function WorkspaceDashboardView({ workspaceId }: WorkspaceViewPro
                         workspaceId={workspaceId}
                         viewId={view.id}
                         initialConfig={view.config as any}
-                        selectedTaskIdFromParent={selectedTaskId}
+                        selectedTaskIdFromParent={selectedTaskId ?? undefined}
                         onTaskSelect={handleTaskSelect}
                     />
                 );
@@ -453,7 +456,7 @@ export default function WorkspaceDashboardView({ workspaceId }: WorkspaceViewPro
                         workspaceId={workspaceId}
                         viewId={view.id}
                         initialConfig={view.config as any}
-                        selectedTaskIdFromParent={selectedTaskId}
+                        selectedTaskIdFromParent={selectedTaskId ?? undefined}
                         onTaskSelect={handleTaskSelect}
                     />
                 );
@@ -463,7 +466,7 @@ export default function WorkspaceDashboardView({ workspaceId }: WorkspaceViewPro
                         workspaceId={workspaceId}
                         viewId={view.id}
                         initialConfig={view.config as any}
-                        selectedTaskIdFromParent={selectedTaskId}
+                        selectedTaskIdFromParent={selectedTaskId ?? undefined}
                         onTaskSelect={handleTaskSelect}
                     />
                 );
@@ -473,7 +476,7 @@ export default function WorkspaceDashboardView({ workspaceId }: WorkspaceViewPro
                         workspaceId={workspaceId}
                         viewId={view.id}
                         initialConfig={view.config as any}
-                        selectedTaskIdFromParent={selectedTaskId}
+                        selectedTaskIdFromParent={selectedTaskId ?? undefined}
                         onTaskSelect={handleTaskSelect}
                     />
                 );
@@ -483,7 +486,7 @@ export default function WorkspaceDashboardView({ workspaceId }: WorkspaceViewPro
                         workspaceId={workspaceId}
                         viewId={view.id}
                         initialConfig={view.config as any}
-                        selectedTaskIdFromParent={selectedTaskId}
+                        selectedTaskIdFromParent={selectedTaskId ?? undefined}
                         onTaskSelect={handleTaskSelect}
                     />
                 );
@@ -493,7 +496,7 @@ export default function WorkspaceDashboardView({ workspaceId }: WorkspaceViewPro
                         workspaceId={workspaceId}
                         viewId={view.id}
                         initialConfig={view.config as any}
-                        selectedTaskIdFromParent={selectedTaskId}
+                        selectedTaskIdFromParent={selectedTaskId ?? undefined}
                         onTaskSelect={handleTaskSelect}
                     />
                 );
@@ -503,7 +506,7 @@ export default function WorkspaceDashboardView({ workspaceId }: WorkspaceViewPro
                         workspaceId={workspaceId}
                         viewId={view.id}
                         initialConfig={view.config as any}
-                        selectedTaskIdFromParent={selectedTaskId}
+                        selectedTaskIdFromParent={selectedTaskId ?? undefined}
                         onTaskSelect={handleTaskSelect}
                     />
                 );
@@ -513,7 +516,7 @@ export default function WorkspaceDashboardView({ workspaceId }: WorkspaceViewPro
                         workspaceId={workspaceId}
                         viewId={view.id}
                         initialConfig={view.config as any}
-                        selectedTaskIdFromParent={selectedTaskId}
+                        selectedTaskIdFromParent={selectedTaskId ?? undefined}
                         onTaskSelect={handleTaskSelect}
                     />
                 );
@@ -533,7 +536,7 @@ export default function WorkspaceDashboardView({ workspaceId }: WorkspaceViewPro
                         workspaceId={workspaceId}
                         viewId={view.id}
                         initialConfig={view.config as any}
-                        selectedTaskIdFromParent={selectedTaskId}
+                        selectedTaskIdFromParent={selectedTaskId ?? undefined}
                         onTaskSelect={handleTaskSelect}
                     />
                 );

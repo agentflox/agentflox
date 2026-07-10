@@ -13,6 +13,7 @@ import {
 	DropdownMenuItem,
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { SpaceIcon } from "@/entities/spaces/components/SpaceIcon";
 
 type Props = {
 	item: SpaceListItem;
@@ -78,10 +79,14 @@ export function SpaceCard({ item, className, isSelected, onSelect, onDelete }: P
 					<div className="min-w-0 space-y-2.5 flex-1">
 						<div className="flex items-start justify-between gap-3">
 							<div className="flex items-center gap-2">
-								<div
-									className={`h-2 w-2 flex-shrink-0 rounded-full ${item.isActive ? "bg-emerald-500 animate-pulse" : "bg-slate-300"}`}
-									title={item.isActive ? "Active" : "Archived"}
-								/>
+								{item.icon && (
+									<div
+										className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md overflow-hidden"
+										style={{ backgroundColor: item.color || "#3B82F6" }}
+									>
+										<SpaceIcon icon={item.icon} className="text-white" size={14} fill />
+									</div>
+								)}
 								<h3 className={cn(
 									"font-medium text-base leading-snug line-clamp-1 transition-colors duration-200",
 									isSelected ? "text-indigo-700" : "text-slate-900 group-hover:text-indigo-700"

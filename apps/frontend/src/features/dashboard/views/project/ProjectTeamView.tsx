@@ -63,7 +63,7 @@ export default function ProjectTeamView({ projectId, workspaceId, selectedTeamId
     const activeTeamId = !isManageView ? selectedTeamId : undefined;
 
     // Fetch teams linked to this project
-    const { data: projectData, isLoading: isLoadingList, refetch: refetchList } = trpc.project.get.useQuery({ id: projectId });
+    const { data: projectData, isLoading: isLoadingList, refetch: refetchList } = trpc.project.get.useQuery({ id: projectId }, { staleTime: 60_000, gcTime: 5 * 60_000 });
 
     const teamsRaw = useMemo(
         () => (projectData?.teams ?? []).map((link) => link.team),

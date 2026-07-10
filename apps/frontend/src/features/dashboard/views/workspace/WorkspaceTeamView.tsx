@@ -58,7 +58,7 @@ export default function WorkspaceTeamView({ workspaceId, selectedTeamId, onTeamS
         workspaceId,
         scope: "owned",
         pageSize: 50
-    });
+    }, { staleTime: 60_000, gcTime: 5 * 60_000 });
 
     const teamsRaw = teamsData?.items ?? [];
 

@@ -1,5 +1,6 @@
 "use client";
 import { useMemo, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Plus, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Shell from "@/components/layout/Shell";
@@ -86,13 +87,38 @@ export default function WorkforcePage() {
   const [bulkDeleteRows, setBulkDeleteRows] = useState<any[]>([]);
 
   const utils = trpc.useUtils();
+  const queryClient = useQueryClient();
   const deleteMutation = trpc.workforce.delete.useMutation({
+    onMutate: async (variables) => {
+        queryClient.setQueriesData({ queryKey: [['workforce', 'list']] }, (oldData: any) => {
+            if (!oldData || !oldData.items) return oldData;
+            return {
+                ...oldData,
+                items: oldData.items.filter((w: any) => w.id !== variables.id),
+                total: Math.max(0, oldData.total - 1)
+            };
+        });
+        queryClient.setQueriesData({ queryKey: [['workforce', 'listInfinite']] }, (oldData: any) => {
+            if (!oldData || !oldData.pages) return oldData;
+            return {
+                ...oldData,
+                pages: oldData.pages.map((page: any) => ({
+                    ...page,
+                    items: page.items.filter((w: any) => w.id !== variables.id),
+                }))
+            };
+        });
+    },
     onSuccess: () => {
       toast({ title: "Workforce deleted successfully" });
-      utils.workforce.list.invalidate();
     },
     onError: (error) => {
       toast({ title: "Failed to delete workforce", description: error.message, variant: "destructive" });
+    },
+    onSettled: () => {
+      utils.workforce.list.invalidate();
+      // @ts-ignore
+      if (utils.workforce.listInfinite) utils.workforce.listInfinite.invalidate();
     }
   });
 
@@ -110,13 +136,14 @@ export default function WorkforcePage() {
   };
 
   const handleConfirmDelete = async () => {
+    setDeleteModalOpen(false); // Close modal immediately
     if (bulkDeleteRows.length > 0) {
       for (const row of bulkDeleteRows) {
-        await deleteMutation.mutateAsync({ id: row.id });
+        deleteMutation.mutate({ id: row.id });
       }
       setSelectedGridIds(new Set());
     } else if (deleteTarget) {
-      await deleteMutation.mutateAsync({ id: deleteTarget.id });
+      deleteMutation.mutate({ id: deleteTarget.id });
     }
   };
 
@@ -266,7 +293,7 @@ export default function WorkforcePage() {
   return (
     <Shell>
       <div className="space-y-6">
-        <div className="space-y-6">
+        <div className="space-y-6 pb-6">
           <PageHeader
             title="Workforces"
             description="Build, deploy and monitor your autonomous agent workforces."

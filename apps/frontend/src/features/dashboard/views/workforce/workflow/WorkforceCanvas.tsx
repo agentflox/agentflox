@@ -103,10 +103,7 @@ function WorkforceFlow({ workforceId, workforceName, workspaceId }: { workforceI
 
     // Load full tool details (including steps) for ToolBuilderView via get, not list (list strips steps)
     const editToolId = editNodeModal?.type === 'tool' ? (editModalNode?.data?.toolId || '') : '';
-    const { data: editTool } = trpc.compositeTool.get.useQuery(
-        { id: editToolId },
-        { enabled: !!editToolId }
-    );
+    const { data: editTool } = trpc.compositeTool.get.useQuery({ id: editToolId }, { enabled: !!editToolId, staleTime: 60_000, gcTime: 5 * 60_000 });
 
     const applyWorkforceOps = React.useCallback((ops: WorkforceOp[]) => {
         for (const op of ops) {

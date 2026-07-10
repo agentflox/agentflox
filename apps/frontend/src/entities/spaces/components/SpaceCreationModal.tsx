@@ -29,7 +29,7 @@ interface CreateSpaceModalProps {
 	initialName?: string;
 }
 
-const VISIBILITY_OPTIONS = [
+const visibilityOptions = [
 	{
 		label: "Only Owners",
 		value: "PRIVATE",
@@ -88,57 +88,54 @@ export function SpaceCreationModal({ workspaceId, open, onOpenChange, onSuccess,
 	const workspaces = workspacesData?.items ?? [];
 
 	const createMutation = trpc.space.create.useMutation({
-		onMutate: async (variables) => {
-			// Optimistic update - add new space to sidebar immediately
-			const tempId = `temp-${Date.now()}`;
-			queryClient.setQueriesData({ queryKey: [['space', 'listInfinite']] }, (oldData: any) => {
-				if (!oldData || !oldData.pages) return oldData;
-				const newSpace = {
-					id: tempId,
-					name: variables.name,
-					icon: variables.icon,
-					color: variables.color,
-					isActive: true,
-					workspaceId: variables.workspaceId,
-				};
-				return {
-					...oldData,
-					pages: oldData.pages.map((page: any, index: number) =>
-						index === 0 ? { ...page, items: [newSpace, ...page.items] } : page
-					)
-				};
-			});
-		},
 		onSuccess: (data, variables) => {
 			toast({
 				title: "Space created",
 				description: "Your new space has been created successfully.",
 			});
 
-			const targetWorkspaceId = variables.workspaceId;
+			queryClient.setQueriesData({ queryKey: [['space', 'list']] }, (oldData: any) => {
+				if (!oldData || !oldData.items) return oldData;
+				if (oldData.items.some((i: any) => i.id === data.id)) return oldData;
+				return { ...oldData, items: [data, ...oldData.items], total: (oldData.total || 0) + 1 };
+			});
 
-			// Optimistically update workspace cache
-			utils.workspace.get.setData({ id: targetWorkspaceId }, (oldData: any) => {
-				if (!oldData) return undefined;
-
-				// Check if space already exists to avoid duplicates
-				const existingSpaces = oldData.spaces || [];
-				if (existingSpaces.some((s: any) => s.id === data.id)) return oldData;
-
+			queryClient.setQueriesData({ queryKey: [['space', 'listInfinite']] }, (oldData: any) => {
+				if (!oldData || !oldData.pages) return oldData;
 				return {
 					...oldData,
-					spaces: [...existingSpaces, data]
+					pages: oldData.pages.map((page: any, index: number) =>
+						index === 0 ? { ...page, items: [data, ...page.items.filter((i: any) => i.id !== data.id)] } : page
+					)
 				};
 			});
 
-			utils.space.list.invalidate({ workspaceId: targetWorkspaceId } as any);
-			utils.space.listInfinite.invalidate({ workspaceId: targetWorkspaceId } as any);
-			// Also invalidate global list if we are in global view
-			utils.space.list.invalidate({ workspaceId: undefined } as any);
+			const targetWorkspaceId = variables.workspaceId || data.workspaceId;
 
-			// Defer invalidation to allow UI to settle with optimistic data
+			if (targetWorkspaceId) {
+				// Optimistically update workspace cache
+				utils.workspace.get.setData({ id: targetWorkspaceId }, (oldData: any) => {
+					if (!oldData) return undefined;
+
+					// Check if space already exists to avoid duplicates
+					const existingSpaces = oldData.spaces || [];
+					if (existingSpaces.some((s: any) => s.id === data.id)) return oldData;
+
+					return {
+						...oldData,
+						spaces: [...existingSpaces, data]
+					};
+				});
+
+				// Defer invalidation to allow UI to settle with optimistic data
+				setTimeout(() => {
+					utils.workspace.get.invalidate({ id: targetWorkspaceId });
+				}, 1000);
+			}
+
 			setTimeout(() => {
-				utils.workspace.get.invalidate({ id: targetWorkspaceId });
+				utils.space.list.invalidate();
+				utils.space.listInfinite.invalidate();
 			}, 1000);
 			// Reset form
 			setName("");
@@ -174,24 +171,15 @@ export function SpaceCreationModal({ workspaceId, open, onOpenChange, onSuccess,
 
 		const targetWorkspaceId = workspaceId || selectedWorkspaceId;
 
-		if (!targetWorkspaceId) {
-			toast({
-				title: "Workspace required",
-				description: "Please select a workspace for this space.",
-				variant: "destructive",
-			});
-			return;
-		}
-
 		await createMutation.mutateAsync({
-			workspaceId: targetWorkspaceId,
+			workspaceId: targetWorkspaceId || undefined,
 			name: name.trim(),
 			description: description.trim() || null,
 			icon: icon,
 			color: color,
 			visibility: visibility,
 			isActive: true,
-		} as any);
+		});
 	};
 
 	return (
@@ -223,8 +211,8 @@ export function SpaceCreationModal({ workspaceId, open, onOpenChange, onSuccess,
 						{/* Workspace Selection (Only if no workspaceId prop provided) */}
 						{!workspaceId && (
 							<div className="space-y-2.5">
-								<Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-									Workspace
+								<Label className="text-sm font-medium text-slate-700">
+									Workspace <span className="text-[10px] font-normal lowercase">(optional)</span>
 								</Label>
 								<Select value={selectedWorkspaceId} onValueChange={setSelectedWorkspaceId}>
 									<SelectTrigger className="h-11 bg-muted/30 border-input/60">
@@ -245,10 +233,7 @@ export function SpaceCreationModal({ workspaceId, open, onOpenChange, onSuccess,
 						<div className="space-y-2.5">
 							<Label
 								htmlFor="name"
-								className={cn(
-									"text-xs font-semibold uppercase tracking-wider transition-colors duration-200",
-									focusedField === "name" ? "text-primary" : "text-muted-foreground"
-								)}
+								className="text-sm font-medium text-slate-700"
 							>
 								Icon & name <span className="text-destructive">*</span>
 							</Label>
@@ -269,7 +254,7 @@ export function SpaceCreationModal({ workspaceId, open, onOpenChange, onSuccess,
 										className="h-10 w-10 rounded-lg shrink-0 overflow-hidden"
 										style={{ backgroundColor: icon ? color : 'transparent' }}
 									>
-										<SpaceIcon icon={icon} className="text-white" size={20} />
+										<SpaceIcon icon={icon} className="text-white" size={20} fill />
 									</Button>
 								</IconColorSelector>
 								<Input
@@ -298,12 +283,9 @@ export function SpaceCreationModal({ workspaceId, open, onOpenChange, onSuccess,
 						<div className="space-y-2.5">
 							<Label
 								htmlFor="description"
-								className={cn(
-									"text-xs font-semibold uppercase tracking-wider transition-colors duration-200",
-									focusedField === "description" ? "text-primary" : "text-muted-foreground"
-								)}
+								className="text-sm font-medium text-slate-700"
 							>
-								Description (optional)
+								Description <span className="text-[10px] font-normal lowercase">(optional)</span>
 							</Label>
 							<div className="relative">
 								<Textarea
@@ -325,16 +307,20 @@ export function SpaceCreationModal({ workspaceId, open, onOpenChange, onSuccess,
 
 						{/* Visibility Field */}
 						<div className="space-y-2.5">
-							<Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+							<Label className="text-sm font-medium text-slate-700">
 								Visibility
 							</Label>
 							<Select value={visibility} onValueChange={(v: any) => setVisibility(v)}>
 								<SelectTrigger className="h-11 bg-muted/30 border-input/60">
-									<SelectValue />
+									<SelectValue placeholder="Select visibility">
+										{visibilityOptions.find((o) => o.value === visibility)?.label}
+									</SelectValue>
 								</SelectTrigger>
 								<SelectContent>
-									{VISIBILITY_OPTIONS.map(opt => (
-										<SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+									{visibilityOptions.map(({ value, label, description }) => (
+										<SelectItem key={value} value={value} description={description}>
+											{label}
+										</SelectItem>
 									))}
 								</SelectContent>
 							</Select>
@@ -348,30 +334,30 @@ export function SpaceCreationModal({ workspaceId, open, onOpenChange, onSuccess,
 							variant="ghost"
 							onClick={() => onOpenChange(false)}
 							disabled={createMutation.isPending}
-							className="h-10 px-4 hover:bg-transparent hover:text-foreground text-muted-foreground font-medium transition-colors"
+							className="w-full rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 sm:w-auto"
 						>
 							Cancel
 						</Button>
 						<Button
 							type="submit"
 							disabled={createMutation.isPending}
-							className="h-10 px-5 font-semibold shadow-lg hover:shadow-primary/25 transition-all duration-300"
+							className={cn(
+								"w-full rounded-xl bg-gradient-to-r from-blue-600 via-blue-500 to-cyan-500 text-white shadow-lg shadow-blue-500/30 transition-all hover:scale-[1.02] hover:shadow-xl hover:shadow-blue-500/40 sm:w-auto",
+								createMutation.isPending && "opacity-90"
+							)}
 						>
 							{createMutation.isPending ? (
-								<>
-									<Loader2 className="mr-2 h-4 w-4 animate-spin" />
-									Creating Space...
-								</>
+								<span className="flex items-center gap-2">
+									<span className="size-4 animate-spin rounded-full border-2 border-white/60 border-t-white" />
+									Creating...
+								</span>
 							) : (
-								<>
-									<Sparkles className="mr-2 h-4 w-4" />
-									Create Space
-								</>
+								"Create space"
 							)}
 						</Button>
 					</div>
 				</form>
 			</DialogContent>
-		</Dialog>
+		</Dialog >
 	);
 }

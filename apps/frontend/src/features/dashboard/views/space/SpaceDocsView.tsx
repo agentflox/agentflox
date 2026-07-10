@@ -60,7 +60,7 @@ export default function SpaceDocsView({ spaceId, workspaceId }: SpaceDocsViewPro
         if (!searchParams.get("docView") && views.length > 0) {
             const params = new URLSearchParams(searchParams.toString());
             params.set("docView", views[0].id);
-            router.replace(`?${params.toString()}`, { scroll: false });
+            history.replaceState(null, "", `?${params.toString()}`);
         }
     }, [views, searchParams, router]);
 

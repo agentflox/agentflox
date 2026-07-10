@@ -301,7 +301,7 @@ export function GanttView({ spaceId, projectId, teamId, listId, folderId, viewId
         document.body.style.pointerEvents = "none";
     }, []);
 
-    const { data: viewData } = trpc.view.get.useQuery({ id: viewId as string }, { enabled: !!viewId });
+    const { data: viewData } = trpc.view.get.useQuery({ id: viewId as string }, { staleTime: 60_000, gcTime: 5 * 60_000, enabled: !!viewId });
     const [savedSnapshot, setSavedSnapshot] = useState<string | null>(null);
     const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
     const [currentTime, setCurrentTime] = useState(new Date());

@@ -221,8 +221,10 @@ exports.Prisma.WorkspaceScalarFieldEnum = {
   transferredAt: 'transferredAt',
   archivedAt: 'archivedAt',
   avatar: 'avatar',
+  icon: 'icon',
   color: 'color',
   organizationId: 'organizationId',
+  visibility: 'visibility',
   embeddingUpdatedAt: 'embeddingUpdatedAt',
   isArchived: 'isArchived',
   memberLimit: 'memberLimit',
@@ -1214,6 +1216,8 @@ exports.Prisma.ProjectScalarFieldEnum = {
   name: 'name',
   description: 'description',
   logo: 'logo',
+  icon: 'icon',
+  color: 'color',
   tags: 'tags',
   status: 'status',
   isActive: 'isActive',
@@ -1457,6 +1461,8 @@ exports.Prisma.TeamScalarFieldEnum = {
   name: 'name',
   description: 'description',
   avatar: 'avatar',
+  icon: 'icon',
+  color: 'color',
   industry: 'industry',
   skills: 'skills',
   status: 'status',
@@ -3055,6 +3061,14 @@ exports.WorkspaceStatus = exports.$Enums.WorkspaceStatus = {
   ARCHIVED: 'ARCHIVED'
 };
 
+exports.Visibility = exports.$Enums.Visibility = {
+  PRIVATE: 'PRIVATE',
+  ADMINS: 'ADMINS',
+  MEMBERS: 'MEMBERS',
+  EVERYONE: 'EVERYONE',
+  PUBLIC: 'PUBLIC'
+};
+
 exports.MemberStatus = exports.$Enums.MemberStatus = {
   ACTIVE: 'ACTIVE',
   INACTIVE: 'INACTIVE',
@@ -3084,14 +3098,6 @@ exports.SpaceStatus = exports.$Enums.SpaceStatus = {
   DRAFT: 'DRAFT',
   ACTIVE: 'ACTIVE',
   ARCHIVED: 'ARCHIVED'
-};
-
-exports.Visibility = exports.$Enums.Visibility = {
-  PRIVATE: 'PRIVATE',
-  ADMINS: 'ADMINS',
-  MEMBERS: 'MEMBERS',
-  EVERYONE: 'EVERYONE',
-  PUBLIC: 'PUBLIC'
 };
 
 exports.IntegrationProvider = exports.$Enums.IntegrationProvider = {

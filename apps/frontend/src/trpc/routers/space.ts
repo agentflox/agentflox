@@ -16,7 +16,7 @@ const listInputSchema = z.object({
 });
 
 const createInputSchema = z.object({
-	workspaceId: z.string(),
+	workspaceId: z.string().optional().nullable(),
 	name: z.string().min(1),
 	description: z.string().optional().nullable(),
 	icon: z.string().optional().nullable(),
@@ -155,16 +155,30 @@ export const spaceRouter = router({
 			};
 		}
 
-		const [total, items] = await Promise.all([
-			prisma.space.count({ where }),
-			prisma.space.findMany({
+		let items;
+		let total;
+
+		if (input.page === 1) {
+			items = await prisma.space.findMany({
 				where,
 				orderBy: { updatedAt: "desc" },
 				skip,
 				take,
 				include,
-			}),
-		]);
+			});
+			total = items.length < take ? items.length : await prisma.space.count({ where });
+		} else {
+			[total, items] = await Promise.all([
+				prisma.space.count({ where }),
+				prisma.space.findMany({
+					where,
+					orderBy: { updatedAt: "desc" },
+					skip,
+					take,
+					include,
+				}),
+			]);
+		}
 
 		return {
 			items,
@@ -239,16 +253,30 @@ export const spaceRouter = router({
 				};
 			}
 
-			const [total, items] = await Promise.all([
-				prisma.space.count({ where }),
-				prisma.space.findMany({
+			let items;
+			let total;
+
+			if (page === 1) {
+				items = await prisma.space.findMany({
 					where,
 					orderBy: { updatedAt: "desc" },
 					skip,
 					take,
 					include,
-				}),
-			]);
+				});
+				total = items.length < take ? items.length : await prisma.space.count({ where });
+			} else {
+				[total, items] = await Promise.all([
+					prisma.space.count({ where }),
+					prisma.space.findMany({
+						where,
+						orderBy: { updatedAt: "desc" },
+						skip,
+						take,
+						include,
+					}),
+				]);
+			}
 
 			const totalPages = Math.ceil(total / pageSize);
 			const hasNextPage = page < totalPages;
@@ -264,7 +292,11 @@ export const spaceRouter = router({
 
 	create: protectedProcedure.input(createInputSchema).mutation(async ({ ctx, input }) => {
 		const userId = ctx.session!.user!.id;
-		await assertWorkspaceAccess(input.workspaceId, userId);
+		
+		const targetWorkspaceId = input.workspaceId;
+		if (targetWorkspaceId) {
+			await assertWorkspaceAccess(targetWorkspaceId, userId);
+		}
 
 		const space = await prisma.space.create({
 			data: {
@@ -274,7 +306,7 @@ export const spaceRouter = router({
 				color: input.color ?? undefined,
 				visibility: input.visibility ?? "PRIVATE",
 				isActive: input.isActive ?? true,
-				workspaceId: input.workspaceId,
+				workspaceId: targetWorkspaceId,
 				ownerId: userId,
 				members: {
 					create: {
@@ -405,9 +437,11 @@ export const spaceRouter = router({
 				},
 				views: {
 					orderBy: { position: "asc" },
+					take: 100,
 				},
 				projects: {
 					orderBy: { updatedAt: "desc" },
+					take: 100,
 					select: {
 						id: true,
 						name: true,
@@ -418,6 +452,7 @@ export const spaceRouter = router({
 				},
 				teams: {
 					orderBy: { updatedAt: "desc" },
+					take: 100,
 					select: {
 						id: true,
 						name: true,
@@ -451,6 +486,7 @@ export const spaceRouter = router({
 				},
 				tools: {
 					orderBy: { updatedAt: "desc" },
+					take: 100,
 					select: {
 						id: true,
 						name: true,
@@ -463,10 +499,12 @@ export const spaceRouter = router({
 				},
 				lists: {
 					orderBy: { position: "asc" },
+					take: 100,
 					select: { id: true, name: true, description: true, color: true, icon: true },
 				},
 				folders: {
 					orderBy: { position: "asc" },
+					take: 100,
 					select: { id: true, name: true, description: true, color: true, icon: true },
 				},
 				_count: {

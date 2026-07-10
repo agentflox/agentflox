@@ -163,7 +163,7 @@ export default function DashboardTeamView({ listId, spaceId, projectId, teamId, 
     // Fetch team data with views
     const { data: teamData } = trpc.team.get.useQuery(
         { id: teamId! },
-        { enabled: !!teamId }
+        { enabled: !!teamId, staleTime: 60_000, gcTime: 5 * 60_000 }
     );
 
     const views = useMemo(() => {
@@ -303,7 +303,7 @@ export default function DashboardTeamView({ listId, spaceId, projectId, teamId, 
         if (!urlViewId && views.length > 0) {
             const params = new URLSearchParams(searchParams.toString());
             params.set("lv", views[0].id);
-            router.replace(`?${params.toString()}`, { scroll: false });
+            history.replaceState(null, "", `?${params.toString()}`);
         }
     }, [urlViewId, views, searchParams, router]);
 

@@ -1,13 +1,17 @@
 "use client";
-import React from "react";
+import React, { Suspense } from "react";
 import dynamic from "next/dynamic";
+import { DashboardLoadingState } from "@/features/dashboard/components/shared/DashboardStates";
 
 const TeamDashboardView = dynamic(
   () => import("@/features/dashboard/views/team/TeamDashboardView"),
-  { loading: () => <div className="flex h-full items-center justify-center"><div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-primary" /></div> }
+  { 
+    ssr: false, 
+    loading: () => <DashboardLoadingState message="Loading team..." /> 
+  }
 );
 
 export default function TeamPage({ params }: { params: Promise<{ teamId: string }> }) {
-	const { teamId } = React.use(params);
-	return <TeamDashboardView teamId={teamId} />;
+  const { teamId } = React.use(params);
+  return <TeamDashboardView teamId={teamId} />;
 }

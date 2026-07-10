@@ -219,7 +219,7 @@ const TasksListModal = ({ nodeId, anchorRect, onClose, workspaceId, projectId, o
 
     const { data: tasksData, isLoading } = trpc.task.list.useQuery(
         { workspaceId: workspaceId as string, ids: taskIds },
-        { enabled: !!nodeId && taskIds.length > 0 }
+        { enabled: !!nodeId && taskIds.length > 0, staleTime: 30_000, gcTime: 5 * 60_000 }
     );
     const tasks = (tasksData as any)?.items || [];
 
@@ -1842,7 +1842,7 @@ function MindMapFreeformView(props: MindMapHeaderProps) {
     // Fetch agents if not provided
     const { data: agentsData } = trpc.agent.list.useQuery(
         { workspaceId: resolvedWorkspaceId as string },
-        { enabled: !!resolvedWorkspaceId && agentsFromProps.length === 0 }
+        { enabled: !!resolvedWorkspaceId && agentsFromProps.length === 0, staleTime: 60_000, gcTime: 5 * 60_000 }
     );
 
     const agents = useMemo(() => {
@@ -2165,7 +2165,7 @@ function MindMapFreeformView(props: MindMapHeaderProps) {
     // Fetch data for selected tasks to support bulk actions (e.g. tags)
     const { data: bulkTasksData } = trpc.task.list.useQuery(
         { ids: selectedTasks, scope: 'all', pageSize: 100 } as any,
-        { enabled: selectedTasks.length > 0 }
+        { enabled: selectedTasks.length > 0, staleTime: 30_000, gcTime: 5 * 60_000 }
     );
     const bulkTasks = useMemo(() => (bulkTasksData as any)?.items || [], [bulkTasksData]);
 
@@ -2497,7 +2497,7 @@ function MindMapFreeformView(props: MindMapHeaderProps) {
 
     const { data: modalTasksData, isLoading: isModalTasksLoading } = trpc.task.list.useQuery(
         { ids: taskIdsForModal, scope: 'all', pageSize: 100 } as any,
-        { enabled: !!tasksListModalNodeId && taskIdsForModal.length > 0 }
+        { enabled: !!tasksListModalNodeId && taskIdsForModal.length > 0, staleTime: 30_000, gcTime: 5 * 60_000 }
     );
     const modalTasks = (modalTasksData as any)?.items || [];
 
@@ -3810,7 +3810,7 @@ export function MindMapView(props: MindMapViewProps) {
         setFilterGroups(update(filterGroups));
     }, [filterGroups]);
 
-    const { data: viewData } = trpc.view.get.useQuery({ id: props.viewId as string }, { enabled: !!props.viewId });
+    const { data: viewData } = trpc.view.get.useQuery({ id: props.viewId as string }, { staleTime: 60_000, gcTime: 5 * 60_000, enabled: !!props.viewId });
 
     // View mutations
     const updateViewMutation = trpc.view.update.useMutation({
@@ -5018,7 +5018,7 @@ function MindMapTasksView(props: MindMapHeaderProps) {
     // Fetch agents if not provided
     const { data: agentsData } = trpc.agent.list.useQuery(
         { workspaceId: resolvedWorkspaceId as string },
-        { enabled: !!resolvedWorkspaceId && (!agentsFromProps || agentsFromProps.length === 0) }
+        { enabled: !!resolvedWorkspaceId && (!agentsFromProps || agentsFromProps.length === 0), staleTime: 60_000, gcTime: 5 * 60_000 }
     );
 
     const agents = useMemo(() => {

@@ -1,8 +1,8 @@
 "use client";
 
 import React from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Rocket } from "lucide-react";
-
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -12,6 +12,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/useToast";
 import { trpc } from "@/lib/trpc";
 import { cn } from "@/lib/utils";
+import { IconColorSelector } from "@/components/ui/icon-color-selector";
+import { WorkspaceIcon } from "./WorkspaceIcon";
 
 type WorkspaceCreationModalProps = {
   open: boolean;
@@ -22,13 +24,42 @@ type WorkspaceCreationModalProps = {
 const INITIAL_STATE = {
   name: "",
   description: "",
+  icon: "W",
+  color: "#3B82F6",
+  visibility: "ADMINS" as "PRIVATE" | "ADMINS" | "MEMBERS" | "EVERYONE" | "PUBLIC",
+  hasManualIcon: false,
 };
+
+const visibilityOptions = [
+  {
+    label: "Only Owners",
+    value: "PRIVATE",
+    description: "Only space owners can view and edit"
+  },
+  {
+    label: "Owners & Admins",
+    value: "ADMINS",
+    description: "Owners and admins can view and edit"
+  },
+  {
+    label: "Owners, Admins & Members",
+    value: "MEMBERS",
+    description: "All space members can view"
+  },
+  {
+    label: "Anyone with Link",
+    value: "PUBLIC",
+    description: "Anyone with the link can view"
+  },
+];
+
 
 export function WorkspaceCreationModal({ open, onOpenChange, onCreated }: WorkspaceCreationModalProps) {
   const { toast } = useToast();
   const [form, setForm] = React.useState(INITIAL_STATE);
   const createMutation = trpc.workspace.create.useMutation();
   const utils = trpc.useUtils();
+  const queryClient = useQueryClient();
   const isSubmitting = createMutation.isPending;
 
   React.useEffect(() => {
@@ -53,10 +84,31 @@ export function WorkspaceCreationModal({ open, onOpenChange, onCreated }: Worksp
       const result = await createMutation.mutateAsync({
         name: form.name.trim(),
         description: form.description.trim() || undefined,
+        icon: form.icon || undefined,
+        color: form.color || undefined,
         isActive: true,
+        visibility: form.visibility as any,
       });
 
-      await utils.workspace.list.invalidate();
+      queryClient.setQueriesData({ queryKey: [['workspace', 'list']] }, (oldData: any) => {
+        if (!oldData || !oldData.items) return oldData;
+        if (oldData.items.some((i: any) => i.id === result.id)) return oldData;
+        return {
+          ...oldData,
+          items: [result, ...oldData.items],
+          total: (oldData.total || 0) + 1
+        };
+      });
+      queryClient.setQueriesData({ queryKey: [['workspace', 'listInfinite']] }, (oldData: any) => {
+        if (!oldData || !oldData.pages) return oldData;
+        return {
+          ...oldData,
+          pages: oldData.pages.map((page: any, index: number) =>
+            index === 0 ? { ...page, items: [result, ...page.items.filter((i: any) => i.id !== result.id)] } : page
+          )
+        };
+      });
+      setTimeout(() => { utils.workspace.list.invalidate(); }, 1000);
       toast({ title: "Workspace created", description: "Your workspace is ready." });
       onCreated?.(result.id);
       onOpenChange(false);
@@ -72,7 +124,7 @@ export function WorkspaceCreationModal({ open, onOpenChange, onCreated }: Worksp
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-xl p-0 overflow-hidden gap-0 border-border/50 shadow-2xl bg-background/95 backdrop-blur-xl transition-all duration-300">
+      <DialogContent className="sm:max-w-xl p-0 overflow-hidden gap-0 border-border/50 shadow-2xl backdrop-blur-xl transition-all duration-300">
         {/* Header Section */}
         <div className="p-6 pb-2">
           <div className="flex items-start gap-5">
@@ -96,28 +148,56 @@ export function WorkspaceCreationModal({ open, onOpenChange, onCreated }: Worksp
 
         <form className="flex flex-col" onSubmit={handleSubmit}>
           <div className="px-6 py-6 space-y-6">
-            <div className="space-y-2">
+            <div className="space-y-2.5">
               <Label htmlFor="workspace-name" className="text-sm font-medium text-slate-700">
-                Workspace name
+                Icon & name <span className="text-destructive">*</span>
               </Label>
-              <Input
-                id="workspace-name"
-                name="name"
-                placeholder="Ex: Atlas Collaboration Hub"
-                value={form.name}
-                onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))}
-                className="w-full rounded-md border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-900 shadow-xs placeholder:text-slate-400 focus:border-sky-500 focus:ring-2 focus:ring-sky-200"
-                required
-              />
+              <div className="flex items-center gap-2">
+                <IconColorSelector
+                  icon={form.icon}
+                  color={form.color}
+                  onIconChange={(newIcon) => {
+                    setForm(prev => ({ ...prev, icon: newIcon, hasManualIcon: true }));
+                  }}
+                  onColorChange={(newColor) => {
+                    setForm(prev => ({ ...prev, color: newColor }));
+                  }}
+                >
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    className="h-10 w-10 rounded-lg shrink-0 overflow-hidden"
+                    style={{ backgroundColor: form.icon ? form.color : 'transparent' }}
+                  >
+                    <WorkspaceIcon icon={form.icon} className="text-white" size={20} />
+                  </Button>
+                </IconColorSelector>
+                <Input
+                  id="workspace-name"
+                  name="name"
+                  placeholder="Ex: Atlas Collaboration Hub"
+                  value={form.name}
+                  onChange={(event) => {
+                    const newName = event.target.value;
+                    setForm((prev) => {
+                      const updates: any = { name: newName };
+                      if (!prev.hasManualIcon) {
+                        updates.icon = newName.trim().charAt(0).toUpperCase() || "";
+                      }
+                      return { ...prev, ...updates };
+                    });
+                  }}
+                  className="flex-1 w-full rounded-md border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-900 shadow-xs placeholder:text-slate-400 focus:border-sky-500 focus:ring-2 focus:ring-sky-200"
+                  required
+                />
+              </div>
             </div>
 
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="workspace-description" className="text-sm font-medium text-slate-700">
-                  Description
-                </Label>
-                <span className="text-xs text-muted-foreground">Optional, a short purpose note</span>
-              </div>
+            <div className="space-y-2.5">
+              <Label htmlFor="workspace-description" className="text-sm font-medium text-slate-700">
+                Description <span className="text-[10px] font-normal lowercase">(optional)</span>
+              </Label>
               <Textarea
                 id="workspace-description"
                 name="description"
@@ -126,6 +206,29 @@ export function WorkspaceCreationModal({ open, onOpenChange, onCreated }: Worksp
                 onChange={(event) => setForm((prev) => ({ ...prev, description: event.target.value }))}
                 className="min-h-[120px] rounded-md border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 shadow-xs placeholder:text-slate-400 focus:border-sky-500 focus:ring-2 focus:ring-sky-200"
               />
+            </div>
+
+            <div className="space-y-2.5">
+              <Label htmlFor="workspace-visibility" className="text-sm font-medium text-slate-700">
+                Visibility
+              </Label>
+              <Select
+                value={form.visibility}
+                onValueChange={(value: any) => setForm(prev => ({ ...prev, visibility: value }))}
+              >
+                <SelectTrigger id="workspace-visibility" className="h-11 bg-muted/30 border-input/60">
+                  <SelectValue placeholder="Select visibility">
+                    {visibilityOptions.find((o) => o.value === form.visibility)?.label}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {visibilityOptions.map(({ value, label, description }) => (
+                    <SelectItem key={value} value={value} description={description}>
+                      {label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             {createMutation.error && (
@@ -141,14 +244,17 @@ export function WorkspaceCreationModal({ open, onOpenChange, onCreated }: Worksp
               variant="ghost"
               onClick={() => onOpenChange(false)}
               disabled={isSubmitting}
-              className="h-10 px-4 hover:bg-transparent hover:text-foreground text-muted-foreground font-medium transition-colors"
+              className="w-full rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 sm:w-auto"
             >
               Cancel
             </Button>
             <Button
               type="submit"
               disabled={isSubmitting}
-              className="h-10 px-5 font-semibold shadow-lg hover:shadow-primary/25 transition-all duration-300"
+              className={cn(
+                "w-full rounded-xl bg-gradient-to-r from-violet-600 via-fuchsia-600 to-pink-500 text-white shadow-lg shadow-fuchsia-500/30 transition-all hover:scale-[1.02] hover:shadow-xl hover:shadow-fuchsia-500/40 sm:w-auto",
+                isSubmitting && "opacity-90"
+              )}
             >
               {isSubmitting ? (
                 <span className="flex items-center gap-2">

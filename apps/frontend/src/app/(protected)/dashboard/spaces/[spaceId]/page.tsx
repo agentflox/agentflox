@@ -1,14 +1,19 @@
 "use client";
+import React, { Suspense } from "react";
 import { useParams } from "next/navigation";
 import dynamic from "next/dynamic";
+import { DashboardLoadingState } from "@/features/dashboard/components/shared/DashboardStates";
 
 const SpaceDashboardView = dynamic(
   () => import("@/features/dashboard/views/space/SpaceDashboardView"),
-  { loading: () => <div className="flex h-full items-center justify-center"><div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-primary" /></div> }
+  { 
+    ssr: false, 
+    loading: () => <DashboardLoadingState message="Loading space..." /> 
+  }
 );
 
 export default function SpaceDetailPage() {
-    const params = useParams();
-    const spaceId = params?.spaceId as string;
-    return <SpaceDashboardView spaceId={spaceId} />;
+  const params = useParams();
+  const spaceId = params?.spaceId as string;
+  return <SpaceDashboardView spaceId={spaceId} />;
 }

@@ -1,5 +1,6 @@
 "use client";
 import { Plus, X } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
 import Shell from "@/components/layout/Shell";
 import { PageHeader } from "@/entities/shared/components/PageHeader";
 import { SearchSection } from "@/entities/shared/components/SearchSection";
@@ -47,13 +48,38 @@ export default function ProjectsPage() {
 	const router = useRouter();
 	const { toast } = useToast();
 	const utils = trpc.useUtils();
+	const queryClient = useQueryClient();
 	const deleteMutation = trpc.project.delete.useMutation({
+		onMutate: async (variables) => {
+			queryClient.setQueriesData({ queryKey: [['project', 'list']] }, (oldData: any) => {
+				if (!oldData || !oldData.items) return oldData;
+				return {
+					...oldData,
+					items: oldData.items.filter((p: any) => p.id !== variables.id),
+					total: Math.max(0, oldData.total - 1)
+				};
+			});
+			queryClient.setQueriesData({ queryKey: [['project', 'listInfinite']] }, (oldData: any) => {
+                if (!oldData || !oldData.pages) return oldData;
+                return {
+                    ...oldData,
+                    pages: oldData.pages.map((page: any) => ({
+                        ...page,
+                        items: page.items.filter((p: any) => p.id !== variables.id),
+                    }))
+                };
+            });
+		},
 		onSuccess: () => {
 			toast({ title: "Project deleted successfully" });
-			utils.project.list.invalidate();
 		},
 		onError: (error) => {
 			toast({ title: "Failed to delete project", description: error.message, variant: "destructive" });
+		},
+		onSettled: () => {
+			utils.project.list.invalidate();
+			// @ts-ignore
+			if (utils.project.listInfinite) utils.project.listInfinite.invalidate();
 		}
 	});
 
@@ -109,13 +135,14 @@ export default function ProjectsPage() {
 	};
 
 	const handleConfirmDelete = async () => {
+		setDeleteModalOpen(false); // Close modal immediately
 		if (bulkDeleteRows.length > 0) {
 			for (const row of bulkDeleteRows) {
-				await deleteMutation.mutateAsync({ id: row.id });
+				deleteMutation.mutate({ id: row.id });
 			}
 			setSelectedGridIds(new Set());
 		} else if (deleteTarget) {
-			await deleteMutation.mutateAsync({ id: deleteTarget.id });
+			deleteMutation.mutate({ id: deleteTarget.id });
 		}
 	};
 
@@ -147,7 +174,7 @@ export default function ProjectsPage() {
 			cell: ({ row }) => {
 				const project = row.original;
 				return (
-					<div className="flex flex-col">
+					<div className="flex flex-col" onMouseEnter={() => handlePrefetch(project.id)}>
 						<span
 							className="font-medium text-foreground hover:underline cursor-pointer"
 							onClick={() => handleOpen(project.id)}
@@ -253,6 +280,11 @@ export default function ProjectsPage() {
 		setFilters((f: any) => ({ ...f, industries: [], status: "" as any }));
 	};
 
+	const handlePrefetch = (id: string) => {
+		if (!id) return;
+		utils.project.get.prefetch({ id });
+	};
+
 	const handleOpen = (id: string) => {
 		if (!id) return;
 		router.push(DASHBOARD_ROUTES.PROJECT(id));
@@ -270,7 +302,7 @@ export default function ProjectsPage() {
 	return (
 		<Shell>
 			<div className="space-y-6">
-				<div className="space-y-6">
+				<div className="space-y-6 pb-6">
 					{/* Enhanced Header Component */}
 					<PageHeader
 						title="Projects"
@@ -288,7 +320,7 @@ export default function ProjectsPage() {
 
 					<SearchSection
 						searchValue={query}
-						searchPlaceholder="Search Projects by title or keyword..."
+						searchPlaceholder="Search projects..."
 						resultsCount={data?.total ?? 0}
 						onSearchChange={setQuery}
 						onSearchSubmit={() => setPage(1)}
@@ -576,7 +608,7 @@ export default function ProjectsPage() {
 					)}
 				</div>
 			</div>
-			<ProjectCreationModal open={showCreateModal} onOpenChange={setShowCreateModal} onCreated={handleProjectCreated} />
+			<ProjectCreationModal open={showCreateModal} onOpenChange={setShowCreateModal} onCreated={(id) => router.push(DASHBOARD_ROUTES.PROJECT(id))} />
 			<ConfirmDeleteModal
 				open={deleteModalOpen}
 				onOpenChange={setDeleteModalOpen}

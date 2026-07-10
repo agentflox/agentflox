@@ -64,10 +64,19 @@ export const projectRouter = router({
 			}
 			const skip = (input.page - 1) * input.pageSize;
 			const take = input.pageSize;
-			const [total, items] = await Promise.all([
-				prisma.project.count({ where }),
-				prisma.project.findMany({ where, orderBy: { updatedAt: "desc" }, skip, take })
-			]);
+			
+			let items;
+			let total;
+			if (input.page === 1) {
+				items = await prisma.project.findMany({ where, orderBy: { updatedAt: "desc" }, skip, take });
+				total = items.length < take ? items.length : await prisma.project.count({ where });
+			} else {
+				[total, items] = await Promise.all([
+					prisma.project.count({ where }),
+					prisma.project.findMany({ where, orderBy: { updatedAt: "desc" }, skip, take })
+				]);
+			}
+
 			return { items, total, page: input.page, pageSize: input.pageSize };
 		}),
 
@@ -131,10 +140,18 @@ export const projectRouter = router({
 
 			const skip = (page - 1) * pageSize;
 			const take = pageSize;
-			const [total, items] = await Promise.all([
-				prisma.project.count({ where }),
-				prisma.project.findMany({ where, orderBy: { updatedAt: "desc" }, skip, take }),
-			]);
+			
+			let items;
+			let total;
+			if (page === 1) {
+				items = await prisma.project.findMany({ where, orderBy: { updatedAt: "desc" }, skip, take });
+				total = items.length < take ? items.length : await prisma.project.count({ where });
+			} else {
+				[total, items] = await Promise.all([
+					prisma.project.count({ where }),
+					prisma.project.findMany({ where, orderBy: { updatedAt: "desc" }, skip, take }),
+				]);
+			}
 
 			const totalPages = Math.ceil(total / pageSize);
 			const hasNextPage = page < totalPages;
@@ -162,9 +179,9 @@ export const projectRouter = router({
 					],
 				},
 				include: {
-					views: { orderBy: { position: "asc" } },
-					members: { include: { user: { select: { id: true, name: true, image: true, email: true } } } },
-					teams: { include: { team: { select: { id: true, name: true } } } },
+					views: { orderBy: { position: "asc" }, take: 100 },
+					members: { take: 200, include: { user: { select: { id: true, name: true, image: true, email: true } } } },
+					teams: { take: 100, include: { team: { select: { id: true, name: true } } } },
 					owner: { select: { id: true, name: true, image: true } },
 					_count: {
 						select: {
@@ -250,6 +267,9 @@ export const projectRouter = router({
 				status: z.enum(["DRAFT", "PUBLISHED", "ARCHIVED"]).optional(),
 				spaceId: z.string().optional().nullable(),
 				workspaceId: z.string().optional().nullable(),
+				icon: z.string().optional(),
+				color: z.string().optional(),
+				visibility: z.enum(["PRIVATE", "ADMINS", "MEMBERS", "EVERYONE", "PUBLIC"]).optional(),
 			})
 		)
 		.mutation(async ({ ctx, input }) => {
@@ -257,7 +277,10 @@ export const projectRouter = router({
 			const baseData: any = {
 				ownerId: ctx.session!.user!.id,
 				name: input.name,
-				description: input.description,
+				description: input.description ?? "",
+				icon: input.icon,
+				color: input.color,
+				visibility: input.visibility,
 				tagline: input.tagline,
 				logo: input.logo,
 				website: input.website,
@@ -316,7 +339,7 @@ export const projectRouter = router({
 			const baseData: any = {
 				ownerId: ctx.session!.user!.id,
 				name: input.name,
-				description: input.description,
+				description: input.description ?? "",
 				status: input.status ?? "DRAFT",
 				spaceId: input.spaceId,
 				workspaceId: input.workspaceId,

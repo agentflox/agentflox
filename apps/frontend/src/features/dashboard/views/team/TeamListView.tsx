@@ -130,7 +130,7 @@ export default function TeamListView({ teamId, workspaceId, selectedListId, onLi
         if (!hasListParam && !hasFolderParam && lists.length > 0) {
             const params = new URLSearchParams(searchParams.toString());
             params.set("list", lists[0].id);
-            router.replace(`?${params.toString()}`, { scroll: false });
+            history.replaceState(null, "", `?${params.toString()}`);
         }
     }, [searchParams, lists, router]);
 

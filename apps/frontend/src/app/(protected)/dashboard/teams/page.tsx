@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Pagination } from "@/components/ui/pagination";
 import { useRouter } from "next/navigation";
 import React, { useCallback, useMemo, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { DASHBOARD_ROUTES, MARKETPLACE_ROUTES } from '@/constants/routes.config';
 import { TeamCreationModal } from "@/entities/teams/components/TeamCreationModal";
 import {
@@ -47,13 +48,41 @@ export default function TeamsPage() {
 	const router = useRouter();
 	const { toast } = useToast();
 	const utils = trpc.useUtils();
+	const queryClient = useQueryClient();
 	const deleteMutation = trpc.team.delete.useMutation({
+		onMutate: async (variables) => {
+			// Optimistically remove from all team lists instantly
+			queryClient.setQueriesData({ queryKey: [['team', 'list']] }, (oldData: any) => {
+				if (!oldData || !oldData.items) return oldData;
+				return {
+					...oldData,
+					items: oldData.items.filter((t: any) => t.id !== variables.id),
+					total: Math.max(0, oldData.total - 1)
+				};
+			});
+			// Also invalidate listInfinite cache if it exists
+			queryClient.setQueriesData({ queryKey: [['team', 'listInfinite']] }, (oldData: any) => {
+				if (!oldData || !oldData.pages) return oldData;
+				return {
+					...oldData,
+					pages: oldData.pages.map((page: any) => ({
+						...page,
+						items: page.items.filter((t: any) => t.id !== variables.id),
+					}))
+				};
+			});
+		},
 		onSuccess: () => {
 			toast({ title: "Team deleted successfully" });
-			utils.team.list.invalidate();
 		},
 		onError: (error) => {
 			toast({ title: "Failed to delete team", description: error.message, variant: "destructive" });
+		},
+		onSettled: () => {
+			// Refresh cache in the background to ensure consistency
+			utils.team.list.invalidate();
+			// @ts-ignore - in case listInfinite isn't defined yet
+			if (utils.team.listInfinite) utils.team.listInfinite.invalidate();
 		}
 	});
 
@@ -109,13 +138,14 @@ export default function TeamsPage() {
 	};
 
 	const handleConfirmDelete = async () => {
+		setDeleteModalOpen(false); // Close modal immediately
 		if (bulkDeleteRows.length > 0) {
 			for (const row of bulkDeleteRows) {
-				await deleteMutation.mutateAsync({ id: row.id });
+				deleteMutation.mutate({ id: row.id });
 			}
 			setSelectedGridIds(new Set());
 		} else if (deleteTarget) {
-			await deleteMutation.mutateAsync({ id: deleteTarget.id });
+			deleteMutation.mutate({ id: deleteTarget.id });
 		}
 	};
 
@@ -251,7 +281,7 @@ export default function TeamsPage() {
 	return (
 		<Shell>
 			<div className="space-y-6">
-				<div className="space-y-6">
+				<div className="space-y-6 p-6">
 					{/* Enhanced Header Component */}
 					<PageHeader
 						title="Teams"
@@ -269,7 +299,7 @@ export default function TeamsPage() {
 
 					<SearchSection
 						searchValue={query}
-						searchPlaceholder="Search Teams by title or keyword..."
+						searchPlaceholder="Search teams..."
 						resultsCount={data?.total ?? 0}
 						onSearchChange={setQuery}
 						onSearchSubmit={() => setPage(1)}
@@ -561,7 +591,7 @@ export default function TeamsPage() {
 					)}
 				</div>
 			</div>
-			<TeamCreationModal open={showCreateModal} onOpenChange={setShowCreateModal} onCreated={handleTeamCreated} />
+			<TeamCreationModal open={showCreateModal} onOpenChange={setShowCreateModal} onCreated={(id) => router.push(DASHBOARD_ROUTES.TEAM(id))} />
 			<ConfirmDeleteModal
 				open={deleteModalOpen}
 				onOpenChange={setDeleteModalOpen}

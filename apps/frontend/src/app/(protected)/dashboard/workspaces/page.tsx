@@ -1,5 +1,6 @@
 "use client";
 import { useMemo, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Plus, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Shell from "@/components/layout/Shell";
@@ -83,13 +84,29 @@ export default function WorkspacesPage() {
 	};
 
 	const utils = trpc.useUtils();
+	const queryClient = useQueryClient();
+	
 	const deleteMutation = trpc.workspace.delete.useMutation({
+		onMutate: async (variables) => {
+			// Optimistically remove from all workspace lists instantly
+			queryClient.setQueriesData({ queryKey: [['workspace', 'list']] }, (oldData: any) => {
+				if (!oldData || !oldData.items) return oldData;
+				return {
+					...oldData,
+					items: oldData.items.filter((w: any) => w.id !== variables.id),
+					total: Math.max(0, oldData.total - 1)
+				};
+			});
+		},
 		onSuccess: () => {
 			toast({ title: "Workspaces deleted successfully" });
-			utils.workspace.list.invalidate();
 		},
 		onError: (error) => {
 			toast({ title: "Failed to delete workspaces", description: error.message, variant: "destructive" });
+		},
+		onSettled: () => {
+			// Refresh cache in the background to ensure consistency
+			utils.workspace.list.invalidate();
 		}
 	});
 
@@ -107,13 +124,14 @@ export default function WorkspacesPage() {
 	};
 
 	const handleConfirmDelete = async () => {
+		setDeleteModalOpen(false); // Close modal immediately
 		if (bulkDeleteRows.length > 0) {
 			for (const row of bulkDeleteRows) {
-				await deleteMutation.mutateAsync({ id: row.id });
+				deleteMutation.mutate({ id: row.id });
 			}
 			setSelectedGridIds(new Set());
 		} else if (deleteTarget) {
-			await deleteMutation.mutateAsync({ id: deleteTarget.id });
+			deleteMutation.mutate({ id: deleteTarget.id });
 		}
 	};
 
@@ -242,7 +260,7 @@ export default function WorkspacesPage() {
 	return (
 		<Shell>
 			<div className="space-y-6">
-				<div className="space-y-6">
+				<div className="space-y-6 pb-6">
 					<PageHeader
 						title="Workspaces"
 						description="Manage your collaboration spaces."

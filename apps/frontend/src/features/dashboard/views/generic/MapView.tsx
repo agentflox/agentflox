@@ -629,7 +629,7 @@ export function MapView({ spaceId, projectId, teamId, listId, folderId, viewId, 
             setViewNameDraft(oldName);
         }
     };
-    const { data: viewData } = trpc.view.get.useQuery({ id: viewId as string }, { enabled: !!viewId });
+    const { data: viewData } = trpc.view.get.useQuery({ id: viewId as string }, { staleTime: 60_000, gcTime: 5 * 60_000, enabled: !!viewId });
 
     const currentViewConfig = useMemo(() => ({
         // MapView-specific

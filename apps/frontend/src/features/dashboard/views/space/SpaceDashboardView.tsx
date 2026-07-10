@@ -231,13 +231,16 @@ export default function SpaceDashboardView({ listId, spaceId, projectId, teamId,
     const [taskViewMode, setTaskViewMode] = useState<TaskLayoutMode>("modal");
 
     // Fetch Data
-    const { data: space, isLoading: isSpaceLoading } = trpc.space.get.useQuery({ id: spaceId! }, { enabled: !!spaceId });
+    const { data: space, isLoading: isSpaceLoading } = trpc.space.get.useQuery(
+        { id: spaceId! }, 
+        { enabled: !!spaceId, staleTime: 60_000, gcTime: 5 * 60_000 }
+    );
 
-    const resolvedWorkspaceId = workspaceId || space?.workspaceId;
+    const resolvedWorkspaceId: string | undefined = (workspaceId || space?.workspaceId) ?? undefined;
 
     const { data: selectedList } = trpc.list.get.useQuery(
         { id: selectedListId || "" },
-        { enabled: !!selectedListId }
+        { enabled: !!selectedListId, staleTime: 60_000, gcTime: 5 * 60_000 }
     );
 
     const isLoading = isSpaceLoading;
@@ -464,7 +467,7 @@ export default function SpaceDashboardView({ listId, spaceId, projectId, teamId,
             const params = new URLSearchParams(searchParams.toString());
             if (!params.get("tab")) params.set("tab", "overview");
             params.set("v", views[0].id);
-            router.replace(`?${params.toString()}`, { scroll: false });
+            history.replaceState(null, "", `?${params.toString()}`);
         }
     }, [urlTabId, views, isViewsTab, searchParams, router]);
 
@@ -473,7 +476,7 @@ export default function SpaceDashboardView({ listId, spaceId, projectId, teamId,
         if (currentTab === "projects" && !selectedProjectId && spaceProjects.length > 0) {
             const params = new URLSearchParams(searchParams.toString());
             params.set("pj", spaceProjects[0].id);
-            router.replace(`?${params.toString()}`, { scroll: false });
+            history.replaceState(null, "", `?${params.toString()}`);
         }
     }, [currentTab, selectedProjectId, spaceProjects, searchParams, router]);
 
@@ -482,7 +485,7 @@ export default function SpaceDashboardView({ listId, spaceId, projectId, teamId,
         if (currentTab === "teams" && !selectedTeamId && spaceTeams.length > 0) {
             const params = new URLSearchParams(searchParams.toString());
             params.set("tm", spaceTeams[0].id);
-            router.replace(`?${params.toString()}`, { scroll: false });
+            history.replaceState(null, "", `?${params.toString()}`);
         }
     }, [currentTab, selectedTeamId, spaceTeams, searchParams, router]);
 
@@ -510,7 +513,7 @@ export default function SpaceDashboardView({ listId, spaceId, projectId, teamId,
                         spaceId={spaceId!}
                         viewId={view.id}
                         initialConfig={view.config}
-                        selectedTaskIdFromParent={selectedTaskId}
+                        selectedTaskIdFromParent={selectedTaskId ?? undefined}
                         onTaskSelect={handleTaskSelect}
                     />
                 );
@@ -521,7 +524,7 @@ export default function SpaceDashboardView({ listId, spaceId, projectId, teamId,
                         spaceId={spaceId!}
                         viewId={view.id}
                         initialConfig={view.config}
-                        selectedTaskIdFromParent={selectedTaskId}
+                        selectedTaskIdFromParent={selectedTaskId ?? undefined}
                         onTaskSelect={handleTaskSelect}
                     />
                 );
@@ -532,7 +535,7 @@ export default function SpaceDashboardView({ listId, spaceId, projectId, teamId,
                         spaceId={spaceId!}
                         viewId={view.id}
                         initialConfig={view.config}
-                        selectedTaskIdFromParent={selectedTaskId}
+                        selectedTaskIdFromParent={selectedTaskId ?? undefined}
                         onTaskSelect={handleTaskSelect}
                     />
                 );
@@ -543,7 +546,7 @@ export default function SpaceDashboardView({ listId, spaceId, projectId, teamId,
                         spaceId={spaceId!}
                         viewId={view.id}
                         initialConfig={view.config}
-                        selectedTaskIdFromParent={selectedTaskId}
+                        selectedTaskIdFromParent={selectedTaskId ?? undefined}
                         onTaskSelect={handleTaskSelect}
                     />
                 );
@@ -554,7 +557,7 @@ export default function SpaceDashboardView({ listId, spaceId, projectId, teamId,
                         spaceId={spaceId!}
                         viewId={view.id}
                         initialConfig={view.config}
-                        selectedTaskIdFromParent={selectedTaskId}
+                        selectedTaskIdFromParent={selectedTaskId ?? undefined}
                         onTaskSelect={handleTaskSelect}
                     />
                 );
@@ -565,7 +568,7 @@ export default function SpaceDashboardView({ listId, spaceId, projectId, teamId,
                         spaceId={spaceId!}
                         viewId={view.id}
                         initialConfig={view.config}
-                        selectedTaskIdFromParent={selectedTaskId}
+                        selectedTaskIdFromParent={selectedTaskId ?? undefined}
                         onTaskSelect={handleTaskSelect}
                     />
                 );
@@ -576,7 +579,7 @@ export default function SpaceDashboardView({ listId, spaceId, projectId, teamId,
                         spaceId={spaceId!}
                         viewId={view.id}
                         initialConfig={view.config}
-                        selectedTaskIdFromParent={selectedTaskId}
+                        selectedTaskIdFromParent={selectedTaskId ?? undefined}
                         onTaskSelect={handleTaskSelect}
                     />
                 );
@@ -587,7 +590,7 @@ export default function SpaceDashboardView({ listId, spaceId, projectId, teamId,
                         spaceId={spaceId!}
                         viewId={view.id}
                         initialConfig={view.config}
-                        selectedTaskIdFromParent={selectedTaskId}
+                        selectedTaskIdFromParent={selectedTaskId ?? undefined}
                         onTaskSelect={handleTaskSelect}
                     />
                 );
@@ -598,7 +601,7 @@ export default function SpaceDashboardView({ listId, spaceId, projectId, teamId,
                         spaceId={spaceId!}
                         viewId={view.id}
                         initialConfig={view.config}
-                        selectedTaskIdFromParent={selectedTaskId}
+                        selectedTaskIdFromParent={selectedTaskId ?? undefined}
                         onTaskSelect={handleTaskSelect}
                     />
                 );
@@ -609,7 +612,7 @@ export default function SpaceDashboardView({ listId, spaceId, projectId, teamId,
                         spaceId={spaceId!}
                         viewId={view.id}
                         initialConfig={view.config}
-                        selectedTaskIdFromParent={selectedTaskId}
+                        selectedTaskIdFromParent={selectedTaskId ?? undefined}
                         onTaskSelect={handleTaskSelect}
                     />
                 );
@@ -620,7 +623,7 @@ export default function SpaceDashboardView({ listId, spaceId, projectId, teamId,
                         spaceId={spaceId!}
                         viewId={view.id}
                         initialConfig={view.config}
-                        selectedTaskIdFromParent={selectedTaskId}
+                        selectedTaskIdFromParent={selectedTaskId ?? undefined}
                         onTaskSelect={handleTaskSelect}
 
                     />
@@ -632,7 +635,7 @@ export default function SpaceDashboardView({ listId, spaceId, projectId, teamId,
                         spaceId={spaceId!}
                         viewId={view.id}
                         initialConfig={view.config}
-                        selectedTaskIdFromParent={selectedTaskId}
+                        selectedTaskIdFromParent={selectedTaskId ?? undefined}
                         onTaskSelect={handleTaskSelect}
                     />
                 );
@@ -642,7 +645,7 @@ export default function SpaceDashboardView({ listId, spaceId, projectId, teamId,
                         spaceId={spaceId!}
                         viewId={view.id}
                         initialConfig={view.config}
-                        selectedTaskIdFromParent={selectedTaskId}
+                        selectedTaskIdFromParent={selectedTaskId ?? undefined}
                         onTaskSelect={handleTaskSelect}
                     />
                 );
@@ -652,7 +655,7 @@ export default function SpaceDashboardView({ listId, spaceId, projectId, teamId,
                         spaceId={spaceId!}
                         viewId={view.id}
                         initialConfig={view.config}
-                        selectedTaskIdFromParent={selectedTaskId}
+                        selectedTaskIdFromParent={selectedTaskId ?? undefined}
                         onTaskSelect={handleTaskSelect}
                     />
                 );
@@ -666,7 +669,7 @@ export default function SpaceDashboardView({ listId, spaceId, projectId, teamId,
                         teamId={teamId}
                         viewId={view.id}
                         initialConfig={view.config}
-                        selectedTaskIdFromParent={selectedTaskId}
+                        selectedTaskIdFromParent={selectedTaskId ?? undefined}
                         onTaskSelect={handleTaskSelect}
                     />
                 );

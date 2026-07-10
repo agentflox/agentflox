@@ -21,13 +21,14 @@ export const DEFAULT_WORKSPACE_STATUSES = [
 /**
  * Ensures a workspace has its default statuses. Idempotent — safe to call multiple times.
  */
-export async function ensureWorkspaceStatuses(workspaceId: string) {
-  const existing = await prisma.taskStatus.count({
+export async function ensureWorkspaceStatuses(workspaceId: string, txClient?: any) {
+  const db = txClient || prisma;
+  const existing = await db.taskStatus.count({
     where: { workspaceId, listId: null },
   });
   if (existing > 0) return;
 
-  await prisma.taskStatus.createMany({
+  await db.taskStatus.createMany({
     data: DEFAULT_WORKSPACE_STATUSES.map((s) => ({
       ...s,
       workspaceId,

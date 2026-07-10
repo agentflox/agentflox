@@ -140,7 +140,7 @@ export default function DashboardFolderView({ folderId, spaceId, projectId, team
     // Fetch folder data with views
     const { data: foldersData } = trpc.folder.byContext.useQuery(
         { spaceId, projectId, teamId, workspaceId },
-        { enabled: !!(spaceId || projectId || teamId || workspaceId) }
+        { enabled: !!(spaceId || projectId || teamId || workspaceId), staleTime: 60_000, gcTime: 5 * 60_000 }
     );
 
     const folder = foldersData?.items?.find((f: any) => f.id === folderId);
@@ -268,7 +268,7 @@ export default function DashboardFolderView({ folderId, spaceId, projectId, team
         if (!urlViewId && views.length > 0) {
             const params = new URLSearchParams(searchParams.toString());
             params.set("fv", views[0].id);
-            router.replace(`?${params.toString()}`, { scroll: false });
+            history.replaceState(null, "", `?${params.toString()}`);
         }
     }, [urlViewId, views, searchParams, router]);
 

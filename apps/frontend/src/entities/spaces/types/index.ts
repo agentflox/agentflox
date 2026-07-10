@@ -2,6 +2,8 @@ export type SpaceListItem = {
 	id: string;
 	name: string;
 	description?: string | null;
+	icon?: string | null;
+	color?: string | null;
 	workspaceId: string;
 	isActive?: boolean | null;
 	createdBy?: string;

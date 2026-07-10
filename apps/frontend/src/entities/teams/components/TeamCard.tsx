@@ -10,6 +10,7 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
+import { TeamIcon } from "./TeamIcon";
 
 export default function TeamCard({
   item,
@@ -75,6 +76,14 @@ export default function TeamCard({
         <div className="min-w-0 space-y-2.5 flex-1">
           <div className="flex items-start justify-between gap-4">
             <div className="flex items-center gap-2">
+              {item.icon && (
+                <div
+                    className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md overflow-hidden"
+                    style={{ backgroundColor: item.color || "#06b6d4" }}
+                >
+                    <TeamIcon icon={item.icon} className="text-white" size={14} fill />
+                </div>
+              )}
               <h3 className={cn(
                 "flex items-center gap-2 font-medium text-base leading-snug line-clamp-1 transition-colors duration-200",
                 isSelected ? "text-cyan-700" : "text-slate-900 group-hover:text-cyan-700"

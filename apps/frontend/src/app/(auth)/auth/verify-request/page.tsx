@@ -37,9 +37,7 @@ export default function VerifyRequestPage() {
       {/* Logo */}
       <div className="mb-8">
         <Link href="/" className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-black rounded-lg flex items-center justify-center">
-            <span className="text-white font-bold text-lg">A</span>
-          </div>
+          <NextImage src="/images/logo.png" alt="Agentflox" width={32} height={32} className="rounded-lg" />
           <span className="font-bold text-xl tracking-tight">Agentflox</span>
         </Link>
       </div>

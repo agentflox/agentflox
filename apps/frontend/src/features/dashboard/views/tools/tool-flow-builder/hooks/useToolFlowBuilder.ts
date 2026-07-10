@@ -222,7 +222,7 @@ export function useToolFlowBuilder({ workspaceId, initialTool, onClose }: ToolFl
 
   const systemToolsQuery = trpc.tool.systemList.useQuery({
     query: systemToolsListOpen ? toolStepSidebarQuery || undefined : undefined,
-  });
+  }, { staleTime: 60_000, gcTime: 5 * 60_000 });
   const [isSyncingTools, setIsSyncingTools] = React.useState(false);
   const syncSystemTools = React.useCallback(async () => {
     setIsSyncingTools(true);

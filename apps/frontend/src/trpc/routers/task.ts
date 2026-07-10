@@ -365,11 +365,12 @@ export const taskRouter = router({
 
       const include = buildTaskListInclude(input.includeRelations, userId);
 
-      const [total, itemsRaw] = await Promise.all([
-        prisma.task.count({ where }),
-        prisma.task.findMany({
+      let itemsRaw;
+      let total;
+
+      if (page === 1) {
+        itemsRaw = await prisma.task.findMany({
           where,
-          // Respect manual ordering when present, fall back to recent updates
           orderBy: [
             { order: "asc" },
             { updatedAt: "desc" },
@@ -377,8 +378,23 @@ export const taskRouter = router({
           skip,
           take,
           include,
-        }),
-      ]);
+        });
+        total = itemsRaw.length < take ? itemsRaw.length : await prisma.task.count({ where });
+      } else {
+        [total, itemsRaw] = await Promise.all([
+          prisma.task.count({ where }),
+          prisma.task.findMany({
+            where,
+            orderBy: [
+              { order: "asc" },
+              { updatedAt: "desc" },
+            ],
+            skip,
+            take,
+            include,
+          }),
+        ]);
+      }
 
       const hasRelations = input.includeRelations === true || input.includeRelations === "card";
 

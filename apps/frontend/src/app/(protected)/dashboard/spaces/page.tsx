@@ -250,7 +250,7 @@ export default function SpacesPage() {
     return (
         <Shell>
             <div className="space-y-6">
-                <div className="space-y-6">
+                <div className="space-y-6 pb-6">
                     <PageHeader
                         title="Spaces"
                         description="Manage your team spaces across all workspaces."
@@ -568,9 +568,9 @@ export default function SpacesPage() {
                 open={showCreateModal}
                 onOpenChange={setShowCreateModal}
                 workspaceId="" // Empty string or undefined to trigger selector logic
-                onSuccess={() => {
+                onSuccess={(id) => {
                     toast({ title: "Space created", description: "Space successfully created." });
-                    // The list should auto-refresh due to invalidation in modal
+                    router.push(DASHBOARD_ROUTES.SPACE(id));
                 }}
             />
             <ConfirmDeleteModal

@@ -142,7 +142,7 @@ export default function SwarmRunView({
   const utils = trpc.useUtils();
   const createConversation = trpc.chat.createWorkforceConversation.useMutation();
   const persistMessages = trpc.chat.persistWorkforceMessages.useMutation();
-  const { data: workforceData } = trpc.workforce.get.useQuery({ id: workforceId });
+  const { data: workforceData } = trpc.workforce.get.useQuery({ id: workforceId }, { staleTime: 60_000, gcTime: 5 * 60_000 });
 
   // Extract nodes from graph
   const graph = (workforceData as any)?.graph || (workforceData as any)?.data?.react_flow_graph;

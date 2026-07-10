@@ -164,13 +164,10 @@ export default function DashboardListView({ listId, spaceId, projectId, teamId, 
     // Fetch list data with views
     const { data: listsData } = trpc.list.byContext.useQuery(
         { spaceId, projectId, teamId, workspaceId },
-        { enabled: !!(spaceId || projectId || teamId || workspaceId) }
+        { enabled: !!(spaceId || projectId || teamId || workspaceId), staleTime: 60_000, gcTime: 5 * 60_000 }
     );
 
-    const { data: listData } = trpc.list.get.useQuery(
-        { id: listId },
-        { enabled: !!listId }
-    );
+    const { data: listData } = trpc.list.get.useQuery({ id: listId }, { enabled: !!listId, staleTime: 60_000, gcTime: 5 * 60_000 });
 
     const listFromContext = listsData?.items?.find((l: any) => l.id === listId);
     // `list.get` can return a shape without populated `views`; merge with context list
@@ -334,7 +331,7 @@ export default function DashboardListView({ listId, spaceId, projectId, teamId, 
         if (!urlViewId && views.length > 0) {
             const params = new URLSearchParams(searchParams.toString());
             params.set("lv", views[0].id);
-            router.replace(`?${params.toString()}`, { scroll: false });
+            history.replaceState(null, "", `?${params.toString()}`);
         }
     }, [urlViewId, views, searchParams, router]);
 

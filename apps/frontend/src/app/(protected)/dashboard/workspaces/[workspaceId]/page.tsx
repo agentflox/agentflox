@@ -1,14 +1,22 @@
 "use client";
+import React, { Suspense } from "react";
 import { useParams } from "next/navigation";
 import dynamic from "next/dynamic";
+import { DashboardLoadingState } from "@/features/dashboard/components/shared/DashboardStates";
 
 const WorkspaceDashboardView = dynamic(
-  () => import("@/features/dashboard/views/workspace/WorkspaceDashboardView"),
-  { loading: () => <div className="flex h-full items-center justify-center"><div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-primary" /></div> }
+	() => import("@/features/dashboard/views/workspace/WorkspaceDashboardView"),
+	{ 
+		ssr: false, 
+		loading: () => <DashboardLoadingState message="Loading workspace..." /> 
+	}
 );
 
 export default function WorkspaceDetailPage() {
 	const params = useParams();
 	const workspaceId = params?.workspaceId as string;
+
+	console.log("[WorkspaceDetailPage] Rendering page shell for:", workspaceId);
+
 	return <WorkspaceDashboardView workspaceId={workspaceId} />;
 }

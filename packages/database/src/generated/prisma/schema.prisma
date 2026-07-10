@@ -317,8 +317,10 @@ model Workspace {
   transferredAt         DateTime?                    @map("transferred_at")
   archivedAt            DateTime?                    @map("archived_at")
   avatar                String?
+  icon                  String?
   color                 String?                      @default("#3B82F6")
   organizationId        String?                      @map("organization_id")
+  visibility            Visibility                   @default(PRIVATE)
   embedding             Unsupported("vector")?
   embeddingUpdatedAt    DateTime?                    @map("embedding_updated_at")
   isArchived            Boolean                      @default(false) @map("is_archived")
@@ -433,7 +435,7 @@ model WorkspaceInvitation {
 
 model WorkspaceOwnershipTransfer {
   id                  String         @id @default(cuid())
-  workspaceId         String         @map("workspace_id")
+  workspaceId         String?        @map("workspace_id")
   fromOwnerId         String         @map("from_owner_id")
   toOwnerId           String         @map("to_owner_id")
   requestedBy         String         @map("requested_by")
@@ -450,10 +452,10 @@ model WorkspaceOwnershipTransfer {
   expiresAt           DateTime?      @map("expires_at")
   metadata            Json?
 
-  fromOwner User      @relation("WorkspaceTransferFrom", fields: [fromOwnerId], references: [id])
-  toOwner   User      @relation("WorkspaceTransferTo", fields: [toOwnerId], references: [id])
-  requester User      @relation("WorkspaceTransferRequestedBy", fields: [requestedBy], references: [id])
-  workspace Workspace @relation("WorkspaceTransfers", fields: [workspaceId], references: [id], onDelete: Cascade)
+  fromOwner User       @relation("WorkspaceTransferFrom", fields: [fromOwnerId], references: [id])
+  toOwner   User       @relation("WorkspaceTransferTo", fields: [toOwnerId], references: [id])
+  requester User       @relation("WorkspaceTransferRequestedBy", fields: [requestedBy], references: [id])
+  workspace Workspace? @relation("WorkspaceTransfers", fields: [workspaceId], references: [id], onDelete: Cascade)
 
   @@index([workspaceId])
   @@index([fromOwnerId])
@@ -471,7 +473,7 @@ model WorkspaceOwnershipTransfer {
 
 model Space {
   id                 String                   @id @default(cuid())
-  workspaceId        String                   @map("workspace_id")
+  workspaceId        String?                  @map("workspace_id")
   ownerId            String                   @map("owner_id")
   previousOwnerId    String?                  @map("previous_owner_id")
   name               String
@@ -497,7 +499,7 @@ model Space {
   projects           Project[]
   members            SpaceMember[]
   ownershipTransfers SpaceOwnershipTransfer[] @relation("SpaceTransfers")
-  workspace          Workspace                @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workspace          Workspace?               @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
   // Owner: restrict deletion — a User cannot be hard-deleted while they own a
   // Space. Force a transfer (see SpaceOwnershipTransfer) or anonymize the
@@ -2171,6 +2173,8 @@ model Project {
   name               String
   description        String
   logo               String?
+  icon               String?
+  color              String?
   tags               String[]
   status             ProjectStatus          @default(DRAFT)
   isActive           Boolean                @default(true) @map("is_active")
@@ -2629,6 +2633,8 @@ model Team {
   name                String
   description         String
   avatar              String?
+  icon                String?
+  color               String?
   industry            String[]
   skills              String[]
   status              TeamStatus             @default(DRAFT)

@@ -1287,7 +1287,7 @@ export function FormView({
     const utils = trpc.useUtils();
     const { data: viewData, isLoading: isViewLoading, isFetching: isViewFetching } = trpc.view.get.useQuery(
         { id: viewId as string },
-        { enabled: !!viewId }
+        { enabled: !!viewId, staleTime: 60_000, gcTime: 5 * 60_000 }
     );
     const updateViewMutation = trpc.view.update.useMutation();
     const {
@@ -1355,7 +1355,7 @@ export function FormView({
             page: responsesPage,
             pageSize: responsesPageSize,
         },
-        { enabled: !!viewId }
+        { enabled: !!viewId, staleTime: 30_000, gcTime: 5 * 60_000 }
     );
     const responses = responsesResult?.items ?? [];
     const responseTotal = responsesResult?.total ?? 0;

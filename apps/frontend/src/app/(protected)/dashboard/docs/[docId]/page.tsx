@@ -5,18 +5,7 @@ import { use } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
-
-const DocView = dynamic(
-  () => import("@/features/dashboard/views/generic/DocView").then((mod) => mod.DocView),
-  {
-    ssr: false,
-    loading: () => (
-      <div className="flex flex-1 items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-primary" />
-      </div>
-    ),
-  }
-);
+import { DocView } from "@/features/dashboard/views/generic/DocView";
 
 interface PageProps {
   params: Promise<{ docId: string }>;

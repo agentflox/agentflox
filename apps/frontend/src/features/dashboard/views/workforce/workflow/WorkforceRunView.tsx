@@ -130,10 +130,7 @@ export default function WorkforceRunView({
     { enabled: !!conversationId, refetchOnWindowFocus: false, refetchOnMount: true, staleTime: 0 }
   );
 
-  const { data: workforceData } = trpc.workforce.get.useQuery(
-    { id: workforceId },
-    { enabled: !!workforceId }
-  );
+  const { data: workforceData } = trpc.workforce.get.useQuery({ id: workforceId }, { enabled: !!workforceId, staleTime: 60_000, gcTime: 5 * 60_000 });
 
   // Create a fast lookup for step definitions
   const stepDefs = React.useMemo(() => {

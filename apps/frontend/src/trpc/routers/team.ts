@@ -9,7 +9,6 @@ export const teamRouter = router({
     list: protectedProcedure
         .input(z.object({
             query: z.string().optional(),
-            teamType: z.enum(["DEVELOPMENT", "MARKETING", "SALES", "DESIGN", "ADVISORY", "GENERAL"]).optional(),
             industry: z.array(z.string()).optional(),
             isActive: z.boolean().optional(),
             scope: z.enum(["all", "owned", "participated"]).optional().default("owned"),
@@ -33,9 +32,7 @@ export const teamRouter = router({
                 where.OR = [{ ownerId: userId }, { members: { some: { userId } } }];
             }
 
-            if (input?.teamType) {
-                where.teamType = input.teamType;
-            }
+
             if (input?.industry && input.industry.length > 0) {
                 where.industry = { hasSome: input.industry };
             }
@@ -72,7 +69,6 @@ export const teamRouter = router({
     listInfinite: protectedProcedure
         .input(z.object({
             query: z.string().optional(),
-            teamType: z.enum(["DEVELOPMENT", "MARKETING", "SALES", "DESIGN", "ADVISORY", "GENERAL"]).optional(),
             industry: z.array(z.string()).optional(),
             isActive: z.boolean().optional(),
             scope: z.enum(["all", "owned", "participated"]).optional().default("owned"),
@@ -98,9 +94,7 @@ export const teamRouter = router({
                 where.OR = [{ ownerId: userId }, { members: { some: { userId } } }];
             }
 
-            if (input?.teamType) {
-                where.teamType = input.teamType;
-            }
+
             if (input?.industry && input.industry.length > 0) {
                 where.industry = { hasSome: input.industry };
             }
@@ -157,9 +151,9 @@ export const teamRouter = router({
                     ]
                 },
                 include: {
-                    views: { orderBy: { position: "asc" } },
+                    views: { orderBy: { position: "asc" }, take: 100 },
                     owner: { select: { id: true, name: true, email: true } },
-                    members: { select: { user: { select: { id: true, name: true, email: true } } } },
+                    members: { take: 200, select: { user: { select: { id: true, name: true, email: true } } } },
                 }
             });
         }),
@@ -192,7 +186,6 @@ export const teamRouter = router({
                 name: z.string().optional(),
                 description: z.string().optional(),
                 avatar: z.string().optional(),
-                teamType: z.enum(["DEVELOPMENT", "MARKETING", "SALES", "DESIGN", "ADVISORY", "GENERAL"]).optional(),
                 industry: z.array(z.string()).optional(),
                 skills: z.array(z.string()).optional(),
                 location: z.string().optional(),
@@ -203,6 +196,9 @@ export const teamRouter = router({
                 spaceId: z.string().optional(),
                 workspaceId: z.string().optional(),
                 status: z.enum(["DRAFT", "PUBLISHED", "ARCHIVED"]).optional(),
+                icon: z.string().optional(),
+                color: z.string().optional(),
+                visibility: z.enum(["PRIVATE", "ADMINS", "MEMBERS", "EVERYONE", "PUBLIC"]).optional(),
             })
         )
         .mutation(async ({ ctx, input }) => {
@@ -211,9 +207,11 @@ export const teamRouter = router({
             const baseData: any = {
                 ownerId: ctx.session!.user!.id,
                 name: input.name,
-                description: input.description,
+                description: input.description ?? "",
+                icon: input.icon,
+                color: input.color,
+                visibility: input.visibility,
                 avatar: input.avatar,
-                teamType: input.teamType ?? "GENERAL",
                 industry: input.industry,
                 skills: input.skills,
                 location: input.location,
@@ -264,7 +262,6 @@ export const teamRouter = router({
                 name: z.string().optional(),
                 description: z.string().optional(),
                 avatar: z.string().optional(),
-                teamType: z.enum(["DEVELOPMENT", "MARKETING", "SALES", "DESIGN", "ADVISORY", "GENERAL"]).optional(),
                 industry: z.array(z.string()).optional(),
                 skills: z.array(z.string()).optional(),
                 location: z.string().optional(),
@@ -299,7 +296,6 @@ export const teamRouter = router({
                 name: z.string().optional(),
                 description: z.string().optional(),
                 avatar: z.string().optional(),
-                teamType: z.enum(["DEVELOPMENT", "MARKETING", "SALES", "DESIGN", "ADVISORY", "GENERAL"]).optional(),
                 industry: z.array(z.string()).optional(),
                 skills: z.array(z.string()).optional(),
                 location: z.string().optional(),
@@ -346,7 +342,6 @@ export const teamRouter = router({
     getPublicTeams: protectedProcedure
         .input(z.object({
             query: z.string().optional(),
-            teamType: z.enum(["DEVELOPMENT", "MARKETING", "SALES", "DESIGN", "ADVISORY", "GENERAL"]).optional(),
             industry: z.array(z.string()).optional(),
             location: z.string().optional(),
             sortBy: z.enum(["relevance", "latest"]).optional().default("latest"),
@@ -361,7 +356,6 @@ export const teamRouter = router({
                     { description: { contains: input.query, mode: "insensitive" } },
                 ];
             }
-            if (input.teamType) where.teamType = input.teamType;
             if (input.industry && input.industry.length > 0) where.industry = { hasSome: input.industry };
             if (input.location) where.location = { contains: input.location, mode: "insensitive" };
             const skip = (input.page - 1) * input.pageSize;

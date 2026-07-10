@@ -1227,7 +1227,7 @@ export function PeopleView({ spaceId, projectId, teamId, listId, folderId, viewI
             void utils.view.get.invalidate();
         }
     });
-    const { data: viewData } = trpc.view.get.useQuery({ id: viewId as string }, { enabled: !!viewId });
+    const { data: viewData } = trpc.view.get.useQuery({ id: viewId as string }, { staleTime: 60_000, gcTime: 5 * 60_000, enabled: !!viewId });
     const [viewNameDraft, setViewNameDraft] = useState("");
 
     // Default view settings
@@ -1588,7 +1588,7 @@ export function PeopleView({ spaceId, projectId, teamId, listId, folderId, viewI
 
     const { data: spaceWithMembers } = trpc.space.get.useQuery(
         { id: spaceId as string },
-        { enabled: !!spaceId }
+        { enabled: !!spaceId, staleTime: 60_000, gcTime: 5 * 60_000 }
     );
     const space = spaceWithMembers ?? spaceSummary;
 
@@ -1599,7 +1599,7 @@ export function PeopleView({ spaceId, projectId, teamId, listId, folderId, viewI
             scope: "owned",
             pageSize: 50,
         },
-        { enabled: !!resolvedWorkspaceId }
+        { enabled: !!resolvedWorkspaceId, staleTime: 60_000, gcTime: 5 * 60_000 }
     );
 
     useEffect(() => {

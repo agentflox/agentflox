@@ -159,6 +159,7 @@ export default function MainSidebar({ mode = "inline", onClose }: { mode?: "inli
             <Link
               key={item.href}
               href={item.href}
+              prefetch={true}
               onClick={handleItemClick}
               className={className}
               title={isMainCollapsed ? item.label : undefined}
@@ -211,6 +212,7 @@ export default function MainSidebar({ mode = "inline", onClose }: { mode?: "inli
               <Link
                 key={item.href}
                 href={item.href}
+                prefetch={true}
                 onClick={handleItemClick}
                 className={cn(
                   "group flex w-full items-center gap-3 rounded-md px-2 py-2 text-sm font-medium transition-all duration-200 outline-none cursor-pointer",
@@ -267,6 +269,7 @@ export default function MainSidebar({ mode = "inline", onClose }: { mode?: "inli
                       <Link
                         key={item.href}
                         href={item.href}
+                        prefetch={true}
                         onClick={handleItemClick}
                         className={cn(
                           "flex flex-col items-center justify-center gap-2 rounded-xl border border-transparent bg-transparent p-3 transition-all hover:bg-zinc-100 hover:border-zinc-200",

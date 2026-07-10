@@ -4,17 +4,19 @@ import type { LucideIcon } from "lucide-react";
 import { DynamicLucideIcon } from "@/lib/lucideIcon";
 import { cn } from "@/lib/utils";
 
-const LUCIDE_ICON_NAME = /^[A-Z][a-zA-Z0-9]*$/;
+const LUCIDE_ICON_NAME = /^[A-Z][a-z][a-zA-Z0-9]*$/;
 
 interface EntityIconProps {
   icon?: string | null;
   className?: string;
   size?: number;
   fallback: LucideIcon;
+  /** When true, uploaded images fill the full width/height of their container */
+  fill?: boolean;
 }
 
 /** Renders workspace/space/project/team icons without importing the full lucide bundle. */
-export function EntityIcon({ icon, className, size = 16, fallback: Fallback }: EntityIconProps) {
+export function EntityIcon({ icon, className, size = 16, fallback: Fallback, fill }: EntityIconProps) {
   if (!icon) return <Fallback size={size} className={className} />;
 
   if (LUCIDE_ICON_NAME.test(icon)) {
@@ -22,7 +24,13 @@ export function EntityIcon({ icon, className, size = 16, fallback: Fallback }: E
   }
 
   if (icon.startsWith("http") || icon.startsWith("/") || icon.startsWith("data:")) {
-    return (
+    return fill ? (
+      <img
+        src={icon}
+        alt="Icon"
+        className={cn("object-cover w-full h-full", className)}
+      />
+    ) : (
       <img
         src={icon}
         alt="Icon"

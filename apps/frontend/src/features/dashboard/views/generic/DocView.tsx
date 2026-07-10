@@ -252,7 +252,7 @@ export function DocView({ listId, spaceId, projectId, viewId, teamId, folderId }
         parentId: null,
         pageSize: 50,
         includeChildren: true,
-    }, { enabled: !!viewId });
+    }, { staleTime: 60_000, gcTime: 5 * 60_000, enabled: !!viewId });
 
     const createDocument = trpc.document.create.useMutation({
         onMutate: async (variables) => {
@@ -393,7 +393,7 @@ export function DocView({ listId, spaceId, projectId, viewId, teamId, folderId }
 
     const { data: selectedDocument } = trpc.document.get.useQuery(
         { id: selectedDocId as string },
-        { enabled: !!selectedDocId && !selectedDocId.startsWith('temp-') }
+        { enabled: !!selectedDocId && !selectedDocId.startsWith('temp-'), staleTime: 30_000, gcTime: 5 * 60_000 }
     );
 
     // Dedicated mutation for drag-and-drop reorders — does NOT cancelQueries so the optimistic

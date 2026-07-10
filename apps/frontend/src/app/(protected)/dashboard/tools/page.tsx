@@ -1,6 +1,7 @@
 "use client";
 import { trpc } from "@/lib/trpc";
 import { useMemo, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Plus, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Shell from "@/components/layout/Shell";
@@ -67,24 +68,72 @@ export default function ToolsPage() {
   const [bulkDeleteRows, setBulkDeleteRows] = useState<any[]>([]);
 
   const utils = trpc.useUtils();
+  const queryClient = useQueryClient();
   const deleteMutation = trpc.compositeTool.delete.useMutation({
+    onMutate: async (variables) => {
+        queryClient.setQueriesData({ queryKey: [['compositeTool', 'list']] }, (oldData: any) => {
+            if (!oldData || !oldData.items) return oldData;
+            return {
+                ...oldData,
+                items: oldData.items.filter((t: any) => t.id !== variables.id),
+                total: Math.max(0, oldData.total - 1)
+            };
+        });
+        queryClient.setQueriesData({ queryKey: [['compositeTool', 'listInfinite']] }, (oldData: any) => {
+            if (!oldData || !oldData.pages) return oldData;
+            return {
+                ...oldData,
+                pages: oldData.pages.map((page: any) => ({
+                    ...page,
+                    items: page.items.filter((t: any) => t.id !== variables.id),
+                }))
+            };
+        });
+    },
     onSuccess: () => {
       toast({ title: "Tool deleted successfully." });
-      utils.compositeTool.list.invalidate();
     },
     onError: (err) => {
       toast({ title: "Error", description: err.message, variant: "destructive" });
+    },
+    onSettled: () => {
+      utils.compositeTool.list.invalidate();
+      // @ts-ignore
+      if (utils.compositeTool.listInfinite) utils.compositeTool.listInfinite.invalidate();
     }
   });
 
   const deleteManyMutation = trpc.compositeTool.deleteMany.useMutation({
+    onMutate: async (variables) => {
+        queryClient.setQueriesData({ queryKey: [['compositeTool', 'list']] }, (oldData: any) => {
+            if (!oldData || !oldData.items) return oldData;
+            return {
+                ...oldData,
+                items: oldData.items.filter((t: any) => !variables.ids.includes(t.id)),
+                total: Math.max(0, oldData.total - variables.ids.length)
+            };
+        });
+        queryClient.setQueriesData({ queryKey: [['compositeTool', 'listInfinite']] }, (oldData: any) => {
+            if (!oldData || !oldData.pages) return oldData;
+            return {
+                ...oldData,
+                pages: oldData.pages.map((page: any) => ({
+                    ...page,
+                    items: page.items.filter((t: any) => !variables.ids.includes(t.id)),
+                }))
+            };
+        });
+    },
     onSuccess: () => {
       toast({ title: "Tools deleted successfully." });
-      utils.compositeTool.list.invalidate();
-      setSelectedGridIds(new Set());
     },
     onError: (err) => {
       toast({ title: "Error", description: err.message, variant: "destructive" });
+    },
+    onSettled: () => {
+      utils.compositeTool.list.invalidate();
+      // @ts-ignore
+      if (utils.compositeTool.listInfinite) utils.compositeTool.listInfinite.invalidate();
     }
   });
 
@@ -110,10 +159,12 @@ export default function ToolsPage() {
   };
 
   const handleConfirmDelete = async () => {
+    setDeleteModalOpen(false); // Close modal immediately
     if (bulkDeleteRows.length > 0) {
       deleteManyMutation.mutate({ ids: bulkDeleteRows.map((r) => r.id) });
+      setSelectedGridIds(new Set());
     } else if (deleteTarget) {
-      await deleteMutation.mutateAsync({ id: deleteTarget.id });
+      deleteMutation.mutate({ id: deleteTarget.id });
     }
   };
 
@@ -284,7 +335,7 @@ export default function ToolsPage() {
     <Shell>
       <div className="flex h-full">
         <div className="flex-1 space-y-6">
-          <div className="space-y-6">
+          <div className="space-y-6 pb-6">
             <PageHeader
               title="Tools"
               description="Manage workspace tools and integrations."
