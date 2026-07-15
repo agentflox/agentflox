@@ -13,8 +13,16 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+  DropdownMenuLabel,
+} from '@/components/ui/dropdown-menu';
+import {
   CalendarIcon, UserIcon, FolderIcon, ListIcon, CheckCircle2, Target, FileText,
-  GitBranch, Flag, Monitor, Hash, LayoutGrid, Calendar as CalendarLucide
+  GitBranch, Flag, Monitor, Hash, LayoutGrid, Calendar as CalendarLucide, CircleSlash
 } from 'lucide-react';
 import { trpc } from '@/lib/trpc';
 import { cn } from '@/lib/utils';
@@ -226,27 +234,47 @@ export function TaskDetailsForm({
           })()}
 
           {/* Priority Pill */}
-          <Select
-            value={priority || 'NORMAL'}
-            onValueChange={(val) => setValue('priority', val, { shouldDirty: true, shouldTouch: true })}
-          >
-            <SelectTrigger className="h-7 w-auto min-w-[90px] border-zinc-200 bg-white hover:bg-zinc-50 focus:ring-0 px-2.5 rounded-md text-xs font-medium shadow-sm transition-all text-zinc-700">
-              <div className="flex items-center gap-1.5">
-                <Flag className={cn("h-3 w-3",
-                  priority === 'URGENT' ? "text-red-500" :
-                    priority === 'HIGH' ? "text-orange-500" :
-                      priority === 'LOW' ? "text-blue-400" : "text-zinc-400"
-                )} />
-                <SelectValue placeholder="Priority" />
-              </div>
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="URGENT" className="text-xs">Urgent</SelectItem>
-              <SelectItem value="HIGH" className="text-xs">High</SelectItem>
-              <SelectItem value="NORMAL" className="text-xs">Normal</SelectItem>
-              <SelectItem value="LOW" className="text-xs">Low</SelectItem>
-            </SelectContent>
-          </Select>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-7 w-auto min-w-[90px] border-zinc-200 bg-white hover:bg-zinc-50 focus:ring-0 px-2.5 rounded-md text-xs font-medium shadow-sm transition-all text-zinc-700"
+              >
+                <div className="flex items-center gap-1.5 w-full">
+                  <div className={cn("flex items-center gap-1.5",
+                    priority === 'URGENT' ? "text-red-500" :
+                      priority === 'HIGH' ? "text-orange-500" :
+                        priority === 'NORMAL' ? "text-blue-500" :
+                          priority === 'LOW' ? "text-zinc-400" : "text-zinc-400"
+                  )}>
+                    <Flag className="h-3 w-3 fill-current" />
+                  </div>
+                  <span>{priority ? priority.charAt(0) + priority.slice(1).toLowerCase() : "Priority"}</span>
+                </div>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-48 z-[200]">
+              <DropdownMenuLabel className="text-xs">Priority</DropdownMenuLabel>
+              <DropdownMenuItem onClick={() => setValue('priority', 'URGENT', { shouldDirty: true, shouldTouch: true })}>
+                <Flag className="h-3 w-3 mr-2 text-red-600 fill-current" /> Urgent
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setValue('priority', 'HIGH', { shouldDirty: true, shouldTouch: true })}>
+                <Flag className="h-3 w-3 mr-2 text-orange-600 fill-current" /> High
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setValue('priority', 'NORMAL', { shouldDirty: true, shouldTouch: true })}>
+                <Flag className="h-3 w-3 mr-2 text-blue-600 fill-current" /> Normal
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setValue('priority', 'LOW', { shouldDirty: true, shouldTouch: true })}>
+                <Flag className="h-3 w-3 mr-2 text-slate-600 fill-current" /> Low
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => setValue('priority', null, { shouldDirty: true, shouldTouch: true })}>
+                <CircleSlash className="h-3 w-3 mr-2 text-slate-500" />Clear
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
 
           {/* Assignee Pill */}
           <div className="h-7 flex items-center">

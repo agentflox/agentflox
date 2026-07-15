@@ -41,7 +41,7 @@ export interface TaskActionsProps {
     defaultListId?: string;
     availableStatuses: any[];
     onDelete: (taskId: string) => void;
-    onUpdate: (taskId: string, data: any) => Promise<void>;
+    onUpdate: (taskId: string, data: any) => void | Promise<void>;
     onAction?: (action: string) => void;
     getTaskUrl?: (task: any) => string;
     tooltip?: string;
@@ -161,7 +161,7 @@ export function TaskActionsPopover({
                     onClick(e);
                 }}
                 className={cn(
-                    "w-full flex items-center gap-2 px-2 py-1.5 text-xs rounded-md transition-colors text-left",
+                    "w-full flex items-center gap-2 px-2 py-1.5 text-xs rounded-md transition-colors text-left cursor-pointer",
                     variant === "danger"
                         ? "text-red-600 hover:bg-red-50"
                         : "text-zinc-700 hover:bg-zinc-100",
@@ -230,7 +230,7 @@ export function TaskActionsPopover({
                     />
 
                     <TemplateMenuPopover entityType="TASK" workspaceId={workspaceId} contentToSave={task}>
-                        <button className="w-full flex items-center gap-2 px-2 py-1.5 text-xs rounded-md hover:bg-zinc-100 transition-colors text-left text-zinc-700">
+                        <button className="w-full flex items-center gap-2 px-2 py-1.5 text-xs rounded-md hover:bg-zinc-100 transition-colors text-left text-zinc-700 cursor-pointer">
                             <LayoutTemplate className="h-3.5 w-3.5 text-zinc-500" />
                             <span className="flex-1">Templates</span>
                             <ChevronRight className="size-4 text-zinc-500" />
@@ -256,7 +256,7 @@ export function TaskActionsPopover({
                     />
 
                     <RemindMePopover taskId={task.id}>
-                        <button className="w-full flex items-center gap-2 px-2 py-1.5 text-xs rounded-md hover:bg-zinc-100 transition-colors text-left text-zinc-700">
+                        <button className="w-full flex items-center gap-2 px-2 py-1.5 text-xs rounded-md hover:bg-zinc-100 transition-colors text-left text-zinc-700 cursor-pointer">
                             <Clock className="h-3.5 w-3.5 text-zinc-500" />
                             <span className="flex-1">Remind me in Inbox</span>
                             <ChevronRight className="size-4 text-zinc-500" />
@@ -322,11 +322,7 @@ export function TaskActionsPopover({
                         onClick={() => { setDependenciesModalOpen(true); setIsOpen(false); }}
                     />
 
-                    <ActionItem
-                        icon={PenTool}
-                        label="Custom Fields"
-                        onClick={() => { toast.info("Custom Fields coming soon"); setIsOpen(false); }}
-                    />
+
 
                     <div className="my-1 h-[1px] bg-zinc-100" />
 
@@ -340,7 +336,7 @@ export function TaskActionsPopover({
                         availableStatuses={availableStatuses}
                         defaultParentId={task.id}
                         trigger={
-                            <button className="w-full flex items-center gap-2 px-2 py-1.5 text-xs rounded-md transition-colors text-left text-zinc-700 hover:bg-zinc-100">
+                            <button className="w-full flex items-center gap-2 px-2 py-1.5 text-xs rounded-md transition-colors text-left text-zinc-700 hover:bg-zinc-100 cursor-pointer">
                                 <Plus className="h-3.5 w-3.5 text-zinc-500" />
                                 <span className="flex-1">Add Subtask</span>
                             </button>

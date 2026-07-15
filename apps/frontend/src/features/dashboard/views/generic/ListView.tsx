@@ -15,10 +15,10 @@ import {
     Search, Plus, MoreHorizontal, SortAsc, X, Pin, Lock, ShieldCheck, Home,
     Calendar, Users, Flag, Clock, Paperclip, MessageSquare, Star, UserRound,
     Copy, CopyPlus, Trash2, Edit3, ArrowRight, ChevronRight, ChevronDown, CheckCheck, ChevronUp, ChevronsUp, GripVertical, CheckCircle2,
-    LayoutList, SlidersHorizontal, ArrowUp, ArrowDown, Circle, Spline, Save,
+    LayoutList, SlidersHorizontal, ArrowUp, ArrowDown, Circle, CircleDot, CircleDashed, Spline, Save,
     Link2, Target, Filter, Settings, Info, Play, ListChecks, AlignLeft, RefreshCcw,
     Type, Hash, CheckSquare, Tag, DollarSign, Globe, FunctionSquare, FileText,
-    Phone, Mail, MapPin, TrendingUp, Heart, PenTool, MousePointer, ListTodo, AlertTriangle, CircleMinus, Link, Slash, Box, List as ListIcon,
+    Phone, Mail, MapPin, TrendingUp, Heart, PenTool, MousePointer, ListTodo, AlertTriangle, CircleMinus, Link, Slash, Box, List as ListIcon, CircleSlash,
     Archive, UserPlus, CalendarCheck, CalendarClock, CalendarRange, Hourglass, UserCheck, RefreshCw, Timer, Download, Undo, ToggleLeft
 } from "lucide-react";
 import {
@@ -138,6 +138,10 @@ type Task = {
     list?: { id: string; name: string; statuses?: { id: string; name: string; color: string }[] };
     tags?: string[];
     isStarred?: boolean;
+    space?: { id: string; name: string } | null;
+    team?: { id: string; name: string } | null;
+    project?: { id: string; name: string } | null;
+    folder?: { id: string; name: string } | null;
     timeTracked?: string | null;
     timeEstimate?: string | null;
     _count?: { comments?: number; attachments?: number; other_tasks?: number; checklists?: number };
@@ -261,6 +265,8 @@ export interface ListViewProps {
     selectedTaskIdFromParent?: string | null;
     onTaskSelect?: (taskId: string | null) => void;
     scope?: "owned" | "assigned" | "all";
+    /** Context level that determines default grouping and location display */
+    context?: "workspace" | "space" | "project" | "team" | "folder" | "list";
 }
 
 const CREATE_FIELD_TYPES = [
@@ -332,7 +338,10 @@ function stableStringify(obj: any) {
     return JSON.stringify(sortObject(obj));
 }
 
-export default function ListView({ spaceId, projectId, teamId, listId, viewId, workspaceId, initialConfig, selectedTaskIdFromParent, onTaskSelect, scope }: ListViewProps) {
+export default function ListView({ spaceId, projectId, teamId, listId, viewId, workspaceId, initialConfig, selectedTaskIdFromParent, onTaskSelect, scope, context }: ListViewProps) {
+    /** Whether this context shows tasks from many lists (workspace/space/project/team → show locations) */
+    const isBroadContext = context === "workspace" || context === "space" || context === "project" || context === "team";
+
     const router = useRouter();
     const searchParams = useSearchParams();
     const [searchQuery, setSearchQuery] = useState("");
@@ -362,8 +371,9 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
     const [showCompleted, setShowCompleted] = useState(false);
     const [showCompletedSubtasks, setShowCompletedSubtasks] = useState(false);
     const [groupBy, setGroupBy] = useState<string>(
-        () => (listId ? "status" : "list")
+        () => (listId && !isBroadContext ? "status" : "list")
     );
+    const [alsoGroupByList, setAlsoGroupByList] = useState(true);
     const [groupDirection, setGroupDirection] = useState<"asc" | "desc">("asc");
     const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
     const [expandedSubtaskMode, setExpandedSubtaskMode] = useState<"collapsed" | "expanded" | "separate">("collapsed");
@@ -536,7 +546,7 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
     const [customizeViewSubtasksOpen, setCustomizeViewSubtasksOpen] = useState(false);
     const [showEmptyStatuses, setShowEmptyStatuses] = useState(false);
     const [wrapText, setWrapText] = useState(false);
-    const [showTaskLocations, setShowTaskLocations] = useState(false);
+    const [showTaskLocations, setShowTaskLocations] = useState(isBroadContext);
     const [showSubtaskParentNames, setShowSubtaskParentNames] = useState(false);
     const [showTaskProperties, setShowTaskProperties] = useState(true);
     const [showTasksFromOtherLists, setShowTasksFromOtherLists] = useState(false);
@@ -670,6 +680,9 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
         isFetchingNextPage,
         loadMoreRef,
         taskListInput,
+        updateTaskInList,
+        addTaskToList,
+        removeTaskFromList,
     } = useGenericTaskViewData({
         spaceId,
         projectId,
@@ -805,46 +818,56 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
 
     const updateTask = trpc.task.update.useMutation({
         onMutate: async (variables) => {
-            // Cancel any outgoing refetches (so they don't overwrite our optimistic update)
-            await utils.task.list.cancel(taskListInput);
-
-            // Snapshot the previous value
-            const previousTasks = utils.task.list.getData(taskListInput);
-
-            // Optimistically update to the new value
-            if (previousTasks && (variables as any).tags) {
-                utils.task.list.setData(taskListInput, (old: any) => {
-                    if (!old) return old;
-                    return {
-                        ...old,
-                        items: old.items.map((task: any) =>
-                            task.id === variables.id
-                                ? { ...task, tags: (variables as any).tags }
-                                : task
-                        ),
-                    };
-                });
-            }
-
-            return { previousTasks };
-        },
-        onError: (err, variables, context: any) => {
-            // If the mutation fails, use the context returned from onMutate to roll back
-            if (context?.previousTasks) {
-                utils.task.list.setData(taskListInput, context.previousTasks);
-            }
+            updateTaskInList(variables.id, (task: any) => {
+                let updated = { ...task, ...variables };
+                if ((variables as any).statusId !== undefined) {
+                    const statusObj = allAvailableStatuses.find(s => s.id === (variables as any).statusId);
+                    if (statusObj) updated.status = statusObj;
+                }
+                if ((variables as any).assigneeIds !== undefined) {
+                    updated.assignees = ((variables as any).assigneeIds as string[]).map((id: string) => ({ user: userById.get(id) }));
+                }
+                if ((variables as any).listId !== undefined) {
+                    const listObj = lists.find(l => l.id === (variables as any).listId);
+                    if (listObj) updated.list = listObj;
+                }
+                return updated;
+            });
         },
         onSettled: () => {
-            // Always refetch after error or success:
             void utils.task.list.invalidate(taskListInput);
         },
     });
     const deleteTask = trpc.task.delete.useMutation({
-        onSuccess: () => { void utils.task.list.invalidate(taskListInput); },
+        onMutate: async (variables) => {
+            removeTaskFromList(variables.id);
+        },
+        onSettled: () => {
+            void utils.task.list.invalidate(taskListInput);
+        },
     });
     const createTask = trpc.task.create.useMutation({
-        onSuccess: () => { void utils.task.list.invalidate(taskListInput); },
-        onError: () => { void utils.task.list.invalidate(taskListInput); },
+        onMutate: async (variables) => {
+            const optimisticTask = {
+                ...variables,
+                id: `optimistic-${Date.now()}`,
+                name: variables.title,
+                description: "",
+                status: variables.statusId ? allAvailableStatuses.find(s => s.id === variables.statusId) : null,
+                list: variables.listId ? lists.find(l => l.id === variables.listId) : null,
+                priority: (variables as any).priority || null,
+                dueDate: (variables as any).dueDate || null,
+                startDate: (variables as any).startDate || null,
+                assignees: ((variables as any).assigneeIds || []).map((id: string) => ({ user: userById.get(id) })),
+                tags: [],
+                customFieldValues: [],
+                createdAt: new Date().toISOString(),
+            };
+            addTaskToList(optimisticTask);
+        },
+        onSettled: () => {
+            void utils.task.list.invalidate(taskListInput);
+        },
     });
     const duplicateTask = trpc.task.duplicate.useMutation({
         onSuccess: () => { void utils.task.list.invalidate(taskListInput); },
@@ -895,7 +918,7 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
         const effectiveListId = listIdForCreate ?? listId ?? (listsData?.items as any[])?.[0]?.id;
         if (!inlineAddTitle.trim() || !effectiveListId || !resolvedWorkspaceId) return;
         try {
-            await createTask.mutateAsync({
+            createTask.mutate({
                 title: inlineAddTitle.trim(),
                 listId: effectiveListId,
                 statusId: statusIdForCreate ?? undefined,
@@ -1078,12 +1101,119 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
         }
     }, [bulkCustomFieldId, filteredTasks, selectedTasks]);
 
-    const groupedTasks = useMemo(() => {
-        if (groupBy === "none") return { "All Tasks": filteredTasks };
+    const effectiveGroupBy = isBroadContext && alsoGroupByList && groupBy === "none" ? "list" : groupBy;
+
+    const { flatGroups, nestedGroups, lookupGroups, allGroupKeys } = useMemo(() => {
+        let flatGroups: Record<string, Task[]> | undefined;
+        let nestedGroups: Record<string, Record<string, Task[]>> | undefined;
+        const lookupGroups: Record<string, Task[]> = {};
+        const allGroupKeys: string[] = [];
+
+        if (effectiveGroupBy === "none") {
+            flatGroups = { "All Tasks": filteredTasks };
+            lookupGroups["All Tasks"] = filteredTasks;
+            allGroupKeys.push("All Tasks");
+            return { flatGroups, nestedGroups, lookupGroups, allGroupKeys };
+        }
+
+        const isNested = isBroadContext && effectiveGroupBy !== "list" && alsoGroupByList;
+
+        if (isNested) {
+            const tempNested: Record<string, Record<string, Task[]>> = {};
+            const listKeys = new Set<string>();
+            filteredTasks.forEach(task => {
+                const listKey = task.list?.id || "no_list";
+                listKeys.add(listKey);
+            });
+
+            listKeys.forEach(listKey => {
+                tempNested[listKey] = {};
+                if (effectiveGroupBy === "status" && showEmptyStatuses) {
+                    allAvailableStatuses.forEach(s => {
+                        if (s.name && (s.listId === listKey || listKey === "no_list")) {
+                            tempNested[listKey][s.name] = [];
+                        }
+                    });
+                }
+            });
+
+            const visibleIds = new Set(filteredTasks.map(t => t.id));
+
+            filteredTasks.forEach(task => {
+                if (expandedSubtaskMode !== "separate" && task.parentId && visibleIds.has(task.parentId)) {
+                    return;
+                }
+
+                const listKey = task.list?.id || "no_list";
+                let subKey = "";
+                if (effectiveGroupBy === "status") subKey = task.status?.name || "No Status";
+                else if (effectiveGroupBy === "priority") subKey = task.priority || "No Priority";
+                else if (effectiveGroupBy === "assignee") subKey = task.assignees?.[0]?.user?.name || task.assignee?.name || "Unassigned";
+                else if (effectiveGroupBy === "dueDate") {
+                    if (!task.dueDate) subKey = "No due date";
+                    else {
+                        const d = new Date(task.dueDate);
+                        subKey = d.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
+                    }
+                } else if (effectiveGroupBy === "taskType") {
+                    const ttId = (task as any).type || (task as any).taskType;
+                    const tt = availableTaskTypes?.find((t: any) => t.id === ttId || t.name === ttId);
+                    subKey = tt?.name || ttId || "No Task Type";
+                } else if (effectiveGroupBy === "tags") {
+                    const tags = (task.tags ?? []) as string[];
+                    subKey = tags[0] || "No Tags";
+                } else {
+                    const cf = FIELD_CONFIG.find(f => f.id === effectiveGroupBy);
+                    if (cf && cf.isCustom && "customField" in cf) {
+                        const value = getCustomFieldValue(task, effectiveGroupBy);
+                        subKey = (value !== null && value !== undefined) ? formatCustomFieldValue(value, cf.customField) : `No ${cf.label}`;
+                    } else {
+                        subKey = "No Group";
+                    }
+                }
+
+                if (!tempNested[listKey][subKey]) tempNested[listKey][subKey] = [];
+                tempNested[listKey][subKey].push(task);
+            });
+
+            const listKeyToName = (key: string) => {
+                if (key === "no_list") return "No List";
+                const list = listsData?.items?.find((l: any) => l.id === key);
+                return list?.name || "Unknown List";
+            };
+            const sortedListKeys = Array.from(listKeys).sort((a, b) => listKeyToName(a).localeCompare(listKeyToName(b)));
+
+            nestedGroups = {};
+            sortedListKeys.forEach(listKey => {
+                const subGroups = tempNested[listKey];
+                const sortedSubEntries = Object.entries(subGroups).sort(([a], [b]) => {
+                    if (effectiveGroupBy === "status") {
+                        const indexA = allAvailableStatuses.findIndex(s => s.name === a && (s.listId === listKey || listKey === "no_list"));
+                        const indexB = allAvailableStatuses.findIndex(s => s.name === b && (s.listId === listKey || listKey === "no_list"));
+                        if (indexA !== -1 && indexB !== -1) {
+                            const diff = indexA - indexB;
+                            return groupDirection === "asc" ? diff : -diff;
+                        }
+                    }
+                    const cmp = a.localeCompare(b);
+                    return groupDirection === "asc" ? cmp : -cmp;
+                });
+                nestedGroups![listKey] = Object.fromEntries(sortedSubEntries);
+                allGroupKeys.push(listKey);
+                // For a top group, we might want its tasks for some calculations, but they are not directly used in rendering right now
+                for (const [subKey, tasks] of Object.entries(nestedGroups![listKey])) {
+                    const combinedKey = `${listKey}::${subKey}`;
+                    lookupGroups[combinedKey] = tasks;
+                    allGroupKeys.push(combinedKey);
+                }
+            });
+            return { flatGroups, nestedGroups, lookupGroups, allGroupKeys };
+        }
+
         const groups: Record<string, Task[]> = {};
 
         // If grouping by status and 'show empty statuses' is enabled, initialize groups for all statuses
-        if (groupBy === "status" && showEmptyStatuses) {
+        if (effectiveGroupBy === "status" && showEmptyStatuses) {
             allAvailableStatuses.forEach(s => {
                 if (s.name) {
                     groups[s.name] = [];
@@ -1102,28 +1232,28 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
             }
 
             let key = "";
-            if (groupBy === "status") key = task.status?.name || "No Status";
-            else if (groupBy === "priority") key = task.priority || "No Priority";
-            else if (groupBy === "assignee") key = task.assignees?.[0]?.user?.name || task.assignee?.name || "Unassigned";
-            else if (groupBy === "list") key = task.list?.name || "No List";
-            else if (groupBy === "dueDate") {
+            if (effectiveGroupBy === "status") key = task.status?.name || "No Status";
+            else if (effectiveGroupBy === "priority") key = task.priority || "No Priority";
+            else if (effectiveGroupBy === "assignee") key = task.assignees?.[0]?.user?.name || task.assignee?.name || "Unassigned";
+            else if (effectiveGroupBy === "list") key = task.list?.name || "No List";
+            else if (effectiveGroupBy === "dueDate") {
                 if (!task.dueDate) key = "No due date";
                 else {
                     const d = new Date(task.dueDate);
                     key = d.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
                 }
-            } else if (groupBy === "taskType") {
+            } else if (effectiveGroupBy === "taskType") {
                 const ttId = (task as any).type || (task as any).taskType;
                 const tt = availableTaskTypes?.find((t: any) => t.id === ttId || t.name === ttId);
                 key = tt?.name || ttId || "No Task Type";
-            } else if (groupBy === "tags") {
+            } else if (effectiveGroupBy === "tags") {
                 const tags = (task.tags ?? []) as string[];
                 key = tags[0] || "No Tags";
             } else {
                 // Must be a custom field ID
-                const cf = FIELD_CONFIG.find(f => f.id === groupBy);
+                const cf = FIELD_CONFIG.find(f => f.id === effectiveGroupBy);
                 if (cf && cf.isCustom && "customField" in cf) {
-                    const value = getCustomFieldValue(task, groupBy);
+                    const value = getCustomFieldValue(task, effectiveGroupBy);
                     key = (value !== null && value !== undefined) ? formatCustomFieldValue(value, cf.customField) : `No ${cf.label}`;
                 } else {
                     key = "No Group";
@@ -1137,7 +1267,7 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
         // Sort group keys according to groupDirection for stable ordering
         const sortedEntries = Object.entries(groups).sort(([a], [b]) => {
             // For status grouping, try to respect the original order if available
-            if (groupBy === "status") {
+            if (effectiveGroupBy === "status") {
                 const indexA = allAvailableStatuses.findIndex(s => s.name === a);
                 const indexB = allAvailableStatuses.findIndex(s => s.name === b);
 
@@ -1146,34 +1276,39 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
                     const diff = indexA - indexB;
                     return groupDirection === "asc" ? diff : -diff;
                 }
-
-                // If one is "No Status" (unknown), put it at start or end depending on direction?
-                // Usually "No Status" goes first or last. Let's stick to localeCompare fallback for mixed types.
             }
 
             const cmp = a.localeCompare(b);
             return groupDirection === "asc" ? cmp : -cmp;
         });
-        return Object.fromEntries(sortedEntries);
-    }, [filteredTasks, groupBy, groupDirection, showEmptyStatuses, allAvailableStatuses]);
+        flatGroups = Object.fromEntries(sortedEntries);
+
+        for (const [key, tasks] of Object.entries(flatGroups)) {
+            lookupGroups[key] = tasks;
+            allGroupKeys.push(key);
+        }
+
+        return { flatGroups, nestedGroups, lookupGroups, allGroupKeys };
+    }, [filteredTasks, effectiveGroupBy, alsoGroupByList, groupDirection, showEmptyStatuses, allAvailableStatuses, isBroadContext, expandedSubtaskMode, FIELD_CONFIG, availableTaskTypes, listsData]);
 
     const flatRowEntries = useMemo(
         () =>
             buildFlatRowEntries({
-                groupBy,
+                groupBy: effectiveGroupBy,
                 filteredTasks,
                 orderByParent,
                 expandedParents,
                 inlineAddGroupKey,
             }),
-        [groupBy, filteredTasks, orderByParent, expandedParents, inlineAddGroupKey]
+        [effectiveGroupBy, filteredTasks, orderByParent, expandedParents, inlineAddGroupKey]
     );
 
     const groupedFlatRowEntries = useMemo(
         () =>
             buildGroupedFlatRowEntries({
-                groupBy,
-                groupedTasks,
+                groupBy: effectiveGroupBy,
+                groupedTasks: flatGroups,
+                nestedGroupedTasks: nestedGroups,
                 filteredTasks,
                 collapsedGroups,
                 orderByParent,
@@ -1181,7 +1316,7 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
                 inlineAddGroupKey,
                 expandedSubtaskMode,
             }),
-        [groupBy, groupedTasks, filteredTasks, collapsedGroups, orderByParent, expandedParents, inlineAddGroupKey, expandedSubtaskMode]
+        [effectiveGroupBy, flatGroups, nestedGroups, filteredTasks, collapsedGroups, orderByParent, expandedParents, inlineAddGroupKey, expandedSubtaskMode]
     );
 
     const orderedTasksForGroup = (groupTasks: Task[]) => {
@@ -1280,8 +1415,7 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
     };
 
     const collapseAllGroups = () => {
-        const allGroupNames = Object.keys(groupedTasks);
-        setCollapsedGroups(new Set(allGroupNames));
+        setCollapsedGroups(new Set(allGroupKeys));
     };
 
     const toggleColumn = (col: string) => {
@@ -1363,11 +1497,11 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
 
     const activeFilterCount = filterStatus.length + filterPriority.length + filterAssignee.length + (!showCompleted ? 1 : 0);
 
-    const handleTaskUpdate = async (taskId: string, data: Record<string, unknown>) => {
-        try { await updateTask.mutateAsync({ id: taskId, ...data }); } catch (e) { console.error(e); }
+    const handleTaskUpdate = (taskId: string, data: Record<string, unknown>) => {
+        updateTask.mutate({ id: taskId, ...data } as any);
     };
-    const handleTaskDelete = async (taskId: string) => {
-        try { await deleteTask.mutateAsync({ id: taskId }); } catch (e) { console.error(e); }
+    const handleTaskDelete = (taskId: string) => {
+        deleteTask.mutate({ id: taskId });
     };
 
     const subtaskCount = (task: Task) => (task._count?.other_tasks ?? 0);
@@ -1570,7 +1704,7 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
                         />
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                                <Button variant="outline" size="sm" className="h-7 px-2 text-xs text-zinc-700">
+                                <Button variant="outline" size="sm" className="h-7 px-2 text-xs text-zinc-700 border-zinc-200 hover:bg-zinc-100 hover:text-zinc-900 rounded-full">
                                     <Circle className="h-3.5 w-3.5 mr-1 text-zinc-500" />
                                     {(() => {
                                         const typeId = inlineAddTaskType;
@@ -1619,7 +1753,7 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
                             value={inlineAddAssigneeIds}
                             onChange={setInlineAddAssigneeIds}
                             trigger={
-                                <Button variant="outline" size="icon" className="h-7 w-7 text-zinc-600">
+                                <Button variant="outline" size="icon" className="h-7 w-7 text-zinc-600 border-zinc-200 hover:bg-zinc-100 hover:text-zinc-900 rounded-full">
                                     <Users className="h-3.5 w-3.5" />
                                 </Button>
                             }
@@ -1627,7 +1761,7 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
 
                         <Popover>
                             <PopoverTrigger asChild>
-                                <Button variant="outline" size="icon" className="h-7 w-7 text-zinc-600">
+                                <Button variant="outline" size="icon" className="h-7 w-7 text-zinc-600 border-zinc-200 hover:bg-zinc-100 hover:text-zinc-900 rounded-full">
                                     <Calendar className="h-3.5 w-3.5" />
                                 </Button>
                             </PopoverTrigger>
@@ -1643,18 +1777,34 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
 
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                                <Button variant="outline" size="icon" className="h-7 w-7 text-zinc-600">
-                                    <Flag className="h-3.5 w-3.5" />
-                                </Button>
+                                <button className={cn("h-7 w-7 flex items-center justify-center border border-transparent hover:border-zinc-200 hover:bg-zinc-100 rounded-full cursor-pointer transition-colors shrink-0 outline-none focus:ring-0",
+                                    inlineAddPriority === 'URGENT' ? "text-red-500" :
+                                        inlineAddPriority === 'HIGH' ? "text-orange-500" :
+                                            inlineAddPriority === 'NORMAL' ? "text-blue-500" :
+                                                inlineAddPriority === 'LOW' ? "text-zinc-400" :
+                                                    "text-zinc-400"
+                                )}>
+                                    <Flag className="w-3.5 h-3.5 fill-current" />
+                                </button>
                             </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="w-44">
-                                <DropdownMenuLabel className="text-xs">Task Priority</DropdownMenuLabel>
-                                <DropdownMenuItem onClick={() => setInlineAddPriority("URGENT")}>Urgent</DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => setInlineAddPriority("HIGH")}>High</DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => setInlineAddPriority("NORMAL")}>Normal</DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => setInlineAddPriority("LOW")}>Low</DropdownMenuItem>
+                            <DropdownMenuContent align="start" className="w-48 z-[200]">
+                                <DropdownMenuLabel className="text-xs">Priority</DropdownMenuLabel>
+                                <DropdownMenuItem onClick={() => setInlineAddPriority("URGENT")}>
+                                    <Flag className="h-3 w-3 mr-2 text-red-600 fill-current" /> Urgent
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => setInlineAddPriority("HIGH")}>
+                                    <Flag className="h-3 w-3 mr-2 text-orange-600 fill-current" /> High
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => setInlineAddPriority("NORMAL")}>
+                                    <Flag className="h-3 w-3 mr-2 text-blue-600 fill-current" /> Normal
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => setInlineAddPriority("LOW")}>
+                                    <Flag className="h-3 w-3 mr-2 text-slate-600 fill-current" /> Low
+                                </DropdownMenuItem>
                                 <DropdownMenuSeparator />
-                                <DropdownMenuItem onClick={() => setInlineAddPriority(null)}>Clear</DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => setInlineAddPriority(null)}>
+                                    <CircleSlash className="h-3 w-3 mr-2 text-slate-500" />Clear
+                                </DropdownMenuItem>
                             </DropdownMenuContent>
                         </DropdownMenu>
 
@@ -1662,14 +1812,14 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
                             <Button
                                 variant="ghost"
                                 size="sm"
-                                className="h-7 text-xs text-zinc-600"
+                                className="h-7 text-xs text-zinc-600 rounded-full hover:bg-zinc-100 px-3"
                                 onClick={() => handleCancelInlineAdd(true)}
                             >
                                 Cancel
                             </Button>
                             <Button
                                 size="sm"
-                                className="h-7 text-xs bg-zinc-900 hover:bg-zinc-800"
+                                className="h-7 text-xs bg-zinc-900 hover:bg-zinc-800 text-white rounded-full px-4"
                                 onClick={() => handleSaveInlineTask({ parentId, listIdForCreate, statusIdForCreate })}
                                 disabled={!inlineAddTitle.trim() || !listIdForCreate || !resolvedWorkspaceId || createTask.isPending}
                             >
@@ -1746,7 +1896,7 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
                                 isDragging && "bg-zinc-200/70"
                             )}
                         >
-                            <TableCell className="py-2 overflow-hidden" style={{ width: colWidths.name, minWidth: 200 }}>
+                            <TableCell className="w-full py-2 overflow-hidden" style={{ minWidth: Math.max(colWidths.name || 200, 200) }}>
                                 <div className={cn("flex gap-2 min-w-0", (wrapText || (showTaskLocations && (task as any).list)) ? "items-start py-1" : "items-center")}>
                                     <div className="flex items-center gap-1 shrink-0 mt-0.5 w-10 relative group/action h-6">
                                         <div className={cn(
@@ -1754,7 +1904,7 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
                                             (isSelected) ? "opacity-100" : "opacity-0 group-hover/row:opacity-100"
                                         )}>
                                             <GripVertical className="h-4 w-4 text-zinc-300 cursor-grab shrink-0" {...attributes} {...listeners} />
-                                            <Checkbox checked={isSelected} onCheckedChange={() => setSelectedTasks(prev => prev.includes(task.id) ? prev.filter(id => id !== task.id) : [...prev, task.id])} className="border-zinc-300 shrink-0 h-4 w-4" />
+                                            <Checkbox checked={isSelected} onCheckedChange={() => setSelectedTasks(prev => prev.includes(task.id) ? prev.filter(id => id !== task.id) : [...prev, task.id])} className="border-zinc-300 shrink-0 h-4 w-4 cursor-pointer" />
                                         </div>
                                     </div>
                                     <div className={cn("flex items-center gap-2 shrink-0", (wrapText || (showTaskLocations && (task as any).list)) && "mt-1")} style={{ paddingLeft: depth * 16 }}>
@@ -1791,7 +1941,9 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
                                             const contextList = (listsData?.items as any[])?.find((l: any) => l.id === listId);
 
                                             // Prioritize context list data as it contains full hierarchy
+                                            const teamName = contextList?.team?.name ?? (task as any).list?.team?.name;
                                             const spaceName = contextList?.space?.name ?? (task as any).list?.space?.name;
+                                            const projectName = contextList?.project?.name ?? (task as any).list?.project?.name;
                                             const folderName = contextList?.folder?.name ?? (task as any).list?.folder?.name;
                                             const listName = contextList?.name ?? (task as any).list?.name;
 
@@ -1799,9 +1951,21 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
 
                                             return (
                                                 <div className="flex items-center gap-1 text-[10px] text-zinc-400 mb-1 leading-normal h-3 overflow-hidden whitespace-nowrap">
+                                                    {teamName && (
+                                                        <>
+                                                            <span className="shrink-0">{teamName}</span>
+                                                            <span className="text-zinc-300">/</span>
+                                                        </>
+                                                    )}
                                                     {spaceName && (
                                                         <>
                                                             <span className="shrink-0">{spaceName}</span>
+                                                            <span className="text-zinc-300">/</span>
+                                                        </>
+                                                    )}
+                                                    {projectName && (
+                                                        <>
+                                                            <span className="shrink-0">{projectName}</span>
                                                             <span className="text-zinc-300">/</span>
                                                         </>
                                                     )}
@@ -1822,21 +1986,21 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
                                                     onChange={(e) => setRenameDraft(e.target.value)}
                                                     autoFocus
                                                     onClick={(e) => e.stopPropagation()}
-                                                    onKeyDown={async (e) => {
+                                                    onKeyDown={(e) => {
                                                         if (e.key === "Enter") {
                                                             const trimmed = renameDraft.trim();
                                                             if (trimmed) {
-                                                                await updateTask.mutateAsync({ id: task.id, title: trimmed } as any);
+                                                                updateTask.mutate({ id: task.id, title: trimmed } as any);
                                                             }
                                                             setRenamingTaskId(null);
                                                         } else if (e.key === "Escape") {
                                                             setRenamingTaskId(null);
                                                         }
                                                     }}
-                                                    onBlur={async () => {
+                                                    onBlur={() => {
                                                         const trimmed = renameDraft.trim();
                                                         if (trimmed && renamingTaskId === task.id) {
-                                                            await updateTask.mutateAsync({ id: task.id, title: trimmed } as any);
+                                                            updateTask.mutate({ id: task.id, title: trimmed } as any);
                                                         }
                                                         setRenamingTaskId(null);
                                                     }}
@@ -2145,10 +2309,22 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
                                         </DropdownMenuTrigger>
                                         <DropdownMenuContent align="start" className="w-44">
                                             <DropdownMenuLabel className="text-xs">Priority</DropdownMenuLabel>
-                                            <DropdownMenuItem onClick={() => void updateTask.mutateAsync({ id: task.id, priority: "URGENT" } as any)}>Urgent</DropdownMenuItem>
-                                            <DropdownMenuItem onClick={() => void updateTask.mutateAsync({ id: task.id, priority: "HIGH" } as any)}>High</DropdownMenuItem>
-                                            <DropdownMenuItem onClick={() => void updateTask.mutateAsync({ id: task.id, priority: "NORMAL" } as any)}>Normal</DropdownMenuItem>
-                                            <DropdownMenuItem onClick={() => void updateTask.mutateAsync({ id: task.id, priority: "LOW" } as any)}>Low</DropdownMenuItem>
+                                            <DropdownMenuItem onClick={() => void updateTask.mutateAsync({ id: task.id, priority: "URGENT" } as any)}>
+                                                <Flag className={cn("mr-2 h-3.5 w-3.5", getPriorityStyles("URGENT").icon)} />
+                                                Urgent
+                                            </DropdownMenuItem>
+                                            <DropdownMenuItem onClick={() => void updateTask.mutateAsync({ id: task.id, priority: "HIGH" } as any)}>
+                                                <Flag className={cn("mr-2 h-3.5 w-3.5", getPriorityStyles("HIGH").icon)} />
+                                                High
+                                            </DropdownMenuItem>
+                                            <DropdownMenuItem onClick={() => void updateTask.mutateAsync({ id: task.id, priority: "NORMAL" } as any)}>
+                                                <Flag className={cn("mr-2 h-3.5 w-3.5", getPriorityStyles("NORMAL").icon)} />
+                                                Normal
+                                            </DropdownMenuItem>
+                                            <DropdownMenuItem onClick={() => void updateTask.mutateAsync({ id: task.id, priority: "LOW" } as any)}>
+                                                <Flag className={cn("mr-2 h-3.5 w-3.5", getPriorityStyles("LOW").icon)} />
+                                                Low
+                                            </DropdownMenuItem>
                                             <DropdownMenuSeparator />
                                             <DropdownMenuItem onClick={() => void updateTask.mutateAsync({ id: task.id, priority: null } as any)}>Clear</DropdownMenuItem>
                                         </DropdownMenuContent>
@@ -2290,7 +2466,7 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
                                     </TableCell>
                                 );
                             })}
-                            <TableCell className="w-[50px] py-2 pr-4">
+                            <TableCell className="w-[50px] py-2 pr-4 text-right">
                                 <TaskActionsPopover
                                     task={task as any}
                                     context={spaceId ? "SPACE" : projectId ? "PROJECT" : "GENERAL"}
@@ -2307,7 +2483,7 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
                                     <button
                                         type="button"
                                         onClick={(e) => e.stopPropagation()}
-                                        className="ml-auto inline-flex h-7 w-7 items-center justify-center rounded-md text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 transition-all cursor-pointer opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
+                                        className="inline-flex h-7 w-7 items-center justify-center rounded-md text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 transition-all cursor-pointer opacity-0 group-hover/row:opacity-100 focus-visible:opacity-100"
                                     >
                                         <MoreHorizontal className="h-4 w-4" />
                                     </button>
@@ -2335,19 +2511,20 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
     };
 
     const renderGroupColumnHeaderRow = (key: string) => {
-        const headText = "text-[11px] font-medium text-zinc-500";
+        const headText = "text-xs font-medium text-zinc-500";
+        const headNameText = "text-xs font-medium text-zinc-500 ml-4"
         return (
             <TableRow key={key} className="bg-white border-b border-zinc-100 group/header">
-                <TableHead className="relative py-2" style={{ width: colWidths.name, minWidth: 200 }}>
-                    <div className="flex items-center gap-6 pl-5">
+                <TableHead className="w-full relative py-2" style={{ minWidth: Math.max(colWidths.name || 200, 200) }}>
+                    <div className="flex items-center gap-3 pl-3">
                         <div className="w-4 h-4 flex items-center justify-center">
                             <Checkbox
                                 checked={selectedTasks.length === filteredTasks.length && filteredTasks.length > 0}
                                 onCheckedChange={() => setSelectedTasks(selectedTasks.length === filteredTasks.length ? [] : filteredTasks.map(t => t.id))}
-                                className="border-zinc-300 opacity-0 group-hover/header:opacity-100 transition-opacity"
+                                className="border-zinc-300 opacity-0 group-hover/header:opacity-100 transition-opacity cursor-pointer"
                             />
                         </div>
-                        <span className={headText}>Name</span>
+                        <span className={headNameText}>Name</span>
                     </div>
                     <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-zinc-300 z-10" onMouseDown={(e) => startResize(e, "name")} onClick={(e) => e.stopPropagation()} />
                 </TableHead>
@@ -2417,7 +2594,7 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
                         <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-zinc-300 z-10" onMouseDown={(e) => startResize(e, f.id)} onClick={(e) => e.stopPropagation()} />
                     </TableHead>
                 ))}
-                <TableHead className="w-[50px] pr-4 py-2">
+                <TableHead className="w-[50px] pr-4 py-2 text-right">
                     <Button variant="ghost" size="icon" className="h-7 w-7 text-zinc-400 hover:text-zinc-600" onClick={() => { setFieldsPanelOpen(true); setFiltersPanelOpen(false); setAssigneesPanelOpen(false); }} title="Add column or manage fields">
                         <Plus className="h-3.5 w-3.5" />
                     </Button>
@@ -2428,30 +2605,162 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
 
     const renderGroupedFlatRowEntry = useCallback(
         (entry: GroupedFlatRowEntry) => {
-            const groupTasks = groupedTasks[entry.groupName] ?? [];
+            const groupTasks = lookupGroups[entry.groupName] ?? [];
             const pillColor = getGroupPillColor(entry.groupName, groupTasks);
             const listIdForGroup = getListIdForGroup(groupTasks);
             const statusIdForGroup = getStatusIdForGroup(entry.groupName);
             const isExpanded = !collapsedGroups.has(entry.groupName);
 
             switch (entry.kind) {
-                case "group-header":
+                case "top-group-header": {
+                    const listId = (entry as any).listId;
+                    const contextList = (listsData?.items as any[])?.find((l: any) => l.id === listId);
+                    const listName = contextList?.name || "No List";
+                    const teamName = contextList?.team?.name;
+                    const spaceName = contextList?.space?.name;
+                    const projectName = contextList?.project?.name;
+                    const folderName = contextList?.folder?.name ?? contextList?.parentFolder?.name;
+
+                    const parts: string[] = [];
+                    if (teamName) parts.push(teamName);
+                    if (spaceName) parts.push(spaceName);
+                    if (projectName) parts.push(projectName);
+                    if (folderName) parts.push(folderName);
+                    const groupLocationPath = parts.length > 0 ? parts.join(" / ") : null;
+
                     return (
-                        <DroppableGroupRow key={`group-header:${entry.groupName}`} id={`group:${entry.groupName}`} className="border-none bg-transparent">
-                            <TableCell colSpan={20} className="py-1.5 px-4 align-top">
+                        <DroppableGroupRow key={`top-group-header:${listId}`} id={`top-group:${listId}`} className="border-none bg-transparent">
+                            <TableCell colSpan={20} className="py-2 px-4 align-top">
+                                {groupLocationPath && (
+                                    <div className="text-[12px] text-zinc-500 mb-0 ml-5 mt-1">
+                                        {groupLocationPath}
+                                    </div>
+                                )}
                                 <div className="flex items-center gap-2 py-1">
                                     <button
                                         type="button"
-                                        className="flex items-center gap-2 min-w-0 text-left rounded-md hover:bg-zinc-100/80 px-2 py-1 -mx-2"
+                                        className="flex items-center gap-2 min-w-0 text-left rounded-md hover:bg-zinc-100/80 px-2 py-1 -mx-2 cursor-pointer"
+                                        onClick={() => toggleGroup(listId)}
+                                    >
+                                        <ChevronRight className={cn("h-4 w-4 text-zinc-500 shrink-0 transition-transform", isExpanded && "rotate-90")} />
+                                        <span className="inline-flex items-center gap-1.5 text-[16px] font-semibold text-zinc-900 shrink-0">
+                                            {listName}
+                                        </span>
+                                    </button>
+                                </div>
+                            </TableCell>
+                        </DroppableGroupRow>
+                    );
+                }
+                case "subgroup-header": {
+                    const subGroupName = (entry as any).subGroupName;
+                    const combinedKey = entry.groupName;
+                    const subGroupTasks = lookupGroups[combinedKey] || [];
+                    const subPillColor = getGroupPillColor(subGroupName, subGroupTasks);
+                    return (
+                        <DroppableGroupRow key={`subgroup-header:${combinedKey}`} id={`subgroup:${combinedKey}`} className="border-none bg-transparent">
+                            <TableCell colSpan={20} className="py-1.5 px-4 align-top">
+                                <div className="flex items-center gap-2 py-1 ml-6">
+                                    <button
+                                        type="button"
+                                        className="flex items-center gap-2 min-w-0 text-left rounded-md hover:bg-zinc-100/80 px-2 py-1 -mx-2 cursor-pointer"
+                                        onClick={() => toggleGroup(combinedKey)}
+                                    >
+                                        <ChevronRight className={cn("h-3.5 w-3.5 text-zinc-500 shrink-0 transition-transform", isExpanded && "rotate-90")} />
+                                        {effectiveGroupBy === "status" ? (() => {
+                                            const isToDo = subGroupName.toLowerCase() === "to do";
+                                            const hasColor = subPillColor && subPillColor !== "#87909e" && !isToDo;
+                                            return (
+                                                <span
+                                                    className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-[4px] text-[11px] font-bold uppercase tracking-wider shrink-0"
+                                                    style={{
+                                                        backgroundColor: hasColor ? subPillColor : "#f4f4f5",
+                                                        color: hasColor ? "#ffffff" : "#52525b",
+                                                    }}
+                                                >
+                                                    {isToDo ? (
+                                                        <CircleDashed className="h-3.5 w-3.5 shrink-0" />
+                                                    ) : (
+                                                        <CircleDot className="h-3.5 w-3.5 shrink-0" />
+                                                    )}
+                                                    {subGroupName}
+                                                </span>
+                                            );
+                                        })() : (
+                                            <span className="inline-flex items-center gap-1.5 text-[14px] font-medium text-zinc-800 shrink-0">
+                                                {subGroupName}
+                                            </span>
+                                        )}
+                                        <span className="text-[10px] text-zinc-500 bg-zinc-100 px-1.5 rounded-full shrink-0">{subGroupTasks.length}</span>
+                                    </button>
+                                </div>
+                            </TableCell>
+                        </DroppableGroupRow>
+                    );
+                }
+                case "group-header": {
+                    let groupLocationPath: string | null = null;
+                    if (effectiveGroupBy === "list" && groupTasks.length > 0) {
+                        const firstTask = groupTasks[0];
+                        const listId = (firstTask as any).listId ?? (firstTask as any).list?.id;
+                        const contextList = (listsData?.items as any[])?.find((l: any) => l.id === listId);
+
+                        const teamName = contextList?.team?.name ?? firstTask.team?.name ?? (firstTask as any).list?.team?.name;
+                        const spaceName = contextList?.space?.name ?? firstTask.space?.name ?? (firstTask as any).list?.space?.name;
+                        const projectName = contextList?.project?.name ?? firstTask.project?.name ?? (firstTask as any).list?.project?.name;
+                        const folderName = contextList?.folder?.name ?? contextList?.parentFolder?.name ?? firstTask.folder?.name ?? (firstTask as any).list?.folder?.name;
+
+                        const parts: string[] = [];
+                        if (teamName) parts.push(teamName);
+                        if (spaceName) parts.push(spaceName);
+                        if (projectName) parts.push(projectName);
+                        if (folderName) parts.push(folderName);
+
+                        if (parts.length > 0) {
+                            groupLocationPath = parts.join(" / ");
+                        }
+                    }
+
+                    return (
+                        <DroppableGroupRow key={`group-header:${entry.groupName}`} id={`group:${entry.groupName}`} className="border-none bg-transparent">
+                            <TableCell colSpan={20} className="py-1.5 px-4 align-top">
+                                {groupLocationPath && (
+                                    <div className="text-[12px] text-zinc-500 mb-0 ml-5 mt-1">
+                                        {groupLocationPath}
+                                    </div>
+                                )}
+                                <div className="flex items-center gap-2 py-1">
+                                    <button
+                                        type="button"
+                                        className="flex items-center gap-2 min-w-0 text-left rounded-md hover:bg-zinc-100/80 px-2 py-1 -mx-2 cursor-pointer"
                                         onClick={() => toggleGroup(entry.groupName)}
                                     >
                                         <ChevronRight className={cn("h-3.5 w-3.5 text-zinc-500 shrink-0 transition-transform", isExpanded && "rotate-90")} />
-                                        <span
-                                            className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold uppercase tracking-wide text-white shrink-0"
-                                            style={{ backgroundColor: pillColor }}
-                                        >
-                                            {entry.groupName}
-                                        </span>
+                                        {effectiveGroupBy === "status" ? (() => {
+                                            const isToDo = entry.groupName.toLowerCase() === "to do";
+                                            const groupPillColor = getGroupPillColor(entry.groupName, groupTasks);
+                                            const hasColor = groupPillColor && groupPillColor !== "#87909e" && !isToDo;
+                                            return (
+                                                <span
+                                                    className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-[4px] text-[11px] font-bold uppercase tracking-wider shrink-0"
+                                                    style={{
+                                                        backgroundColor: hasColor ? groupPillColor : "#f4f4f5",
+                                                        color: hasColor ? "#ffffff" : "#52525b",
+                                                    }}
+                                                >
+                                                    {isToDo ? (
+                                                        <CircleDashed className="h-3.5 w-3.5 shrink-0" />
+                                                    ) : (
+                                                        <CircleDot className="h-3.5 w-3.5 shrink-0" />
+                                                    )}
+                                                    {entry.groupName}
+                                                </span>
+                                            );
+                                        })() : (
+                                            <span className="inline-flex items-center gap-1.5 text-[15px] font-medium text-zinc-900 shrink-0">
+                                                {entry.groupName}
+                                            </span>
+                                        )}
                                         <span className="text-[10px] text-zinc-500 bg-zinc-100 px-1.5 rounded-full shrink-0">{groupTasks.length}</span>
                                     </button>
                                     <DropdownMenu>
@@ -2491,6 +2800,7 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
                             </TableCell>
                         </DroppableGroupRow>
                     );
+                }
                 case "group-cols":
                     return renderGroupColumnHeaderRow(`group:${entry.groupName}:cols`);
                 case "task": {
@@ -2525,7 +2835,7 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
                                     onClick={() => openInlineAdd(entry.groupName, null)}
                                 >
                                     <Plus className="h-3.5 w-3.5 mr-1" />
-                                    <span className="hover:border-1 hover:border-cyan-500/80 hover:rounded-md p-1">Add Task</span>
+                                    <span className="hover:border-1 hover:border-zinc-300 hover:rounded-md p-1">Add Task</span>
                                 </Button>
                             </TableCell>
                         </TableRow>
@@ -2535,7 +2845,7 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
             }
         },
         [
-            groupedTasks,
+            lookupGroups,
             collapsedGroups,
             filteredTasks,
             getGroupPillColor,
@@ -2550,18 +2860,31 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
             openInlineAdd,
             setInlineAddGroupKey,
             setInlineAddTitle,
+            groupBy,
+            listsData,
         ]
     );
 
     const groupLabel = useMemo(() => {
-        if (groupBy === "none") return "None";
-        const standard = FILTER_OPTIONS.find(o => o.id === groupBy);
-        if (standard) return standard.label;
-        const custom = FIELD_CONFIG.find(f => f.id === groupBy);
-        if (custom) return custom.label;
-        return "None";
-    }, [groupBy, FIELD_CONFIG]);
-    const allGroupKeys = Object.keys(groupedTasks);
+        let baseLabel = "";
+        if (groupBy !== "none") {
+            const standard = FILTER_OPTIONS.find(o => o.id === groupBy);
+            if (standard) {
+                baseLabel = standard.label;
+            } else {
+                const custom = FIELD_CONFIG.find(f => f.id === groupBy);
+                if (custom) baseLabel = custom.label;
+            }
+        }
+
+        if (isBroadContext && alsoGroupByList) {
+            if (baseLabel) return `List & ${baseLabel}`;
+            return "List";
+        }
+
+        return baseLabel || "None";
+    }, [groupBy, FIELD_CONFIG, isBroadContext, alsoGroupByList]);
+
     const allExpanded = allGroupKeys.length === 0 || allGroupKeys.every(k => !collapsedGroups.has(k));
 
     const spaceDefaultViewConfig = useMemo(() => {
@@ -2585,6 +2908,7 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
 
         // Grouping and layout
         if (cfg.groupBy) setGroupBy(cfg.groupBy);
+        if (typeof cfg.alsoGroupByList === "boolean") setAlsoGroupByList(cfg.alsoGroupByList);
         if (cfg.groupDirection) setGroupDirection(cfg.groupDirection);
         if (cfg.subtasksMode) setExpandedSubtaskMode(cfg.subtasksMode);
         if (cfg.sortBy) setSortBy(cfg.sortBy);
@@ -2618,6 +2942,7 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
         // baseline snapshot for dirty-check
         const baseline = stableStringify({
             groupBy: cfg.groupBy ?? groupBy,
+            alsoGroupByList: typeof cfg.alsoGroupByList === "boolean" ? cfg.alsoGroupByList : alsoGroupByList,
             groupDirection: cfg.groupDirection ?? groupDirection,
             subtasksMode: cfg.subtasksMode ?? expandedSubtaskMode,
             sortBy: cfg.sortBy ?? sortBy,
@@ -2645,6 +2970,7 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
     const currentViewConfig: ListViewSavedConfig = useMemo(() => ({
         // Grouping and layout
         groupBy,
+        alsoGroupByList,
         groupDirection,
         subtasksMode: expandedSubtaskMode,
         sortBy,
@@ -2674,6 +3000,7 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
         filterGroups,
     }), [
         groupBy,
+        alsoGroupByList,
         expandedSubtaskMode,
         groupDirection,
         sortBy,
@@ -2731,6 +3058,7 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
 
         // Apply space defaults or system defaults
         setGroupBy(cfg.groupBy ?? (listId ? "status" : "list"));
+        setAlsoGroupByList(cfg.alsoGroupByList ?? true);
         setGroupDirection(cfg.groupDirection ?? "asc");
         setExpandedSubtaskMode(cfg.subtasksMode ?? "collapsed");
         setSortBy(cfg.sortBy ?? "manual");
@@ -2808,6 +3136,7 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
 
         // Grouping and layout - reset to defaults
         setGroupBy(cfg.groupBy ?? (listId ? "status" : "list"));
+        setAlsoGroupByList(cfg.alsoGroupByList ?? true);
         setGroupDirection(cfg.groupDirection ?? "asc");
         setExpandedSubtaskMode(cfg.subtasksMode ?? "collapsed");
         setSortBy(cfg.sortBy ?? "manual");
@@ -3082,18 +3411,18 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
         // Define target group attributes based on what we dropped onto
         const targetGroupData: any = {};
         if (isOverGroup && groupName) {
-            if (groupBy === "status") {
+            if (effectiveGroupBy === "status") {
                 targetGroupData.statusId = getStatusIdForGroup(groupName);
-            } else if (groupBy === "priority") {
+            } else if (effectiveGroupBy === "priority") {
                 targetGroupData.priority = groupName === "No Priority" ? null : groupName;
-            } else if (groupBy === "list") {
-                const tasksInGroup = groupedTasks[groupName] || [];
+            } else if (effectiveGroupBy === "list") {
+                const tasksInGroup = lookupGroups[groupName] || [];
                 targetGroupData.listId = getListIdForGroup(tasksInGroup);
             }
         } else if (overTask) {
-            if (groupBy === "status") targetGroupData.statusId = overTask.statusId ?? null;
-            else if (groupBy === "priority") targetGroupData.priority = overTask.priority ?? null;
-            else if (groupBy === "list") {
+            if (effectiveGroupBy === "status") targetGroupData.statusId = overTask.statusId ?? null;
+            else if (effectiveGroupBy === "priority") targetGroupData.priority = overTask.priority ?? null;
+            else if (effectiveGroupBy === "list") {
                 targetGroupData.listId = (overTask as any).listId ?? (overTask.list as any)?.id ?? null;
             }
         }
@@ -3328,17 +3657,17 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
                                                 size="sm"
                                                 className={cn(
                                                     "h-8 gap-1.5 px-2.5 text-xs font-medium border-zinc-200 transition-colors cursor-pointer",
-                                                    groupBy !== "none" ? "bg-violet-50 text-violet-700 border-violet-200" : "text-zinc-700 bg-zinc-50 hover:bg-zinc-100"
+                                                    groupLabel !== "None" ? "bg-violet-50 text-violet-700 border-violet-200" : "text-zinc-700 bg-zinc-50 hover:bg-zinc-100"
                                                 )}
                                             >
                                                 <LayoutList className="h-3.5 w-3.5" />
                                                 <span className="hidden sm:inline">
-                                                    {groupBy === "none" ? "Group: None" : `Group: ${groupLabel}`}
+                                                    {groupLabel === "None" ? "Group: None" : `Group: ${groupLabel}`}
                                                 </span>
                                             </Button>
                                         </DropdownMenuTrigger>
                                     </TooltipTrigger>
-                                    <TooltipContent side="bottom">Group by: {groupBy === "none" ? "None" : groupLabel}</TooltipContent>
+                                    <TooltipContent side="bottom">Group by: {groupLabel}</TooltipContent>
                                 </Tooltip>
                                 <DropdownMenuContent align="start" className="w-[240px] p-1.5 rounded-xl shadow-xl border-zinc-200/60">
                                     <div className="px-2 py-1.5 mb-1">
@@ -3431,6 +3760,18 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
                                             <Trash2 className="h-4 w-4" />
                                             <span className="flex-1">Remove grouping</span>
                                         </DropdownMenuItem>
+                                        {isBroadContext && (
+                                            <>
+                                                <DropdownMenuSeparator className="my-1.5 bg-zinc-100" />
+                                                <div className="px-2 py-1.5 flex items-center justify-between" onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}>
+                                                    <span className="text-sm text-zinc-800">Also group by List</span>
+                                                    <Switch
+                                                        checked={alsoGroupByList}
+                                                        onCheckedChange={setAlsoGroupByList}
+                                                    />
+                                                </div>
+                                            </>
+                                        )}
                                     </div>
                                 </DropdownMenuContent>
                             </DropdownMenu>
@@ -3713,7 +4054,7 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
                     >
                         <Table containerClassName="pb-12" className="table-fixed w-full">
                             <colgroup>
-                                <col style={{ width: colWidths.name, minWidth: 200 }} />
+                                <col className="w-full" style={{ minWidth: Math.max(colWidths.name || 200, 200) }} />
                                 {visibleColumns.has("assignee") && <col style={{ width: colWidths.assignee, minWidth: 80 }} />}
                                 {visibleColumns.has("dueDate") && <col style={{ width: colWidths.dueDate, minWidth: 80 }} />}
                                 {visibleColumns.has("priority") && <col style={{ width: colWidths.priority, minWidth: 80 }} />}
@@ -3732,13 +4073,13 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
                             {groupBy === "none" && (
                                 <TableHeader className="sticky top-0 bg-white/95 backdrop-blur z-10 border-b border-zinc-200 group/header">
                                     <TableRow className="hover:bg-transparent border-none">
-                                        <TableHead className="relative py-3 cursor-pointer" style={{ width: colWidths.name, minWidth: 200 }} onClick={() => handleSort("name")}>
+                                        <TableHead className="w-full relative py-3 cursor-pointer" style={{ minWidth: Math.max(colWidths.name || 200, 200) }} onClick={() => handleSort("name")}>
                                             <div className="flex items-center gap-6 pl-5">
                                                 <div className="w-4 h-4 flex items-center justify-center">
                                                     <Checkbox
                                                         checked={selectedTasks.length === filteredTasks.length && filteredTasks.length > 0}
                                                         onCheckedChange={() => setSelectedTasks(selectedTasks.length === filteredTasks.length ? [] : filteredTasks.map(t => t.id))}
-                                                        className="border-zinc-300 opacity-0 group-hover/header:opacity-100 transition-opacity"
+                                                        className="border-zinc-300 opacity-0 group-hover/header:opacity-100 transition-opacity cursor-pointer"
                                                     />
                                                 </div>
                                                 <span>Name</span>
@@ -3817,7 +4158,7 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
                                                 <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-zinc-300 z-10" onMouseDown={(e) => startResize(e, f.id)} onClick={(e) => e.stopPropagation()} />
                                             </TableHead>
                                         ))}
-                                        <TableHead className="w-[50px] pr-4">
+                                        <TableHead className="w-[50px] pr-4 text-right">
                                             <Button variant="ghost" size="icon" className="h-7 w-7 text-zinc-400 hover:text-zinc-600" onClick={() => { setFieldsPanelOpen(true); setFiltersPanelOpen(false); setAssigneesPanelOpen(false); }} title="Add column or manage fields">
                                                 <Plus className="h-3.5 w-3.5" />
                                             </Button>
@@ -3853,7 +4194,7 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
                                                         {/* Inline toolbar (ClickUp-like) */}
                                                         <DropdownMenu>
                                                             <DropdownMenuTrigger asChild>
-                                                                <Button variant="outline" size="sm" className="h-7 px-2 text-xs text-zinc-700">
+                                                                <Button variant="outline" size="sm" className="h-7 px-2 text-xs text-zinc-700 border-zinc-200 hover:bg-zinc-100 hover:text-zinc-900 rounded-full">
                                                                     {(() => {
                                                                         const tt = availableTaskTypes?.find((t: any) => t.id === inlineAddTaskType || t.name === inlineAddTaskType);
                                                                         return <TaskTypeIcon type={tt} className="h-3.5 w-3.5 mr-1" />;
@@ -3892,7 +4233,7 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
                                                             value={inlineAddAssigneeIds}
                                                             onChange={setInlineAddAssigneeIds}
                                                             trigger={
-                                                                <Button variant="outline" size="icon" className="h-7 w-7 text-zinc-600">
+                                                                <Button variant="outline" size="icon" className="h-7 w-7 text-zinc-600 border-zinc-200 hover:bg-zinc-100 hover:text-zinc-900 rounded-full">
                                                                     <Users className="h-3.5 w-3.5" />
                                                                 </Button>
                                                             }
@@ -3901,7 +4242,7 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
                                                         {/* Due date picker */}
                                                         <Popover>
                                                             <PopoverTrigger asChild>
-                                                                <Button variant="outline" size="icon" className="h-7 w-7 text-zinc-600">
+                                                                <Button variant="outline" size="icon" className="h-7 w-7 text-zinc-600 border-zinc-200 hover:bg-zinc-100 hover:text-zinc-900 rounded-full">
                                                                     <Calendar className="h-3.5 w-3.5" />
                                                                 </Button>
                                                             </PopoverTrigger>
@@ -3918,16 +4259,28 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
                                                         {/* Priority picker */}
                                                         <DropdownMenu>
                                                             <DropdownMenuTrigger asChild>
-                                                                <Button variant="outline" size="icon" className="h-7 w-7 text-zinc-600">
+                                                                <Button variant="outline" size="icon" className="h-7 w-7 text-zinc-600 border-zinc-200 hover:bg-zinc-100 hover:text-zinc-900 rounded-full">
                                                                     <Flag className="h-3.5 w-3.5" />
                                                                 </Button>
                                                             </DropdownMenuTrigger>
                                                             <DropdownMenuContent align="end" className="w-44">
                                                                 <DropdownMenuLabel className="text-xs">Task Priority</DropdownMenuLabel>
-                                                                <DropdownMenuItem onClick={() => setInlineAddPriority("URGENT")}>Urgent</DropdownMenuItem>
-                                                                <DropdownMenuItem onClick={() => setInlineAddPriority("HIGH")}>High</DropdownMenuItem>
-                                                                <DropdownMenuItem onClick={() => setInlineAddPriority("NORMAL")}>Normal</DropdownMenuItem>
-                                                                <DropdownMenuItem onClick={() => setInlineAddPriority("LOW")}>Low</DropdownMenuItem>
+                                                                <DropdownMenuItem onClick={() => setInlineAddPriority("URGENT")}>
+                                                                    <Flag className={cn("mr-2 h-3.5 w-3.5", getPriorityStyles("URGENT").icon)} />
+                                                                    Urgent
+                                                                </DropdownMenuItem>
+                                                                <DropdownMenuItem onClick={() => setInlineAddPriority("HIGH")}>
+                                                                    <Flag className={cn("mr-2 h-3.5 w-3.5", getPriorityStyles("HIGH").icon)} />
+                                                                    High
+                                                                </DropdownMenuItem>
+                                                                <DropdownMenuItem onClick={() => setInlineAddPriority("NORMAL")}>
+                                                                    <Flag className={cn("mr-2 h-3.5 w-3.5", getPriorityStyles("NORMAL").icon)} />
+                                                                    Normal
+                                                                </DropdownMenuItem>
+                                                                <DropdownMenuItem onClick={() => setInlineAddPriority("LOW")}>
+                                                                    <Flag className={cn("mr-2 h-3.5 w-3.5", getPriorityStyles("LOW").icon)} />
+                                                                    Low
+                                                                </DropdownMenuItem>
                                                                 <DropdownMenuSeparator />
                                                                 <DropdownMenuItem onClick={() => setInlineAddPriority(null)}>Clear</DropdownMenuItem>
                                                             </DropdownMenuContent>
@@ -3962,12 +4315,12 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
                                             enabled={groupBy === "none" && !dragActiveId}
                                             renderRow={(i) => {
                                                 const entry = flatRowEntries[i];
-                                            const listIdForCreate = listId ?? lists[0]?.id ?? null;
+                                                const listIdForCreate = listId ?? lists[0]?.id ?? null;
                                                 if (entry.kind === "inline") {
                                                     return renderInlineEditorRow({
                                                         parentId: entry.parentId,
                                                         childDepth: entry.childDepth,
-                                                            listIdForCreate,
+                                                        listIdForCreate,
                                                     });
                                                 }
                                                 const task = filteredTasks.find((t) => t.id === entry.taskId);
@@ -3987,7 +4340,7 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
                                                         }}
                                                     >
                                                         <Plus className="h-3.5 w-3.5 mr-1" />
-                                                        <span className="hover:border-1 hover:border-cyan-500/80 hover:rounded-md p-1">Add Task</span>
+                                                        <span className="hover:border-1 hover:border-zinc-300 hover:rounded-md p-1">Add Task</span>
                                                     </Button>
                                                 </TableCell>
                                             </TableRow>
@@ -4350,6 +4703,18 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
                                             <Trash2 className="h-4 w-4" />
                                             <span className="flex-1">Remove grouping</span>
                                         </div>
+                                        {isBroadContext && (
+                                            <>
+                                                <div className="h-px bg-zinc-100 my-1.5" />
+                                                <div className="px-2 py-1.5 flex items-center justify-between">
+                                                    <span className="text-sm text-zinc-800">Also group by List</span>
+                                                    <Switch
+                                                        checked={alsoGroupByList}
+                                                        onCheckedChange={setAlsoGroupByList}
+                                                    />
+                                                </div>
+                                            </>
+                                        )}
                                     </div>
                                 </PopoverContent>
                             </Popover>
@@ -4775,21 +5140,21 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
                                                 <>
                                                     <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider">Not started</p>
                                                     {allAvailableStatuses.filter((s: any) => ((s.name?.toLowerCase().includes("todo") || s.name?.toLowerCase().includes("not")) && (!bulkStatusSearch.trim() || (s.name || "").toLowerCase().includes(bulkStatusSearch.toLowerCase())))).map((s: any) => (
-                                                        <button key={s.id} type="button" className="w-full flex items-center gap-2 py-2 px-2 rounded hover:bg-zinc-100 text-left text-sm" onClick={async () => { for (const id of selectedTasks) { await updateTask.mutateAsync({ id, statusId: s.id }); } setBulkModal(null); }}>
+                                                        <button key={s.id} type="button" className="w-full flex items-center gap-2 py-2 px-2 rounded hover:bg-zinc-100 text-left text-sm" onClick={() => { for (const id of selectedTasks) { updateTask.mutate({ id, statusId: s.id }); } setBulkModal(null); }}>
                                                             <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: s.color || "#9CA3AF" }} />
                                                             {s.name}
                                                         </button>
                                                     ))}
                                                     <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider mt-2">Active</p>
                                                     {allAvailableStatuses.filter((s: any) => ((s.name?.toLowerCase().includes("progress") || s.name?.toLowerCase().includes("doing")) && (!bulkStatusSearch.trim() || (s.name || "").toLowerCase().includes(bulkStatusSearch.toLowerCase())))).map((s: any) => (
-                                                        <button key={s.id} type="button" className="w-full flex items-center gap-2 py-2 px-2 rounded hover:bg-zinc-100 text-left text-sm" onClick={async () => { for (const id of selectedTasks) { await updateTask.mutateAsync({ id, statusId: s.id }); } setBulkModal(null); }}>
+                                                        <button key={s.id} type="button" className="w-full flex items-center gap-2 py-2 px-2 rounded hover:bg-zinc-100 text-left text-sm" onClick={() => { for (const id of selectedTasks) { updateTask.mutate({ id, statusId: s.id }); } setBulkModal(null); }}>
                                                             <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: s.color || "#9CA3AF" }} />
                                                             {s.name}
                                                         </button>
                                                     ))}
                                                     <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider mt-2">Closed</p>
                                                     {allAvailableStatuses.filter((s: any) => ((s.name?.toLowerCase().includes("complete") || s.name?.toLowerCase().includes("done")) && (!bulkStatusSearch.trim() || (s.name || "").toLowerCase().includes(bulkStatusSearch.toLowerCase())))).map((s: any) => (
-                                                        <button key={s.id} type="button" className="w-full flex items-center gap-2 py-2 px-2 rounded hover:bg-zinc-100 text-left text-sm" onClick={async () => { for (const id of selectedTasks) { await updateTask.mutateAsync({ id, statusId: s.id }); } setBulkModal(null); }}>
+                                                        <button key={s.id} type="button" className="w-full flex items-center gap-2 py-2 px-2 rounded hover:bg-zinc-100 text-left text-sm" onClick={() => { for (const id of selectedTasks) { updateTask.mutate({ id, statusId: s.id }); } setBulkModal(null); }}>
                                                             <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: s.color || "#9CA3AF" }} />
                                                             {s.name}
                                                         </button>
@@ -4798,7 +5163,7 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
                                                         <>
                                                             <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider mt-2">Other</p>
                                                             {allAvailableStatuses.filter((s: any) => !["todo", "not", "progress", "doing", "complete", "done"].some(k => (s.name || "").toLowerCase().includes(k)) && (!bulkStatusSearch.trim() || (s.name || "").toLowerCase().includes(bulkStatusSearch.toLowerCase()))).map((s: any) => (
-                                                                <button key={s.id} type="button" className="w-full flex items-center gap-2 py-2 px-2 rounded hover:bg-zinc-100 text-left text-sm" onClick={async () => { for (const id of selectedTasks) { await updateTask.mutateAsync({ id, statusId: s.id }); } setBulkModal(null); }}>
+                                                                <button key={s.id} type="button" className="w-full flex items-center gap-2 py-2 px-2 rounded hover:bg-zinc-100 text-left text-sm" onClick={() => { for (const id of selectedTasks) { updateTask.mutate({ id, statusId: s.id }); } setBulkModal(null); }}>
                                                                     <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: s.color || "#9CA3AF" }} />
                                                                     {s.name}
                                                                 </button>
@@ -4900,7 +5265,7 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
                                     <span>Move and keep in current List</span>
                                     <Switch checked={bulkMoveKeepInList} onCheckedChange={setBulkMoveKeepInList} disabled />
                                 </label>
-                                <Button size="sm" className="w-full" onClick={async () => { for (const id of selectedTasks) { await updateTask.mutateAsync({ id, tags: bulkTags }); } setBulkModal(null); }}>Apply</Button>
+                                <Button size="sm" className="w-full" onClick={() => { for (const id of selectedTasks) { updateTask.mutate({ id, tags: bulkTags }); } setBulkModal(null); }}>Apply</Button>
                             </PopoverContent>
                         </Popover>
                         <Popover open={bulkModal === "moveAdd"} onOpenChange={(open) => setBulkModal(open ? "moveAdd" : null)}>
@@ -4921,7 +5286,7 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
                                             workspaceId={resolvedWorkspaceId as string}
                                             onSelect={async (listId) => {
                                                 for (const id of selectedTasks) {
-                                                    await updateTask.mutateAsync({ id, listId });
+                                                    updateTask.mutate({ id, listId });
                                                 }
                                                 setBulkModal(null);
                                             }}
@@ -4985,7 +5350,7 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
                                                         className="flex items-center gap-2 px-2 py-1.5 rounded-lg cursor-pointer"
                                                         onSelect={async () => {
                                                             for (const id of selectedTasks) {
-                                                                await updateTask.mutateAsync({ id, statusId: s.id });
+                                                                updateTask.mutate({ id, statusId: s.id });
                                                             }
                                                             setBulkModal(null);
                                                         }}
@@ -5059,7 +5424,7 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
                                             </div>
                                             <Button size="sm" className="h-8 text-xs font-bold" onClick={async () => {
                                                 for (const id of selectedTasks) {
-                                                    await updateTask.mutateAsync({ id, tags: bulkTags });
+                                                    updateTask.mutate({ id, tags: bulkTags });
                                                 }
                                                 setBulkModal(null);
                                             }}>Apply Tags</Button>
@@ -5109,7 +5474,7 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
                                                     workspaceId={resolvedWorkspaceId as string}
                                                     onSelect={async (listId) => {
                                                         for (const id of selectedTasks) {
-                                                            await updateTask.mutateAsync({ id, listId });
+                                                            updateTask.mutate({ id, listId });
                                                         }
                                                         setBulkModal(null);
                                                     }}
@@ -5228,7 +5593,7 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
                         const nextTags = tagEditorTags.map((t) =>
                             t === tagEditorOriginalTag ? encoded : t
                         );
-                        await updateTask.mutateAsync({ id: tagEditorTaskId, tags: nextTags } as any);
+                        updateTask.mutate({ id: tagEditorTaskId, tags: nextTags } as any);
                     }
 
                     setTagEditorOpen(open);
@@ -5291,7 +5656,7 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
                             onClick={async () => {
                                 if (!tagEditorTaskId || !tagEditorOriginalTag) return;
                                 const nextTags = tagEditorTags.filter((t) => t !== tagEditorOriginalTag);
-                                await updateTask.mutateAsync({ id: tagEditorTaskId, tags: nextTags } as any);
+                                updateTask.mutate({ id: tagEditorTaskId, tags: nextTags } as any);
                                 setTagEditorOpen(false);
                                 setTagEditorTaskId(null);
                                 setTagEditorOriginalTag(null);

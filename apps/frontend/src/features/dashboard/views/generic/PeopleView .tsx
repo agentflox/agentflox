@@ -258,6 +258,8 @@ export interface PeopleViewProps {
     selectedTaskIdFromParent?: string | null;
     onTaskSelect?: (taskId: string | null) => void;
     refetchViewData?: () => void;
+
+    context?: "workspace" | "space" | "project" | "team" | "folder" | "list";
 }
 
 type PeopleContentUser = {

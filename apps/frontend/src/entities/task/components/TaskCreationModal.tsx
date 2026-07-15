@@ -15,7 +15,7 @@ import { FormProvider, useForm } from 'react-hook-form';
 import { TaskDetailsForm } from './TaskDetailsForm';
 import { TaskOptionsForm } from './TaskOptionsForm';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Loader2, PlusIcon, Paperclip, Settings2, FileText, UploadCloud, Hash, Folder, LayoutGrid, Clock } from 'lucide-react';
+import { Loader2, PlusIcon, Paperclip, Settings2, FileText, UploadCloud, Hash, Folder as FolderIconLucide, LayoutGrid, Clock, Briefcase, Building2, Network, ChevronDown, ChevronRight } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { taskFormSchema, TaskFormValues } from '@/entities/task/validations/task.schema';
 import { trpc } from '@/lib/trpc';
@@ -170,45 +170,83 @@ export function TaskCreationModal({
   // Group Lists Hierarchy
   const hierarchy = React.useMemo(() => {
     const rawLists = listsData?.items || [];
-    const spacesMap = new Map<string, { id: string; name: string; lists: any[]; folders: Map<string, { id: string; name: string; lists: any[] }> }>();
-    const orphanedLists: any[] = [];
+    const spacesMap = new Map<string, { id: string; name: string; projects: Map<string, any>; teams: Map<string, any>; folders: Map<string, any>; lists: any[] }>();
+    const rootProjectsMap = new Map<string, { id: string; name: string; folders: Map<string, any>; lists: any[] }>();
+    const rootTeamsMap = new Map<string, { id: string; name: string; folders: Map<string, any>; lists: any[] }>();
+    const rootFoldersMap = new Map<string, { id: string; name: string; lists: any[] }>();
+    const rootLists: any[] = [];
 
-    // Helper to get or create space bucket
-    const getSpace = (s: { id: string, name: string } | null | undefined) => {
-      if (!s) return null;
-      if (!spacesMap.has(s.id)) {
-        spacesMap.set(s.id, { id: s.id, name: s.name, lists: [], folders: new Map() });
-      }
-      return spacesMap.get(s.id)!;
-    };
+    const getTeamName = (id: string) => effectiveTeams.find(t => t.id === id)?.name || 'Team';
+    const getProjectName = (id: string) => effectiveProjects.find(p => p.id === id)?.name || 'Project';
 
     rawLists.forEach((list: any) => {
-      // If list has a space
-      if (list.space) {
-        const spaceGroup = getSpace(list.space);
-        if (list.folder) {
-          // List is in a folder in a space
-          if (!spaceGroup!.folders.has(list.folder.id)) {
-            spaceGroup!.folders.set(list.folder.id, { id: list.folder.id, name: list.folder.name, lists: [] });
-          }
-          spaceGroup!.folders.get(list.folder.id)!.lists.push(list);
-        } else {
-          // List is directly in space
-          spaceGroup!.lists.push(list);
+      // Create folder container if needed
+      const folderObj = list.folder ? { id: list.folder.id, name: list.folder.name, lists: [] } : null;
+
+      if (list.spaceId) {
+        if (!spacesMap.has(list.spaceId)) {
+          spacesMap.set(list.spaceId, { id: list.spaceId, name: list.space?.name || 'Space', projects: new Map(), teams: new Map(), folders: new Map(), lists: [] });
         }
+        const space = spacesMap.get(list.spaceId)!;
+        
+        if (list.projectId) {
+          if (!space.projects.has(list.projectId)) space.projects.set(list.projectId, { id: list.projectId, name: list.project?.name || getProjectName(list.projectId), folders: new Map(), lists: [] });
+          const project = space.projects.get(list.projectId)!;
+          if (folderObj) {
+            if (!project.folders.has(folderObj.id)) project.folders.set(folderObj.id, { ...folderObj });
+            project.folders.get(folderObj.id)!.lists.push(list);
+          } else {
+            project.lists.push(list);
+          }
+        } else if (list.teamId) {
+          if (!space.teams.has(list.teamId)) space.teams.set(list.teamId, { id: list.teamId, name: getTeamName(list.teamId), folders: new Map(), lists: [] });
+          const team = space.teams.get(list.teamId)!;
+          if (folderObj) {
+            if (!team.folders.has(folderObj.id)) team.folders.set(folderObj.id, { ...folderObj });
+            team.folders.get(folderObj.id)!.lists.push(list);
+          } else {
+            team.lists.push(list);
+          }
+        } else if (folderObj) {
+          if (!space.folders.has(folderObj.id)) space.folders.set(folderObj.id, { ...folderObj });
+          space.folders.get(folderObj.id)!.lists.push(list);
+        } else {
+          space.lists.push(list);
+        }
+      } else if (list.projectId) {
+        if (!rootProjectsMap.has(list.projectId)) rootProjectsMap.set(list.projectId, { id: list.projectId, name: list.project?.name || getProjectName(list.projectId), folders: new Map(), lists: [] });
+        const project = rootProjectsMap.get(list.projectId)!;
+        if (folderObj) {
+          if (!project.folders.has(folderObj.id)) project.folders.set(folderObj.id, { ...folderObj });
+          project.folders.get(folderObj.id)!.lists.push(list);
+        } else {
+          project.lists.push(list);
+        }
+      } else if (list.teamId) {
+        if (!rootTeamsMap.has(list.teamId)) rootTeamsMap.set(list.teamId, { id: list.teamId, name: getTeamName(list.teamId), folders: new Map(), lists: [] });
+        const team = rootTeamsMap.get(list.teamId)!;
+        if (folderObj) {
+          if (!team.folders.has(folderObj.id)) team.folders.set(folderObj.id, { ...folderObj });
+          team.folders.get(folderObj.id)!.lists.push(list);
+        } else {
+          team.lists.push(list);
+        }
+      } else if (folderObj) {
+        if (!rootFoldersMap.has(folderObj.id)) rootFoldersMap.set(folderObj.id, { ...folderObj });
+        rootFoldersMap.get(folderObj.id)!.lists.push(list);
       } else {
-        // List is not in a space (e.g. workspace level or just project)
-        // For simplicity, treating Project/Team contexts as flat or orphaned for now unless we add Project grouping
-        // If we are in Project context, lists might belong to project.
-        orphanedLists.push(list);
+        rootLists.push(list);
       }
     });
 
     return {
       spaces: Array.from(spacesMap.values()),
-      orphaned: orphanedLists
+      projects: Array.from(rootProjectsMap.values()),
+      teams: Array.from(rootTeamsMap.values()),
+      folders: Array.from(rootFoldersMap.values()),
+      lists: rootLists
     };
-  }, [listsData?.items]);
+  }, [listsData?.items, effectiveProjects, effectiveTeams]);
 
   const recentLists = React.useMemo(() => {
     if (!listsData?.items) return [];
@@ -216,6 +254,19 @@ export function TaskCreationModal({
       .map(id => listsData.items.find(l => l.id === id))
       .filter(Boolean) as any[];
   }, [recentListIds, listsData?.items]);
+
+  // Expand/collapse state for tree nodes
+  const [collapsedNodes, setCollapsedNodes] = React.useState<Set<string>>(new Set());
+  const toggleNode = (e: React.MouseEvent, id: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setCollapsedNodes(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   // Create a Set of recent list IDs to exclude from hierarchy
   const recentListIdsSet = React.useMemo(() => {
@@ -365,9 +416,10 @@ export function TaskCreationModal({
                           if (val === 'CREATE_NEW_LIST') {
                             setIsCreateListOpen(true);
                           } else {
-                            methods.setValue('listId', val);
+                            const realId = val.startsWith('recent:') ? val.substring(7) : val;
+                            methods.setValue('listId', realId);
                             methods.clearErrors('listId');
-                            addToRecents(val);
+                            addToRecents(realId);
                           }
                         }}
                       >
@@ -377,7 +429,6 @@ export function TaskCreationModal({
                             methods.formState.errors.listId && "text-red-600 bg-red-50"
                           )}
                         >
-                          <Hash className="w-3 h-3 opacity-50" />
                           <SelectValue placeholder="Select List..." />
                         </SelectTrigger>
                         <SelectContent className="max-h-[300px]">
@@ -398,56 +449,315 @@ export function TaskCreationModal({
                                 Recents
                               </div>
                               {recentLists.map(l => (
-                                <SelectItem key={`recent-${l.id}`} value={l.id} className="text-xs pl-8">
-                                  {l.name}
+                                <SelectItem key={`recent-${l.id}`} value={`recent:${l.id}`} className="text-xs pl-8">
+                                  <div className="flex items-center gap-1.5">
+                                    <Hash className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                                    <span>{l.name}</span>
+                                  </div>
                                 </SelectItem>
                               ))}
                               <Separator className="my-1" />
                             </>
                           )}
 
-                          {/* 3. Spaces Hierarchy - FIXED: Use prefixed keys */}
-                          {hierarchy.spaces.map(space => (
+                          {/* 3. Spaces Hierarchy */}
+                          {hierarchy.spaces.map((space: any) => {
+                            const isSpaceCollapsed = collapsedNodes.has(`space-${space.id}`);
+                            return (
                             <React.Fragment key={`space-${space.id}`}>
-                              <div className="px-2 py-1.5 text-[11px] font-semibold text-zinc-900 bg-zinc-50/50 flex items-center gap-2">
-                                <LayoutGrid className="w-3.5 h-3.5 text-zinc-500" />
+                              <div 
+                                className="px-2 py-1.5 text-[11px] font-semibold text-zinc-900 bg-zinc-50/50 flex items-center gap-1.5 cursor-pointer hover:bg-zinc-100/50 transition-colors select-none"
+                                onClick={(e) => toggleNode(e, `space-${space.id}`)}
+                              >
+                                {isSpaceCollapsed ? <ChevronRight className="w-3.5 h-3.5 text-zinc-400 shrink-0" /> : <ChevronDown className="w-3.5 h-3.5 text-zinc-400 shrink-0" />}
+                                <Network className="w-3.5 h-3.5 text-slate-500 shrink-0" />
                                 {space.name}
                               </div>
 
-                              {/* Lists in Space */}
-                              {space.lists.filter(list => !recentListIdsSet.has(list.id)).map(list => (
-                                <SelectItem key={`space-${space.id}-list-${list.id}`} value={list.id} className="text-xs pl-8">
-                                  {list.name}
-                                </SelectItem>
-                              ))}
+                              {!isSpaceCollapsed && (
+                                <>
+                                  {Array.from(space.projects.values()).map((project: any) => {
+                                    const isProjectCollapsed = collapsedNodes.has(`project-${project.id}`);
+                                    return (
+                                    <React.Fragment key={`space-${space.id}-project-${project.id}`}>
+                                      <div 
+                                        className="px-2 py-1.5 pl-3 text-[11px] font-medium text-zinc-600 flex items-center gap-1.5 cursor-pointer hover:bg-zinc-50 transition-colors select-none"
+                                        onClick={(e) => toggleNode(e, `project-${project.id}`)}
+                                      >
+                                        {isProjectCollapsed ? <ChevronRight className="w-3.5 h-3.5 text-zinc-400 shrink-0" /> : <ChevronDown className="w-3.5 h-3.5 text-zinc-400 shrink-0" />}
+                                        <Briefcase className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+                                        {project.name}
+                                      </div>
+                                      {!isProjectCollapsed && (
+                                        <>
+                                          {Array.from(project.folders.values()).map((folder: any) => {
+                                            const isFolderCollapsed = collapsedNodes.has(`folder-${folder.id}`);
+                                            return (
+                                            <React.Fragment key={`space-${space.id}-project-${project.id}-folder-${folder.id}`}>
+                                              <div 
+                                                className="px-2 py-1.5 pl-6 text-[11px] font-medium text-zinc-500 flex items-center gap-1.5 cursor-pointer hover:bg-zinc-50 transition-colors select-none"
+                                                onClick={(e) => toggleNode(e, `folder-${folder.id}`)}
+                                              >
+                                                {isFolderCollapsed ? <ChevronRight className="w-3.5 h-3.5 text-zinc-400 shrink-0" /> : <ChevronDown className="w-3.5 h-3.5 text-zinc-400 shrink-0" />}
+                                                <FolderIconLucide className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                                                {folder.name}
+                                              </div>
+                                              {!isFolderCollapsed && folder.lists.map((list: any) => (
+                                                <SelectItem key={`space-${space.id}-project-${project.id}-folder-${folder.id}-list-${list.id}`} value={list.id} className="text-xs pl-14">
+                                                  <div className="flex items-center gap-1.5">
+                                                    <Hash className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                                                    <span>{list.name}</span>
+                                                  </div>
+                                                </SelectItem>
+                                              ))}
+                                            </React.Fragment>
+                                            );
+                                          })}
+                                          {project.lists.map((list: any) => (
+                                            <SelectItem key={`space-${space.id}-project-${project.id}-list-${list.id}`} value={list.id} className="text-xs pl-10">
+                                              <div className="flex items-center gap-1.5">
+                                                <Hash className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                                                <span>{list.name}</span>
+                                              </div>
+                                            </SelectItem>
+                                          ))}
+                                        </>
+                                      )}
+                                    </React.Fragment>
+                                    );
+                                  })}
 
-                              {/* Folders in Space */}
-                              {Array.from(space.folders.values()).map(folder => (
-                                <React.Fragment key={`space-${space.id}-folder-${folder.id}`}>
-                                  <div className="px-2 py-1.5 pl-8 text-[11px] font-medium text-zinc-500 flex items-center gap-2">
-                                    <Folder className="w-3.5 h-3.5" />
-                                    {folder.name}
-                                  </div>
-                                  {folder.lists.filter(list => !recentListIdsSet.has(list.id)).map(list => (
-                                    <SelectItem key={`space-${space.id}-folder-${folder.id}-list-${list.id}`} value={list.id} className="text-xs pl-12 border-l-2 border-transparent hover:border-zinc-200 ml-4">
-                                      {list.name}
+                                  {Array.from(space.teams.values()).map((team: any) => {
+                                    const isTeamCollapsed = collapsedNodes.has(`team-${team.id}`);
+                                    return (
+                                    <React.Fragment key={`space-${space.id}-team-${team.id}`}>
+                                      <div 
+                                        className="px-2 py-1.5 pl-3 text-[11px] font-medium text-zinc-600 flex items-center gap-1.5 cursor-pointer hover:bg-zinc-50 transition-colors select-none"
+                                        onClick={(e) => toggleNode(e, `team-${team.id}`)}
+                                      >
+                                        {isTeamCollapsed ? <ChevronRight className="w-3.5 h-3.5 text-zinc-400 shrink-0" /> : <ChevronDown className="w-3.5 h-3.5 text-zinc-400 shrink-0" />}
+                                        <Building2 className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                                        {team.name}
+                                      </div>
+                                      {!isTeamCollapsed && (
+                                        <>
+                                          {Array.from(team.folders.values()).map((folder: any) => {
+                                            const isFolderCollapsed = collapsedNodes.has(`folder-${folder.id}`);
+                                            return (
+                                            <React.Fragment key={`space-${space.id}-team-${team.id}-folder-${folder.id}`}>
+                                              <div 
+                                                className="px-2 py-1.5 pl-6 text-[11px] font-medium text-zinc-500 flex items-center gap-1.5 cursor-pointer hover:bg-zinc-50 transition-colors select-none"
+                                                onClick={(e) => toggleNode(e, `folder-${folder.id}`)}
+                                              >
+                                                {isFolderCollapsed ? <ChevronRight className="w-3.5 h-3.5 text-zinc-400 shrink-0" /> : <ChevronDown className="w-3.5 h-3.5 text-zinc-400 shrink-0" />}
+                                                <FolderIconLucide className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                                                {folder.name}
+                                              </div>
+                                              {!isFolderCollapsed && folder.lists.map((list: any) => (
+                                                <SelectItem key={`space-${space.id}-team-${team.id}-folder-${folder.id}-list-${list.id}`} value={list.id} className="text-xs pl-14">
+                                                  <div className="flex items-center gap-1.5">
+                                                    <Hash className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                                                    <span>{list.name}</span>
+                                                  </div>
+                                                </SelectItem>
+                                              ))}
+                                            </React.Fragment>
+                                            );
+                                          })}
+                                          {team.lists.map((list: any) => (
+                                            <SelectItem key={`space-${space.id}-team-${team.id}-list-${list.id}`} value={list.id} className="text-xs pl-10">
+                                              <div className="flex items-center gap-1.5">
+                                                <Hash className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                                                <span>{list.name}</span>
+                                              </div>
+                                            </SelectItem>
+                                          ))}
+                                        </>
+                                      )}
+                                    </React.Fragment>
+                                    );
+                                  })}
+
+                                  {Array.from(space.folders.values()).map((folder: any) => {
+                                    const isFolderCollapsed = collapsedNodes.has(`folder-${folder.id}`);
+                                    return (
+                                    <React.Fragment key={`space-${space.id}-folder-${folder.id}`}>
+                                      <div 
+                                        className="px-2 py-1.5 pl-3 text-[11px] font-medium text-zinc-500 flex items-center gap-1.5 cursor-pointer hover:bg-zinc-50 transition-colors select-none"
+                                        onClick={(e) => toggleNode(e, `folder-${folder.id}`)}
+                                      >
+                                        {isFolderCollapsed ? <ChevronRight className="w-3.5 h-3.5 text-zinc-400 shrink-0" /> : <ChevronDown className="w-3.5 h-3.5 text-zinc-400 shrink-0" />}
+                                        <FolderIconLucide className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                                        {folder.name}
+                                      </div>
+                                      {!isFolderCollapsed && folder.lists.map((list: any) => (
+                                        <SelectItem key={`space-${space.id}-folder-${folder.id}-list-${list.id}`} value={list.id} className="text-xs pl-10">
+                                          <div className="flex items-center gap-1.5">
+                                            <Hash className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                                            <span>{list.name}</span>
+                                          </div>
+                                        </SelectItem>
+                                      ))}
+                                    </React.Fragment>
+                                    );
+                                  })}
+
+                                  {space.lists.map((list: any) => (
+                                    <SelectItem key={`space-${space.id}-list-${list.id}`} value={list.id} className="text-xs pl-7">
+                                      <div className="flex items-center gap-1.5">
+                                        <Hash className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                                        <span>{list.name}</span>
+                                      </div>
                                     </SelectItem>
                                   ))}
-                                </React.Fragment>
+                                </>
+                              )}
+                            </React.Fragment>
+                            );
+                          })}
+
+                          {/* 4. Root Projects */}
+                          {hierarchy.projects.map((project: any) => {
+                            const isProjectCollapsed = collapsedNodes.has(`project-${project.id}`);
+                            return (
+                            <React.Fragment key={`root-project-${project.id}`}>
+                              <div 
+                                className="px-2 py-1.5 text-[11px] font-semibold text-zinc-900 bg-zinc-50/50 flex items-center gap-1.5 cursor-pointer hover:bg-zinc-100/50 transition-colors select-none"
+                                onClick={(e) => toggleNode(e, `project-${project.id}`)}
+                              >
+                                {isProjectCollapsed ? <ChevronRight className="w-3.5 h-3.5 text-zinc-400 shrink-0" /> : <ChevronDown className="w-3.5 h-3.5 text-zinc-400 shrink-0" />}
+                                <Briefcase className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+                                {project.name}
+                              </div>
+                              {!isProjectCollapsed && (
+                                <>
+                                  {Array.from(project.folders.values()).map((folder: any) => {
+                                    const isFolderCollapsed = collapsedNodes.has(`folder-${folder.id}`);
+                                    return (
+                                    <React.Fragment key={`root-project-${project.id}-folder-${folder.id}`}>
+                                      <div 
+                                        className="px-2 py-1.5 pl-3 text-[11px] font-medium text-zinc-500 flex items-center gap-1.5 cursor-pointer hover:bg-zinc-50 transition-colors select-none"
+                                        onClick={(e) => toggleNode(e, `folder-${folder.id}`)}
+                                      >
+                                        {isFolderCollapsed ? <ChevronRight className="w-3.5 h-3.5 text-zinc-400 shrink-0" /> : <ChevronDown className="w-3.5 h-3.5 text-zinc-400 shrink-0" />}
+                                        <FolderIconLucide className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                                        {folder.name}
+                                      </div>
+                                      {!isFolderCollapsed && folder.lists.map((list: any) => (
+                                        <SelectItem key={`root-project-${project.id}-folder-${folder.id}-list-${list.id}`} value={list.id} className="text-xs pl-10">
+                                          <div className="flex items-center gap-1.5">
+                                            <Hash className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                                            <span>{list.name}</span>
+                                          </div>
+                                        </SelectItem>
+                                      ))}
+                                    </React.Fragment>
+                                    );
+                                  })}
+                                  {project.lists.map((list: any) => (
+                                    <SelectItem key={`root-project-${project.id}-list-${list.id}`} value={list.id} className="text-xs pl-7">
+                                      <div className="flex items-center gap-1.5">
+                                        <Hash className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                                        <span>{list.name}</span>
+                                      </div>
+                                    </SelectItem>
+                                  ))}
+                                </>
+                              )}
+                            </React.Fragment>
+                            );
+                          })}
+
+                          {/* 5. Root Teams */}
+                          {hierarchy.teams.map((team: any) => {
+                            const isTeamCollapsed = collapsedNodes.has(`team-${team.id}`);
+                            return (
+                            <React.Fragment key={`root-team-${team.id}`}>
+                              <div 
+                                className="px-2 py-1.5 text-[11px] font-semibold text-zinc-900 bg-zinc-50/50 flex items-center gap-1.5 cursor-pointer hover:bg-zinc-100/50 transition-colors select-none"
+                                onClick={(e) => toggleNode(e, `team-${team.id}`)}
+                              >
+                                {isTeamCollapsed ? <ChevronRight className="w-3.5 h-3.5 text-zinc-400 shrink-0" /> : <ChevronDown className="w-3.5 h-3.5 text-zinc-400 shrink-0" />}
+                                <Building2 className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                                {team.name}
+                              </div>
+                              {!isTeamCollapsed && (
+                                <>
+                                  {Array.from(team.folders.values()).map((folder: any) => {
+                                    const isFolderCollapsed = collapsedNodes.has(`folder-${folder.id}`);
+                                    return (
+                                    <React.Fragment key={`root-team-${team.id}-folder-${folder.id}`}>
+                                      <div 
+                                        className="px-2 py-1.5 pl-3 text-[11px] font-medium text-zinc-500 flex items-center gap-1.5 cursor-pointer hover:bg-zinc-50 transition-colors select-none"
+                                        onClick={(e) => toggleNode(e, `folder-${folder.id}`)}
+                                      >
+                                        {isFolderCollapsed ? <ChevronRight className="w-3.5 h-3.5 text-zinc-400 shrink-0" /> : <ChevronDown className="w-3.5 h-3.5 text-zinc-400 shrink-0" />}
+                                        <FolderIconLucide className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                                        {folder.name}
+                                      </div>
+                                      {!isFolderCollapsed && folder.lists.map((list: any) => (
+                                        <SelectItem key={`root-team-${team.id}-folder-${folder.id}-list-${list.id}`} value={list.id} className="text-xs pl-10">
+                                          <div className="flex items-center gap-1.5">
+                                            <Hash className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                                            <span>{list.name}</span>
+                                          </div>
+                                        </SelectItem>
+                                      ))}
+                                    </React.Fragment>
+                                    );
+                                  })}
+                                  {team.lists.map((list: any) => (
+                                    <SelectItem key={`root-team-${team.id}-list-${list.id}`} value={list.id} className="text-xs pl-7">
+                                      <div className="flex items-center gap-1.5">
+                                        <Hash className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                                        <span>{list.name}</span>
+                                      </div>
+                                    </SelectItem>
+                                  ))}
+                                </>
+                              )}
+                            </React.Fragment>
+                            );
+                          })}
+
+                          {/* 6. Root Folders */}
+                          {hierarchy.folders.map(folder => {
+                            const isFolderCollapsed = collapsedNodes.has(`folder-${folder.id}`);
+                            return (
+                            <React.Fragment key={`root-folder-${folder.id}`}>
+                              <div 
+                                className="px-2 py-1.5 text-[11px] font-semibold text-zinc-900 bg-zinc-50/50 flex items-center gap-1.5 cursor-pointer hover:bg-zinc-100/50 transition-colors select-none"
+                                onClick={(e) => toggleNode(e, `folder-${folder.id}`)}
+                              >
+                                {isFolderCollapsed ? <ChevronRight className="w-3.5 h-3.5 text-zinc-400 shrink-0" /> : <ChevronDown className="w-3.5 h-3.5 text-zinc-400 shrink-0" />}
+                                <FolderIconLucide className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                                {folder.name}
+                              </div>
+                              {!isFolderCollapsed && folder.lists.filter((l: any) => !recentListIdsSet.has(l.id)).map((list: any) => (
+                                <SelectItem key={`root-folder-${folder.id}-list-${list.id}`} value={list.id} className="text-xs pl-7">
+                                  <div className="flex items-center gap-1.5">
+                                    <Hash className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                                    <span>{list.name}</span>
+                                  </div>
+                                </SelectItem>
                               ))}
                             </React.Fragment>
-                          ))}
+                            );
+                          })}
 
-                          {/* 4. Orphaned/Flat Lists (Projects, Teams, or Fallback) - FIXED: Use prefixed keys */}
-                          {hierarchy.orphaned.filter(l => !recentListIdsSet.has(l.id)).length > 0 && (
+                          {/* 7. Root Lists */}
+                          {hierarchy.lists.filter((l: any) => !recentListIdsSet.has(l.id)).length > 0 && (
                             <>
-                              {hierarchy.spaces.length > 0 && <Separator className="my-1" />}
+                              {(hierarchy.spaces.length > 0 || hierarchy.projects.length > 0 || hierarchy.teams.length > 0 || hierarchy.folders.length > 0) && <Separator className="my-1" />}
                               <div className="px-2 py-1.5 text-[10px] font-semibold text-zinc-400 uppercase tracking-tighter">
                                 Lists
                               </div>
-                              {hierarchy.orphaned.filter(l => !recentListIdsSet.has(l.id)).map((l) => (
-                                <SelectItem key={`orphaned-${l.id}`} value={l.id} className="text-xs pl-8">
-                                  {l.name}
+                              {hierarchy.lists.filter((l: any) => !recentListIdsSet.has(l.id)).map((list: any) => (
+                                <SelectItem key={`root-list-${list.id}`} value={list.id} className="text-xs pl-5">
+                                  <div className="flex items-center gap-1.5">
+                                    <Hash className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                                    <span>{list.name}</span>
+                                  </div>
                                 </SelectItem>
                               ))}
                             </>
@@ -457,7 +767,10 @@ export function TaskCreationModal({
                           {listsData?.items?.length === 0 && lists.length > 0 && (
                             lists.map((l) => (
                               <SelectItem key={`fallback-${l.id}`} value={l.id} className="text-xs">
-                                {l.name}
+                                <div className="flex items-center gap-1.5">
+                                  <Hash className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                                  <span>{l.name}</span>
+                                </div>
                               </SelectItem>
                             ))
                           )}
@@ -484,6 +797,23 @@ export function TaskCreationModal({
               contextId={contextId}
               workspaceId={workspaceId}
               trigger={<></>}
+              onListCreated={(newList) => {
+                if (listQueryInput) {
+                  utils.list.byContext.setData(listQueryInput, (old: any) => {
+                    if (!old) return { items: [newList] };
+                    // Avoid duplicates if the server already returned it
+                    if (old.items.some((item: any) => item.id === newList.id)) return old;
+                    return { ...old, items: [...old.items, newList] };
+                  });
+                }
+                utils.list.byContext.invalidate(listQueryInput);
+                if (workspaceId) {
+                  utils.list.byContext.invalidate({ workspaceId });
+                }
+                methods.setValue('listId', newList.id);
+                methods.clearErrors('listId');
+                addToRecents(newList.id);
+              }}
             />
 
             <Tabs defaultValue="details" className="flex-1 flex flex-col min-h-0">

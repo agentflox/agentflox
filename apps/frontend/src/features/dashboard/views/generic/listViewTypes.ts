@@ -52,6 +52,7 @@ export type ListViewSavedConfig = {
     showCompleted?: boolean;
     showCompletedSubtasks?: boolean;
     groupBy?: string;
+    alsoGroupByList?: boolean;
     groupDirection?: "asc" | "desc";
     subtasksMode?: "collapsed" | "expanded" | "separate";
     visibleColumns?: string[];

@@ -191,6 +191,7 @@ interface BoardViewProps {
     selectedTaskIdFromParent?: string | null;
     onTaskSelect?: (taskId: string | null) => void;
     scope?: "owned" | "assigned" | "all";
+    context?: "workspace" | "space" | "project" | "team" | "folder" | "list";
 }
 
 // Helper: Normalize parentId (null and "root" are equivalent)
@@ -600,7 +601,9 @@ function stableStringify(obj: any) {
 
 const hasSubtasks = (task: Task, scopeTasks: Task[]) => scopeTasks.some((t: Task) => t.parentId === task.id);
 
-export function BoardView({ spaceId, projectId, teamId, listId, viewId, workspaceId, initialConfig, selectedTaskIdFromParent, onTaskSelect, scope }: BoardViewProps) {
+export function BoardView({ spaceId, projectId, teamId, listId, folderId, viewId, workspaceId, initialConfig, selectedTaskIdFromParent, onTaskSelect, scope, context }: BoardViewProps) {
+    /** Whether this context shows tasks from many lists (workspace/space/project/team) */
+    const isBroadContext = context === "workspace" || context === "space" || context === "project" || context === "team";
     const [searchQuery, setSearchQuery] = useState("");
     const [isToolbarSearchOpen, setIsToolbarSearchOpen] = useState(false);
     const toolbarSearchContainerRef = useRef<HTMLDivElement | null>(null);
@@ -612,7 +615,11 @@ export function BoardView({ spaceId, projectId, teamId, listId, viewId, workspac
         tags: [],
         customFields: {},
     });
-    const [groupBy, setGroupBy] = useState<string>("status");
+    const [groupBy, setGroupBy] = useState<string>(() => {
+        if (listId && !isBroadContext) return "status";
+        if (folderId) return "status"; // Folders usually have statuses from their lists
+        return "list"; // Workspace/Space/Project default to list
+    });
     const [groupDirection, setGroupDirection] = useState<"asc" | "desc">("asc");
     const [filterGroups, setFilterGroups] = useState<FilterGroup>(() => ({
         id: "root",

@@ -49,7 +49,7 @@ export async function verifyWorkspaceAccess(
     }
 
     try {
-        const membership = await executeDbOperation(() =>
+        let membership = await executeDbOperation(() =>
             prisma.workspaceMember.findUnique({
                 where: {
                     workspaceId_userId: {
@@ -68,7 +68,31 @@ export async function verifyWorkspaceAccess(
             })
         );
 
+        // If no active membership found, check if the user is the workspace owner
         if (!membership || membership.status !== 'ACTIVE') {
+            const workspace = await executeDbOperation(() =>
+                prisma.workspace.findUnique({
+                    where: { id: workspaceId },
+                    select: { ownerId: true },
+                })
+            );
+
+            if (workspace && workspace.ownerId === userId) {
+                // User is the owner, grant access
+                const user = await executeDbOperation(() =>
+                    prisma.user.findUnique({
+                        where: { id: userId },
+                        select: { username: true },
+                    })
+                );
+                
+                return {
+                    username: user?.username || 'Unknown',
+                    workspaceId: workspaceId,
+                    workspaceRole: 'OWNER',
+                    permissions: ['*'], // Owners have all permissions
+                };
+            }
             return null;
         }
 

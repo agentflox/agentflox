@@ -42,6 +42,7 @@ export function useGenericTaskViewData({
   const effectiveProjectId = taskListProjectId ?? projectId;
 
   const taskList = useTaskListInfinite({
+    workspaceId,
     spaceId: effectiveSpaceId,
     projectId: effectiveProjectId,
     teamId,
@@ -50,7 +51,7 @@ export function useGenericTaskViewData({
     includeRelations,
     enabled:
       taskListEnabled &&
-      !!(effectiveSpaceId || effectiveProjectId || teamId || listId || scope),
+      !!(workspaceId || effectiveSpaceId || effectiveProjectId || teamId || listId || scope),
   });
 
   return {

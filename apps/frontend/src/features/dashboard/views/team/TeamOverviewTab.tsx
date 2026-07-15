@@ -1,7 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useCallback, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
+import { trpc } from "@/lib/trpc";
 import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import {
     Users, UserPlus, GraduationCap, TrendingUp, Handshake, ShoppingBag,
@@ -14,6 +17,8 @@ import { cn } from "@/lib/utils";
 import { useRouter } from "next/navigation";
 import { UserProfileHoverCard } from "@/entities/users/components/UserProfileHoverCard";
 import { DASHBOARD_ROUTES } from "@/constants/routes.config";
+import { ProjectIcon } from "@/entities/projects/components/ProjectIcon";
+import { EntityIcon } from "@/entities/shared/components/EntityIcon";
 import { ProjectCreationModal } from "@/entities/projects/components/ProjectCreationModal";
 import { FolderCreationModal } from "@/entities/task/components/FolderCreationModal";
 import { ListCreationModal } from "@/entities/task/components/ListCreationModal";
@@ -22,26 +27,73 @@ import { ShareModal } from "@/components/permissions/ShareModal";
 
 // ── Tooltip ────────────────────────────────────────────────────────────────
 function Tooltip({ label, children }: { label: string; children: React.ReactNode }) {
+    const anchorRef = useRef<HTMLDivElement>(null);
+    const [visible, setVisible] = useState(false);
+    const [coords, setCoords] = useState({ top: 0, left: 0 });
+
+    const updatePosition = useCallback(() => {
+        const rect = anchorRef.current?.getBoundingClientRect();
+        if (!rect) return;
+        setCoords({
+            top: rect.top - 8,
+            left: rect.left + rect.width / 2,
+        });
+    }, []);
+
+    function handleEnter() {
+        updatePosition();
+        setVisible(true);
+    }
+
+    function handleLeave() {
+        setVisible(false);
+    }
+
+    useEffect(() => {
+        if (!visible) return;
+        window.addEventListener("scroll", updatePosition, true);
+        window.addEventListener("resize", updatePosition);
+        return () => {
+            window.removeEventListener("scroll", updatePosition, true);
+            window.removeEventListener("resize", updatePosition);
+        };
+    }, [visible, updatePosition]);
+
     return (
-        <div className="relative group/tip">
+        <div
+            ref={anchorRef}
+            className="relative"
+            onMouseEnter={handleEnter}
+            onMouseLeave={handleLeave}
+        >
             {children}
-            <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-50 opacity-0 group-hover/tip:opacity-100 transition-opacity duration-150">
-                <div className="bg-slate-900 text-white text-[11px] font-medium px-2.5 py-1.5 rounded-lg whitespace-nowrap shadow-lg">
-                    {label}
-                    <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-900" />
-                </div>
-            </div>
+            {visible &&
+                typeof document !== "undefined" &&
+                createPortal(
+                    <div
+                        className="pointer-events-none fixed z-[9999] -translate-x-1/2 -translate-y-full transition-opacity duration-150"
+                        style={{ top: coords.top, left: coords.left }}
+                    >
+                        <div className="bg-slate-900 text-white text-[11px] font-medium px-2.5 py-1.5 rounded-lg whitespace-nowrap shadow-lg">
+                            {label}
+                            <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-900" />
+                        </div>
+                    </div>,
+                    document.body
+                )}
         </div>
     );
 }
 
 // ── Row action buttons ────────────────────────────────────────────────────
-function RowActions({ url }: { url: string }) {
+function RowActions({ url, onOpen }: { url: string; onOpen?: () => void }) {
+    const router = useRouter();
     const [copied, setCopied] = useState(false);
 
-    function handleOpenNewTab(e: React.MouseEvent) {
+    function handleOpen(e: React.MouseEvent) {
         e.stopPropagation();
-        window.open(url, "_blank", "noopener,noreferrer");
+        if (onOpen) onOpen();
+        else router.push(url);
     }
 
     async function handleCopyLink(e: React.MouseEvent) {
@@ -57,9 +109,9 @@ function RowActions({ url }: { url: string }) {
 
     return (
         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-150 shrink-0">
-            <Tooltip label="Open in new tab">
+            <Tooltip label="Open">
                 <button
-                    onClick={handleOpenNewTab}
+                    onClick={handleOpen}
                     className="flex h-6 w-6 items-center justify-center rounded border border-slate-200 bg-white text-slate-500 hover:text-slate-800 hover:border-slate-300 hover:shadow-sm hover:bg-slate-100 transition-all duration-150 cursor-pointer"
                 >
                     <ExternalLink className="h-4 w-4" />
@@ -218,6 +270,18 @@ function UserRow({ user, subtitle, href }: { user: any; subtitle?: string; href?
 
 export function TeamOverviewTab({ team }: { team: any }) {
     const router = useRouter();
+    const utils = trpc.useUtils();
+
+    const refreshTeam = useCallback(() => {
+        utils.team.get.invalidate({ id: team.id });
+    }, [utils, team?.id]);
+
+    const createChannel = trpc.channel.create.useMutation({
+        onSuccess: () => {
+            refreshTeam();
+            utils.channel.list.invalidate({ workspaceId: team.workspaceId });
+        },
+    });
 
     const [projectModalOpen, setProjectModalOpen] = useState(false);
     const [folderModalOpen, setFolderModalOpen] = useState(false);
@@ -333,34 +397,31 @@ export function TeamOverviewTab({ team }: { team: any }) {
                                     onAction={() => setProjectModalOpen(true)}
                                 />
                             ) : (
-                                <div className="divide-y divide-slate-50">
-                                    {projects.slice(0, 6).map((project: any) => {
-                                        const url = `/dashboard/projects/${project.id}`;
-                                        return (
-                                            <div
-                                                key={project.id}
-                                                onClick={() => router.push(url)}
-                                                className="group flex items-center gap-3 px-5 py-2.5 hover:bg-slate-50/70 transition-colors cursor-pointer"
-                                            >
+                                <ScrollArea className="max-h-[320px]">
+                                    <div className="divide-y divide-slate-50">
+                                        {projects.map((project: any) => {
+                                            const url = `/dashboard/projects/${project.id}`;
+                                            return (
                                                 <div
-                                                    className="h-6 w-6 rounded-md flex items-center justify-center shrink-0 text-white text-[10px] font-bold"
-                                                    style={{ backgroundColor: project.color || "#f97316" }}
+                                                    key={project.id}
+                                                    onClick={() => router.push(url)}
+                                                    className="group flex items-center gap-3 px-5 py-2.5 hover:bg-slate-50/70 transition-colors cursor-pointer"
                                                 >
-                                                    {(project.name || "P")[0].toUpperCase()}
+                                                    <div
+                                                        className="h-6 w-6 rounded-md flex items-center justify-center shrink-0 text-white text-[10px] font-bold"
+                                                        style={{ backgroundColor: project.color || "#f97316" }}
+                                                    >
+                                                        <ProjectIcon icon={project.icon} size={14} className="text-white" fill />
+                                                    </div>
+                                                    <span className="flex-1 text-sm text-slate-700 font-medium truncate group-hover:text-indigo-600 transition-colors">
+                                                        {project.name}
+                                                    </span>
+                                                    <RowActions url={url} onOpen={() => router.push(url)} />
                                                 </div>
-                                                <span className="flex-1 text-sm text-slate-700 font-medium truncate group-hover:text-indigo-600 transition-colors">
-                                                    {project.name}
-                                                </span>
-                                                <RowActions url={url} />
-                                            </div>
-                                        );
-                                    })}
-                                    {projects.length > 6 && (
-                                        <div className="px-5 py-2 text-xs text-slate-400 hover:text-slate-600 cursor-pointer hover:bg-slate-50 transition-colors">
-                                            +{projects.length - 6} more projects
-                                        </div>
-                                    )}
-                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </ScrollArea>
                             )}
                         </div>
 
@@ -378,30 +439,32 @@ export function TeamOverviewTab({ team }: { team: any }) {
                                     onAction={() => setChatModalOpen(true)}
                                 />
                             ) : (
-                                <div className="divide-y divide-slate-50">
-                                    {channels.slice(0, 8).map((channel: any) => {
-                                        const url = `/dashboard/channels/${channel.id}`;
-                                        return (
-                                            <div
-                                                key={channel.id}
-                                                onClick={() => router.push(url)}
-                                                className="group flex items-center gap-3 px-5 py-2.5 hover:bg-slate-50/70 transition-colors cursor-pointer"
-                                            >
-                                                <MessageSquare className="h-4 w-4 text-slate-400 shrink-0" />
-                                                <span className="flex-1 text-sm text-slate-700 font-medium truncate group-hover:text-indigo-600 transition-colors">
-                                                    #{channel.name}
-                                                </span>
-                                                <RowActions url={url} />
-                                                <ChevronRight className="h-3.5 w-3.5 text-slate-300 group-hover:text-slate-500 transition-colors shrink-0" />
-                                            </div>
-                                        );
-                                    })}
-                                    {channels.length > 8 && (
-                                        <div className="px-5 py-2 text-xs text-slate-400 hover:text-slate-600 cursor-pointer hover:bg-slate-50 transition-colors">
-                                            +{channels.length - 8} more channels
-                                        </div>
-                                    )}
-                                </div>
+                                <ScrollArea className="max-h-[320px]">
+                                    <div className="divide-y divide-slate-50">
+                                        {channels.map((channel: any) => {
+                                            const url = `/dashboard/channels/${channel.id}`;
+                                            return (
+                                                <div
+                                                    key={channel.id}
+                                                    onClick={() => router.push(url)}
+                                                    className="group flex items-center gap-3 px-5 py-2.5 hover:bg-slate-50/70 transition-colors cursor-pointer"
+                                                >
+                                                    <div
+                                                        className="h-6 w-6 rounded-md flex items-center justify-center shrink-0 text-white text-[10px] font-bold"
+                                                        style={{ backgroundColor: channel.color || "#3b82f6" }}
+                                                    >
+                                                        <EntityIcon icon={channel.icon} fallback={MessageSquare} size={14} className="text-white" />
+                                                    </div>
+                                                    <span className="flex-1 text-sm text-slate-700 font-medium truncate group-hover:text-indigo-600 transition-colors">
+                                                        #{channel.name}
+                                                    </span>
+                                                    <RowActions url={url} onOpen={() => router.push(url)} />
+                                                    <ChevronRight className="h-3.5 w-3.5 text-slate-300 group-hover:text-slate-500 transition-colors shrink-0" />
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </ScrollArea>
                             )}
                         </div>
                     </div>
@@ -422,30 +485,32 @@ export function TeamOverviewTab({ team }: { team: any }) {
                                     onAction={() => setFolderModalOpen(true)}
                                 />
                             ) : (
-                                <div className="divide-y divide-slate-50">
-                                    {folders.slice(0, 8).map((folder: any) => {
-                                        const url = `/dashboard/folders/${folder.id}`;
-                                        return (
-                                            <div
-                                                key={folder.id}
-                                                onClick={() => router.push(url)}
-                                                className="group flex items-center gap-3 px-5 py-2.5 hover:bg-slate-50/70 transition-colors cursor-pointer"
-                                            >
-                                                <FolderOpen className="h-4 w-4 text-slate-400 shrink-0" />
-                                                <span className="flex-1 text-sm text-slate-700 font-medium truncate group-hover:text-indigo-600 transition-colors">
-                                                    {folder.name}
-                                                </span>
-                                                <RowActions url={url} />
-                                                <ChevronRight className="h-3.5 w-3.5 text-slate-300 group-hover:text-slate-500 transition-colors shrink-0" />
-                                            </div>
-                                        );
-                                    })}
-                                    {folders.length > 8 && (
-                                        <div className="px-5 py-2 text-xs text-slate-400 hover:text-slate-600 cursor-pointer hover:bg-slate-50 transition-colors">
-                                            +{folders.length - 8} more folders
-                                        </div>
-                                    )}
-                                </div>
+                                <ScrollArea className="max-h-[320px]">
+                                    <div className="divide-y divide-slate-50">
+                                        {folders.map((folder: any) => {
+                                            const url = `/dashboard/folders/${folder.id}`;
+                                            return (
+                                                <div
+                                                    key={folder.id}
+                                                    onClick={() => router.push(url)}
+                                                    className="group flex items-center gap-3 px-5 py-2.5 hover:bg-slate-50/70 transition-colors cursor-pointer"
+                                                >
+                                                    <div
+                                                        className="h-6 w-6 rounded-md flex items-center justify-center shrink-0 text-white text-[10px] font-bold"
+                                                        style={{ backgroundColor: folder.color || "#f59e0b" }}
+                                                    >
+                                                        <EntityIcon icon={folder.icon} fallback={FolderOpen} size={14} className="text-white" fill />
+                                                    </div>
+                                                    <span className="flex-1 text-sm text-slate-700 font-medium truncate group-hover:text-indigo-600 transition-colors">
+                                                        {folder.name}
+                                                    </span>
+                                                    <RowActions url={url} onOpen={() => router.push(url)} />
+                                                    <ChevronRight className="h-3.5 w-3.5 text-slate-300 group-hover:text-slate-500 transition-colors shrink-0" />
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </ScrollArea>
                             )}
                         </div>
 
@@ -463,34 +528,32 @@ export function TeamOverviewTab({ team }: { team: any }) {
                                     onAction={() => setListModalOpen(true)}
                                 />
                             ) : (
-                                <div className="divide-y divide-slate-50">
-                                    {lists.slice(0, 8).map((list: any) => {
-                                        const url = `/dashboard/lists/${list.id}`;
-                                        return (
-                                            <div
-                                                key={list.id}
-                                                onClick={() => router.push(url)}
-                                                className="group flex items-center gap-3 px-5 py-2.5 hover:bg-slate-50/70 transition-colors cursor-pointer"
-                                            >
-                                                {list.color ? (
-                                                    <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: list.color }} />
-                                                ) : (
-                                                    <List className="h-3.5 w-3.5 text-slate-400 shrink-0" />
-                                                )}
-                                                <span className="flex-1 text-sm text-slate-700 font-medium truncate group-hover:text-indigo-600 transition-colors">
-                                                    {list.name}
-                                                </span>
-                                                <RowActions url={url} />
-                                                <ChevronRight className="h-3.5 w-3.5 text-slate-300 group-hover:text-slate-500 transition-colors shrink-0" />
-                                            </div>
-                                        );
-                                    })}
-                                    {lists.length > 8 && (
-                                        <div className="px-5 py-2 text-xs text-slate-400 hover:text-slate-600 cursor-pointer hover:bg-slate-50 transition-colors">
-                                            +{lists.length - 8} more lists
-                                        </div>
-                                    )}
-                                </div>
+                                <ScrollArea className="max-h-[320px]">
+                                    <div className="divide-y divide-slate-50">
+                                        {lists.map((list: any) => {
+                                            const url = `/dashboard/lists/${list.id}`;
+                                            return (
+                                                <div
+                                                    key={list.id}
+                                                    onClick={() => router.push(url)}
+                                                    className="group flex items-center gap-3 px-5 py-2.5 hover:bg-slate-50/70 transition-colors cursor-pointer"
+                                                >
+                                                    <div
+                                                        className="h-6 w-6 rounded-md flex items-center justify-center shrink-0 text-white text-[10px] font-bold"
+                                                        style={{ backgroundColor: list.color || "#10b981" }}
+                                                    >
+                                                        <EntityIcon icon={list.icon} fallback={List} size={14} className="text-white" fill />
+                                                    </div>
+                                                    <span className="flex-1 text-sm text-slate-700 font-medium truncate group-hover:text-indigo-600 transition-colors">
+                                                        {list.name}
+                                                    </span>
+                                                    <RowActions url={url} onOpen={() => router.push(url)} />
+                                                    <ChevronRight className="h-3.5 w-3.5 text-slate-300 group-hover:text-slate-500 transition-colors shrink-0" />
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </ScrollArea>
                             )}
                         </div>
                     </div>
@@ -593,6 +656,7 @@ export function TeamOverviewTab({ team }: { team: any }) {
             <ProjectCreationModal
                 open={projectModalOpen}
                 onOpenChange={setProjectModalOpen}
+                onCreated={() => refreshTeam()}
             />
 
             <FolderCreationModal
@@ -601,6 +665,7 @@ export function TeamOverviewTab({ team }: { team: any }) {
                 workspaceId={team.workspaceId}
                 open={folderModalOpen}
                 onOpenChange={setFolderModalOpen}
+                onFolderCreated={() => refreshTeam()}
             />
 
             <ListCreationModal
@@ -609,13 +674,19 @@ export function TeamOverviewTab({ team }: { team: any }) {
                 workspaceId={team.workspaceId}
                 open={listModalOpen}
                 onOpenChange={setListModalOpen}
+                onListCreated={() => refreshTeam()}
             />
 
             <ChatCreationModal
                 open={chatModalOpen}
                 onOpenChange={setChatModalOpen}
-                onCreate={async () => {
-                    setChatModalOpen(false);
+                isCreating={createChannel.isPending}
+                onCreate={async (title, _topic, description) => {
+                    await createChannel.mutateAsync({
+                        workspaceId: team.workspaceId,
+                        name: title,
+                        description: description ?? undefined,
+                    });
                 }}
             />
 

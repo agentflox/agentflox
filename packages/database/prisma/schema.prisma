@@ -352,6 +352,7 @@ model Workspace {
   teams                 Team[]
   templates             Template[]
   tools                 Tool[]
+  views              View[]
   webhooks              Webhook[]
   activityLogs          WorkspaceActivity[]
   analytics             WorkspaceAnalytics[]
@@ -961,6 +962,7 @@ model Folder {
   name            String
   description     String?
   status          FolderStatus     @default(ACTIVE)
+  visibility      Visibility       @default(ADMINS)
   color           String?
   icon            String?
   position        Int              @default(0)
@@ -1059,6 +1061,7 @@ model List {
   name            String
   description     String?
   status          ListStatus       @default(ACTIVE)
+  visibility      Visibility       @default(ADMINS)
   color           String?
   icon            String?
   position        Int              @default(0)
@@ -1198,6 +1201,8 @@ model View {
   project         Project?       @relation(fields: [projectId], references: [id], onDelete: Cascade)
   space           Space?         @relation(fields: [spaceId], references: [id], onDelete: Cascade)
   team            Team?          @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  workspace       Workspace?     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
   formResponses   FormResponse[]
   documents       Document[]
 

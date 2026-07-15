@@ -73,6 +73,8 @@ interface WorkloadViewProps {
     selectedTaskIdFromParent?: string | null;
     onTaskSelect?: (taskId: string | null) => void;
     refetchViewData?: () => void;
+
+    context?: "workspace" | "space" | "project" | "team" | "folder" | "list";
 }
 
 const CREATE_FIELD_TYPES = [

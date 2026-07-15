@@ -86,7 +86,7 @@ async function assertSpaceAdmin(spaceId: string, userId: string) {
 
 	if (
 		space.ownerId !== userId &&
-		space.workspace.ownerId !== userId
+		space.workspace?.ownerId !== userId
 	) {
 		const membership = await prisma.spaceMember.findFirst({
 			where: { spaceId, userId, role: "ADMIN" },
@@ -292,7 +292,7 @@ export const spaceRouter = router({
 
 	create: protectedProcedure.input(createInputSchema).mutation(async ({ ctx, input }) => {
 		const userId = ctx.session!.user!.id;
-		
+
 		const targetWorkspaceId = input.workspaceId;
 		if (targetWorkspaceId) {
 			await assertWorkspaceAccess(targetWorkspaceId, userId);
@@ -581,13 +581,16 @@ export const spaceRouter = router({
 		const space = await assertSpaceAdmin(input.spaceId, userId);
 
 		// Ensure target user belongs to workspace
-		const workspaceMember = await prisma.workspaceMember.findUnique({
-			where: { workspaceId_userId: { workspaceId: space.workspaceId, userId: input.userId } },
-			select: { id: true },
-		});
-		if (!workspaceMember) {
-			throw new Error("User must be a member of the workspace before joining the space");
+		if (space.workspaceId) {
+			const workspaceMember = await prisma.workspaceMember.findUnique({
+				where: { workspaceId_userId: { workspaceId: space.workspaceId, userId: input.userId } },
+				select: { id: true },
+			});
+			if (!workspaceMember) {
+				throw new Error("User must be a member of the workspace before joining the space");
+			}
 		}
+
 
 		return prisma.spaceMember.upsert({
 			where: { spaceId_userId: { spaceId: input.spaceId, userId: input.userId } },

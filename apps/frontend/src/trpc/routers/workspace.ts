@@ -2,7 +2,7 @@ import { z } from "zod";
 import { protectedProcedure, router } from "@/trpc/init";
 import { prisma } from "@/lib/prisma";
 import { cachedQuery, trpcCacheKey, invalidateCacheKey } from "@/lib/trpcCache";
-import { WorkspaceRole, Visibility } from '@agentflox/database/src/generated/prisma/client';
+import { WorkspaceRole, Visibility, ViewType } from '@agentflox/database/src/generated/prisma/client';
 import { ensureWorkspaceStatuses } from "@/trpc/routers/taskStatus";
 
 type WorkspaceScope = "owned" | "member" | "all" | "editable";
@@ -124,6 +124,17 @@ export const workspaceRouter = router({
 						isActive: input.isActive ?? true,
 						visibility: input.visibility ?? Visibility.PRIVATE,
 						members: { create: { userId, role: WorkspaceRole.OWNER } },
+						views: {
+							createMany: {
+								data: [
+									{ name: "Overview", type: ViewType.OVERVIEW, position: 0, ownerId: userId, isDefault: true },
+									{ name: "List", type: ViewType.LIST, position: 1, ownerId: userId, isDefault: true },
+									{ name: "Projects", type: ViewType.PROJECTS, position: 2, ownerId: userId, isDefault: true },
+									{ name: "Teams", type: ViewType.TEAMS, position: 3, ownerId: userId, isDefault: true },
+									{ name: "Tasks", type: ViewType.TASKS, position: 4, ownerId: userId, isDefault: true },
+								]
+							}
+						}
 					},
 					include: {
 						members: {
@@ -218,6 +229,8 @@ export const workspaceRouter = router({
 							name: true,
 							description: true,
 							status: true,
+							icon: true,
+							color: true,
 							spaceId: true,
 							updatedAt: true,
 							_count: { select: { tasks: true } },
@@ -231,6 +244,8 @@ export const workspaceRouter = router({
 							name: true,
 							description: true,
 							status: true,
+							icon: true,
+							color: true,
 							size: true,
 							maxSize: true,
 							spaceId: true,
@@ -268,6 +283,9 @@ export const workspaceRouter = router({
 							spaceId: true,
 							updatedAt: true,
 						},
+					},
+					views: {
+						orderBy: { position: 'asc' },
 					},
 					_count: {
 						select: {
@@ -329,6 +347,9 @@ export const workspaceRouter = router({
 				name: z.string().min(1).optional(),
 				description: z.string().optional().nullable(),
 				isActive: z.boolean().optional(),
+				color: z.string().optional().nullable(),
+				icon: z.string().optional().nullable(),
+				visibility: z.nativeEnum(Visibility).optional(),
 			})
 		)
 		.mutation(async ({ ctx, input }) => {

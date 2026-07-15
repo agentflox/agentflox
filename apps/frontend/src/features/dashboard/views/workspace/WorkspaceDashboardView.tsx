@@ -209,7 +209,7 @@ export default function WorkspaceDashboardView({ workspaceId }: WorkspaceViewPro
         { id: workspaceId },
         { enabled: !!workspaceId, staleTime: 60_000, gcTime: 5 * 60_000 }
     );
-    
+
     console.log("[WorkspaceDashboard] Render tick - isLoading:", isLoading, "views:", (workspace as any)?.views?.length);
 
     // Mutations
@@ -364,6 +364,7 @@ export default function WorkspaceDashboardView({ workspaceId }: WorkspaceViewPro
     const renderViewContent = (view: any) => {
         if (!view) return null;
         const viewType = view.type as ViewType;
+        console.log("this is view", view)
 
         switch (viewType) {
             case "OVERVIEW":
@@ -375,110 +376,116 @@ export default function WorkspaceDashboardView({ workspaceId }: WorkspaceViewPro
                     <ListView
                         workspaceId={workspaceId}
                         viewId={view.id}
+                        context="workspace"
                         initialConfig={view.config as any}
                         selectedTaskIdFromParent={selectedTaskId ?? undefined}
                         onTaskSelect={handleTaskSelect}
-                    />
+                     />
                 );
             case "BOARD":
                 return (
                     <BoardView
                         workspaceId={workspaceId}
                         viewId={view.id}
+                        context="workspace"
                         initialConfig={view.config as any}
                         selectedTaskIdFromParent={selectedTaskId ?? undefined}
                         onTaskSelect={handleTaskSelect}
-                    />
+                     />
                 );
             case "TABLE":
                 return (
                     <TableView
                         workspaceId={workspaceId}
                         viewId={view.id}
+                        context="workspace"
                         initialConfig={view.config as any}
                         selectedTaskIdFromParent={selectedTaskId ?? undefined}
                         onTaskSelect={handleTaskSelect}
-                    />
+                     />
                 );
             case "CALENDAR":
                 return (
                     <CalendarView
                         workspaceId={workspaceId}
                         viewId={view.id}
+                        context="workspace"
                         initialConfig={view.config as any}
                         selectedTaskIdFromParent={selectedTaskId ?? undefined}
                         onTaskSelect={handleTaskSelect}
-                    />
+                     />
                 );
             case "GANTT":
                 return (
                     <GanttView
                         workspaceId={workspaceId}
                         viewId={view.id}
+                        context="workspace"
                         initialConfig={view.config as any}
                         selectedTaskIdFromParent={selectedTaskId ?? undefined}
                         onTaskSelect={handleTaskSelect}
-                    />
+                     />
                 );
             case "TIMELINE":
                 return (
                     <TimelineView
                         workspaceId={workspaceId}
                         viewId={view.id}
+                        context="workspace"
                         initialConfig={view.config as any}
                         selectedTaskIdFromParent={selectedTaskId ?? undefined}
                         onTaskSelect={handleTaskSelect}
-                    />
+                     />
                 );
             case "FORM":
                 return (
-                    <FormView
+                    <FormView context="workspace"
                         workspaceId={workspaceId}
                         viewId={view.id}
                         initialConfig={view.config as any}
                         selectedTaskIdFromParent={selectedTaskId ?? undefined}
                         onTaskSelect={handleTaskSelect}
-                    />
+                     />
                 );
             case "PEOPLE":
                 return (
-                    <PeopleView
+                    <PeopleView context="workspace"
                         workspaceId={workspaceId}
                         viewId={view.id}
                         initialConfig={view.config as any}
                         selectedTaskIdFromParent={selectedTaskId ?? undefined}
                         onTaskSelect={handleTaskSelect}
-                    />
+                     />
                 );
             case "ACTIVITY":
                 return (
-                    <ActivityView
+                    <ActivityView context="workspace"
                         workspaceId={workspaceId}
                         viewId={view.id}
                         initialConfig={view.config as any}
                         selectedTaskIdFromParent={selectedTaskId ?? undefined}
                         onTaskSelect={handleTaskSelect}
-                    />
+                     />
                 );
             case "MIND_MAP":
                 return (
-                    <MindMapView
+                    <MindMapView context="workspace"
                         workspaceId={workspaceId}
                         viewId={view.id}
                         initialConfig={view.config as any}
                         selectedTaskIdFromParent={selectedTaskId ?? undefined}
                         onTaskSelect={handleTaskSelect}
-                    />
+                     />
                 );
             case "WORKLOAD":
                 return (
-                    <WorkloadView
+                    <WorkloadView context="workspace"
                         workspaceId={workspaceId}
                         viewId={view.id}
                         initialConfig={view.config as any}
                         selectedTaskIdFromParent={selectedTaskId ?? undefined}
                         onTaskSelect={handleTaskSelect}
-                    />
+                     />
                 );
             case "WHITEBOARD":
                 return (
@@ -492,33 +499,33 @@ export default function WorkspaceDashboardView({ workspaceId }: WorkspaceViewPro
                 );
             case "MAP":
                 return (
-                    <MapView
+                    <MapView context="workspace"
                         workspaceId={workspaceId}
                         viewId={view.id}
                         initialConfig={view.config as any}
                         selectedTaskIdFromParent={selectedTaskId ?? undefined}
                         onTaskSelect={handleTaskSelect}
-                    />
+                     />
                 );
             case "DASHBOARD":
                 return (
-                    <GenericDashboardView
+                    <GenericDashboardView context="workspace"
                         workspaceId={workspaceId}
                         viewId={view.id}
                         initialConfig={view.config as any}
                         selectedTaskIdFromParent={selectedTaskId ?? undefined}
                         onTaskSelect={handleTaskSelect}
-                    />
+                     />
                 );
             case "DOC":
                 return (
-                    <DocView
+                    <DocView context="workspace"
                         workspaceId={workspaceId}
                         viewId={view.id}
                         initialConfig={view.config as any}
                         selectedTaskIdFromParent={selectedTaskId ?? undefined}
                         onTaskSelect={handleTaskSelect}
-                    />
+                     />
                 );
             case "EMBED":
             case "SPREADSHEET":
@@ -532,13 +539,13 @@ export default function WorkspaceDashboardView({ workspaceId }: WorkspaceViewPro
             case "GOOGLE_FORMS":
             case "GOOGLE_DRIVE":
                 return (
-                    <EmbedView
+                    <EmbedView context="workspace"
                         workspaceId={workspaceId}
                         viewId={view.id}
                         initialConfig={view.config as any}
                         selectedTaskIdFromParent={selectedTaskId ?? undefined}
                         onTaskSelect={handleTaskSelect}
-                    />
+                     />
                 );
 
             default: {
@@ -873,156 +880,156 @@ export default function WorkspaceDashboardView({ workspaceId }: WorkspaceViewPro
 
     return (
         <DashboardEntityProvider workspaceId={workspaceId}>
-        <div className="flex h-full flex-col">
-            <div className="flex h-full gap-1 flex-1 overflow-hidden">
-                {/* Navigation Sidebar */}
-                {layoutMode === "sidebar" && (
-                    <NavigationSidebar
+            <div className="flex h-full flex-col">
+                <div className="flex h-full gap-1 flex-1 overflow-hidden">
+                    {/* Navigation Sidebar */}
+                    {layoutMode === "sidebar" && (
+                        <NavigationSidebar
+                            workspaceId={workspaceId}
+                            activeView={currentTab as WorkspaceViewType}
+                            onViewChange={handleViewChange}
+                            collapsed={sidebarCollapsed}
+                            onToggleCollapse={() => setSidebarCollapsed((prev) => !prev)}
+                        />
+                    )}
+
+                    {/* Main Content */}
+                    <div className="flex-1 overflow-hidden w-full h-full bg-slate-50 flex flex-col">
+                        <DashboardHeader
+                            entityName={workspace?.name || "Untitled Workspace"}
+                            entityType="workspace"
+                            entityIcon={<Briefcase className="h-4 w-4" />}
+                            shareUrl={`${window.location.origin}${window.location.pathname}`}
+                            showSettings={false}
+                            onAskAIClick={() => setIsAskAIOpen(!isAskAIOpen)}
+                            onShareClick={() => setIsShareModalOpen(true)}
+                            agentPopoverContent={
+                                <QuickAgentModal
+                                    contextId={workspaceId}
+                                    contextType="WORKSPACE"
+                                    onOpenChange={setIsAgentModalOpen}
+                                />
+                            }
+                            agentOpen={isAgentModalOpen}
+                            onAgentOpenChange={setIsAgentModalOpen}
+                        />
+                        <div className="flex-1 overflow-hidden relative">
+                            {renderMainContent()}
+                        </div>
+                    </div>
+                </div>
+
+                {/* Task Detail Modal / Fullscreen */}
+                {selectedTaskId && taskViewMode !== "sidebar" && (
+                    <Dialog open={true} onOpenChange={(open) => {
+                        if (!open) {
+                            const params = new URLSearchParams(searchParams.toString());
+                            params.delete("task");
+                            router.push(`?${params.toString()}`);
+                        }
+                    }}>
+                        <DialogContent className={cn(
+                            "p-0 gap-0 overflow-hidden bg-white",
+                            taskViewMode === "fullscreen" ? "max-w-[95vw] w-[95vw] h-[95vh]" : "max-w-4xl w-full h-[85vh]"
+                        )}>
+                            <TaskDetailPanel
+                                taskId={selectedTaskId}
+                                layoutMode={taskViewMode}
+                                onLayoutChange={setTaskViewMode}
+                                onClose={() => {
+                                    const params = new URLSearchParams(searchParams.toString());
+                                    params.delete("task");
+                                    router.push(`?${params.toString()}`);
+                                }}
+                            />
+                        </DialogContent>
+                    </Dialog>
+                )}
+
+                {/* Add View Modal */}
+                <AddViewModal
+                    open={addViewModalOpen}
+                    onOpenChange={setAddViewModalOpen}
+                    existingViews={views.map((v: any) => v.type as ViewType)}
+                    onAddViews={handleAddViews}
+                    onAddFromTemplate={handleAddFromTemplate}
+                />
+
+                <ShareModal
+                    isOpen={isShareModalOpen}
+                    onClose={() => setIsShareModalOpen(false)}
+                    itemType="workspace"
+                    itemId={workspaceId}
+                    itemName={workspace?.name || "Workspace"}
+                    workspaceId={workspaceId}
+                />
+
+                {/* Rename View Dialog */}
+                <Dialog open={!!viewToRename} onOpenChange={(open) => !open && setViewToRename(null)}>
+                    <DialogContent>
+                        <DialogHeader>
+                            <DialogTitle>Rename View</DialogTitle>
+                            <DialogDescription>Enter a new name for this view.</DialogDescription>
+                        </DialogHeader>
+                        <div className="py-4">
+                            <Input
+                                value={viewToRename?.name || ""}
+                                onChange={(e) => setViewToRename((prev) => prev ? { ...prev, name: e.target.value } : null)}
+                                onKeyDown={(e) => e.key === "Enter" && handleRenameView(viewToRename?.name || "")}
+                                autoFocus
+                            />
+                        </div>
+                        <DialogFooter>
+                            <Button variant="outline" onClick={() => setViewToRename(null)}>Cancel</Button>
+                            <Button onClick={() => handleRenameView(viewToRename?.name || "")}>Rename</Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
+
+                {/* Delete View Dialog */}
+                <Dialog open={!!viewToDelete} onOpenChange={(open) => !open && setViewToDelete(null)}>
+                    <DialogContent>
+                        <DialogHeader>
+                            <DialogTitle>Delete View?</DialogTitle>
+                            <DialogDescription>
+                                Are you sure you want to delete <strong>{viewToDelete?.name}</strong>? This action cannot be undone.
+                            </DialogDescription>
+                        </DialogHeader>
+                        <DialogFooter>
+                            <Button
+                                className="flex-1 sm:flex-none inline-flex items-center justify-center h-9 px-4 rounded-lg border border-zinc-200 bg-white text-[13.5px] font-medium text-zinc-600 hover:bg-zinc-50 hover:border-zinc-300 hover:text-zinc-800 transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 focus-visible:ring-offset-1"
+                                onClick={() => setViewToDelete(null)}>
+                                Cancel
+                            </Button>
+                            <Button
+                                onClick={() => viewToDelete && handleDeleteView(viewToDelete.id)}
+                                className="flex-1 sm:flex-none h-9 px-4 rounded-lg bg-red-600 hover:bg-red-700 text-[13.5px] font-medium shadow-sm shadow-red-900/10 transition-all duration-150">
+                                Delete
+                            </Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
+
+                {/* Share View Permission Modal */}
+                {viewToShare && (
+                    <ShareViewPermissionModal
+                        open={!!viewToShare}
+                        onOpenChange={(open) => !open && setViewToShare(null)}
+                        viewId={viewToShare.id}
                         workspaceId={workspaceId}
-                        activeView={currentTab as WorkspaceViewType}
-                        onViewChange={handleViewChange}
-                        collapsed={sidebarCollapsed}
-                        onToggleCollapse={() => setSidebarCollapsed((prev) => !prev)}
                     />
                 )}
 
-                {/* Main Content */}
-                <div className="flex-1 overflow-hidden w-full h-full bg-slate-50 flex flex-col">
-                    <DashboardHeader
-                        entityName={workspace?.name || "Untitled Workspace"}
-                        entityType="workspace"
-                        entityIcon={<Briefcase className="h-4 w-4" />}
-                        shareUrl={`${window.location.origin}${window.location.pathname}`}
-                        showSettings={false}
-                        onAskAIClick={() => setIsAskAIOpen(!isAskAIOpen)}
-                        onShareClick={() => setIsShareModalOpen(true)}
-                        agentPopoverContent={
-                            <QuickAgentModal
-                                contextId={workspaceId}
-                                contextType="WORKSPACE"
-                                onOpenChange={setIsAgentModalOpen}
-                            />
-                        }
-                        agentOpen={isAgentModalOpen}
-                        onAgentOpenChange={setIsAgentModalOpen}
+                {/* Save Template Modal */}
+                {viewToTemplate && (
+                    <SaveTemplateModal
+                        open={!!viewToTemplate}
+                        onOpenChange={(open) => !open && setViewToTemplate(null)}
+                        view={viewToTemplate}
+                        workspaceId={workspaceId}
                     />
-                    <div className="flex-1 overflow-hidden relative">
-                        {renderMainContent()}
-                    </div>
-                </div>
+                )}
             </div>
-
-            {/* Task Detail Modal / Fullscreen */}
-            {selectedTaskId && taskViewMode !== "sidebar" && (
-                <Dialog open={true} onOpenChange={(open) => {
-                    if (!open) {
-                        const params = new URLSearchParams(searchParams.toString());
-                        params.delete("task");
-                        router.push(`?${params.toString()}`);
-                    }
-                }}>
-                    <DialogContent className={cn(
-                        "p-0 gap-0 overflow-hidden bg-white",
-                        taskViewMode === "fullscreen" ? "max-w-[95vw] w-[95vw] h-[95vh]" : "max-w-4xl w-full h-[85vh]"
-                    )}>
-                        <TaskDetailPanel
-                            taskId={selectedTaskId}
-                            layoutMode={taskViewMode}
-                            onLayoutChange={setTaskViewMode}
-                            onClose={() => {
-                                const params = new URLSearchParams(searchParams.toString());
-                                params.delete("task");
-                                router.push(`?${params.toString()}`);
-                            }}
-                        />
-                    </DialogContent>
-                </Dialog>
-            )}
-
-            {/* Add View Modal */}
-            <AddViewModal
-                open={addViewModalOpen}
-                onOpenChange={setAddViewModalOpen}
-                existingViews={views.map((v: any) => v.type as ViewType)}
-                onAddViews={handleAddViews}
-                onAddFromTemplate={handleAddFromTemplate}
-            />
-
-            <ShareModal
-                isOpen={isShareModalOpen}
-                onClose={() => setIsShareModalOpen(false)}
-                itemType="workspace"
-                itemId={workspaceId}
-                itemName={workspace?.name || "Workspace"}
-                workspaceId={workspaceId}
-            />
-
-            {/* Rename View Dialog */}
-            <Dialog open={!!viewToRename} onOpenChange={(open) => !open && setViewToRename(null)}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>Rename View</DialogTitle>
-                        <DialogDescription>Enter a new name for this view.</DialogDescription>
-                    </DialogHeader>
-                    <div className="py-4">
-                        <Input
-                            value={viewToRename?.name || ""}
-                            onChange={(e) => setViewToRename((prev) => prev ? { ...prev, name: e.target.value } : null)}
-                            onKeyDown={(e) => e.key === "Enter" && handleRenameView(viewToRename?.name || "")}
-                            autoFocus
-                        />
-                    </div>
-                    <DialogFooter>
-                        <Button variant="outline" onClick={() => setViewToRename(null)}>Cancel</Button>
-                        <Button onClick={() => handleRenameView(viewToRename?.name || "")}>Rename</Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
-
-            {/* Delete View Dialog */}
-            <Dialog open={!!viewToDelete} onOpenChange={(open) => !open && setViewToDelete(null)}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>Delete View?</DialogTitle>
-                        <DialogDescription>
-                            Are you sure you want to delete <strong>{viewToDelete?.name}</strong>? This action cannot be undone.
-                        </DialogDescription>
-                    </DialogHeader>
-                    <DialogFooter>
-                        <Button 
-                            className="flex-1 sm:flex-none inline-flex items-center justify-center h-9 px-4 rounded-lg border border-zinc-200 bg-white text-[13.5px] font-medium text-zinc-600 hover:bg-zinc-50 hover:border-zinc-300 hover:text-zinc-800 transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 focus-visible:ring-offset-1" 
-                            onClick={() => setViewToDelete(null)}>
-                            Cancel
-                        </Button>
-                        <Button 
-                            onClick={() => viewToDelete && handleDeleteView(viewToDelete.id)}
-                            className="flex-1 sm:flex-none h-9 px-4 rounded-lg bg-red-600 hover:bg-red-700 text-[13.5px] font-medium shadow-sm shadow-red-900/10 transition-all duration-150">
-                            Delete
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
-
-            {/* Share View Permission Modal */}
-            {viewToShare && (
-                <ShareViewPermissionModal
-                    open={!!viewToShare}
-                    onOpenChange={(open) => !open && setViewToShare(null)}
-                    viewId={viewToShare.id}
-                    workspaceId={workspaceId}
-                />
-            )}
-
-            {/* Save Template Modal */}
-            {viewToTemplate && (
-                <SaveTemplateModal
-                    open={!!viewToTemplate}
-                    onOpenChange={(open) => !open && setViewToTemplate(null)}
-                    view={viewToTemplate}
-                    workspaceId={workspaceId}
-                />
-            )}
-        </div>
         </DashboardEntityProvider>
     );
 }

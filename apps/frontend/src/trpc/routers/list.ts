@@ -352,6 +352,12 @@ export const listRouter = router({
               name: true
             }
           },
+          team: {
+            select: {
+              id: true,
+              name: true
+            }
+          },
           statuses: {
             select: {
               id: true,
@@ -442,6 +448,7 @@ export const listRouter = router({
           color: z.string().optional().nullable(),
           icon: z.string().optional().nullable(),
           position: z.number().int().optional(),
+          visibility: z.enum(['PRIVATE', 'ADMINS', 'MEMBERS', 'EVERYONE', 'PUBLIC']).optional(),
         })
         .refine(
           (data) =>
@@ -483,6 +490,7 @@ export const listRouter = router({
             color: input.color ?? undefined,
             icon: input.icon ?? undefined,
             position,
+            visibility: (input.visibility as any) ?? 'ADMINS',
             workspaceId: resolvedWorkspaceId ?? undefined,
             spaceId: input.spaceId ?? undefined,
             projectId: input.projectId ?? undefined,

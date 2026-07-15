@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { trpc } from "@/lib/trpc";
 import { useToast } from "@/hooks/useToast";
-import { Loader2 } from "lucide-react";
+import { Loader2, Rocket } from "lucide-react";
 import { IconColorSelector } from "@/components/ui/icon-color-selector";
 import { SpaceIcon } from "@/entities/spaces/components/SpaceIcon";
 import { useQueryClient } from "@tanstack/react-query";
@@ -137,19 +137,28 @@ export function SpaceGeneralSettingsModal({ spaceId, open, onOpenChange }: Space
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-xl gap-6">
-                <DialogHeader className="gap-1.5">
-                    <DialogTitle className="text-2xl font-semibold tracking-tight">Edit Space settings</DialogTitle>
-                    <DialogDescription className="text-base text-muted-foreground">
-                        A Space represents teams, departments, or groups, each with its own Lists, workflows, and settings.
-                    </DialogDescription>
-                </DialogHeader>
+                <div className="pb-2 min-w-0">
+                    <div className="flex items-start gap-5">
+                        <div className="mt-1 p-3 rounded-2xl border bg-primary/5 border-primary/10 text-primary shadow-[0_0_15px_-3px_rgba(0,0,0,0.1)] transition-all duration-300">
+                            <Rocket className="w-5 h-5 md:w-6 md:h-6" strokeWidth={1.5} />
+                        </div>
+                        <div className="pt-1 flex-1 min-w-0">
+                            <DialogTitle className="text-xl font-bold tracking-tight text-foreground/95 truncate">
+                                Space Settings
+                            </DialogTitle>
+                            <DialogDescription className="text-muted-foreground text-sm leading-relaxed truncate">
+                                A Space represents teams, departments, or groups, each with its own Lists, workflows, and settings.
+                            </DialogDescription>
+                        </div>
+                    </div>
+                </div>
 
                 {isLoading ? (
                     <div className="flex items-center justify-center py-12">
                         <Loader2 className="h-6 w-6 animate-spin text-zinc-400" />
                     </div>
                 ) : (
-                    <form className="flex flex-col gap-5" onSubmit={handleSubmit}>
+                    <form className="flex flex-col gap-5 min-w-0" onSubmit={handleSubmit}>
                         {/* Icon & Name + Owner */}
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div className="space-y-2">
@@ -225,16 +234,20 @@ export function SpaceGeneralSettingsModal({ spaceId, open, onOpenChange }: Space
                         </div>
 
                         {/* Visibility */}
-                        <div className="space-y-2">
-                            <Label className="text-sm font-medium text-slate-700">Visibility</Label>
+                        <div className="space-y-2.5">
+                            <Label htmlFor="space-visibility" className="text-sm font-medium text-slate-700">
+                                Visibility
+                            </Label>
                             <Select value={visibility} onValueChange={(v: any) => setVisibility(v)}>
-                                <SelectTrigger className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-left text-sm text-slate-900 shadow-xs focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200">
-                                    <SelectValue />
+                                <SelectTrigger id="space-visibility" className="h-11 bg-muted/30 border-input/60">
+                                    <SelectValue placeholder="Select visibility">
+                                        {VISIBILITY_OPTIONS.find((o) => o.value === visibility)?.label}
+                                    </SelectValue>
                                 </SelectTrigger>
-                                <SelectContent className="rounded-2xl border border-slate-100 shadow-xl">
-                                    {VISIBILITY_OPTIONS.map(opt => (
-                                        <SelectItem key={opt.value} value={opt.value} className="rounded-lg px-3 py-2.5">
-                                            {opt.label}
+                                <SelectContent>
+                                    {VISIBILITY_OPTIONS.map(({ value, label, description }) => (
+                                        <SelectItem key={value} value={value} description={description}>
+                                            {label}
                                         </SelectItem>
                                     ))}
                                 </SelectContent>

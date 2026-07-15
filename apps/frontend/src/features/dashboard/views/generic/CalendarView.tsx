@@ -121,6 +121,8 @@ interface CalendarViewProps {
     initialConfig?: Record<string, any> | null;
     selectedTaskIdFromParent?: string | null;
     onTaskSelect?: (taskId: string | null) => void;
+
+    context?: "workspace" | "space" | "project" | "team" | "folder" | "list";
 }
 
 export function CalendarView({ spaceId, projectId, teamId, folderId, listId, viewId, workspaceId, initialConfig, selectedTaskIdFromParent, onTaskSelect }: CalendarViewProps) {

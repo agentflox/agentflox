@@ -18,7 +18,7 @@ import {
     LayoutList, SlidersHorizontal, ArrowUp, ArrowDown, Circle, Spline, Save,
     Link2, Target, Filter, Settings, Info, Play, ListChecks, AlignLeft, RefreshCcw,
     Type, Hash, CheckSquare, Tag, DollarSign, Globe, FunctionSquare, FileText,
-    Phone, Mail, MapPin, TrendingUp, Heart, PenTool, MousePointer, ListTodo, AlertTriangle, CircleMinus, Link, Slash, Box, List as ListIcon,
+    Phone, Mail, MapPin, TrendingUp, Heart, PenTool, MousePointer, ListTodo, AlertTriangle, CircleMinus, Link, Slash, Box, List as ListIcon, CircleSlash,
     Archive, UserPlus, CalendarCheck, CalendarClock, CalendarRange, Hourglass, UserCheck, RefreshCw, Timer, Download, Undo, ToggleLeft
 } from "lucide-react";
 import {
@@ -260,6 +260,8 @@ export interface TableViewProps {
     initialConfig?: Record<string, any> | null;
     selectedTaskIdFromParent?: string | null;
     onTaskSelect?: (taskId: string | null) => void;
+
+    context?: "workspace" | "space" | "project" | "team" | "folder" | "list";
 }
 
 const CREATE_FIELD_TYPES = [
@@ -331,7 +333,8 @@ function stableStringify(obj: any) {
     return JSON.stringify(sortObject(obj));
 }
 
-export function TableView({ spaceId, projectId, teamId, listId, viewId, workspaceId, initialConfig, selectedTaskIdFromParent, onTaskSelect }: TableViewProps) {
+export function TableView({ spaceId, projectId, teamId, listId, folderId, viewId, workspaceId, context, initialConfig, selectedTaskIdFromParent, onTaskSelect }: TableViewProps) {
+    const isBroadContext = context === "workspace" || context === "space" || context === "project" || context === "team";
     const router = useRouter();
     const searchParams = useSearchParams();
     const [searchQuery, setSearchQuery] = useState("");
@@ -360,9 +363,11 @@ export function TableView({ spaceId, projectId, teamId, listId, viewId, workspac
     const [filterAssignee, setFilterAssignee] = useState<string[]>([]);
     const [showCompleted, setShowCompleted] = useState(false);
     const [showCompletedSubtasks, setShowCompletedSubtasks] = useState(false);
-    const [groupBy, setGroupBy] = useState<string>(
-        () => (listId ? "status" : "list")
-    );
+    const [groupBy, setGroupBy] = useState<string>(() => {
+        if (listId && !isBroadContext) return "status";
+        if (folderId) return "status"; // Folders usually have statuses from their lists
+        return "list"; // Workspace/Space/Project default to list
+    });
     const [groupDirection, setGroupDirection] = useState<"asc" | "desc">("asc");
     const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
     const [expandedSubtaskMode, setExpandedSubtaskMode] = useState<"collapsed" | "expanded" | "separate">("separate");
@@ -670,6 +675,9 @@ export function TableView({ spaceId, projectId, teamId, listId, viewId, workspac
         isFetchingNextPage,
         loadMoreRef,
         taskListInput,
+        updateTaskInList,
+        addTaskToList,
+        removeTaskFromList,
     } = useGenericTaskViewData({ spaceId, projectId, teamId, listId, workspaceId, includeRelations: true });
 
     useEffect(() => {
@@ -798,46 +806,56 @@ export function TableView({ spaceId, projectId, teamId, listId, viewId, workspac
 
     const updateTask = trpc.task.update.useMutation({
         onMutate: async (variables) => {
-            // Cancel any outgoing refetches (so they don't overwrite our optimistic update)
-            await utils.task.list.cancel(taskListInput);
-
-            // Snapshot the previous value
-            const previousTasks = utils.task.list.getData(taskListInput);
-
-            // Optimistically update to the new value
-            if (previousTasks && (variables as any).tags) {
-                utils.task.list.setData(taskListInput, (old: any) => {
-                    if (!old) return old;
-                    return {
-                        ...old,
-                        items: old.items.map((task: any) =>
-                            task.id === variables.id
-                                ? { ...task, tags: (variables as any).tags }
-                                : task
-                        ),
-                    };
-                });
-            }
-
-            return { previousTasks };
-        },
-        onError: (err, variables, context: any) => {
-            // If the mutation fails, use the context returned from onMutate to roll back
-            if (context?.previousTasks) {
-                utils.task.list.setData(taskListInput, context.previousTasks);
-            }
+            updateTaskInList(variables.id, (task: any) => {
+                let updated = { ...task, ...variables };
+                if ((variables as any).statusId !== undefined) {
+                    const statusObj = allAvailableStatuses.find(s => s.id === (variables as any).statusId);
+                    if (statusObj) updated.status = statusObj;
+                }
+                if ((variables as any).assigneeIds !== undefined) {
+                    updated.assignees = ((variables as any).assigneeIds as string[]).map((id: string) => ({ user: userById.get(id) }));
+                }
+                if ((variables as any).listId !== undefined) {
+                    const listObj = lists.find(l => l.id === (variables as any).listId);
+                    if (listObj) updated.list = listObj;
+                }
+                return updated;
+            });
         },
         onSettled: () => {
-            // Always refetch after error or success:
             void utils.task.list.invalidate(taskListInput);
         },
     });
     const deleteTask = trpc.task.delete.useMutation({
-        onSuccess: () => { void utils.task.list.invalidate(taskListInput); },
+        onMutate: async (variables) => {
+            removeTaskFromList(variables.id);
+        },
+        onSettled: () => {
+            void utils.task.list.invalidate(taskListInput);
+        },
     });
     const createTask = trpc.task.create.useMutation({
-        onSuccess: () => { void utils.task.list.invalidate(taskListInput); },
-        onError: () => { void utils.task.list.invalidate(taskListInput); },
+        onMutate: async (variables) => {
+            const optimisticTask = {
+                ...variables,
+                id: `optimistic-${Date.now()}`,
+                name: variables.title,
+                description: "",
+                status: variables.statusId ? allAvailableStatuses.find(s => s.id === variables.statusId) : null,
+                list: variables.listId ? lists.find(l => l.id === variables.listId) : null,
+                priority: (variables as any).priority || null,
+                dueDate: (variables as any).dueDate || null,
+                startDate: (variables as any).startDate || null,
+                assignees: ((variables as any).assigneeIds || []).map((id: string) => ({ user: userById.get(id) })),
+                tags: [],
+                customFieldValues: [],
+                createdAt: new Date().toISOString(),
+            };
+            addTaskToList(optimisticTask);
+        },
+        onSettled: () => {
+            void utils.task.list.invalidate(taskListInput);
+        },
     });
     const duplicateTask = trpc.task.duplicate.useMutation({
         onSuccess: () => { void utils.task.list.invalidate(taskListInput); },
@@ -888,7 +906,7 @@ export function TableView({ spaceId, projectId, teamId, listId, viewId, workspac
         const effectiveListId = listIdForCreate ?? listId ?? (listsData?.items as any[])?.[0]?.id;
         if (!inlineAddTitle.trim() || !effectiveListId || !resolvedWorkspaceId) return;
         try {
-            await createTask.mutateAsync({
+            createTask.mutate({
                 title: inlineAddTitle.trim(),
                 listId: effectiveListId,
                 statusId: statusIdForCreate ?? undefined,
@@ -1373,11 +1391,11 @@ export function TableView({ spaceId, projectId, teamId, listId, viewId, workspac
 
     const activeFilterCount = filterStatus.length + filterPriority.length + filterAssignee.length + (!showCompleted ? 1 : 0);
 
-    const handleTaskUpdate = async (taskId: string, data: Record<string, unknown>) => {
-        try { await updateTask.mutateAsync({ id: taskId, ...data }); } catch (e) { console.error(e); }
+    const handleTaskUpdate = (taskId: string, data: Record<string, unknown>) => {
+        updateTask.mutate({ id: taskId, ...data } as any);
     };
-    const handleTaskDelete = async (taskId: string) => {
-        try { await deleteTask.mutateAsync({ id: taskId }); } catch (e) { console.error(e); }
+    const handleTaskDelete = (taskId: string) => {
+        deleteTask.mutate({ id: taskId });
     };
 
     const subtaskCount = (task: Task) => (task._count?.other_tasks ?? 0);
@@ -1580,7 +1598,7 @@ export function TableView({ spaceId, projectId, teamId, listId, viewId, workspac
                         />
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                                <Button variant="outline" size="sm" className="h-7 px-2 text-xs text-zinc-700">
+                                <Button variant="outline" size="sm" className="h-7 px-2 text-xs text-zinc-700 border-zinc-200 hover:bg-zinc-100 hover:text-zinc-900 rounded-full">
                                     <Circle className="h-3.5 w-3.5 mr-1 text-zinc-500" />
                                     {(() => {
                                         const typeId = inlineAddTaskType;
@@ -1629,7 +1647,7 @@ export function TableView({ spaceId, projectId, teamId, listId, viewId, workspac
                             value={inlineAddAssigneeIds}
                             onChange={setInlineAddAssigneeIds}
                             trigger={
-                                <Button variant="outline" size="icon" className="h-7 w-7 text-zinc-600">
+                                <Button variant="outline" size="icon" className="h-7 w-7 text-zinc-600 border-zinc-200 hover:bg-zinc-100 hover:text-zinc-900 rounded-full">
                                     <Users className="h-3.5 w-3.5" />
                                 </Button>
                             }
@@ -1637,7 +1655,7 @@ export function TableView({ spaceId, projectId, teamId, listId, viewId, workspac
 
                         <Popover>
                             <PopoverTrigger asChild>
-                                <Button variant="outline" size="icon" className="h-7 w-7 text-zinc-600">
+                                <Button variant="outline" size="icon" className="h-7 w-7 text-zinc-600 border-zinc-200 hover:bg-zinc-100 hover:text-zinc-900 rounded-full">
                                     <Calendar className="h-3.5 w-3.5" />
                                 </Button>
                             </PopoverTrigger>
@@ -1653,18 +1671,34 @@ export function TableView({ spaceId, projectId, teamId, listId, viewId, workspac
 
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                                <Button variant="outline" size="icon" className="h-7 w-7 text-zinc-600">
-                                    <Flag className="h-3.5 w-3.5" />
-                                </Button>
+                                <button className={cn("h-7 w-7 flex items-center justify-center border border-transparent hover:border-zinc-200 hover:bg-zinc-100 rounded-full cursor-pointer transition-colors shrink-0 outline-none focus:ring-0",
+                                    inlineAddPriority === 'URGENT' ? "text-red-500" :
+                                        inlineAddPriority === 'HIGH' ? "text-orange-500" :
+                                            inlineAddPriority === 'NORMAL' ? "text-blue-500" :
+                                                inlineAddPriority === 'LOW' ? "text-zinc-400" :
+                                                    "text-zinc-400"
+                                )}>
+                                    <Flag className="w-3.5 h-3.5 fill-current" />
+                                </button>
                             </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="w-44">
-                                <DropdownMenuLabel className="text-xs">Task Priority</DropdownMenuLabel>
-                                <DropdownMenuItem onClick={() => setInlineAddPriority("URGENT")}>Urgent</DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => setInlineAddPriority("HIGH")}>High</DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => setInlineAddPriority("NORMAL")}>Normal</DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => setInlineAddPriority("LOW")}>Low</DropdownMenuItem>
+                            <DropdownMenuContent align="start" className="w-48 z-[200]">
+                                <DropdownMenuLabel className="text-xs">Priority</DropdownMenuLabel>
+                                <DropdownMenuItem onClick={() => setInlineAddPriority("URGENT")}>
+                                    <Flag className="h-3 w-3 mr-2 text-red-600 fill-current" /> Urgent
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => setInlineAddPriority("HIGH")}>
+                                    <Flag className="h-3 w-3 mr-2 text-orange-600 fill-current" /> High
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => setInlineAddPriority("NORMAL")}>
+                                    <Flag className="h-3 w-3 mr-2 text-blue-600 fill-current" /> Normal
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => setInlineAddPriority("LOW")}>
+                                    <Flag className="h-3 w-3 mr-2 text-slate-600 fill-current" /> Low
+                                </DropdownMenuItem>
                                 <DropdownMenuSeparator />
-                                <DropdownMenuItem onClick={() => setInlineAddPriority(null)}>Clear</DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => setInlineAddPriority(null)}>
+                                    <CircleSlash className="h-3 w-3 mr-2 text-slate-500" />Clear
+                                </DropdownMenuItem>
                             </DropdownMenuContent>
                         </DropdownMenu>
 
@@ -1672,14 +1706,14 @@ export function TableView({ spaceId, projectId, teamId, listId, viewId, workspac
                             <Button
                                 variant="ghost"
                                 size="sm"
-                                className="h-7 text-xs text-zinc-600"
+                                className="h-7 text-xs text-zinc-600 rounded-full hover:bg-zinc-100 px-3"
                                 onClick={() => handleCancelInlineAdd(true)}
                             >
                                 Cancel
                             </Button>
                             <Button
                                 size="sm"
-                                className="h-7 text-xs bg-zinc-900 hover:bg-zinc-800"
+                                className="h-7 text-xs bg-zinc-900 hover:bg-zinc-800 text-white rounded-full px-4"
                                 onClick={() => handleSaveInlineTask({ parentId, listIdForCreate, statusIdForCreate })}
                                 disabled={!inlineAddTitle.trim() || !listIdForCreate || !resolvedWorkspaceId || createTask.isPending}
                             >
@@ -1733,7 +1767,7 @@ export function TableView({ spaceId, projectId, teamId, listId, viewId, workspac
                                 isDragging && "bg-zinc-200/70"
                             )}
                         >
-                            <TableCell className="py-2 overflow-hidden" style={{ width: colWidths.name, minWidth: 200 }}>
+                            <TableCell className="w-full py-2 overflow-hidden" style={{ minWidth: Math.max(colWidths.name || 200, 200) }}>
                                 <div className={cn("flex gap-2 min-w-0", (wrapText || (showTaskLocations && (task as any).list)) ? "items-start py-1" : "items-center")}>
                                     <div className="flex items-center gap-1 shrink-0 mt-0.5 w-10 relative group/action h-6">
                                         <div className={cn(
@@ -1791,21 +1825,21 @@ export function TableView({ spaceId, projectId, teamId, listId, viewId, workspac
                                                     onChange={(e) => setRenameDraft(e.target.value)}
                                                     autoFocus
                                                     onClick={(e) => e.stopPropagation()}
-                                                    onKeyDown={async (e) => {
+                                                    onKeyDown={(e) => {
                                                         if (e.key === "Enter") {
                                                             const trimmed = renameDraft.trim();
                                                             if (trimmed) {
-                                                                await updateTask.mutateAsync({ id: task.id, title: trimmed } as any);
+                                                                updateTask.mutate({ id: task.id, title: trimmed } as any);
                                                             }
                                                             setRenamingTaskId(null);
                                                         } else if (e.key === "Escape") {
                                                             setRenamingTaskId(null);
                                                         }
                                                     }}
-                                                    onBlur={async () => {
+                                                    onBlur={() => {
                                                         const trimmed = renameDraft.trim();
                                                         if (trimmed && renamingTaskId === task.id) {
-                                                            await updateTask.mutateAsync({ id: task.id, title: trimmed } as any);
+                                                            updateTask.mutate({ id: task.id, title: trimmed } as any);
                                                         }
                                                         setRenamingTaskId(null);
                                                     }}
@@ -1917,10 +1951,22 @@ export function TableView({ spaceId, projectId, teamId, listId, viewId, workspac
                                         </DropdownMenuTrigger>
                                         <DropdownMenuContent align="start" className="w-44">
                                             <DropdownMenuLabel className="text-xs">Priority</DropdownMenuLabel>
-                                            <DropdownMenuItem onClick={() => void updateTask.mutateAsync({ id: task.id, priority: "URGENT" } as any)}>Urgent</DropdownMenuItem>
-                                            <DropdownMenuItem onClick={() => void updateTask.mutateAsync({ id: task.id, priority: "HIGH" } as any)}>High</DropdownMenuItem>
-                                            <DropdownMenuItem onClick={() => void updateTask.mutateAsync({ id: task.id, priority: "NORMAL" } as any)}>Normal</DropdownMenuItem>
-                                            <DropdownMenuItem onClick={() => void updateTask.mutateAsync({ id: task.id, priority: "LOW" } as any)}>Low</DropdownMenuItem>
+                                            <DropdownMenuItem onClick={() => void updateTask.mutateAsync({ id: task.id, priority: "URGENT" } as any)}>
+                                                <Flag className={cn("mr-2 h-3.5 w-3.5", getPriorityStyles("URGENT").icon)} />
+                                                Urgent
+                                            </DropdownMenuItem>
+                                            <DropdownMenuItem onClick={() => void updateTask.mutateAsync({ id: task.id, priority: "HIGH" } as any)}>
+                                                <Flag className={cn("mr-2 h-3.5 w-3.5", getPriorityStyles("HIGH").icon)} />
+                                                High
+                                            </DropdownMenuItem>
+                                            <DropdownMenuItem onClick={() => void updateTask.mutateAsync({ id: task.id, priority: "NORMAL" } as any)}>
+                                                <Flag className={cn("mr-2 h-3.5 w-3.5", getPriorityStyles("NORMAL").icon)} />
+                                                Normal
+                                            </DropdownMenuItem>
+                                            <DropdownMenuItem onClick={() => void updateTask.mutateAsync({ id: task.id, priority: "LOW" } as any)}>
+                                                <Flag className={cn("mr-2 h-3.5 w-3.5", getPriorityStyles("LOW").icon)} />
+                                                Low
+                                            </DropdownMenuItem>
                                             <DropdownMenuSeparator />
                                             <DropdownMenuItem onClick={() => void updateTask.mutateAsync({ id: task.id, priority: null } as any)}>Clear</DropdownMenuItem>
                                         </DropdownMenuContent>
@@ -2062,7 +2108,7 @@ export function TableView({ spaceId, projectId, teamId, listId, viewId, workspac
                                     </TableCell>
                                 );
                             })}
-                            <TableCell className="w-[50px] py-2 pr-4">
+                            <TableCell className="w-[50px] py-2 pr-4 text-right">
                                 <TaskActionsPopover
                                     task={task as any}
                                     context={spaceId ? "SPACE" : projectId ? "PROJECT" : "GENERAL"}
@@ -2079,7 +2125,7 @@ export function TableView({ spaceId, projectId, teamId, listId, viewId, workspac
                                     <button
                                         type="button"
                                         onClick={(e) => e.stopPropagation()}
-                                        className="ml-auto inline-flex h-7 w-7 items-center justify-center rounded-md text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 transition-all cursor-pointer opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
+                                        className="inline-flex h-7 w-7 items-center justify-center rounded-md text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 transition-all cursor-pointer opacity-0 group-hover/row:opacity-100 focus-visible:opacity-100"
                                     >
                                         <MoreHorizontal className="h-4 w-4" />
                                     </button>
@@ -2106,12 +2152,14 @@ export function TableView({ spaceId, projectId, teamId, listId, viewId, workspac
     };
 
     const renderGroupColumnHeaderRow = (key: string) => {
-        const headText = "text-[11px] font-medium text-zinc-500";
+        const headText = "text-xs font-medium text-zinc-500";
         return (
             <TableRow key={key} className="bg-white border-b border-zinc-100">
                 <TableHead className="w-[50px] pl-2 py-2" />
-                <TableHead className="relative py-2" style={{ width: colWidths.name, minWidth: 200 }}>
-                    <span className={headText}>Name</span>
+                <TableHead className="w-full relative py-2" style={{ minWidth: Math.max(colWidths.name || 200, 200) }}>
+                    <div className="pl-3">
+                        <span className={headText}>Name</span>
+                    </div>
                     <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-zinc-300 z-10" onMouseDown={(e) => startResize(e, "name")} onClick={(e) => e.stopPropagation()} />
                 </TableHead>
                 {visibleColumns.has("assignee") && (
@@ -2180,7 +2228,7 @@ export function TableView({ spaceId, projectId, teamId, listId, viewId, workspac
                         <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-zinc-300 z-10" onMouseDown={(e) => startResize(e, f.id)} onClick={(e) => e.stopPropagation()} />
                     </TableHead>
                 ))}
-                <TableHead className="w-[50px] pr-4 py-2">
+                <TableHead className="w-[50px] pr-4 py-2 text-right">
                     <Button variant="ghost" size="icon" className="h-7 w-7 text-zinc-400 hover:text-zinc-600" onClick={() => { setFieldsPanelOpen(true); setFiltersPanelOpen(false); setAssigneesPanelOpen(false); }} title="Add column or manage fields">
                         <Plus className="h-3.5 w-3.5" />
                     </Button>
@@ -2288,7 +2336,7 @@ export function TableView({ spaceId, projectId, teamId, listId, viewId, workspac
                                     onClick={() => openInlineAdd(entry.groupName, null)}
                                 >
                                     <Plus className="h-3.5 w-3.5 mr-1" />
-                                    <span className="hover:border-1 hover:border-cyan-500/80 hover:rounded-md p-1">Add Task</span>
+                                    <span className="hover:border-1 hover:border-zinc-300 hover:rounded-md p-1">Add Task</span>
                                 </Button>
                             </TableCell>
                         </TableRow>
@@ -3924,7 +3972,7 @@ export function TableView({ spaceId, projectId, teamId, listId, viewId, workspac
                     >
                         <Table containerClassName="pb-12" className="table-fixed w-full">
                             <colgroup>
-                                <col style={{ width: colWidths.name, minWidth: 200 }} />
+                                <col className="w-full" style={{ minWidth: Math.max(colWidths.name || 200, 200) }} />
                                 {visibleColumns.has("assignee") && <col style={{ width: colWidths.assignee, minWidth: 80 }} />}
                                 {visibleColumns.has("dueDate") && <col style={{ width: colWidths.dueDate, minWidth: 80 }} />}
                                 {visibleColumns.has("priority") && <col style={{ width: colWidths.priority, minWidth: 80 }} />}
@@ -3943,7 +3991,7 @@ export function TableView({ spaceId, projectId, teamId, listId, viewId, workspac
                             {(true) && (
                                 <TableHeader className="sticky top-0 bg-white/95 backdrop-blur z-10 border-b border-zinc-200">
                                     <TableRow className="hover:bg-transparent border-none">
-                                        <TableHead className="relative py-3 cursor-pointer" style={{ width: colWidths.name, minWidth: 200 }} onClick={() => handleSort("name")}>
+                                        <TableHead className="w-full relative py-3 cursor-pointer" style={{ minWidth: Math.max(colWidths.name || 200, 200) }} onClick={() => handleSort("name")}>
                                             <div className="flex items-center gap-6 pl-5">
                                                 <Checkbox checked={selectedTasks.length === filteredTasks.length && filteredTasks.length > 0} onCheckedChange={() => setSelectedTasks(selectedTasks.length === filteredTasks.length ? [] : filteredTasks.map(t => t.id))} className="border-zinc-300" />
                                                 <span>Name</span>
@@ -4022,7 +4070,7 @@ export function TableView({ spaceId, projectId, teamId, listId, viewId, workspac
                                                 <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-zinc-300 z-10" onMouseDown={(e) => startResize(e, f.id)} onClick={(e) => e.stopPropagation()} />
                                             </TableHead>
                                         ))}
-                                        <TableHead className="w-[50px] pr-4">
+                                        <TableHead className="w-[50px] pr-4 text-right">
                                             <Button variant="ghost" size="icon" className="h-7 w-7 text-zinc-400 hover:text-zinc-600" onClick={() => { setFieldsPanelOpen(true); setFiltersPanelOpen(false); setAssigneesPanelOpen(false); }} title="Add column or manage fields">
                                                 <Plus className="h-3.5 w-3.5" />
                                             </Button>
@@ -4058,7 +4106,7 @@ export function TableView({ spaceId, projectId, teamId, listId, viewId, workspac
                                                         {/* Inline toolbar (ClickUp-like) */}
                                                         <DropdownMenu>
                                                             <DropdownMenuTrigger asChild>
-                                                                <Button variant="outline" size="sm" className="h-7 px-2 text-xs text-zinc-700">
+                                                                <Button variant="outline" size="sm" className="h-7 px-2 text-xs text-zinc-700 border-zinc-200 hover:bg-zinc-100 hover:text-zinc-900 rounded-full">
                                                                     {(() => {
                                                                         const tt = availableTaskTypes?.find((t: any) => t.id === inlineAddTaskType || t.name === inlineAddTaskType);
                                                                         return <TaskTypeIcon type={tt} className="h-3.5 w-3.5 mr-1" />;
@@ -4097,7 +4145,7 @@ export function TableView({ spaceId, projectId, teamId, listId, viewId, workspac
                                                             value={inlineAddAssigneeIds}
                                                             onChange={setInlineAddAssigneeIds}
                                                             trigger={
-                                                                <Button variant="outline" size="icon" className="h-7 w-7 text-zinc-600">
+                                                                <Button variant="outline" size="icon" className="h-7 w-7 text-zinc-600 border-zinc-200 hover:bg-zinc-100 hover:text-zinc-900 rounded-full">
                                                                     <Users className="h-3.5 w-3.5" />
                                                                 </Button>
                                                             }
@@ -4106,7 +4154,7 @@ export function TableView({ spaceId, projectId, teamId, listId, viewId, workspac
                                                         {/* Due date picker */}
                                                         <Popover>
                                                             <PopoverTrigger asChild>
-                                                                <Button variant="outline" size="icon" className="h-7 w-7 text-zinc-600">
+                                                                <Button variant="outline" size="icon" className="h-7 w-7 text-zinc-600 border-zinc-200 hover:bg-zinc-100 hover:text-zinc-900 rounded-full">
                                                                     <Calendar className="h-3.5 w-3.5" />
                                                                 </Button>
                                                             </PopoverTrigger>
@@ -4123,16 +4171,28 @@ export function TableView({ spaceId, projectId, teamId, listId, viewId, workspac
                                                         {/* Priority picker */}
                                                         <DropdownMenu>
                                                             <DropdownMenuTrigger asChild>
-                                                                <Button variant="outline" size="icon" className="h-7 w-7 text-zinc-600">
+                                                                <Button variant="outline" size="icon" className="h-7 w-7 text-zinc-600 border-zinc-200 hover:bg-zinc-100 hover:text-zinc-900 rounded-full">
                                                                     <Flag className="h-3.5 w-3.5" />
                                                                 </Button>
                                                             </DropdownMenuTrigger>
                                                             <DropdownMenuContent align="end" className="w-44">
                                                                 <DropdownMenuLabel className="text-xs">Task Priority</DropdownMenuLabel>
-                                                                <DropdownMenuItem onClick={() => setInlineAddPriority("URGENT")}>Urgent</DropdownMenuItem>
-                                                                <DropdownMenuItem onClick={() => setInlineAddPriority("HIGH")}>High</DropdownMenuItem>
-                                                                <DropdownMenuItem onClick={() => setInlineAddPriority("NORMAL")}>Normal</DropdownMenuItem>
-                                                                <DropdownMenuItem onClick={() => setInlineAddPriority("LOW")}>Low</DropdownMenuItem>
+                                                                <DropdownMenuItem onClick={() => setInlineAddPriority("URGENT")}>
+                                                                    <Flag className={cn("mr-2 h-3.5 w-3.5", getPriorityStyles("URGENT").icon)} />
+                                                                    Urgent
+                                                                </DropdownMenuItem>
+                                                                <DropdownMenuItem onClick={() => setInlineAddPriority("HIGH")}>
+                                                                    <Flag className={cn("mr-2 h-3.5 w-3.5", getPriorityStyles("HIGH").icon)} />
+                                                                    High
+                                                                </DropdownMenuItem>
+                                                                <DropdownMenuItem onClick={() => setInlineAddPriority("NORMAL")}>
+                                                                    <Flag className={cn("mr-2 h-3.5 w-3.5", getPriorityStyles("NORMAL").icon)} />
+                                                                    Normal
+                                                                </DropdownMenuItem>
+                                                                <DropdownMenuItem onClick={() => setInlineAddPriority("LOW")}>
+                                                                    <Flag className={cn("mr-2 h-3.5 w-3.5", getPriorityStyles("LOW").icon)} />
+                                                                    Low
+                                                                </DropdownMenuItem>
                                                                 <DropdownMenuSeparator />
                                                                 <DropdownMenuItem onClick={() => setInlineAddPriority(null)}>Clear</DropdownMenuItem>
                                                             </DropdownMenuContent>
@@ -4192,7 +4252,7 @@ export function TableView({ spaceId, projectId, teamId, listId, viewId, workspac
                                                         }}
                                                     >
                                                         <Plus className="h-3.5 w-3.5 mr-1" />
-                                                        <span className="hover:border-1 hover:border-cyan-500/80 hover:rounded-md p-1">Add Task</span>
+                                                        <span className="hover:border-1 hover:border-zinc-300 hover:rounded-md p-1">Add Task</span>
                                                     </Button>
                                                 </TableCell>
                                             </TableRow>
@@ -4980,21 +5040,21 @@ export function TableView({ spaceId, projectId, teamId, listId, viewId, workspac
                                                 <>
                                                     <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider">Not started</p>
                                                     {allAvailableStatuses.filter((s: any) => ((s.name?.toLowerCase().includes("todo") || s.name?.toLowerCase().includes("not")) && (!bulkStatusSearch.trim() || (s.name || "").toLowerCase().includes(bulkStatusSearch.toLowerCase())))).map((s: any) => (
-                                                        <button key={s.id} type="button" className="w-full flex items-center gap-2 py-2 px-2 rounded hover:bg-zinc-100 text-left text-sm" onClick={async () => { for (const id of selectedTasks) { await updateTask.mutateAsync({ id, statusId: s.id }); } setBulkModal(null); }}>
+                                                        <button key={s.id} type="button" className="w-full flex items-center gap-2 py-2 px-2 rounded hover:bg-zinc-100 text-left text-sm" onClick={() => { for (const id of selectedTasks) { updateTask.mutate({ id, statusId: s.id }); } setBulkModal(null); }}>
                                                             <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: s.color || "#9CA3AF" }} />
                                                             {s.name}
                                                         </button>
                                                     ))}
                                                     <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider mt-2">Active</p>
                                                     {allAvailableStatuses.filter((s: any) => ((s.name?.toLowerCase().includes("progress") || s.name?.toLowerCase().includes("doing")) && (!bulkStatusSearch.trim() || (s.name || "").toLowerCase().includes(bulkStatusSearch.toLowerCase())))).map((s: any) => (
-                                                        <button key={s.id} type="button" className="w-full flex items-center gap-2 py-2 px-2 rounded hover:bg-zinc-100 text-left text-sm" onClick={async () => { for (const id of selectedTasks) { await updateTask.mutateAsync({ id, statusId: s.id }); } setBulkModal(null); }}>
+                                                        <button key={s.id} type="button" className="w-full flex items-center gap-2 py-2 px-2 rounded hover:bg-zinc-100 text-left text-sm" onClick={() => { for (const id of selectedTasks) { updateTask.mutate({ id, statusId: s.id }); } setBulkModal(null); }}>
                                                             <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: s.color || "#9CA3AF" }} />
                                                             {s.name}
                                                         </button>
                                                     ))}
                                                     <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider mt-2">Closed</p>
                                                     {allAvailableStatuses.filter((s: any) => ((s.name?.toLowerCase().includes("complete") || s.name?.toLowerCase().includes("done")) && (!bulkStatusSearch.trim() || (s.name || "").toLowerCase().includes(bulkStatusSearch.toLowerCase())))).map((s: any) => (
-                                                        <button key={s.id} type="button" className="w-full flex items-center gap-2 py-2 px-2 rounded hover:bg-zinc-100 text-left text-sm" onClick={async () => { for (const id of selectedTasks) { await updateTask.mutateAsync({ id, statusId: s.id }); } setBulkModal(null); }}>
+                                                        <button key={s.id} type="button" className="w-full flex items-center gap-2 py-2 px-2 rounded hover:bg-zinc-100 text-left text-sm" onClick={() => { for (const id of selectedTasks) { updateTask.mutate({ id, statusId: s.id }); } setBulkModal(null); }}>
                                                             <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: s.color || "#9CA3AF" }} />
                                                             {s.name}
                                                         </button>
@@ -5003,7 +5063,7 @@ export function TableView({ spaceId, projectId, teamId, listId, viewId, workspac
                                                         <>
                                                             <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider mt-2">Other</p>
                                                             {allAvailableStatuses.filter((s: any) => !["todo", "not", "progress", "doing", "complete", "done"].some(k => (s.name || "").toLowerCase().includes(k)) && (!bulkStatusSearch.trim() || (s.name || "").toLowerCase().includes(bulkStatusSearch.toLowerCase()))).map((s: any) => (
-                                                                <button key={s.id} type="button" className="w-full flex items-center gap-2 py-2 px-2 rounded hover:bg-zinc-100 text-left text-sm" onClick={async () => { for (const id of selectedTasks) { await updateTask.mutateAsync({ id, statusId: s.id }); } setBulkModal(null); }}>
+                                                                <button key={s.id} type="button" className="w-full flex items-center gap-2 py-2 px-2 rounded hover:bg-zinc-100 text-left text-sm" onClick={() => { for (const id of selectedTasks) { updateTask.mutate({ id, statusId: s.id }); } setBulkModal(null); }}>
                                                                     <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: s.color || "#9CA3AF" }} />
                                                                     {s.name}
                                                                 </button>
@@ -5105,7 +5165,7 @@ export function TableView({ spaceId, projectId, teamId, listId, viewId, workspac
                                     <span>Move and keep in current List</span>
                                     <Switch checked={bulkMoveKeepInList} onCheckedChange={setBulkMoveKeepInList} disabled />
                                 </label>
-                                <Button size="sm" className="w-full" onClick={async () => { for (const id of selectedTasks) { await updateTask.mutateAsync({ id, tags: bulkTags }); } setBulkModal(null); }}>Apply</Button>
+                                <Button size="sm" className="w-full" onClick={() => { for (const id of selectedTasks) { updateTask.mutate({ id, tags: bulkTags }); } setBulkModal(null); }}>Apply</Button>
                             </PopoverContent>
                         </Popover>
                         <Popover open={bulkModal === "moveAdd"} onOpenChange={(open) => setBulkModal(open ? "moveAdd" : null)}>
@@ -5126,7 +5186,7 @@ export function TableView({ spaceId, projectId, teamId, listId, viewId, workspac
                                             workspaceId={resolvedWorkspaceId as string}
                                             onSelect={async (listId) => {
                                                 for (const id of selectedTasks) {
-                                                    await updateTask.mutateAsync({ id, listId });
+                                                    updateTask.mutate({ id, listId });
                                                 }
                                                 setBulkModal(null);
                                             }}
@@ -5190,7 +5250,7 @@ export function TableView({ spaceId, projectId, teamId, listId, viewId, workspac
                                                         className="flex items-center gap-2 px-2 py-1.5 rounded-lg cursor-pointer"
                                                         onSelect={async () => {
                                                             for (const id of selectedTasks) {
-                                                                await updateTask.mutateAsync({ id, statusId: s.id });
+                                                                updateTask.mutate({ id, statusId: s.id });
                                                             }
                                                             setBulkModal(null);
                                                         }}
@@ -5264,7 +5324,7 @@ export function TableView({ spaceId, projectId, teamId, listId, viewId, workspac
                                             </div>
                                             <Button size="sm" className="h-8 text-xs font-bold" onClick={async () => {
                                                 for (const id of selectedTasks) {
-                                                    await updateTask.mutateAsync({ id, tags: bulkTags });
+                                                    updateTask.mutate({ id, tags: bulkTags });
                                                 }
                                                 setBulkModal(null);
                                             }}>Apply Tags</Button>
@@ -5314,7 +5374,7 @@ export function TableView({ spaceId, projectId, teamId, listId, viewId, workspac
                                                     workspaceId={resolvedWorkspaceId as string}
                                                     onSelect={async (listId) => {
                                                         for (const id of selectedTasks) {
-                                                            await updateTask.mutateAsync({ id, listId });
+                                                            updateTask.mutate({ id, listId });
                                                         }
                                                         setBulkModal(null);
                                                     }}
@@ -5433,7 +5493,7 @@ export function TableView({ spaceId, projectId, teamId, listId, viewId, workspac
                         const nextTags = tagEditorTags.map((t) =>
                             t === tagEditorOriginalTag ? encoded : t
                         );
-                        await updateTask.mutateAsync({ id: tagEditorTaskId, tags: nextTags } as any);
+                        updateTask.mutate({ id: tagEditorTaskId, tags: nextTags } as any);
                     }
 
                     setTagEditorOpen(open);
@@ -5496,7 +5556,7 @@ export function TableView({ spaceId, projectId, teamId, listId, viewId, workspac
                             onClick={async () => {
                                 if (!tagEditorTaskId || !tagEditorOriginalTag) return;
                                 const nextTags = tagEditorTags.filter((t) => t !== tagEditorOriginalTag);
-                                await updateTask.mutateAsync({ id: tagEditorTaskId, tags: nextTags } as any);
+                                updateTask.mutate({ id: tagEditorTaskId, tags: nextTags } as any);
                                 setTagEditorOpen(false);
                                 setTagEditorTaskId(null);
                                 setTagEditorOriginalTag(null);

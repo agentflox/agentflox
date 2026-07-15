@@ -8,6 +8,7 @@ import type { TaskListRelationMode } from "@/entities/task/hooks/useTaskList";
 export type { TaskListRelationMode };
 
 export interface UseTaskListInfiniteParams {
+  workspaceId?: string;
   spaceId?: string;
   projectId?: string;
   teamId?: string;
@@ -19,6 +20,7 @@ export interface UseTaskListInfiniteParams {
 }
 
 export function useTaskListInfinite({
+  workspaceId,
   spaceId,
   projectId,
   teamId,
@@ -29,6 +31,7 @@ export function useTaskListInfinite({
 }: UseTaskListInfiniteParams) {
   const baseInput = useMemo(
     () => ({
+      workspaceId,
       spaceId,
       projectId,
       teamId,
@@ -37,18 +40,24 @@ export function useTaskListInfinite({
       includeRelations,
       pageSize: TASK_LIST_PAGE_SIZE,
     }),
-    [spaceId, projectId, teamId, listId, scope, includeRelations]
+    [workspaceId, spaceId, projectId, teamId, listId, scope, includeRelations]
   );
 
-  const isEnabled = enabled && !!(spaceId || projectId || teamId || listId || scope);
+  const isEnabled = enabled && !!(workspaceId || spaceId || projectId || teamId || listId || scope);
 
   const [page, setPage] = useState(1);
   const [accumulatedTasks, setAccumulatedTasks] = useState<any[]>([]);
 
+  // Track the last server-data object we processed so we only merge new data,
+  // not re-run on every render with the same cached response.
+  // This prevents optimistic tasks from being wiped by a stale effect re-run.
+  const lastProcessedDataRef = useRef<any>(null);
+
   useEffect(() => {
     setPage(1);
     setAccumulatedTasks([]);
-  }, [spaceId, projectId, teamId, listId, scope, includeRelations]);
+    lastProcessedDataRef.current = null;
+  }, [workspaceId, spaceId, projectId, teamId, listId, scope, includeRelations]);
 
   const query = trpc.task.list.useQuery(
     { ...baseInput, page },
@@ -57,10 +66,41 @@ export function useTaskListInfinite({
 
   useEffect(() => {
     if (!query.data) return;
-    setAccumulatedTasks((prev) =>
-      page === 1 ? query.data.items : [...prev, ...query.data.items]
-    );
+
+    // KEY FIX: Skip if server data object hasn't changed.
+    // React Query returns the same object reference when the cache hasn't changed.
+    // Without this guard, every parent re-render triggers this effect and can wipe
+    // any optimistic tasks added via addTaskToList.
+    if (query.data === lastProcessedDataRef.current) {
+      return;
+    }
+
+    lastProcessedDataRef.current = query.data;
+
+    setAccumulatedTasks((prev) => {
+      if (page === 1) {
+        return query.data.items;
+      }
+      // Append-only deduplication for page > 1
+      const existingIds = new Set(prev.map(t => t.id));
+      const newItems = query.data.items.filter((t: any) => !existingIds.has(t.id));
+      return [...prev, ...newItems];
+    });
   }, [query.data, page]);
+
+  const updateTaskInList = useCallback((taskId: string, updater: (task: any) => any) => {
+    setAccumulatedTasks(prev =>
+      prev.map(task => (task.id === taskId ? updater(task) : task))
+    );
+  }, []);
+
+  const addTaskToList = useCallback((task: any) => {
+    setAccumulatedTasks(prev => [task, ...prev]);
+  }, []);
+
+  const removeTaskFromList = useCallback((taskId: string) => {
+    setAccumulatedTasks(prev => prev.filter(t => t.id !== taskId));
+  }, []);
 
   const total = query.data?.total ?? 0;
   const tasks = accumulatedTasks;
@@ -98,5 +138,8 @@ export function useTaskListInfinite({
     loadMoreRef,
     refetch: query.refetch,
     taskListInput: baseInput,
+    updateTaskInList,
+    addTaskToList,
+    removeTaskFromList,
   };
 }

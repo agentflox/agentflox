@@ -73,6 +73,7 @@ interface DashboardFolderViewProps {
     viewId?: string;
     selectedTaskIdFromParent?: string | null;
     onTaskSelect?: (taskId: string | null) => void;
+    context?: "workspace" | "space" | "project" | "team" | "folder" | "list";
 }
 
 const viewConfig: Partial<Record<
@@ -125,7 +126,7 @@ const viewConfig: Partial<Record<
     MEMBERS: { label: "Members", icon: LayoutDashboard, description: "Members" },
 };
 
-export default function DashboardFolderView({ folderId, spaceId, projectId, teamId, workspaceId, selectedTaskIdFromParent, onTaskSelect }: DashboardFolderViewProps) {
+export default function DashboardFolderView({ folderId, spaceId, projectId, teamId, workspaceId, selectedTaskIdFromParent, onTaskSelect, context = "folder" }: DashboardFolderViewProps) {
     const searchParams = useSearchParams();
     const router = useRouter();
     const utils = trpc.useUtils();
@@ -278,36 +279,36 @@ export default function DashboardFolderView({ folderId, spaceId, projectId, team
 
         switch (viewType) {
             case "LIST":
-                return <ListView workspaceId={effectiveWorkspaceId} folderId={folderId} spaceId={spaceId} projectId={projectId} teamId={teamId} selectedTaskIdFromParent={selectedTaskIdFromParent} onTaskSelect={onTaskSelect} />;
+                return <ListView workspaceId={effectiveWorkspaceId} folderId={folderId} spaceId={spaceId} projectId={projectId} teamId={teamId} context={context} selectedTaskIdFromParent={selectedTaskIdFromParent} onTaskSelect={onTaskSelect}  />;
             case "BOARD":
-                return <BoardView workspaceId={effectiveWorkspaceId} folderId={folderId} spaceId={spaceId} projectId={projectId} teamId={teamId} selectedTaskIdFromParent={selectedTaskIdFromParent} onTaskSelect={onTaskSelect} />;
+                return <BoardView workspaceId={effectiveWorkspaceId} folderId={folderId} spaceId={spaceId} projectId={projectId} teamId={teamId} context={context} selectedTaskIdFromParent={selectedTaskIdFromParent} onTaskSelect={onTaskSelect}  />;
             case "TABLE":
-                return <TableView workspaceId={effectiveWorkspaceId} folderId={folderId} spaceId={spaceId} viewId={view.id} initialConfig={view.config} />;
+                return <TableView context={context} workspaceId={effectiveWorkspaceId} folderId={folderId} spaceId={spaceId} viewId={view.id} initialConfig={view.config}  />;
             case "CALENDAR":
-                return <CalendarView workspaceId={effectiveWorkspaceId} folderId={folderId} spaceId={spaceId} />;
+                return <CalendarView context={context} workspaceId={effectiveWorkspaceId} folderId={folderId} spaceId={spaceId}  />;
             case "GANTT":
-                return <GanttView workspaceId={effectiveWorkspaceId} folderId={folderId} spaceId={spaceId} />;
+                return <GanttView context={context} workspaceId={effectiveWorkspaceId} folderId={folderId} spaceId={spaceId}  />;
             case "TIMELINE":
-                return <TimelineView workspaceId={effectiveWorkspaceId} folderId={folderId} spaceId={spaceId} viewId={view.id} initialConfig={view.config} />;
+                return <TimelineView context={context} workspaceId={effectiveWorkspaceId} folderId={folderId} spaceId={spaceId} viewId={view.id} initialConfig={view.config}  />;
             case "FORM":
-                return <FormView workspaceId={effectiveWorkspaceId} folderId={folderId} spaceId={spaceId} viewId={view.id} initialConfig={view.config} />;
+                return <FormView context={context} workspaceId={effectiveWorkspaceId} folderId={folderId} spaceId={spaceId} viewId={view.id} initialConfig={view.config}  />;
             case "PEOPLE":
-                return <PeopleView workspaceId={effectiveWorkspaceId} folderId={folderId} spaceId={spaceId} viewId={view.id} initialConfig={view.config as any} selectedTaskIdFromParent={selectedTaskIdFromParent} onTaskSelect={onTaskSelect} />;
+                return <PeopleView context={context} workspaceId={effectiveWorkspaceId} folderId={folderId} spaceId={spaceId} viewId={view.id} initialConfig={view.config as any} selectedTaskIdFromParent={selectedTaskIdFromParent} onTaskSelect={onTaskSelect}  />;
             case "ACTIVITY":
-                return <ActivityView workspaceId={effectiveWorkspaceId} folderId={folderId} spaceId={spaceId} viewId={view.id} initialConfig={view.config as any} selectedTaskIdFromParent={selectedTaskIdFromParent} onTaskSelect={onTaskSelect} />;
+                return <ActivityView context={context} workspaceId={effectiveWorkspaceId} folderId={folderId} spaceId={spaceId} viewId={view.id} initialConfig={view.config as any} selectedTaskIdFromParent={selectedTaskIdFromParent} onTaskSelect={onTaskSelect}  />;
             case "MIND_MAP":
-                return <MindMapView workspaceId={effectiveWorkspaceId} folderId={folderId} spaceId={spaceId} viewId={view.id} initialConfig={view.config} />;
+                return <MindMapView context={context} workspaceId={effectiveWorkspaceId} folderId={folderId} spaceId={spaceId} viewId={view.id} initialConfig={view.config}  />;
             case "WORKLOAD":
-                return <WorkloadView workspaceId={effectiveWorkspaceId} folderId={folderId} spaceId={spaceId} viewId={view.id} initialConfig={view.config} />;
+                return <WorkloadView context={context} workspaceId={effectiveWorkspaceId} folderId={folderId} spaceId={spaceId} viewId={view.id} initialConfig={view.config}  />;
             case "WHITEBOARD":
                 return <WhiteboardView folderId={folderId} spaceId={spaceId} viewId={view.id} initialConfig={view.config} />;
             case "MAP":
-                return <MapView workspaceId={effectiveWorkspaceId} folderId={folderId} spaceId={spaceId} viewId={view.id} initialConfig={view.config} />;
+                return <MapView context={context} workspaceId={effectiveWorkspaceId} folderId={folderId} spaceId={spaceId} viewId={view.id} initialConfig={view.config}  />;
             case "DASHBOARD":
-                return <GenericDashboardView folderId={folderId} spaceId={spaceId} viewId={view.id} initialConfig={view.config} />;
+                return <GenericDashboardView context={context} workspaceId={effectiveWorkspaceId} folderId={folderId} spaceId={spaceId} viewId={view.id} initialConfig={view.config}  />;
             case "DOC":
                 return (
-                    <DocView
+                    <DocView context={context} workspaceId={effectiveWorkspaceId}
                         folderId={folderId}
                         spaceId={spaceId}
                         projectId={projectId}
@@ -316,7 +317,7 @@ export default function DashboardFolderView({ folderId, spaceId, projectId, team
                         initialConfig={view.config as any}
                         selectedTaskIdFromParent={selectedTaskIdFromParent}
                         onTaskSelect={onTaskSelect}
-                    />
+                     />
                 );
             case "EMBED":
             case "SPREADSHEET":
@@ -329,9 +330,9 @@ export default function DashboardFolderView({ folderId, spaceId, projectId, team
             case "GOOGLE_SLIDES":
             case "GOOGLE_FORMS":
             case "GOOGLE_DRIVE":
-                return <EmbedView
+                return <EmbedView context={context} workspaceId={effectiveWorkspaceId}
                     url={(view as any).config?.url}
-                    onUrlSave={(url) => {
+                    onUrlSave={(url) = /> {
                         updateViewMutation.mutate({
                             id: view.id,
                             config: { ...(view as any).config, url } as any

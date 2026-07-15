@@ -205,6 +205,15 @@ export const folderRouter = router({
                     spaceId: true,
                     projectId: true,
                     teamId: true,
+                    space: {
+                        select: { id: true, name: true },
+                    },
+                    project: {
+                        select: { id: true, name: true },
+                    },
+                    team: {
+                        select: { id: true, name: true },
+                    },
                     views: {
                         select: viewSelect,
                         orderBy: { position: "asc" },
@@ -225,6 +234,7 @@ export const folderRouter = router({
                     icon: z.string().optional().nullable(),
                     position: z.number().int().optional(),
                     parentFolderId: z.string().optional(),
+                    visibility: z.enum(['PRIVATE', 'ADMINS', 'MEMBERS', 'EVERYONE', 'PUBLIC']).optional(),
                 })
                 .refine(
                     (data) =>
@@ -266,6 +276,7 @@ export const folderRouter = router({
                         color: input.color ?? undefined,
                         icon: input.icon ?? undefined,
                         position,
+                        visibility: (input.visibility as any) ?? 'ADMINS',
                         workspaceId: resolvedWorkspaceId ?? undefined,
                         spaceId: input.spaceId ?? undefined,
                         projectId: input.projectId ?? undefined,

@@ -97,6 +97,8 @@ interface TimelineViewProps {
     selectedTaskIdFromParent?: string | null;
     onTaskSelect?: (taskId: string | null) => void;
     refetchViewData?: () => void;
+
+    context?: "workspace" | "space" | "project" | "team" | "folder" | "list";
 }
 
 export interface Task {
