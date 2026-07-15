@@ -332,7 +332,7 @@ export default function DashboardFolderView({ folderId, spaceId, projectId, team
             case "GOOGLE_DRIVE":
                 return <EmbedView context={context} workspaceId={effectiveWorkspaceId}
                     url={(view as any).config?.url}
-                    onUrlSave={(url) = /> {
+                    onUrlSave={(url) => {
                         updateViewMutation.mutate({
                             id: view.id,
                             config: { ...(view as any).config, url } as any
