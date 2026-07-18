@@ -10,6 +10,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { parseEncodedTag } from "../utils/tags";
 
 interface TagsPopoverProps {
@@ -48,17 +49,27 @@ export function TagsPopover({
 
     return (
         <Popover>
-            <PopoverTrigger asChild>
-                {trigger ?? (
-                    <button
-                        type="button"
-                        className="p-0.5 rounded hover:bg-zinc-200/80 text-zinc-400 hover:text-zinc-700"
-                        title="Edit tags"
-                    >
-                        <Tag className="h-3.5 w-3.5" />
-                    </button>
-                )}
-            </PopoverTrigger>
+            {trigger ? (
+                <PopoverTrigger asChild>
+                    {trigger}
+                </PopoverTrigger>
+            ) : (
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                        <PopoverTrigger asChild>
+                            <button
+                                type="button"
+                                className="p-0.5 rounded hover:bg-zinc-200/80 text-zinc-400 hover:text-zinc-700 cursor-pointer"
+                            >
+                                <Tag className="h-3.5 w-3.5" />
+                            </button>
+                        </PopoverTrigger>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" sideOffset={4} className="bg-zinc-900 text-white font-medium text-xs px-2.5 py-1.5 border-0 rounded-md">
+                        Edit tags
+                    </TooltipContent>
+                </Tooltip>
+            )}
             <PopoverContent className="w-64 p-3" align="start">
                 <div className="space-y-2">
                     <div className="flex flex-wrap gap-1">
@@ -66,23 +77,24 @@ export function TagsPopover({
                             const parsed = parseEncodedTag(tag);
                             const bg = parsed.color ?? "#ede9fe";
                             return (
-                            <Badge
-                                key={`${tag}-${index}`}
-                                variant="secondary"
-                                style={{ backgroundColor: bg }}
-                                className="text-zinc-600 border-zinc-200 text-[10px] h-5 px-1.5 gap-1"
-                            >
-                                {parsed.label}
-                                <button
-                                    type="button"
-                                    onClick={() => removeTag(index)}
-                                    className="hover:text-red-600 rounded-full p-0.5"
-                                    aria-label="Remove tag"
+                                <Badge
+                                    key={`${tag}-${index}`}
+                                    variant="secondary"
+                                    style={{ backgroundColor: bg }}
+                                    className="text-zinc-600 border-zinc-200 text-[10px] h-5 px-1.5 gap-1"
                                 >
-                                    <X className="h-3 w-3" />
-                                </button>
-                            </Badge>
-                        );})}
+                                    {parsed.label}
+                                    <button
+                                        type="button"
+                                        onClick={() => removeTag(index)}
+                                        className="hover:text-red-600 rounded-full p-0.5"
+                                        aria-label="Remove tag"
+                                    >
+                                        <X className="h-3 w-3" />
+                                    </button>
+                                </Badge>
+                            );
+                        })}
                     </div>
                     <div className="flex gap-2">
                         <Input

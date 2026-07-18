@@ -48,6 +48,7 @@ import {
 } from "@/components/ui/dialog";
 import { SaveTemplateModal } from "@/features/dashboard/components/modals/SaveTemplateModal";
 import { Input } from "@/components/ui/input";
+import { SpaceOverviewTab } from "@/features/dashboard/views/space/SpaceOverviewTab";
 import {
     FileText,
     Pin,
@@ -316,34 +317,36 @@ export default function DashboardSpaceView({ listId, spaceId, projectId, teamId,
             case "TASKS":
                 return (
                     <ListView
-                        workspaceId={effectiveWorkspaceId}
+                        workspaceId={workspaceId}
                         projectId={projectId}
                         spaceId={spaceId}
                         teamId={teamId}
                         viewId={view.id}
-                        context={context}
+                        context={context as any}
                         initialConfig={view.config as any}
                         selectedTaskIdFromParent={selectedTaskIdFromParent}
                         onTaskSelect={onTaskSelect}
-                     />
+                    />
                 );
             case "BOARD":
                 return (
                     <BoardView
-                        workspaceId={effectiveWorkspaceId}
+                        workspaceId={workspaceId}
                         projectId={projectId}
                         spaceId={spaceId}
                         teamId={teamId}
                         viewId={view.id}
-                        context={context}
+                        context={context as any}
                         initialConfig={view.config as any}
                         selectedTaskIdFromParent={selectedTaskIdFromParent}
                         onTaskSelect={onTaskSelect}
-                     />
+                    />
                 );
             case "TABLE":
                 return (
-                    <TableView context={context} workspaceId={workspaceId}
+                    <TableView
+                        context={context as any}
+                        workspaceId={workspaceId}
                         listId={listId || undefined}
                         spaceId={spaceId}
                         projectId={projectId}
@@ -352,11 +355,13 @@ export default function DashboardSpaceView({ listId, spaceId, projectId, teamId,
                         initialConfig={view.config as any}
                         selectedTaskIdFromParent={selectedTaskIdFromParent}
                         onTaskSelect={onTaskSelect}
-                     />
+                    />
                 );
             case "CALENDAR":
                 return (
-                    <CalendarView context={context} workspaceId={workspaceId}
+                    <CalendarView
+                        context={context as any}
+                        workspaceId={workspaceId}
                         listId={listId || undefined}
                         spaceId={spaceId}
                         projectId={projectId}
@@ -365,11 +370,13 @@ export default function DashboardSpaceView({ listId, spaceId, projectId, teamId,
                         initialConfig={view.config as any}
                         selectedTaskIdFromParent={selectedTaskIdFromParent}
                         onTaskSelect={onTaskSelect}
-                     />
+                    />
                 );
             case "GANTT":
                 return (
-                    <GanttView context={context} workspaceId={workspaceId}
+                    <GanttView
+                        context={context as any}
+                        workspaceId={workspaceId}
                         listId={listId || undefined}
                         spaceId={spaceId}
                         projectId={projectId}
@@ -378,11 +385,13 @@ export default function DashboardSpaceView({ listId, spaceId, projectId, teamId,
                         initialConfig={view.config as any}
                         selectedTaskIdFromParent={selectedTaskIdFromParent}
                         onTaskSelect={onTaskSelect}
-                     />
+                    />
                 );
             case "TIMELINE":
                 return (
-                    <TimelineView context={context} workspaceId={workspaceId}
+                    <TimelineView
+                        context={context as any}
+                        workspaceId={workspaceId}
                         listId={listId || undefined}
                         spaceId={spaceId}
                         projectId={projectId}
@@ -391,11 +400,12 @@ export default function DashboardSpaceView({ listId, spaceId, projectId, teamId,
                         initialConfig={view.config as any}
                         selectedTaskIdFromParent={selectedTaskIdFromParent}
                         onTaskSelect={onTaskSelect}
-                     />
+                    />
                 );
             case "FORM":
                 return (
-                    <FormView context={context}
+                    <FormView
+                        context={context as any}
                         workspaceId={workspaceId}
                         listId={listId || undefined}
                         spaceId={spaceId}
@@ -405,11 +415,12 @@ export default function DashboardSpaceView({ listId, spaceId, projectId, teamId,
                         initialConfig={view.config as any}
                         selectedTaskIdFromParent={selectedTaskIdFromParent}
                         onTaskSelect={onTaskSelect}
-                     />
+                    />
                 );
             case "PEOPLE":
                 return (
-                    <PeopleView context={context}
+                    <PeopleView
+                        context={context as any}
                         workspaceId={workspaceId}
                         listId={listId || undefined}
                         spaceId={spaceId}
@@ -419,24 +430,12 @@ export default function DashboardSpaceView({ listId, spaceId, projectId, teamId,
                         initialConfig={view.config as any}
                         selectedTaskIdFromParent={selectedTaskIdFromParent}
                         onTaskSelect={onTaskSelect}
-                     />
+                    />
                 );
             case "ACTIVITY":
                 return (
-                    <ActivityView context={context} workspaceId={workspaceId}
-                        listId={listId || undefined}
-                        spaceId={spaceId}
-                        projectId={projectId}
-                        teamId={teamId}
-                        viewId={view.id}
-                        initialConfig={view.config as any}
-                        selectedTaskIdFromParent={selectedTaskIdFromParent}
-                        onTaskSelect={onTaskSelect}
-                     />
-                );
-            case "MIND_MAP":
-                return (
-                    <MindMapView context={context}
+                    <ActivityView
+                        context={context as any}
                         workspaceId={workspaceId}
                         listId={listId || undefined}
                         spaceId={spaceId}
@@ -446,11 +445,13 @@ export default function DashboardSpaceView({ listId, spaceId, projectId, teamId,
                         initialConfig={view.config as any}
                         selectedTaskIdFromParent={selectedTaskIdFromParent}
                         onTaskSelect={onTaskSelect}
-                     />
+                    />
                 );
-            case "WORKLOAD":
+            case "MIND_MAP":
                 return (
-                    <WorkloadView context={context} workspaceId={workspaceId}
+                    <MindMapView
+                        context={context as any}
+                        workspaceId={workspaceId}
                         listId={listId || undefined}
                         spaceId={spaceId}
                         projectId={projectId}
@@ -459,7 +460,22 @@ export default function DashboardSpaceView({ listId, spaceId, projectId, teamId,
                         initialConfig={view.config as any}
                         selectedTaskIdFromParent={selectedTaskIdFromParent}
                         onTaskSelect={onTaskSelect}
-                     />
+                    />
+                );
+            case "WORKLOAD":
+                return (
+                    <WorkloadView
+                        context={context as any}
+                        workspaceId={workspaceId}
+                        listId={listId || undefined}
+                        spaceId={spaceId}
+                        projectId={projectId}
+                        teamId={teamId}
+                        viewId={view.id}
+                        initialConfig={view.config as any}
+                        selectedTaskIdFromParent={selectedTaskIdFromParent}
+                        onTaskSelect={onTaskSelect}
+                    />
                 );
             case "WHITEBOARD":
                 return (
@@ -476,7 +492,9 @@ export default function DashboardSpaceView({ listId, spaceId, projectId, teamId,
                 );
             case "MAP":
                 return (
-                    <MapView context={context} workspaceId={workspaceId}
+                    <MapView
+                        context={context as any}
+                        workspaceId={workspaceId}
                         listId={listId || undefined}
                         spaceId={spaceId}
                         projectId={projectId}
@@ -485,11 +503,13 @@ export default function DashboardSpaceView({ listId, spaceId, projectId, teamId,
                         initialConfig={view.config as any}
                         selectedTaskIdFromParent={selectedTaskIdFromParent}
                         onTaskSelect={onTaskSelect}
-                     />
+                    />
                 );
             case "DASHBOARD":
                 return (
-                    <GenericDashboardView context={context} workspaceId={workspaceId}
+                    <GenericDashboardView
+                        context={context as any}
+                        workspaceId={workspaceId}
                         listId={listId || undefined}
                         spaceId={spaceId}
                         projectId={projectId}
@@ -498,11 +518,13 @@ export default function DashboardSpaceView({ listId, spaceId, projectId, teamId,
                         initialConfig={view.config as any}
                         selectedTaskIdFromParent={selectedTaskIdFromParent}
                         onTaskSelect={onTaskSelect}
-                     />
+                    />
                 );
             case "DOC":
                 return (
-                    <DocView context={context} workspaceId={workspaceId}
+                    <DocView
+                        context={context as any}
+                        workspaceId={workspaceId}
                         listId={listId || undefined}
                         spaceId={spaceId}
                         projectId={projectId}
@@ -511,7 +533,7 @@ export default function DashboardSpaceView({ listId, spaceId, projectId, teamId,
                         initialConfig={view.config as any}
                         selectedTaskIdFromParent={selectedTaskIdFromParent}
                         onTaskSelect={onTaskSelect}
-                     />
+                    />
                 );
             case "EMBED":
             case "SPREADSHEET":
@@ -525,14 +547,20 @@ export default function DashboardSpaceView({ listId, spaceId, projectId, teamId,
             case "GOOGLE_FORMS":
             case "GOOGLE_DRIVE":
                 return (
-                    <EmbedView context={context} workspaceId={workspaceId}
+                    <EmbedView
+                        context={context as any}
+                        workspaceId={workspaceId}
                         listId={listId || undefined}
                         spaceId={spaceId}
                         projectId={projectId}
                         teamId={teamId}
                         viewId={view.id}
                         initialConfig={view.config as any}
-                     />
+                    />
+                );
+            case "OVERVIEW":
+                return (
+                    <SpaceOverviewTab space={spaceData} />
                 );
             default: {
                 const Icon = viewConfig[viewType]?.icon || LayoutDashboard;

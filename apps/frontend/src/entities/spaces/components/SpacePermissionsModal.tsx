@@ -420,7 +420,7 @@ export function SpacePermissionsModal({ workspaceId, spaceId, open, onOpenChange
                                                     </div>
                                                     <Button
                                                         variant="outline"
-                                                        className="h-7 w-20 px-3 text-xs font-medium text-slate-600 hover:text-slate-900"
+                                                        className="h-7 w-20 px-3 text-xs font-medium text-slate-600 hover:text-slate-900 border-zinc-200 rounded-sm hover:bg-zinc-100"
                                                         onClick={() => {
                                                             if (!spaceId) return;
                                                             const url = `${window.location.origin}/dashboard/${spaceId}`;

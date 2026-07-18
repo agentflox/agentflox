@@ -470,3 +470,15 @@
 .tiptap .selection {
   background-color: var(--purple-light);
 }
+
+/* --- Placeholder --- */
+.tiptap p.is-editor-empty:first-child::before,
+.tiptap .is-empty::before {
+  color: #a1a1aa;
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+  font-style: normal;
+  font-size: 15px;
+}

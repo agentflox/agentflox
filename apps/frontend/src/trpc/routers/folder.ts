@@ -450,4 +450,113 @@ export const folderRouter = router({
 
             return updatedFolder;
         }),
+
+    delete: protectedProcedure
+        .input(z.object({ id: z.string() }))
+        .mutation(async ({ ctx, input }) => {
+            const userId = ctx.session!.user!.id;
+
+            // Verify user has access to this folder
+            const folder = await prisma.folder.findFirst({
+                where: {
+                    id: input.id,
+                    workspace: {
+                        OR: [
+                            { ownerId: userId },
+                            { members: { some: { userId } } },
+                        ],
+                    },
+                },
+                select: { id: true },
+            });
+
+            if (!folder) {
+                throw new Error("Folder not found or permission denied");
+            }
+
+            await prisma.folder.delete({
+                where: { id: input.id },
+            });
+
+            return { success: true };
+        }),
+
+    duplicate: protectedProcedure
+        .input(z.object({
+            id: z.string(),
+            name: z.string().optional(),
+        }))
+        .mutation(async ({ ctx, input }) => {
+            const userId = ctx.session!.user!.id;
+
+            const sourceFolder = await prisma.folder.findFirst({
+                where: {
+                    id: input.id,
+                    workspace: {
+                        OR: [
+                            { ownerId: userId },
+                            { members: { some: { userId } } },
+                        ],
+                    },
+                },
+                include: {
+                    views: true,
+                }
+            });
+
+            if (!sourceFolder) {
+                throw new Error("Folder not found or permission denied");
+            }
+
+            const newFolder = await prisma.$transaction(async (tx) => {
+                const createdFolder = await tx.folder.create({
+                    data: {
+                        workspaceId: sourceFolder.workspaceId,
+                        spaceId: sourceFolder.spaceId,
+                        projectId: sourceFolder.projectId,
+                        teamId: sourceFolder.teamId,
+                        parentId: sourceFolder.parentId,
+                        ownerId: userId,
+                        name: input.name ?? `${sourceFolder.name} (Copy)`,
+                        description: sourceFolder.description,
+                        color: sourceFolder.color,
+                        icon: sourceFolder.icon,
+                        position: sourceFolder.position + 1,
+                        isArchived: false,
+                    }
+                });
+
+                if (sourceFolder.views.length > 0) {
+                    await Promise.all(
+                        sourceFolder.views.map(view =>
+                            tx.view.create({
+                                data: {
+                                    folderId: createdFolder.id,
+                                    name: view.name,
+                                    type: view.type,
+                                    description: view.description,
+                                    config: view.config ?? undefined,
+                                    filters: view.filters ?? undefined,
+                                    grouping: view.grouping ?? undefined,
+                                    sorting: view.sorting ?? undefined,
+                                    columns: view.columns ?? undefined,
+                                    position: view.position,
+                                    isDefault: view.isDefault,
+                                    isShared: view.isShared,
+                                    isPrivate: view.isPrivate,
+                                    isPinned: view.isPinned,
+                                    isLocked: view.isLocked,
+                                    isAutosave: view.isAutosave,
+                                    ownerId: userId,
+                                }
+                            })
+                        )
+                    );
+                }
+
+                return createdFolder;
+            });
+
+            return newFolder;
+        }),
 });

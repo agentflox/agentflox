@@ -537,8 +537,9 @@ export const listRouter = router({
 
         // Create default views for the list (List and Board)
         const defaultViews = [
-          { name: "List", type: "LIST" as const, position: 0 },
-          { name: "Board", type: "BOARD" as const, position: 1 },
+          { name: "Overview", type: "OVERVIEW" as const, position: 0 },
+          { name: "List", type: "LIST" as const, position: 1 },
+          { name: "Board", type: "BOARD" as const, position: 2 },
         ];
 
         await Promise.all(

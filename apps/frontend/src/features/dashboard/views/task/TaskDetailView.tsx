@@ -1521,7 +1521,7 @@ export function TaskDetailView({
                                                         <RelatedPanelContent
                                                             taskId={task.id}
                                                             workspaceId={task.workspaceId}
-                                                            items={(task as any).dependencies ?? []}
+                                                            task={task}
                                                             customTypes={customRelationshipTypes}
                                                         />
                                                     </div>

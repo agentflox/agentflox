@@ -720,7 +720,7 @@ export const taskRouter = router({
       description: z.string().optional().nullable(),
       status: z.string().optional(),
       statusId: z.string().optional().nullable(),
-      priority: z.enum(["URGENT", "HIGH", "NORMAL", "LOW"]).optional(),
+      priority: z.enum(["URGENT", "HIGH", "NORMAL", "LOW"]).optional().nullable(),
       dueDate: z.string().optional().nullable(),
       startDate: z.string().optional().nullable(),
       noStartTime: z.boolean().optional(),
@@ -738,6 +738,7 @@ export const taskRouter = router({
       visibility: z.enum(["PRIVATE", "ADMINS", "MEMBERS", "EVERYONE", "PUBLIC"]).optional(),
       isPublic: z.boolean().optional(),
       isStarred: z.boolean().optional(),
+      isArchived: z.boolean().optional(),
       position: z.string().optional(),
       order: z.string().optional(),
       taskType: z.enum(["TASK", "MILESTONE", "FORM_RESPONSE", "MEETING_NOTE"]).optional(), // Deprecated
@@ -756,9 +757,9 @@ export const taskRouter = router({
       const data: any = {};
       if (updateData.title !== undefined) data.title = updateData.title;
       if (updateData.description !== undefined) data.description = updateData.description ?? undefined;
-      if (updateData.status !== undefined) data.statusId = updateData.status?.startsWith('system:') ? undefined : updateData.status;
+      if (updateData.status !== undefined) data.statusId = updateData.status?.startsWith('system:') ? null : updateData.status;
       // statusId takes precedence; also strip system: IDs
-      if (updateData.statusId !== undefined) data.statusId = updateData.statusId?.startsWith('system:') ? undefined : (updateData.statusId ?? undefined);
+      if (updateData.statusId !== undefined) data.statusId = updateData.statusId?.startsWith('system:') ? null : (updateData.statusId ?? null);
       if (updateData.priority !== undefined) data.priority = updateData.priority;
       if (updateData.dueDate !== undefined) data.dueDate = updateData.dueDate ? new Date(updateData.dueDate) : null;
       if (updateData.startDate !== undefined) data.startDate = updateData.startDate ? new Date(updateData.startDate) : null;
@@ -775,6 +776,7 @@ export const taskRouter = router({
       if (updateData.teamId !== undefined) data.teamId = updateData.teamId ?? undefined;
       if (updateData.visibility !== undefined) data.visibility = updateData.visibility;
       if (updateData.isPublic !== undefined) data.isPublic = updateData.isPublic;
+      if (updateData.isArchived !== undefined) data.isArchived = updateData.isArchived;
       if (input.position !== undefined) data.position = input.position;
       if (input.order !== undefined) data.order = input.order;
 
@@ -1065,6 +1067,40 @@ export const taskRouter = router({
       });
       await recordTaskActivity(prisma as Tx, { taskId: input.taskId, userId, action: "UPDATED", field: "dependencies", oldValue: { dependsOnId: input.dependsOnId } });
       return result;
+    }),
+
+  listLinkedDocs: protectedProcedure
+    .input(z.object({ taskId: z.string() }))
+    .query(async ({ input }) => {
+      const links = await prisma.documentRelationship.findMany({
+        where: { targetType: "TASK", targetId: input.taskId },
+        include: { document: true }
+      });
+      return links.map(l => l.document);
+    }),
+
+  linkDoc: protectedProcedure
+    .input(z.object({ taskId: z.string(), documentId: z.string() }))
+    .mutation(async ({ input }) => {
+      return prisma.documentRelationship.create({
+        data: {
+          documentId: input.documentId,
+          targetType: "TASK",
+          targetId: input.taskId
+        }
+      });
+    }),
+
+  unlinkDoc: protectedProcedure
+    .input(z.object({ taskId: z.string(), documentId: z.string() }))
+    .mutation(async ({ input }) => {
+      return prisma.documentRelationship.deleteMany({
+        where: {
+          documentId: input.documentId,
+          targetType: "TASK",
+          targetId: input.taskId
+        }
+      });
     }),
 
   comment: router({

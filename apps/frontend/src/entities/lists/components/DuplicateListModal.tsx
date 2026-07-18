@@ -78,36 +78,38 @@ export function DuplicateListModal({
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-lg overflow-hidden flex flex-col">
+            <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-hidden flex flex-col p-6">
                 <DialogHeader>
-                    <DialogTitle>Duplicate List</DialogTitle>
-                    <DialogDescription>Create a copy of this list. Views and statuses will be copied.</DialogDescription>
+                    <DialogTitle className="text-md font-semibold text-zinc-900">Duplicate List</DialogTitle>
+                    <DialogDescription className="sr-only">Create a copy of this list. Views and statuses will be copied.</DialogDescription>
                 </DialogHeader>
 
-                <div className="space-y-6 py-4">
-                    {/* New List Name */}
-                    <div className="space-y-2">
-                        <Label>New List name</Label>
-                        <div className="flex items-center gap-2">
-                            {/* IconColorSelector not effective here as duplicate mutation doesn't take icon/color yet. 
-                                 We'll just show the input for name to keep it simple and working. 
-                             */}
-                            <div className="flex items-center justify-center h-10 w-10 rounded-lg shrink-0" style={{ backgroundColor: color }}>
-                                <ListIcon className="h-5 w-5 text-white" />
+                <div className="flex-1 overflow-y-scroll px-4 -mx-4">
+                    <div className="space-y-5 py-1">
+                        {/* New List Name */}
+                        <div className="space-y-2">
+                            <Label className="!text-xs text-zinc-800">New List name</Label>
+                            <div className="flex items-center gap-2">
+                                {/* IconColorSelector not effective here as duplicate mutation doesn't take icon/color yet. 
+                                     We'll just show the input for name to keep it simple and working. 
+                                 */}
+                                <div className="flex items-center justify-center h-10 w-10 rounded-lg shrink-0" style={{ backgroundColor: color }}>
+                                    <ListIcon className="h-5 w-5 text-white" />
+                                </div>
+                                <Input
+                                    value={newName}
+                                    onChange={(e) => setNewName(e.target.value)}
+                                    maxLength={50}
+                                    placeholder="List name"
+                                    className="flex-1 h-9 text-sm rounded-md border border-zinc-200 focus-visible:border-indigo-500 focus-visible:ring-1 focus-visible:ring-indigo-500 focus-visible:ring-offset-0"
+                                />
                             </div>
-                            <Input
-                                value={newName}
-                                onChange={(e) => setNewName(e.target.value)}
-                                maxLength={50}
-                                placeholder="List name"
-                                className="flex-1"
-                            />
                         </div>
                     </div>
                 </div>
 
-                <DialogFooter>
-                    <Button variant="outline" onClick={() => onOpenChange(false)} disabled={duplicateMutation.isPending}>
+                <DialogFooter className="pt-2">
+                    <Button variant="outline" className="border-slate-200 bg-white text-slate-700 shadow-sm transition-all duration-150 hover:border-slate-300 hover:bg-slate-50 hover:shadow-md focus-visible:ring-2 focus-visible:ring-slate-300 focus-visible:ring-offset-2 disabled:opacity-50" onClick={() => onOpenChange(false)} disabled={duplicateMutation.isPending}>
                         Cancel
                     </Button>
                     <Button onClick={handleDuplicate} disabled={duplicateMutation.isPending || !newName.trim()}>

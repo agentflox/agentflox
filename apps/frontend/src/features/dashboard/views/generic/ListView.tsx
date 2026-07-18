@@ -825,7 +825,10 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
                     if (statusObj) updated.status = statusObj;
                 }
                 if ((variables as any).assigneeIds !== undefined) {
-                    updated.assignees = ((variables as any).assigneeIds as string[]).map((id: string) => ({ user: userById.get(id) }));
+                    updated.assignees = ((variables as any).assigneeIds as string[]).map((id: string) => {
+                        const cleanId = id.startsWith('user:') ? id.replace('user:', '') : id;
+                        return { user: userById.get(cleanId) };
+                    });
                 }
                 if ((variables as any).listId !== undefined) {
                     const listObj = lists.find(l => l.id === (variables as any).listId);
@@ -840,7 +843,20 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
     });
     const deleteTask = trpc.task.delete.useMutation({
         onMutate: async (variables) => {
+            // Optimistically remove the task from the list
+            const previousTasks = tasks;
             removeTaskFromList(variables.id);
+            return { previousTasks };
+        },
+        onSuccess: () => {
+            toast.success("Task deleted");
+        },
+        onError: (_err, _variables, context) => {
+            // Rollback: re-add the task if deletion failed
+            if (context?.previousTasks) {
+                void utils.task.list.invalidate(taskListInput);
+            }
+            toast.error("Failed to delete task");
         },
         onSettled: () => {
             void utils.task.list.invalidate(taskListInput);
@@ -862,6 +878,8 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
                 tags: [],
                 customFieldValues: [],
                 createdAt: new Date().toISOString(),
+                position: "zzzzzzzz",
+                order: "zzzzzzzz",
             };
             addTaskToList(optimisticTask);
         },
@@ -1704,7 +1722,7 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
                         />
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                                <Button variant="outline" size="sm" className="h-7 px-2 text-xs text-zinc-700 border-zinc-200 hover:bg-zinc-100 hover:text-zinc-900 rounded-full">
+                                <Button variant="outline" size="sm" className="h-7 px-2 text-xs text-zinc-700 border-zinc-200 hover:bg-zinc-100 hover:text-zinc-900 rounded-md">
                                     <Circle className="h-3.5 w-3.5 mr-1 text-zinc-500" />
                                     {(() => {
                                         const typeId = inlineAddTaskType;
@@ -1753,7 +1771,7 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
                             value={inlineAddAssigneeIds}
                             onChange={setInlineAddAssigneeIds}
                             trigger={
-                                <Button variant="outline" size="icon" className="h-7 w-7 text-zinc-600 border-zinc-200 hover:bg-zinc-100 hover:text-zinc-900 rounded-full">
+                                <Button variant="outline" size="icon" className="h-7 w-7 text-zinc-600 border-zinc-200 hover:bg-zinc-100 hover:text-zinc-900 rounded-md">
                                     <Users className="h-3.5 w-3.5" />
                                 </Button>
                             }
@@ -1761,7 +1779,7 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
 
                         <Popover>
                             <PopoverTrigger asChild>
-                                <Button variant="outline" size="icon" className="h-7 w-7 text-zinc-600 border-zinc-200 hover:bg-zinc-100 hover:text-zinc-900 rounded-full">
+                                <Button variant="outline" size="icon" className="h-7 w-7 text-zinc-600 border-zinc-200 hover:bg-zinc-100 hover:text-zinc-900 rounded-md">
                                     <Calendar className="h-3.5 w-3.5" />
                                 </Button>
                             </PopoverTrigger>
@@ -1777,15 +1795,24 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
 
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                                <button className={cn("h-7 w-7 flex items-center justify-center border border-transparent hover:border-zinc-200 hover:bg-zinc-100 rounded-full cursor-pointer transition-colors shrink-0 outline-none focus:ring-0",
-                                    inlineAddPriority === 'URGENT' ? "text-red-500" :
-                                        inlineAddPriority === 'HIGH' ? "text-orange-500" :
-                                            inlineAddPriority === 'NORMAL' ? "text-blue-500" :
-                                                inlineAddPriority === 'LOW' ? "text-zinc-400" :
-                                                    "text-zinc-400"
-                                )}>
-                                    <Flag className="w-3.5 h-3.5 fill-current" />
-                                </button>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-7 w-auto min-w-[90px] border-zinc-200 hover:bg-zinc-50 focus:ring-0 px-2.5 rounded-md text-xs font-medium transition-all text-zinc-700"
+                                >
+                                    <div className="flex items-center gap-1.5 w-full">
+                                        <div className={cn("flex items-center gap-1.5",
+                                            inlineAddPriority === 'URGENT' ? "text-red-500" :
+                                                inlineAddPriority === 'HIGH' ? "text-orange-500" :
+                                                    inlineAddPriority === 'NORMAL' ? "text-blue-500" :
+                                                        inlineAddPriority === 'LOW' ? "text-zinc-400" : "text-zinc-400"
+                                        )}>
+                                            <Flag className="h-3 w-3 fill-current" />
+                                        </div>
+                                        <span>{inlineAddPriority ? inlineAddPriority.charAt(0) + inlineAddPriority.slice(1).toLowerCase() : "Priority"}</span>
+                                    </div>
+                                </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="start" className="w-48 z-[200]">
                                 <DropdownMenuLabel className="text-xs">Priority</DropdownMenuLabel>
@@ -1812,14 +1839,14 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
                             <Button
                                 variant="ghost"
                                 size="sm"
-                                className="h-7 text-xs text-zinc-600 rounded-full hover:bg-zinc-100 px-3"
+                                className="h-7 text-xs text-zinc-600 rounded-md hover:bg-zinc-100 px-3 border border-zinc-200"
                                 onClick={() => handleCancelInlineAdd(true)}
                             >
                                 Cancel
                             </Button>
                             <Button
                                 size="sm"
-                                className="h-7 text-xs bg-zinc-900 hover:bg-zinc-800 text-white rounded-full px-4"
+                                className="h-7 text-xs bg-zinc-900 hover:bg-zinc-800 text-white rounded-md px-4"
                                 onClick={() => handleSaveInlineTask({ parentId, listIdForCreate, statusIdForCreate })}
                                 disabled={!inlineAddTitle.trim() || !listIdForCreate || !resolvedWorkspaceId || createTask.isPending}
                             >
@@ -1908,30 +1935,36 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
                                         </div>
                                     </div>
                                     <div className={cn("flex items-center gap-2 shrink-0", (wrapText || (showTaskLocations && (task as any).list)) && "mt-1")} style={{ paddingLeft: depth * 16 }}>
-                                        <button
-                                            type="button"
-                                            onClick={() => {
-                                                const parentKey = `parent:${task.id}`;
-                                                if (!isExpanded && directSubtasks.length === 0) {
-                                                    // Expanding a parent with no visible children ?Eopen inline add automatically
-                                                    openInlineAdd(parentKey, task.id);
-                                                } else if (isExpanded && inlineAddGroupKey === parentKey && directSubtasks.length === 0) {
-                                                    // Collapsing again ?Eclose inline add row if it was auto-opened
-                                                    setInlineAddGroupKey(null);
-                                                    setInlineAddParentId(null);
-                                                }
-                                                setExpandedParents(prev => {
-                                                    const next = new Set(prev);
-                                                    if (next.has(task.id)) next.delete(task.id);
-                                                    else next.add(task.id);
-                                                    return next;
-                                                });
-                                            }}
-                                            className="shrink-0 p-1 rounded hover:bg-zinc-200/80"
-                                            title={isExpanded ? "Collapse subtasks" : "Expand subtasks"}
-                                        >
-                                            <ChevronRight className={cn("h-3.5 w-3.5 text-zinc-500 transition-transform", isExpanded && "rotate-90")} />
-                                        </button>
+                                        <Tooltip>
+                                            <TooltipTrigger asChild>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        const parentKey = `parent:${task.id}`;
+                                                        if (!isExpanded && directSubtasks.length === 0) {
+                                                            // Expanding a parent with no visible children ?Eopen inline add automatically
+                                                            openInlineAdd(parentKey, task.id);
+                                                        } else if (isExpanded && inlineAddGroupKey === parentKey && directSubtasks.length === 0) {
+                                                            // Collapsing again ?Eclose inline add row if it was auto-opened
+                                                            setInlineAddGroupKey(null);
+                                                            setInlineAddParentId(null);
+                                                        }
+                                                        setExpandedParents(prev => {
+                                                            const next = new Set(prev);
+                                                            if (next.has(task.id)) next.delete(task.id);
+                                                            else next.add(task.id);
+                                                            return next;
+                                                        });
+                                                    }}
+                                                    className="shrink-0 p-1 rounded hover:bg-zinc-200/80 cursor-pointer"
+                                                >
+                                                    <ChevronRight className={cn("h-3.5 w-3.5 text-zinc-500 transition-transform", isExpanded && "rotate-90")} />
+                                                </button>
+                                            </TooltipTrigger>
+                                            <TooltipContent className="bg-zinc-900 text-white font-medium text-xs px-2.5 py-1.5 border-0 rounded-md" side="top" sideOffset={4}>
+                                                {isExpanded ? "Collapse subtasks" : "Expand subtasks"}
+                                            </TooltipContent>
+                                        </Tooltip>
                                         <span className={cn("h-2 w-2 rounded-full shrink-0", task.status?.name === "Done" ? "bg-emerald-500" : task.status?.name === "In Progress" ? "bg-blue-500" : "bg-slate-400")} style={task.status?.color ? { backgroundColor: task.status.color } : undefined} />
                                     </div>
 
@@ -1950,7 +1983,7 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
                                             if (!listName) return null;
 
                                             return (
-                                                <div className="flex items-center gap-1 text-[10px] text-zinc-400 mb-1 leading-normal h-3 overflow-hidden whitespace-nowrap">
+                                                <div className="flex items-center gap-1 text-[10px] text-zinc-500 mb-1 leading-normal h-3 overflow-hidden whitespace-nowrap">
                                                     {teamName && (
                                                         <>
                                                             <span className="shrink-0">{teamName}</span>
@@ -1975,7 +2008,7 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
                                                             <span className="text-zinc-300">/</span>
                                                         </>
                                                     )}
-                                                    <span className="font-medium text-zinc-500 truncate">{listName}</span>
+                                                    <span className="truncate">{listName}</span>
                                                 </div>
                                             );
                                         })()}
@@ -1985,6 +2018,10 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
                                                     value={renameDraft}
                                                     onChange={(e) => setRenameDraft(e.target.value)}
                                                     autoFocus
+                                                    onFocus={(e) => {
+                                                        const val = e.target.value;
+                                                        e.target.setSelectionRange(val.length, val.length);
+                                                    }}
                                                     onClick={(e) => e.stopPropagation()}
                                                     onKeyDown={(e) => {
                                                         if (e.key === "Enter") {
@@ -2181,37 +2218,49 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
                                                 )}
                                             </div>
 
-                                            <div className="flex items-center gap-1.5 shrink-0 ml-auto opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <div className="flex items-center gap-1.5 shrink-0 ml-auto opacity-0 group-hover/row:opacity-100 transition-opacity">
                                                 {/* Inline actions: add subtask, rename, tags */}
-                                                <button
-                                                    type="button"
-                                                    className="p-0.5 rounded hover:bg-zinc-200/80 text-zinc-400 hover:text-zinc-700 cursor-pointer"
-                                                    title="Add subtask"
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        setExpandedParents(prev => {
-                                                            const next = new Set(prev);
-                                                            next.add(task.id);
-                                                            return next;
-                                                        });
-                                                        const parentKey = `parent:${task.id}`;
-                                                        openInlineAdd(parentKey, task.id);
-                                                    }}
-                                                >
-                                                    <Plus className="h-3.5 w-3.5" />
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    className="p-0.5 rounded hover:bg-zinc-200/80 text-zinc-400 hover:text-zinc-700 cursor-pointer"
-                                                    title="Rename task"
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        setRenamingTaskId(task.id);
-                                                        setRenameDraft(task.title || task.name || "");
-                                                    }}
-                                                >
-                                                    <Edit3 className="h-3.5 w-3.5" />
-                                                </button>
+                                                <Tooltip>
+                                                    <TooltipTrigger asChild>
+                                                        <button
+                                                            type="button"
+                                                            className="p-0.5 rounded hover:bg-zinc-200/80 text-zinc-400 hover:text-zinc-700 cursor-pointer"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setExpandedParents(prev => {
+                                                                    const next = new Set(prev);
+                                                                    next.add(task.id);
+                                                                    return next;
+                                                                });
+                                                                const parentKey = `parent:${task.id}`;
+                                                                openInlineAdd(parentKey, task.id);
+                                                            }}
+                                                        >
+                                                            <Plus className="h-3.5 w-3.5" />
+                                                        </button>
+                                                    </TooltipTrigger>
+                                                    <TooltipContent side="top" sideOffset={4} className="bg-zinc-900 text-white font-medium text-xs px-2.5 py-1.5 border-0 rounded-md">
+                                                        Add subtask
+                                                    </TooltipContent>
+                                                </Tooltip>
+                                                <Tooltip>
+                                                    <TooltipTrigger asChild>
+                                                        <button
+                                                            type="button"
+                                                            className="p-0.5 rounded hover:bg-zinc-200/80 text-zinc-400 hover:text-zinc-700 cursor-pointer"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setRenamingTaskId(task.id);
+                                                                setRenameDraft(task.title || task.name || "");
+                                                            }}
+                                                        >
+                                                            <Edit3 className="h-3.5 w-3.5" />
+                                                        </button>
+                                                    </TooltipTrigger>
+                                                    <TooltipContent side="top" sideOffset={4} className="bg-zinc-900 text-white font-medium text-xs px-2.5 py-1.5 border-0 rounded-md">
+                                                        Rename task
+                                                    </TooltipContent>
+                                                </Tooltip>
                                                 {(task.tags?.length ?? 0) <= 2 && (
                                                     <TagsPopover
                                                         tags={task.tags ?? []}
@@ -2238,17 +2287,14 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
                                         sideOffset={8}
                                         value={formatAssigneeIdsForSelector(task.assignees ?? [])}
                                         onChange={(newIds) => {
-                                            const cleanIds = newIds;
-                                            void updateTask.mutateAsync({
-                                                id: task.id,
-                                                assigneeIds: cleanIds,
-                                                assigneeId: cleanIds[0] || null,
-                                            } as any);
+                                            handleTaskUpdate(task.id, {
+                                                assigneeIds: newIds,
+                                            });
                                         }}
                                         trigger={
                                             <button
                                                 type="button"
-                                                className="flex items-center -space-x-1.5 rounded hover:bg-zinc-100 px-1 py-0.5"
+                                                className="flex items-center -space-x-1.5 rounded hover:bg-zinc-100 px-1 py-0.5 cursor-pointer"
                                                 onClick={(e) => { e.stopPropagation(); }}
                                                 title="Edit assignees"
                                             >
@@ -2271,7 +2317,7 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
                                         <PopoverTrigger asChild>
                                             <button
                                                 type="button"
-                                                className={cn("text-xs rounded px-1 py-0.5 hover:bg-zinc-100", dueDateInfo ? dueDateInfo.color : "text-zinc-400")}
+                                                className={cn("text-xs rounded px-1 py-0.5 hover:bg-zinc-100 cursor-pointer", dueDateInfo ? dueDateInfo.color : "text-zinc-400")}
                                                 onClick={(e) => { e.stopPropagation(); }}
                                                 title="Edit due date"
                                             >
@@ -2283,10 +2329,10 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
                                                 startDate={task.startDate ? new Date(task.startDate) : undefined}
                                                 endDate={task.dueDate ? new Date(task.dueDate) : undefined}
                                                 onStartDateChange={(date) => {
-                                                    void updateTask.mutateAsync({ id: task.id, startDate: date ? date.toISOString() : null } as any);
+                                                    handleTaskUpdate(task.id, { startDate: date ? date.toISOString() : null });
                                                 }}
                                                 onEndDateChange={(date) => {
-                                                    void updateTask.mutateAsync({ id: task.id, dueDate: date ? date.toISOString() : null } as any);
+                                                    handleTaskUpdate(task.id, { dueDate: date ? date.toISOString() : null });
                                                 }}
                                             />
                                         </PopoverContent>
@@ -2297,36 +2343,45 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
                                 <TableCell className="py-2 overflow-hidden" style={{ width: colWidths.priority, minWidth: 80 }}>
                                     <DropdownMenu>
                                         <DropdownMenuTrigger asChild>
-                                            <button
+                                            <Button
                                                 type="button"
-                                                className={cn("inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium border hover:opacity-90", priorityStyles.badge)}
+                                                variant="outline"
+                                                size="sm"
+                                                className="h-6 w-auto min-w-[90px] border-zinc-200 bg-white hover:bg-zinc-50 focus:ring-0 px-2.5 rounded-sm text-xs font-medium transition-all text-zinc-700 cursor-pointer"
                                                 onClick={(e) => { e.stopPropagation(); }}
                                                 title="Edit priority"
                                             >
-                                                <Flag className={cn("h-3 w-3", priorityStyles.icon)} />
-                                                {task.priority || "Normal"}
-                                            </button>
+                                                <div className="flex items-center gap-1.5 w-full">
+                                                    <div className={cn("flex items-center gap-1.5",
+                                                        task.priority === 'URGENT' ? "text-red-500" :
+                                                            task.priority === 'HIGH' ? "text-orange-500" :
+                                                                task.priority === 'NORMAL' ? "text-blue-500" :
+                                                                    task.priority === 'LOW' ? "text-zinc-400" : "text-zinc-400"
+                                                    )}>
+                                                        <Flag className="h-3 w-3 fill-current" />
+                                                    </div>
+                                                    <span>{task.priority ? task.priority.charAt(0) + task.priority.slice(1).toLowerCase() : "Priority"}</span>
+                                                </div>
+                                            </Button>
                                         </DropdownMenuTrigger>
-                                        <DropdownMenuContent align="start" className="w-44">
+                                        <DropdownMenuContent align="start" className="w-48 z-[200]">
                                             <DropdownMenuLabel className="text-xs">Priority</DropdownMenuLabel>
-                                            <DropdownMenuItem onClick={() => void updateTask.mutateAsync({ id: task.id, priority: "URGENT" } as any)}>
-                                                <Flag className={cn("mr-2 h-3.5 w-3.5", getPriorityStyles("URGENT").icon)} />
-                                                Urgent
+                                            <DropdownMenuItem onClick={() => handleTaskUpdate(task.id, { priority: "URGENT" })}>
+                                                <Flag className="h-3 w-3 mr-2 text-red-600 fill-current" /> Urgent
                                             </DropdownMenuItem>
-                                            <DropdownMenuItem onClick={() => void updateTask.mutateAsync({ id: task.id, priority: "HIGH" } as any)}>
-                                                <Flag className={cn("mr-2 h-3.5 w-3.5", getPriorityStyles("HIGH").icon)} />
-                                                High
+                                            <DropdownMenuItem onClick={() => handleTaskUpdate(task.id, { priority: "HIGH" })}>
+                                                <Flag className="h-3 w-3 mr-2 text-orange-600 fill-current" /> High
                                             </DropdownMenuItem>
-                                            <DropdownMenuItem onClick={() => void updateTask.mutateAsync({ id: task.id, priority: "NORMAL" } as any)}>
-                                                <Flag className={cn("mr-2 h-3.5 w-3.5", getPriorityStyles("NORMAL").icon)} />
-                                                Normal
+                                            <DropdownMenuItem onClick={() => handleTaskUpdate(task.id, { priority: "NORMAL" })}>
+                                                <Flag className="h-3 w-3 mr-2 text-blue-600 fill-current" /> Normal
                                             </DropdownMenuItem>
-                                            <DropdownMenuItem onClick={() => void updateTask.mutateAsync({ id: task.id, priority: "LOW" } as any)}>
-                                                <Flag className={cn("mr-2 h-3.5 w-3.5", getPriorityStyles("LOW").icon)} />
-                                                Low
+                                            <DropdownMenuItem onClick={() => handleTaskUpdate(task.id, { priority: "LOW" })}>
+                                                <Flag className="h-3 w-3 mr-2 text-slate-600 fill-current" /> Low
                                             </DropdownMenuItem>
                                             <DropdownMenuSeparator />
-                                            <DropdownMenuItem onClick={() => void updateTask.mutateAsync({ id: task.id, priority: null } as any)}>Clear</DropdownMenuItem>
+                                            <DropdownMenuItem onClick={() => handleTaskUpdate(task.id, { priority: null })}>
+                                                <CircleSlash className="h-3 w-3 mr-2 text-slate-500" />Clear
+                                            </DropdownMenuItem>
                                         </DropdownMenuContent>
                                     </DropdownMenu>
                                 </TableCell>
@@ -2337,7 +2392,7 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
                                         <DropdownMenuTrigger asChild>
                                             <button
                                                 type="button"
-                                                className={cn("inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-medium border hover:opacity-90", getStatusStyles(task.status?.name || ""))}
+                                                className={cn("inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-medium border hover:opacity-90 cursor-pointer", getStatusStyles(task.status?.name || ""))}
                                                 onClick={(e) => { e.stopPropagation(); }}
                                                 title="Edit status"
                                             >
@@ -2349,7 +2404,7 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
                                             <DropdownMenuLabel className="text-xs">Status</DropdownMenuLabel>
                                             {(((task as any).list?.statuses ?? []) as any[]).length > 0
                                                 ? (((task as any).list?.statuses ?? []) as any[]).map((s: any) => (
-                                                    <DropdownMenuItem key={s.id} onClick={() => void updateTask.mutateAsync({ id: task.id, statusId: s.id } as any)}>
+                                                    <DropdownMenuItem key={s.id} onClick={() => handleTaskUpdate(task.id, { statusId: s.id })}>
                                                         <div className="flex items-center gap-2">
                                                             <span className="h-2 w-2 rounded-full" style={{ backgroundColor: s.color || "#94A3B8" }} />
                                                             <span>{s.name}</span>
@@ -2362,7 +2417,7 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
                                                         return !taskListId || s.listId === taskListId;
                                                     })
                                                     .map((s) => (
-                                                        <DropdownMenuItem key={s.id} onClick={() => void updateTask.mutateAsync({ id: task.id, statusId: s.id } as any)}>
+                                                        <DropdownMenuItem key={s.id} onClick={() => handleTaskUpdate(task.id, { statusId: s.id })}>
                                                             <div className="flex items-center gap-2">
                                                                 <span className="h-2 w-2 rounded-full" style={{ backgroundColor: (s as any).color || "#94A3B8" }} />
                                                                 <span>{(s as any).name}</span>
@@ -2478,7 +2533,16 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
                                     availableStatuses={allAvailableStatuses}
                                     onDelete={id => void handleTaskDelete(id)}
                                     onUpdate={handleTaskUpdate}
-                                    onAction={() => { }}
+                                    onAction={(action) => {
+                                        if (action === "rename") {
+                                            setRenameDraft(task.title || task.name || "");
+                                            setRenamingTaskId(task.id);
+                                        } else if (action === "archive") {
+                                            handleTaskUpdate(task.id, { isArchived: true });
+                                            removeTaskFromList(task.id);
+                                            toast.success("Task archived");
+                                        }
+                                    }}
                                 >
                                     <button
                                         type="button"
@@ -2831,11 +2895,11 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
                                 <Button
                                     variant="ghost"
                                     size="sm"
-                                    className="h-7 text-xs text-zinc-500 hover:text-zinc-700 justify-start pl-[52px] cursor-pointer"
+                                    className="h-7 text-sm text-zinc-800 hover:text-zinc-900 justify-start pl-[52px] font-normal cursor-pointer"
                                     onClick={() => openInlineAdd(entry.groupName, null)}
                                 >
                                     <Plus className="h-3.5 w-3.5 mr-1" />
-                                    <span className="hover:border-1 hover:border-zinc-300 hover:rounded-md p-1">Add Task</span>
+                                    <span className="hover:border-1 hover:border-zinc-300 hover:rounded-md px-1.5 py-1">Add Task</span>
                                 </Button>
                             </TableCell>
                         </TableRow>
@@ -3657,7 +3721,7 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
                                                 size="sm"
                                                 className={cn(
                                                     "h-8 gap-1.5 px-2.5 text-xs font-medium border-zinc-200 transition-colors cursor-pointer",
-                                                    groupLabel !== "None" ? "bg-violet-50 text-violet-700 border-violet-200" : "text-zinc-700 bg-zinc-50 hover:bg-zinc-100"
+                                                    groupLabel !== "None" ? "bg-violet-50 text-violet-700 border-violet-200" : "text-zinc-700"
                                                 )}
                                             >
                                                 <LayoutList className="h-3.5 w-3.5" />
@@ -3788,7 +3852,7 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
                                                         "h-8 gap-1.5 px-2.5 text-xs font-medium cursor-pointer",
                                                         expandedSubtaskMode === "expanded"
                                                             ? "bg-violet-50 text-violet-700 border-violet-200"
-                                                            : "bg-zinc-50 text-zinc-700 border-zinc-200 hover:bg-zinc-100"
+                                                            : "text-zinc-700 border-zinc-200"
                                                     )}
                                                 >
                                                     <Spline className="h-3.5 w-3.5 scale-y-[-1]" />
@@ -3808,7 +3872,7 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
                                             type="button"
                                             className={cn(
                                                 "w-full text-left text-xs px-2 py-1 rounded",
-                                                expandedSubtaskMode === "collapsed" ? "bg-zinc-100 text-zinc-900" : "text-zinc-700 hover:bg-zinc-50"
+                                                expandedSubtaskMode === "collapsed" ? "bg-zinc-100 text-zinc-900" : "text-zinc-700"
                                             )}
                                             onClick={() => {
                                                 setExpandedSubtaskMode("collapsed");
@@ -3821,7 +3885,7 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
                                             type="button"
                                             className={cn(
                                                 "w-full text-left text-xs px-2 py-1 rounded",
-                                                expandedSubtaskMode === "expanded" ? "bg-zinc-100 text-zinc-900" : "text-zinc-700 hover:bg-zinc-50"
+                                                expandedSubtaskMode === "expanded" ? "bg-zinc-100 text-zinc-900" : "text-zinc-700"
                                             )}
                                             onClick={() => {
                                                 setExpandedSubtaskMode("expanded");
@@ -3844,7 +3908,7 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
                                     <Button
                                         variant="outline"
                                         size="sm"
-                                        className="h-8 gap-1.5 px-2.5 text-xs font-medium text-zinc-700 bg-zinc-50 border-zinc-200 hover:bg-zinc-100 cursor-pointer"
+                                        className="h-8 gap-1.5 px-2.5 text-xs font-medium text-zinc-700 border-zinc-200 cursor-pointer"
                                         onClick={() => { setFieldsPanelOpen(true); setFiltersPanelOpen(false); setAssigneesPanelOpen(false); }}
                                     >
                                         <SlidersHorizontal className="h-3.5 w-3.5" />
@@ -4194,7 +4258,7 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
                                                         {/* Inline toolbar (ClickUp-like) */}
                                                         <DropdownMenu>
                                                             <DropdownMenuTrigger asChild>
-                                                                <Button variant="outline" size="sm" className="h-7 px-2 text-xs text-zinc-700 border-zinc-200 hover:bg-zinc-100 hover:text-zinc-900 rounded-full">
+                                                                <Button variant="outline" size="sm" className="h-7 px-2 text-xs text-zinc-700 border-zinc-200 hover:bg-zinc-100 hover:text-zinc-900 rounded-md">
                                                                     {(() => {
                                                                         const tt = availableTaskTypes?.find((t: any) => t.id === inlineAddTaskType || t.name === inlineAddTaskType);
                                                                         return <TaskTypeIcon type={tt} className="h-3.5 w-3.5 mr-1" />;
@@ -4233,7 +4297,7 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
                                                             value={inlineAddAssigneeIds}
                                                             onChange={setInlineAddAssigneeIds}
                                                             trigger={
-                                                                <Button variant="outline" size="icon" className="h-7 w-7 text-zinc-600 border-zinc-200 hover:bg-zinc-100 hover:text-zinc-900 rounded-full">
+                                                                <Button variant="outline" size="icon" className="h-7 w-7 text-zinc-600 border-zinc-200 hover:bg-zinc-100 hover:text-zinc-900 rounded-md">
                                                                     <Users className="h-3.5 w-3.5" />
                                                                 </Button>
                                                             }
@@ -4242,7 +4306,7 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
                                                         {/* Due date picker */}
                                                         <Popover>
                                                             <PopoverTrigger asChild>
-                                                                <Button variant="outline" size="icon" className="h-7 w-7 text-zinc-600 border-zinc-200 hover:bg-zinc-100 hover:text-zinc-900 rounded-full">
+                                                                <Button variant="outline" size="icon" className="h-7 w-7 text-zinc-600 border-zinc-200 hover:bg-zinc-100 hover:text-zinc-900 rounded-md">
                                                                     <Calendar className="h-3.5 w-3.5" />
                                                                 </Button>
                                                             </PopoverTrigger>
@@ -4259,30 +4323,43 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
                                                         {/* Priority picker */}
                                                         <DropdownMenu>
                                                             <DropdownMenuTrigger asChild>
-                                                                <Button variant="outline" size="icon" className="h-7 w-7 text-zinc-600 border-zinc-200 hover:bg-zinc-100 hover:text-zinc-900 rounded-full">
-                                                                    <Flag className="h-3.5 w-3.5" />
+                                                                <Button
+                                                                    type="button"
+                                                                    variant="outline"
+                                                                    size="sm"
+                                                                    className="h-7 w-auto min-w-[90px] border-zinc-200 bg-white hover:bg-zinc-50 focus:ring-0 px-2.5 rounded-md text-xs font-medium transition-all text-zinc-700"
+                                                                >
+                                                                    <div className="flex items-center gap-1.5 w-full">
+                                                                        <div className={cn("flex items-center gap-1.5",
+                                                                            inlineAddPriority === 'URGENT' ? "text-red-500" :
+                                                                                inlineAddPriority === 'HIGH' ? "text-orange-500" :
+                                                                                    inlineAddPriority === 'NORMAL' ? "text-blue-500" :
+                                                                                        inlineAddPriority === 'LOW' ? "text-zinc-400" : "text-zinc-400"
+                                                                        )}>
+                                                                            <Flag className="h-3 w-3 fill-current" />
+                                                                        </div>
+                                                                        <span>{inlineAddPriority ? inlineAddPriority.charAt(0) + inlineAddPriority.slice(1).toLowerCase() : "Priority"}</span>
+                                                                    </div>
                                                                 </Button>
                                                             </DropdownMenuTrigger>
-                                                            <DropdownMenuContent align="end" className="w-44">
+                                                            <DropdownMenuContent align="end" className="w-48 z-[200]">
                                                                 <DropdownMenuLabel className="text-xs">Task Priority</DropdownMenuLabel>
                                                                 <DropdownMenuItem onClick={() => setInlineAddPriority("URGENT")}>
-                                                                    <Flag className={cn("mr-2 h-3.5 w-3.5", getPriorityStyles("URGENT").icon)} />
-                                                                    Urgent
+                                                                    <Flag className="h-3 w-3 mr-2 text-red-600 fill-current" /> Urgent
                                                                 </DropdownMenuItem>
                                                                 <DropdownMenuItem onClick={() => setInlineAddPriority("HIGH")}>
-                                                                    <Flag className={cn("mr-2 h-3.5 w-3.5", getPriorityStyles("HIGH").icon)} />
-                                                                    High
+                                                                    <Flag className="h-3 w-3 mr-2 text-orange-600 fill-current" /> High
                                                                 </DropdownMenuItem>
                                                                 <DropdownMenuItem onClick={() => setInlineAddPriority("NORMAL")}>
-                                                                    <Flag className={cn("mr-2 h-3.5 w-3.5", getPriorityStyles("NORMAL").icon)} />
-                                                                    Normal
+                                                                    <Flag className="h-3 w-3 mr-2 text-blue-600 fill-current" /> Normal
                                                                 </DropdownMenuItem>
                                                                 <DropdownMenuItem onClick={() => setInlineAddPriority("LOW")}>
-                                                                    <Flag className={cn("mr-2 h-3.5 w-3.5", getPriorityStyles("LOW").icon)} />
-                                                                    Low
+                                                                    <Flag className="h-3 w-3 mr-2 text-slate-600 fill-current" /> Low
                                                                 </DropdownMenuItem>
                                                                 <DropdownMenuSeparator />
-                                                                <DropdownMenuItem onClick={() => setInlineAddPriority(null)}>Clear</DropdownMenuItem>
+                                                                <DropdownMenuItem onClick={() => setInlineAddPriority(null)}>
+                                                                    <CircleSlash className="h-3 w-3 mr-2 text-slate-500" />Clear
+                                                                </DropdownMenuItem>
                                                             </DropdownMenuContent>
                                                         </DropdownMenu>
 
@@ -4290,14 +4367,14 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
                                                             <Button
                                                                 variant="ghost"
                                                                 size="sm"
-                                                                className="h-7 text-xs text-zinc-600"
+                                                                className="h-7 text-xs text-zinc-600 rounded-md hover:bg-zinc-100 px-3 border border-zinc-200"
                                                                 onClick={() => handleCancelInlineAdd(true)}
                                                             >
                                                                 Cancel
                                                             </Button>
                                                             <Button
                                                                 size="sm"
-                                                                className="h-7 text-xs bg-zinc-900 hover:bg-zinc-800"
+                                                                className="h-7 text-xs bg-zinc-900 hover:bg-zinc-800 text-white rounded-md px-4"
                                                                 onClick={() => handleSaveInlineTask({ parentId: null, listIdForCreate: listId ?? lists[0]?.id })}
                                                                 disabled={!inlineAddTitle.trim() || (!listId && !lists[0]?.id) || !resolvedWorkspaceId || createTask.isPending}
                                                             >
@@ -5568,7 +5645,6 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
                 )
             }
 
-            {/* Dependencies modal */}
             {
                 dependenciesTask && (
                     <TaskDependenciesModal
@@ -5577,6 +5653,7 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
                             if (!open) setDependenciesTask(null);
                         }}
                         task={dependenciesTask}
+                        workspaceId={resolvedWorkspaceId as string}
                     />
                 )
             }

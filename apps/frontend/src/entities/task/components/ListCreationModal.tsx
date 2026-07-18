@@ -128,7 +128,7 @@ export function ListCreationModal({ context, contextId, workspaceId, folderId, o
       const expandedProjectsTeams = [...projectsUnderSpace, ...teamsUnderSpace].flatMap(pt => {
         const ptId = pt.kind === 'project' ? pt.projectId : pt.teamId;
         const foldersUnderPt = destinationOptions.filter(o => o.kind === 'folder' && ((pt.kind === 'project' && o.projectId === ptId) || (pt.kind === 'team' && o.teamId === ptId)));
-        
+
         return [
           { ...pt, depth: 1 },
           ...foldersUnderPt.map(f => ({ ...f, depth: 2 }))
@@ -229,7 +229,7 @@ export function ListCreationModal({ context, contextId, workspaceId, folderId, o
       else if (type === 'FOLDER') payload.folderId = id;
 
       const newList = await createList.mutateAsync(payload);
-      
+
       toast({ title: "List created", description: "Your list is ready." });
 
       if (onListCreated) onListCreated(newList);

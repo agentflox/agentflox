@@ -29,18 +29,22 @@ import {
     Shield,
     Crown,
     UserPlus,
+    LogOut,
+    SlidersHorizontal,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/useToast";
 import { trpc } from "@/lib/trpc";
-import { EntityRenameDialog } from "../modals/EntityRenameDialog";
-import { DuplicateSpaceModal } from "../modals/DuplicateSpaceModal";
+import { EntityRenameDialog } from "@/entities/shared/components/EntityRenameDialog";
+import { DuplicateSpaceModal } from "@/entities/spaces/components/DuplicateSpaceModal";
 import { SpaceGeneralSettingsModal } from "@/entities/spaces/components/SpaceGeneralSettingsModal";
 import { SpacePermissionsModal } from "@/entities/spaces/components/SpacePermissionsModal";
 import { SpaceArchiveModal } from "@/entities/spaces/components/SpaceArchiveModal";
 import { SpaceDeleteModal } from "@/entities/spaces/components/SpaceDeleteModal";
 import { SpaceTransferModal } from "@/entities/spaces/components/SpaceTransferModal";
+import { SpaceMoveToPopover } from "@/entities/spaces/components/SpaceMoveToPopover";
 import { TemplateMenuPopover } from "@/entities/templates/components/TemplateMenuPopover";
+import { CustomFieldsManagerModal } from "@/entities/customfields/components/CustomFieldsManagerModal";
 
 interface SpaceActionsMenuProps {
     workspaceId: string;
@@ -60,6 +64,8 @@ export function SpaceActionsMenu({ workspaceId, spaceId, trigger }: SpaceActions
     const [archiveModalOpen, setArchiveModalOpen] = useState(false);
     const [deleteModalOpen, setDeleteModalOpen] = useState(false);
     const [transferModalOpen, setTransferModalOpen] = useState(false);
+    const [customFieldsModalOpen, setCustomFieldsModalOpen] = useState(false);
+
 
     const { data: space } = trpc.space.get.useQuery({ id: spaceId }, { enabled: !!spaceId });
 
@@ -207,6 +213,10 @@ export function SpaceActionsMenu({ workspaceId, spaceId, trigger }: SpaceActions
                         </DropdownMenuPortal>
                     </DropdownMenuSub>
 
+                    <DropdownMenuItem onClick={() => setCustomFieldsModalOpen(true)}>
+                        <SlidersHorizontal className="mr-2 h-4 w-4" /> Custom Fields
+                    </DropdownMenuItem>
+
                     <DropdownMenuSeparator />
 
                     <DropdownMenuItem onClick={() => toggleVisibility.mutate({ spaceId })}>
@@ -219,6 +229,11 @@ export function SpaceActionsMenu({ workspaceId, spaceId, trigger }: SpaceActions
                     </DropdownMenuItem>
 
                     <DropdownMenuSeparator />
+
+                    <SpaceMoveToPopover
+                        spaceId={spaceId}
+                        spaceName={space?.name || ""}
+                    />
 
                     <DropdownMenuItem onClick={() => setDuplicateModalOpen(true)}>
                         <CopyPlus className="mr-2 h-4 w-4" /> Duplicate
@@ -276,7 +291,7 @@ export function SpaceActionsMenu({ workspaceId, spaceId, trigger }: SpaceActions
                     itemType="space"
                     itemId={spaceId}
                     itemName={space.name}
-                    workspaceId={space.workspaceId}
+                    workspaceId={space.workspaceId ?? workspaceId}
                 />
             )}
 
@@ -285,6 +300,12 @@ export function SpaceActionsMenu({ workspaceId, spaceId, trigger }: SpaceActions
                 spaceId={spaceId}
                 open={permissionsModalOpen}
                 onOpenChange={setPermissionsModalOpen}
+            />
+
+            <CustomFieldsManagerModal
+                open={customFieldsModalOpen}
+                onOpenChange={setCustomFieldsModalOpen}
+                workspaceId={workspaceId}
             />
 
             <SpaceTransferModal

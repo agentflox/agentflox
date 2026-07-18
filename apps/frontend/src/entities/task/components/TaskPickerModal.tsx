@@ -79,13 +79,14 @@ export function TaskPickerModal({
             <DialogContent className="sm:max-w-[480px] p-0 gap-0 overflow-hidden rounded-lg border border-zinc-200 bg-white [&>button]:hidden">
                 <DialogTitle className="sr-only">Select task</DialogTitle>
                 <div className="p-4 space-y-4">
-                    <div className="relative">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
+                    <div className="flex h-10 items-center rounded-md border border-zinc-200 bg-white px-3 shadow-sm transition-colors focus-within:border-violet-400 focus-within:ring-4 focus-within:ring-violet-500/10">
+                        <Search className="h-4 w-4 shrink-0 text-zinc-400 mr-2" />
                         <Input
+                            variant="ghost"
                             value={searchInput}
                             onChange={(e) => setSearchInput(e.target.value)}
                             placeholder="Search for task (or subtask) name, ID, or URL"
-                            className="pl-9 h-10 rounded-md border-zinc-200"
+                            className="h-full w-full bg-transparent p-0 focus:outline-none focus:ring-0 focus-visible:ring-0 text-sm shadow-none border-0 placeholder:text-zinc-400"
                             autoFocus
                         />
                     </div>
@@ -108,7 +109,7 @@ export function TaskPickerModal({
                                     type="button"
                                     onClick={() => setSelectedId(t.id)}
                                     className={cn(
-                                        "w-full flex items-center gap-3 px-3 py-2.5 text-left hover:bg-zinc-50 transition-colors",
+                                        "w-full flex items-center gap-3 px-3 py-2.5 text-left hover:bg-zinc-50 transition-colors cursor-pointer",
                                         selectedId === t.id && "bg-zinc-100"
                                     )}
                                 >

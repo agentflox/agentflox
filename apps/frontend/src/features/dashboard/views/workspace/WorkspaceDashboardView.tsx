@@ -65,7 +65,8 @@ import { Input } from "@/components/ui/input";
 import { DashboardHeader } from "@/features/dashboard/components/shared/DashboardHeader";
 import { QuickAgentModal } from "@/features/dashboard/components/modals/QuickAgentModal";
 import { ResizableSplitLayout, SidePanelContainer } from "@/components/layout/ResizableSplitLayout";
-import { TaskDetailPanel, TaskLayoutMode } from "@/entities/task/components/TaskDetailPanel";
+import type { TaskLayoutMode } from "@/entities/task/components/TaskDetailModal";
+import { TaskDetailModal, TaskDetailContent } from "@/entities/task/components/TaskDetailModal";
 import {
     LayoutDashboard,
     FolderKanban,
@@ -179,14 +180,14 @@ export default function WorkspaceDashboardView({ workspaceId }: WorkspaceViewPro
     const router = useRouter();
     const utils = trpc.useUtils();
 
-    const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+    const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
     const [layoutMode, setLayoutMode] = useState<LayoutMode>("sidebar");
 
     // Item selection states
     const [isShareModalOpen, setIsShareModalOpen] = useState(false);
     const [isAgentModalOpen, setIsAgentModalOpen] = useState(false);
     const [isAskAIOpen, setIsAskAIOpen] = useState(false);
-    const [taskViewMode, setTaskViewMode] = useState<TaskLayoutMode>("sidebar");
+    const [taskViewMode, setTaskViewMode] = useState<TaskLayoutMode>("modal");
 
     // Dialog states
     const [addViewModalOpen, setAddViewModalOpen] = useState(false);
@@ -364,7 +365,6 @@ export default function WorkspaceDashboardView({ workspaceId }: WorkspaceViewPro
     const renderViewContent = (view: any) => {
         if (!view) return null;
         const viewType = view.type as ViewType;
-        console.log("this is view", view)
 
         switch (viewType) {
             case "OVERVIEW":
@@ -376,116 +376,110 @@ export default function WorkspaceDashboardView({ workspaceId }: WorkspaceViewPro
                     <ListView
                         workspaceId={workspaceId}
                         viewId={view.id}
-                        context="workspace"
                         initialConfig={view.config as any}
                         selectedTaskIdFromParent={selectedTaskId ?? undefined}
                         onTaskSelect={handleTaskSelect}
-                     />
+                    />
                 );
             case "BOARD":
                 return (
                     <BoardView
                         workspaceId={workspaceId}
                         viewId={view.id}
-                        context="workspace"
                         initialConfig={view.config as any}
                         selectedTaskIdFromParent={selectedTaskId ?? undefined}
                         onTaskSelect={handleTaskSelect}
-                     />
+                    />
                 );
             case "TABLE":
                 return (
                     <TableView
                         workspaceId={workspaceId}
                         viewId={view.id}
-                        context="workspace"
                         initialConfig={view.config as any}
                         selectedTaskIdFromParent={selectedTaskId ?? undefined}
                         onTaskSelect={handleTaskSelect}
-                     />
+                    />
                 );
             case "CALENDAR":
                 return (
                     <CalendarView
                         workspaceId={workspaceId}
                         viewId={view.id}
-                        context="workspace"
                         initialConfig={view.config as any}
                         selectedTaskIdFromParent={selectedTaskId ?? undefined}
                         onTaskSelect={handleTaskSelect}
-                     />
+                    />
                 );
             case "GANTT":
                 return (
                     <GanttView
                         workspaceId={workspaceId}
                         viewId={view.id}
-                        context="workspace"
                         initialConfig={view.config as any}
                         selectedTaskIdFromParent={selectedTaskId ?? undefined}
                         onTaskSelect={handleTaskSelect}
-                     />
+                    />
                 );
             case "TIMELINE":
                 return (
                     <TimelineView
                         workspaceId={workspaceId}
                         viewId={view.id}
-                        context="workspace"
                         initialConfig={view.config as any}
                         selectedTaskIdFromParent={selectedTaskId ?? undefined}
                         onTaskSelect={handleTaskSelect}
-                     />
+                    />
                 );
             case "FORM":
                 return (
-                    <FormView context="workspace"
+                    <FormView
                         workspaceId={workspaceId}
                         viewId={view.id}
                         initialConfig={view.config as any}
                         selectedTaskIdFromParent={selectedTaskId ?? undefined}
                         onTaskSelect={handleTaskSelect}
-                     />
+                    />
                 );
             case "PEOPLE":
                 return (
-                    <PeopleView context="workspace"
+                    <PeopleView
                         workspaceId={workspaceId}
                         viewId={view.id}
                         initialConfig={view.config as any}
                         selectedTaskIdFromParent={selectedTaskId ?? undefined}
                         onTaskSelect={handleTaskSelect}
-                     />
+                    />
                 );
             case "ACTIVITY":
                 return (
-                    <ActivityView context="workspace"
+                    <ActivityView
                         workspaceId={workspaceId}
                         viewId={view.id}
                         initialConfig={view.config as any}
                         selectedTaskIdFromParent={selectedTaskId ?? undefined}
                         onTaskSelect={handleTaskSelect}
-                     />
+                    />
                 );
             case "MIND_MAP":
                 return (
-                    <MindMapView context="workspace"
+                    <MindMapView
                         workspaceId={workspaceId}
                         viewId={view.id}
                         initialConfig={view.config as any}
                         selectedTaskIdFromParent={selectedTaskId ?? undefined}
                         onTaskSelect={handleTaskSelect}
-                     />
+                    />
                 );
             case "WORKLOAD":
                 return (
-                    <WorkloadView context="workspace"
+                    <WorkloadView
                         workspaceId={workspaceId}
                         viewId={view.id}
                         initialConfig={view.config as any}
                         selectedTaskIdFromParent={selectedTaskId ?? undefined}
                         onTaskSelect={handleTaskSelect}
-                     />
+                    />
                 );
             case "WHITEBOARD":
                 return (
@@ -499,33 +493,33 @@ export default function WorkspaceDashboardView({ workspaceId }: WorkspaceViewPro
                 );
             case "MAP":
                 return (
-                    <MapView context="workspace"
+                    <MapView
                         workspaceId={workspaceId}
                         viewId={view.id}
                         initialConfig={view.config as any}
                         selectedTaskIdFromParent={selectedTaskId ?? undefined}
                         onTaskSelect={handleTaskSelect}
-                     />
+                    />
                 );
             case "DASHBOARD":
                 return (
-                    <GenericDashboardView context="workspace"
+                    <GenericDashboardView
                         workspaceId={workspaceId}
                         viewId={view.id}
                         initialConfig={view.config as any}
                         selectedTaskIdFromParent={selectedTaskId ?? undefined}
                         onTaskSelect={handleTaskSelect}
-                     />
+                    />
                 );
             case "DOC":
                 return (
-                    <DocView context="workspace"
+                    <DocView
                         workspaceId={workspaceId}
                         viewId={view.id}
                         initialConfig={view.config as any}
                         selectedTaskIdFromParent={selectedTaskId ?? undefined}
                         onTaskSelect={handleTaskSelect}
-                     />
+                    />
                 );
             case "EMBED":
             case "SPREADSHEET":
@@ -539,13 +533,13 @@ export default function WorkspaceDashboardView({ workspaceId }: WorkspaceViewPro
             case "GOOGLE_FORMS":
             case "GOOGLE_DRIVE":
                 return (
-                    <EmbedView context="workspace"
+                    <EmbedView
                         workspaceId={workspaceId}
                         viewId={view.id}
                         initialConfig={view.config as any}
                         selectedTaskIdFromParent={selectedTaskId ?? undefined}
                         onTaskSelect={handleTaskSelect}
-                     />
+                    />
                 );
 
             default: {
@@ -572,7 +566,20 @@ export default function WorkspaceDashboardView({ workspaceId }: WorkspaceViewPro
             <ResizableSplitLayout
                 MainContent={
                     <>
-                        {currentTab === "personal" ? (
+                        {selectedTaskId && taskViewMode === 'fullscreen' ? (
+                            <div className="h-full bg-white flex flex-col">
+                                <TaskDetailContent
+                                    taskId={selectedTaskId}
+                                    layoutMode="fullscreen"
+                                    onLayoutModeChange={setTaskViewMode}
+                                    onClose={() => {
+                                        const params = new URLSearchParams(searchParams.toString());
+                                        params.delete("task");
+                                        router.push(`?${params.toString()}`);
+                                    }}
+                                />
+                            </div>
+                        ) : currentTab === "personal" ? (
                             <WorkspacePersonalView workspaceId={workspaceId} />
                         ) : currentTab === "spaces" ? (
                             <WorkspaceSpaceView
@@ -855,10 +862,10 @@ export default function WorkspaceDashboardView({ workspaceId }: WorkspaceViewPro
                         )}
                         {selectedTaskId && !isAskAIOpen && taskViewMode === "sidebar" && (
                             <div className="h-full border-l border-zinc-200 bg-white">
-                                <TaskDetailPanel
+                                <TaskDetailContent
                                     taskId={selectedTaskId}
                                     layoutMode="sidebar"
-                                    onLayoutChange={setTaskViewMode}
+                                    onLayoutModeChange={setTaskViewMode}
                                     onClose={() => {
                                         const params = new URLSearchParams(searchParams.toString());
                                         params.delete("task");
@@ -919,31 +926,21 @@ export default function WorkspaceDashboardView({ workspaceId }: WorkspaceViewPro
                     </div>
                 </div>
 
-                {/* Task Detail Modal / Fullscreen */}
-                {selectedTaskId && taskViewMode !== "sidebar" && (
-                    <Dialog open={true} onOpenChange={(open) => {
-                        if (!open) {
-                            const params = new URLSearchParams(searchParams.toString());
-                            params.delete("task");
-                            router.push(`?${params.toString()}`);
-                        }
-                    }}>
-                        <DialogContent className={cn(
-                            "p-0 gap-0 overflow-hidden bg-white",
-                            taskViewMode === "fullscreen" ? "max-w-[95vw] w-[95vw] h-[95vh]" : "max-w-4xl w-full h-[85vh]"
-                        )}>
-                            <TaskDetailPanel
-                                taskId={selectedTaskId}
-                                layoutMode={taskViewMode}
-                                onLayoutChange={setTaskViewMode}
-                                onClose={() => {
-                                    const params = new URLSearchParams(searchParams.toString());
-                                    params.delete("task");
-                                    router.push(`?${params.toString()}`);
-                                }}
-                            />
-                        </DialogContent>
-                    </Dialog>
+                {/* Task Detail Modal */}
+                {selectedTaskId && taskViewMode === "modal" && (
+                    <TaskDetailModal
+                        taskId={selectedTaskId}
+                        open={true}
+                        onOpenChange={(open) => {
+                            if (!open) {
+                                const params = new URLSearchParams(searchParams.toString());
+                                params.delete("task");
+                                router.push(`?${params.toString()}`);
+                            }
+                        }}
+                        layoutMode={taskViewMode}
+                        onLayoutModeChange={setTaskViewMode}
+                    />
                 )}
 
                 {/* Add View Modal */}

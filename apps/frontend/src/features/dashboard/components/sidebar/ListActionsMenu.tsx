@@ -27,6 +27,9 @@ import {
     UserPlus,
     EyeOff,
     Shield,
+    LogOut,
+    SlidersHorizontal,
+    Crown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/useToast";
@@ -36,8 +39,12 @@ import { DuplicateListModal } from "@/entities/lists/components/DuplicateListMod
 import { ListArchiveModal } from "@/entities/lists/components/ListArchiveModal";
 import { ListSettingsModal } from "@/entities/lists/components/ListSettingsModal";
 import { ListDeleteModal } from "@/entities/lists/components/ListDeleteModal";
+import { ListTransferModal } from "@/entities/lists/components/ListTransferModal";
+import { ListPermissionsModal } from "@/entities/lists/components/ListPermissionsModal";
 import { ShareModal } from "@/components/permissions/ShareModal";
+import { ListMoveToPopover } from "@/entities/lists/components/ListMoveToPopover";
 import { TemplateMenuPopover } from "@/entities/templates/components/TemplateMenuPopover";
+import { CustomFieldsManagerModal } from "@/entities/customfields/components/CustomFieldsManagerModal";
 
 interface ListActionsMenuProps {
     workspaceId: string;
@@ -60,6 +67,9 @@ export function ListActionsMenu({ workspaceId, spaceId, projectId, teamId, listI
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
     const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);
     const [shareModalOpen, setShareModalOpen] = useState(false);
+    const [customFieldsModalOpen, setCustomFieldsModalOpen] = useState(false);
+    const [transferModalOpen, setTransferModalOpen] = useState(false);
+    const [permissionsModalOpen, setPermissionsModalOpen] = useState(false);
 
     const { data: listsData } = trpc.list.byContext.useQuery(
         { spaceId, projectId, workspaceId },
@@ -159,18 +169,32 @@ export function ListActionsMenu({ workspaceId, spaceId, projectId, teamId, listI
                         </DropdownMenuPortal>
                     </DropdownMenuSub>
 
+                    <DropdownMenuItem onClick={() => setCustomFieldsModalOpen(true)}>
+                        <SlidersHorizontal className="mr-2 h-4 w-4" /> Custom Fields
+                    </DropdownMenuItem>
+
                     <DropdownMenuItem onClick={handleHideList}>
                         <EyeOff className="mr-2 h-4 w-4" /> Hide List
                     </DropdownMenuItem>
 
-                    <DropdownMenuItem onClick={() => setShareModalOpen(true)}>
+                    <DropdownMenuItem onClick={() => setPermissionsModalOpen(true)}>
                         <Shield className="mr-2 h-4 w-4" /> Manage Access
                     </DropdownMenuItem>
 
                     <DropdownMenuSeparator />
 
+                    <ListMoveToPopover
+                        listId={listId}
+                        listName={list?.name || ""}
+                        workspaceId={workspaceId}
+                    />
+
                     <DropdownMenuItem onClick={() => setDuplicateDialogOpen(true)}>
                         <CopyPlus className="mr-2 h-4 w-4" /> Duplicate
+                    </DropdownMenuItem>
+
+                    <DropdownMenuItem onClick={() => setTransferModalOpen(true)}>
+                        <Crown className="mr-2 h-4 w-4" /> Transfer Ownership
                     </DropdownMenuItem>
 
                     <DropdownMenuItem onClick={() => setArchiveDialogOpen(true)}>
@@ -238,6 +262,26 @@ export function ListActionsMenu({ workspaceId, spaceId, projectId, teamId, listI
                 itemName={list?.name || "List"}
                 workspaceId={workspaceId}
             />
+
+            <CustomFieldsManagerModal
+                open={customFieldsModalOpen}
+                onOpenChange={setCustomFieldsModalOpen}
+                workspaceId={workspaceId}
+            />
+            <ListTransferModal
+                listId={listId}
+                listName={list?.name || ""}
+                open={transferModalOpen}
+                onOpenChange={setTransferModalOpen}
+            />
+
+            <ListPermissionsModal
+                workspaceId={workspaceId}
+                listId={listId}
+                open={permissionsModalOpen}
+                onOpenChange={setPermissionsModalOpen}
+            />
+
         </>
     );
 }

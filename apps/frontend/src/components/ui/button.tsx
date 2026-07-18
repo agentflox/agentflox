@@ -21,7 +21,7 @@ export function buttonVariants({
   size?: "default" | "sm" | "lg" | "icon";
   className?: string;
 } = {}) {
-  const baseStyle = 'inline-flex items-center justify-center font-semibold rounded-lg leading-none transition duration-300 transform active:scale-98 shadow-md focus:outline-none cursor-pointer';
+  const baseStyle = 'inline-flex items-center justify-center font-semibold rounded-lg leading-none transition duration-300 transform active:scale-98 focus:outline-none cursor-pointer';
 
   let variantClass = '';
   if (variant === 'primary') {

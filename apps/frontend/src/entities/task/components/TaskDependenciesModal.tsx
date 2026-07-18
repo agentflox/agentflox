@@ -1,19 +1,20 @@
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Loader2, X, AlertCircle, Circle } from "lucide-react";
+import { Loader2, X, AlertCircle, Circle, Link, FileText } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { TaskPickerModal } from "./TaskPickerModal";
+import { TaskDocPickerModal } from "./TaskDocPickerModal";
 
 interface TaskDependenciesModalProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     task: any;
+    workspaceId: string;
 }
 
-export function TaskDependenciesModal({ open, onOpenChange, task }: TaskDependenciesModalProps) {
+export function TaskDependenciesModal({ open, onOpenChange, task, workspaceId }: TaskDependenciesModalProps) {
     const [addingType, setAddingType] = useState<"blocking" | "waiting" | "linked" | null>(null);
 
     const utils = trpc.useUtils();
@@ -21,6 +22,11 @@ export function TaskDependenciesModal({ open, onOpenChange, task }: TaskDependen
     // Refetch task to ensure we have latest dependencies
     const { data: taskData } = trpc.task.get.useQuery(
         { id: task.id },
+        { enabled: open }
+    );
+
+    const { data: linkedDocs } = trpc.task.listLinkedDocs.useQuery(
+        { taskId: task.id },
         { enabled: open }
     );
 
@@ -45,30 +51,53 @@ export function TaskDependenciesModal({ open, onOpenChange, task }: TaskDependen
         }
     });
 
-    const handleAddDependency = (selectedTaskId: string) => {
+    const linkDoc = trpc.task.linkDoc.useMutation({
+        onSuccess: () => {
+            utils.task.listLinkedDocs.invalidate({ taskId: task.id });
+            toast.success("Document linked");
+            setAddingType(null);
+        }
+    });
+
+    const unlinkDoc = trpc.task.unlinkDoc.useMutation({
+        onSuccess: () => {
+            utils.task.listLinkedDocs.invalidate({ taskId: task.id });
+            toast.success("Link removed");
+        }
+    });
+
+    const handleAddDependency = (selected: { type: "TASK" | "DOCUMENT", id: string }) => {
+        if (selected.type === "DOCUMENT") {
+            linkDoc.mutate({ taskId: task.id, documentId: selected.id });
+            return;
+        }
+
+        // It's a TASK
         if (addingType === "waiting") {
-            // I am waiting on selectedTaskId
-            addDependency.mutate({ taskId: task.id, dependsOnId: selectedTaskId });
+            // I am waiting on selected task
+            addDependency.mutate({ taskId: task.id, dependsOnId: selected.id });
         } else if (addingType === "blocking") {
-            // I am blocking selectedTaskId
-            addDependency.mutate({ taskId: selectedTaskId, dependsOnId: task.id });
+            // I am blocking selected task
+            addDependency.mutate({ taskId: selected.id, dependsOnId: task.id });
+        } else if (addingType === "linked") {
+            toast.error("Linked tasks are not fully supported yet. Only Docs can be linked.");
+            setAddingType(null);
         }
     };
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-[500px]">
-                <TaskPickerModal
+                <TaskDocPickerModal
                     open={!!addingType}
                     onOpenChange={(v) => !v && setAddingType(null)}
                     taskId={task.id}
-                    workspaceId={task.workspaceId}
-                    dependencyType="FINISH_TO_START" // Default for now, can be sophisticated later
+                    workspaceId={workspaceId}
                     onSelect={handleAddDependency}
                 />
 
                 <DialogHeader>
-                    <DialogTitle>Dependencies</DialogTitle>
+                    <DialogTitle>Dependencies & Links</DialogTitle>
                     <p className="text-sm text-muted-foreground">See what this task depends on and what depends on it.</p>
                 </DialogHeader>
 
@@ -88,10 +117,10 @@ export function TaskDependenciesModal({ open, onOpenChange, task }: TaskDependen
                             ))}
                             <Button
                                 variant="ghost"
-                                className="text-zinc-400 hover:text-zinc-600 h-auto p-0 text-sm font-normal"
+                                className="text-zinc-400 hover:text-zinc-600 h-auto p-2 text-sm font-normal"
                                 onClick={() => setAddingType("waiting")}
                             >
-                                + Add waiting on task
+                                + Add waiting on task or doc
                             </Button>
                         </div>
                     </div>
@@ -103,22 +132,15 @@ export function TaskDependenciesModal({ open, onOpenChange, task }: TaskDependen
                         </h4>
                         <div className="pl-6 space-y-2">
                             {currentTask.blockedDependencies?.map((dep: any) => (
-                                // blockedDependencies is array of TaskDependency where dependsOnId is THIS task.
-                                // So dep.task is the one being blocked.
                                 <DependencyItem
                                     key={dep.task.id}
                                     task={dep.task}
-                                    // Removing 'blocking' relationship means we stop being a dependency for them.
-                                    // So we remove dependency where taskId = THEM, dependsOnId = US.
-                                    // wait, removeDependency takes {taskId, dependsOnId}.
-                                    // To remove "Blocking", we are removing the dependency record where THIS task is dependsOnId.
-                                    // So taskId = dep.task.id, dependsOnId = task.id.
                                     onRemove={() => removeDependency.mutate({ taskId: dep.task.id, dependsOnId: task.id })}
                                 />
                             ))}
                             <Button
                                 variant="ghost"
-                                className="text-zinc-400 hover:text-zinc-600 h-auto p-0 text-sm font-normal"
+                                className="text-zinc-400 hover:text-zinc-600 h-auto p-2 text-sm font-normal"
                                 onClick={() => setAddingType("blocking")}
                             >
                                 + Add task that is blocked
@@ -126,11 +148,32 @@ export function TaskDependenciesModal({ open, onOpenChange, task }: TaskDependen
                         </div>
                     </div>
 
-                    {/* Linked - Not implemented in backend yet, so using it as 'Related' is tricky without schema.
-                        We'll skip or simulate for now or hide if empty. The schema had TaskDependency only.
-                        I won't implement 'Linked' unless I added a relation. I'll hide it for consistency if I can't back it.
-                        But user screenshot had it. I'll leave it as non-functional UI or repurpose.
-                    */}
+                    {/* Linked Docs */}
+                    <div className="space-y-2">
+                        <h4 className="text-sm font-semibold flex items-center gap-2 text-indigo-600">
+                            <Link className="h-4 w-4" /> Linked
+                        </h4>
+                        <div className="pl-6 space-y-2">
+                            {linkedDocs?.map((doc: any) => (
+                                <div key={doc.id} className="flex items-center justify-between group">
+                                    <div className="flex items-center gap-2 text-sm">
+                                        <FileText className="h-3.5 w-3.5 text-blue-500" />
+                                        <span>{doc.title}</span>
+                                    </div>
+                                    <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100" onClick={() => unlinkDoc.mutate({ taskId: task.id, documentId: doc.id })}>
+                                        <X className="h-3 w-3" />
+                                    </Button>
+                                </div>
+                            ))}
+                            <Button
+                                variant="ghost"
+                                className="text-zinc-400 hover:text-zinc-600 h-auto p-2 text-sm font-normal"
+                                onClick={() => setAddingType("linked")}
+                            >
+                                + Add linked doc
+                            </Button>
+                        </div>
+                    </div>
                 </div>
             </DialogContent>
         </Dialog>

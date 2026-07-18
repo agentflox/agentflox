@@ -29,18 +29,22 @@ import {
     Shield,
     Crown,
     UserPlus,
+    LogOut,
+    SlidersHorizontal,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/useToast";
 import { trpc } from "@/lib/trpc";
-import { EntityRenameDialog } from "../modals/EntityRenameDialog";
-import { DuplicateTeamModal } from "../modals/DuplicateTeamModal";
+import { EntityRenameDialog } from "@/entities/shared/components/EntityRenameDialog";
+import { DuplicateTeamModal } from "@/entities/teams/components/DuplicateTeamModal";
 import { TeamGeneralSettingsModal } from "@/entities/teams/components/TeamGeneralSettingsModal";
 import { TeamPermissionsModal } from "@/entities/teams/components/TeamPermissionsModal";
 import { TeamArchiveModal } from "@/entities/teams/components/TeamArchiveModal";
 import { TeamDeleteModal } from "@/entities/teams/components/TeamDeleteModal";
 import { TeamTransferModal } from "@/entities/teams/components/TeamTransferModal";
+import { TeamMoveToPopover } from "@/entities/teams/components/TeamMoveToPopover";
 import { TemplateMenuPopover } from "@/entities/templates/components/TemplateMenuPopover";
+import { CustomFieldsManagerModal } from "@/entities/customfields/components/CustomFieldsManagerModal";
 
 interface TeamActionsMenuProps {
     workspaceId: string;
@@ -60,6 +64,7 @@ export function TeamActionsMenu({ workspaceId, teamId, trigger }: TeamActionsMen
     const [archiveModalOpen, setArchiveModalOpen] = useState(false);
     const [deleteModalOpen, setDeleteModalOpen] = useState(false);
     const [transferModalOpen, setTransferModalOpen] = useState(false);
+    const [customFieldsModalOpen, setCustomFieldsModalOpen] = useState(false);
 
     const { data: team } = trpc.team.get.useQuery({ id: teamId }, { enabled: !!teamId });
     const teamMeta = team as { icon?: string; color?: string; workspaceId?: string | null; name?: string } | undefined;
@@ -201,6 +206,10 @@ export function TeamActionsMenu({ workspaceId, teamId, trigger }: TeamActionsMen
                         </DropdownMenuPortal>
                     </DropdownMenuSub>
 
+                    <DropdownMenuItem onClick={() => setCustomFieldsModalOpen(true)}>
+                        <SlidersHorizontal className="mr-2 h-4 w-4" /> Custom Fields
+                    </DropdownMenuItem>
+
                     <DropdownMenuSeparator />
 
                     <DropdownMenuItem onClick={() => toggleVisibility.mutate({ teamId })}>
@@ -212,6 +221,12 @@ export function TeamActionsMenu({ workspaceId, teamId, trigger }: TeamActionsMen
                     </DropdownMenuItem>
 
                     <DropdownMenuSeparator />
+
+                    <TeamMoveToPopover
+                        teamId={teamId}
+                        teamName={team?.name || ""}
+                        workspaceId={workspaceId}
+                    />
 
                     <DropdownMenuItem onClick={() => setDuplicateModalOpen(true)}>
                         <CopyPlus className="mr-2 h-4 w-4" /> Duplicate
@@ -277,6 +292,12 @@ export function TeamActionsMenu({ workspaceId, teamId, trigger }: TeamActionsMen
                 teamId={teamId}
                 open={permissionsModalOpen}
                 onOpenChange={setPermissionsModalOpen}
+            />
+
+            <CustomFieldsManagerModal
+                open={customFieldsModalOpen}
+                onOpenChange={setCustomFieldsModalOpen}
+                workspaceId={workspaceId}
             />
 
             <TeamTransferModal

@@ -29,18 +29,22 @@ import {
     Shield,
     Crown,
     UserPlus,
+    LogOut,
+    SlidersHorizontal,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/useToast";
 import { trpc } from "@/lib/trpc";
-import { EntityRenameDialog } from "../modals/EntityRenameDialog";
-import { DuplicateProjectModal } from "../modals/DuplicateProjectModal";
+import { EntityRenameDialog } from "@/entities/shared/components/EntityRenameDialog";
+import { DuplicateProjectModal } from "@/entities/projects/components/DuplicateProjectModal";
 import { ProjectGeneralSettingsModal } from "@/entities/projects/components/ProjectGeneralSettingsModal";
 import { ProjectPermissionsModal } from "@/entities/projects/components/ProjectPermissionsModal";
 import { ProjectArchiveModal } from "@/entities/projects/components/ProjectArchiveModal";
 import { ProjectDeleteModal } from "@/entities/projects/components/ProjectDeleteModal";
 import { ProjectTransferModal } from "@/entities/projects/components/ProjectTransferModal";
+import { ProjectMoveToPopover } from "@/entities/projects/components/ProjectMoveToPopover";
 import { TemplateMenuPopover } from "@/entities/templates/components/TemplateMenuPopover";
+import { CustomFieldsManagerModal } from "@/entities/customfields/components/CustomFieldsManagerModal";
 
 interface ProjectActionsMenuProps {
     workspaceId: string;
@@ -60,6 +64,7 @@ export function ProjectActionsMenu({ workspaceId, projectId, trigger }: ProjectA
     const [archiveModalOpen, setArchiveModalOpen] = useState(false);
     const [deleteModalOpen, setDeleteModalOpen] = useState(false);
     const [transferModalOpen, setTransferModalOpen] = useState(false);
+    const [customFieldsModalOpen, setCustomFieldsModalOpen] = useState(false);
 
     const { data: project } = trpc.project.get.useQuery({ id: projectId }, { enabled: !!projectId });
 
@@ -204,6 +209,10 @@ export function ProjectActionsMenu({ workspaceId, projectId, trigger }: ProjectA
                         </DropdownMenuPortal>
                     </DropdownMenuSub>
 
+                    <DropdownMenuItem onClick={() => setCustomFieldsModalOpen(true)}>
+                        <SlidersHorizontal className="mr-2 h-4 w-4" /> Custom Fields
+                    </DropdownMenuItem>
+
                     <DropdownMenuSeparator />
 
                     <DropdownMenuItem onClick={() => toggleVisibility.mutate({ projectId })}>
@@ -216,6 +225,12 @@ export function ProjectActionsMenu({ workspaceId, projectId, trigger }: ProjectA
                     </DropdownMenuItem>
 
                     <DropdownMenuSeparator />
+
+                    <ProjectMoveToPopover
+                        projectId={projectId}
+                        projectName={project?.name || ""}
+                        workspaceId={workspaceId}
+                    />
 
                     <DropdownMenuItem onClick={() => setDuplicateModalOpen(true)}>
                         <CopyPlus className="mr-2 h-4 w-4" /> Duplicate
@@ -273,7 +288,7 @@ export function ProjectActionsMenu({ workspaceId, projectId, trigger }: ProjectA
                     itemType="project"
                     itemId={projectId}
                     itemName={project.name}
-                    workspaceId={project.workspaceId ?? workspaceId}
+                    workspaceId={project.workspaceId ?? workspaceId ?? ""}
                 />
             )}
 
@@ -282,6 +297,12 @@ export function ProjectActionsMenu({ workspaceId, projectId, trigger }: ProjectA
                 projectId={projectId}
                 open={permissionsModalOpen}
                 onOpenChange={setPermissionsModalOpen}
+            />
+
+            <CustomFieldsManagerModal
+                open={customFieldsModalOpen}
+                onOpenChange={setCustomFieldsModalOpen}
+                workspaceId={workspaceId}
             />
 
             <ProjectTransferModal

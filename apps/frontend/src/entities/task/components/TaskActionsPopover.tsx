@@ -77,7 +77,7 @@ export function TaskActionsPopover({
     const [dependenciesModalOpen, setDependenciesModalOpen] = useState(false);
     const [moveModalOpen, setMoveModalOpen] = useState(false);
     const [mergeModalOpen, setMergeModalOpen] = useState(false);
-    
+
     // Marketplace Injection
     const { checkProfileAndProceed, isGuardOpen, setIsGuardOpen } = useMarketplaceGuard();
     const [isPublishModalOpen, setIsPublishModalOpen] = useState(false);
@@ -285,10 +285,10 @@ export function TaskActionsPopover({
 
                     <ActionItem
                         icon={ArrowRight}
-                        label="Move"
+                        label="Move To"
                         onClick={() => { setMoveModalOpen(true); setIsOpen(false); }}
                     />
-                    
+
                     <ActionItem
                         icon={Globe}
                         label="Publish to Marketplace"
@@ -389,6 +389,7 @@ export function TaskActionsPopover({
                 open={dependenciesModalOpen}
                 onOpenChange={setDependenciesModalOpen}
                 task={task}
+                workspaceId={workspaceId}
             />
             <MoveTaskModal
                 open={moveModalOpen}
@@ -416,12 +417,12 @@ export function TaskActionsPopover({
                 itemName={task.title}
                 workspaceId={workspaceId}
             />
-            
+
             <MarketplaceGuardDialog isOpen={isGuardOpen} onOpenChange={setIsGuardOpen} />
             {isPublishModalOpen && (
-                <PublishEntityModal 
-                    open={isPublishModalOpen} 
-                    onOpenChange={setIsPublishModalOpen} 
+                <PublishEntityModal
+                    open={isPublishModalOpen}
+                    onOpenChange={setIsPublishModalOpen}
                     entityType="task"
                     entityId={task.id}
                     initialTitle={task.title}
@@ -430,10 +431,10 @@ export function TaskActionsPopover({
                         description: task.description,
                         status: task?.status?.label ?? task?.statusId,
                         metadata: [
-                            ...(task?.priority  ? [{ label: "Priority",  value: task.priority }]            : []),
-                            ...(task?.dueDate   ? [{ label: "Due",       value: new Date(task.dueDate).toLocaleDateString() }] : []),
+                            ...(task?.priority ? [{ label: "Priority", value: task.priority }] : []),
+                            ...(task?.dueDate ? [{ label: "Due", value: new Date(task.dueDate).toLocaleDateString() }] : []),
                             ...(task?.assignees?.length ? [{ label: "Assignees", value: task.assignees.length }] : []),
-                            ...(task?.subtasks?.length  ? [{ label: "Subtasks",  value: task.subtasks.length }]  : []),
+                            ...(task?.subtasks?.length ? [{ label: "Subtasks", value: task.subtasks.length }] : []),
                         ],
                         capabilities: task?.tags?.map((t: any) => t.label ?? t.name ?? t) ?? [],
                     }}

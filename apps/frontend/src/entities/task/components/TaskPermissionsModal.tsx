@@ -332,7 +332,7 @@ export function TaskPermissionsModal({ workspaceId, taskId, open, onOpenChange }
                                     {isSearching && (
                                         <button
                                             type="button"
-                                            className="h-5 w-5 flex items-center justify-center text-slate-400 hover:text-slate-600 rounded-full"
+                                            className="h-5 w-5 flex items-center justify-center text-slate-400 hover:text-slate-600 rounded-full cursor-pointer"
                                             onClick={() => { setSearchQuery(""); setIsSearching(false); }}
                                         >
                                             <X className="h-3.5 w-3.5" />
@@ -377,7 +377,7 @@ export function TaskPermissionsModal({ workspaceId, taskId, open, onOpenChange }
                                             </div>
                                             <Button
                                                 variant="outline"
-                                                className="h-7 w-20 px-3 text-xs font-medium text-slate-600 hover:text-slate-900"
+                                                className="h-7 w-20 px-3 text-xs font-medium text-slate-600 hover:text-slate-900 border-zinc-200 rounded-sm hover:bg-zinc-100"
                                                 onClick={() => {
                                                     if (!taskId) return;
                                                     const url = `${window.location.origin}/task/${taskId}`;

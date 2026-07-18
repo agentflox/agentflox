@@ -66,53 +66,32 @@ export function TeamArchiveModal({ teamId, teamName, open, onOpenChange, onSucce
                         <Archive className="h-5 w-5 text-amber-600" />
                         Archive Team
                     </DialogTitle>
-                    <DialogDescription>
-                        Are you sure you want to archive "{teamName}"?
+                    <DialogDescription className="text-zinc-500 leading-relaxed pr-4">
+                        This will hide <strong className="font-semibold text-zinc-700">"{teamName}"</strong> from the sidebar. All data stays intact and the team can be restored anytime.{" "}
+                        <span className="group relative inline-flex align-middle">
+                            <Info className="h-4 w-4 text-zinc-300 hover:text-amber-500 transition-colors duration-150 cursor-help translate-y-[-3px]" />
+                            <span className="pointer-events-none absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-56 rounded-lg bg-zinc-900 text-white text-[12px] leading-snug px-2.5 py-2 shadow-lg opacity-0 scale-95 origin-bottom group-hover:opacity-100 group-hover:scale-100 transition-all duration-150 z-20">
+                                Members keep their current access levels, and the team stays out of the sidebar until it's restored.
+                                <span className="absolute top-full left-1/2 -translate-x-1/2 h-2 w-2 -mt-1 rotate-45 bg-zinc-900" />
+                            </span>
+                        </span>
                     </DialogDescription>
                 </DialogHeader>
 
-                <div className="space-y-4 py-4">
-                    <div className="rounded-lg border-2 border-amber-200 bg-amber-50 p-4">
-                        <div className="flex gap-3">
-                            <Info className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
-                            <div className="flex-1">
-                                <h4 className="font-semibold text-amber-900 text-sm">What happens when you archive?</h4>
-                                <ul className="mt-2 space-y-1 text-sm text-amber-700">
-                                    <li className="flex items-start gap-2">
-                                        <span className="text-amber-600">•</span>
-                                        <span>Team becomes hidden from sidebar</span>
-                                    </li>
-                                    <li className="flex items-start gap-2">
-                                        <span className="text-amber-600">•</span>
-                                        <span>All data remains intact and accessible</span>
-                                    </li>
-                                    <li className="flex items-start gap-2">
-                                        <span className="text-amber-600">•</span>
-                                        <span>Can be restored anytime from archived teams</span>
-                                    </li>
-                                    <li className="flex items-start gap-2">
-                                        <span className="text-amber-600">•</span>
-                                        <span>Members retain their access levels</span>
-                                    </li>
-                                </ul>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <DialogFooter className="gap-2">
+                <DialogFooter className="gap-2.5 sm:gap-2.5 pt-2">
                     <Button
                         type="button"
                         variant="outline"
                         onClick={() => onOpenChange(false)}
                         disabled={archiveTeam.isPending}
+                        className="border-slate-200 bg-white text-slate-700 shadow-sm transition-all duration-150 hover:border-slate-300 hover:bg-slate-50 hover:shadow-md focus-visible:ring-2 focus-visible:ring-slate-300 focus-visible:ring-offset-2 disabled:opacity-50"
                     >
                         Cancel
                     </Button>
                     <Button
                         onClick={handleArchive}
                         disabled={archiveTeam.isPending}
-                        className="bg-amber-600 hover:bg-amber-700"
+                        className="border border-amber-700/10 bg-gradient-to-b from-amber-500 to-amber-600 font-medium text-white shadow-sm shadow-amber-900/10 transition-all duration-150 hover:from-amber-500 hover:to-amber-700 hover:shadow-md hover:shadow-amber-900/20 focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2 active:shadow-inner disabled:opacity-60 disabled:hover:shadow-sm"
                     >
                         {archiveTeam.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                         <Archive className="mr-2 h-4 w-4" />

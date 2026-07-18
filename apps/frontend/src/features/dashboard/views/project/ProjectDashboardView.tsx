@@ -50,7 +50,8 @@ import { Input } from "@/components/ui/input";
 import { DashboardHeader } from "@/features/dashboard/components/shared/DashboardHeader";
 import { QuickAgentModal } from "@/features/dashboard/components/modals/QuickAgentModal";
 import { ResizableSplitLayout, SidePanelContainer } from "@/components/layout/ResizableSplitLayout";
-import { TaskDetailPanel, TaskLayoutMode } from "@/entities/task/components/TaskDetailPanel";
+import type { TaskLayoutMode } from "@/entities/task/components/TaskDetailModal";
+import { TaskDetailModal, TaskDetailContent } from "@/entities/task/components/TaskDetailModal";
 const ChatView = dynamic(() => import("@/features/dashboard/views/shared/ChatView"));
 const AIChatView = dynamic(() => import("@/features/dashboard/views/shared/AIChatView"));
 const ProjectTeamView = dynamic(() => import("@/features/dashboard/views/project/ProjectTeamView"));
@@ -187,7 +188,7 @@ export default function ProjectDashboardView({ listId, spaceId, projectId, teamI
     const selectedListId = searchParams.get("list");
     const selectedTeamId = searchParams.get("team") || undefined;
 
-    const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+    const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
     const [layoutMode, setLayoutMode] = useState<LayoutMode>("sidebar");
 
     // Item selection states
@@ -201,7 +202,7 @@ export default function ProjectDashboardView({ listId, spaceId, projectId, teamI
     const [viewToTemplate, setViewToTemplate] = useState<any | null>(null);
     const [isAgentModalOpen, setIsAgentModalOpen] = useState(false);
     const [isAskAIOpen, setIsAskAIOpen] = useState(false);
-    const [taskViewMode, setTaskViewMode] = useState<TaskLayoutMode>("sidebar");
+    const [taskViewMode, setTaskViewMode] = useState<TaskLayoutMode>("modal");
     const [itemSidebarOpen, setItemSidebarOpen] = useState(false);
     const [settingsSidebarOpen, setSettingsSidebarOpen] = useState(false);
 
@@ -757,7 +758,20 @@ export default function ProjectDashboardView({ listId, spaceId, projectId, teamI
                             <ResizableSplitLayout
                                 MainContent={
                                     <>
-                                        {isListsTab ? (
+                                        {selectedTaskId && taskViewMode === 'fullscreen' ? (
+                                            <div className="h-full bg-white flex flex-col">
+                                                <TaskDetailContent
+                                                    taskId={selectedTaskId}
+                                                    layoutMode="fullscreen"
+                                                    onLayoutModeChange={setTaskViewMode}
+                                                    onClose={() => {
+                                                        const params = new URLSearchParams(searchParams.toString());
+                                                        params.delete("task");
+                                                        router.push(`?${params.toString()}`);
+                                                    }}
+                                                />
+                                            </div>
+                                        ) : isListsTab ? (
                                             <ProjectListView
                                                 projectId={projectId!}
                                                 workspaceId={resolvedWorkspaceId}
@@ -1033,10 +1047,10 @@ export default function ProjectDashboardView({ listId, spaceId, projectId, teamI
                                         )}
                                         {selectedTaskId && !isAskAIOpen && taskViewMode === 'sidebar' && (
                                             <div className="h-full border-l border-zinc-200 bg-white">
-                                                <TaskDetailPanel
+                                                <TaskDetailContent
                                                     taskId={selectedTaskId}
                                                     layoutMode="sidebar"
-                                                    onLayoutChange={setTaskViewMode}
+                                                    onLayoutModeChange={setTaskViewMode}
                                                     onClose={() => {
                                                         const params = new URLSearchParams(searchParams.toString());
                                                         params.delete("task");
@@ -1053,31 +1067,21 @@ export default function ProjectDashboardView({ listId, spaceId, projectId, teamI
                     </div>
                 </div>
 
-                {/* Task Detail Modal / Fullscreen */}
-                {selectedTaskId && taskViewMode !== 'sidebar' && (
-                    <Dialog open={true} onOpenChange={(open) => {
-                        if (!open) {
-                            const params = new URLSearchParams(searchParams.toString());
-                            params.delete("task");
-                            router.push(`?${params.toString()}`);
-                        }
-                    }}>
-                        <DialogContent className={cn(
-                            "p-0 gap-0 overflow-hidden bg-white",
-                            taskViewMode === 'fullscreen' ? "max-w-[95vw] w-[95vw] h-[95vh]" : "max-w-4xl w-full h-[85vh]"
-                        )}>
-                            <TaskDetailPanel
-                                taskId={selectedTaskId}
-                                layoutMode={taskViewMode}
-                                onLayoutChange={setTaskViewMode}
-                                onClose={() => {
-                                    const params = new URLSearchParams(searchParams.toString());
-                                    params.delete("task");
-                                    router.push(`?${params.toString()}`);
-                                }}
-                            />
-                        </DialogContent>
-                    </Dialog>
+                {/* Task Detail Modal */}
+                {selectedTaskId && taskViewMode === 'modal' && (
+                    <TaskDetailModal
+                        taskId={selectedTaskId}
+                        open={true}
+                        onOpenChange={(open) => {
+                            if (!open) {
+                                const params = new URLSearchParams(searchParams.toString());
+                                params.delete("task");
+                                router.push(`?${params.toString()}`);
+                            }
+                        }}
+                        layoutMode={taskViewMode}
+                        onLayoutModeChange={setTaskViewMode}
+                    />
                 )}
 
                 <AddViewModal

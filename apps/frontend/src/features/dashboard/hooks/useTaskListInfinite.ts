@@ -95,7 +95,7 @@ export function useTaskListInfinite({
   }, []);
 
   const addTaskToList = useCallback((task: any) => {
-    setAccumulatedTasks(prev => [task, ...prev]);
+    setAccumulatedTasks(prev => [...prev, task]);
   }, []);
 
   const removeTaskFromList = useCallback((taskId: string) => {

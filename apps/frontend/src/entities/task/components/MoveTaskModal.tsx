@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Search, Folder, List as ListIcon, Check } from "lucide-react";
+import { Search, Folder, Check, User, Users, Network, ListChecks } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -18,6 +18,8 @@ interface MoveTaskModalProps {
 
 export function MoveTaskModal({ open, onOpenChange, task, workspaceId }: MoveTaskModalProps) {
     const [searchQuery, setSearchQuery] = useState("");
+
+    const { data: personalList } = trpc.list.getPersonal.useQuery(undefined, { enabled: open });
 
     // Fetch all lists in the workspace to build the full hierarchy
     const { data: listsResponse } = trpc.list.byContext.useQuery(
@@ -41,17 +43,17 @@ export function MoveTaskModal({ open, onOpenChange, task, workspaceId }: MoveTas
         });
     };
 
+    const recentLists = useMemo(() => listsResponse?.items?.slice(0, 10) || [], [listsResponse]);
+
     // Group lists by Space -> Folder -> List
     const hierarchy = useMemo(() => {
         if (!listsResponse?.items) return [];
 
         const spacesMap = new Map<string, any>();
-        const orphanLists: any[] = []; // Lists not in a space (e.g. workspace level?) - schema requires space usually or project
 
         listsResponse.items.forEach((list: any) => {
             // Filter by search query
             if (searchQuery && !list.name.toLowerCase().includes(searchQuery.toLowerCase())) {
-                // Simple list filtering, ideally we search spaces too
                 return;
             }
 
@@ -76,8 +78,6 @@ export function MoveTaskModal({ open, onOpenChange, task, workspaceId }: MoveTas
                 } else {
                     space.rootLists.push(list);
                 }
-            } else {
-                orphanLists.push(list);
             }
         });
 
@@ -90,99 +90,136 @@ export function MoveTaskModal({ open, onOpenChange, task, workspaceId }: MoveTas
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-[300px] p-0 gap-0 overflow-hidden">
-                <div className="p-2 border-b">
-                    <div className="relative">
-                        <Search className="absolute left-2 top-2.5 h-3.5 w-3.5 text-zinc-400" />
+            <DialogContent className="sm:max-w-[320px] p-0 gap-0 overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-lg [&>button]:hidden">
+                <DialogTitle className="sr-only">Move Task</DialogTitle>
+                
+                <div className="p-2 border-b border-zinc-100">
+                    <div className="flex h-9 items-center rounded-md border border-zinc-200 bg-white px-3 shadow-sm transition-colors focus-within:border-violet-400 focus-within:ring-4 focus-within:ring-violet-500/10">
+                        <Search className="h-4 w-4 shrink-0 text-zinc-400 mr-2" />
                         <Input
-                            placeholder="Search..."
-                            className="h-8 pl-8 text-xs bg-zinc-50 border-none focus-visible:ring-0"
+                            variant="ghost"
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
+                            placeholder="Search..."
+                            className="h-full w-full bg-transparent p-0 focus:outline-none focus:ring-0 focus-visible:ring-0 text-sm shadow-none border-0 placeholder:text-zinc-400"
+                            autoFocus
                         />
                     </div>
                 </div>
 
-                <ScrollArea className="h-[300px]">
+                <ScrollArea className="h-[380px]">
                     <div className="py-2">
-                        {/* Spaces Section */}
-                        <div className="px-3 py-1.5 text-[10px] font-semibold text-zinc-400 uppercase tracking-wider mt-2">
-                            Spaces
-                        </div>
-                        <div className="px-1">
+                        {/* Personal List */}
+                        {(!searchQuery || "personal list".includes(searchQuery.toLowerCase())) && personalList && (
+                            <div className="pb-2">
+                                <button
+                                    type="button"
+                                    onClick={() => handleMove(personalList.id)}
+                                    className={cn(
+                                        "w-full flex items-center justify-between py-1.5 px-4 text-left text-[13.5px] cursor-pointer hover:bg-slate-50",
+                                        task.listId === personalList.id && "bg-indigo-50 text-indigo-700"
+                                    )}
+                                >
+                                    <span className="flex items-center gap-2">
+                                        <User className="size-4 text-slate-500 shrink-0" />
+                                        <span className="font-medium text-slate-700">Personal List</span>
+                                    </span>
+                                    {task.listId === personalList.id && <Check className="size-3.5 text-indigo-600 shrink-0" />}
+                                </button>
+                            </div>
+                        )}
+
+                        {/* Recents */}
+                        {!searchQuery && recentLists.length > 0 && (
+                            <div className="pb-2">
+                                <div className="px-4 py-1.5 text-[11px] font-semibold text-slate-400">Recents</div>
+                                {recentLists.map((list: any) => (
+                                    <button
+                                        key={`recent-${list.id}`}
+                                        type="button"
+                                        onClick={() => handleMove(list.id)}
+                                        className={cn(
+                                            "w-full flex items-center justify-between py-1.5 px-4 text-left text-[13.5px] cursor-pointer hover:bg-slate-50",
+                                            task.listId === list.id && "bg-indigo-50 text-indigo-700"
+                                        )}
+                                    >
+                                        <span className="flex items-center gap-2">
+                                            <ListChecks className="size-4 text-indigo-500 shrink-0" />
+                                            <span className="text-slate-700 font-medium">{list.name}</span>
+                                        </span>
+                                        {task.listId === list.id && <Check className="size-3.5 text-indigo-600 shrink-0" />}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+
+                        {/* Spaces */}
+                        <div className="border-t border-slate-100 pt-2">
+                            <div className="px-4 py-1.5 text-[11px] font-semibold text-slate-400">Spaces</div>
                             {hierarchy.map((space: any) => (
                                 <div key={space.id}>
-                                    <div className="flex items-center px-2 py-1.5 bg-zinc-50/50 rounded-sm text-sm text-zinc-700 font-medium">
-                                        <div className="h-4 w-4 bg-zinc-600 rounded mr-2 flex items-center justify-center text-[8px] text-white">
-                                            {space.name?.[0] || "S"}
-                                        </div>
+                                    <div className="flex items-center px-4 py-1.5 text-[13.5px] text-slate-700 font-medium">
+                                        <Users className="size-4 text-blue-500 mr-2 shrink-0 fill-blue-500/20" />
                                         {space.name}
                                     </div>
-                                    <div className="pl-2">
-                                        {/* Folders */}
-                                        {space.folders.map((folder: any) => (
-                                            <div key={folder.id}>
-                                                <div className="flex items-center px-2 py-1.5 text-xs text-zinc-500 font-medium">
-                                                    <Folder className="h-3 w-3 mr-2" />
-                                                    {folder.name}
-                                                </div>
-                                                <div className="pl-4">
-                                                    {folder.lists.map((list: any) => (
-                                                        <ListItem
-                                                            key={list.id}
-                                                            name={list.name}
-                                                            icon={ListIcon}
-                                                            isSelected={list.id === task.listId}
-                                                            onClick={() => handleMove(list.id)}
-                                                        />
-                                                    ))}
-                                                </div>
+                                    
+                                    {/* Folders */}
+                                    {space.folders.map((folder: any) => (
+                                        <div key={folder.id}>
+                                            <div className="flex items-center px-4 py-1.5 text-[13.5px] text-slate-600 font-medium pl-9">
+                                                <Folder className="size-4 text-slate-400 mr-2 shrink-0" />
+                                                {folder.name}
                                             </div>
-                                        ))}
-                                        {/* Root Lists */}
-                                        {space.rootLists.map((list: any) => (
-                                            <ListItem
-                                                key={list.id}
-                                                name={list.name}
-                                                icon={ListIcon}
-                                                isSelected={list.id === task.listId}
-                                                onClick={() => handleMove(list.id)}
-                                            />
-                                        ))}
-                                    </div>
+                                            {folder.lists.map((list: any) => (
+                                                <button
+                                                    key={list.id}
+                                                    type="button"
+                                                    onClick={() => handleMove(list.id)}
+                                                    className={cn(
+                                                        "w-full flex items-center justify-between py-1.5 px-4 text-left text-[13.5px] cursor-pointer hover:bg-slate-50 pl-[52px]",
+                                                        task.listId === list.id && "bg-indigo-50 text-indigo-700"
+                                                    )}
+                                                >
+                                                    <span className="flex items-center gap-2">
+                                                        <ListChecks className="size-4 text-indigo-500 shrink-0" />
+                                                        <span className="text-slate-700">{list.name}</span>
+                                                    </span>
+                                                    {task.listId === list.id && <Check className="size-3.5 text-indigo-600 shrink-0" />}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    ))}
+                                    
+                                    {/* Root Lists */}
+                                    {space.rootLists.map((list: any) => (
+                                        <button
+                                            key={list.id}
+                                            type="button"
+                                            onClick={() => handleMove(list.id)}
+                                            className={cn(
+                                                "w-full flex items-center justify-between py-1.5 px-4 text-left text-[13.5px] cursor-pointer hover:bg-slate-50 pl-9",
+                                                task.listId === list.id && "bg-indigo-50 text-indigo-700"
+                                            )}
+                                        >
+                                            <span className="flex items-center gap-2">
+                                                <ListChecks className="size-4 text-indigo-500 shrink-0" />
+                                                <span className="text-slate-700">{list.name}</span>
+                                            </span>
+                                            {task.listId === list.id && <Check className="size-3.5 text-indigo-600 shrink-0" />}
+                                        </button>
+                                    ))}
                                 </div>
                             ))}
                             {hierarchy.length === 0 && (
                                 <div className="p-4 text-center text-xs text-zinc-400">
-                                    No lists found
+                                    No spaces found
                                 </div>
                             )}
                         </div>
                     </div>
                 </ScrollArea>
-
-                <div className="p-2 border-t bg-zinc-50 flex items-center gap-2">
-                    <div className="h-3.5 w-3.5 border rounded" />
-                    <span className="text-xs text-zinc-600">Move and keep in current List (Copy)</span>
-                </div>
             </DialogContent>
         </Dialog>
     );
 }
 
-function ListItem({ name, icon: Icon, isSelected, onClick, className }: any) {
-    return (
-        <div
-            className={cn("flex items-center justify-between px-2 py-1.5 hover:bg-zinc-100 rounded-sm cursor-pointer text-sm text-zinc-600 group", className)}
-            onClick={onClick}
-        >
-            <div className="flex items-center overflow-hidden">
-                <Icon className="h-3.5 w-3.5 mr-2 text-zinc-400 shrink-0" />
-                <div className="truncate">
-                    {name}
-                </div>
-            </div>
-            {isSelected && <Check className="h-3.5 w-3.5 text-zinc-900" />}
-        </div>
-    )
-}

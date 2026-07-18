@@ -850,6 +850,8 @@ export function TableView({ spaceId, projectId, teamId, listId, folderId, viewId
                 tags: [],
                 customFieldValues: [],
                 createdAt: new Date().toISOString(),
+                position: "zzzzzzzz",
+                order: "zzzzzzzz",
             };
             addTaskToList(optimisticTask);
         },
@@ -1396,6 +1398,7 @@ export function TableView({ spaceId, projectId, teamId, listId, folderId, viewId
     };
     const handleTaskDelete = (taskId: string) => {
         deleteTask.mutate({ id: taskId });
+        toast.success("Task deleted");
     };
 
     const subtaskCount = (task: Task) => (task._count?.other_tasks ?? 0);
@@ -1671,15 +1674,24 @@ export function TableView({ spaceId, projectId, teamId, listId, folderId, viewId
 
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                                <button className={cn("h-7 w-7 flex items-center justify-center border border-transparent hover:border-zinc-200 hover:bg-zinc-100 rounded-full cursor-pointer transition-colors shrink-0 outline-none focus:ring-0",
-                                    inlineAddPriority === 'URGENT' ? "text-red-500" :
-                                        inlineAddPriority === 'HIGH' ? "text-orange-500" :
-                                            inlineAddPriority === 'NORMAL' ? "text-blue-500" :
-                                                inlineAddPriority === 'LOW' ? "text-zinc-400" :
-                                                    "text-zinc-400"
-                                )}>
-                                    <Flag className="w-3.5 h-3.5 fill-current" />
-                                </button>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-7 w-7 text-zinc-600 border-zinc-200 hover:bg-zinc-100 hover:text-zinc-900 rounded-full"
+                                >
+                                    <div className="flex items-center gap-1.5 w-full">
+                                        <div className={cn("flex items-center gap-1.5",
+                                            inlineAddPriority === 'URGENT' ? "text-red-500" :
+                                                inlineAddPriority === 'HIGH' ? "text-orange-500" :
+                                                    inlineAddPriority === 'NORMAL' ? "text-blue-500" :
+                                                        inlineAddPriority === 'LOW' ? "text-zinc-400" : "text-zinc-400"
+                                        )}>
+                                            <Flag className="h-3 w-3 fill-current" />
+                                        </div>
+                                        <span>{inlineAddPriority ? inlineAddPriority.charAt(0) + inlineAddPriority.slice(1).toLowerCase() : "Priority"}</span>
+                                    </div>
+                                </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="start" className="w-48 z-[200]">
                                 <DropdownMenuLabel className="text-xs">Priority</DropdownMenuLabel>
@@ -1801,7 +1813,7 @@ export function TableView({ spaceId, projectId, teamId, listId, folderId, viewId
                                             if (!listName) return null;
 
                                             return (
-                                                <div className="flex items-center gap-1 text-[10px] text-zinc-400 mb-1 leading-normal h-3 overflow-hidden whitespace-nowrap">
+                                                <div className="flex items-center gap-1 text-[10px] text-zinc-500 mb-1 leading-normal h-3 overflow-hidden whitespace-nowrap">
                                                     {spaceName && (
                                                         <>
                                                             <span className="shrink-0">{spaceName}</span>
@@ -1814,7 +1826,7 @@ export function TableView({ spaceId, projectId, teamId, listId, folderId, viewId
                                                             <span className="text-zinc-300">/</span>
                                                         </>
                                                     )}
-                                                    <span className="font-medium text-zinc-500 truncate">{listName}</span>
+                                                    <span className="truncate">{listName}</span>
                                                 </div>
                                             );
                                         })()}
@@ -1824,6 +1836,10 @@ export function TableView({ spaceId, projectId, teamId, listId, folderId, viewId
                                                     value={renameDraft}
                                                     onChange={(e) => setRenameDraft(e.target.value)}
                                                     autoFocus
+                                                    onFocus={(e) => {
+                                                        const val = e.target.value;
+                                                        e.target.setSelectionRange(val.length, val.length);
+                                                    }}
                                                     onClick={(e) => e.stopPropagation()}
                                                     onKeyDown={(e) => {
                                                         if (e.key === "Enter") {
@@ -1881,16 +1897,15 @@ export function TableView({ spaceId, projectId, teamId, listId, folderId, viewId
                                         value={formatAssigneeIdsForSelector(task.assignees ?? [])}
                                         onChange={(newIds) => {
                                             const cleanIds = newIds;
-                                            void updateTask.mutateAsync({
-                                                id: task.id,
+                                            handleTaskUpdate(task.id, {
                                                 assigneeIds: cleanIds,
                                                 assigneeId: cleanIds[0] || null,
-                                            } as any);
+                                            });
                                         }}
                                         trigger={
                                             <button
                                                 type="button"
-                                                className="flex items-center -space-x-1.5 rounded hover:bg-zinc-100 px-1 py-0.5"
+                                                className="flex items-center -space-x-1.5 rounded hover:bg-zinc-100 px-1 py-0.5 cursor-pointer"
                                                 onClick={(e) => { e.stopPropagation(); }}
                                                 title="Edit assignees"
                                             >
@@ -1913,7 +1928,7 @@ export function TableView({ spaceId, projectId, teamId, listId, folderId, viewId
                                         <PopoverTrigger asChild>
                                             <button
                                                 type="button"
-                                                className={cn("text-xs rounded px-1 py-0.5 hover:bg-zinc-100", dueDateInfo ? dueDateInfo.color : "text-zinc-400")}
+                                                className={cn("text-xs rounded px-1 py-0.5 hover:bg-zinc-100 cursor-pointer", dueDateInfo ? dueDateInfo.color : "text-zinc-400")}
                                                 onClick={(e) => { e.stopPropagation(); }}
                                                 title="Edit due date"
                                             >
@@ -1925,10 +1940,10 @@ export function TableView({ spaceId, projectId, teamId, listId, folderId, viewId
                                                 startDate={task.startDate ? new Date(task.startDate) : undefined}
                                                 endDate={task.dueDate ? new Date(task.dueDate) : undefined}
                                                 onStartDateChange={(date) => {
-                                                    void updateTask.mutateAsync({ id: task.id, startDate: date ? date.toISOString() : null } as any);
+                                                    handleTaskUpdate(task.id, { startDate: date ? date.toISOString() : null });
                                                 }}
                                                 onEndDateChange={(date) => {
-                                                    void updateTask.mutateAsync({ id: task.id, dueDate: date ? date.toISOString() : null } as any);
+                                                    handleTaskUpdate(task.id, { dueDate: date ? date.toISOString() : null });
                                                 }}
                                             />
                                         </PopoverContent>
@@ -1939,36 +1954,45 @@ export function TableView({ spaceId, projectId, teamId, listId, folderId, viewId
                                 <TableCell className="py-2 overflow-hidden" style={{ width: colWidths.priority, minWidth: 80 }}>
                                     <DropdownMenu>
                                         <DropdownMenuTrigger asChild>
-                                            <button
+                                            <Button
                                                 type="button"
-                                                className={cn("inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium border hover:opacity-90", priorityStyles.badge)}
+                                                variant="outline"
+                                                size="sm"
+                                                className="h-7 w-auto min-w-[90px] border-zinc-200 bg-white hover:bg-zinc-50 focus:ring-0 px-2.5 rounded-md text-xs font-medium shadow-sm transition-all text-zinc-700 cursor-pointer"
                                                 onClick={(e) => { e.stopPropagation(); }}
                                                 title="Edit priority"
                                             >
-                                                <Flag className={cn("h-3 w-3", priorityStyles.icon)} />
-                                                {task.priority || "Normal"}
-                                            </button>
+                                                <div className="flex items-center gap-1.5 w-full">
+                                                    <div className={cn("flex items-center gap-1.5",
+                                                        task.priority === 'URGENT' ? "text-red-500" :
+                                                            task.priority === 'HIGH' ? "text-orange-500" :
+                                                                task.priority === 'NORMAL' ? "text-blue-500" :
+                                                                    task.priority === 'LOW' ? "text-zinc-400" : "text-zinc-400"
+                                                    )}>
+                                                        <Flag className="h-3 w-3 fill-current" />
+                                                    </div>
+                                                    <span>{task.priority ? task.priority.charAt(0) + task.priority.slice(1).toLowerCase() : "Priority"}</span>
+                                                </div>
+                                            </Button>
                                         </DropdownMenuTrigger>
-                                        <DropdownMenuContent align="start" className="w-44">
+                                        <DropdownMenuContent align="start" className="w-48 z-[200]">
                                             <DropdownMenuLabel className="text-xs">Priority</DropdownMenuLabel>
-                                            <DropdownMenuItem onClick={() => void updateTask.mutateAsync({ id: task.id, priority: "URGENT" } as any)}>
-                                                <Flag className={cn("mr-2 h-3.5 w-3.5", getPriorityStyles("URGENT").icon)} />
-                                                Urgent
+                                            <DropdownMenuItem onClick={() => handleTaskUpdate(task.id, { priority: "URGENT" })}>
+                                                <Flag className="h-3 w-3 mr-2 text-red-600 fill-current" /> Urgent
                                             </DropdownMenuItem>
-                                            <DropdownMenuItem onClick={() => void updateTask.mutateAsync({ id: task.id, priority: "HIGH" } as any)}>
-                                                <Flag className={cn("mr-2 h-3.5 w-3.5", getPriorityStyles("HIGH").icon)} />
-                                                High
+                                            <DropdownMenuItem onClick={() => handleTaskUpdate(task.id, { priority: "HIGH" })}>
+                                                <Flag className="h-3 w-3 mr-2 text-orange-600 fill-current" /> High
                                             </DropdownMenuItem>
-                                            <DropdownMenuItem onClick={() => void updateTask.mutateAsync({ id: task.id, priority: "NORMAL" } as any)}>
-                                                <Flag className={cn("mr-2 h-3.5 w-3.5", getPriorityStyles("NORMAL").icon)} />
-                                                Normal
+                                            <DropdownMenuItem onClick={() => handleTaskUpdate(task.id, { priority: "NORMAL" })}>
+                                                <Flag className="h-3 w-3 mr-2 text-blue-600 fill-current" /> Normal
                                             </DropdownMenuItem>
-                                            <DropdownMenuItem onClick={() => void updateTask.mutateAsync({ id: task.id, priority: "LOW" } as any)}>
-                                                <Flag className={cn("mr-2 h-3.5 w-3.5", getPriorityStyles("LOW").icon)} />
-                                                Low
+                                            <DropdownMenuItem onClick={() => handleTaskUpdate(task.id, { priority: "LOW" })}>
+                                                <Flag className="h-3 w-3 mr-2 text-slate-600 fill-current" /> Low
                                             </DropdownMenuItem>
                                             <DropdownMenuSeparator />
-                                            <DropdownMenuItem onClick={() => void updateTask.mutateAsync({ id: task.id, priority: null } as any)}>Clear</DropdownMenuItem>
+                                            <DropdownMenuItem onClick={() => handleTaskUpdate(task.id, { priority: null })}>
+                                                <CircleSlash className="h-3 w-3 mr-2 text-slate-500" />Clear
+                                            </DropdownMenuItem>
                                         </DropdownMenuContent>
                                     </DropdownMenu>
                                 </TableCell>
@@ -1979,7 +2003,7 @@ export function TableView({ spaceId, projectId, teamId, listId, folderId, viewId
                                         <DropdownMenuTrigger asChild>
                                             <button
                                                 type="button"
-                                                className={cn("inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-medium border hover:opacity-90", getStatusStyles(task.status?.name || ""))}
+                                                className={cn("inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-medium border hover:opacity-90 cursor-pointer", getStatusStyles(task.status?.name || ""))}
                                                 onClick={(e) => { e.stopPropagation(); }}
                                                 title="Edit status"
                                             >
@@ -1991,7 +2015,7 @@ export function TableView({ spaceId, projectId, teamId, listId, folderId, viewId
                                             <DropdownMenuLabel className="text-xs">Status</DropdownMenuLabel>
                                             {(((task as any).list?.statuses ?? []) as any[]).length > 0
                                                 ? (((task as any).list?.statuses ?? []) as any[]).map((s: any) => (
-                                                    <DropdownMenuItem key={s.id} onClick={() => void updateTask.mutateAsync({ id: task.id, statusId: s.id } as any)}>
+                                                    <DropdownMenuItem key={s.id} onClick={() => handleTaskUpdate(task.id, { statusId: s.id })}>
                                                         <div className="flex items-center gap-2">
                                                             <span className="h-2 w-2 rounded-full" style={{ backgroundColor: s.color || "#94A3B8" }} />
                                                             <span>{s.name}</span>
@@ -2004,7 +2028,7 @@ export function TableView({ spaceId, projectId, teamId, listId, folderId, viewId
                                                         return !taskListId || s.listId === taskListId;
                                                     })
                                                     .map((s) => (
-                                                        <DropdownMenuItem key={s.id} onClick={() => void updateTask.mutateAsync({ id: task.id, statusId: s.id } as any)}>
+                                                        <DropdownMenuItem key={s.id} onClick={() => handleTaskUpdate(task.id, { statusId: s.id })}>
                                                             <div className="flex items-center gap-2">
                                                                 <span className="h-2 w-2 rounded-full" style={{ backgroundColor: (s as any).color || "#94A3B8" }} />
                                                                 <span>{(s as any).name}</span>
@@ -2120,7 +2144,16 @@ export function TableView({ spaceId, projectId, teamId, listId, folderId, viewId
                                     availableStatuses={allAvailableStatuses}
                                     onDelete={id => void handleTaskDelete(id)}
                                     onUpdate={handleTaskUpdate}
-                                    onAction={() => { }}
+                                    onAction={(action) => {
+                                        if (action === "rename") {
+                                            setRenameDraft(task.title || task.name || "");
+                                            setRenamingTaskId(task.id);
+                                        } else if (action === "archive") {
+                                            handleTaskUpdate(task.id, { isArchived: true });
+                                            removeTaskFromList(task.id);
+                                            toast.success("Task archived");
+                                        }
+                                    }}
                                 >
                                     <button
                                         type="button"
@@ -4171,30 +4204,43 @@ export function TableView({ spaceId, projectId, teamId, listId, folderId, viewId
                                                         {/* Priority picker */}
                                                         <DropdownMenu>
                                                             <DropdownMenuTrigger asChild>
-                                                                <Button variant="outline" size="icon" className="h-7 w-7 text-zinc-600 border-zinc-200 hover:bg-zinc-100 hover:text-zinc-900 rounded-full">
-                                                                    <Flag className="h-3.5 w-3.5" />
+                                                                <Button
+                                                                    type="button"
+                                                                    variant="outline"
+                                                                    size="sm"
+                                                                    className="h-7 w-auto min-w-[90px] border-zinc-200 bg-white hover:bg-zinc-50 focus:ring-0 px-2.5 rounded-md text-xs font-medium shadow-sm transition-all text-zinc-700"
+                                                                >
+                                                                    <div className="flex items-center gap-1.5 w-full">
+                                                                        <div className={cn("flex items-center gap-1.5",
+                                                                            inlineAddPriority === 'URGENT' ? "text-red-500" :
+                                                                                inlineAddPriority === 'HIGH' ? "text-orange-500" :
+                                                                                    inlineAddPriority === 'NORMAL' ? "text-blue-500" :
+                                                                                        inlineAddPriority === 'LOW' ? "text-zinc-400" : "text-zinc-400"
+                                                                        )}>
+                                                                            <Flag className="h-3 w-3 fill-current" />
+                                                                        </div>
+                                                                        <span>{inlineAddPriority ? inlineAddPriority.charAt(0) + inlineAddPriority.slice(1).toLowerCase() : "Priority"}</span>
+                                                                    </div>
                                                                 </Button>
                                                             </DropdownMenuTrigger>
-                                                            <DropdownMenuContent align="end" className="w-44">
+                                                            <DropdownMenuContent align="end" className="w-48 z-[200]">
                                                                 <DropdownMenuLabel className="text-xs">Task Priority</DropdownMenuLabel>
                                                                 <DropdownMenuItem onClick={() => setInlineAddPriority("URGENT")}>
-                                                                    <Flag className={cn("mr-2 h-3.5 w-3.5", getPriorityStyles("URGENT").icon)} />
-                                                                    Urgent
+                                                                    <Flag className="h-3 w-3 mr-2 text-red-600 fill-current" /> Urgent
                                                                 </DropdownMenuItem>
                                                                 <DropdownMenuItem onClick={() => setInlineAddPriority("HIGH")}>
-                                                                    <Flag className={cn("mr-2 h-3.5 w-3.5", getPriorityStyles("HIGH").icon)} />
-                                                                    High
+                                                                    <Flag className="h-3 w-3 mr-2 text-orange-600 fill-current" /> High
                                                                 </DropdownMenuItem>
                                                                 <DropdownMenuItem onClick={() => setInlineAddPriority("NORMAL")}>
-                                                                    <Flag className={cn("mr-2 h-3.5 w-3.5", getPriorityStyles("NORMAL").icon)} />
-                                                                    Normal
+                                                                    <Flag className="h-3 w-3 mr-2 text-blue-600 fill-current" /> Normal
                                                                 </DropdownMenuItem>
                                                                 <DropdownMenuItem onClick={() => setInlineAddPriority("LOW")}>
-                                                                    <Flag className={cn("mr-2 h-3.5 w-3.5", getPriorityStyles("LOW").icon)} />
-                                                                    Low
+                                                                    <Flag className="h-3 w-3 mr-2 text-slate-600 fill-current" /> Low
                                                                 </DropdownMenuItem>
                                                                 <DropdownMenuSeparator />
-                                                                <DropdownMenuItem onClick={() => setInlineAddPriority(null)}>Clear</DropdownMenuItem>
+                                                                <DropdownMenuItem onClick={() => setInlineAddPriority(null)}>
+                                                                    <CircleSlash className="h-3 w-3 mr-2 text-slate-500" />Clear
+                                                                </DropdownMenuItem>
                                                             </DropdownMenuContent>
                                                         </DropdownMenu>
 
@@ -4202,14 +4248,14 @@ export function TableView({ spaceId, projectId, teamId, listId, folderId, viewId
                                                             <Button
                                                                 variant="ghost"
                                                                 size="sm"
-                                                                className="h-7 text-xs text-zinc-600"
+                                                                className="h-7 text-xs text-zinc-600 rounded-full hover:bg-zinc-100 px-3"
                                                                 onClick={() => handleCancelInlineAdd(true)}
                                                             >
                                                                 Cancel
                                                             </Button>
                                                             <Button
                                                                 size="sm"
-                                                                className="h-7 text-xs bg-zinc-900 hover:bg-zinc-800"
+                                                                className="h-7 text-xs bg-zinc-900 hover:bg-zinc-800 text-white rounded-full px-4"
                                                                 onClick={() => handleSaveInlineTask({ parentId: null, listIdForCreate: listId ?? lists[0]?.id })}
                                                                 disabled={!inlineAddTitle.trim() || (!listId && !lists[0]?.id) || !resolvedWorkspaceId || createTask.isPending}
                                                             >

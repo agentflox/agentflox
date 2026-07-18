@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { X, Mail, Users, Search, Check, Shield, User, Copy, Globe, Loader2 } from 'lucide-react';
+import { X, Mail, Users, Search, Check, Shield, User, Copy, Globe, Loader2, Eye, MessageSquare, Pencil, Star, Share2 } from 'lucide-react';
 import { trpc } from '@/lib/trpc';
 import { permissionsService } from '@/services/permissions.service';
 import {
@@ -292,11 +292,13 @@ export function ShareModal({
         <Dialog open={isOpen} onOpenChange={onClose}>
             <DialogContent className="sm:max-w-[650px] gap-0 p-0 overflow-hidden">
                 <DialogHeader className="px-6 py-4 border-b">
-                    <DialogTitle className="text-xl font-semibold flex items-center gap-2">
-                        Share this {itemType.charAt(0).toUpperCase() + itemType.slice(1)}
-                        <Badge variant="outline" className="ml-2 font-normal text-zinc-500">
-                            {itemType === 'space' ? 'Space' : 'Private'}
-                        </Badge>
+                    <DialogTitle className="flex items-center gap-2 mb-0">
+                        <div className="h-8 w-8 rounded-md border border-indigo-200 bg-indigo-50 flex items-center justify-center shrink-0">
+                            <Share2 className="h-5 w-5 text-indigo-500" />
+                        </div>
+                        <span className="text-[20px] font-semibold text-zinc-900">
+                            Share this {itemType.charAt(0).toUpperCase() + itemType.slice(1)}
+                        </span>
                     </DialogTitle>
                 </DialogHeader>
 
@@ -335,11 +337,31 @@ export function ShareModal({
                                     </SelectTrigger>
                                     <SelectContent align="end">
                                         <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">Workspace Roles</div>
-                                        <SelectItem value="MEMBER">Member</SelectItem>
-                                        <SelectItem value="ADMIN">Admin</SelectItem>
+                                        <SelectItem value="MEMBER" className="font-normal">
+                                            <span className="flex items-center gap-2">
+                                                <Users className="h-3.5 w-3.5 text-zinc-500" />
+                                                Member
+                                            </span>
+                                        </SelectItem>
+                                        <SelectItem value="ADMIN" className="font-normal">
+                                            <span className="flex items-center gap-2">
+                                                <Shield className="h-3.5 w-3.5 text-zinc-500" />
+                                                Admin
+                                            </span>
+                                        </SelectItem>
                                         <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground mt-1">External</div>
-                                        <SelectItem value="GUEST">Guest</SelectItem>
-                                        <SelectItem value="LIMITED_MEMBER">Limited</SelectItem>
+                                        <SelectItem value="GUEST" className="font-normal">
+                                            <span className="flex items-center gap-2">
+                                                <Globe className="h-3.5 w-3.5 text-zinc-500" />
+                                                Guest
+                                            </span>
+                                        </SelectItem>
+                                        <SelectItem value="LIMITED_MEMBER" className="font-normal">
+                                            <span className="flex items-center gap-2">
+                                                <User className="h-3.5 w-3.5 text-zinc-500" />
+                                                Limited
+                                            </span>
+                                        </SelectItem>
                                     </SelectContent>
                                 </Select>
                                 <Select value={selectedPermission} onValueChange={(p: any) => setSelectedPermission(p)}>
@@ -347,10 +369,30 @@ export function ShareModal({
                                         <SelectValue />
                                     </SelectTrigger>
                                     <SelectContent align="end">
-                                        <SelectItem value="VIEW">View</SelectItem>
-                                        <SelectItem value="COMMENT">Comment</SelectItem>
-                                        <SelectItem value="EDIT">Edit</SelectItem>
-                                        <SelectItem value="FULL">Full</SelectItem>
+                                        <SelectItem value="VIEW" className="font-normal">
+                                            <span className="flex items-center gap-2">
+                                                <Eye className="h-3.5 w-3.5 text-zinc-500" />
+                                                View
+                                            </span>
+                                        </SelectItem>
+                                        <SelectItem value="COMMENT" className="font-normal">
+                                            <span className="flex items-center gap-2">
+                                                <MessageSquare className="h-3.5 w-3.5 text-zinc-500" />
+                                                Comment
+                                            </span>
+                                        </SelectItem>
+                                        <SelectItem value="EDIT" className="font-normal">
+                                            <span className="flex items-center gap-2">
+                                                <Pencil className="h-3.5 w-3.5 text-zinc-500" />
+                                                Edit
+                                            </span>
+                                        </SelectItem>
+                                        <SelectItem value="FULL" className="font-normal">
+                                            <span className="flex items-center gap-2">
+                                                <Star className="h-3.5 w-3.5 text-zinc-500" />
+                                                Full
+                                            </span>
+                                        </SelectItem>
                                     </SelectContent>
                                 </Select>
                             </div>
@@ -452,11 +494,31 @@ export function ShareModal({
                                                 </SelectTrigger>
                                                 <SelectContent>
                                                     <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">Workspace Roles</div>
-                                                    <SelectItem value="MEMBER">Member</SelectItem>
-                                                    <SelectItem value="ADMIN">Admin</SelectItem>
+                                                    <SelectItem value="MEMBER" className="font-normal">
+                                                        <span className="flex items-center gap-2">
+                                                            <Users className="h-3.5 w-3.5 text-zinc-500" />
+                                                            Member
+                                                        </span>
+                                                    </SelectItem>
+                                                    <SelectItem value="ADMIN" className="font-normal">
+                                                        <span className="flex items-center gap-2">
+                                                            <Shield className="h-3.5 w-3.5 text-zinc-500" />
+                                                            Admin
+                                                        </span>
+                                                    </SelectItem>
                                                     <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground mt-1">External</div>
-                                                    <SelectItem value="GUEST">Guest</SelectItem>
-                                                    <SelectItem value="LIMITED_MEMBER">Limited</SelectItem>
+                                                    <SelectItem value="GUEST" className="font-normal">
+                                                        <span className="flex items-center gap-2">
+                                                            <Globe className="h-3.5 w-3.5 text-zinc-500" />
+                                                            Guest
+                                                        </span>
+                                                    </SelectItem>
+                                                    <SelectItem value="LIMITED_MEMBER" className="font-normal">
+                                                        <span className="flex items-center gap-2">
+                                                            <User className="h-3.5 w-3.5 text-zinc-500" />
+                                                            Limited
+                                                        </span>
+                                                    </SelectItem>
                                                 </SelectContent>
                                             </Select>
 
@@ -469,10 +531,30 @@ export function ShareModal({
                                                     <SelectValue />
                                                 </SelectTrigger>
                                                 <SelectContent>
-                                                    <SelectItem value="VIEW">View</SelectItem>
-                                                    <SelectItem value="COMMENT">Comment</SelectItem>
-                                                    <SelectItem value="EDIT">Edit</SelectItem>
-                                                    <SelectItem value="FULL">Full</SelectItem>
+                                                    <SelectItem value="VIEW" className="font-normal">
+                                                        <span className="flex items-center gap-2">
+                                                            <Eye className="h-3.5 w-3.5 text-zinc-500" />
+                                                            View
+                                                        </span>
+                                                    </SelectItem>
+                                                    <SelectItem value="COMMENT" className="font-normal">
+                                                        <span className="flex items-center gap-2">
+                                                            <MessageSquare className="h-3.5 w-3.5 text-zinc-500" />
+                                                            Comment
+                                                        </span>
+                                                    </SelectItem>
+                                                    <SelectItem value="EDIT" className="font-normal">
+                                                        <span className="flex items-center gap-2">
+                                                            <Pencil className="h-3.5 w-3.5 text-zinc-500" />
+                                                            Edit
+                                                        </span>
+                                                    </SelectItem>
+                                                    <SelectItem value="FULL" className="font-normal">
+                                                        <span className="flex items-center gap-2">
+                                                            <Star className="h-3.5 w-3.5 text-zinc-500" />
+                                                            Full
+                                                        </span>
+                                                    </SelectItem>
                                                 </SelectContent>
                                             </Select>
 
@@ -528,4 +610,3 @@ export function ShareModal({
         </Dialog>
     );
 }
-

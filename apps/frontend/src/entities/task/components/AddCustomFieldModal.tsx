@@ -188,51 +188,51 @@ export function AddCustomFieldModal({
 
             {/* Step 2: Form modal (image 4) - Field name, Description, Type dropdown */}
             <Dialog open={open && step === 'form'} onOpenChange={(isOpen) => !isOpen && handleClose()}>
-                <DialogContent className="sm:max-w-[400px]">
-                    <DialogTitle>Add custom field</DialogTitle>
-                    <form onSubmit={handleSubmit} className="space-y-4">
-                        <div className="space-y-2">
-                            <Label htmlFor="field-name">
-                                Field name <span className="text-red-500">*</span>
+                <DialogContent className="sm:max-w-[420px] p-6 rounded-2xl shadow-xl">
+                    <DialogTitle className="text-xl font-semibold text-zinc-900 tracking-tight">Add custom field</DialogTitle>
+                    <form onSubmit={handleSubmit} className="space-y-5 pt-2">
+                        <div className="space-y-1.5">
+                            <Label htmlFor="field-name" className="text-[13px] font-medium text-zinc-500">
+                                Field name <span className="text-red-500 ml-0.5">*</span>
                             </Label>
                             <Input
                                 id="field-name"
                                 value={name}
                                 onChange={(e) => setName(e.target.value)}
                                 placeholder="Enter name..."
-                                className="w-full"
+                                className="w-full h-9 shadow-sm bg-white border-zinc-200/80 focus-visible:ring-indigo-500/20 focus-visible:border-indigo-500 transition-all text-[13px]"
                             />
                         </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="field-description">Description (optional)</Label>
+                        <div className="space-y-1.5">
+                            <Label htmlFor="field-description" className="text-[13px] font-medium text-zinc-500">Description <span className="text-zinc-400 font-normal">(optional)</span></Label>
                             <Textarea
                                 id="field-description"
                                 value={description}
                                 onChange={(e) => setDescription(e.target.value)}
                                 placeholder="Describe this field..."
                                 rows={2}
-                                className="resize-none"
+                                className="resize-none shadow-sm bg-white border-zinc-200/80 focus-visible:ring-indigo-500/20 focus-visible:border-indigo-500 transition-all text-[13px] text-zinc-900"
                             />
-                            <p className="text-[11px] text-muted-foreground">
+                            <p className="text-[11.5px] text-zinc-500 font-medium pt-0.5">
                                 View descriptions when hovering over fields in tasks or views
                             </p>
                         </div>
-                        <div className="space-y-2">
-                            <Label>Type</Label>
+                        <div className="space-y-1.5">
+                            <Label className="text-[13px] font-medium text-zinc-500">Type</Label>
                             <Select value={type} onValueChange={setType}>
-                                <SelectTrigger className="w-full">
-                                    <div className="flex items-center gap-2">
-                                        {TypeIcon && <TypeIcon className="h-4 w-4 text-muted-foreground shrink-0" />}
-                                        <SelectValue placeholder="Select type" />
+                                <SelectTrigger className="w-full h-9 shadow-sm bg-white border-zinc-200/80 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all text-[13px]">
+                                    <div className="flex items-center gap-2.5">
+                                        {TypeIcon && <TypeIcon className="h-4 w-4 text-zinc-500 shrink-0" />}
+                                        <SelectValue placeholder="Select type" className="text-zinc-900" />
                                     </div>
                                 </SelectTrigger>
-                                <SelectContent>
+                                <SelectContent className="rounded-xl border-zinc-200 shadow-lg">
                                     {FIELD_TYPE_DROPDOWN_OPTIONS.map((opt) => {
                                         const Icon = opt.icon;
                                         return (
-                                            <SelectItem key={opt.id} value={opt.type}>
-                                                <div className="flex items-center gap-2">
-                                                    <Icon className="h-4 w-4 shrink-0" />
+                                            <SelectItem key={opt.id} value={opt.type} className="py-2 cursor-pointer focus:bg-zinc-50">
+                                                <div className="flex items-center gap-2.5 text-[13px] text-zinc-700 font-medium">
+                                                    <Icon className="h-4 w-4 shrink-0 text-zinc-500" />
                                                     {opt.label}
                                                 </div>
                                             </SelectItem>
@@ -241,16 +241,21 @@ export function AddCustomFieldModal({
                                 </SelectContent>
                             </Select>
                         </div>
-                        <div className="flex justify-end gap-2 pt-2">
+                        <div className="flex justify-end gap-2.5 pt-4">
                             <Button
                                 type="button"
                                 variant="outline"
                                 onClick={() => handleClose()}
+                                className="h-9 px-4 border-zinc-200 text-zinc-700 hover:bg-zinc-50 hover:text-zinc-900 shadow-sm transition-all focus-visible:ring-2 focus-visible:ring-zinc-200 font-medium text-[13px]"
                             >
                                 Cancel
                             </Button>
-                            <Button type="submit" disabled={createField.isPending || !name.trim()}>
-                                {createField.isPending ? 'Creating...' : 'Create'}
+                            <Button
+                                type="submit"
+                                disabled={createField.isPending || !name.trim()}
+                                className="h-9 px-4 bg-indigo-600 text-white hover:bg-indigo-700 shadow-sm transition-all focus-visible:ring-2 focus-visible:ring-indigo-200 font-medium border border-transparent text-[13px]"
+                            >
+                                {createField.isPending ? 'Creating...' : 'Create field'}
                             </Button>
                         </div>
                     </form>

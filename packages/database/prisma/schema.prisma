@@ -612,6 +612,8 @@ model Task {
   assigneeId          String?            @map("assignee_id")
   createdBy           String             @map("created_by")
   visibility          Visibility         @default(ADMINS)
+  icon                String?
+  coverImage          String?            @map("cover_image")
   isPublic            Boolean            @default(false) @map("is_public")
   priority            TaskPriority       @default(NORMAL)
   taskTypeId          String?            @map("task_type_id")

@@ -29,6 +29,8 @@ import {
     Shield,
     Crown,
     FolderPlus,
+    LogOut,
+    SlidersHorizontal,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/useToast";
@@ -36,7 +38,15 @@ import { trpc } from "@/lib/trpc";
 import { EntityRenameDialog } from "../modals/EntityRenameDialog";
 import { ShareModal } from "@/components/permissions/ShareModal";
 import { ListCreationModal } from "@/entities/task/components/ListCreationModal";
+import { FolderMoveToPopover } from "@/entities/folders/components/FolderMoveToPopover";
 import { TemplateMenuPopover } from "@/entities/templates/components/TemplateMenuPopover";
+import { CustomFieldsManagerModal } from "@/entities/customfields/components/CustomFieldsManagerModal";
+import { DuplicateFolderModal } from "@/entities/folders/components/DuplicateFolderModal";
+import { FolderArchiveModal } from "@/entities/folders/components/FolderArchiveModal";
+import { FolderDeleteModal } from "@/entities/folders/components/FolderDeleteModal";
+import { FolderTransferModal } from "@/entities/folders/components/FolderTransferModal";
+import { FolderSettingsModal } from "@/entities/folders/components/FolderSettingsModal";
+import { FolderPermissionsModal } from "@/entities/folders/components/FolderPermissionsModal";
 
 interface FolderActionsMenuProps {
     workspaceId: string;
@@ -68,6 +78,13 @@ export function FolderActionsMenu({
     const [renameDialogOpen, setRenameDialogOpen] = useState(false);
     const [shareModalOpen, setShareModalOpen] = useState(false);
     const [isCreateListOpen, setIsCreateListOpen] = useState(false);
+    const [customFieldsModalOpen, setCustomFieldsModalOpen] = useState(false);
+    const [duplicateModalOpen, setDuplicateModalOpen] = useState(false);
+    const [archiveModalOpen, setArchiveModalOpen] = useState(false);
+    const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+    const [transferModalOpen, setTransferModalOpen] = useState(false);
+    const [settingsModalOpen, setSettingsModalOpen] = useState(false);
+    const [permissionsModalOpen, setPermissionsModalOpen] = useState(false);
 
     const updateFolder = trpc.folder.update.useMutation({
         onSuccess: () => {
@@ -160,35 +177,45 @@ export function FolderActionsMenu({
                         </DropdownMenuPortal>
                     </DropdownMenuSub>
 
+                    <DropdownMenuItem onClick={() => setCustomFieldsModalOpen(true)}>
+                        <SlidersHorizontal className="mr-2 h-4 w-4" /> Custom Fields
+                    </DropdownMenuItem>
+
                     <DropdownMenuItem onClick={() => handlePlaceholder("Hide Folder")}>
                         <EyeOff className="mr-2 h-4 w-4" /> Hide Folder
                     </DropdownMenuItem>
 
-                    <DropdownMenuItem onClick={() => setShareModalOpen(true)}>
+                    <DropdownMenuItem onClick={() => setPermissionsModalOpen(true)}>
                         <Shield className="mr-2 h-4 w-4" /> Manage Access
                     </DropdownMenuItem>
 
                     <DropdownMenuSeparator />
 
-                    <DropdownMenuItem onClick={() => handlePlaceholder("Duplicate")}>
+                    <FolderMoveToPopover
+                        folderId={folderId}
+                        folderName={folderName}
+                        workspaceId={workspaceId}
+                    />
+
+                    <DropdownMenuItem onClick={() => setDuplicateModalOpen(true)}>
                         <CopyPlus className="mr-2 h-4 w-4" /> Duplicate
                     </DropdownMenuItem>
 
-                    <DropdownMenuItem onClick={() => handlePlaceholder("Transfer Ownership")}>
+                    <DropdownMenuItem onClick={() => setTransferModalOpen(true)}>
                         <Crown className="mr-2 h-4 w-4" /> Transfer Ownership
                     </DropdownMenuItem>
 
-                    <DropdownMenuItem onClick={() => handlePlaceholder("Archive")}>
+                    <DropdownMenuItem onClick={() => setArchiveModalOpen(true)}>
                         <Archive className="mr-2 h-4 w-4" /> Archive
                     </DropdownMenuItem>
 
-                    <DropdownMenuItem onClick={() => handlePlaceholder("Delete")} className="text-red-600 focus:text-red-600 focus:bg-red-50">
+                    <DropdownMenuItem onClick={() => setDeleteModalOpen(true)} className="text-red-600 focus:text-red-600 focus:bg-red-50">
                         <Trash2 className="mr-2 h-4 w-4" /> Delete
                     </DropdownMenuItem>
 
                     <DropdownMenuSeparator />
 
-                    <DropdownMenuItem onClick={() => handlePlaceholder("Settings")}>
+                    <DropdownMenuItem onClick={() => setSettingsModalOpen(true)}>
                         <Settings className="mr-2 h-4 w-4" /> Settings
                     </DropdownMenuItem>
                 </DropdownMenuContent>
@@ -221,6 +248,58 @@ export function FolderActionsMenu({
                 open={isCreateListOpen}
                 onOpenChange={setIsCreateListOpen}
             />
+
+            <CustomFieldsManagerModal
+                open={customFieldsModalOpen}
+                onOpenChange={setCustomFieldsModalOpen}
+                workspaceId={workspaceId}
+            />
+
+            <DuplicateFolderModal
+                open={duplicateModalOpen}
+                onOpenChange={setDuplicateModalOpen}
+                folderId={folderId}
+                folderName={folderName}
+                folderIcon={folderIcon}
+                folderColor={folderColor}
+            />
+
+            <FolderArchiveModal
+                folderId={folderId}
+                folderName={folderName}
+                open={archiveModalOpen}
+                onOpenChange={setArchiveModalOpen}
+            />
+
+            <FolderDeleteModal
+                folderId={folderId}
+                folderName={folderName}
+                open={deleteModalOpen}
+                onOpenChange={setDeleteModalOpen}
+            />
+
+            <FolderTransferModal
+                folderId={folderId}
+                folderName={folderName}
+                open={transferModalOpen}
+                onOpenChange={setTransferModalOpen}
+            />
+
+            <FolderSettingsModal
+                workspaceId={workspaceId}
+                spaceId={spaceId}
+                folderId={folderId}
+                open={settingsModalOpen}
+                onOpenChange={setSettingsModalOpen}
+            />
+
+            <FolderPermissionsModal
+                workspaceId={workspaceId}
+                folderId={folderId}
+                open={permissionsModalOpen}
+                onOpenChange={setPermissionsModalOpen}
+            />
+
         </>
     );
 }

@@ -128,10 +128,8 @@ export const workspaceRouter = router({
 							createMany: {
 								data: [
 									{ name: "Overview", type: ViewType.OVERVIEW, position: 0, ownerId: userId, isDefault: true },
-									{ name: "List", type: ViewType.LIST, position: 1, ownerId: userId, isDefault: true },
-									{ name: "Projects", type: ViewType.PROJECTS, position: 2, ownerId: userId, isDefault: true },
-									{ name: "Teams", type: ViewType.TEAMS, position: 3, ownerId: userId, isDefault: true },
-									{ name: "Tasks", type: ViewType.TASKS, position: 4, ownerId: userId, isDefault: true },
+									{ name: "List", type: ViewType.LIST, position: 1, ownerId: userId },
+									{ name: "Board", type: ViewType.BOARD, position: 2, ownerId: userId },
 								]
 							}
 						}

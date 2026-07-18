@@ -9,22 +9,12 @@ import {
     DialogTitle,
     DialogFooter,
 } from "@/components/ui/dialog";
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { trpc } from "@/lib/trpc";
 import { useToast } from "@/hooks/useToast";
-import { Loader2, Search, UserCheck, Crown, Mail, AlertTriangle } from "lucide-react";
+import { Loader2, Search, UserCheck, Crown, Mail, Info, UserX } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface ProjectTransferModalProps {
@@ -38,313 +28,264 @@ interface ProjectTransferModalProps {
 export function ProjectTransferModal({ projectId, projectName, open, onOpenChange, onSuccess }: ProjectTransferModalProps) {
     const { toast } = useToast();
     const utils = trpc.useUtils();
-    const [searchQuery, setSearchQuery] = useState("");
-    const [debouncedSearch, setDebouncedSearch] = useState("");
-    const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
-    const [showConfirmation, setShowConfirmation] = useState(false);
 
-    // Debounce search query (300ms delay)
+    const [emailInput, setEmailInput] = useState("");
+    const [debouncedEmail, setDebouncedEmail] = useState("");
+    const [selectedUser, setSelectedUser] = useState<any>(null);
+    const [isTransferring, setIsTransferring] = useState(false);
+
+    // Debounce email input (400ms)
     useEffect(() => {
         const timer = setTimeout(() => {
-            setDebouncedSearch(searchQuery);
-        }, 300);
-
+            setDebouncedEmail(emailInput.trim());
+        }, 400);
         return () => clearTimeout(timer);
-    }, [searchQuery]);
+    }, [emailInput]);
 
-    // Fetch project data to get current owner and validate permissions
-    const { data: project, isLoading: isLoadingProject } = trpc.project.get.useQuery(
-        { id: projectId || "" },
-        { enabled: !!projectId && open }
+    // Clear selected user when email input changes
+    useEffect(() => {
+        if (selectedUser && emailInput.trim() !== (selectedUser.email ?? selectedUser.username ?? "")) {
+            setSelectedUser(null);
+        }
+    }, [emailInput]);
+
+    const {
+        data: foundUser,
+        isLoading: isSearching,
+        isFetched,
+    } = trpc.user.searchPeople.useQuery(
+        { query: debouncedEmail },
+        {
+            enabled: !!projectId && open && debouncedEmail.length >= 3,
+            staleTime: 30_000,
+            retry: false,
+        }
     );
 
-    // Get members from project data
-    const allMembers = (project as any)?.members?.map((member: any) => {
-        const u = member.user;
-        const name = u?.name ||
-            u?.username ||
-            [u?.firstName, u?.lastName].filter(Boolean).join(" ") ||
-            u?.email ||
-            "Unknown";
-
-        return {
-            id: u?.id || member.userId,
-            name: name,
-            email: u?.email || "",
-            avatar: u?.avatar || u?.image || null,
-            role: member.role
-        };
-    }) || [];
-
-    // Filter members client-side
-    const currentOwnerId = (project as any)?.createdBy;
-    const filteredMembers = allMembers
-        .filter((member: any) => member.id !== currentOwnerId) // Exclude current owner
-        .filter((member: any) => {
-            if (!debouncedSearch) return true;
-            const query = debouncedSearch.toLowerCase();
-            return (
-                member.name?.toLowerCase().includes(query) ||
-                member.email?.toLowerCase().includes(query)
-            );
-        })
-        .slice(0, 20); // Limit to 20 results for performance
-
-    const selectedMember = allMembers.find((m: any) => m.id === selectedUserId);
-
     const resetForm = useCallback(() => {
-        setSearchQuery("");
-        setDebouncedSearch("");
-        setSelectedUserId(null);
-        setShowConfirmation(false);
+        setEmailInput("");
+        setDebouncedEmail("");
+        setSelectedUser(null);
+        setIsTransferring(false);
     }, []);
 
-    const handleInitiateTransfer = () => {
-        if (!selectedUserId || !selectedMember) return;
-        setShowConfirmation(true);
-    };
+    const displayName = (u: any) =>
+        u?.name ||
+        [u?.firstName, u?.lastName].filter(Boolean).join(" ") ||
+        u?.username ||
+        u?.email ||
+        "Unknown";
 
     const handleConfirmTransfer = async () => {
-        if (!projectId || !selectedUserId) return;
+        if (!projectId || !selectedUser) return;
 
+        setIsTransferring(true);
         try {
             const res = await fetch(`/api/permissions/project/${projectId}/transfer`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ newOwnerId: selectedUserId })
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ newOwnerId: selectedUser.id }),
             });
 
             if (!res.ok) {
                 const data = await res.json();
-                throw new Error(data.message || 'Failed to transfer ownership');
+                throw new Error(data.message || "Failed to transfer ownership");
             }
 
             toast({
                 title: "Ownership transferred successfully",
-                description: `${selectedMember?.name} is now the owner of ${projectName}`
+                description: `${displayName(selectedUser)} is now the owner of ${projectName}`,
             });
-            utils.project.get.invalidate({ id: projectId });
             utils.project.list.invalidate();
             utils.project.listInfinite.invalidate();
             onOpenChange(false);
             onSuccess?.();
             resetForm();
-
         } catch (error: any) {
             toast({
                 title: "Failed to transfer ownership",
                 description: error.message || "Please try again or contact support",
-                variant: "destructive"
+                variant: "destructive",
             });
+        } finally {
+            setIsTransferring(false);
         }
     };
 
-    const isLoading = isLoadingProject;
+    const hasQuery = debouncedEmail.length >= 3;
+    const showResult = hasQuery && isFetched && !isSearching;
+    const noUserFound = showResult && !foundUser;
+    const userFound = showResult && !!foundUser;
 
     if (!projectId) return null;
 
     return (
-        <>
-            <Dialog open={open && !showConfirmation} onOpenChange={(open) => {
-                if (!open) resetForm();
-                onOpenChange(open);
-            }}>
-                <DialogContent className="sm:max-w-md">
-                    <DialogHeader>
-                        <DialogTitle className="flex items-center gap-2">
-                            <Crown className="h-5 w-5 text-amber-600" />
-                            Transfer Ownership
-                        </DialogTitle>
-                        <DialogDescription>
-                            Transfer ownership of "{projectName}" to another member
-                        </DialogDescription>
-                    </DialogHeader>
+        <Dialog open={open} onOpenChange={(o) => { if (!o) resetForm(); onOpenChange(o); }}>
+            <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                    <DialogTitle className="flex items-center gap-2">
+                        <Crown className="h-5 w-5 text-amber-600" />
+                        Transfer Ownership
+                    </DialogTitle>
+                    <DialogDescription className="text-zinc-500 leading-relaxed pr-4">
+                        This will transfer{" "}
+                        <strong className="font-semibold text-zinc-700">"{projectName}"</strong> full
+                        control of the project to the new owner, and you'll be downgraded to Admin.{" "}
+                        <span className="group relative inline-flex align-middle">
+                            <Info className="h-4 w-4 text-zinc-300 hover:text-indigo-500 transition-colors duration-150 cursor-help translate-y-[-3px]" />
+                            <span className="pointer-events-none absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-56 rounded-lg bg-zinc-900 text-white text-[12px] leading-snug px-2.5 py-2 shadow-lg opacity-0 scale-95 origin-bottom group-hover:opacity-100 group-hover:scale-100 transition-all duration-150 z-20">
+                                Ownership transfers can't be undone by canceling — the new owner will need to transfer it back.
+                                <span className="absolute top-full left-1/2 -translate-x-1/2 h-2 w-2 -mt-1 rotate-45 bg-zinc-900" />
+                            </span>
+                        </span>
+                    </DialogDescription>
+                </DialogHeader>
 
-                    <div className="space-y-4 py-4">
-                        {/* Critical Warning Banner */}
-                        <div className="rounded-lg border-2 border-amber-200 bg-amber-50 p-3">
-                            <div className="flex gap-2">
-                                <AlertTriangle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
-                                <div className="flex-1">
-                                    <p className="text-sm font-semibold text-amber-900">Important</p>
-                                    <p className="text-sm text-amber-800 mt-1">
-                                        This action will transfer full control of this project. You will be downgraded to Admin role.
-                                    </p>
-                                </div>
-                            </div>
+                <div className="space-y-4 pb-2">
+                    <div className="space-y-1.5">
+                        <Label className="!text-xs text-zinc-800">Enter new owner's email</Label>
+                        <div className="relative">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+                            <Input
+                                type="email"
+                                value={emailInput}
+                                onChange={(e) => setEmailInput(e.target.value)}
+                                placeholder="name@example.com"
+                                disabled={isTransferring}
+                                autoFocus
+                                className="pl-9 h-10 border-slate-200 focus-visible:ring-1 focus-visible:ring-indigo-500 shadow-sm transition-shadow rounded-lg text-sm"
+                            />
+                            {isSearching && (
+                                <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-slate-400" />
+                            )}
                         </div>
-
-                        {/* Search */}
-                        <div className="space-y-2">
-                            <Label className="text-sm font-medium text-slate-900">Search members</Label>
-                            <div className="relative">
-                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                                <Input
-                                    value={searchQuery}
-                                    onChange={e => setSearchQuery(e.target.value)}
-                                    placeholder="Search by name or email..."
-                                    className="pl-9"
-                                    disabled={isLoadingProject}
-                                />
-                                {isLoading && (
-                                    <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-slate-400" />
-                                )}
-                            </div>
-                        </div>
-
-                        {/* Member List */}
-                        <div className="space-y-2">
-                            <Label className="text-sm font-medium text-slate-900">
-                                Select new owner ({filteredMembers.length} available)
-                            </Label>
-                            <div className="border border-slate-200 rounded-lg divide-y divide-slate-200 max-h-[300px] overflow-y-auto">
-                                {isLoading ? (
-                                    <div className="p-8 flex flex-col items-center justify-center gap-2">
-                                        <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
-                                        <p className="text-sm text-slate-500">Loading members...</p>
-                                    </div>
-                                ) : filteredMembers.length === 0 ? (
-                                    <div className="p-8 text-center">
-                                        <p className="text-sm font-medium text-slate-700">
-                                            {searchQuery ? "No members found" : "No members available"}
-                                        </p>
-                                        <p className="text-xs text-slate-500 mt-1">
-                                            {searchQuery
-                                                ? "Try a different search term"
-                                                : "Invite members to transfer ownership"}
-                                        </p>
-                                    </div>
-                                ) : (
-                                    filteredMembers.map((member: any) => (
-                                        <button
-                                            key={member.id}
-                                            onClick={() => setSelectedUserId(member.id)}
-                                            className={cn(
-                                                "w-full flex items-center gap-3 p-3 hover:bg-slate-50 transition-colors text-left focus:outline-none focus:bg-slate-100",
-                                                selectedUserId === member.id && "bg-blue-50 hover:bg-blue-100"
-                                            )}
-                                            type="button"
-                                        >
-                                            {member.avatar ? (
-                                                <img
-                                                    src={member.avatar}
-                                                    alt={member.name}
-                                                    className="h-10 w-10 rounded-full object-cover"
-                                                />
-                                            ) : (
-                                                <div className="h-10 w-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 text-white flex items-center justify-center text-sm font-medium">
-                                                    {member.name?.charAt(0)?.toUpperCase() || "?"}
-                                                </div>
-                                            )}
-                                            <div className="flex-1 min-w-0">
-                                                <div className="font-medium text-sm text-slate-900 truncate">
-                                                    {member.name}
-                                                </div>
-                                                {member.email && (
-                                                    <div className="text-sm text-slate-500 truncate flex items-center gap-1">
-                                                        <Mail className="h-3 w-3 flex-shrink-0" />
-                                                        <span>{member.email}</span>
-                                                    </div>
-                                                )}
-                                            </div>
-                                            {selectedUserId === member.id && (
-                                                <UserCheck className="h-5 w-5 text-blue-600 flex-shrink-0" />
-                                            )}
-                                        </button>
-                                    ))
-                                )}
-                            </div>
-                        </div>
-
-                        {/* Selection Warning */}
-                        {selectedMember && (
-                            <div className="rounded-lg border border-blue-200 bg-blue-50 p-3">
-                                <p className="text-sm text-blue-900">
-                                    <strong>Selected:</strong> {selectedMember.name} ({selectedMember.email})
-                                </p>
-                            </div>
+                        {!hasQuery && (
+                            <p className="text-[11px] text-slate-400">Type at least 3 characters to search</p>
                         )}
                     </div>
 
-                    <DialogFooter className="gap-2">
-                        <Button
-                            type="button"
-                            variant="outline"
-                            onClick={() => {
-                                resetForm();
-                                onOpenChange(false);
-                            }}
-                            disabled={false}
-                        >
-                            Cancel
-                        </Button>
-                        <Button
-                            onClick={handleInitiateTransfer}
-                            disabled={!selectedUserId}
-                            className="bg-amber-600 hover:bg-amber-700"
-                        >
-                            <Crown className="mr-2 h-4 w-4" />
-                            Continue
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
+                    {hasQuery && (
+                        <div className="rounded-lg border border-slate-200 overflow-hidden shadow-sm min-h-[72px] flex flex-col justify-center bg-white">
+                            {isSearching && (
+                                <div className="flex items-center gap-2.5 p-4">
+                                    <Loader2 className="h-4 w-4 animate-spin text-slate-400" />
+                                    <span className="text-sm text-slate-500">Looking up user…</span>
+                                </div>
+                            )}
 
-            {/* Confirmation Dialog */}
-            <AlertDialog open={showConfirmation} onOpenChange={setShowConfirmation}>
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle className="flex items-center gap-2">
-                            <AlertTriangle className="h-5 w-5 text-amber-600" />
-                            Confirm Ownership Transfer
-                        </AlertDialogTitle>
-                        <AlertDialogDescription className="space-y-3 pt-2">
-                            <p>
-                                You are about to transfer ownership of <strong>"{projectName}"</strong> to:
-                            </p>
-                            <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-                                <div className="flex items-center gap-3">
-                                    {selectedMember?.avatar ? (
-                                        <img
-                                            src={selectedMember.avatar}
-                                            alt={selectedMember.name}
-                                            className="h-10 w-10 rounded-full"
-                                        />
-                                    ) : (
-                                        <div className="h-10 w-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 text-white flex items-center justify-center text-sm font-medium">
-                                            {selectedMember?.name?.charAt(0)?.toUpperCase()}
-                                        </div>
-                                    )}
+                            {noUserFound && (
+                                <div className="flex items-center gap-3 p-4">
+                                    <div className="h-9 w-9 rounded-full bg-slate-100 flex items-center justify-center shrink-0">
+                                        <UserX className="h-4 w-4 text-slate-400" />
+                                    </div>
                                     <div>
-                                        <p className="font-semibold text-slate-900">{selectedMember?.name}</p>
-                                        <p className="text-sm text-slate-600">{selectedMember?.email}</p>
+                                        <p className="text-sm font-medium text-slate-700">No user found</p>
+                                        <p className="text-xs text-slate-400 mt-0.5">
+                                            No account matches <span className="font-medium text-slate-600">"{debouncedEmail}"</span>
+                                        </p>
                                     </div>
                                 </div>
-                            </div>
-                            <div className="rounded-lg border-2 border-amber-200 bg-amber-50 p-3">
-                                <p className="text-sm font-semibold text-amber-900 mb-2">What will happen:</p>
-                                <ul className="text-sm text-amber-800 space-y-1 list-disc list-inside">
-                                    <li>{selectedMember?.name} will become the owner</li>
-                                    <li>You will be downgraded to Admin role</li>
-                                    <li>The new owner will have full control</li>
-                                    <li>This action cannot be easily reversed</li>
-                                </ul>
-                            </div>
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogCancel onClick={() => setShowConfirmation(false)}>
-                            Cancel
-                        </AlertDialogCancel>
-                        <AlertDialogAction
-                            onClick={handleConfirmTransfer}
-                            className="bg-amber-600 hover:bg-amber-700"
+                            )}
+
+                            {userFound && !selectedUser && (
+                                <button
+                                    type="button"
+                                    onClick={() => setSelectedUser(foundUser as any)}
+                                    disabled={isTransferring}
+                                    className="w-full flex items-center gap-3 p-3 hover:bg-slate-50 transition-colors text-left focus:outline-none focus:bg-indigo-50/50 group"
+                                >
+                                    {foundUser!.avatar || foundUser!.image ? (
+                                        <img
+                                            src={(foundUser!.avatar || foundUser!.image)!}
+                                            alt={displayName(foundUser)}
+                                            className="h-9 w-9 rounded-full object-cover ring-1 ring-black/5 shrink-0"
+                                        />
+                                    ) : (
+                                        <div className="h-9 w-9 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 text-white flex items-center justify-center text-sm font-semibold shrink-0">
+                                            {displayName(foundUser).charAt(0).toUpperCase()}
+                                        </div>
+                                    )}
+                                    <div className="flex-1 min-w-0">
+                                        <p className="text-sm font-semibold text-slate-900 truncate">{displayName(foundUser)}</p>
+                                        {foundUser!.email && (
+                                            <p className="text-xs text-slate-500 truncate flex items-center gap-1 mt-0.5">
+                                                <Mail className="h-3 w-3 shrink-0" />
+                                                {foundUser!.email}
+                                            </p>
+                                        )}
+                                    </div>
+                                    <span className="text-[11px] font-medium text-indigo-600 opacity-0 group-hover:opacity-100 transition-opacity shrink-0 mr-1">Select →</span>
+                                </button>
+                            )}
+
+                            {selectedUser && (
+                                <div className="flex items-center gap-3 p-3 bg-indigo-50/80">
+                                    {selectedUser.avatar || selectedUser.image ? (
+                                        <img
+                                            src={(selectedUser.avatar || selectedUser.image)!}
+                                            alt={displayName(selectedUser)}
+                                            className="h-9 w-9 rounded-full object-cover ring-1 ring-black/5 shrink-0"
+                                        />
+                                    ) : (
+                                        <div className="h-9 w-9 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 text-white flex items-center justify-center text-sm font-semibold shrink-0">
+                                            {displayName(selectedUser).charAt(0).toUpperCase()}
+                                        </div>
+                                    )}
+                                    <div className="flex-1 min-w-0">
+                                        <p className="text-sm font-semibold text-slate-900 truncate">{displayName(selectedUser)}</p>
+                                        {selectedUser.email && (
+                                            <p className="text-xs text-slate-500 truncate flex items-center gap-1 mt-0.5">
+                                                <Mail className="h-3 w-3 shrink-0" />
+                                                {selectedUser.email}
+                                            </p>
+                                        )}
+                                    </div>
+                                    <UserCheck className="h-5 w-5 text-indigo-600 shrink-0 mr-1" />
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {selectedUser && (
+                        <button
+                            type="button"
+                            onClick={() => { setSelectedUser(null); setEmailInput(""); setDebouncedEmail(""); }}
+                            disabled={isTransferring}
+                            className="text-[11px] text-slate-400 hover:text-slate-600 transition-colors"
                         >
-                            Transfer Ownership
-                        </AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
-        </>
+                            ← Choose a different user
+                        </button>
+                    )}
+                </div>
+
+                <DialogFooter className="gap-2.5 pt-2">
+                    <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => { resetForm(); onOpenChange(false); }}
+                        disabled={isTransferring}
+                        className="border-slate-300 bg-white text-slate-700 font-medium shadow-none hover:bg-slate-50 hover:border-slate-400 hover:text-slate-900 focus-visible:ring-2 focus-visible:ring-slate-300 focus-visible:ring-offset-2 transition-colors"
+                    >
+                        Cancel
+                    </Button>
+                    <Button
+                        onClick={handleConfirmTransfer}
+                        disabled={!selectedUser || isTransferring}
+                        className={cn(
+                            "relative font-semibold text-white transition-all duration-150",
+                            "bg-gradient-to-b from-amber-500 to-amber-600",
+                            "shadow-[0_1px_2px_rgba(180,83,9,0.3),0_2px_6px_rgba(180,83,9,0.25),inset_0_1px_0_rgba(255,255,255,0.25)]",
+                            "hover:from-amber-500 hover:to-amber-700 hover:shadow-[0_2px_4px_rgba(180,83,9,0.35),0_4px_10px_rgba(180,83,9,0.3),inset_0_1px_0_rgba(255,255,255,0.25)]",
+                            "active:scale-[0.98] active:shadow-[0_1px_1px_rgba(180,83,9,0.3),inset_0_1px_3px_rgba(0,0,0,0.15)]",
+                            "focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2",
+                            "disabled:opacity-50 disabled:pointer-events-none disabled:shadow-none"
+                        )}
+                    >
+                        {isTransferring ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Crown className="mr-2 h-4 w-4" />}
+                        {isTransferring ? "Transferring..." : "Transfer Ownership"}
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
     );
 }

@@ -181,7 +181,7 @@ const getExtensions = (collaborationExtensions: any[] = []) => [
         heading: { levels: [1, 2, 3, 4] },
     }),
     Placeholder.configure({
-        placeholder: 'Write a description, type / for commands...',
+        placeholder: 'Add description, or write with ✨ AI',
     }),
     Link.configure({
         openOnClick: false,

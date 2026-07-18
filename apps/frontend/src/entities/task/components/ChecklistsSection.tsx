@@ -1,7 +1,8 @@
 'use client';
 
 import * as React from 'react';
-import { Plus, GripVertical, MoreHorizontal, Trash2, Edit2, CheckSquare, UserPlus, CheckCircle2, XCircle, ArrowUp, ArrowDown, X } from 'lucide-react';
+import { Plus, GripVertical, MoreHorizontal, Trash2, Edit2, CheckSquare, UserPlus, CheckCircle2, XCircle, ArrowUp, ArrowDown, X, Maximize2, Minimize2, ChevronRight, ListChecks } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
@@ -282,7 +283,7 @@ function ChecklistItemComponent({ item, checklistId, taskId, workspaceMembers, i
         return (
             <button
                 onClick={() => setIsEditing(true)}
-                className="flex items-center gap-2 py-1.5 px-2 hover:bg-zinc-50 rounded group w-full text-left transition-colors add-item-trigger"
+                className="flex items-center gap-2 py-1.5 px-2 hover:bg-zinc-50 rounded group w-full text-left transition-colors add-item-trigger cursor-pointer"
             >
                 <Plus className="h-3.5 w-3.5 text-zinc-400 flex-shrink-0" />
                 <span className="text-sm text-zinc-400 group-hover:text-zinc-600 transition-colors">
@@ -321,7 +322,7 @@ function ChecklistItemComponent({ item, checklistId, taskId, workspaceMembers, i
                 className="flex-shrink-0"
             >
                 <div className={cn(
-                    "h-4 w-4 rounded border transition-all flex items-center justify-center",
+                    "h-4 w-4 rounded border transition-all flex items-center justify-center cursor-pointer",
                     item.isCompleted
                         ? "bg-blue-500 border-blue-500"
                         : "border-zinc-300 hover:border-zinc-400"
@@ -352,7 +353,7 @@ function ChecklistItemComponent({ item, checklistId, taskId, workspaceMembers, i
                             setText(item.name || item.text || '');
                         }}
                         className={cn(
-                            "text-sm text-left w-full truncate hover:text-zinc-700 transition-colors",
+                            "text-sm text-left w-full truncate hover:text-zinc-700 transition-colors cursor-pointer",
                             item.isCompleted && "line-through text-zinc-400"
                         )}
                     >
@@ -609,250 +610,300 @@ export function ChecklistsSection({ taskId, workspaceMembers = [] }: ChecklistsS
         return allItems.filter((i: any) => i.assigneeId === session.id || i.assignee?.id === session.id).length;
     }, [checklists, session?.id]);
 
+    const [isMaximized, setIsMaximized] = React.useState(false);
+    const [isCollapsed, setIsCollapsed] = React.useState(false);
+
     return (
-        <div className="space-y-3">
-            {/* Header */}
-            <div className="flex items-center justify-between gap-3">
-                <div className="inline-flex items-center gap-2">
-                    <CheckSquare className="h-4 w-4 text-zinc-500" />
-                    <span className="text-sm font-semibold text-zinc-900">Checklists</span>
-                    {overallCounts.total > 0 && (
-                        <div className="flex items-center min-w-[80px] pl-2">
-                            <Progress
-                                value={overallCounts.progress}
-                                className="h-1.5 flex-1"
-                            />
-                        </div>
-                    )}
-                    {overallCounts.total > 0 && (
-                        <span className="text-xs text-zinc-500">
-                            {overallCounts.completed}/{overallCounts.total}
-                        </span>
-                    )}
-                    {assignedToMeCount > 0 && (
-                        <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-600">
-                            {assignedToMeCount} Assigned to me
-                        </span>
-                    )}
-                </div>
-                <div className="flex items-center gap-2">
-                    <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-7 w-7 hover:bg-zinc-100"
-                        onClick={handleCreateChecklist}
-                        type="button"
-                    >
-                        <Plus className="h-4 w-4" />
+        <div className={cn("transition-all duration-200 bg-white", isMaximized ? "absolute inset-0 z-50 p-8 overflow-y-auto flex flex-col" : "relative space-y-3")}>
+            {isMaximized && (
+                <div className="absolute top-6 right-6">
+                    <Button variant="ghost" size="sm" className="text-zinc-500 hover:text-zinc-900 gap-1.5" onClick={() => setIsMaximized(false)}>
+                        Close <Minimize2 className="h-4 w-4" />
                     </Button>
                 </div>
-            </div>
+            )}
 
-            {/* Checklists List */}
-            <div className="space-y-3">
-                {checklists.map((checklist: any) => {
-                    const progress = calculateProgress(checklist);
-                    const completedCount = checklist.items?.filter((item: any) => item.isCompleted).length || 0;
-                    const totalCount = checklist.items?.length || 0;
+            <div className={cn("space-y-3", isMaximized && "max-w-5xl w-full mx-auto mt-12")}>
 
-                    return (
-                        <div
-                            key={checklist.id}
-                            data-checklist-id={checklist.id}
-                            className="rounded-lg border border-zinc-200 bg-white overflow-hidden shadow-sm"
+                {checklists.length === 0 ? (
+                    <div className="py-0.5">
+                        <Button
+                            variant="ghost"
+                            className="w-full justify-start h-8 px-2 text-[13px] text-zinc-600 font-normal hover:bg-zinc-100/80"
+                            onClick={handleCreateChecklist}
                         >
-                            {/* Checklist Header */}
-                            <div className="px-3 py-2 bg-zinc-50/50 border-b border-zinc-200">
-                                <div className="flex items-center justify-between gap-2">
-                                    <div className="flex items-center gap-2 flex-1 min-w-0">
-                                        <div className="inline-flex items-center gap-2 min-w-0 flex-1">
-                                            {editingChecklistId === checklist.id ? (
-                                                <AutoSizeInput
-                                                    value={editingName}
-                                                    onChange={(e) => setEditingName(e.target.value)}
-                                                    className="flex h-6 text-sm font-medium bg-transparent border-0 outline-none focus:outline-none px-1 -ml-1"
-                                                    autoFocus
-                                                    onKeyDown={(e) => {
-                                                        if (e.key === 'Enter') handleUpdateChecklist(checklist.id);
-                                                        if (e.key === 'Escape') setEditingChecklistId(null);
-                                                    }}
-                                                    onBlur={() => handleUpdateChecklist(checklist.id)}
-                                                />
-                                            ) : (
-                                                <button
-                                                    className="text-sm font-semibold text-zinc-900 cursor-text hover:text-zinc-700 truncate text-left transition-colors"
-                                                    onClick={() => handleStartEdit(checklist)}
-                                                >
-                                                    {checklist.name || 'Checklist'}
-                                                </button>
-                                            )}
-                                            <span className="text-xs text-zinc-500">
-                                                {completedCount} of {totalCount}
-                                            </span>
-                                        </div>
-                                    </div>
-
-                                    <div className="flex items-center gap-1">
-                                        <DropdownMenu>
-                                            <DropdownMenuTrigger asChild>
-                                                <Button
-                                                    size="icon"
-                                                    variant="ghost"
-                                                    className="h-6 w-6 hover:bg-zinc-200"
-                                                >
-                                                    <MoreHorizontal className="h-4 w-4" />
-                                                </Button>
-                                            </DropdownMenuTrigger>
-                                            <DropdownMenuContent align="end" className="w-52">
-                                                <DropdownMenuItem
-                                                    onClick={() => {
-                                                        // Focus on the add item input
-                                                        const addItemButton = document.querySelector(`[data-checklist-id="${checklist.id}"] .add-item-trigger`) as HTMLElement;
-                                                        if (addItemButton) addItemButton.click();
-                                                    }}
-                                                >
-                                                    <Plus className="h-3.5 w-3.5 mr-2" />
-                                                    Add item
-                                                </DropdownMenuItem>
-                                                <DropdownMenuItem onClick={() => handleStartEdit(checklist)}>
-                                                    <Edit2 className="h-3.5 w-3.5 mr-2" />
-                                                    Rename checklist
-                                                </DropdownMenuItem>
-                                                <DropdownMenuSeparator />
-                                                <DropdownMenuItem onClick={() => assignAllItems.mutate({ id: checklist.id, assigneeIds: [] })}>
-                                                    <UserPlus className="h-3.5 w-3.5 mr-2" />
-                                                    Assign all to...
-                                                </DropdownMenuItem>
-                                                <DropdownMenuItem onClick={() => unassignAllItems.mutate({ id: checklist.id })}>
-                                                    <XCircle className="h-3.5 w-3.5 mr-2" />
-                                                    Unassign all
-                                                </DropdownMenuItem>
-                                                <DropdownMenuSeparator />
-                                                <DropdownMenuItem onClick={() => checkAllItems.mutate({ id: checklist.id })}>
-                                                    <CheckCircle2 className="h-3.5 w-3.5 mr-2" />
-                                                    Check all
-                                                </DropdownMenuItem>
-                                                <DropdownMenuItem onClick={() => uncheckAllItems.mutate({ id: checklist.id })}>
-                                                    <XCircle className="h-3.5 w-3.5 mr-2" />
-                                                    Uncheck all
-                                                </DropdownMenuItem>
-                                                <DropdownMenuSeparator />
-                                                <DropdownMenuItem onClick={() => moveChecklistUp.mutate({ id: checklist.id })}>
-                                                    <ArrowUp className="h-3.5 w-3.5 mr-2" />
-                                                    Move up
-                                                </DropdownMenuItem>
-                                                <DropdownMenuItem onClick={() => moveChecklistDown.mutate({ id: checklist.id })}>
-                                                    <ArrowDown className="h-3.5 w-3.5 mr-2" />
-                                                    Move down
-                                                </DropdownMenuItem>
-                                                <DropdownMenuSeparator />
-                                                <DropdownMenuItem
-                                                    onClick={() => deleteChecklist.mutate({ id: checklist.id })}
-                                                    className="text-red-600 focus:text-red-600 focus:bg-red-50"
-                                                >
-                                                    <Trash2 className="h-3.5 w-3.5 mr-2" />
-                                                    Delete checklist
-                                                </DropdownMenuItem>
-                                            </DropdownMenuContent>
-                                        </DropdownMenu>
-                                    </div>
-                                </div>
-
-                                {/* Progress Bar */}
-                                {totalCount > 0 && (
-                                    <div className="mt-2 ml-6">
+                            <ListChecks className="w-4 h-4 mr-2 text-zinc-400" />
+                            Create checklist
+                        </Button>
+                    </div>
+                ) : (
+                    <>
+                        {/* Header */}
+                        <div className="flex items-center justify-between gap-3 group/header border-b border-zinc-200 pb-2">
+                            <div
+                                className={cn(
+                                    "flex items-center gap-2",
+                                    checklists.length > 0 && "cursor-pointer hover:bg-zinc-50 py-1 px-1 -ml-1 rounded transition-colors group"
+                                )}
+                                onClick={() => checklists.length > 0 && setIsCollapsed(!isCollapsed)}
+                            >
+                                <ChevronRight className={cn("h-4 w-4 text-zinc-400 group-hover:text-zinc-600 transition-transform", !isCollapsed && "rotate-90")} />
+                                <span className="text-sm font-semibold text-zinc-900">Checklists</span>
+                                {overallCounts.total > 0 && (
+                                    <div className="flex items-center min-w-[80px] pl-2">
                                         <Progress
-                                            value={progress}
-                                            className={cn(
-                                                "h-1 bg-zinc-200",
-                                                progress === 100 && "[&>div]:bg-green-500"
-                                            )}
+                                            value={overallCounts.progress}
+                                            className="h-1.5 flex-1"
                                         />
                                     </div>
                                 )}
+                                {overallCounts.total > 0 && (
+                                    <span className="text-xs text-zinc-500">
+                                        {overallCounts.completed}/{overallCounts.total}
+                                    </span>
+                                )}
+                                {assignedToMeCount > 0 && (
+                                    <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-600">
+                                        {assignedToMeCount} Assigned to me
+                                    </span>
+                                )}
                             </div>
-
-                            {/* Checklist Items */}
-                            <div className="p-2">
-                                {checklist.items && checklist.items.length > 0 && (
-                                    <DndContext
-                                        sensors={sensors}
-                                        collisionDetection={closestCenter}
-                                        onDragEnd={(event: DragEndEvent) => {
-                                            const { active, over } = event;
-                                            if (!over || active.id === over.id) return;
-                                            const items = checklist.items as any[];
-                                            const oldIndex = items.findIndex((i: any) => i.id === active.id);
-                                            const newIndex = items.findIndex((i: any) => i.id === over.id);
-                                            if (oldIndex === -1 || newIndex === -1) return;
-                                            const reordered = arrayMove(items, oldIndex, newIndex);
-                                            reorderItems.mutate({
-                                                checklistId: checklist.id,
-                                                itemIds: reordered.map((i: any) => i.id),
-                                            });
-                                        }}
-                                    >
-                                        <SortableContext
-                                            items={checklist.items.map((i: any) => i.id)}
-                                            strategy={verticalListSortingStrategy}
-                                        >
-                                            <div className="space-y-0.5 mb-1">
-                                                {checklist.items.map((item: any) => (
-                                                    <React.Fragment key={item.id}>
-                                                        <SortableChecklistItem
-                                                            item={item}
-                                                            checklistId={checklist.id}
-                                                            taskId={taskId}
-                                                            workspaceMembers={workspaceMembers}
-                                                            openItemMenuId={openItemMenuId}
-                                                            onItemMenuOpenChange={setOpenItemMenuId}
-                                                            onAddBelow={() => setInsertNewAfterItemId(item.id)}
-                                                        />
-                                                        {insertNewAfterItemId === item.id && (
-                                                            <ChecklistItemComponent
-                                                                checklistId={checklist.id}
-                                                                taskId={taskId}
-                                                                workspaceMembers={workspaceMembers}
-                                                                isNew
-                                                                showCancelButton
-                                                                onCancelAdd={() => setInsertNewAfterItemId(null)}
-                                                            />
-                                                        )}
-                                                    </React.Fragment>
-                                                ))}
-                                            </div>
-                                        </SortableContext>
-                                    </DndContext>
-                                )}
-
-                                {/* Add Item (at bottom, when not inserting after a specific item) */}
-                                {!insertNewAfterItemId && (
-                                    <ChecklistItemComponent
-                                        checklistId={checklist.id}
-                                        taskId={taskId}
-                                        workspaceMembers={workspaceMembers}
-                                        isNew
-                                    />
-                                )}
+                            <div className="flex items-center opacity-0 group-hover/header:opacity-100 transition-opacity">
+                                <TooltipProvider delayDuration={200}>
+                                    <div className="flex items-center p-0.5 border border-zinc-200 rounded-md shadow-sm bg-white">
+                                        {!isMaximized && (
+                                            <Tooltip>
+                                                <TooltipTrigger asChild>
+                                                    <Button
+                                                        variant="ghost" size="icon"
+                                                        className="h-6 w-6 rounded text-zinc-500 hover:text-zinc-700 hover:bg-zinc-100"
+                                                        onClick={(e) => { e.stopPropagation(); setIsMaximized(true); }}
+                                                    >
+                                                        <Maximize2 className="h-3.5 w-3.5" />
+                                                    </Button>
+                                                </TooltipTrigger>
+                                                <TooltipContent className="bg-zinc-900 text-white font-medium text-xs px-2.5 py-1.5 border-0 rounded-md" side="top" sideOffset={4}>
+                                                    Maximize
+                                                </TooltipContent>
+                                            </Tooltip>
+                                        )}
+                                        <Tooltip>
+                                            <TooltipTrigger asChild>
+                                                <Button
+                                                    size="icon"
+                                                    variant="ghost"
+                                                    className="h-6 w-6 rounded text-zinc-500 hover:text-zinc-700 hover:bg-zinc-100"
+                                                    onClick={handleCreateChecklist}
+                                                    type="button"
+                                                >
+                                                    <Plus className="h-3.5 w-3.5" />
+                                                </Button>
+                                            </TooltipTrigger>
+                                            <TooltipContent className="bg-zinc-900 text-white font-medium text-xs px-2.5 py-1.5 border-0 rounded-md" side="top" sideOffset={4}>
+                                                Add checklist
+                                            </TooltipContent>
+                                        </Tooltip>
+                                    </div>
+                                </TooltipProvider>
                             </div>
                         </div>
-                    );
-                })}
+
+                        {!isCollapsed && (
+                            /* Checklists List */
+                            <div className="space-y-3 pt-2">
+                                {checklists.map((checklist: any) => {
+                                    const progress = calculateProgress(checklist);
+                                    const completedCount = checklist.items?.filter((item: any) => item.isCompleted).length || 0;
+                                    const totalCount = checklist.items?.length || 0;
+
+                                    return (
+                                        <div
+                                            key={checklist.id}
+                                            data-checklist-id={checklist.id}
+                                            className="rounded-lg border border-zinc-200 bg-white overflow-hidden shadow-sm"
+                                        >
+                                            {/* Checklist Header */}
+                                            <div className="px-3 py-2 bg-zinc-50/50 border-b border-zinc-200">
+                                                <div className="flex items-center justify-between gap-2">
+                                                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                                                        <div className="inline-flex items-center gap-2 min-w-0 flex-1">
+                                                            {editingChecklistId === checklist.id ? (
+                                                                <AutoSizeInput
+                                                                    value={editingName}
+                                                                    onChange={(e) => setEditingName(e.target.value)}
+                                                                    className="flex h-6 text-sm font-medium bg-transparent border-0 outline-none focus:outline-none px-1 -ml-1"
+                                                                    autoFocus
+                                                                    onKeyDown={(e) => {
+                                                                        if (e.key === 'Enter') handleUpdateChecklist(checklist.id);
+                                                                        if (e.key === 'Escape') setEditingChecklistId(null);
+                                                                    }}
+                                                                    onBlur={() => handleUpdateChecklist(checklist.id)}
+                                                                />
+                                                            ) : (
+                                                                <button
+                                                                    className="text-sm font-semibold text-zinc-900 cursor-text hover:text-zinc-700 truncate text-left transition-colors cursor-pointer"
+                                                                    onClick={() => handleStartEdit(checklist)}
+                                                                >
+                                                                    {checklist.name || 'Checklist'}
+                                                                </button>
+                                                            )}
+                                                            <span className="text-xs text-zinc-500">
+                                                                {completedCount} of {totalCount}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="flex items-center gap-1">
+                                                        <DropdownMenu>
+                                                            <DropdownMenuTrigger asChild>
+                                                                <Button
+                                                                    size="icon"
+                                                                    variant="ghost"
+                                                                    className="h-6 w-6 hover:bg-zinc-200"
+                                                                >
+                                                                    <MoreHorizontal className="h-4 w-4" />
+                                                                </Button>
+                                                            </DropdownMenuTrigger>
+                                                            <DropdownMenuContent align="end" className="w-52">
+                                                                <DropdownMenuItem
+                                                                    onClick={() => {
+                                                                        // Focus on the add item input
+                                                                        const addItemButton = document.querySelector(`[data-checklist-id="${checklist.id}"] .add-item-trigger`) as HTMLElement;
+                                                                        if (addItemButton) addItemButton.click();
+                                                                    }}
+                                                                >
+                                                                    <Plus className="h-3.5 w-3.5 mr-2" />
+                                                                    Add item
+                                                                </DropdownMenuItem>
+                                                                <DropdownMenuItem onClick={() => handleStartEdit(checklist)}>
+                                                                    <Edit2 className="h-3.5 w-3.5 mr-2" />
+                                                                    Rename checklist
+                                                                </DropdownMenuItem>
+                                                                <DropdownMenuSeparator />
+                                                                <DropdownMenuItem onClick={() => assignAllItems.mutate({ id: checklist.id, assigneeIds: [] })}>
+                                                                    <UserPlus className="h-3.5 w-3.5 mr-2" />
+                                                                    Assign all to...
+                                                                </DropdownMenuItem>
+                                                                <DropdownMenuItem onClick={() => unassignAllItems.mutate({ id: checklist.id })}>
+                                                                    <XCircle className="h-3.5 w-3.5 mr-2" />
+                                                                    Unassign all
+                                                                </DropdownMenuItem>
+                                                                <DropdownMenuSeparator />
+                                                                <DropdownMenuItem onClick={() => checkAllItems.mutate({ id: checklist.id })}>
+                                                                    <CheckCircle2 className="h-3.5 w-3.5 mr-2" />
+                                                                    Check all
+                                                                </DropdownMenuItem>
+                                                                <DropdownMenuItem onClick={() => uncheckAllItems.mutate({ id: checklist.id })}>
+                                                                    <XCircle className="h-3.5 w-3.5 mr-2" />
+                                                                    Uncheck all
+                                                                </DropdownMenuItem>
+                                                                <DropdownMenuSeparator />
+                                                                <DropdownMenuItem onClick={() => moveChecklistUp.mutate({ id: checklist.id })}>
+                                                                    <ArrowUp className="h-3.5 w-3.5 mr-2" />
+                                                                    Move up
+                                                                </DropdownMenuItem>
+                                                                <DropdownMenuItem onClick={() => moveChecklistDown.mutate({ id: checklist.id })}>
+                                                                    <ArrowDown className="h-3.5 w-3.5 mr-2" />
+                                                                    Move down
+                                                                </DropdownMenuItem>
+                                                                <DropdownMenuSeparator />
+                                                                <DropdownMenuItem
+                                                                    onClick={() => deleteChecklist.mutate({ id: checklist.id })}
+                                                                    className="text-red-600 focus:text-red-600 focus:bg-red-50"
+                                                                >
+                                                                    <Trash2 className="h-3.5 w-3.5 mr-2" />
+                                                                    Delete checklist
+                                                                </DropdownMenuItem>
+                                                            </DropdownMenuContent>
+                                                        </DropdownMenu>
+                                                    </div>
+                                                </div>
+
+                                                {/* Progress Bar */}
+                                                {totalCount > 0 && (
+                                                    <div className="mt-2 ml-6">
+                                                        <Progress
+                                                            value={progress}
+                                                            className={cn(
+                                                                "h-1 bg-zinc-200",
+                                                                progress === 100 && "[&>div]:bg-green-500"
+                                                            )}
+                                                        />
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            {/* Checklist Items */}
+                                            <div className="p-2">
+                                                {checklist.items && checklist.items.length > 0 && (
+                                                    <DndContext
+                                                        sensors={sensors}
+                                                        collisionDetection={closestCenter}
+                                                        onDragEnd={(event: DragEndEvent) => {
+                                                            const { active, over } = event;
+                                                            if (!over || active.id === over.id) return;
+                                                            const items = checklist.items as any[];
+                                                            const oldIndex = items.findIndex((i: any) => i.id === active.id);
+                                                            const newIndex = items.findIndex((i: any) => i.id === over.id);
+                                                            if (oldIndex === -1 || newIndex === -1) return;
+                                                            const reordered = arrayMove(items, oldIndex, newIndex);
+                                                            reorderItems.mutate({
+                                                                checklistId: checklist.id,
+                                                                itemIds: reordered.map((i: any) => i.id),
+                                                            });
+                                                        }}
+                                                    >
+                                                        <SortableContext
+                                                            items={checklist.items.map((i: any) => i.id)}
+                                                            strategy={verticalListSortingStrategy}
+                                                        >
+                                                            <div className="space-y-0.5 mb-1">
+                                                                {checklist.items.map((item: any) => (
+                                                                    <React.Fragment key={item.id}>
+                                                                        <SortableChecklistItem
+                                                                            item={item}
+                                                                            checklistId={checklist.id}
+                                                                            taskId={taskId}
+                                                                            workspaceMembers={workspaceMembers}
+                                                                            openItemMenuId={openItemMenuId}
+                                                                            onItemMenuOpenChange={setOpenItemMenuId}
+                                                                            onAddBelow={() => setInsertNewAfterItemId(item.id)}
+                                                                        />
+                                                                        {insertNewAfterItemId === item.id && (
+                                                                            <ChecklistItemComponent
+                                                                                checklistId={checklist.id}
+                                                                                taskId={taskId}
+                                                                                workspaceMembers={workspaceMembers}
+                                                                                isNew
+                                                                                showCancelButton
+                                                                                onCancelAdd={() => setInsertNewAfterItemId(null)}
+                                                                            />
+                                                                        )}
+                                                                    </React.Fragment>
+                                                                ))}
+                                                            </div>
+                                                        </SortableContext>
+                                                    </DndContext>
+                                                )}
+
+                                                {/* Add Item (at bottom, when not inserting after a specific item) */}
+                                                {!insertNewAfterItemId && (
+                                                    <ChecklistItemComponent
+                                                        checklistId={checklist.id}
+                                                        taskId={taskId}
+                                                        workspaceMembers={workspaceMembers}
+                                                        isNew
+                                                    />
+                                                )}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </>
+                )}
             </div>
-
-            <button
-                onClick={handleCreateChecklist}
-                className="flex items-center gap-2 py-2 px-3 text-sm text-zinc-500 hover:text-zinc-700 hover:bg-zinc-50 rounded transition-colors"
-            >
-                <Plus className="h-3.5 w-3.5" />
-                Add checklist
-            </button>
-
-            {checklists.length === 0 && (
-                <div className="text-center py-8 text-sm text-zinc-400 bg-zinc-50 rounded-lg border border-dashed border-zinc-200">
-                    No checklists yet. Click + to create one.
-                </div>
-            )}
         </div>
     );
 }

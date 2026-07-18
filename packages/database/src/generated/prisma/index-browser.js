@@ -361,6 +361,8 @@ exports.Prisma.TaskScalarFieldEnum = {
   assigneeId: 'assigneeId',
   createdBy: 'createdBy',
   visibility: 'visibility',
+  icon: 'icon',
+  coverImage: 'coverImage',
   isPublic: 'isPublic',
   priority: 'priority',
   taskTypeId: 'taskTypeId',
