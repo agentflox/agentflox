@@ -1013,6 +1013,8 @@ export default function TeamDashboardView({ listId, spaceId, projectId, teamId, 
                   </>
                 }
                 isPanelOpen={isAskAIOpen || (!!selectedTaskId && taskViewMode === 'sidebar')}
+                sidePanelDefaultSize={50}
+                sidePanelMinSize={40}
               />
             </div>
           </div>

@@ -82,12 +82,39 @@ function ChecklistItemComponent({ item, checklistId, taskId, workspaceMembers, i
     const utils = trpc.useUtils();
 
     const createItem = trpc.task.checklists.items.create.useMutation({
-        onSuccess: () => {
-            utils.task.get.invalidate({ id: taskId });
+        onMutate: async (input) => {
+            await utils.task.get.cancel({ id: taskId });
+            const prev = utils.task.get.getData({ id: taskId });
+            if (prev?.checklists) {
+                utils.task.get.setData({ id: taskId }, {
+                    ...prev,
+                    checklists: prev.checklists.map((c: any) =>
+                        c.id !== checklistId ? c : {
+                            ...c,
+                            items: [...c.items, {
+                                id: `temp-${Date.now()}`,
+                                name: input.name,
+                                checklistId,
+                                isResolved: false,
+                                assigneeId: input.assigneeId || null,
+                                assignee: input.assigneeId ? (workspaceMembers.find((m: { id: string }) => m.id === input.assigneeId) ?? { id: input.assigneeId, name: null, image: null }) : null,
+                                order: c.items.length
+                            }]
+                        }
+                    ),
+                });
+            }
+            // Clear input immediately for snappy UX
             setText('');
             setNewItemAssigneeId(null);
             onCancelAdd?.();
-        }
+            
+            return { prev };
+        },
+        onError: (_err, _input, ctx) => {
+            if (ctx?.prev) utils.task.get.setData({ id: taskId }, ctx.prev);
+        },
+        onSettled: () => utils.task.get.invalidate({ id: taskId }),
     });
 
     const updateItem = trpc.task.checklists.items.update.useMutation({
@@ -447,10 +474,28 @@ export function ChecklistsSection({ taskId, workspaceMembers = [] }: ChecklistsS
 
     // Mutations
     const createChecklist = trpc.task.checklists.create.useMutation({
-        onSuccess: () => {
-            utils.task.get.invalidate({ id: taskId });
-            toast.success('Checklist created');
-        }
+        onMutate: async (input) => {
+            await utils.task.get.cancel({ id: taskId });
+            const prev = utils.task.get.getData({ id: taskId });
+            if (prev) {
+                utils.task.get.setData({ id: taskId }, {
+                    ...prev,
+                    checklists: [...(prev.checklists || []), {
+                        id: `temp-${Date.now()}`,
+                        taskId,
+                        name: input.name,
+                        items: [],
+                        order: (prev.checklists?.length || 0),
+                    }],
+                });
+            }
+            return { prev };
+        },
+        onError: (_err, _input, ctx) => {
+            if (ctx?.prev) utils.task.get.setData({ id: taskId }, ctx.prev);
+        },
+        onSettled: () => utils.task.get.invalidate({ id: taskId }),
+        onSuccess: () => toast.success('Checklist created'),
     });
 
     const updateChecklist = trpc.task.checklists.update.useMutation({

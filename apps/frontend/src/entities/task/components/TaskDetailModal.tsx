@@ -20,7 +20,7 @@ import {
     Maximize2, Minimize2, Square, SidebarClose, Check, Folder, SquareArrowRight, Heart,
     LayoutTemplate, HelpCircle, Hourglass, Target, CheckCircle2,
     MessageSquare, MinusCircle, GripVertical, Pencil, LayoutGrid, List as ListIcon, ArrowLeftRight, FileText,
-    AlertTriangle, Link2, Bell, SlidersHorizontal, Smile, Store
+    AlertTriangle, Link2, Bell, SlidersHorizontal, Smile, Store, Ban, CircleDashed, AlertCircle, Globe
 } from 'lucide-react';
 import { PublishEntityModal } from '@/features/marketplace/components/PublishEntityModal';
 import { trpc } from '@/lib/trpc';
@@ -43,6 +43,7 @@ import {
     DropdownMenuTrigger,
     DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
+import { TaskPickerPopover } from './TaskPickerPopover';
 import { TaskPermissionsModal } from './TaskPermissionsModal';
 import { TaskMoveAndAddPopover } from './TaskMoveAndAddPopover';
 import { TaskActionsDropdown } from './TaskActionsDropdown';
@@ -55,6 +56,7 @@ import { SpaceIcon } from "@/entities/spaces/components/SpaceIcon";
 import { TimeTrackingModal } from './TimeTrackingModal';
 import { TaskLinksPanelContent } from './TaskLinksPanelContent';
 import { LinksPanelContent } from './LinksPanelContent';
+import { OtherLinksPanelContent } from './OtherLinksPanelContent';
 import { AddRelationshipSection } from './AddRelationshipSection';
 import type { CustomRelationshipType } from './CreateCustomRelationshipModal';
 import { ChecklistsSection } from './ChecklistsSection';
@@ -130,6 +132,8 @@ interface TaskDetailContentProps {
     onClose: () => void;
     layoutMode?: TaskLayoutMode;
     onLayoutModeChange?: (mode: TaskLayoutMode) => void;
+    hideLayoutModeSwitch?: boolean;
+    closeIcon?: React.ReactNode;
 }
 
 /** Parse "3h 20m", "1h", "45m", "90" to minutes. */
@@ -604,6 +608,8 @@ export function TaskDetailContent({
     onClose,
     layoutMode = 'modal',
     onLayoutModeChange,
+    hideLayoutModeSwitch,
+    closeIcon,
     isAskAIOpen: isAskAIOpenProp,
     onAskAIOpenChange
 }: TaskDetailContentProps & {
@@ -618,6 +624,7 @@ export function TaskDetailContent({
     const [internalIsAskAIOpen, setInternalIsAskAIOpen] = React.useState(false);
     const [permissionsModalOpen, setPermissionsModalOpen] = React.useState(false);
     const [publishModalOpen, setPublishModalOpen] = React.useState(false);
+    const [clearAllDependenciesOpen, setClearAllDependenciesOpen] = React.useState(false);
 
     // Use prop if available, otherwise internal state
     const isAskAIOpen = isAskAIOpenProp !== undefined ? isAskAIOpenProp : internalIsAskAIOpen;
@@ -658,8 +665,8 @@ export function TaskDetailContent({
     const [timeTrackingModalOpen, setTimeTrackingModalOpen] = React.useState(false);
     const [subtasksSidebarOpen, setSubtasksSidebarOpen] = React.useState(false);
     const [leftTab, setLeftTab] = React.useState<'details' | 'subtasks' | 'action-items'>('details');
-    const [rightSidebarPanel, setRightSidebarPanel] = React.useState<'task' | 'activity' | 'links' | 'related' | null>('activity');
-    const [lastRightSidebarPanel, setLastRightSidebarPanel] = React.useState<'task' | 'activity' | 'links' | 'related'>('activity');
+    const [rightSidebarPanel, setRightSidebarPanel] = React.useState<'task' | 'activity' | 'links' | 'related' | 'otherlinks' | null>('activity');
+    const [lastRightSidebarPanel, setLastRightSidebarPanel] = React.useState<'task' | 'activity' | 'links' | 'related' | 'otherlinks'>('activity');
     const toggleRightSidebar = () => {
         if (rightSidebarPanel !== null) {
             setLastRightSidebarPanel(rightSidebarPanel);
@@ -798,6 +805,82 @@ export function TaskDetailContent({
     };
 
     // Mutations
+    const [blocksPickerOpen, setBlocksPickerOpen] = React.useState(false);
+    const [blockedByPickerOpen, setBlockedByPickerOpen] = React.useState(false);
+
+    const handleSelectTask = (id: string, type: 'blocks' | 'blocked_by') => {
+        if (!taskId) return;
+        if (type === 'blocks') {
+            addDependency.mutate({ taskId: id, dependsOnId: taskId, type: 'FINISH_TO_START' });
+        } else if (type === 'blocked_by') {
+            addDependency.mutate({ taskId: taskId, dependsOnId: id, type: 'FINISH_TO_START' });
+        }
+    };
+
+    const addDependency = trpc.task.addDependency.useMutation({
+        onMutate: async (input) => {
+            if (!taskId) return;
+            await utils.task.get.cancel({ id: taskId });
+            const prev = utils.task.get.getData({ id: taskId });
+            if (prev) {
+                const tempDep = {
+                    id: `temp-${Date.now()}`,
+                    taskId: input.taskId,
+                    dependsOnId: input.dependsOnId,
+                    type: input.type || 'FINISH_TO_START',
+                    dependsOn: null,
+                    task: null,
+                };
+                if (input.taskId === taskId) {
+                    utils.task.get.setData({ id: taskId }, {
+                        ...prev,
+                        dependencies: [...(prev.dependencies || []), tempDep],
+                    });
+                } else {
+                    utils.task.get.setData({ id: taskId }, {
+                        ...prev,
+                        blockedDependencies: [...(prev.blockedDependencies || []), tempDep],
+                    });
+                }
+            }
+            return { prev };
+        },
+        onError: (_err, _input, ctx) => {
+            if (ctx?.prev && taskId) utils.task.get.setData({ id: taskId }, ctx.prev);
+            toast.error("Failed to add dependency");
+        },
+        onSettled: () => {
+            if (taskId) utils.task.get.invalidate({ id: taskId });
+        }
+    });
+
+    const removeDependency = trpc.task.removeDependency.useMutation({
+        onMutate: async (input) => {
+            if (!taskId) return;
+            await utils.task.get.cancel({ id: taskId });
+            const prev = utils.task.get.getData({ id: taskId });
+            if (prev) {
+                utils.task.get.setData({ id: taskId }, {
+                    ...prev,
+                    dependencies: (prev.dependencies || []).filter((d: any) =>
+                        !(d.taskId === input.taskId && d.dependsOnId === input.dependsOnId)
+                    ),
+                    blockedDependencies: (prev.blockedDependencies || []).filter((d: any) =>
+                        !(d.taskId === input.taskId && d.dependsOnId === input.dependsOnId)
+                    ),
+                });
+            }
+            return { prev };
+        },
+        onError: (_err, _input, ctx) => {
+            if (ctx?.prev && taskId) utils.task.get.setData({ id: taskId }, ctx.prev);
+            toast.error("Failed to remove dependency");
+        },
+        onSettled: () => {
+            if (taskId) utils.task.get.invalidate({ id: taskId });
+        }
+    });
+
     const updateTask = trpc.task.update.useMutation({
         onMutate: async (variables) => {
             await utils.task.get.cancel({ id: taskId || '' });
@@ -808,7 +891,28 @@ export function TaskDetailContent({
 
                 const updateTaskInTree = (t: any): any => {
                     if (t.id === variables.id) {
-                        return { ...t, ...variables };
+                        let newAssignees = t.assignees;
+                        if (variables.assigneeIds) {
+                            newAssignees = variables.assigneeIds.map((id: string) => {
+                                if (id.startsWith('user:')) {
+                                    const uid = id.replace('user:', '');
+                                    const user = workspaceMembers.find((m: any) => m.id === uid);
+                                    return { userId: uid, user: { id: uid, name: user?.name, image: user?.image } };
+                                }
+                                if (id.startsWith('agent:')) {
+                                    const aid = id.replace('agent:', '');
+                                    const agent = agents.find((a: any) => a.id === aid);
+                                    return { agentId: aid, agent: { id: aid, name: agent?.name, image: agent?.image } };
+                                }
+                                if (id.startsWith('team:')) {
+                                    const tid = id.replace('team:', '');
+                                    return { teamId: tid, team: { id: tid, name: 'Team' } };
+                                }
+                                const user = workspaceMembers.find((m: any) => m.id === id);
+                                return { userId: id, user: { id, name: user?.name, image: user?.image } };
+                            });
+                        }
+                        return { ...t, ...variables, assignees: newAssignees };
                     }
                     if (t.other_tasks) {
                         return {
@@ -834,17 +938,71 @@ export function TaskDetailContent({
         }
     });
     const createTask = trpc.task.create.useMutation({
-        onSuccess: () => {
-            utils.task.get.invalidate({ id: taskId || '' });
+        onMutate: async (input) => {
+            await utils.task.get.cancel({ id: taskId || '' });
+            const prev = utils.task.get.getData({ id: taskId || '' });
+            if (prev) {
+                const tempSubtask = {
+                    id: `temp-${Date.now()}`,
+                    title: input.title,
+                    parentId: input.parentId,
+                    workspaceId: input.workspaceId,
+                    listId: input.listId || null,
+                    statusId: input.statusId || null,
+                    status: prev.status || null,
+                    priority: null,
+                    assignees: [],
+                    dueDate: null,
+                    createdAt: new Date().toISOString(),
+                    other_tasks: [],
+                };
+                utils.task.get.setData({ id: taskId || '' }, {
+                    ...prev,
+                    other_tasks: [...(prev.other_tasks || []), tempSubtask],
+                });
+            }
+            // Clear input immediately
             setSubtaskTitle('');
             setIsAddingSubtask(false);
+            return { prev };
+        },
+        onError: (_err, _input, ctx: any) => {
+            if (ctx?.prev) utils.task.get.setData({ id: taskId || '' }, ctx.prev);
+        },
+        onSettled: () => {
+            utils.task.get.invalidate({ id: taskId || '' });
         }
     });
 
     const createComment = trpc.task.comment.create.useMutation({
-        onSuccess: () => {
-            utils.task.get.invalidate({ id: taskId || '' });
+        onMutate: async (input) => {
+            await utils.task.get.cancel({ id: taskId || '' });
+            const prev = utils.task.get.getData({ id: taskId || '' });
+            if (prev) {
+                const tempComment = {
+                    id: `temp-${Date.now()}`,
+                    content: input.content,
+                    taskId: taskId,
+                    userId: currentUserId,
+                    user: { id: currentUserId, name: session?.name || session?.email || 'You', image: session?.image || null },
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString(),
+                    reactions: [],
+                    type: 'comment',
+                };
+                utils.task.get.setData({ id: taskId || '' }, {
+                    ...prev,
+                    comments: [...(prev.comments || []), tempComment],
+                });
+            }
             setCommentText('');
+            return { prev };
+        },
+        onError: (_err, _input, ctx: any) => {
+            if (ctx?.prev) utils.task.get.setData({ id: taskId || '' }, ctx.prev);
+        },
+        onSettled: () => {
+            utils.task.get.invalidate({ id: taskId || '' });
         }
     });
 
@@ -918,7 +1076,7 @@ export function TaskDetailContent({
         if (!task) return [];
         const comments = (task.comments || []).map((c) => ({ ...c, type: 'comment' }));
         const activities = (task.activities || []).map((a) => ({ ...a, type: 'activity' }));
-        return [...comments, ...activities].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        return [...comments, ...activities].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
     }, [task]);
 
     const filteredActivity = React.useMemo(() => {
@@ -927,6 +1085,24 @@ export function TaskDetailContent({
     }, [allActivity, activityFilterTypes]);
 
     const subtasks = task?.other_tasks || [];
+
+    // ── Responsive properties grid ────────────────────────────────────────────
+    // IMPORTANT: must be declared BEFORE any early returns to comply with Rules of Hooks.
+    // Track the pixel width of the task-detail content area so the properties
+    // grid can switch between 1 / 2 / 4 columns independently of CSS breakpoints
+    // (CSS breakpoints are relative to the viewport, not the panel width).
+    const taskPanelRef = React.useRef<HTMLDivElement>(null);
+    const [panelWidth, setPanelWidth] = React.useState<number>(9999);
+    React.useEffect(() => {
+        const el = taskPanelRef.current;
+        if (!el) return;
+        const ro = new ResizeObserver((entries) => {
+            const entry = entries[0];
+            if (entry) setPanelWidth(entry.contentRect.width);
+        });
+        ro.observe(el);
+        return () => ro.disconnect();
+    }, []);
 
     if (isLoading || !taskId) {
         return (
@@ -951,8 +1127,14 @@ export function TaskDetailContent({
     // that otherwise lives in the left 65% panel in modal/fullscreen mode.
     const isSidebarLayout = layoutMode === 'sidebar';
 
+    // 1 col < 360 px  |  2 cols < 560 px  |  4 cols ≥ 560 px
+    const propsGridClass =
+        panelWidth < 360 ? 'grid-cols-1' :
+            panelWidth < 560 ? 'grid-cols-2' :
+                'grid-cols-4';
+
     return (
-        <div className="flex flex-col h-full bg-white">
+        <div ref={taskPanelRef} className="flex flex-col h-full bg-white">
             {/* Enhanced Top Bar */}
             <div className="flex items-center justify-between px-4 py-2.5 border-b border-zinc-200 bg-white z-20">
                 {/* Left Side */}
@@ -1127,39 +1309,19 @@ export function TaskDetailContent({
                         }
                     />
 
-                    {/* Star/Favorite */}
-                    <TooltipProvider>
-                        <Tooltip>
-                            <TooltipTrigger asChild>
-                                <Button
-                                    size="icon"
-                                    variant="ghost"
-                                    className={cn(
-                                        "h-8 w-8 p-2",
-                                        task.isStarred
-                                            ? "text-amber-500 hover:text-amber-600"
-                                            : "text-zinc-500 hover:text-zinc-700"
-                                    )}
-                                    onClick={handleToggleStar}
-                                >
-                                    <Star className={cn("h-5 w-5", task.isStarred && "fill-current")} />
-                                </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                                {task.isStarred ? 'Remove from favorites' : 'Add to favorites'}
-                            </TooltipContent>
-                        </Tooltip>
-                    </TooltipProvider>
 
                     {/* Change Layout: hover to open picker, click cycles modal → fullscreen → sidebar → modal */}
-                    <LayoutModePopover
-                        layoutMode={layoutMode}
-                        onLayoutModeChange={onLayoutModeChange}
-                        open={layoutDropdownOpen}
-                        onOpenChange={setLayoutDropdownOpen}
-                    />
-
-                    <div className="h-4 w-px bg-zinc-200" />
+                    {!hideLayoutModeSwitch && (
+                        <>
+                            <LayoutModePopover
+                                layoutMode={layoutMode}
+                                onLayoutModeChange={onLayoutModeChange}
+                                open={layoutDropdownOpen}
+                                onOpenChange={setLayoutDropdownOpen}
+                            />
+                            <div className="h-4 w-px bg-zinc-200" />
+                        </>
+                    )}
 
                     {/* Close */}
                     <TooltipProvider>
@@ -1171,7 +1333,7 @@ export function TaskDetailContent({
                                     className="h-8 w-8 text-zinc-500 hover:text-red-600 hover:bg-red-50"
                                     onClick={onClose}
                                 >
-                                    <X className="h-5 w-5" />
+                                    {closeIcon || <X className="h-4 w-4" />}
                                 </Button>
                             </TooltipTrigger>
                             <TooltipContent>Close</TooltipContent>
@@ -1432,7 +1594,7 @@ export function TaskDetailContent({
 
 
                                                                     {/* Properties Grid — order: Status → Assignee → Priority → Start → Due → Time Est → Tags → Track Time → Relationships */}
-                                                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-y-6 gap-x-8">
+                                                                    <div className={cn("grid gap-y-6 gap-x-8", propsGridClass)}>
                                                                         {/* Status */}
                                                                         <div className="space-y-1.5">
                                                                             <label className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
@@ -1497,30 +1659,47 @@ export function TaskDetailContent({
                                                                                     }}
                                                                                     variant="compact"
                                                                                     trigger={
-                                                                                        <div className="flex flex-wrap gap-1 min-h-[28px] w-fit items-center cursor-pointer hover:bg-zinc-50 p-1 -ml-1 rounded transition-colors group outline-none border border-transparent hover:border-zinc-200">
+                                                                                        <div className="flex items-center gap-1.5 cursor-pointer outline-none w-fit">
                                                                                             {task.assignees?.length > 0 ? (
                                                                                                 <>
-                                                                                                    <div className="flex -space-x-2 mr-2">
-                                                                                                        {task.assignees.map((a: any, i: number) => (
-                                                                                                            <Avatar key={i} className="h-7 w-7 border-2 border-white ring-1 ring-zinc-100">
-                                                                                                                <AvatarImage src={a.user?.image} />
-                                                                                                                <AvatarFallback className="text-[9px] font-bold bg-blue-50 text-blue-600">
-                                                                                                                    {a.user?.name?.substring(0, 2).toUpperCase()}
-                                                                                                                </AvatarFallback>
-                                                                                                            </Avatar>
-                                                                                                        ))}
+                                                                                                    <div className="flex items-center -space-x-1.5">
+                                                                                                        {task.assignees.slice(0, 4).map((a: any, i: number) => {
+                                                                                                            const colorClasses = [
+                                                                                                                { bg: "bg-blue-100", text: "text-blue-700" },
+                                                                                                                { bg: "bg-purple-100", text: "text-purple-700" },
+                                                                                                                { bg: "bg-pink-100", text: "text-pink-700" },
+                                                                                                                { bg: "bg-green-100", text: "text-green-700" },
+                                                                                                                { bg: "bg-orange-100", text: "text-orange-700" },
+                                                                                                            ];
+                                                                                                            const colorSet = colorClasses[i % colorClasses.length];
+                                                                                                            const name = a.user?.name || a.user?.email || a.team?.name || a.aiAgent?.name || a.agent?.name;
+                                                                                                            const image = a.user?.image || a.team?.image || a.aiAgent?.avatar || a.aiAgent?.image || a.agent?.image;
+                                                                                                            return (
+                                                                                                                <Avatar key={i} className="h-7 w-7 border-2 border-white">
+                                                                                                                    <AvatarImage src={image || undefined} />
+                                                                                                                    <AvatarFallback className={cn("text-[10px] font-semibold", colorSet.bg, colorSet.text)}>
+                                                                                                                        {name?.substring(0, 2).toUpperCase()}
+                                                                                                                    </AvatarFallback>
+                                                                                                                </Avatar>
+                                                                                                            );
+                                                                                                        })}
+                                                                                                        {task.assignees.length > 4 && (
+                                                                                                            <div className="h-7 w-7 border-2 border-white rounded-full bg-zinc-100 flex items-center justify-center text-[10px] font-semibold text-zinc-600">
+                                                                                                                +{task.assignees.length - 4}
+                                                                                                            </div>
+                                                                                                        )}
                                                                                                     </div>
-                                                                                                    <div className="h-7 w-7 rounded-full border border-dashed border-zinc-300 flex items-center justify-center text-zinc-400 hover:text-zinc-600 hover:border-zinc-400 bg-white opacity-0 group-hover:opacity-100 transition-opacity">
+                                                                                                    <div className="h-6 w-6 rounded-full border border-dashed border-zinc-300 flex items-center justify-center text-zinc-400 hover:text-zinc-600 hover:border-zinc-400 bg-white opacity-0 hover:opacity-100 transition-opacity">
                                                                                                         <Plus className="h-3 w-3" />
                                                                                                     </div>
                                                                                                 </>
                                                                                             ) : (
-                                                                                                <>
+                                                                                                <div className="flex items-center gap-1.5 p-1 -ml-1 rounded hover:bg-zinc-50 border border-transparent hover:border-zinc-200 transition-colors group">
                                                                                                     <span className="text-sm font-normal text-zinc-400 italic">Empty</span>
                                                                                                     <div className="text-zinc-400 opacity-0 group-hover:opacity-100 ml-1 flex items-center">
                                                                                                         <UserIcon className="h-3 w-3" />
                                                                                                     </div>
-                                                                                                </>
+                                                                                                </div>
                                                                                             )}
                                                                                         </div>
                                                                                     }
@@ -1766,93 +1945,112 @@ export function TaskDetailContent({
                                                                             </div>
                                                                         </div>
 
-                                                                        {/* Relationships — badges open corresponding right panel */}
-                                                                        <div className="space-y-1.5">
-                                                                            <div className="flex flex-wrap gap-1.5 min-h-[28px] items-center">
-                                                                                {((task as any).blockedDependencies?.length ?? 0) > 0 && (
-                                                                                    <button
-                                                                                        type="button"
-                                                                                        onClick={() => setRightSidebarPanel('blocking')}
-                                                                                        className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 transition-colors cursor-pointer"
-                                                                                    >
-                                                                                        <MinusCircle className="h-3.5 w-3.5" />
-                                                                                        {(task as any).blockedDependencies?.length ?? 0} Blocking
-                                                                                    </button>
-                                                                                )}
-                                                                                {((task as any).dependencies?.length ?? 0) > 0 && (
-                                                                                    <button
-                                                                                        type="button"
-                                                                                        onClick={() => setRightSidebarPanel('related')}
-                                                                                        className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium bg-zinc-100 text-zinc-700 border border-zinc-200 hover:bg-zinc-200 transition-colors cursor-pointer"
-                                                                                    >
-                                                                                        <ArrowLeftRight className="h-3.5 w-3.5" />
-                                                                                        {(task as any).dependencies?.length ?? 0} Related
-                                                                                    </button>
-                                                                                )}
-                                                                                {(() => {
-                                                                                    const docCount = (task.attachments ?? []).filter((a: any) => a.mimeType === 'doc_link').length;
-                                                                                    return docCount > 0 ? (
-                                                                                        <button
-                                                                                            type="button"
-                                                                                            onClick={() => setRightSidebarPanel('docLinks')}
-                                                                                            className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium bg-zinc-100 text-zinc-700 border border-zinc-200 hover:bg-zinc-200 transition-colors cursor-pointer"
-                                                                                        >
-                                                                                            <FileText className="h-3.5 w-3.5" />
-                                                                                            {docCount} Doc{docCount !== 1 ? 's' : ''}
-                                                                                        </button>
-                                                                                    ) : null;
-                                                                                })()}
-                                                                                {(() => {
-                                                                                    const linkCount = (task.attachments ?? []).filter((a: any) => a.mimeType === 'link').length;
-                                                                                    return linkCount > 0 ? (
-                                                                                        <button
-                                                                                            type="button"
-                                                                                            onClick={() => setRightSidebarPanel('taskLinks')}
-                                                                                            className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium bg-zinc-100 text-zinc-700 border border-zinc-200 hover:bg-zinc-200 transition-colors cursor-pointer"
-                                                                                        >
-                                                                                            <Paperclip className="h-3.5 w-3.5" />
-                                                                                            {linkCount} Link{linkCount !== 1 ? 's' : ''}
-                                                                                        </button>
-                                                                                    ) : null;
-                                                                                })()}
-                                                                                {customRelationshipTypes.length > 0 && customRelationshipTypes.map((ct) => (
-                                                                                    <button
-                                                                                        key={ct.id}
-                                                                                        type="button"
-                                                                                        onClick={() => setRightSidebarPanel('related')}
-                                                                                        className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium bg-zinc-100 text-zinc-700 border border-zinc-200 hover:bg-zinc-200 transition-colors cursor-pointer"
-                                                                                    >
-                                                                                        <ArrowLeftRight className="h-3.5 w-3.5" />
-                                                                                        {ct.name}
-                                                                                    </button>
-                                                                                ))}
-                                                                                {(() => {
-                                                                                    const blockedCount = (task as any).blockedDependencies?.length ?? 0;
-                                                                                    const relatedCount = (task as any).dependencies?.length ?? 0;
-                                                                                    const docCount = (task.attachments ?? []).filter((a: any) => a.mimeType === 'doc_link').length;
-                                                                                    const linkCount = (task.attachments ?? []).filter((a: any) => a.mimeType === 'link').length;
-
-                                                                                    const totalRelationships = blockedCount + relatedCount + docCount + linkCount + customRelationshipTypes.length;
-
-                                                                                    if (totalRelationships === 0) {
-                                                                                        return (
-                                                                                            <div
-                                                                                                onClick={() => setRightSidebarPanel('related')}
-                                                                                                className="flex flex-wrap gap-1 min-h-[28px] w-fit items-center cursor-pointer hover:bg-zinc-50 p-1 -ml-1 rounded transition-colors group outline-none border border-transparent hover:border-zinc-200"
-                                                                                            >
-                                                                                                <span className="text-sm font-normal text-zinc-400 italic">Empty</span>
-                                                                                                <div className="text-zinc-400 opacity-0 group-hover:opacity-100 ml-1 flex items-center">
-                                                                                                    <ArrowLeftRight className="h-3 w-3" />
-                                                                                                </div>
-                                                                                            </div>
-                                                                                        );
-                                                                                    }
-                                                                                    return null;
-                                                                                })()}
-                                                                            </div>
-                                                                        </div>
-
                                                                     </div>
+
+                                                                    {/* Relationships — separate inline section below grid */}
+                                                                    {(() => {
+                                                                        const blockedDependencies = (task as any).blockedDependencies || [];
+                                                                        const blockedByDependencies = ((task as any).dependencies || []).filter((d: any) => d.type === 'FINISH_TO_START' || d.dependencyType === 'FINISH_TO_START');
+
+                                                                        if (blockedDependencies.length === 0 && blockedByDependencies.length === 0) return null;
+
+                                                                        return (
+                                                                            <div className="border-y border-zinc-100 py-3 px-8 mb-6 mt-[-16px]">
+                                                                                <div className="space-y-1">
+                                                                                    {blockedDependencies.map((dep: any) => (
+                                                                                        <div key={`blocking-${dep.id}`} className="flex items-center group/dep hover:bg-zinc-50 py-1.5 px-2 rounded -ml-2 cursor-pointer">
+                                                                                            <div className="flex items-center gap-2 w-32 shrink-0 text-sm text-zinc-600 font-normal">
+                                                                                                <MinusCircle className="h-4 w-4 text-red-500" /> Blocking
+                                                                                            </div>
+                                                                                            <div className="flex items-center gap-2 flex-1 min-w-0">
+                                                                                                <CircleDashed className="h-4 w-4 text-zinc-400" />
+                                                                                                <span className="text-sm text-zinc-700 truncate font-medium">{dep.task?.name || "Private task"}</span>
+                                                                                            </div>
+                                                                                            <div className="flex items-center gap-1 opacity-0 group-hover/dep:opacity-100 transition-opacity">
+                                                                                                <TooltipProvider delayDuration={300}>
+                                                                                                    <Tooltip>
+                                                                                                        <TooltipTrigger asChild>
+                                                                                                            <button type="button" onClick={(e) => { e.stopPropagation(); removeDependency.mutate({ taskId: dep.taskId, dependsOnId: dep.dependsOnId }); }} className="p-0.5 text-zinc-500 hover:text-zinc-700 hover:bg-zinc-200 rounded cursor-pointer">
+                                                                                                                <X className="h-4 w-4" />
+                                                                                                            </button>
+                                                                                                        </TooltipTrigger>
+                                                                                                        <TooltipContent>Remove dependency</TooltipContent>
+                                                                                                    </Tooltip>
+                                                                                                </TooltipProvider>
+                                                                                                <DropdownMenu>
+                                                                                                    <DropdownMenuTrigger asChild>
+                                                                                                        <button type="button" onClick={(e) => e.stopPropagation()} className="p-0.5 text-zinc-500 hover:text-zinc-700 hover:bg-zinc-200 rounded cursor-pointer">
+                                                                                                            <Plus className="h-4 w-4" />
+                                                                                                        </button>
+                                                                                                    </DropdownMenuTrigger>
+                                                                                                    <DropdownMenuContent align="end" className="w-56">
+                                                                                                        <DropdownMenuItem onSelect={(e) => { e.preventDefault(); setBlocksPickerOpen(true); }}>
+                                                                                                            <MinusCircle className="h-4 w-4 text-red-500 mr-2" />
+                                                                                                            This task blocks...
+                                                                                                        </DropdownMenuItem>
+                                                                                                        <DropdownMenuItem onSelect={(e) => { e.preventDefault(); setBlockedByPickerOpen(true); }}>
+                                                                                                            <AlertTriangle className="h-4 w-4 text-amber-500 mr-2" />
+                                                                                                            This task is blocked by...
+                                                                                                        </DropdownMenuItem>
+                                                                                                        <DropdownMenuSeparator />
+                                                                                                        <DropdownMenuItem onSelect={(e) => { e.preventDefault(); setClearAllDependenciesOpen(true); }}>
+                                                                                                            <Ban className="h-4 w-4 text-zinc-400 mr-2" />
+                                                                                                            Clear all dependencies
+                                                                                                        </DropdownMenuItem>
+                                                                                                    </DropdownMenuContent>
+                                                                                                </DropdownMenu>
+                                                                                            </div>
+                                                                                        </div>
+                                                                                    ))}
+                                                                                    {blockedByDependencies.map((dep: any) => (
+                                                                                        <div key={`blockedby-${dep.id}`} className="flex items-center group/dep hover:bg-zinc-50 py-1.5 px-2 rounded -ml-2 cursor-pointer">
+                                                                                            <div className="flex items-center gap-2 w-32 shrink-0 text-sm text-zinc-600 font-normal">
+                                                                                                <AlertTriangle className="h-4 w-4 text-amber-500" /> Blocked by
+                                                                                            </div>
+                                                                                            <div className="flex items-center gap-2 flex-1 min-w-0">
+                                                                                                <CircleDashed className="h-4 w-4 text-zinc-400" />
+                                                                                                <span className="text-sm text-zinc-700 truncate font-medium">{dep.dependsOn?.name || "Private task"}</span>
+                                                                                            </div>
+                                                                                            <div className="flex items-center gap-1 opacity-0 group-hover/dep:opacity-100 transition-opacity">
+                                                                                                <TooltipProvider delayDuration={300}>
+                                                                                                    <Tooltip>
+                                                                                                        <TooltipTrigger asChild>
+                                                                                                            <button type="button" onClick={(e) => { e.stopPropagation(); removeDependency.mutate({ taskId: dep.taskId, dependsOnId: dep.dependsOnId }); }} className="p-0.5 text-zinc-500 hover:text-zinc-700 hover:bg-zinc-200 rounded">
+                                                                                                                <X className="h-4 w-4" />
+                                                                                                            </button>
+                                                                                                        </TooltipTrigger>
+                                                                                                        <TooltipContent>Remove dependency</TooltipContent>
+                                                                                                    </Tooltip>
+                                                                                                </TooltipProvider>
+                                                                                                <DropdownMenu>
+                                                                                                    <DropdownMenuTrigger asChild>
+                                                                                                        <button type="button" onClick={(e) => e.stopPropagation()} className="p-0.5 text-zinc-500 hover:text-zinc-700 hover:bg-zinc-200 rounded">
+                                                                                                            <Plus className="h-4 w-4" />
+                                                                                                        </button>
+                                                                                                    </DropdownMenuTrigger>
+                                                                                                    <DropdownMenuContent align="end" className="w-56">
+                                                                                                        <DropdownMenuItem onSelect={(e) => { e.preventDefault(); setBlocksPickerOpen(true); }}>
+                                                                                                            <MinusCircle className="h-4 w-4 text-red-500 mr-2" />
+                                                                                                            This task blocks...
+                                                                                                        </DropdownMenuItem>
+                                                                                                        <DropdownMenuItem onSelect={(e) => { e.preventDefault(); setBlockedByPickerOpen(true); }}>
+                                                                                                            <AlertTriangle className="h-4 w-4 text-amber-500 mr-2" />
+                                                                                                            This task is blocked by...
+                                                                                                        </DropdownMenuItem>
+                                                                                                        <DropdownMenuSeparator />
+                                                                                                        <DropdownMenuItem onSelect={(e) => { e.preventDefault(); setClearAllDependenciesOpen(true); }}>
+                                                                                                            <Ban className="h-4 w-4 text-zinc-400 mr-2" />
+                                                                                                            Clear all dependencies
+                                                                                                        </DropdownMenuItem>
+                                                                                                    </DropdownMenuContent>
+                                                                                                </DropdownMenu>
+                                                                                            </div>
+                                                                                        </div>
+                                                                                    ))}
+                                                                                </div>
+                                                                            </div>
+                                                                        );
+                                                                    })()}
 
                                                                     {/* Description */}
                                                                     <div className="space-y-3">
@@ -2102,7 +2300,18 @@ export function TaskDetailContent({
                                             )}
                                             {rightSidebarPanel === 'links' && (
                                                 <div className="flex flex-col h-full min-h-0">
-                                                    <LinksPanelContent taskId={task.id} />
+                                                    <LinksPanelContent
+                                                        taskId={task.id}
+                                                        onLinkAdded={() => {
+                                                            setRightSidebarPanel('otherlinks');
+                                                            setLastRightSidebarPanel('otherlinks');
+                                                        }}
+                                                    />
+                                                </div>
+                                            )}
+                                            {rightSidebarPanel === 'otherlinks' && (
+                                                <div className="flex flex-col h-full min-h-0">
+                                                    <OtherLinksPanelContent taskId={task.id} />
                                                 </div>
                                             )}
                                         </div>
@@ -2110,33 +2319,13 @@ export function TaskDetailContent({
 
                                     {/* Narrow sidebar at right edge */}
                                     <div className="w-14 flex flex-col items-center py-2 border-l border-zinc-100 bg-zinc-50/50 shrink-0 px-2">
-                                        {/* Collapse / Expand toggle */}
-                                        <TooltipProvider delayDuration={300}>
-                                            <Tooltip>
-                                                <TooltipTrigger asChild>
-                                                    <button
-                                                        type="button"
-                                                        onClick={toggleRightSidebar}
-                                                        className="flex flex-col items-center gap-0.5 py-2 px-1 w-full my-0.5 rounded-md transition-colors cursor-pointer text-zinc-500 hover:bg-zinc-100 hover:text-zinc-700"
-                                                    >
-                                                        {rightSidebarPanel ? (
-                                                            <ChevronsRight className="h-5 w-5 shrink-0" />
-                                                        ) : (
-                                                            <ChevronsLeft className="h-5 w-5 shrink-0" />
-                                                        )}
-                                                    </button>
-                                                </TooltipTrigger>
-                                                <TooltipContent side="left">
-                                                    <p>{rightSidebarPanel ? 'Collapse panel' : 'Expand panel'}</p>
-                                                </TooltipContent>
-                                            </Tooltip>
-                                        </TooltipProvider>
+                                        {/* Collapse / Expand toggle hidden in sidebar mode */}
 
                                         {[
                                             { id: 'task' as const, icon: LayoutList, label: 'Task', count: undefined },
                                             { id: 'activity' as const, icon: MessageSquare, label: 'Activity', count: undefined },
-                                            { id: 'related' as const, icon: ArrowLeftRight, label: 'Related', count: customRelationshipTypes.length > 0 ? ((task as any).dependencies ?? []).filter((d: any) => d.type === 'FINISH_TO_FINISH').length : 0 },
-                                            { id: 'links' as const, icon: Paperclip, label: 'Links', count: (task.attachments ?? []).filter((a: any) => a.mimeType === 'link').length },
+                                            { id: 'related' as const, icon: ArrowLeftRight, label: 'Related', count: ((task as any).dependencies ?? []).filter((d: any) => d.type === 'FINISH_TO_FINISH').length + ((task as any).attachments ?? []).filter((a: any) => a.mimeType === 'doc_link').length },
+                                            { id: 'links' as const, icon: Paperclip, label: 'Links', count: undefined },
                                         ].map(({ id, icon: Icon, label, count }) => (
                                             <TooltipProvider key={id} delayDuration={300}>
                                                 <Tooltip>
@@ -2167,6 +2356,34 @@ export function TaskDetailContent({
                                                 </Tooltip>
                                             </TooltipProvider>
                                         ))}
+                                        {/* Globe icon — only show when there are URL links */}
+                                        {(task.taskLinks ?? []).length > 0 && (
+                                            <TooltipProvider delayDuration={300}>
+                                                <Tooltip>
+                                                    <TooltipTrigger asChild>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => {
+                                                                const next = rightSidebarPanel === 'otherlinks' ? null : 'otherlinks';
+                                                                setRightSidebarPanel(next);
+                                                                if (next !== null) setLastRightSidebarPanel(next);
+                                                            }}
+                                                            className={cn(
+                                                                "flex items-center justify-center py-2.5 px-1 w-full my-0.5 rounded-md transition-colors relative cursor-pointer",
+                                                                rightSidebarPanel === 'otherlinks' ? "bg-zinc-200 text-zinc-900" : "text-zinc-500 hover:bg-zinc-100 hover:text-zinc-700"
+                                                            )}
+                                                        >
+                                                            <Globe className="h-5 w-5 shrink-0" />
+                                                            <span className="absolute top-0 right-0 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-indigo-500 px-1 text-[10px] font-medium text-white">
+                                                                {(task.taskLinks ?? []).length > 99 ? '99+' : (task.taskLinks ?? []).length}
+                                                            </span>
+                                                        </button>
+                                                    </TooltipTrigger>
+                                                    <TooltipContent side="left"><p>Other links</p></TooltipContent>
+                                                </Tooltip>
+                                            </TooltipProvider>
+                                        )}
+
                                     </div>
                                 </div>
                             ) : (
@@ -2357,7 +2574,7 @@ export function TaskDetailContent({
 
 
                                                                 {/* Properties Grid — order: Status → Assignee → Priority → Start → Due → Time Est → Tags → Track Time → Relationships */}
-                                                                <div className="grid grid-cols-2 md:grid-cols-4 gap-y-6 gap-x-8">
+                                                                <div className={cn("grid gap-y-6 gap-x-8", propsGridClass)}>
                                                                     {/* Status */}
                                                                     <div className="space-y-1.5">
                                                                         <label className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
@@ -2422,30 +2639,47 @@ export function TaskDetailContent({
                                                                                 }}
                                                                                 variant="compact"
                                                                                 trigger={
-                                                                                    <div className="flex flex-wrap gap-1 min-h-[28px] w-fit items-center cursor-pointer hover:bg-zinc-50 p-1 -ml-1 rounded transition-colors group outline-none border border-transparent hover:border-zinc-200">
+                                                                                    <div className="flex items-center gap-1.5 cursor-pointer outline-none w-fit">
                                                                                         {task.assignees?.length > 0 ? (
                                                                                             <>
-                                                                                                <div className="flex -space-x-2 mr-2">
-                                                                                                    {task.assignees.map((a: any, i: number) => (
-                                                                                                        <Avatar key={i} className="h-7 w-7 border-2 border-white ring-1 ring-zinc-100">
-                                                                                                            <AvatarImage src={a.user?.image} />
-                                                                                                            <AvatarFallback className="text-[9px] font-bold bg-blue-50 text-blue-600">
-                                                                                                                {a.user?.name?.substring(0, 2).toUpperCase()}
-                                                                                                            </AvatarFallback>
-                                                                                                        </Avatar>
-                                                                                                    ))}
+                                                                                                <div className="flex items-center -space-x-1.5">
+                                                                                                    {task.assignees.slice(0, 4).map((a: any, i: number) => {
+                                                                                                        const colorClasses = [
+                                                                                                            { bg: "bg-blue-100", text: "text-blue-700" },
+                                                                                                            { bg: "bg-purple-100", text: "text-purple-700" },
+                                                                                                            { bg: "bg-pink-100", text: "text-pink-700" },
+                                                                                                            { bg: "bg-green-100", text: "text-green-700" },
+                                                                                                            { bg: "bg-orange-100", text: "text-orange-700" },
+                                                                                                        ];
+                                                                                                        const colorSet = colorClasses[i % colorClasses.length];
+                                                                                                        const name = a.user?.name || a.user?.email || a.team?.name || a.aiAgent?.name;
+                                                                                                        const image = a.user?.image || a.team?.image || a.aiAgent?.avatar || a.aiAgent?.image;
+                                                                                                        return (
+                                                                                                            <Avatar key={i} className="h-7 w-7 border-2 border-white">
+                                                                                                                <AvatarImage src={image || undefined} />
+                                                                                                                <AvatarFallback className={cn("text-[10px] font-semibold", colorSet.bg, colorSet.text)}>
+                                                                                                                    {name?.substring(0, 2).toUpperCase()}
+                                                                                                                </AvatarFallback>
+                                                                                                            </Avatar>
+                                                                                                        );
+                                                                                                    })}
+                                                                                                    {task.assignees.length > 4 && (
+                                                                                                        <div className="h-7 w-7 border-2 border-white rounded-full bg-zinc-100 flex items-center justify-center text-[10px] font-semibold text-zinc-600">
+                                                                                                            +{task.assignees.length - 4}
+                                                                                                        </div>
+                                                                                                    )}
                                                                                                 </div>
-                                                                                                <div className="h-7 w-7 rounded-full border border-dashed border-zinc-300 flex items-center justify-center text-zinc-400 hover:text-zinc-600 hover:border-zinc-400 bg-white opacity-0 group-hover:opacity-100 transition-opacity">
+                                                                                                <div className="h-6 w-6 rounded-full border border-dashed border-zinc-300 flex items-center justify-center text-zinc-400 hover:text-zinc-600 hover:border-zinc-400 bg-white opacity-0 hover:opacity-100 transition-opacity">
                                                                                                     <Plus className="h-3 w-3" />
                                                                                                 </div>
                                                                                             </>
                                                                                         ) : (
-                                                                                            <>
+                                                                                            <div className="flex items-center gap-1.5 p-1 -ml-1 rounded hover:bg-zinc-50 border border-transparent hover:border-zinc-200 transition-colors group">
                                                                                                 <span className="text-sm font-normal text-zinc-400 italic">Empty</span>
                                                                                                 <div className="text-zinc-400 opacity-0 group-hover:opacity-100 ml-1 flex items-center">
                                                                                                     <UserIcon className="h-3 w-3" />
                                                                                                 </div>
-                                                                                            </>
+                                                                                            </div>
                                                                                         )}
                                                                                     </div>
                                                                                 }
@@ -2691,71 +2925,112 @@ export function TaskDetailContent({
                                                                         </div>
                                                                     </div>
 
-                                                                    {/* Relationships — badges open corresponding right panel */}
-                                                                    <div className="space-y-1.5">
-                                                                        <div className="flex flex-wrap gap-1.5 min-h-[28px] items-center">
-                                                                            {((task as any).blockedDependencies?.length ?? 0) > 0 && (
-                                                                                <button
-                                                                                    type="button"
-                                                                                    onClick={() => setRightSidebarPanel('blocking')}
-                                                                                    className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 transition-colors cursor-pointer"
-                                                                                >
-                                                                                    <MinusCircle className="h-3.5 w-3.5" />
-                                                                                    {(task as any).blockedDependencies?.length ?? 0} Blocking
-                                                                                </button>
-                                                                            )}
-                                                                            {((task as any).dependencies?.length ?? 0) > 0 && (
-                                                                                <button
-                                                                                    type="button"
-                                                                                    onClick={() => setRightSidebarPanel('related')}
-                                                                                    className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium bg-zinc-100 text-zinc-700 border border-zinc-200 hover:bg-zinc-200 transition-colors cursor-pointer"
-                                                                                >
-                                                                                    <ArrowLeftRight className="h-3.5 w-3.5" />
-                                                                                    {(task as any).dependencies?.length ?? 0} Related
-                                                                                </button>
-                                                                            )}
-                                                                            {(() => {
-                                                                                const docCount = (task.attachments ?? []).filter((a: any) => a.mimeType === 'doc_link').length;
-                                                                                return docCount > 0 ? (
-                                                                                    <button
-                                                                                        type="button"
-                                                                                        onClick={() => setRightSidebarPanel('docLinks')}
-                                                                                        className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium bg-zinc-100 text-zinc-700 border border-zinc-200 hover:bg-zinc-200 transition-colors cursor-pointer"
-                                                                                    >
-                                                                                        <FileText className="h-3.5 w-3.5" />
-                                                                                        {docCount} Doc{docCount !== 1 ? 's' : ''}
-                                                                                    </button>
-                                                                                ) : null;
-                                                                            })()}
-                                                                            {(() => {
-                                                                                const linkCount = (task.attachments ?? []).filter((a: any) => a.mimeType === 'link').length;
-                                                                                return linkCount > 0 ? (
-                                                                                    <button
-                                                                                        type="button"
-                                                                                        onClick={() => setRightSidebarPanel('taskLinks')}
-                                                                                        className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium bg-zinc-100 text-zinc-700 border border-zinc-200 hover:bg-zinc-200 transition-colors cursor-pointer"
-                                                                                    >
-                                                                                        <Paperclip className="h-3.5 w-3.5" />
-                                                                                        {linkCount} Link{linkCount !== 1 ? 's' : ''}
-                                                                                    </button>
-                                                                                ) : null;
-                                                                            })()}
-                                                                            {customRelationshipTypes.length > 0 && customRelationshipTypes.map((ct) => (
-                                                                                <button
-                                                                                    key={ct.id}
-                                                                                    type="button"
-                                                                                    onClick={() => setRightSidebarPanel('related')}
-                                                                                    className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium bg-zinc-100 text-zinc-700 border border-zinc-200 hover:bg-zinc-200 transition-colors cursor-pointer"
-                                                                                >
-                                                                                    <ArrowLeftRight className="h-3.5 w-3.5" />
-                                                                                    {ct.name}
-                                                                                </button>
-                                                                            ))}
-                                                                        </div>
-                                                                    </div>
-
                                                                 </div>
 
+                                                                {/* Relationships — separate inline section below grid */}
+                                                                {(() => {
+                                                                    const blockedDependencies = (task as any).blockedDependencies || [];
+                                                                    const blockedByDependencies = ((task as any).dependencies || []).filter((d: any) => d.type === 'FINISH_TO_START' || d.dependencyType === 'FINISH_TO_START');
+
+                                                                    if (blockedDependencies.length === 0 && blockedByDependencies.length === 0) return null;
+
+                                                                    return (
+                                                                        <div className="border-y border-zinc-100 py-3 px-8 mb-6 mt-[-16px]">
+                                                                            <div className="space-y-1">
+                                                                                {blockedDependencies.map((dep: any) => (
+                                                                                    <div key={`blocking-expanded-${dep.id}`} className="flex items-center group/dep hover:bg-zinc-50 py-1.5 px-2 rounded -ml-2 cursor-pointer">
+                                                                                        <div className="flex items-center gap-2 w-32 shrink-0 text-sm text-zinc-600 font-normal">
+                                                                                            <MinusCircle className="h-4 w-4 text-red-500" /> Blocking
+                                                                                        </div>
+                                                                                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                                                                                            <CircleDashed className="h-4 w-4 text-zinc-400" />
+                                                                                            <span className="text-sm text-zinc-700 truncate font-medium">{dep.task?.title || "Private task"}</span>
+                                                                                        </div>
+                                                                                        <div className="flex items-center gap-1 opacity-0 group-hover/dep:opacity-100 transition-opacity">
+                                                                                            <TooltipProvider delayDuration={300}>
+                                                                                                <Tooltip>
+                                                                                                    <TooltipTrigger asChild>
+                                                                                                        <button type="button" onClick={(e) => { e.stopPropagation(); removeDependency.mutate({ taskId: dep.taskId, dependsOnId: dep.dependsOnId }); }} className="p-0.5 text-zinc-500 hover:text-zinc-700 hover:bg-zinc-200 rounded cursor-pointer">
+                                                                                                            <X className="h-4 w-4" />
+                                                                                                        </button>
+                                                                                                    </TooltipTrigger>
+                                                                                                    <TooltipContent>Remove dependency</TooltipContent>
+                                                                                                </Tooltip>
+                                                                                            </TooltipProvider>
+                                                                                            <DropdownMenu>
+                                                                                                <DropdownMenuTrigger asChild>
+                                                                                                    <button type="button" onClick={(e) => e.stopPropagation()} className="p-0.5 text-zinc-500 hover:text-zinc-700 hover:bg-zinc-200 rounded cursor-pointer">
+                                                                                                        <Plus className="h-4 w-4" />
+                                                                                                    </button>
+                                                                                                </DropdownMenuTrigger>
+                                                                                                <DropdownMenuContent align="end" className="w-56">
+                                                                                                    <DropdownMenuItem onSelect={(e) => { e.preventDefault(); setBlocksPickerOpen(true); }}>
+                                                                                                        <MinusCircle className="h-4 w-4 text-red-500 mr-2" />
+                                                                                                        This task blocks...
+                                                                                                    </DropdownMenuItem>
+                                                                                                    <DropdownMenuItem onSelect={(e) => { e.preventDefault(); setBlockedByPickerOpen(true); }}>
+                                                                                                        <AlertTriangle className="h-4 w-4 text-amber-500 mr-2" />
+                                                                                                        This task is blocked by...
+                                                                                                    </DropdownMenuItem>
+                                                                                                    <DropdownMenuSeparator />
+                                                                                                    <DropdownMenuItem onSelect={(e) => { e.preventDefault(); setClearAllDependenciesOpen(true); }}>
+                                                                                                        <Ban className="h-4 w-4 text-zinc-400 mr-2" />
+                                                                                                        Clear all dependencies
+                                                                                                    </DropdownMenuItem>
+                                                                                                </DropdownMenuContent>
+                                                                                            </DropdownMenu>
+                                                                                        </div>
+                                                                                    </div>
+                                                                                ))}
+                                                                                {blockedByDependencies.map((dep: any) => (
+                                                                                    <div key={`blockedby-expanded-${dep.id}`} className="flex items-center group/dep hover:bg-zinc-50 py-1.5 px-2 rounded -ml-2 cursor-pointer">
+                                                                                        <div className="flex items-center gap-2 w-32 shrink-0 text-sm text-zinc-600 font-normal">
+                                                                                            <AlertTriangle className="h-4 w-4 text-amber-500" /> Blocked by
+                                                                                        </div>
+                                                                                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                                                                                            <CircleDashed className="h-4 w-4 text-zinc-400" />
+                                                                                            <span className="text-sm text-zinc-700 truncate font-medium">{dep.dependsOn?.title || "Private task"}</span>
+                                                                                        </div>
+                                                                                        <div className="flex items-center gap-1 opacity-0 group-hover/dep:opacity-100 transition-opacity">
+                                                                                            <TooltipProvider delayDuration={300}>
+                                                                                                <Tooltip>
+                                                                                                    <TooltipTrigger asChild>
+                                                                                                        <button type="button" onClick={(e) => { e.stopPropagation(); removeDependency.mutate({ taskId: dep.taskId, dependsOnId: dep.dependsOnId }); }} className="p-0.5 text-zinc-500 hover:text-zinc-700 hover:bg-zinc-200 rounded">
+                                                                                                            <X className="h-4 w-4" />
+                                                                                                        </button>
+                                                                                                    </TooltipTrigger>
+                                                                                                    <TooltipContent>Remove dependency</TooltipContent>
+                                                                                                </Tooltip>
+                                                                                            </TooltipProvider>
+                                                                                            <DropdownMenu>
+                                                                                                <DropdownMenuTrigger asChild>
+                                                                                                    <button type="button" onClick={(e) => e.stopPropagation()} className="p-0.5 text-zinc-500 hover:text-zinc-700 hover:bg-zinc-200 rounded">
+                                                                                                        <Plus className="h-4 w-4" />
+                                                                                                    </button>
+                                                                                                </DropdownMenuTrigger>
+                                                                                                <DropdownMenuContent align="end" className="w-56">
+                                                                                                    <DropdownMenuItem onSelect={(e) => { e.preventDefault(); setBlocksPickerOpen(true); }}>
+                                                                                                        <MinusCircle className="h-4 w-4 text-red-500 mr-2" />
+                                                                                                        This task blocks...
+                                                                                                    </DropdownMenuItem>
+                                                                                                    <DropdownMenuItem onSelect={(e) => { e.preventDefault(); setBlockedByPickerOpen(true); }}>
+                                                                                                        <AlertTriangle className="h-4 w-4 text-amber-500 mr-2" />
+                                                                                                        This task is blocked by...
+                                                                                                    </DropdownMenuItem>
+                                                                                                    <DropdownMenuSeparator />
+                                                                                                    <DropdownMenuItem onSelect={(e) => { e.preventDefault(); setClearAllDependenciesOpen(true); }}>
+                                                                                                        <Ban className="h-4 w-4 text-zinc-400 mr-2" />
+                                                                                                        Clear all dependencies
+                                                                                                    </DropdownMenuItem>
+                                                                                                </DropdownMenuContent>
+                                                                                            </DropdownMenu>
+                                                                                        </div>
+                                                                                    </div>
+                                                                                ))}
+                                                                            </div>
+                                                                        </div>
+                                                                    );
+                                                                })()}
                                                                 {/* Description */}
                                                                 <div className="space-y-3">
                                                                     <DescriptionSection
@@ -3016,7 +3291,18 @@ export function TaskDetailContent({
                                                         )}
                                                         {rightSidebarPanel === 'links' && (
                                                             <div className="flex flex-col h-full min-h-0">
-                                                                <LinksPanelContent taskId={task.id} />
+                                                                <LinksPanelContent
+                                                                    taskId={task.id}
+                                                                    onLinkAdded={() => {
+                                                                        setRightSidebarPanel('otherlinks');
+                                                                        setLastRightSidebarPanel('otherlinks');
+                                                                    }}
+                                                                />
+                                                            </div>
+                                                        )}
+                                                        {rightSidebarPanel === 'otherlinks' && (
+                                                            <div className="flex flex-col h-full min-h-0">
+                                                                <OtherLinksPanelContent taskId={task.id} />
                                                             </div>
                                                         )}
                                                     </div>
@@ -3051,8 +3337,8 @@ export function TaskDetailContent({
 
                                         {[
                                             { id: 'activity' as const, icon: MessageSquare, label: 'Activity', count: undefined },
-                                            { id: 'related' as const, icon: ArrowLeftRight, label: 'Related', count: customRelationshipTypes.length > 0 ? ((task as any).dependencies ?? []).filter((d: any) => d.type === 'FINISH_TO_FINISH').length : 0 },
-                                            { id: 'links' as const, icon: Paperclip, label: 'Links', count: (task.attachments ?? []).filter((a: any) => a.mimeType === 'link').length },
+                                            { id: 'related' as const, icon: ArrowLeftRight, label: 'Related', count: ((task as any).dependencies ?? []).filter((d: any) => d.type === 'FINISH_TO_FINISH').length + ((task as any).attachments ?? []).filter((a: any) => a.mimeType === 'doc_link').length },
+                                            { id: 'links' as const, icon: Paperclip, label: 'Links', count: undefined },
                                         ].map(({ id, icon: Icon, label, count }) => (
                                             <TooltipProvider key={id} delayDuration={300}>
                                                 <Tooltip>
@@ -3083,6 +3369,33 @@ export function TaskDetailContent({
                                                 </Tooltip>
                                             </TooltipProvider>
                                         ))}
+                                        {/* Globe icon — only show when there are URL links */}
+                                        {(task.taskLinks ?? []).length > 0 && (
+                                            <TooltipProvider delayDuration={300}>
+                                                <Tooltip>
+                                                    <TooltipTrigger asChild>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => {
+                                                                const next = rightSidebarPanel === 'otherlinks' ? null : 'otherlinks';
+                                                                setRightSidebarPanel(next);
+                                                                if (next !== null) setLastRightSidebarPanel(next);
+                                                            }}
+                                                            className={cn(
+                                                                "flex items-center justify-center py-2.5 px-1 w-full my-0.5 rounded-md transition-colors relative cursor-pointer",
+                                                                rightSidebarPanel === 'otherlinks' ? "bg-zinc-200 text-zinc-900" : "text-zinc-500 hover:bg-zinc-100 hover:text-zinc-700"
+                                                            )}
+                                                        >
+                                                            <Globe className="h-5 w-5 shrink-0" />
+                                                            <span className="absolute top-0 right-0 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-indigo-500 px-1 text-[10px] font-medium text-white">
+                                                                {(task.taskLinks ?? []).length > 99 ? '99+' : (task.taskLinks ?? []).length}
+                                                            </span>
+                                                        </button>
+                                                    </TooltipTrigger>
+                                                    <TooltipContent side="left"><p>Other links</p></TooltipContent>
+                                                </Tooltip>
+                                            </TooltipProvider>
+                                        )}
                                     </div>
                                 </div>
                             )}
@@ -3126,6 +3439,78 @@ export function TaskDetailContent({
                     entityId={task.id}
                 />
             )}
+
+            {/* Clear All Dependencies Modal */}
+            <Dialog open={clearAllDependenciesOpen} onOpenChange={setClearAllDependenciesOpen}>
+                <DialogContent className="max-w-[420px] p-6 gap-0" hideOverlay={false} showCloseButton={true}>
+                    {(() => {
+                        const blocked = (task as any)?.blockedDependencies || [];
+                        const blockedBy = ((task as any)?.dependencies || []).filter((d: any) => d.type === 'FINISH_TO_START' || d.dependencyType === 'FINISH_TO_START');
+                        const total = blocked.length + blockedBy.length;
+                        return (
+                            <div className="flex flex-col">
+                                <div className="flex h-12 w-12 items-center justify-center rounded-[14px] border border-red-100 bg-red-50 text-red-500 mb-5">
+                                    <AlertCircle className="h-6 w-6" strokeWidth={2.5} />
+                                </div>
+                                <DialogTitle className="text-[17px] font-semibold text-zinc-900 mb-2">
+                                    Clear all dependencies?
+                                </DialogTitle>
+                                <div className="text-[14px] text-zinc-500 mb-6 leading-relaxed">
+                                    <p>This action will remove {total} dependenc{total === 1 ? 'y' : 'ies'} and cannot be undone. Any new dependencies must be manually added.</p>
+                                </div>
+                                <div className="flex gap-3 w-full mt-2">
+                                    <Button
+                                        variant="outline"
+                                        onClick={() => setClearAllDependenciesOpen(false)}
+                                        className="flex-1 bg-white text-zinc-700 h-10 font-medium"
+                                    >
+                                        Cancel
+                                    </Button>
+                                    <Button
+                                        variant="destructive"
+                                        className="flex-1 bg-[#EF4444] hover:bg-[#DC2626] text-white h-10 font-medium"
+                                        onClick={() => {
+                                            blocked.forEach((dep: any) => {
+                                                removeDependency.mutate({ taskId: dep.taskId, dependsOnId: dep.dependsOnId });
+                                            });
+                                            blockedBy.forEach((dep: any) => {
+                                                removeDependency.mutate({ taskId: dep.taskId, dependsOnId: dep.dependsOnId });
+                                            });
+                                            setClearAllDependenciesOpen(false);
+                                        }}
+                                    >
+                                        Clear all
+                                    </Button>
+                                </div>
+                            </div>
+                        );
+                    })()}
+                </DialogContent>
+            </Dialog>
+
+            {/* Pickers for inline dependencies */}
+            <TaskPickerPopover
+                open={blocksPickerOpen}
+                onOpenChange={setBlocksPickerOpen}
+                taskId={taskId!}
+                workspaceId={task.workspaceId}
+                dependencyType="FINISH_TO_START"
+                onSelect={(id) => { setBlocksPickerOpen(false); handleSelectTask(id, 'blocks'); }}
+                trigger={<div className="absolute top-1/2 left-1/2 w-1 h-1 pointer-events-none opacity-0" />}
+                align="center"
+                side="top"
+            />
+            <TaskPickerPopover
+                open={blockedByPickerOpen}
+                onOpenChange={setBlockedByPickerOpen}
+                taskId={taskId!}
+                workspaceId={task.workspaceId}
+                dependencyType="FINISH_TO_START"
+                onSelect={(id) => { setBlockedByPickerOpen(false); handleSelectTask(id, 'blocked_by'); }}
+                trigger={<div className="absolute top-1/2 left-1/2 w-1 h-1 pointer-events-none opacity-0" />}
+                align="center"
+                side="top"
+            />
         </div>
     );
 }

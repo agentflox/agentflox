@@ -51,6 +51,7 @@ interface CreateTaskModalProps {
   defaultDueDate?: Date | null;
   availableStatuses?: Option[];
   trigger?: React.ReactNode;
+  onSuccess?: (task: any) => void;
 }
 
 type RouterInputs = inferRouterInputs<AppRouter>;
@@ -72,6 +73,7 @@ export function TaskCreationModal({
   defaultDueDate,
   availableStatuses = [],
   trigger,
+  onSuccess,
   open,
   onOpenChange
 }: CreateTaskModalProps & { open?: boolean; onOpenChange?: (open: boolean) => void }) {
@@ -372,7 +374,10 @@ export function TaskCreationModal({
         taskType: (['TASK', 'MILESTONE', 'FORM_RESPONSE', 'MEETING_NOTE'].includes(data.taskType as any) ? data.taskType : undefined) as any,
         taskTypeId: data.taskTypeId,
       } as unknown as TaskCreateInput;
-      await createTask.mutateAsync(payload);
+      const createdTask = await createTask.mutateAsync(payload);
+      if (onSuccess) {
+        onSuccess(createdTask);
+      }
       await utils.task.list.invalidate();
       handleOpenChange(false);
     } catch (error) {

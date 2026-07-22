@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import {
-    Repeat, Maximize2, Minimize2, ChevronRight, Plus, MinusCircle, AlertTriangle, ArrowLeftRight, CheckCircle2, FileText, CircleDot, PlusCircle, Columns, Calendar, CalendarCheck, CalendarClock, CalendarDays, Timer, Clock, Hourglass, Hash, MoreHorizontal, FoldVertical, UnfoldVertical, X, Flag
+    Repeat, Maximize2, Minimize2, ChevronRight, Plus, MinusCircle, AlertTriangle, ArrowLeftRight, CheckCircle2, FileText, CircleDot, PlusCircle, Columns, Calendar, CalendarCheck, CalendarClock, CalendarDays, Timer, Clock, Hourglass, Hash, MoreHorizontal, FoldVertical, UnfoldVertical, X, Flag, Settings2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -18,7 +18,14 @@ import {
     DropdownMenuCheckboxItem,
 } from "@/components/ui/dropdown-menu";
 import { cn } from '@/lib/utils';
+import { trpc } from '@/lib/trpc';
 import { format } from 'date-fns';
+import { TaskPickerPopover } from './TaskPickerPopover';
+import { TaskDocPickerPopover } from './TaskDocPickerPopover';
+import { DocPickerPopover } from './DocPickerPopover';
+import { NewCustomRelationshipPopover } from './NewCustomRelationshipPopover';
+import { EditCustomRelationshipPopover } from './EditCustomRelationshipPopover';
+import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 
 const AVAILABLE_COLUMNS = [
     { id: 'status', label: 'Status', icon: <CircleDot className="w-3.5 h-3.5 text-zinc-400" /> },
@@ -41,10 +48,6 @@ const PRIORITY_COLORS: Record<string, string> = {
     NORMAL: 'text-zinc-600',
     LOW: 'text-zinc-400',
 };
-import { TaskPickerPopover } from './TaskPickerPopover';
-import { TaskDocPickerPopover } from './TaskDocPickerPopover';
-import { DocPickerPopover } from './DocPickerPopover';
-import { NewCustomRelationshipPopover } from './NewCustomRelationshipPopover';
 
 interface TaskRelationshipsSectionProps {
     taskId: string;
@@ -54,8 +57,19 @@ interface TaskRelationshipsSectionProps {
 
 export function TaskRelationshipsSection({ taskId, workspaceId, task }: TaskRelationshipsSectionProps) {
     const [isMaximized, setIsMaximized] = React.useState(false);
-    const [activeTab, setActiveTab] = React.useState<'related' | 'dependencies'>('related');
-    
+    const [activeTab, setActiveTab] = React.useState<string>('related');
+
+    const router = useRouter();
+    const pathname = usePathname();
+    const searchParams = useSearchParams();
+
+    const openTask = (id: string) => {
+        if (!id) return;
+        const params = new URLSearchParams(searchParams.toString());
+        params.set('task', id);
+        router.push(`${pathname}?${params.toString()}`);
+    };
+
     // Popovers state
     const [docPickerOpen, setDocPickerOpen] = React.useState(false);
     const [taskPickerOpen, setTaskPickerOpen] = React.useState(false);
@@ -63,25 +77,68 @@ export function TaskRelationshipsSection({ taskId, workspaceId, task }: TaskRela
     const [blocksPickerOpen, setBlocksPickerOpen] = React.useState(false);
     const [blockedByPickerOpen, setBlockedByPickerOpen] = React.useState(false);
     const [customRelAnchor, setCustomRelAnchor] = React.useState<'header' | 'empty' | null>(null);
+    const [customRelPickerRelId, setCustomRelPickerRelId] = React.useState<string | null>(null);
+    const [customRelPickerOpen, setCustomRelPickerOpen] = React.useState(false);
+    const [editCustomRelOpen, setEditCustomRelOpen] = React.useState(false);
 
-    const handleSelectTask = (id: string, type: string) => {
-        console.log("Selected", id, type);
+    const handleSelectTask = (id: string, type: string, customRelationshipId?: string) => {
+        if (type === 'blocks') {
+            // id blocks current task => id.taskId=id, id.dependsOnId=taskId
+            addDependency.mutate({ taskId: id, dependsOnId: taskId, type: 'FINISH_TO_START' });
+        } else if (type === 'blocked_by') {
+            // current task is blocked by id => taskId=taskId, dependsOnId=id
+            addDependency.mutate({ taskId: taskId, dependsOnId: id, type: 'FINISH_TO_START' });
+        } else if (type === 'related') {
+            addDependency.mutate({ taskId: taskId, dependsOnId: id, type: 'FINISH_TO_FINISH' });
+        } else if (type === 'custom' && customRelationshipId) {
+            addDependency.mutate({ taskId: taskId, dependsOnId: id, type: 'FINISH_TO_FINISH', customRelationshipId });
+        }
     };
-    
+
     const handleSelectDocOrTask = (item: { type: "TASK" | "DOCUMENT", id: string }) => {
         console.log("Selected", item);
     };
 
+    const utils = trpc.useUtils();
+
+    const { data: customRelationships } = trpc.taskCustomRelationships.list.useQuery(
+        { workspaceId },
+        { enabled: !!workspaceId }
+    );
+
+    const addDependency = trpc.task.addDependency.useMutation({
+        onSuccess: () => {
+            utils.task.get.invalidate({ id: taskId });
+        }
+    });
+
+    const removeDependency = trpc.task.removeDependency.useMutation({
+        onSuccess: () => {
+            utils.task.get.invalidate({ id: taskId });
+        }
+    });
+
     // Calculate items
     const blockedByItems = task?.dependencies?.filter((d: any) => d.type === 'FINISH_TO_START' || d.dependencyType === 'FINISH_TO_START') || [];
-    const relatedTasks = task?.dependencies?.filter((d: any) => d.type !== 'FINISH_TO_START' && d.dependencyType !== 'FINISH_TO_START') || [];
+    const relatedTasks = task?.dependencies?.filter((d: any) => d.type !== 'FINISH_TO_START' && d.dependencyType !== 'FINISH_TO_START' && !d.customRelationshipId) || [];
     const blocksItems = task?.blockedDependencies || [];
     const docLinks = task?.attachments?.filter((a: any) => a.mimeType === 'doc_link') || [];
     const taskLinks = task?.attachments?.filter((a: any) => a.mimeType === 'link') || [];
-    
+
     const totalRelated = relatedTasks.length + docLinks.length + taskLinks.length;
     const totalDependencies = blocksItems.length + blockedByItems.length;
-    const totalItems = totalRelated + totalDependencies;
+    const customRelTasksCount = task?.dependencies?.filter((d: any) => d.customRelationshipId)?.length || 0;
+    const totalItems = totalRelated + totalDependencies + customRelTasksCount;
+
+    // Determine the effective active tab, gracefully falling back if the current activeTab has no items
+    const availableTabs = [
+        ...(totalRelated > 0 ? ['related'] : []),
+        ...(totalDependencies > 0 ? ['dependencies'] : []),
+        ...(customRelationships || [])
+            .filter((rel: any) => (task?.dependencies?.filter((d: any) => d.customRelationshipId === rel.id)?.length || 0) > 0)
+            .map((rel: any) => rel.id)
+    ];
+    const effectiveActiveTab = availableTabs.includes(activeTab) ? activeTab : (availableTabs[0] || 'related');
 
     const [tasksCollapsed, setTasksCollapsed] = React.useState(false);
     const [docsCollapsed, setDocsCollapsed] = React.useState(false);
@@ -150,6 +207,21 @@ export function TaskRelationshipsSection({ taskId, workspaceId, task }: TaskRela
                                 This task is blocked by...
                             </DropdownMenuItem>
                             <DropdownMenuSeparator className="my-1.5" />
+                            {customRelationships?.map((rel: any) => (
+                                <DropdownMenuItem
+                                    key={rel.id}
+                                    onSelect={() => {
+                                        setTimeout(() => {
+                                            setCustomRelPickerRelId(rel.id);
+                                            setCustomRelPickerOpen(true);
+                                        }, 150);
+                                    }}
+                                    className="py-2 cursor-pointer rounded-md text-[13px]"
+                                >
+                                    <ArrowLeftRight className="h-4 w-4 mr-2.5 text-zinc-500" />
+                                    {rel.name}
+                                </DropdownMenuItem>
+                            ))}
                             <DropdownMenuItem onSelect={() => {
                                 setTimeout(() => setCustomRelAnchor('empty'), 150);
                             }} className="py-2 cursor-pointer rounded-md text-[13px]">
@@ -159,11 +231,14 @@ export function TaskRelationshipsSection({ taskId, workspaceId, task }: TaskRela
                         </DropdownMenuContent>
                     </DropdownMenu>
                     <NewCustomRelationshipPopover
+                        workspaceId={workspaceId}
                         open={customRelAnchor === 'empty'}
                         onOpenChange={(v) => !v && setCustomRelAnchor(null)}
                         trigger={<div className="absolute top-0 left-1/2 w-1 h-1 pointer-events-none opacity-0" />}
                         side="top"
                         align="center"
+                        contextName={task?.list?.space?.name || task?.list?.project?.name || task?.list?.team?.name || task?.list?.name || task?.space?.name || task?.project?.name || undefined}
+                        contextKind={task?.list?.space ? 'space' : task?.list?.project ? 'project' : task?.list?.team ? 'team' : task?.list ? 'list' : task?.space ? 'space' : task?.project ? 'project' : undefined}
                     />
                 </div>
             ) : (
@@ -171,31 +246,83 @@ export function TaskRelationshipsSection({ taskId, workspaceId, task }: TaskRela
                     {/* Header with Tabs */}
                     <div className="flex items-center justify-between group/header border-b border-zinc-200">
                         <div className="flex items-center gap-4">
-                            <div 
-                                className={cn("flex items-center gap-1.5 cursor-pointer pb-1.5 border-b-2 transition-colors", activeTab === 'related' ? "border-zinc-900" : "border-transparent hover:border-zinc-300")}
-                                onClick={() => setActiveTab('related')}
-                            >
-                                <ChevronRight className={cn("h-4 w-4 transition-transform", activeTab === 'related' ? "text-zinc-900 rotate-90" : "text-zinc-400")} />
-                                <span className={cn("text-sm font-semibold", activeTab === 'related' ? "text-zinc-900" : "text-zinc-500")}>Related</span>
-                                {totalRelated > 0 && (
-                                    <span className={cn("text-xs", activeTab === 'related' ? "text-zinc-500" : "text-zinc-400")}>{totalRelated}</span>
-                                )}
-                            </div>
-                            <div 
-                                className={cn("flex items-center gap-1.5 cursor-pointer pb-1.5 border-b-2 transition-colors", activeTab === 'dependencies' ? "border-zinc-900" : "border-transparent hover:border-zinc-300")}
-                                onClick={() => setActiveTab('dependencies')}
-                            >
-                                <span className={cn("text-sm font-semibold", activeTab === 'dependencies' ? "text-zinc-900" : "text-zinc-500")}>Dependencies</span>
-                                {totalDependencies > 0 && (
-                                    <span className={cn("text-xs", activeTab === 'dependencies' ? "text-zinc-500" : "text-zinc-400")}>{totalDependencies}</span>
-                                )}
-                            </div>
+                            {(totalRelated > 0 || effectiveActiveTab === 'related') && (
+                                <div
+                                    className={cn("flex items-center gap-1.5 cursor-pointer pb-1.5 border-b-2 transition-colors", effectiveActiveTab === 'related' ? "border-zinc-900" : "border-transparent hover:border-zinc-300")}
+                                    onClick={() => setActiveTab('related')}
+                                >
+                                    <ChevronRight className={cn("h-4 w-4 transition-transform", effectiveActiveTab === 'related' ? "text-zinc-900 rotate-90" : "text-zinc-400")} />
+                                    <span className={cn("text-sm font-semibold", effectiveActiveTab === 'related' ? "text-zinc-900" : "text-zinc-500")}>Related</span>
+                                    {totalRelated > 0 && (
+                                        <span className={cn("text-xs", effectiveActiveTab === 'related' ? "text-zinc-500" : "text-zinc-400")}>{totalRelated}</span>
+                                    )}
+                                </div>
+                            )}
+                            {(totalDependencies > 0 || effectiveActiveTab === 'dependencies') && (
+                                <div
+                                    className={cn("flex items-center gap-1.5 cursor-pointer pb-1.5 border-b-2 transition-colors", effectiveActiveTab === 'dependencies' ? "border-zinc-900" : "border-transparent hover:border-zinc-300")}
+                                    onClick={() => setActiveTab('dependencies')}
+                                >
+                                    <span className={cn("text-sm font-semibold", effectiveActiveTab === 'dependencies' ? "text-zinc-900" : "text-zinc-500")}>Dependencies</span>
+                                    {totalDependencies > 0 && (
+                                        <span className={cn("text-xs", effectiveActiveTab === 'dependencies' ? "text-zinc-500" : "text-zinc-400")}>{totalDependencies}</span>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* Render Custom Relationships Tabs */}
+                            {customRelationships?.map((rel: any) => {
+                                const relTasks = task?.dependencies?.filter((d: any) => d.customRelationshipId === rel.id) || [];
+                                if (relTasks.length === 0) return null;
+                                return (
+                                    <div
+                                        key={rel.id}
+                                        className={cn("flex items-center gap-1.5 cursor-pointer pb-1.5 border-b-2 transition-colors", effectiveActiveTab === rel.id ? "border-zinc-900" : "border-transparent hover:border-zinc-300")}
+                                        onClick={() => setActiveTab(rel.id)}
+                                    >
+                                        <span className={cn("text-sm font-semibold", effectiveActiveTab === rel.id ? "text-zinc-900" : "text-zinc-500")}>{rel.name}</span>
+                                        {relTasks.length > 0 && (
+                                            <span className={cn("text-xs", effectiveActiveTab === rel.id ? "text-zinc-500" : "text-zinc-400")}>{relTasks.length}</span>
+                                        )}
+                                    </div>
+                                );
+                            })}
                         </div>
 
                         {/* Right side buttons */}
                         <div className="flex items-center gap-0.5 pb-1 opacity-0 group-hover/header:opacity-100 transition-opacity">
                             <TooltipProvider delayDuration={200}>
                                 <div className="flex items-center p-0.5 border border-zinc-200 rounded-md shadow-sm bg-white relative">
+                                    {customRelationships?.some((rel: any) => rel.id === effectiveActiveTab) && (
+                                        <>
+                                            <Tooltip>
+                                                <TooltipTrigger asChild>
+                                                    <Button variant="ghost" size="icon" className="h-6 w-6 rounded text-zinc-500 hover:text-zinc-700 hover:bg-zinc-100" onClick={() => setEditCustomRelOpen(true)}>
+                                                        <Settings2 className="h-3.5 w-3.5" />
+                                                    </Button>
+                                                </TooltipTrigger>
+                                                <TooltipContent className="bg-zinc-900 text-white font-medium text-xs px-2.5 py-1.5 border-0 rounded-md" side="top" sideOffset={4}>
+                                                    Edit Relationship
+                                                </TooltipContent>
+                                            </Tooltip>
+                                            <EditCustomRelationshipPopover
+                                                open={editCustomRelOpen}
+                                                onOpenChange={setEditCustomRelOpen}
+                                                workspaceId={workspaceId}
+                                                initialData={customRelationships?.find((rel: any) => rel.id === activeTab)}
+                                                contextName={task?.list?.space?.name || task?.list?.project?.name || task?.list?.team?.name || task?.list?.name || task?.space?.name || task?.project?.name || undefined}
+                                                contextKind={task?.list?.space ? 'space' : task?.list?.project ? 'project' : task?.list?.team ? 'team' : task?.list ? 'list' : task?.space ? 'space' : task?.project ? 'project' : undefined}
+                                                listId={task?.listId}
+                                                spaceId={task?.spaceId || task?.list?.spaceId}
+                                                projectId={task?.projectId || task?.list?.projectId}
+                                                teamId={task?.teamId || task?.list?.teamId}
+                                                folderId={task?.folderId || task?.list?.folderId}
+                                                trigger={<div className="absolute top-0 left-0 w-1 h-1 pointer-events-none opacity-0" />}
+                                                align="end"
+                                                side="bottom"
+                                            />
+                                        </>
+                                    )}
                                     {!isMaximized && (
                                         <Tooltip>
                                             <TooltipTrigger asChild>
@@ -242,6 +369,21 @@ export function TaskRelationshipsSection({ taskId, workspaceId, task }: TaskRela
                                                 This task is blocked by...
                                             </DropdownMenuItem>
                                             <DropdownMenuSeparator className="my-1.5" />
+                                            {customRelationships?.map((rel: any) => (
+                                                <DropdownMenuItem
+                                                    key={rel.id}
+                                                    onSelect={() => {
+                                                        setTimeout(() => {
+                                                            setCustomRelPickerRelId(rel.id);
+                                                            setCustomRelPickerOpen(true);
+                                                        }, 150);
+                                                    }}
+                                                    className="py-2 cursor-pointer rounded-md text-[13px]"
+                                                >
+                                                    <ArrowLeftRight className="h-4 w-4 mr-2.5 text-zinc-500" />
+                                                    {rel.name}
+                                                </DropdownMenuItem>
+                                            ))}
                                             <DropdownMenuItem onSelect={() => {
                                                 setTimeout(() => setCustomRelAnchor('header'), 150);
                                             }} className="py-2 cursor-pointer rounded-md text-[13px]">
@@ -251,10 +393,14 @@ export function TaskRelationshipsSection({ taskId, workspaceId, task }: TaskRela
                                         </DropdownMenuContent>
                                     </DropdownMenu>
                                     <NewCustomRelationshipPopover
+                                        workspaceId={workspaceId}
                                         open={customRelAnchor === 'header'}
                                         onOpenChange={(v) => !v && setCustomRelAnchor(null)}
                                         trigger={<div className="absolute top-8 right-0 w-1 h-1 pointer-events-none opacity-0" />}
+                                        side="bottom"
                                         align="end"
+                                        contextName={task?.list?.space?.name || task?.list?.project?.name || task?.list?.team?.name || task?.list?.name || task?.space?.name || task?.project?.name || undefined}
+                                        contextKind={task?.list?.space ? 'space' : task?.list?.project ? 'project' : task?.list?.team ? 'team' : task?.list ? 'list' : task?.space ? 'space' : task?.project ? 'project' : undefined}
                                     />
                                 </div>
                             </TooltipProvider>
@@ -263,7 +409,7 @@ export function TaskRelationshipsSection({ taskId, workspaceId, task }: TaskRela
 
                     {/* Content */}
                     <div className="pt-2">
-                        {activeTab === 'related' && (
+                        {effectiveActiveTab === 'related' && (
                             totalRelated === 0 ? (
                                 <div className="flex flex-col items-center justify-center py-6 gap-2">
                                     <span className="text-[13px] text-zinc-500">No tasks or docs related.</span>
@@ -383,11 +529,11 @@ export function TaskRelationshipsSection({ taskId, workspaceId, task }: TaskRela
                                                             <tbody className="divide-y divide-zinc-100 border-t border-b border-zinc-100">
                                                                 {relatedTasks.map((dep: any) => {
                                                                     return (
-                                                                        <tr key={dep.id} className="group hover:bg-zinc-50/50">
+                                                                        <tr key={dep.id} className="group hover:bg-zinc-50/80 transition-colors">
                                                                             <td className="py-2.5 max-w-[200px]">
                                                                                 <div className="flex items-center gap-2">
                                                                                     <CircleDot className="h-4 w-4 text-blue-500 shrink-0" />
-                                                                                    <span className="font-medium text-zinc-900 truncate block">{dep.task?.name || dep.name || 'Task'}</span>
+                                                                                    <span onClick={() => openTask(dep.dependsOn?.id || dep.dependsOnId)} className="font-medium text-zinc-900 truncate block hover:text-indigo-600 cursor-pointer transition-colors">{dep.dependsOn?.title || dep.task?.name || dep.name || 'Task'}</span>
                                                                                 </div>
                                                                             </td>
                                                                             {taskColumns.map(colId => (
@@ -396,7 +542,10 @@ export function TaskRelationshipsSection({ taskId, workspaceId, task }: TaskRela
                                                                                 </td>
                                                                             ))}
                                                                             <td className="py-2.5 text-center">
-                                                                                <button className="opacity-0 group-hover:opacity-100 p-1 hover:bg-zinc-100 rounded cursor-pointer">
+                                                                                <button
+                                                                                    className="opacity-0 group-hover:opacity-100 p-1 hover:bg-zinc-100 rounded cursor-pointer"
+                                                                                    onClick={() => removeDependency.mutate({ taskId, dependsOnId: dep.dependsOnId })}
+                                                                                >
                                                                                     <X className="h-3.5 w-3.5 text-zinc-400" />
                                                                                 </button>
                                                                             </td>
@@ -472,7 +621,7 @@ export function TaskRelationshipsSection({ taskId, workspaceId, task }: TaskRela
                             )
                         )}
 
-                        {activeTab === 'dependencies' && (
+                        {effectiveActiveTab === 'dependencies' && (
                             totalDependencies === 0 ? (
                                 <div className="flex flex-col items-center justify-center py-6 gap-2">
                                     <span className="text-[13px] text-zinc-500">No dependencies yet.</span>
@@ -589,11 +738,11 @@ export function TaskRelationshipsSection({ taskId, workspaceId, task }: TaskRela
                                                             <tbody className="divide-y divide-zinc-100 border-t border-b border-zinc-100">
                                                                 {blocksItems.map((dep: any) => {
                                                                     return (
-                                                                        <tr key={dep.id} className="group hover:bg-zinc-50/50">
+                                                                        <tr key={dep.id} className="group hover:bg-zinc-50/80 transition-colors">
                                                                             <td className="py-2.5 max-w-[200px]">
                                                                                 <div className="flex items-center gap-2">
                                                                                     <CircleDot className="h-4 w-4 text-blue-500 shrink-0" />
-                                                                                    <span className="font-medium text-zinc-900 truncate block">{dep.dependsOn?.name || dep.name || 'Task'}</span>
+                                                                                    <span onClick={() => openTask(dep.task?.id || dep.dependsOn?.id || dep.id)} className="font-medium text-zinc-900 truncate block hover:text-indigo-600 cursor-pointer transition-colors">{dep.dependsOn?.title || dep.task?.name || dep.name || 'Task'}</span>
                                                                                 </div>
                                                                             </td>
                                                                             {taskColumns.map(colId => (
@@ -602,7 +751,10 @@ export function TaskRelationshipsSection({ taskId, workspaceId, task }: TaskRela
                                                                                 </td>
                                                                             ))}
                                                                             <td className="py-2.5 text-center">
-                                                                                <button className="opacity-0 group-hover:opacity-100 p-1 hover:bg-zinc-100 rounded cursor-pointer">
+                                                                                <button
+                                                                                    className="opacity-0 group-hover:opacity-100 p-1 hover:bg-zinc-100 rounded cursor-pointer"
+                                                                                    onClick={() => removeDependency.mutate({ taskId: dep.taskId ?? dep.id, dependsOnId: taskId })}
+                                                                                >
                                                                                     <X className="h-3.5 w-3.5 text-zinc-400" />
                                                                                 </button>
                                                                             </td>
@@ -730,11 +882,11 @@ export function TaskRelationshipsSection({ taskId, workspaceId, task }: TaskRela
                                                             <tbody className="divide-y divide-zinc-100 border-t border-b border-zinc-100">
                                                                 {blockedByItems.map((dep: any) => {
                                                                     return (
-                                                                        <tr key={dep.id} className="group hover:bg-zinc-50/50">
+                                                                        <tr key={dep.id} className="group hover:bg-zinc-50/80 transition-colors">
                                                                             <td className="py-2.5 max-w-[200px]">
                                                                                 <div className="flex items-center gap-2">
                                                                                     <CircleDot className="h-4 w-4 text-blue-500 shrink-0" />
-                                                                                    <span className="font-medium text-zinc-900 truncate block">{dep.task?.name || dep.name || 'Task'}</span>
+                                                                                    <span onClick={() => openTask(dep.dependsOn?.id || dep.dependsOnId)} className="font-medium text-zinc-900 truncate block hover:text-indigo-600 cursor-pointer transition-colors">{dep.dependsOn?.title || dep.task?.name || dep.name || 'Task'}</span>
                                                                                 </div>
                                                                             </td>
                                                                             {taskColumns.map(colId => (
@@ -743,7 +895,10 @@ export function TaskRelationshipsSection({ taskId, workspaceId, task }: TaskRela
                                                                                 </td>
                                                                             ))}
                                                                             <td className="py-2.5 text-center">
-                                                                                <button className="opacity-0 group-hover:opacity-100 p-1 hover:bg-zinc-100 rounded cursor-pointer">
+                                                                                <button
+                                                                                    className="opacity-0 group-hover:opacity-100 p-1 hover:bg-zinc-100 rounded cursor-pointer"
+                                                                                    onClick={() => removeDependency.mutate({ taskId, dependsOnId: dep.dependsOnId })}
+                                                                                >
                                                                                     <X className="h-3.5 w-3.5 text-zinc-400" />
                                                                                 </button>
                                                                             </td>
@@ -765,6 +920,84 @@ export function TaskRelationshipsSection({ taskId, workspaceId, task }: TaskRela
                             )
                         )}
                     </div>
+
+                    {/* ── Custom Relationship Tab Content ── */}
+                    {customRelationships?.map((rel: any) => {
+                        if (effectiveActiveTab !== rel.id) return null;
+                        const customRelTasks = (task?.dependencies || []).filter(
+                            (d: any) => d.customRelationshipId === rel.id
+                        );
+                        return (
+                            <div key={rel.id} className="pt-2">
+                                {customRelTasks.length === 0 ? (
+                                    <div className="flex flex-col items-center justify-center py-6 gap-2">
+                                        <span className="text-[13px] text-zinc-500">No tasks in &ldquo;{rel.name}&rdquo; yet.</span>
+                                        <Button
+                                            variant="secondary"
+                                            size="sm"
+                                            className="h-7 text-[13px] bg-zinc-100 hover:bg-zinc-200 text-zinc-700 font-medium"
+                                            onClick={() => {
+                                                setCustomRelPickerRelId(rel.id);
+                                                setCustomRelPickerOpen(true);
+                                            }}
+                                        >
+                                            <Plus className="h-3.5 w-3.5 mr-1.5" /> Add Task
+                                        </Button>
+                                    </div>
+                                ) : (
+                                    <div className="px-2">
+                                        <div className="overflow-x-auto custom-scrollbar">
+                                            <table className="w-full text-[13px] min-w-[400px]">
+                                                <thead className="text-zinc-500 font-medium">
+                                                    <tr>
+                                                        <th className="text-left font-medium pb-2 whitespace-nowrap">Name</th>
+                                                        {taskColumns.map(colId => {
+                                                            const col = AVAILABLE_COLUMNS.find(c => c.id === colId);
+                                                            if (!col) return null;
+                                                            return <th key={col.id} className="text-left font-medium pb-2 w-32 whitespace-nowrap">{col.label}</th>;
+                                                        })}
+                                                        <th className="w-10" />
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="divide-y divide-zinc-100 border-t border-b border-zinc-100">
+                                                    {customRelTasks.map((dep: any) => (
+                                                        <tr key={dep.id} className="group hover:bg-zinc-50/80 transition-colors">
+                                                            <td className="py-2.5 max-w-[200px]">
+                                                                <div className="flex items-center gap-2">
+                                                                    <CircleDot className="h-4 w-4 text-blue-500 shrink-0" />
+                                                                    <span onClick={() => openTask(dep.dependsOn?.id || dep.dependsOnId)} className="font-medium text-zinc-900 truncate block hover:text-indigo-600 cursor-pointer transition-colors">{dep.dependsOn?.title || 'Task'}</span>
+                                                                </div>
+                                                            </td>
+                                                            {taskColumns.map(colId => (
+                                                                <td key={colId} className="py-2.5">{renderTaskCell(dep, colId)}</td>
+                                                            ))}
+                                                            <td className="py-2.5 text-center">
+                                                                <button
+                                                                    className="opacity-0 group-hover:opacity-100 p-1 hover:bg-zinc-100 rounded cursor-pointer"
+                                                                    onClick={() => removeDependency.mutate({ taskId, dependsOnId: dep.dependsOnId })}
+                                                                >
+                                                                    <X className="h-3.5 w-3.5 text-zinc-400" />
+                                                                </button>
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                        <button
+                                            onClick={() => {
+                                                setCustomRelPickerRelId(rel.id);
+                                                setCustomRelPickerOpen(true);
+                                            }}
+                                            className="mt-2 py-1.5 text-zinc-400 flex items-center gap-1.5 cursor-pointer hover:text-zinc-600 text-[13px] font-medium transition-colors"
+                                        >
+                                            <Plus className="h-4 w-4" /> Add Task
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                        );
+                    })}
                 </div>
             )}
 
@@ -784,7 +1017,7 @@ export function TaskRelationshipsSection({ taskId, workspaceId, task }: TaskRela
                 onOpenChange={setTaskPickerOpen}
                 taskId={taskId}
                 workspaceId={workspaceId}
-                dependencyType="RELATED"
+                dependencyType="FINISH_TO_FINISH"
                 onSelect={(id) => handleSelectTask(id, 'related')}
                 trigger={<div className="absolute top-1/2 left-1/2 w-1 h-1 pointer-events-none opacity-0" />}
                 align="center"
@@ -793,9 +1026,8 @@ export function TaskRelationshipsSection({ taskId, workspaceId, task }: TaskRela
             <DocPickerPopover
                 open={docOnlyPickerOpen}
                 onOpenChange={setDocOnlyPickerOpen}
-                taskId={taskId}
                 workspaceId={workspaceId}
-                onSelect={(doc) => handleSelectDocOrTask({ type: 'DOCUMENT', id: doc.id })}
+                onSelect={(docId) => handleSelectDocOrTask({ type: 'DOCUMENT', id: docId })}
                 trigger={<div className="absolute top-1/2 left-1/2 w-1 h-1 pointer-events-none opacity-0" />}
                 align="center"
                 side="top"
@@ -818,6 +1050,25 @@ export function TaskRelationshipsSection({ taskId, workspaceId, task }: TaskRela
                 workspaceId={workspaceId}
                 dependencyType="FINISH_TO_START"
                 onSelect={(id) => handleSelectTask(id, 'blocked_by')}
+                trigger={<div className="absolute top-1/2 left-1/2 w-1 h-1 pointer-events-none opacity-0" />}
+                align="center"
+                side="top"
+            />
+            {/* Custom Relationship Task Picker */}
+            <TaskPickerPopover
+                open={customRelPickerOpen}
+                onOpenChange={(v) => { setCustomRelPickerOpen(v); if (!v) setCustomRelPickerRelId(null); }}
+                taskId={taskId}
+                workspaceId={workspaceId}
+                dependencyType="FINISH_TO_FINISH"
+                onSelect={(id) => {
+                    if (customRelPickerRelId) {
+                        handleSelectTask(id, 'custom', customRelPickerRelId);
+                        setActiveTab(customRelPickerRelId);
+                    }
+                    setCustomRelPickerOpen(false);
+                    setCustomRelPickerRelId(null);
+                }}
                 trigger={<div className="absolute top-1/2 left-1/2 w-1 h-1 pointer-events-none opacity-0" />}
                 align="center"
                 side="top"

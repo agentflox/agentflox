@@ -1062,6 +1062,8 @@ export default function ProjectDashboardView({ listId, spaceId, projectId, teamI
                                     </>
                                 }
                                 isPanelOpen={isAskAIOpen || (!!selectedTaskId && taskViewMode === 'sidebar')}
+                                sidePanelDefaultSize={50}
+                                sidePanelMinSize={40}
                             />
                         </div>
                     </div>

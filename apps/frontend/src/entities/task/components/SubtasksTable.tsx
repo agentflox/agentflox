@@ -35,7 +35,6 @@ import { TaskActionsPopover } from './TaskActionsPopover';
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { DestinationPicker } from './DestinationPicker';
-import { getCustomFieldIcon } from '@/features/custom-fields/utils/icons';
 import {
     HoverCard,
     HoverCardContent,
@@ -82,7 +81,8 @@ import {
     type DragOverEvent,
     DragOverlay,
 } from '@dnd-kit/core';
-import { sortableKeyboardCoordinates } from '@dnd-kit/sortable';
+import { useSortable, SortableContext, verticalListSortingStrategy, arrayMove, sortableKeyboardCoordinates } from '@dnd-kit/sortable';
+import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { CSS } from '@dnd-kit/utilities';
 import clsx from "clsx";
 
@@ -181,7 +181,7 @@ export function SubtasksTable({
     subtaskTitle,
     setSubtaskTitle,
     handleCreateSubtask,
-    updateTask,
+    updateTask: updateTaskProp,
     utils,
     workspaceId,
 }: {
@@ -276,6 +276,16 @@ export function SubtasksTable({
     const [orderByParent, setOrderByParent] = React.useState<Record<string, string[]>>({});
     const groupBy: string | null = null;
     const [selectedTasks, setSelectedTasks] = React.useState<string[]>([]);
+
+    const router = useRouter();
+    const pathname = usePathname();
+    const searchParams = useSearchParams();
+
+    const openTask = (id: string) => {
+        const params = new URLSearchParams(searchParams.toString());
+        params.set('task', id);
+        router.push(`${pathname}?${params.toString()}`);
+    };
     const [renamingTaskId, setRenamingTaskId] = React.useState<string | null>(null);
     const [renameDraft, setRenameDraft] = React.useState("");
     const [dependenciesTask, setDependenciesTask] = React.useState<any | null>(null);
@@ -306,16 +316,121 @@ export function SubtasksTable({
         useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
     );
 
+    const { data: statuses = [] } = trpc.taskStatus.list.useQuery(
+        { workspaceId: workspaceId || '' },
+        { enabled: !!workspaceId }
+    );
+
     const deleteTask = trpc.task.delete.useMutation({
-        onSuccess: () => utils.task.get.invalidate({ id: task.id }),
+        onMutate: async (variables) => {
+            await utils.task.get.cancel({ id: task.id });
+            const previousTask = utils.task.get.getData({ id: task.id });
+            utils.task.get.setData({ id: task.id }, (old: any) => {
+                if (!old) return old;
+                const removeFromTree = (tasks: any[]): any[] => {
+                    return tasks.filter(t => t.id !== variables.id).map(t => ({
+                        ...t,
+                        other_tasks: t.other_tasks ? removeFromTree(t.other_tasks) : []
+                    }));
+                };
+                return { ...old, other_tasks: removeFromTree(old.other_tasks || []) };
+            });
+            return { previousTask };
+        },
+        onError: (_err, _new, context) => {
+            if (context?.previousTask) {
+                utils.task.get.setData({ id: task.id }, context.previousTask);
+            }
+        },
+        onSettled: () => {
+            utils.task.get.invalidate({ id: task.id });
+        },
     });
 
-    const updateTaskMutation = trpc.task.update.useMutation();
+    const updateTaskMutation = trpc.task.update.useMutation({
+        onMutate: async (variables) => {
+            await utils.task.get.cancel({ id: task.id });
+            const previousTask = utils.task.get.getData({ id: task.id });
+            utils.task.get.setData({ id: task.id }, (old: any) => {
+                if (!old) return old;
+                const updateInTree = (tasks: any[]): any[] => {
+                    return tasks.map(t => {
+                        if (t.id === variables.id) {
+                            let updated = { ...t, ...variables };
+                            if (variables.statusId !== undefined) {
+                                const statusObj = statuses.find(s => s.id === variables.statusId);
+                                if (statusObj) updated.status = statusObj;
+                            }
+                            if (variables.assigneeIds !== undefined) {
+                                updated.assignees = (variables.assigneeIds || []).map((aid: string) => {
+                                    const uid = aid.replace('user:', '');
+                                    const u = workspaceMembers?.find((m: any) => (m.user?.id || m.id) === uid);
+                                    return { userId: uid, user: { id: uid, name: u?.user?.name || u?.name, image: u?.user?.image || u?.image } };
+                                });
+                            }
+                            return updated;
+                        }
+                        if (t.other_tasks) {
+                            return { ...t, other_tasks: updateInTree(t.other_tasks) };
+                        }
+                        return t;
+                    });
+                };
+                return { ...old, other_tasks: updateInTree(old.other_tasks || []) };
+            });
+            return { previousTask };
+        },
+        onError: (_err, _new, context) => {
+            if (context?.previousTask) {
+                utils.task.get.setData({ id: task.id }, context.previousTask);
+            }
+        },
+        onSettled: () => {
+            utils.task.get.invalidate({ id: task.id });
+        }
+    });
+
+    const updateTask = (payload: any) => {
+        updateTaskMutation.mutate(payload);
+    };
 
     const createTask = trpc.task.create.useMutation({
-        onSuccess: () => {
+        onMutate: async (variables) => {
+            await utils.task.get.cancel({ id: task.id });
+            const previousTask = utils.task.get.getData({ id: task.id });
+
+            const optimisticTask = {
+                ...variables,
+                id: `optimistic-${Date.now()}`,
+                title: variables.title,
+                name: variables.title,
+                createdAt: new Date().toISOString(),
+                assignees: (variables.assigneeIds || []).map((aid: string) => {
+                    const uid = aid.replace('user:', '');
+                    const u = workspaceMembers?.find((m: any) => (m.user?.id || m.id) === uid);
+                    return { userId: uid, user: { id: uid, name: u?.user?.name || u?.name, image: u?.user?.image || u?.image } };
+                }),
+                tags: [],
+                position: "zzzzzzzz",
+                order: "zzzzzzzz"
+            };
+
+            utils.task.get.setData({ id: task.id }, (old: any) => {
+                if (!old) return old;
+                return {
+                    ...old,
+                    other_tasks: [...(old.other_tasks || []), optimisticTask]
+                };
+            });
+            return { previousTask };
+        },
+        onError: (_err, _new, context) => {
+            if (context?.previousTask) {
+                utils.task.get.setData({ id: task.id }, context.previousTask);
+            }
+        },
+        onSettled: () => {
             utils.task.get.invalidate({ id: task.id });
-            // Also invalidate the list so it shows up in ListView
             utils.task.list.invalidate();
         },
     });
@@ -564,7 +679,7 @@ export function SubtasksTable({
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="start" className="w-56">
                                 <DropdownMenuLabel className="text-xs">Create</DropdownMenuLabel>
-                                <DropdownMenuRadioGroup value={inlineAddTaskType} onValueChange={(v) => setInlineAddTaskType(v)}>
+                                <DropdownMenuRadioGroup value={inlineAddTaskType || undefined} onValueChange={(v) => setInlineAddTaskType(v)}>
                                     {availableTaskTypes?.length > 0 ? (
                                         availableTaskTypes.map((tt: any) => (
                                             <DropdownMenuRadioItem key={tt.id} value={tt.id}>
@@ -1120,10 +1235,9 @@ export function SubtasksTable({
                                             <span
                                                 onClick={(e) => {
                                                     e.stopPropagation();
-                                                    setRenamingTaskId(subtask.id);
-                                                    setRenameDraft(subtask.title || "");
+                                                    openTask(subtask.id);
                                                 }}
-                                                className="font-medium text-sm text-zinc-900 cursor-pointer hover:text-blue-600 truncate flex items-center gap-1.5"
+                                                className="font-medium text-sm text-zinc-900 cursor-pointer hover:text-indigo-600 transition-colors truncate flex items-center gap-1.5"
                                             >
                                                 {(() => {
                                                     const tt = availableTaskTypes?.find((t: any) => t.id === subtask.taskType || t.name === subtask.taskType);
@@ -1385,10 +1499,10 @@ export function SubtasksTable({
                                             trigger={
                                                 <button type="button" className="flex items-center -space-x-1.5 hover:bg-zinc-100 rounded px-1 py-0.5 cursor-pointer" onClick={(e) => e.stopPropagation()}>
                                                     {subtask.assignees?.length > 0 ? (
-                                                        subtask.assignees.slice(0, 3).map((a: any, i: number) => (
-                                                            <Avatar key={i} className="h-6 w-6 border-2 border-white ring-1 ring-zinc-100">
-                                                                <AvatarImage src={a.user?.image ?? a.aiAgent?.avatar} />
-                                                                <AvatarFallback className="text-[8px]">{a.user?.name?.substring(0, 2).toUpperCase() ?? '?'}</AvatarFallback>
+                                                        subtask.assignees.slice(0, 4).map((a: any, i: number) => (
+                                                            <Avatar key={a.user?.id || a.aiAgent?.id || a.agent?.id || i} className="h-6 w-6 border-2 border-white ring-1 ring-zinc-100">
+                                                                <AvatarImage src={a.user?.image || a.aiAgent?.avatar || a.aiAgent?.image || a.agent?.avatar || undefined} />
+                                                                <AvatarFallback className="text-[9px] bg-indigo-50 text-indigo-600">{a.user?.name?.slice(0, 2)?.toUpperCase() || a.aiAgent?.name?.slice(0, 2)?.toUpperCase() || a.agent?.name?.slice(0, 2)?.toUpperCase() || "??"}</AvatarFallback>
                                                             </Avatar>
                                                         ))
                                                     ) : (
@@ -1493,10 +1607,12 @@ export function SubtasksTable({
                                                 </button>
                                             </DropdownMenuTrigger>
                                             <DropdownMenuContent align="start" className="w-56">
-                                                {/* Requires status list, using partial simple rendering for now */}
-                                                <DropdownMenuItem>Todo</DropdownMenuItem>
-                                                <DropdownMenuItem>In Progress</DropdownMenuItem>
-                                                <DropdownMenuItem>Done</DropdownMenuItem>
+                                                {statuses.map(s => (
+                                                    <DropdownMenuItem key={s.id} onClick={() => updateTask({ id: subtask.id, statusId: s.id })}>
+                                                        <span className="h-2 w-2 rounded-full mr-2" style={{ backgroundColor: s.color || "#9CA3AF" }} />
+                                                        {s.name}
+                                                    </DropdownMenuItem>
+                                                ))}
                                             </DropdownMenuContent>
                                         </DropdownMenu>
                                     </TableCell>
@@ -1591,7 +1707,7 @@ export function SubtasksTable({
                                         users={workspaceMembers ?? []}
                                         lists={[]}
                                         defaultListId={task.listId}
-                                        availableStatuses={[]}
+                                        availableStatuses={statuses}
                                         onDelete={id => void deleteTask.mutate({ id })}
                                         onUpdate={(id, data) => updateTask({ id, ...data })}
                                         onAction={(action) => {
@@ -1646,133 +1762,133 @@ export function SubtasksTable({
             <div className={cn("space-y-3 flex-1", isMaximized && "max-w-5xl w-full mx-auto mt-12")}>
                 {(allSubtasks.length > 0 || isAddingSubtask) && (
                     <div className="flex items-center justify-between gap-2 flex-wrap">
-                    <div
-                        className={cn(
-                            "flex items-center gap-1.5",
-                            (allSubtasks.length > 0 || isAddingSubtask) && "cursor-pointer hover:bg-zinc-50 py-1 px-1 -ml-1 rounded transition-colors group"
-                        )}
-                        onClick={() => {
-                            if (isAddingSubtask) {
-                                setIsAddingSubtask(false);
-                            } else if (allSubtasks.length > 0) {
-                                setIsCollapsed(!isCollapsed);
-                            }
-                        }}
-                    >
-                        {(allSubtasks.length > 0 || isAddingSubtask) ? (
-                            <ChevronRight className={cn("h-4 w-4 text-zinc-400 group-hover:text-zinc-600 transition-transform", (!isCollapsed || isAddingSubtask) && "rotate-90")} />
-                        ) : (
-                            <div className="py-1 px-1 -ml-1">
-                                <ListIcon className="h-4 w-4 text-zinc-400" />
-                            </div>
-                        )}
-                        <h3 className="text-sm font-semibold text-zinc-900">Subtasks</h3>
-                        {allSubtasks.length > 0 && (
-                            <>
-                                <div className="h-1.5 flex-1 min-w-[80px] max-w-[120px] rounded-full bg-zinc-200 overflow-hidden">
-                                    <div
-                                        className="h-full bg-emerald-500 rounded-full transition-all"
-                                        style={{ width: `${allSubtasks.length ? (completedCount / allSubtasks.length) * 100 : 0}%` }}
-                                    />
+                        <div
+                            className={cn(
+                                "flex items-center gap-1.5",
+                                (allSubtasks.length > 0 || isAddingSubtask) && "cursor-pointer hover:bg-zinc-50 py-1 px-1 -ml-1 rounded transition-colors group"
+                            )}
+                            onClick={() => {
+                                if (isAddingSubtask) {
+                                    setIsAddingSubtask(false);
+                                } else if (allSubtasks.length > 0) {
+                                    setIsCollapsed(!isCollapsed);
+                                }
+                            }}
+                        >
+                            {(allSubtasks.length > 0 || isAddingSubtask) ? (
+                                <ChevronRight className={cn("h-4 w-4 text-zinc-400 group-hover:text-zinc-600 transition-transform", (!isCollapsed || isAddingSubtask) && "rotate-90")} />
+                            ) : (
+                                <div className="py-1 px-1 -ml-1">
+                                    <ListIcon className="h-4 w-4 text-zinc-400" />
                                 </div>
-                                <span className="text-xs text-zinc-500">{completedCount}/{allSubtasks.length}</span>
-                            </>
-                        )}
-                    </div>
-                    <div className={cn("flex items-center gap-2 transition-opacity", isAddingSubtask ? "opacity-100" : "opacity-0 group-hover/header:opacity-100")}>
-                        <TooltipProvider delayDuration={200}>
-                            <div className="flex items-center p-0.5 border border-zinc-200 rounded-md shadow-sm bg-white">
-                                <DropdownMenu>
-                                    <Tooltip>
-                                        <TooltipTrigger asChild>
-                                            <DropdownMenuTrigger asChild>
-                                                <Button variant="ghost" size="sm" className="h-6 rounded text-zinc-500 hover:text-zinc-700 hover:bg-zinc-100 px-1.5 gap-1 text-xs font-medium">
-                                                    <ArrowUpDown className="h-3.5 w-3.5" />
-                                                    Sort
-                                                </Button>
-                                            </DropdownMenuTrigger>
-                                        </TooltipTrigger>
-                                        <TooltipContent className="bg-zinc-900 text-white font-medium text-xs px-2.5 py-1.5 border-0 rounded-md" side="top" sideOffset={4}>
-                                            Sort
-                                        </TooltipContent>
-                                    </Tooltip>
-                                    <DropdownMenuContent align="start" className="w-48">
-                                        <DropdownMenuLabel className="text-xs text-zinc-500 font-normal">Sorting</DropdownMenuLabel>
-                                        {[
-                                            { id: 'manual', label: 'Manual' },
-                                            { id: 'status', label: 'Status' },
-                                            { id: 'priority', label: 'Priority' },
-                                            { id: 'dueDate', label: 'Due Date' },
-                                            { id: 'name', label: 'Name' },
-                                        ].map(opt => {
-                                            const isSelected = sortBy === opt.id;
-                                            return (
-                                                <DropdownMenuItem
-                                                    key={opt.id}
-                                                    className="flex items-center justify-between text-sm py-1.5 cursor-pointer"
-                                                    onClick={(e) => {
-                                                        if (isSelected) {
-                                                            e.preventDefault();
-                                                            setSortDirection(d => d === "asc" ? "desc" : "asc");
-                                                        } else {
-                                                            setSortBy(opt.id as SortOption);
-                                                            setSortDirection("asc");
-                                                        }
-                                                    }}
-                                                >
-                                                    <div className="flex items-center gap-1.5">
-                                                        {isSelected && (
-                                                            <div className="flex flex-col leading-none p-[1.5px] bg-violet-50 rounded text-violet-600">
-                                                                <ChevronUp className={cn("h-[9px] w-[9px] -mb-[2px]", sortDirection === "asc" ? "opacity-100 stroke-[3]" : "opacity-40")} />
-                                                                <ChevronDown className={cn("h-[9px] w-[9px]", sortDirection === "desc" ? "opacity-100 stroke-[3]" : "opacity-40")} />
-                                                            </div>
-                                                        )}
-                                                        <span className={cn(isSelected ? "text-zinc-900" : "text-zinc-700")}>{opt.label}</span>
-                                                    </div>
-                                                    {isSelected && <Check className="h-4 w-4 text-violet-600" />}
-                                                </DropdownMenuItem>
-                                            );
-                                        })}
-                                    </DropdownMenuContent>
-                                </DropdownMenu>
+                            )}
+                            <h3 className="text-sm font-semibold text-zinc-900">Subtasks</h3>
+                            {allSubtasks.length > 0 && (
+                                <>
+                                    <div className="h-1.5 flex-1 min-w-[80px] max-w-[120px] rounded-full bg-zinc-200 overflow-hidden">
+                                        <div
+                                            className="h-full bg-emerald-500 rounded-full transition-all"
+                                            style={{ width: `${allSubtasks.length ? (completedCount / allSubtasks.length) * 100 : 0}%` }}
+                                        />
+                                    </div>
+                                    <span className="text-xs text-zinc-500">{completedCount}/{allSubtasks.length}</span>
+                                </>
+                            )}
+                        </div>
+                        <div className={cn("flex items-center gap-2 transition-opacity", isAddingSubtask ? "opacity-100" : "opacity-0 group-hover/header:opacity-100")}>
+                            <TooltipProvider delayDuration={200}>
+                                <div className="flex items-center p-0.5 border border-zinc-200 rounded-md shadow-sm bg-white">
+                                    <DropdownMenu>
+                                        <Tooltip>
+                                            <TooltipTrigger asChild>
+                                                <DropdownMenuTrigger asChild>
+                                                    <Button variant="ghost" size="sm" className="h-6 rounded text-zinc-500 hover:text-zinc-700 hover:bg-zinc-100 px-1.5 gap-1 text-xs font-medium">
+                                                        <ArrowUpDown className="h-3.5 w-3.5" />
+                                                        Sort
+                                                    </Button>
+                                                </DropdownMenuTrigger>
+                                            </TooltipTrigger>
+                                            <TooltipContent className="bg-zinc-900 text-white font-medium text-xs px-2.5 py-1.5 border-0 rounded-md" side="top" sideOffset={4}>
+                                                Sort
+                                            </TooltipContent>
+                                        </Tooltip>
+                                        <DropdownMenuContent align="start" className="w-48">
+                                            <DropdownMenuLabel className="text-xs text-zinc-500 font-normal">Sorting</DropdownMenuLabel>
+                                            {[
+                                                { id: 'manual', label: 'Manual' },
+                                                { id: 'status', label: 'Status' },
+                                                { id: 'priority', label: 'Priority' },
+                                                { id: 'dueDate', label: 'Due Date' },
+                                                { id: 'name', label: 'Name' },
+                                            ].map(opt => {
+                                                const isSelected = sortBy === opt.id;
+                                                return (
+                                                    <DropdownMenuItem
+                                                        key={opt.id}
+                                                        className="flex items-center justify-between text-sm py-1.5 cursor-pointer"
+                                                        onClick={(e) => {
+                                                            if (isSelected) {
+                                                                e.preventDefault();
+                                                                setSortDirection(d => d === "asc" ? "desc" : "asc");
+                                                            } else {
+                                                                setSortBy(opt.id as SortOption);
+                                                                setSortDirection("asc");
+                                                            }
+                                                        }}
+                                                    >
+                                                        <div className="flex items-center gap-1.5">
+                                                            {isSelected && (
+                                                                <div className="flex flex-col leading-none p-[1.5px] bg-violet-50 rounded text-violet-600">
+                                                                    <ChevronUp className={cn("h-[9px] w-[9px] -mb-[2px]", sortDirection === "asc" ? "opacity-100 stroke-[3]" : "opacity-40")} />
+                                                                    <ChevronDown className={cn("h-[9px] w-[9px]", sortDirection === "desc" ? "opacity-100 stroke-[3]" : "opacity-40")} />
+                                                                </div>
+                                                            )}
+                                                            <span className={cn(isSelected ? "text-zinc-900" : "text-zinc-700")}>{opt.label}</span>
+                                                        </div>
+                                                        {isSelected && <Check className="h-4 w-4 text-violet-600" />}
+                                                    </DropdownMenuItem>
+                                                );
+                                            })}
+                                        </DropdownMenuContent>
+                                    </DropdownMenu>
 
-                                {!isMaximized && (
+                                    {!isMaximized && (
+                                        <Tooltip>
+                                            <TooltipTrigger asChild>
+                                                <Button variant="ghost" size="icon" className="h-6 w-6 rounded text-zinc-500 hover:text-zinc-700 hover:bg-zinc-100" onClick={() => setIsMaximized(true)}>
+                                                    <Maximize2 className="h-3.5 w-3.5" />
+                                                </Button>
+                                            </TooltipTrigger>
+                                            <TooltipContent className="bg-zinc-900 text-white font-medium text-xs px-2.5 py-1.5 border-0 rounded-md" side="top" sideOffset={4}>
+                                                Fullscreen
+                                            </TooltipContent>
+                                        </Tooltip>
+                                    )}
+
+                                    <div className="w-[1px] h-3.5 bg-zinc-200 mx-0.5" />
+
                                     <Tooltip>
                                         <TooltipTrigger asChild>
-                                            <Button variant="ghost" size="icon" className="h-6 w-6 rounded text-zinc-500 hover:text-zinc-700 hover:bg-zinc-100" onClick={() => setIsMaximized(true)}>
-                                                <Maximize2 className="h-3.5 w-3.5" />
+                                            <Button variant="ghost" size="icon" className="h-6 w-6 rounded text-zinc-500 hover:text-zinc-700 hover:bg-zinc-100" onClick={() => viewMode === 'list' ? setIsAddingSubtask(true) : openInlineAdd(`parent:${parentId}`, parentId)}>
+                                                <Plus className="h-4 w-4" />
                                             </Button>
                                         </TooltipTrigger>
                                         <TooltipContent className="bg-zinc-900 text-white font-medium text-xs px-2.5 py-1.5 border-0 rounded-md" side="top" sideOffset={4}>
-                                            Fullscreen
+                                            Add subtask
                                         </TooltipContent>
                                     </Tooltip>
-                                )}
-
-                                <div className="w-[1px] h-3.5 bg-zinc-200 mx-0.5" />
-
-                                <Tooltip>
-                                    <TooltipTrigger asChild>
-                                        <Button variant="ghost" size="icon" className="h-6 w-6 rounded text-zinc-500 hover:text-zinc-700 hover:bg-zinc-100" onClick={() => viewMode === 'list' ? setIsAddingSubtask(true) : openInlineAdd(`parent:${parentId}`, parentId)}>
-                                            <Plus className="h-4 w-4" />
-                                        </Button>
-                                    </TooltipTrigger>
-                                    <TooltipContent className="bg-zinc-900 text-white font-medium text-xs px-2.5 py-1.5 border-0 rounded-md" side="top" sideOffset={4}>
-                                        Add subtask
-                                    </TooltipContent>
-                                </Tooltip>
-                            </div>
-                        </TooltipProvider>
+                                </div>
+                            </TooltipProvider>
+                        </div>
                     </div>
-                </div>
                 )}
 
                 {/* Empty state "Add subtask" button */}
                 {allSubtasks.length === 0 && !isAddingSubtask && (
                     <div className="py-0.5">
-                        <Button 
-                            variant="ghost" 
-                            className="w-full justify-start h-8 px-2 text-[13px] text-zinc-600 font-normal hover:bg-zinc-100/80" 
+                        <Button
+                            variant="ghost"
+                            className="w-full justify-start h-8 px-2 text-[13px] text-zinc-600 font-normal hover:bg-zinc-100/80"
                             onClick={() => setIsAddingSubtask(true)}
                         >
                             <ListTree className="w-4 h-4 mr-2 text-zinc-400" />
@@ -1802,13 +1918,21 @@ export function SubtasksTable({
                                                 {expanded ? <ChevronDown className="h-3.5 w-3.5 text-zinc-500" /> : <ChevronRight className="h-3.5 w-3.5 text-zinc-500" />}
                                             </button>
                                             <div className={cn('h-4 w-4 rounded-full border-2 shrink-0', subtask.status?.name === 'Done' ? 'bg-emerald-500 border-emerald-500' : 'border-zinc-300')} />
-                                            <span className="flex-1 font-medium text-zinc-800 truncate">{subtask.title}</span>
+                                            <span
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    openTask(subtask.id);
+                                                }}
+                                                className="flex-1 font-medium text-zinc-800 truncate hover:text-indigo-600 cursor-pointer transition-colors"
+                                            >
+                                                {subtask.title}
+                                            </span>
                                             {visibleColumns.has('assignee') && subtask.assignees?.length > 0 && (
                                                 <div className="flex -space-x-2 shrink-0">
-                                                    {subtask.assignees.slice(0, 2).map((a: any, i: number) => (
-                                                        <Avatar key={i} className="h-6 w-6 border-2 border-white">
-                                                            <AvatarImage src={a.user?.image ?? a.aiAgent?.avatar} />
-                                                            <AvatarFallback className="text-[8px]">{a.user?.name?.substring(0, 2).toUpperCase() ?? '?'}</AvatarFallback>
+                                                    {subtask.assignees.slice(0, 4).map((a: any, i: number) => (
+                                                        <Avatar key={a.user?.id || a.aiAgent?.id || a.agent?.id || i} className="h-6 w-6 border-2 border-white ring-1 ring-zinc-100">
+                                                            <AvatarImage src={a.user?.image || a.aiAgent?.avatar || a.aiAgent?.image || a.agent?.avatar || undefined} />
+                                                            <AvatarFallback className="text-[9px] bg-indigo-50 text-indigo-600">{a.user?.name?.slice(0, 2)?.toUpperCase() || a.aiAgent?.name?.slice(0, 2)?.toUpperCase() || a.agent?.name?.slice(0, 2)?.toUpperCase() || "??"}</AvatarFallback>
                                                         </Avatar>
                                                     ))}
                                                 </div>

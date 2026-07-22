@@ -108,7 +108,7 @@ export function TaskDependenciesModal({ open, onOpenChange, task, workspaceId }:
                             <AlertCircle className="h-4 w-4" /> Waiting On
                         </h4>
                         <div className="pl-6 space-y-2">
-                            {currentTask.dependencies?.map((dep: any) => (
+                            {currentTask.dependencies?.filter((dep: any) => dep.dependsOn != null).map((dep: any) => (
                                 <DependencyItem
                                     key={dep.dependsOn.id}
                                     task={dep.dependsOn}
@@ -131,7 +131,7 @@ export function TaskDependenciesModal({ open, onOpenChange, task, workspaceId }:
                             <Circle className="h-4 w-4" /> Blocking
                         </h4>
                         <div className="pl-6 space-y-2">
-                            {currentTask.blockedDependencies?.map((dep: any) => (
+                            {currentTask.blockedDependencies?.filter((dep: any) => dep.task != null).map((dep: any) => (
                                 <DependencyItem
                                     key={dep.task.id}
                                     task={dep.task}

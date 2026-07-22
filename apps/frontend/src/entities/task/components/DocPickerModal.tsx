@@ -8,7 +8,8 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Search } from 'lucide-react';
+import { Search, FileText, Plus } from 'lucide-react';
+import { DocumentCreationModal } from '@/entities/documents/components/DocumentCreationModal';
 import { trpc } from '@/lib/trpc';
 import { cn } from '@/lib/utils';
 
@@ -28,6 +29,7 @@ export function DocPickerModal({
     const [searchInput, setSearchInput] = React.useState('');
     const [searchQuery, setSearchQuery] = React.useState('');
     const [selectedId, setSelectedId] = React.useState<string | null>(null);
+    const [createDocOpen, setCreateDocOpen] = React.useState(false);
 
     // Debounce search so we don't fire a request on every keystroke
     React.useEffect(() => {
@@ -63,6 +65,7 @@ export function DocPickerModal({
     };
 
     return (
+        <>
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-[480px] p-0 gap-0 overflow-hidden rounded-lg border border-zinc-200 bg-white [&>button]:hidden">
                 <DialogTitle className="sr-only">Select document</DialogTitle>
@@ -86,8 +89,27 @@ export function DocPickerModal({
 
                     <div className="max-h-[320px] overflow-y-auto border border-zinc-100 rounded-md divide-y divide-zinc-100">
                         {docs.length === 0 ? (
-                            <div className="py-8 text-center text-sm text-zinc-500">
-                                {searchQuery ? 'No documents found.' : 'No documents in this workspace.'}
+                            <div className="py-8 flex flex-col items-center justify-center text-center">
+                                <div className="relative mb-3 flex items-center justify-center w-12 h-12">
+                                    <div className="w-10 h-10 rounded-xl border border-zinc-200 flex items-center justify-center bg-white shadow-sm">
+                                        <FileText className="h-5 w-5 text-zinc-400" />
+                                    </div>
+                                    <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full border-2 border-white bg-zinc-400 flex items-center justify-center">
+                                        <Search className="h-3 w-3 text-white" strokeWidth={3} />
+                                    </div>
+                                </div>
+                                <div className="text-[13px] text-zinc-500 mb-3">
+                                    {searchQuery ? 'No documents found.' : 'No documents in this workspace.'}
+                                </div>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setCreateDocOpen(true)}
+                                    className="h-8 text-xs px-4 gap-1.5 font-medium text-zinc-600 bg-white hover:bg-zinc-100 hover:text-zinc-900 border-zinc-200 shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-all duration-200 hover:shadow-[0_2px_6px_rgba(0,0,0,0.06)] hover:-translate-y-[0.5px] active:translate-y-0 active:scale-[0.98] rounded-md group"
+                                >
+                                    <Plus className="h-4 w-4 text-zinc-400 group-hover:text-zinc-600 transition-colors" />
+                                    Create doc
+                                </Button>
                             </div>
                         ) : (
                             docs.map((doc: any) => (
@@ -132,5 +154,18 @@ export function DocPickerModal({
                 </div>
             </DialogContent>
         </Dialog>
+            {createDocOpen && (
+                <DocumentCreationModal
+                    open={createDocOpen}
+                    onOpenChange={setCreateDocOpen}
+                    workspaceId={workspaceId}
+                    onSuccess={(docId) => {
+                        onSelect(docId, "Untitled Doc");
+                        onOpenChange(false);
+                        setCreateDocOpen(false);
+                    }}
+                />
+            )}
+        </>
     );
 }

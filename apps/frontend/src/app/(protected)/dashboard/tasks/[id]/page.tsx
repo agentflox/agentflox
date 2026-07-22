@@ -21,7 +21,7 @@ export default function TaskDetailPage() {
   const router = useRouter();
 
   return (
-    <div className="h-screen w-full overflow-hidden">
+    <div className="h-full w-full overflow-hidden">
       <TaskDetailView
         taskId={id}
         onClose={() => router.back()}

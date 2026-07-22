@@ -2299,9 +2299,9 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
                                                 title="Edit assignees"
                                             >
                                                 {assignees.length > 0 ? assignees.slice(0, 4).map((a: any, i: number) => (
-                                                    <Avatar key={a.user?.id || a.agent?.id || i} className="h-6 w-6 border-2 border-white ring-1 ring-zinc-100">
-                                                        <AvatarImage src={a.user?.image || a.agent?.avatar || undefined} />
-                                                        <AvatarFallback className="text-[9px] bg-indigo-50 text-indigo-600">{a.user?.name?.slice(0, 2)?.toUpperCase() || a.agent?.name?.slice(0, 2) || "??"}</AvatarFallback>
+                                                    <Avatar key={a.user?.id || a.aiAgent?.id || a.agent?.id || i} className="h-6 w-6 border-2 border-white ring-1 ring-zinc-100">
+                                                        <AvatarImage src={a.user?.image || a.aiAgent?.avatar || a.aiAgent?.image || a.agent?.avatar || undefined} />
+                                                        <AvatarFallback className="text-[9px] bg-indigo-50 text-indigo-600">{a.user?.name?.slice(0, 2)?.toUpperCase() || a.aiAgent?.name?.slice(0, 2)?.toUpperCase() || a.agent?.name?.slice(0, 2)?.toUpperCase() || "??"}</AvatarFallback>
                                                     </Avatar>
                                                 )) : (
                                                     <div className="h-6 w-6 rounded-full border border-dashed border-zinc-300 flex items-center justify-center"><Users className="h-3 w-3 text-zinc-400" /></div>

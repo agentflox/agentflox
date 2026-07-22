@@ -877,6 +877,8 @@ export default function WorkspaceDashboardView({ workspaceId }: WorkspaceViewPro
                     </>
                 }
                 isPanelOpen={isAskAIOpen || (!!selectedTaskId && taskViewMode === "sidebar")}
+                sidePanelDefaultSize={50}
+                sidePanelMinSize={40}
             />
         );
     };

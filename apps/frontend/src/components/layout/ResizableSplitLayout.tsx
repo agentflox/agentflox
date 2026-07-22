@@ -19,10 +19,11 @@ export function ResizableSplitLayout({
     SidePanelContent,
     isPanelOpen,
     onResize,
-    mainPanelDefaultSize = 70,
+    mainPanelDefaultSize,
     mainPanelMinSize = 30,
-    sidePanelDefaultSize = 30,
-    sidePanelMinSize = 20,
+    sidePanelDefaultSize = 35,
+    sidePanelMinSize = 40,
+    sidePanelMinSizePixels = 360,
 }: {
     MainContent: React.ReactNode;
     SidePanelContent: React.ReactNode;
@@ -32,9 +33,11 @@ export function ResizableSplitLayout({
     mainPanelMinSize?: number;
     sidePanelDefaultSize?: number;
     sidePanelMinSize?: number;
+    sidePanelMinSizePixels?: number;
 }) {
+    const computedMainPanelDefaultSize = mainPanelDefaultSize ?? (100 - sidePanelDefaultSize);
 
-    // NATIVE FIX: Forcefully overrides the global body 'user-select: none' 
+    // NATIVE FIX: Forcefully overrides the global body 'user-select: none'
     // injected by the resizable library back to normal text selection.
     useEffect(() => {
         const style = document.createElement("style");
@@ -55,48 +58,54 @@ export function ResizableSplitLayout({
         };
     }, []);
 
+    // Use a key that changes when panel opens/closes to force a fresh mount
+    // with correct defaultSizes. This avoids stale cached layouts.
+    const groupKey = isPanelOpen ? "split-open" : "split-closed";
+
+    if (!isPanelOpen) {
+        // When no side panel, just render the main content directly
+        return <div className="h-full w-full">{MainContent}</div>;
+    }
+
     return (
         <Group
-            key={isPanelOpen ? "split-open" : "split-closed"}
+            key={groupKey}
             orientation="horizontal"
             className="h-full w-full"
-            id={isPanelOpen ? "task-ai-split-open" : "task-ai-split-closed"}  // ✅ unique per shape
+            defaultLayout={{
+                "main-content-panel": computedMainPanelDefaultSize,
+                "side-content-panel": sidePanelDefaultSize,
+            }}
         >
             {/* STOP PROPAGATION: Prevents drag/click bubble leaks into the layout manager */}
             <Panel
                 id="main-content-panel"
-                defaultSize={isPanelOpen ? mainPanelDefaultSize : 100}
-                minSize={mainPanelMinSize}
+                minSize={`${mainPanelMinSize}%`}
                 className="select-text"
                 onMouseDown={(e) => e.stopPropagation()}
             >
                 {MainContent}
             </Panel>
 
-            {isPanelOpen && (
-                <>
-                    <Separator
-                        className="w-2 shrink-0 flex items-center justify-center bg-zinc-100 hover:bg-indigo-100 active:bg-indigo-200 transition-colors cursor-col-resize data-[resize-handle-active]:bg-indigo-200"
-                        style={{ touchAction: "none" }}
-                    >
-                        <div
-                            className="h-12 w-1 rounded-full bg-zinc-300 hover:bg-indigo-400 transition-colors pointer-events-none"
-                            aria-hidden
-                        />
-                    </Separator>
+            <Separator
+                className="w-2 shrink-0 flex items-center justify-center bg-zinc-100 hover:bg-indigo-100 active:bg-indigo-200 transition-colors cursor-col-resize data-[resize-handle-active]:bg-indigo-200"
+                style={{ touchAction: "none" }}
+            >
+                <div
+                    className="h-12 w-1 rounded-full bg-zinc-300 hover:bg-indigo-400 transition-colors pointer-events-none"
+                    aria-hidden
+                />
+            </Separator>
 
-                    <Panel
-                        id="side-content-panel"
-                        defaultSize={sidePanelDefaultSize}
-                        minSize={sidePanelMinSize}
-                        className="select-text"
-                        onMouseDown={(e) => e.stopPropagation()}
-                        onResize={(size) => onResize?.(typeof size === "object" && "asPercentage" in size ? (size as { asPercentage: number }).asPercentage : size)}
-                    >
-                        {SidePanelContent}
-                    </Panel>
-                </>
-            )}
+            <Panel
+                id="side-content-panel"
+                minSize={`${sidePanelMinSize}%`}
+                className="select-text"
+                onMouseDown={(e) => e.stopPropagation()}
+                onResize={(panelSize) => onResize?.(panelSize.asPercentage)}
+            >
+                {SidePanelContent}
+            </Panel>
         </Group>
     );
 }

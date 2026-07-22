@@ -421,11 +421,34 @@ exports.Prisma.TaskStatusScalarFieldEnum = {
   createdAt: 'createdAt'
 };
 
+exports.Prisma.TaskCustomRelationshipScalarFieldEnum = {
+  id: 'id',
+  workspaceId: 'workspaceId',
+  name: 'name',
+  relatedTo: 'relatedTo',
+  relatedListId: 'relatedListId',
+  createRollupFields: 'createRollupFields',
+  description: 'description',
+  permissionLevel: 'permissionLevel',
+  customPermissions: 'customPermissions',
+  isRequired: 'isRequired',
+  isVisibleToGuests: 'isVisibleToGuests',
+  spaceId: 'spaceId',
+  projectId: 'projectId',
+  teamId: 'teamId',
+  folderId: 'folderId',
+  listId: 'listId',
+  createdBy: 'createdBy',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
 exports.Prisma.TaskDependencyScalarFieldEnum = {
   id: 'id',
   taskId: 'taskId',
   dependsOnId: 'dependsOnId',
   type: 'type',
+  customRelationshipId: 'customRelationshipId',
   createdAt: 'createdAt'
 };
 
@@ -468,6 +491,16 @@ exports.Prisma.TaskAttachmentScalarFieldEnum = {
   createdAt: 'createdAt'
 };
 
+exports.Prisma.TaskLinkScalarFieldEnum = {
+  id: 'id',
+  taskId: 'taskId',
+  createdBy: 'createdBy',
+  url: 'url',
+  title: 'title',
+  description: 'description',
+  createdAt: 'createdAt'
+};
+
 exports.Prisma.ChecklistScalarFieldEnum = {
   id: 'id',
   taskId: 'taskId',
@@ -507,6 +540,8 @@ exports.Prisma.CustomFieldScalarFieldEnum = {
   name: 'name',
   type: 'type',
   locationType: 'locationType',
+  permissionLevel: 'permissionLevel',
+  customPermissions: 'customPermissions',
   config: 'config',
   defaultValue: 'defaultValue',
   isRequired: 'isRequired',
@@ -4262,11 +4297,13 @@ exports.Prisma.ModelName = {
   Task: 'Task',
   TaskType: 'TaskType',
   TaskStatus: 'TaskStatus',
+  TaskCustomRelationship: 'TaskCustomRelationship',
   TaskDependency: 'TaskDependency',
   TaskAssignee: 'TaskAssignee',
   TaskWatcher: 'TaskWatcher',
   TaskComment: 'TaskComment',
   TaskAttachment: 'TaskAttachment',
+  TaskLink: 'TaskLink',
   Checklist: 'Checklist',
   ChecklistItem: 'ChecklistItem',
   TimeEntry: 'TimeEntry',

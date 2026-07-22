@@ -236,13 +236,21 @@ export function AssigneeSelector({
                                                     {option.name?.substring(0, 2).toUpperCase()}
                                                 </AvatarFallback>
                                             </Avatar>
-                                            <button
-                                                onClick={(e) => removeId(option._prefixedId, e)}
-                                                className="absolute -bottom-1.5 -right-2 bg-red-500 text-white hover:bg-red-600 rounded-full p-[1px] transition-all cursor-pointer shadow-sm opacity-0 group-hover:opacity-100"
-                                                title="Remove assignee"
-                                            >
-                                                <X className="h-2 w-2 text-white" />
-                                            </button>
+                                            <TooltipProvider delayDuration={200}>
+                                                <Tooltip>
+                                                    <TooltipTrigger asChild>
+                                                        <button
+                                                            onClick={(e) => removeId(option._prefixedId, e)}
+                                                            className="absolute -bottom-1 -right-1 bg-red-500 text-white hover:bg-red-600 rounded-full h-4 w-4 flex items-center justify-center transition-all cursor-pointer border-[2px] border-white shadow-sm opacity-0 group-hover:opacity-100"
+                                                        >
+                                                            <X className="h-3 w-3 scale-70 text-white" strokeWidth={3} />
+                                                        </button>
+                                                    </TooltipTrigger>
+                                                    <TooltipContent className="bg-zinc-900 text-white text-[10px] font-medium px-2 py-1 border-0 rounded-md shadow-md" side="top" sideOffset={4}>
+                                                        Remove assignee
+                                                    </TooltipContent>
+                                                </Tooltip>
+                                            </TooltipProvider>
                                         </div>
                                         <span className="text-sm font-medium text-zinc-900 truncate">{option.name}</span>
                                     </div>

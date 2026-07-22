@@ -254,12 +254,23 @@ export function CustomFieldSidebarPanel({
     ]);
     const [isInputFocused, setIsInputFocused] = React.useState(false);
 
-    const mockupWorkspaceMembers = [
-        { id: "1", name: "Amy Fisher", avatar: "https://i.pravatar.cc/150?u=amy" },
-        { id: "2", name: "Carlos Mendes", avatar: "https://i.pravatar.cc/150?u=carlos" },
-        { id: "3", name: "Cass Chan", avatar: "https://i.pravatar.cc/150?u=cass", badge: true },
-        { id: "4", name: "Devin Stoker", avatar: "https://i.pravatar.cc/150?u=devin" },
-    ];
+    const { data: workspaceData } = trpc.workspace.get.useQuery({ id: workspaceId }, { enabled: open && !!workspaceId });
+    const { data: teamListData } = trpc.team.list.useQuery({ workspaceId, scope: "all" as any }, { enabled: open && !!workspaceId });
+
+    const workspaceMembers = React.useMemo(() => {
+        const users = (workspaceData?.members || []).map((m: any) => ({
+            id: m.user.id,
+            name: m.user.name || m.user.email,
+            avatar: m.user.image,
+            badge: false
+        }));
+        const tms = (teamListData?.items || []).map((t: any) => ({
+            id: t.id,
+            name: t.name,
+            badge: true
+        }));
+        return [...users, ...tms];
+    }, [workspaceData, teamListData]);
 
     const permissionLevels = [
         { value: "EDIT", label: "Can edit", icon: Pencil, description: "Permission to set field values and edit the field definition" },
@@ -1063,7 +1074,7 @@ export function CustomFieldSidebarPanel({
                                                                                     type="button"
                                                                                     onClick={() => setPermissionForAdd(p.value)}
                                                                                     className={cn(
-                                                                                        "w-full flex items-start gap-3 rounded-lg py-2.5 px-2.5 transition-all text-left group",
+                                                                                        "w-full flex items-start gap-3 rounded-lg py-2.5 px-2.5 transition-all text-left group cursor-pointer",
                                                                                         permissionForAdd === p.value ? "bg-violet-50" : "hover:bg-zinc-50"
                                                                                     )}
                                                                                 >
@@ -1098,7 +1109,7 @@ export function CustomFieldSidebarPanel({
                                                     </PopoverTrigger>
                                                     <PopoverContent className="w-[300px] p-1 shadow-2xl border-zinc-200 rounded-xl max-h-[240px] overflow-y-auto" align="start">
                                                         <div className="space-y-0.5">
-                                                            {mockupWorkspaceMembers.map(m => {
+                                                            {workspaceMembers.map(m => {
                                                                 const isSelected = selectedMembers.find(s => s.id === m.id);
                                                                 return (
                                                                     <button
@@ -1118,10 +1129,10 @@ export function CustomFieldSidebarPanel({
                                                                     >
                                                                         <div className="relative">
                                                                             <div className={cn(
-                                                                                "h-8 w-8 rounded-full overflow-hidden border shrink-0 transition-all",
-                                                                                isSelected ? "border-blue-500 ring-1 ring-blue-500/20" : "border-zinc-100"
+                                                                                "h-8 w-8 rounded-full overflow-hidden border shrink-0 transition-all flex items-center justify-center bg-zinc-100 text-xs font-medium text-zinc-600",
+                                                                                isSelected ? "border-blue-500 ring-1 ring-blue-500/20" : "border-zinc-200"
                                                                             )}>
-                                                                                <img src={m.avatar} alt="" className="w-full h-full object-cover" />
+                                                                                {m.avatar ? <img src={m.avatar} alt="" className="w-full h-full object-cover" /> : m.name.charAt(0).toUpperCase()}
                                                                             </div>
                                                                             {isSelected && (
                                                                                 <div className="absolute -bottom-1 -right-1 h-4.5 w-4.5 bg-white rounded-full flex items-center justify-center shadow-md border border-zinc-100 opacity-0 group-hover:opacity-100 transition-opacity z-10">
@@ -1156,8 +1167,8 @@ export function CustomFieldSidebarPanel({
                                                             const newPerms = selectedMembers.map(m => ({
                                                                 id: m.id,
                                                                 name: m.name,
-                                                                avatar: m.id === "1" ? "AF" : m.id === "2" ? "CM" : m.id === "3" ? "CC" : "DS",
-                                                                role: "member",
+                                                                avatar: m.avatar,
+                                                                role: m.badge ? "team" : "member",
                                                                 permission: permissionForAdd
                                                             }));
                                                             setCustomPermissions(prev => [prev[0], ...newPerms, ...prev.slice(1)]);
@@ -1172,94 +1183,92 @@ export function CustomFieldSidebarPanel({
                                                 )}
                                             </div>
 
-                                            <div className="space-y-1">
-                                                {customPermissions.map(p => (
-                                                    <div key={p.id} className="flex items-center justify-between p-2 rounded-lg hover:bg-zinc-50 transition-colors group">
-                                                        <div className="flex items-center gap-3">
-                                                            <div className={cn(
-                                                                "h-8 w-8 rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0",
-                                                                p.role === "creator" ? "bg-zinc-700" : "bg-blue-500"
-                                                            )}>
-                                                                {p.avatar || p.name.split(" ").map(n => n[0]).join("")}
-                                                            </div>
-                                                            <div className="flex items-center gap-2">
-                                                                <span className="text-[13px] font-medium text-zinc-900">{p.name}</span>
-                                                                {p.role === "creator" && (
-                                                                    <span className="px-1.5 py-0.5 rounded bg-violet-50 text-[10px] font-semibold text-violet-600 uppercase tracking-tight">creator</span>
-                                                                )}
-                                                            </div>
+                                            <div className="space-y-1">                                                {customPermissions.map(p => (
+                                                <div key={p.id} className="flex items-center justify-between py-1 group">
+                                                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                                                        <div className={cn(
+                                                            "h-[22px] w-[22px] rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0",
+                                                            p.role === "creator" ? "bg-zinc-900" : "bg-blue-500"
+                                                        )}>
+                                                            {p.avatar ? (
+                                                                p.avatar.length > 2 ? <img src={p.avatar} alt="" className="w-full h-full object-cover rounded-full" /> : p.avatar
+                                                            ) : p.name.charAt(0).toUpperCase()}
                                                         </div>
-                                                        <div className="flex items-center">
-                                                            <div className="w-[100px] flex justify-end">
-                                                                {p.role === "creator" ? (
-                                                                    <div className="flex items-center gap-1.5 px-2 py-1 text-zinc-400 cursor-default opacity-60">
-                                                                        <span className="text-[12px] font-medium">{permissionLevels.find(pl => pl.value === p.permission)?.label}</span>
-                                                                        <ChevronDown className="h-3 w-3" />
-                                                                    </div>
-                                                                ) : (
-                                                                    <Popover>
-                                                                        <PopoverTrigger asChild>
-                                                                            <button className="flex items-center gap-1.5 px-2 py-1 rounded-md text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100/50 transition-all cursor-pointer focus:outline-none">
-                                                                                <span className="text-[12px] font-medium">{permissionLevels.find(pl => pl.value === p.permission)?.label}</span>
-                                                                                <ChevronDown className="h-3 w-3" />
-                                                                            </button>
-                                                                        </PopoverTrigger>
-                                                                        <PopoverContent className="w-[280px] p-1 shadow-2xl border-zinc-200 rounded-xl z-[150]" align="end">
-                                                                            <div className="space-y-0.5">
-                                                                                {permissionLevels.map(pl => (
-                                                                                    <button
-                                                                                        key={pl.value}
-                                                                                        type="button"
-                                                                                        onClick={() => {
-                                                                                            setCustomPermissions(prev => prev.map(item => item.id === p.id ? { ...item, permission: pl.value } : item));
-                                                                                        }}
-                                                                                        className={cn(
-                                                                                            "w-full flex items-start gap-3 rounded-lg py-2.5 px-2.5 transition-all text-left group",
-                                                                                            p.permission === pl.value ? "bg-violet-50" : "hover:bg-zinc-50"
-                                                                                        )}
-                                                                                    >
-                                                                                        <div className={cn(
-                                                                                            "mt-0.5 h-7 w-7 rounded-md border flex items-center justify-center shrink-0 transition-all",
-                                                                                            p.permission === pl.value
-                                                                                                ? "bg-white border-violet-200 text-violet-600 shadow-sm"
-                                                                                                : "bg-zinc-50 border-zinc-100 text-zinc-400 group-hover:bg-white group-hover:border-zinc-200"
-                                                                                        )}>
-                                                                                            <pl.icon className="h-3.5 w-3.5" />
-                                                                                        </div>
-                                                                                        <div className="flex flex-col gap-0 min-w-0 flex-1">
-                                                                                            <div className="flex items-center justify-between">
-                                                                                                <span className={cn(
-                                                                                                    "text-[13px] font-semibold leading-tight",
-                                                                                                    p.permission === pl.value ? "text-violet-900" : "text-zinc-800"
-                                                                                                )}>{pl.label}</span>
-                                                                                                {p.permission === pl.value && <Check className="h-3.5 w-3.5 text-violet-600" />}
-                                                                                            </div>
-                                                                                            <span className="text-[10px] text-zinc-400 leading-normal line-clamp-2">
-                                                                                                {pl.description}
-                                                                                            </span>
-                                                                                        </div>
-                                                                                    </button>
-                                                                                ))}
-                                                                            </div>
-                                                                        </PopoverContent>
-                                                                    </Popover>
-                                                                )}
-                                                            </div>
-                                                            <div className="w-8 flex justify-center ml-1">
-                                                                {p.role !== "creator" && (
-                                                                    <button
-                                                                        type="button"
-                                                                        onClick={() => setCustomPermissions(prev => prev.filter(item => item.id !== p.id))}
-                                                                        className="p-1.5 rounded-md text-zinc-400 hover:text-red-500 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-all cursor-pointer"
-                                                                    >
-                                                                        <Trash2 className="h-3.5 w-3.5" />
-                                                                    </button>
-                                                                )}
-                                                            </div>
+                                                        <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                                                            <span className="text-[13px] text-zinc-700 font-medium truncate min-w-0">{p.name}</span>
+                                                            {p.role === "creator" && (
+                                                                <span className="text-[13px] text-zinc-400 shrink-0">(Creator)</span>
+                                                            )}
                                                         </div>
-
                                                     </div>
-                                                ))}
+                                                    <div className="flex items-center gap-1 shrink-0">
+                                                        {p.role === "creator" ? (
+                                                            <div className="flex items-center gap-1 text-zinc-600 cursor-default px-2 py-1">
+                                                                <span className="text-[13px] font-medium">{permissionLevels.find(pl => pl.value === p.permission)?.label}</span>
+                                                                <ChevronDown className="h-3.5 w-3.5 opacity-70" />
+                                                            </div>
+                                                        ) : (
+                                                            <Popover>
+                                                                <PopoverTrigger asChild>
+                                                                    <button className="flex items-center gap-1 text-zinc-600 hover:text-zinc-900 transition-colors cursor-pointer focus:outline-none px-2 py-1 rounded hover:bg-zinc-100">
+                                                                        <span className="text-[13px] font-medium">{permissionLevels.find(pl => pl.value === p.permission)?.label}</span>
+                                                                        <ChevronDown className="h-3.5 w-3.5 opacity-70" />
+                                                                    </button>
+                                                                </PopoverTrigger>
+                                                                <PopoverContent className="w-[280px] p-1 shadow-2xl border-zinc-200 rounded-xl z-[150]" align="end">
+                                                                    <div className="space-y-0.5">
+                                                                        {permissionLevels.map(pl => (
+                                                                            <button
+                                                                                key={pl.value}
+                                                                                type="button"
+                                                                                onClick={() => {
+                                                                                    setCustomPermissions(prev => prev.map(item => item.id === p.id ? { ...item, permission: pl.value } : item));
+                                                                                }}
+                                                                                className={cn(
+                                                                                    "w-full flex items-start gap-3 rounded-lg py-2.5 px-2.5 transition-all text-left group cursor-pointer",
+                                                                                    p.permission === pl.value ? "bg-violet-50" : "hover:bg-zinc-50"
+                                                                                )}
+                                                                            >
+                                                                                <div className={cn(
+                                                                                    "mt-0.5 h-7 w-7 rounded-md border flex items-center justify-center shrink-0 transition-all",
+                                                                                    p.permission === pl.value
+                                                                                        ? "bg-white border-violet-200 text-violet-600 shadow-sm"
+                                                                                        : "bg-zinc-50 border-zinc-100 text-zinc-400 group-hover:bg-white group-hover:border-zinc-200"
+                                                                                )}>
+                                                                                    <pl.icon className="h-3.5 w-3.5" />
+                                                                                </div>
+                                                                                <div className="flex flex-col gap-0 min-w-0 flex-1">
+                                                                                    <div className="flex items-center justify-between">
+                                                                                        <span className={cn(
+                                                                                            "text-[13px] font-semibold leading-tight",
+                                                                                            p.permission === pl.value ? "text-violet-900" : "text-zinc-800"
+                                                                                        )}>{pl.label}</span>
+                                                                                        {p.permission === pl.value && <Check className="h-3.5 w-3.5 text-violet-600" />}
+                                                                                    </div>
+                                                                                    <span className="text-[10px] text-zinc-400 leading-normal line-clamp-2">
+                                                                                        {pl.description}
+                                                                                    </span>
+                                                                                </div>
+                                                                            </button>
+                                                                        ))}
+                                                                    </div>
+                                                                </PopoverContent>
+                                                            </Popover>
+                                                        )}
+                                                        <div className="w-6 flex justify-center">
+                                                            {p.role !== "creator" && (
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => setCustomPermissions(prev => prev.filter(item => item.id !== p.id))}
+                                                                    className="h-6 w-6 rounded-md flex items-center justify-center text-zinc-400 hover:bg-zinc-200 hover:text-zinc-700 transition-colors opacity-0 group-hover:opacity-100 cursor-pointer"
+                                                                >
+                                                                    <X className="h-3.5 w-3.5" />
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))}
                                             </div>
                                         </div>
                                     </div>

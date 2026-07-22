@@ -46,6 +46,7 @@ async function duplicateTaskInternal(
       checklists: { include: { items: true } },
       customFieldValues: true,
       attachments: true,
+      taskLinks: true,
       dependencies: true,
     }
   });
@@ -233,6 +234,7 @@ function buildTaskListInclude(relationMode: TaskListRelationMode | undefined, us
     },
     channel: { select: { id: true, name: true } },
     attachments: { select: { id: true, url: true, filename: true, mimeType: true, size: true } },
+    taskLinks: { select: { id: true, url: true, title: true, description: true, createdAt: true, creator: { select: { id: true, name: true, image: true } } } },
     list: {
       select: {
         id: true,
@@ -246,6 +248,7 @@ function buildTaskListInclude(relationMode: TaskListRelationMode | undefined, us
       select: {
         comments: true,
         attachments: true,
+        taskLinks: true,
         checklists: true,
         other_tasks: true,
         dependencies: true,
@@ -458,6 +461,7 @@ export const taskRouter = router({
           checklists: { include: { items: { include: { assignee: true }, orderBy: { position: 'asc' } } } },
           comments: { include: { user: { select: { id: true, name: true, image: true } } } },
           attachments: { include: { uploader: { select: { id: true, name: true, image: true } } } },
+          taskLinks: { select: { id: true, url: true, title: true, description: true, createdAt: true, creator: { select: { id: true, name: true, image: true } } } },
 
           dependencies: {
             include: {
@@ -1038,6 +1042,7 @@ export const taskRouter = router({
       taskId: z.string(),
       dependsOnId: z.string(),
       type: z.enum(["FINISH_TO_START", "START_TO_START", "FINISH_TO_FINISH", "START_TO_FINISH"]).optional(),
+      customRelationshipId: z.string().optional(),
     }))
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.session!.user!.id;
@@ -1045,7 +1050,8 @@ export const taskRouter = router({
         data: {
           taskId: input.taskId,
           dependsOnId: input.dependsOnId,
-          type: input.type || "FINISH_TO_START"
+          type: input.type || "FINISH_TO_START",
+          customRelationshipId: input.customRelationshipId,
         }
       });
       await recordTaskActivity(prisma as Tx, { taskId: input.taskId, userId, action: "UPDATED", field: "dependencies", newValue: { dependsOnId: input.dependsOnId, type: input.type || "FINISH_TO_START" } });
@@ -1431,6 +1437,52 @@ export const taskRouter = router({
       .input(z.object({ id: z.string() }))
       .mutation(async ({ input }) => {
         return prisma.taskAttachment.delete({ where: { id: input.id } });
+      }),
+  }),
+
+  // Task Links
+  taskLinks: router({
+    list: protectedProcedure
+      .input(z.object({ taskId: z.string() }))
+      .query(async ({ input }) => {
+        return prisma.taskLink.findMany({
+          where: { taskId: input.taskId },
+          include: {
+            creator: { select: { id: true, name: true, image: true } }
+          },
+          orderBy: { createdAt: 'desc' }
+        });
+      }),
+
+    create: protectedProcedure
+      .input(z.object({
+        taskId: z.string(),
+        url: z.string(),
+        title: z.string().optional(),
+        description: z.string().optional(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const userId = ctx.session!.user!.id;
+        const link = await prisma.taskLink.create({
+          data: {
+            taskId: input.taskId,
+            createdBy: userId,
+            url: input.url,
+            title: input.title,
+            description: input.description,
+          },
+          include: {
+            creator: { select: { id: true, name: true, image: true } }
+          }
+        });
+        await recordTaskActivity(prisma as Tx, { taskId: input.taskId, userId, action: "ATTACHED", field: "taskLinks", newValue: { url: input.url } });
+        return link;
+      }),
+
+    delete: protectedProcedure
+      .input(z.object({ id: z.string() }))
+      .mutation(async ({ input }) => {
+        return prisma.taskLink.delete({ where: { id: input.id } });
       }),
   }),
 

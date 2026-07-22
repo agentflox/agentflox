@@ -40,101 +40,101 @@ model Session {
 }
 
 model User {
-  id                             String                     @id @default(cuid())
-  email                          String                     @unique
-  emailVerified                  DateTime?                  @map("email_verified")
+  id                             String                      @id @default(cuid())
+  email                          String                      @unique
+  emailVerified                  DateTime?                   @map("email_verified")
   name                           String?
   image                          String?
   password                       String?
-  firstName                      String?                    @map("first_name")
-  lastName                       String?                    @map("last_name")
-  username                       String?                    @unique
+  firstName                      String?                     @map("first_name")
+  lastName                       String?                     @map("last_name")
+  username                       String?                     @unique
   avatar                         String?
-  linkedinUrl                    String?                @map("linkedin_url")
-  twitterUrl                     String?                @map("twitter_url")
-  facebookUrl                    String?                @map("facebook_url")
-  instagramUrl                   String?                @map("instagram_url")
+  linkedinUrl                    String?                     @map("linkedin_url")
+  twitterUrl                     String?                     @map("twitter_url")
+  facebookUrl                    String?                     @map("facebook_url")
+  instagramUrl                   String?                     @map("instagram_url")
   headline                       String?
   bio                            String?
   phone                          String?
   website                        String?
   location                       String?
-  timezone                       String?                    @default("UTC")
-  isActive                       Boolean                    @default(true) @map("is_active")
-  isVerified                     Boolean                    @default(false) @map("is_verified")
-  onboardingCompleted            Boolean                    @default(false) @map("onboarding_completed")
-  onboardingStep                 Int                        @default(0) @map("onboarding_step")
+  timezone                       String?                     @default("UTC")
+  isActive                       Boolean                     @default(true) @map("is_active")
+  isVerified                     Boolean                     @default(false) @map("is_verified")
+  onboardingCompleted            Boolean                     @default(false) @map("onboarding_completed")
+  onboardingStep                 Int                         @default(0) @map("onboarding_step")
   role                           String?
-  usagePurpose                   String?                    @map("usage_purpose")
-  managementGoals                String[]                   @map("management_goals")
-  referralSource                 String?                    @map("referral_source")
-  credibilityScore               Float                      @default(0) @map("credibility_score")
-  verificationLevel              VerificationLevel          @default(UNVERIFIED) @map("verification_level")
-  isKycVerified                  Boolean                    @default(false) @map("is_kyc_verified")
-  kycDocuments                   String[]                   @map("kyc_documents")
-  createdAt                      DateTime                   @default(now()) @map("created_at")
-  updatedAt                      DateTime                   @updatedAt @map("updated_at")
-  lastActiveAt                   DateTime?                  @map("last_active_at")
+  usagePurpose                   String?                     @map("usage_purpose")
+  managementGoals                String[]                    @map("management_goals")
+  referralSource                 String?                     @map("referral_source")
+  credibilityScore               Float                       @default(0) @map("credibility_score")
+  verificationLevel              VerificationLevel           @default(UNVERIFIED) @map("verification_level")
+  isKycVerified                  Boolean                     @default(false) @map("is_kyc_verified")
+  kycDocuments                   String[]                    @map("kyc_documents")
+  createdAt                      DateTime                    @default(now()) @map("created_at")
+  updatedAt                      DateTime                    @updatedAt @map("updated_at")
+  lastActiveAt                   DateTime?                   @map("last_active_at")
   embedding                      Unsupported("vector")?
-  embeddingUpdatedAt             DateTime?                  @map("embedding_updated_at")
+  embeddingUpdatedAt             DateTime?                   @map("embedding_updated_at")
   accounts                       Account[]
   activityLogs                   ActivityLog[]
   agentAuditLogs                 AgentAuditLog[]
   agentCollaborators             AgentCollaborator[]
-  ownedAiAgents                  AiAgent[]                  @relation("AiAgentOwner")
+  ownedAiAgents                  AiAgent[]                   @relation("AiAgentOwner")
   aiConversationFeedback         AiConversationFeedback[]
-  sharedConversations            AiConversationShare[]      @relation("SharedBy")
-  receivedConversations          AiConversationShare[]      @relation("SharedWith")
+  sharedConversations            AiConversationShare[]       @relation("SharedBy")
+  receivedConversations          AiConversationShare[]       @relation("SharedWith")
   aiConversations                AiConversation[]
   messageAnnotations             AiMessageAnnotation[]
   aiMessageFeedback              AiMessageFeedback[]
   aiUsageLogs                    AiUsageLog[]
-  automationsCreated             Automation[]               @relation("AutomationOwner")
+  automationsCreated             Automation[]                @relation("AutomationOwner")
   channelMemberships             ChannelMember[]
   channelMessages                ChannelMessage[]
   channelsCreated                Channel[]
   checklistAssignments           ChecklistItem[]
   compositeTools                 CompositeTool[]
-  receivedConnections            Connection[]               @relation("ConnectionReceiver")
-  connections                    Connection[]               @relation("ConnectionRequester")
-  creditPurchases                CreditPurchase[]           @relation("userCreditPurchases")
-  customRolesCreated             CustomRole[]               @relation("CustomRoleCreator")
+  receivedConnections            Connection[]                @relation("ConnectionReceiver")
+  connections                    Connection[]                @relation("ConnectionRequester")
+  creditPurchases                CreditPurchase[]            @relation("userCreditPurchases")
+  customRolesCreated             CustomRole[]                @relation("CustomRoleCreator")
   dashboardsCreated              Dashboard[]
-  discounts                      DiscountToUser[]           @relation("userDiscounts")
+  discounts                      DiscountToUser[]            @relation("userDiscounts")
   documentCollaborations         DocumentCollaborator[]
   documentVersions               DocumentVersion[]
-  ownedDocuments                 Document[]                 @relation("DocumentOwner")
-  previouslyOwnedDocuments       Document[]                 @relation("DocumentPreviousOwner")
+  ownedDocuments                 Document[]                  @relation("DocumentOwner")
+  previouslyOwnedDocuments       Document[]                  @relation("DocumentPreviousOwner")
   documentTransfersFrom          DocumentOwnershipTransfer[] @relation("DocumentTransferFrom")
   documentTransfersTo            DocumentOwnershipTransfer[] @relation("DocumentTransferTo")
   documentTransfersRequested     DocumentOwnershipTransfer[] @relation("DocumentTransferRequestedBy")
-  receivedInvitations            Invitation[]               @relation("InvitationReceiver")
-  sentInvitations                Invitation[]               @relation("InvitationSender")
-  permissionsGranted             LocationPermission[]       @relation("PermissionGranter")
-  locationPermissions            LocationPermission[]       @relation("UserLocationPermissions")
+  receivedInvitations            Invitation[]                @relation("InvitationReceiver")
+  sentInvitations                Invitation[]                @relation("InvitationSender")
+  permissionsGranted             LocationPermission[]        @relation("PermissionGranter")
+  locationPermissions            LocationPermission[]        @relation("UserLocationPermissions")
   marketplaceOrders              MarketplaceOrder[]
-  marketplaceApplications        MarketplaceApplication[]   @relation("marketplaceApplications")
-  marketplaceListings            MarketplaceListing[]       @relation("marketplaceListings")
-  earnings                       Earning[]                  @relation("userEarnings")
-  listingRatings                 ListingRating[]            @relation("listingRatingsGiven")
-  listingRatingsModerator        ListingRating[]            @relation("listingRatingsModerator")
-  listingRatingVotes             ListingRatingVote[]        @relation("listingRatingVotes")
-  listingComments                ListingComment[]           @relation("listingCommentsGiven")
-  listingCommentsModerator       ListingComment[]           @relation("listingCommentsModerator")
-  listingCommentVotes            ListingCommentVote[]       @relation("listingCommentVotes")
-  listingLikes                   ListingLike[]              @relation("listingLikesGiven")
-  listingDownloads               ListingDownload[]          @relation("listingDownloadsUser")
-  listingVersions                ListingVersion[]           @relation("listingVersionsUser")
-  receivedMessages               Message[]                  @relation("MessageReceiver")
-  sentMessages                   Message[]                  @relation("MessageSender")
+  marketplaceApplications        MarketplaceApplication[]    @relation("marketplaceApplications")
+  marketplaceListings            MarketplaceListing[]        @relation("marketplaceListings")
+  earnings                       Earning[]                   @relation("userEarnings")
+  listingRatings                 ListingRating[]             @relation("listingRatingsGiven")
+  listingRatingsModerator        ListingRating[]             @relation("listingRatingsModerator")
+  listingRatingVotes             ListingRatingVote[]         @relation("listingRatingVotes")
+  listingComments                ListingComment[]            @relation("listingCommentsGiven")
+  listingCommentsModerator       ListingComment[]            @relation("listingCommentsModerator")
+  listingCommentVotes            ListingCommentVote[]        @relation("listingCommentVotes")
+  listingLikes                   ListingLike[]               @relation("listingLikesGiven")
+  listingDownloads               ListingDownload[]           @relation("listingDownloadsUser")
+  listingVersions                ListingVersion[]            @relation("listingVersionsUser")
+  receivedMessages               Message[]                   @relation("MessageReceiver")
+  sentMessages                   Message[]                   @relation("MessageSender")
   notifications                  Notification[]
   organizationMemberships        OrganizationMember[]
-  ownedOrganizations             Organization[]             @relation("OrganizationOwner")
-  payments                       Payment[]                  @relation("userPayments")
-  payouts                        Payout[]                   @relation("UserPayouts")
-  cancelledPermissionInvitations PermissionInvitation[]     @relation("InvitationCanceller")
-  sentPermissionInvitations      PermissionInvitation[]     @relation("InvitationSender")
-  receivedPermissionInvitations  PermissionInvitation[]     @relation("InvitationRecipient")
+  ownedOrganizations             Organization[]              @relation("OrganizationOwner")
+  payments                       Payment[]                   @relation("userPayments")
+  payouts                        Payout[]                    @relation("UserPayouts")
+  cancelledPermissionInvitations PermissionInvitation[]      @relation("InvitationCanceller")
+  sentPermissionInvitations      PermissionInvitation[]      @relation("InvitationSender")
+  receivedPermissionInvitations  PermissionInvitation[]      @relation("InvitationRecipient")
   postCommentVotes               PostCommentVote[]
   postComments                   PostComment[]
   postLikes                      PostLike[]
@@ -143,116 +143,118 @@ model User {
   postFollows                    PostFollow[]
   postReports                    PostReport[]
   posts                          Post[]
-  projectComments                ProjectComment[]           @relation("ProjectCommentAuthor")
-  communityGroupsOwned           CommunityGroup[]           @relation("CommunityGroupOwner")
+  projectComments                ProjectComment[]            @relation("ProjectCommentAuthor")
+  communityGroupsOwned           CommunityGroup[]            @relation("CommunityGroupOwner")
   communityGroupMemberships      CommunityGroupMember[]
-  communityGroupBansReceived     CommunityGroupBan[]        @relation("CommunityGroupBanUser")
-  communityGroupBansIssued       CommunityGroupBan[]        @relation("CommunityGroupBanActor")
-  communityGroupAppeals          CommunityGroupAppeal[]     @relation("CommunityGroupAppealUser")
-  communityGroupAppealReviewed   CommunityGroupAppeal[]     @relation("CommunityGroupAppealReviewer")
-  blockedUsers                   ProjectBlockedMember[]     @relation("BlockerUser")
-  blockedFromProjects            ProjectBlockedMember[]     @relation("BlockedUser")
+  communityGroupBansReceived     CommunityGroupBan[]         @relation("CommunityGroupBanUser")
+  communityGroupBansIssued       CommunityGroupBan[]         @relation("CommunityGroupBanActor")
+  communityGroupAppeals          CommunityGroupAppeal[]      @relation("CommunityGroupAppealUser")
+  communityGroupAppealReviewed   CommunityGroupAppeal[]      @relation("CommunityGroupAppealReviewer")
+  blockedUsers                   ProjectBlockedMember[]      @relation("BlockerUser")
+  blockedFromProjects            ProjectBlockedMember[]      @relation("BlockedUser")
   participatedProjects           ProjectMember[]
-  transfersFrom                  ProjectOwnershipTransfer[] @relation("TransferFrom")
-  transfersTo                    ProjectOwnershipTransfer[] @relation("TransferTo")
-  projectTransfersRequested      ProjectOwnershipTransfer[] @relation("TransferRequestedBy")
-  ownedProjects                  Project[]                  @relation("ProjectOwner")
-  previouslyOwnedProjects        Project[]                  @relation("ProjectPreviousOwner")
-  promotions                     PromotionToUser[]          @relation("userPromotions")
-  publicLinksCreated             PublicLink[]               @relation("PublicLinkCreator")
-  receivedRequests               Request[]                  @relation("RequestReceiver")
-  sentRequests                   Request[]                  @relation("RequestSender")
-  givenReviews                   Review[]                   @relation("ReviewGiver")
-  receivedReviews                Review[]                   @relation("ReviewReceiver")
+  transfersFrom                  ProjectOwnershipTransfer[]  @relation("TransferFrom")
+  transfersTo                    ProjectOwnershipTransfer[]  @relation("TransferTo")
+  projectTransfersRequested      ProjectOwnershipTransfer[]  @relation("TransferRequestedBy")
+  ownedProjects                  Project[]                   @relation("ProjectOwner")
+  previouslyOwnedProjects        Project[]                   @relation("ProjectPreviousOwner")
+  promotions                     PromotionToUser[]           @relation("userPromotions")
+  publicLinksCreated             PublicLink[]                @relation("PublicLinkCreator")
+  receivedRequests               Request[]                   @relation("RequestReceiver")
+  sentRequests                   Request[]                   @relation("RequestSender")
+  givenReviews                   Review[]                    @relation("ReviewGiver")
+  receivedReviews                Review[]                    @relation("ReviewReceiver")
   sessions                       Session[]
-  subscriptions                  Subscription[]             @relation("userSubscriptions")
+  subscriptions                  Subscription[]              @relation("userSubscriptions")
   taskActivities                 TaskActivity[]
-  taskAssignees                  TaskAssignee[]             @relation("TaskAssigneesUser")
+  taskAssignees                  TaskAssignee[]              @relation("TaskAssigneesUser")
   taskAttachments                TaskAttachment[]
+  taskLinks                      TaskLink[]
   taskComments                   TaskComment[]
 
-  taskWatchers         TaskWatcher[]
-  documentWatchers     DocumentWatcher[]
-  tasksCreated         Task[]                @relation("TaskCreator")
-  teamMemberships      TeamMember[]          @relation("TeamMemberUser")
-  ownedTeams           Team[]                @relation("TeamOwner")
-  previouslyOwnedTeams Team[]                @relation("TeamPreviousOwner")
-  teamTransfersFrom    TeamOwnershipTransfer[] @relation("TeamTransferFrom")
-  teamTransfersTo      TeamOwnershipTransfer[] @relation("TeamTransferTo")
-  teamTransfersRequested TeamOwnershipTransfer[] @relation("TeamTransferRequestedBy")
-  templatesCreated     Template[]
-  templateVersions     TemplateVersion[]
-  templateAuditLogs    TemplateAuditLog[]
-  timeEntries          TimeEntry[]
-  ownedTools           Tool[]                @relation("ToolOwner")
-  usages               Usage[]               @relation("userUsages")
-  activities           UserActivity[]
-  commentsReceived     UserComment[]         @relation("UserCommentsReceived")
-  commentsGiven        UserComment[]         @relation("UserCommentsGiven")
-  interests            UserInterest[]
-  likesReceived        UserLike[]            @relation("UserLikesReceived")
-  likesGiven           UserLike[]            @relation("UserLikesGiven")
-  quota                UserQuota?
-  settings             UserSettings?
-  vectorEmbeddings     VectorEmbedding[]
-  verificationRequests VerificationRequest[]
-  viewShares           ViewShare[]
-  webhooksCreated      Webhook[]
-  workspaceActivities  WorkspaceActivity[]
-  invitedGuests        WorkspaceGuest[]      @relation("GuestInviter")
-  guestMemberships     WorkspaceGuest[]      @relation("UserGuestWorkspaces")
-  workspaceMemberships WorkspaceMember[]     @relation("WorkspaceMemberUser")
-  ownedWorkspaces      Workspace[]           @relation("WorkspaceOwner")
-  previouslyOwnedWorkspaces Workspace[]      @relation("WorkspacePreviousOwner")
-  workspaceTransfersFrom WorkspaceOwnershipTransfer[] @relation("WorkspaceTransferFrom")
-  workspaceTransfersTo   WorkspaceOwnershipTransfer[] @relation("WorkspaceTransferTo")
+  taskWatchers                TaskWatcher[]
+  documentWatchers            DocumentWatcher[]
+  tasksCreated                Task[]                       @relation("TaskCreator")
+  teamMemberships             TeamMember[]                 @relation("TeamMemberUser")
+  ownedTeams                  Team[]                       @relation("TeamOwner")
+  previouslyOwnedTeams        Team[]                       @relation("TeamPreviousOwner")
+  teamTransfersFrom           TeamOwnershipTransfer[]      @relation("TeamTransferFrom")
+  teamTransfersTo             TeamOwnershipTransfer[]      @relation("TeamTransferTo")
+  teamTransfersRequested      TeamOwnershipTransfer[]      @relation("TeamTransferRequestedBy")
+  templatesCreated            Template[]
+  templateVersions            TemplateVersion[]
+  templateAuditLogs           TemplateAuditLog[]
+  timeEntries                 TimeEntry[]
+  ownedTools                  Tool[]                       @relation("ToolOwner")
+  usages                      Usage[]                      @relation("userUsages")
+  activities                  UserActivity[]
+  commentsReceived            UserComment[]                @relation("UserCommentsReceived")
+  commentsGiven               UserComment[]                @relation("UserCommentsGiven")
+  interests                   UserInterest[]
+  likesReceived               UserLike[]                   @relation("UserLikesReceived")
+  likesGiven                  UserLike[]                   @relation("UserLikesGiven")
+  quota                       UserQuota?
+  settings                    UserSettings?
+  vectorEmbeddings            VectorEmbedding[]
+  verificationRequests        VerificationRequest[]
+  viewShares                  ViewShare[]
+  webhooksCreated             Webhook[]
+  workspaceActivities         WorkspaceActivity[]
+  invitedGuests               WorkspaceGuest[]             @relation("GuestInviter")
+  guestMemberships            WorkspaceGuest[]             @relation("UserGuestWorkspaces")
+  workspaceMemberships        WorkspaceMember[]            @relation("WorkspaceMemberUser")
+  ownedWorkspaces             Workspace[]                  @relation("WorkspaceOwner")
+  previouslyOwnedWorkspaces   Workspace[]                  @relation("WorkspacePreviousOwner")
+  workspaceTransfersFrom      WorkspaceOwnershipTransfer[] @relation("WorkspaceTransferFrom")
+  workspaceTransfersTo        WorkspaceOwnershipTransfer[] @relation("WorkspaceTransferTo")
   workspaceTransfersRequested WorkspaceOwnershipTransfer[] @relation("WorkspaceTransferRequestedBy")
-  ownedSpaces          Space[]                   @relation("SpaceOwner")
-  spaceMemberships     SpaceMember[]             @relation("SpaceMemberUser")
-  previouslyOwnedSpaces Space[]                  @relation("SpacePreviousOwner")
-  spaceTransfersFrom   SpaceOwnershipTransfer[]  @relation("SpaceTransferFrom")
-  spaceTransfersTo     SpaceOwnershipTransfer[]  @relation("SpaceTransferTo")
-  spaceTransfersRequested SpaceOwnershipTransfer[] @relation("SpaceTransferRequestedBy")
-  ownedFolders         Folder[]                  @relation("FolderOwner")
-  previouslyOwnedFolders Folder[]                @relation("FolderPreviousOwner")
-  folderTransfersFrom  FolderOwnershipTransfer[] @relation("FolderTransferFrom")
-  folderTransfersTo    FolderOwnershipTransfer[] @relation("FolderTransferTo")
-  folderTransfersRequested FolderOwnershipTransfer[] @relation("FolderTransferRequestedBy")
-  ownedLists           List[]                    @relation("ListOwner")
-  previouslyOwnedLists List[]                    @relation("ListPreviousOwner")
-  listTransfersFrom    ListOwnershipTransfer[]   @relation("ListTransferFrom")
-  listTransfersTo      ListOwnershipTransfer[]   @relation("ListTransferTo")
-  listTransfersRequested ListOwnershipTransfer[] @relation("ListTransferRequestedBy")
-  ownedViews           View[]                    @relation("ViewOwner")
-  previouslyOwnedViews View[]                    @relation("ViewPreviousOwner")
-  viewTransfersFrom    ViewOwnershipTransfer[]   @relation("ViewTransferFrom")
-  viewTransfersTo      ViewOwnershipTransfer[]   @relation("ViewTransferTo")
-  viewTransfersRequested ViewOwnershipTransfer[] @relation("ViewTransferRequestedBy")
-  listsCreated         List[]                @relation("ListCreator")
+  ownedSpaces                 Space[]                      @relation("SpaceOwner")
+  spaceMemberships            SpaceMember[]                @relation("SpaceMemberUser")
+  previouslyOwnedSpaces       Space[]                      @relation("SpacePreviousOwner")
+  spaceTransfersFrom          SpaceOwnershipTransfer[]     @relation("SpaceTransferFrom")
+  spaceTransfersTo            SpaceOwnershipTransfer[]     @relation("SpaceTransferTo")
+  spaceTransfersRequested     SpaceOwnershipTransfer[]     @relation("SpaceTransferRequestedBy")
+  ownedFolders                Folder[]                     @relation("FolderOwner")
+  previouslyOwnedFolders      Folder[]                     @relation("FolderPreviousOwner")
+  folderTransfersFrom         FolderOwnershipTransfer[]    @relation("FolderTransferFrom")
+  folderTransfersTo           FolderOwnershipTransfer[]    @relation("FolderTransferTo")
+  folderTransfersRequested    FolderOwnershipTransfer[]    @relation("FolderTransferRequestedBy")
+  ownedLists                  List[]                       @relation("ListOwner")
+  previouslyOwnedLists        List[]                       @relation("ListPreviousOwner")
+  listTransfersFrom           ListOwnershipTransfer[]      @relation("ListTransferFrom")
+  listTransfersTo             ListOwnershipTransfer[]      @relation("ListTransferTo")
+  listTransfersRequested      ListOwnershipTransfer[]      @relation("ListTransferRequestedBy")
+  ownedViews                  View[]                       @relation("ViewOwner")
+  previouslyOwnedViews        View[]                       @relation("ViewPreviousOwner")
+  viewTransfersFrom           ViewOwnershipTransfer[]      @relation("ViewTransferFrom")
+  viewTransfersTo             ViewOwnershipTransfer[]      @relation("ViewTransferTo")
+  viewTransfersRequested      ViewOwnershipTransfer[]      @relation("ViewTransferRequestedBy")
+  listsCreated                List[]                       @relation("ListCreator")
 
-  ownedWorkforces      Workforce[]           @relation("WorkforceOwner")
-  agentFeedbacks AgentFeedback[]
+  ownedWorkforces Workforce[]     @relation("WorkforceOwner")
+  agentFeedbacks  AgentFeedback[]
 
-  customFieldsCreated CustomField[] @relation("CustomFieldCreator")
+  customFieldsCreated            CustomField[]            @relation("CustomFieldCreator")
+  taskCustomRelationshipsCreated TaskCustomRelationship[] @relation("TaskCustomRelationshipCreator")
 
-  documentComments         DocumentComment[]        @relation("DocumentCommentAuthor")
-  documentCommentsAssigned DocumentComment[]        @relation("DocumentCommentAssignee")
-  documentCommentsResolved DocumentComment[]        @relation("DocumentCommentResolver")
+  documentComments         DocumentComment[]         @relation("DocumentCommentAuthor")
+  documentCommentsAssigned DocumentComment[]         @relation("DocumentCommentAssignee")
+  documentCommentsResolved DocumentComment[]         @relation("DocumentCommentResolver")
   documentCommentReactions DocumentCommentReaction[] @relation("DocCommentReactions")
 
-  reportedBugs             BugReport[]              @relation("ReportedBugs")
-  assignedBugs             BugReport[]              @relation("AssignedBugs")
-  bugReportAttachments     BugReportAttachment[]
-  bugReportComments        BugReportComment[]
-  bugReportStatusChanges   BugReportStatusHistory[]
+  reportedBugs           BugReport[]              @relation("ReportedBugs")
+  assignedBugs           BugReport[]              @relation("AssignedBugs")
+  bugReportAttachments   BugReportAttachment[]
+  bugReportComments      BugReportComment[]
+  bugReportStatusChanges BugReportStatusHistory[]
 
-  toolVersionsCreated      CompositeToolVersion[]
-  toolExecutions           CompositeToolExecutionLog[]
+  toolVersionsCreated CompositeToolVersion[]
+  toolExecutions      CompositeToolExecutionLog[]
 
   // --- soft delete fields ---
-  deletedAt       DateTime?        @map("deleted_at")
-  deletedById     String?          @map("deleted_by_id")
-  
+  deletedAt   DateTime? @map("deleted_at")
+  deletedById String?   @map("deleted_by_id")
+
   @@index([deletedAt])
   @@index([isActive])
   @@index([isActive, deletedAt])
@@ -285,8 +287,8 @@ model Organization {
   templates   Template[]
 
   // --- soft delete fields ---
-  deletedAt       DateTime?        @map("deleted_at")
-  deletedById     String?          @map("deleted_by_id")
+  deletedAt   DateTime? @map("deleted_at")
+  deletedById String?   @map("deleted_by_id")
 
   @@map("organizations")
 }
@@ -305,76 +307,77 @@ model OrganizationMember {
 }
 
 model Workspace {
-  id                    String                 @id @default(cuid())
-  ownerId               String                 @map("owner_id")
-  previousOwnerId       String?                @map("previous_owner_id")
-  name                  String
-  description           String?
-  status                WorkspaceStatus        @default(ACTIVE)
-  isActive              Boolean                @default(true) @map("is_active")
-  createdAt             DateTime               @default(now()) @map("created_at")
-  updatedAt             DateTime               @updatedAt @map("updated_at")
-  transferredAt         DateTime?              @map("transferred_at")
-  archivedAt            DateTime?              @map("archived_at")
-  avatar                String?
-  icon                  String?
-  color                 String?                @default("#3B82F6")
-  organizationId        String?                @map("organization_id")
-  visibility            Visibility             @default(PRIVATE)
-  embedding             Unsupported("vector")?
-  embeddingUpdatedAt    DateTime?              @map("embedding_updated_at")
-  isArchived            Boolean                @default(false) @map("is_archived")
-  memberLimit           Int?                   @map("member_limit")
-  settings              Json?
-  slug                  String?                @unique
-  storageLimit          BigInt?                @map("storage_limit")
-  storageUsed           BigInt                 @default(0) @map("storage_used")
-  aiAgents              AiAgent[]
-  agentWorkflows        AgentWorkflow[]
-  aiConversations       AiConversation[]       @relation("WorkspaceConversations")
-  automations           Automation[]
-  channels              Channel[]
-  compositeTools        CompositeTool[]
-  customFields          CustomField[]
-  customRoles           CustomRole[]           @relation("WorkspaceCustomRoles")
-  dashboards            Dashboard[]
-  documents             Document[]
-  folders               Folder[]
-  integrations          Integration[]
-  lists                 List[]
-  permissionInvitations PermissionInvitation[] @relation("WorkspaceInvitations")
-  projects              Project[]
-  publicLinks           PublicLink[]           @relation("WorkspacePublicLinks")
-  spaces                Space[]
-  taskStatuses          TaskStatus[]
-  taskTypes             TaskType[]
-  tasks                 Task[]
-  teams                 Team[]
-  templates             Template[]
-  tools                 Tool[]
-  views              View[]
-  webhooks              Webhook[]
-  activityLogs          WorkspaceActivity[]
-  analytics             WorkspaceAnalytics[]
-  permissionGuests      WorkspaceGuest[]       @relation("WorkspaceGuests")
-  invitations           WorkspaceInvitation[]
-  members               WorkspaceMember[]
-  ownershipTransfers    WorkspaceOwnershipTransfer[] @relation("WorkspaceTransfers")
-  organization          Organization?          @relation(fields: [organizationId], references: [id])
+  id                      String                       @id @default(cuid())
+  ownerId                 String                       @map("owner_id")
+  previousOwnerId         String?                      @map("previous_owner_id")
+  name                    String
+  description             String?
+  status                  WorkspaceStatus              @default(ACTIVE)
+  isActive                Boolean                      @default(true) @map("is_active")
+  createdAt               DateTime                     @default(now()) @map("created_at")
+  updatedAt               DateTime                     @updatedAt @map("updated_at")
+  transferredAt           DateTime?                    @map("transferred_at")
+  archivedAt              DateTime?                    @map("archived_at")
+  avatar                  String?
+  icon                    String?
+  color                   String?                      @default("#3B82F6")
+  organizationId          String?                      @map("organization_id")
+  visibility              Visibility                   @default(PRIVATE)
+  embedding               Unsupported("vector")?
+  embeddingUpdatedAt      DateTime?                    @map("embedding_updated_at")
+  isArchived              Boolean                      @default(false) @map("is_archived")
+  memberLimit             Int?                         @map("member_limit")
+  settings                Json?
+  slug                    String?                      @unique
+  storageLimit            BigInt?                      @map("storage_limit")
+  storageUsed             BigInt                       @default(0) @map("storage_used")
+  aiAgents                AiAgent[]
+  agentWorkflows          AgentWorkflow[]
+  aiConversations         AiConversation[]             @relation("WorkspaceConversations")
+  automations             Automation[]
+  channels                Channel[]
+  compositeTools          CompositeTool[]
+  customFields            CustomField[]
+  customRoles             CustomRole[]                 @relation("WorkspaceCustomRoles")
+  dashboards              Dashboard[]
+  documents               Document[]
+  folders                 Folder[]
+  integrations            Integration[]
+  lists                   List[]
+  permissionInvitations   PermissionInvitation[]       @relation("WorkspaceInvitations")
+  projects                Project[]
+  publicLinks             PublicLink[]                 @relation("WorkspacePublicLinks")
+  spaces                  Space[]
+  taskStatuses            TaskStatus[]
+  taskTypes               TaskType[]
+  tasks                   Task[]
+  teams                   Team[]
+  templates               Template[]
+  tools                   Tool[]
+  views                   View[]
+  webhooks                Webhook[]
+  activityLogs            WorkspaceActivity[]
+  analytics               WorkspaceAnalytics[]
+  permissionGuests        WorkspaceGuest[]             @relation("WorkspaceGuests")
+  invitations             WorkspaceInvitation[]
+  members                 WorkspaceMember[]
+  ownershipTransfers      WorkspaceOwnershipTransfer[] @relation("WorkspaceTransfers")
+  organization            Organization?                @relation(fields: [organizationId], references: [id])
+  taskCustomRelationships TaskCustomRelationship[]
 
   // Owner: restrict deletion — a User cannot be hard-deleted while they own a
   // Workspace. Force a transfer (see WorkspaceOwnershipTransfer) or anonymize
   // the User row instead.
-  owner                 User                   @relation("WorkspaceOwner", fields: [ownerId], references: [id], onDelete: Restrict)
+  owner User @relation("WorkspaceOwner", fields: [ownerId], references: [id], onDelete: Restrict)
 
   // Previous owner: queryable historical link. SetNull on delete — losing the
   // link is fine; WorkspaceOwnershipTransfer is the source of truth for history.
-  previousOwner         User?                  @relation("WorkspacePreviousOwner", fields: [previousOwnerId], references: [id], onDelete: SetNull)
-  workforces            Workforce[]
+  previousOwner User?       @relation("WorkspacePreviousOwner", fields: [previousOwnerId], references: [id], onDelete: SetNull)
+  workforces    Workforce[]
 
   // --- soft delete fields ---
-  deletedAt       DateTime?        @map("deleted_at")
-  deletedById     String?          @map("deleted_by_id")
+  deletedAt   DateTime? @map("deleted_at")
+  deletedById String?   @map("deleted_by_id")
 
   @@index([ownerId])
   @@index([previousOwnerId])
@@ -453,10 +456,10 @@ model WorkspaceOwnershipTransfer {
   expiresAt           DateTime?      @map("expires_at")
   metadata            Json?
 
-  fromOwner           User           @relation("WorkspaceTransferFrom", fields: [fromOwnerId], references: [id])
-  toOwner             User           @relation("WorkspaceTransferTo", fields: [toOwnerId], references: [id])
-  requester           User           @relation("WorkspaceTransferRequestedBy", fields: [requestedBy], references: [id])
-  workspace           Workspace?      @relation("WorkspaceTransfers", fields: [workspaceId], references: [id], onDelete: Cascade)
+  fromOwner User       @relation("WorkspaceTransferFrom", fields: [fromOwnerId], references: [id])
+  toOwner   User       @relation("WorkspaceTransferTo", fields: [toOwnerId], references: [id])
+  requester User       @relation("WorkspaceTransferRequestedBy", fields: [requestedBy], references: [id])
+  workspace Workspace? @relation("WorkspaceTransfers", fields: [workspaceId], references: [id], onDelete: Cascade)
 
   @@index([workspaceId])
   @@index([fromOwnerId])
@@ -473,25 +476,25 @@ model WorkspaceOwnershipTransfer {
 }
 
 model Space {
-  id                 String                 @id @default(cuid())
-  workspaceId        String?                 @map("workspace_id")
-  ownerId            String                 @map("owner_id")
-  previousOwnerId    String?                @map("previous_owner_id")
+  id                 String                   @id @default(cuid())
+  workspaceId        String?                  @map("workspace_id")
+  ownerId            String                   @map("owner_id")
+  previousOwnerId    String?                  @map("previous_owner_id")
   name               String
   description        String?
-  status             SpaceStatus            @default(ACTIVE)
-  isActive           Boolean                @default(true) @map("is_active")
-  createdAt          DateTime               @default(now()) @map("created_at")
-  updatedAt          DateTime               @updatedAt @map("updated_at")
-  transferredAt      DateTime?              @map("transferred_at")
+  status             SpaceStatus              @default(ACTIVE)
+  isActive           Boolean                  @default(true) @map("is_active")
+  createdAt          DateTime                 @default(now()) @map("created_at")
+  updatedAt          DateTime                 @updatedAt @map("updated_at")
+  transferredAt      DateTime?                @map("transferred_at")
   embedding          Unsupported("vector")?
-  embeddingUpdatedAt DateTime?              @map("embedding_updated_at")
+  embeddingUpdatedAt DateTime?                @map("embedding_updated_at")
   icon               String?
   color              String?
-  visibility         Visibility             @default(ADMINS)
+  visibility         Visibility               @default(ADMINS)
   settings           Json?
   aiAgents           AiAgent[]
-  aiConversations    AiConversation[]       @relation("SpaceConversations")
+  aiConversations    AiConversation[]         @relation("SpaceConversations")
   automations        Automation[]
   compositeTools     CompositeTool[]
   customFields       CustomField[]
@@ -500,28 +503,29 @@ model Space {
   projects           Project[]
   members            SpaceMember[]
   ownershipTransfers SpaceOwnershipTransfer[] @relation("SpaceTransfers")
-  workspace          Workspace?              @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workspace          Workspace?               @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
   // Owner: restrict deletion — a User cannot be hard-deleted while they own a
   // Space. Force a transfer (see SpaceOwnershipTransfer) or anonymize the
   // User row instead.
-  owner              User                   @relation("SpaceOwner", fields: [ownerId], references: [id], onDelete: Restrict)
+  owner User @relation("SpaceOwner", fields: [ownerId], references: [id], onDelete: Restrict)
 
   // Previous owner: queryable historical link. SetNull on delete — losing the
   // link is fine; SpaceOwnershipTransfer is the source of truth for history.
-  previousOwner      User?                  @relation("SpacePreviousOwner", fields: [previousOwnerId], references: [id], onDelete: SetNull)
-  taskStatuses       TaskStatus[]
-  taskTypes          TaskType[]
-  tasks              Task[]
-  teams              Team[]
-  tools              Tool[]
-  views              View[]
-  workforces         Workforce[]
-  documents          Document[]
+  previousOwner           User?                    @relation("SpacePreviousOwner", fields: [previousOwnerId], references: [id], onDelete: SetNull)
+  taskStatuses            TaskStatus[]
+  taskTypes               TaskType[]
+  tasks                   Task[]
+  teams                   Team[]
+  tools                   Tool[]
+  views                   View[]
+  workforces              Workforce[]
+  documents               Document[]
+  taskCustomRelationships TaskCustomRelationship[]
 
   // --- soft delete fields ---
-  deletedAt       DateTime?        @map("deleted_at")
-  deletedById     String?          @map("deleted_by_id")
+  deletedAt   DateTime? @map("deleted_at")
+  deletedById String?   @map("deleted_by_id")
 
   @@index([workspaceId])
   @@index([ownerId])
@@ -550,10 +554,10 @@ model SpaceOwnershipTransfer {
   expiresAt           DateTime?      @map("expires_at")
   metadata            Json?
 
-  fromOwner           User           @relation("SpaceTransferFrom", fields: [fromOwnerId], references: [id])
-  toOwner             User           @relation("SpaceTransferTo", fields: [toOwnerId], references: [id])
-  requester           User           @relation("SpaceTransferRequestedBy", fields: [requestedBy], references: [id])
-  space               Space          @relation("SpaceTransfers", fields: [spaceId], references: [id], onDelete: Cascade)
+  fromOwner User  @relation("SpaceTransferFrom", fields: [fromOwnerId], references: [id])
+  toOwner   User  @relation("SpaceTransferTo", fields: [toOwnerId], references: [id])
+  requester User  @relation("SpaceTransferRequestedBy", fields: [requestedBy], references: [id])
+  space     Space @relation("SpaceTransfers", fields: [spaceId], references: [id], onDelete: Cascade)
 
   @@index([spaceId])
   @@index([fromOwnerId])
@@ -638,10 +642,11 @@ model Task {
   activities          TaskActivity[]
   assignees           TaskAssignee[]     @relation("TaskAssignees")
   attachments         TaskAttachment[]
+  taskLinks           TaskLink[]
   comments            TaskComment[]
   blockedDependencies TaskDependency[]   @relation("BlockingTask")
   dependencies        TaskDependency[]   @relation("DependentTask")
-  locationType        LocationType       @default(WORKSPACE)  @map("location_type")
+  locationType        LocationType       @default(WORKSPACE) @map("location_type")
   watchers            TaskWatcher[]
   channel             Channel?           @relation(fields: [channelId], references: [id])
   creator             User               @relation("TaskCreator", fields: [createdBy], references: [id], onDelete: Cascade)
@@ -653,12 +658,12 @@ model Task {
   status              TaskStatus?        @relation(fields: [statusId], references: [id])
   taskType            TaskType?          @relation(fields: [taskTypeId], references: [id])
   team                Team?              @relation(fields: [teamId], references: [id])
-  workspace   Workspace?    @relation(fields: [workspaceId], references: [id])
-  timeEntries TimeEntry[]
+  workspace           Workspace?         @relation(fields: [workspaceId], references: [id])
+  timeEntries         TimeEntry[]
 
   // --- soft delete fields ---
-  deletedAt       DateTime?        @map("deleted_at")
-  deletedById     String?          @map("deleted_by_id")
+  deletedAt   DateTime? @map("deleted_at")
+  deletedById String?   @map("deleted_by_id")
 
   @@index([workspaceId])
   @@index([listId])
@@ -738,17 +743,67 @@ model TaskStatus {
   @@map("task_statuses")
 }
 
+model TaskCustomRelationship {
+  id                 String  @id @default(cuid())
+  workspaceId        String? @map("workspace_id")
+  name               String
+  relatedTo          String  @default("specific") // 'any', 'specific'
+  relatedListId      String? @map("related_list_id")
+  createRollupFields Boolean @default(false) @map("create_rollup_fields")
+  description        String?
+  permissionLevel    String  @default("workspace") @map("permission_level") // 'workspace', 'anyone_edit', 'anyone_set', 'anyone_view', 'private'
+  customPermissions  Json?   @map("custom_permissions") // Exceptions array
+  isRequired         Boolean @default(false) @map("is_required")
+  isVisibleToGuests  Boolean @default(true) @map("is_visible_to_guests")
+
+  // Context (Belongs to)
+  spaceId   String? @map("space_id")
+  projectId String? @map("project_id")
+  teamId    String? @map("team_id")
+  folderId  String? @map("folder_id")
+  listId    String? @map("list_id")
+
+  createdBy String   @map("created_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  creator   User      @relation("TaskCustomRelationshipCreator", fields: [createdBy], references: [id], onDelete: Cascade)
+  workspace Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  list      List?     @relation("RelatedList", fields: [relatedListId], references: [id], onDelete: SetNull)
+
+  // Belongs to relations
+  space       Space?   @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  project     Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  team        Team?    @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  folder      Folder?  @relation(fields: [folderId], references: [id], onDelete: Cascade)
+  contextList List?    @relation("ContextList", fields: [listId], references: [id], onDelete: Cascade)
+  
+  dependencies TaskDependency[]
+
+  @@index([workspaceId])
+  @@index([spaceId])
+  @@index([projectId])
+  @@index([teamId])
+  @@index([folderId])
+  @@index([listId])
+  @@index([createdBy])
+  @@map("task_custom_relationships")
+}
+
 model TaskDependency {
-  id          String         @id @default(cuid())
-  taskId      String         @map("task_id")
-  dependsOnId String         @map("depends_on_id")
-  type        DependencyType @default(FINISH_TO_START)
-  createdAt   DateTime       @default(now()) @map("created_at")
-  dependsOn   Task           @relation("BlockingTask", fields: [dependsOnId], references: [id], onDelete: Cascade)
-  task        Task           @relation("DependentTask", fields: [taskId], references: [id], onDelete: Cascade)
+  id                   String                  @id @default(cuid())
+  taskId               String                  @map("task_id")
+  dependsOnId          String                  @map("depends_on_id")
+  type                 DependencyType          @default(FINISH_TO_START)
+  customRelationshipId String?                 @map("custom_relationship_id")
+  createdAt            DateTime                @default(now()) @map("created_at")
+  dependsOn            Task                    @relation("BlockingTask", fields: [dependsOnId], references: [id], onDelete: Cascade)
+  task                 Task                    @relation("DependentTask", fields: [taskId], references: [id], onDelete: Cascade)
+  customRelationship   TaskCustomRelationship? @relation(fields: [customRelationshipId], references: [id], onDelete: Cascade)
 
   @@unique([taskId, dependsOnId])
   @@index([dependsOnId])
+  @@index([customRelationshipId])
   @@map("task_dependencies")
 }
 
@@ -824,6 +879,21 @@ model TaskAttachment {
   @@map("task_attachments")
 }
 
+model TaskLink {
+  id          String   @id @default(cuid())
+  taskId      String   @map("task_id")
+  createdBy   String   @map("created_by")
+  url         String
+  title       String?
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  task        Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  creator     User     @relation(fields: [createdBy], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
+  @@map("task_links")
+}
+
 model Checklist {
   id        String          @id @default(cuid())
   taskId    String          @map("task_id")
@@ -875,24 +945,26 @@ model TimeEntry {
 }
 
 model CustomField {
-  id           String                  @id @default(cuid())
-  workspaceId  String?                 @map("workspace_id")
+  id           String             @id @default(cuid())
+  workspaceId  String?            @map("workspace_id")
   name         String
   type         CustomFieldType
-  locationType LocationType @default(PERSONAL) @map("location_type")
+  locationType LocationType       @default(PERSONAL) @map("location_type")
+  permissionLevel    String  @default("workspace") @map("permission_level")
+  customPermissions  Json?   @map("custom_permissions")
   config       Json?
-  defaultValue Json?                   @map("default_value")
-  isRequired   Boolean                 @default(false) @map("is_required")
-  position     Int                     @default(0)
-  applyTo      CustomFieldScope[]      @map("apply_to")
-  createdAt    DateTime                @default(now()) @map("created_at")
-  createdBy    String?                 @map("created_by")
-  updatedAt    DateTime                @updatedAt @map("updated_at")
-  folderId     String?                 @map("folder_id")
-  listId       String?                 @map("list_id")
-  projectId    String?                 @map("project_id")
-  spaceId      String?                 @map("space_id")
-  teamId       String?                 @map("team_id")
+  defaultValue Json?              @map("default_value")
+  isRequired   Boolean            @default(false) @map("is_required")
+  position     Int                @default(0)
+  applyTo      CustomFieldScope[] @map("apply_to")
+  createdAt    DateTime           @default(now()) @map("created_at")
+  createdBy    String?            @map("created_by")
+  updatedAt    DateTime           @updatedAt @map("updated_at")
+  folderId     String?            @map("folder_id")
+  listId       String?            @map("list_id")
+  projectId    String?            @map("project_id")
+  spaceId      String?            @map("space_id")
+  teamId       String?            @map("team_id")
 
   // Additional settings
   inheritedFrom     String?            @map("inherited_from")
@@ -901,7 +973,7 @@ model CustomField {
   visibility        Visibility         @default(ADMINS)
   isVisibleToGuests Boolean            @default(true) @map("is_visible_to_guests")
   values            CustomFieldValue[]
-  creator           User?             @relation("CustomFieldCreator", fields: [createdBy], references: [id], onDelete: SetNull)
+  creator           User?              @relation("CustomFieldCreator", fields: [createdBy], references: [id], onDelete: SetNull)
   folder            Folder?            @relation(fields: [folderId], references: [id], onDelete: Cascade)
   list              List?              @relation(fields: [listId], references: [id], onDelete: Cascade)
   project           Project?           @relation(fields: [projectId], references: [id], onDelete: Cascade)
@@ -953,54 +1025,55 @@ model SpaceMember {
 }
 
 model Folder {
-  id              String           @id @default(cuid())
-  workspaceId     String?          @map("workspace_id")
-  spaceId         String?          @map("space_id")
-  projectId       String?          @map("project_id")
-  teamId          String?          @map("team_id")
-  ownerId         String           @map("owner_id")
-  previousOwnerId String?          @map("previous_owner_id")
-  parentId        String?          @map("parent_id")
-  name            String
-  description     String?
-  status          FolderStatus     @default(ACTIVE)
-  visibility      Visibility       @default(ADMINS)
-  color           String?
-  icon            String?
-  position        Int              @default(0)
-  isArchived      Boolean          @default(false) @map("is_archived")
-  settings        Json?
-  createdAt       DateTime         @default(now()) @map("created_at")
-  updatedAt       DateTime         @updatedAt @map("updated_at")
-  transferredAt   DateTime?        @map("transferred_at")
-  archivedAt      DateTime?        @map("archived_at")
-  aiConversations AiConversation[]
-  customFields    CustomField[]
-  parent          Folder?          @relation("FolderHierarchy", fields: [parentId], references: [id])
-  children        Folder[]         @relation("FolderHierarchy")
+  id                 String                    @id @default(cuid())
+  workspaceId        String?                   @map("workspace_id")
+  spaceId            String?                   @map("space_id")
+  projectId          String?                   @map("project_id")
+  teamId             String?                   @map("team_id")
+  ownerId            String                    @map("owner_id")
+  previousOwnerId    String?                   @map("previous_owner_id")
+  parentId           String?                   @map("parent_id")
+  name               String
+  description        String?
+  status             FolderStatus              @default(ACTIVE)
+  visibility         Visibility                @default(ADMINS)
+  color              String?
+  icon               String?
+  position           Int                       @default(0)
+  isArchived         Boolean                   @default(false) @map("is_archived")
+  settings           Json?
+  createdAt          DateTime                  @default(now()) @map("created_at")
+  updatedAt          DateTime                  @updatedAt @map("updated_at")
+  transferredAt      DateTime?                 @map("transferred_at")
+  archivedAt         DateTime?                 @map("archived_at")
+  aiConversations    AiConversation[]
+  customFields       CustomField[]
+  parent             Folder?                   @relation("FolderHierarchy", fields: [parentId], references: [id])
+  children           Folder[]                  @relation("FolderHierarchy")
   ownershipTransfers FolderOwnershipTransfer[] @relation("FolderTransfers")
-  project         Project?         @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  space           Space?           @relation(fields: [spaceId], references: [id], onDelete: Cascade)
-  team            Team?            @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  workspace       Workspace?       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  project            Project?                  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  space              Space?                    @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  team               Team?                     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  workspace          Workspace?                @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
   // Owner: restrict deletion — a User cannot be hard-deleted while they own a
   // Folder. Force a transfer (see FolderOwnershipTransfer) or anonymize the
   // User row instead.
-  owner           User             @relation("FolderOwner", fields: [ownerId], references: [id], onDelete: Restrict)
+  owner User @relation("FolderOwner", fields: [ownerId], references: [id], onDelete: Restrict)
 
   // Previous owner: queryable historical link. SetNull on delete — losing the
   // link is fine; FolderOwnershipTransfer is the source of truth for history.
-  previousOwner   User?            @relation("FolderPreviousOwner", fields: [previousOwnerId], references: [id], onDelete: SetNull)
-  lists           List[]
-  taskStatuses    TaskStatus[]
-  taskTypes       TaskType[]
-  views           View[]
-  documents       Document[]
+  previousOwner           User?                    @relation("FolderPreviousOwner", fields: [previousOwnerId], references: [id], onDelete: SetNull)
+  lists                   List[]
+  taskStatuses            TaskStatus[]
+  taskTypes               TaskType[]
+  views                   View[]
+  documents               Document[]
+  taskCustomRelationships TaskCustomRelationship[]
 
   // --- soft delete fields ---
-  deletedAt       DateTime?        @map("deleted_at")
-  deletedById     String?          @map("deleted_by_id")
+  deletedAt   DateTime? @map("deleted_at")
+  deletedById String?   @map("deleted_by_id")
 
   @@index([workspaceId])
   @@index([spaceId])
@@ -1034,10 +1107,10 @@ model FolderOwnershipTransfer {
   expiresAt           DateTime?      @map("expires_at")
   metadata            Json?
 
-  fromOwner           User           @relation("FolderTransferFrom", fields: [fromOwnerId], references: [id])
-  toOwner             User           @relation("FolderTransferTo", fields: [toOwnerId], references: [id])
-  requester           User           @relation("FolderTransferRequestedBy", fields: [requestedBy], references: [id])
-  folder              Folder         @relation("FolderTransfers", fields: [folderId], references: [id], onDelete: Cascade)
+  fromOwner User   @relation("FolderTransferFrom", fields: [fromOwnerId], references: [id])
+  toOwner   User   @relation("FolderTransferTo", fields: [toOwnerId], references: [id])
+  requester User   @relation("FolderTransferRequestedBy", fields: [requestedBy], references: [id])
+  folder    Folder @relation("FolderTransfers", fields: [folderId], references: [id], onDelete: Cascade)
 
   @@index([folderId])
   @@index([fromOwnerId])
@@ -1054,57 +1127,59 @@ model FolderOwnershipTransfer {
 }
 
 model List {
-  id              String           @id @default(cuid())
-  workspaceId     String?          @map("workspace_id")
-  spaceId         String?          @map("space_id")
-  folderId        String?          @map("folder_id")
-  ownerId         String           @map("owner_id")
-  previousOwnerId String?          @map("previous_owner_id")
-  name            String
-  description     String?
-  status          ListStatus       @default(ACTIVE)
-  visibility      Visibility       @default(ADMINS)
-  color           String?
-  icon            String?
-  position        Int              @default(0)
-  isArchived      Boolean          @default(false) @map("is_archived")
-  defaultView     ViewType         @default(LIST) @map("default_view")
-  settings        Json?
-  createdAt       DateTime         @default(now()) @map("created_at")
-  updatedAt       DateTime         @updatedAt @map("updated_at")
-  transferredAt   DateTime?        @map("transferred_at")
-  archivedAt      DateTime?        @map("archived_at")
-  projectId       String?          @map("project_id")
-  teamId          String?          @map("team_id")
-  aiConversations AiConversation[]
-  customFields    CustomField[]
-  folder          Folder?          @relation(fields: [folderId], references: [id], onDelete: Cascade)
-  project         Project?         @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  space           Space?           @relation(fields: [spaceId], references: [id], onDelete: Cascade)
-  team            Team?            @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  workspace       Workspace?       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  id                 String                  @id @default(cuid())
+  workspaceId        String?                 @map("workspace_id")
+  spaceId            String?                 @map("space_id")
+  folderId           String?                 @map("folder_id")
+  ownerId            String                  @map("owner_id")
+  previousOwnerId    String?                 @map("previous_owner_id")
+  name               String
+  description        String?
+  status             ListStatus              @default(ACTIVE)
+  visibility         Visibility              @default(ADMINS)
+  color              String?
+  icon               String?
+  position           Int                     @default(0)
+  isArchived         Boolean                 @default(false) @map("is_archived")
+  defaultView        ViewType                @default(LIST) @map("default_view")
+  settings           Json?
+  createdAt          DateTime                @default(now()) @map("created_at")
+  updatedAt          DateTime                @updatedAt @map("updated_at")
+  transferredAt      DateTime?               @map("transferred_at")
+  archivedAt         DateTime?               @map("archived_at")
+  projectId          String?                 @map("project_id")
+  teamId             String?                 @map("team_id")
+  aiConversations    AiConversation[]
+  customFields       CustomField[]
+  folder             Folder?                 @relation(fields: [folderId], references: [id], onDelete: Cascade)
+  project            Project?                @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  space              Space?                  @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  team               Team?                   @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  workspace          Workspace?              @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   ownershipTransfers ListOwnershipTransfer[] @relation("ListTransfers")
 
   // Owner: restrict deletion — a User cannot be hard-deleted while they own a
   // List. Force a transfer (see ListOwnershipTransfer) or anonymize the
   // User row instead.
-  owner           User             @relation("ListOwner", fields: [ownerId], references: [id], onDelete: Restrict)
+  owner User @relation("ListOwner", fields: [ownerId], references: [id], onDelete: Restrict)
 
   // Previous owner: queryable historical link. SetNull on delete — losing the
   // link is fine; ListOwnershipTransfer is the source of truth for history.
-  previousOwner   User?            @relation("ListPreviousOwner", fields: [previousOwnerId], references: [id], onDelete: SetNull)
-  statuses        TaskStatus[]
-  taskTypes       TaskType[]
-  tasks           Task[]
-  views           View[]
-  locationType    LocationType       @default(WORKSPACE) @map("location_type")
-  createdBy       String?            @map("created_by")
-  creator         User?              @relation("ListCreator", fields: [createdBy], references: [id], onDelete: SetNull)
-  documents       Document[]
+  previousOwner                  User?                    @relation("ListPreviousOwner", fields: [previousOwnerId], references: [id], onDelete: SetNull)
+  statuses                       TaskStatus[]
+  taskTypes                      TaskType[]
+  tasks                          Task[]
+  views                          View[]
+  locationType                   LocationType             @default(WORKSPACE) @map("location_type")
+  createdBy                      String?                  @map("created_by")
+  creator                        User?                    @relation("ListCreator", fields: [createdBy], references: [id], onDelete: SetNull)
+  documents                      Document[]
+  taskCustomRelationships        TaskCustomRelationship[] @relation("RelatedList")
+  taskCustomRelationshipsContext TaskCustomRelationship[] @relation("ContextList")
 
   // --- soft delete fields ---
-  deletedAt       DateTime?        @map("deleted_at")
-  deletedById     String?          @map("deleted_by_id")
+  deletedAt   DateTime? @map("deleted_at")
+  deletedById String?   @map("deleted_by_id")
 
   @@index([workspaceId])
   @@index([spaceId])
@@ -1136,10 +1211,10 @@ model ListOwnershipTransfer {
   expiresAt           DateTime?      @map("expires_at")
   metadata            Json?
 
-  fromOwner           User           @relation("ListTransferFrom", fields: [fromOwnerId], references: [id])
-  toOwner             User           @relation("ListTransferTo", fields: [toOwnerId], references: [id])
-  requester           User           @relation("ListTransferRequestedBy", fields: [requestedBy], references: [id])
-  list                List           @relation("ListTransfers", fields: [listId], references: [id], onDelete: Cascade)
+  fromOwner User @relation("ListTransferFrom", fields: [fromOwnerId], references: [id])
+  toOwner   User @relation("ListTransferTo", fields: [toOwnerId], references: [id])
+  requester User @relation("ListTransferRequestedBy", fields: [requestedBy], references: [id])
+  list      List @relation("ListTransfers", fields: [listId], references: [id], onDelete: Cascade)
 
   @@index([listId])
   @@index([fromOwnerId])
@@ -1156,61 +1231,61 @@ model ListOwnershipTransfer {
 }
 
 model View {
-  id              String         @id @default(cuid())
-  listId          String?        @map("list_id")
-  folderId        String?        @map("folder_id")
-  workspaceId     String?        @map("workspace_id")
-  spaceId         String?        @map("space_id")
-  projectId       String?        @map("project_id")
-  teamId          String?        @map("team_id")
-  ownerId         String         @map("owner_id")
-  previousOwnerId String?        @map("previous_owner_id")
-  name            String
-  type            ViewType
-  description     String?
-  status          ViewStatus     @default(ACTIVE)
-  config          Json?
-  filters         Json?
-  grouping        Json?
-  sorting         Json?
-  columns         Json?
-  isDefault       Boolean        @default(false) @map("is_default")
-  isShared        Boolean        @default(false) @map("is_shared")
-  isPrivate       Boolean        @default(false) @map("is_private")
-  isPinned        Boolean        @default(false) @map("is_pinned")
-  isLocked        Boolean        @default(false) @map("is_locked")
-  visibility      Visibility     @default(ADMINS)
-  isAutosave      Boolean        @default(false) @map("is_autosave")
-  position        Int            @default(0)
-  sidebarView     Boolean        @default(false) @map("sidebar_view")
-  sidebarOrder    Int?           @map("sidebar_order")
-  createdAt       DateTime       @default(now()) @map("created_at")
-  updatedAt       DateTime       @updatedAt @map("updated_at")
-  transferredAt   DateTime?      @map("transferred_at")
-  shares          ViewShare[]
+  id                 String                  @id @default(cuid())
+  listId             String?                 @map("list_id")
+  folderId           String?                 @map("folder_id")
+  workspaceId        String?                 @map("workspace_id")
+  spaceId            String?                 @map("space_id")
+  projectId          String?                 @map("project_id")
+  teamId             String?                 @map("team_id")
+  ownerId            String                  @map("owner_id")
+  previousOwnerId    String?                 @map("previous_owner_id")
+  name               String
+  type               ViewType
+  description        String?
+  status             ViewStatus              @default(ACTIVE)
+  config             Json?
+  filters            Json?
+  grouping           Json?
+  sorting            Json?
+  columns            Json?
+  isDefault          Boolean                 @default(false) @map("is_default")
+  isShared           Boolean                 @default(false) @map("is_shared")
+  isPrivate          Boolean                 @default(false) @map("is_private")
+  isPinned           Boolean                 @default(false) @map("is_pinned")
+  isLocked           Boolean                 @default(false) @map("is_locked")
+  visibility         Visibility              @default(ADMINS)
+  isAutosave         Boolean                 @default(false) @map("is_autosave")
+  position           Int                     @default(0)
+  sidebarView        Boolean                 @default(false) @map("sidebar_view")
+  sidebarOrder       Int?                    @map("sidebar_order")
+  createdAt          DateTime                @default(now()) @map("created_at")
+  updatedAt          DateTime                @updatedAt @map("updated_at")
+  transferredAt      DateTime?               @map("transferred_at")
+  shares             ViewShare[]
   ownershipTransfers ViewOwnershipTransfer[] @relation("ViewTransfers")
 
   // Owner: restrict deletion — a User cannot be hard-deleted while they own a
   // View. Force a transfer (see ViewOwnershipTransfer) or anonymize the
   // User row instead.
-  owner           User           @relation("ViewOwner", fields: [ownerId], references: [id], onDelete: Restrict)
+  owner User @relation("ViewOwner", fields: [ownerId], references: [id], onDelete: Restrict)
 
   // Previous owner: queryable historical link. SetNull on delete — losing the
   // link is fine; ViewOwnershipTransfer is the source of truth for history.
-  previousOwner   User?          @relation("ViewPreviousOwner", fields: [previousOwnerId], references: [id], onDelete: SetNull)
-  folder          Folder?        @relation(fields: [folderId], references: [id], onDelete: Cascade)
-  list            List?          @relation(fields: [listId], references: [id], onDelete: Cascade)
-  project         Project?       @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  space           Space?         @relation(fields: [spaceId], references: [id], onDelete: Cascade)
-  team            Team?          @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  workspace       Workspace?     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  previousOwner User?      @relation("ViewPreviousOwner", fields: [previousOwnerId], references: [id], onDelete: SetNull)
+  folder        Folder?    @relation(fields: [folderId], references: [id], onDelete: Cascade)
+  list          List?      @relation(fields: [listId], references: [id], onDelete: Cascade)
+  project       Project?   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  space         Space?     @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  team          Team?      @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  workspace     Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
-  formResponses   FormResponse[]
-  documents       Document[]
+  formResponses FormResponse[]
+  documents     Document[]
 
   // --- soft delete fields ---
-  deletedAt       DateTime?        @map("deleted_at")
-  deletedById     String?          @map("deleted_by_id")
+  deletedAt   DateTime? @map("deleted_at")
+  deletedById String?   @map("deleted_by_id")
 
   @@index([listId])
   @@index([folderId])
@@ -1243,10 +1318,10 @@ model ViewOwnershipTransfer {
   expiresAt           DateTime?      @map("expires_at")
   metadata            Json?
 
-  fromOwner           User           @relation("ViewTransferFrom", fields: [fromOwnerId], references: [id])
-  toOwner             User           @relation("ViewTransferTo", fields: [toOwnerId], references: [id])
-  requester           User           @relation("ViewTransferRequestedBy", fields: [requestedBy], references: [id])
-  view                View           @relation("ViewTransfers", fields: [viewId], references: [id], onDelete: Cascade)
+  fromOwner User @relation("ViewTransferFrom", fields: [fromOwnerId], references: [id])
+  toOwner   User @relation("ViewTransferTo", fields: [toOwnerId], references: [id])
+  requester User @relation("ViewTransferRequestedBy", fields: [requestedBy], references: [id])
+  view      View @relation("ViewTransfers", fields: [viewId], references: [id], onDelete: Cascade)
 
   @@index([viewId])
   @@index([fromOwnerId])
@@ -1330,62 +1405,62 @@ model DashboardWidget {
 }
 
 model Document {
-  id            String                 @id @default(cuid())
-  workspaceId   String?                @map("workspace_id")
-  parentId      String?                @map("parent_id")
-  spaceId       String?                @map("space_id")
-  projectId     String?                @map("project_id")
-  listId        String?                @map("list_id")
-  folderId      String?                @map("folder_id")
-  teamId        String?                @map("team_id")
-  viewId        String?                @map("view_id")
-  ownerId       String                 @map("owner_id")
-  previousOwnerId String?              @map("previous_owner_id")
-  title         String
-  description   String?
-  content       String
-  icon          String?
-  coverImage    String?                @map("cover_image")
-  status        DocumentStatus         @default(ACTIVE)
-  isPublished   Boolean                @default(false) @map("is_published")
-  isArchived    Boolean                @default(false) @map("is_archived")
-  isTemplate    Boolean                @default(false) @map("is_template")
-  position      String             @default("a0")
-  version       Int                    @default(1)
-  createdAt     DateTime               @default(now()) @map("created_at")
-  updatedAt     DateTime               @updatedAt @map("updated_at")
-  transferredAt DateTime?              @map("transferred_at")
-  publishedAt   DateTime?              @map("published_at")
-  settings      Json?
-  collaborators DocumentCollaborator[]
-  versions      DocumentVersion[]
-  relationships DocumentRelationship[]
-  parent        Document?              @relation("DocumentHierarchy", fields: [parentId], references: [id])
-  children      Document[]             @relation("DocumentHierarchy")
+  id                 String                      @id @default(cuid())
+  workspaceId        String?                     @map("workspace_id")
+  parentId           String?                     @map("parent_id")
+  spaceId            String?                     @map("space_id")
+  projectId          String?                     @map("project_id")
+  listId             String?                     @map("list_id")
+  folderId           String?                     @map("folder_id")
+  teamId             String?                     @map("team_id")
+  viewId             String?                     @map("view_id")
+  ownerId            String                      @map("owner_id")
+  previousOwnerId    String?                     @map("previous_owner_id")
+  title              String
+  description        String?
+  content            String
+  icon               String?
+  coverImage         String?                     @map("cover_image")
+  status             DocumentStatus              @default(ACTIVE)
+  isPublished        Boolean                     @default(false) @map("is_published")
+  isArchived         Boolean                     @default(false) @map("is_archived")
+  isTemplate         Boolean                     @default(false) @map("is_template")
+  position           String                      @default("a0")
+  version            Int                         @default(1)
+  createdAt          DateTime                    @default(now()) @map("created_at")
+  updatedAt          DateTime                    @updatedAt @map("updated_at")
+  transferredAt      DateTime?                   @map("transferred_at")
+  publishedAt        DateTime?                   @map("published_at")
+  settings           Json?
+  collaborators      DocumentCollaborator[]
+  versions           DocumentVersion[]
+  relationships      DocumentRelationship[]
+  parent             Document?                   @relation("DocumentHierarchy", fields: [parentId], references: [id])
+  children           Document[]                  @relation("DocumentHierarchy")
   ownershipTransfers DocumentOwnershipTransfer[] @relation("DocumentTransfers")
-  workspace     Workspace?             @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  space         Space?                 @relation(fields: [spaceId], references: [id], onDelete: Cascade)
-  project       Project?               @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  list          List?                  @relation(fields: [listId], references: [id], onDelete: Cascade)
-  folder        Folder?                @relation(fields: [folderId], references: [id], onDelete: Cascade)
-  team          Team?                  @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  view          View?                  @relation(fields: [viewId], references: [id], onDelete: Cascade)
+  workspace          Workspace?                  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  space              Space?                      @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  project            Project?                    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  list               List?                       @relation(fields: [listId], references: [id], onDelete: Cascade)
+  folder             Folder?                     @relation(fields: [folderId], references: [id], onDelete: Cascade)
+  team               Team?                       @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  view               View?                       @relation(fields: [viewId], references: [id], onDelete: Cascade)
 
   // Owner: restrict deletion — a User cannot be hard-deleted while they own a
   // Document. Force a transfer (see DocumentOwnershipTransfer) or anonymize the
   // User row instead.
-  owner         User                   @relation("DocumentOwner", fields: [ownerId], references: [id], onDelete: Restrict)
+  owner User @relation("DocumentOwner", fields: [ownerId], references: [id], onDelete: Restrict)
 
   // Previous owner: queryable historical link. SetNull on delete — losing the
   // link is fine; DocumentOwnershipTransfer is the source of truth for history.
-  previousOwner User?                  @relation("DocumentPreviousOwner", fields: [previousOwnerId], references: [id], onDelete: SetNull)
+  previousOwner User?             @relation("DocumentPreviousOwner", fields: [previousOwnerId], references: [id], onDelete: SetNull)
   comments      DocumentComment[]
   watchers      DocumentWatcher[]
-  locationType  LocationType           @default(PERSONAL)  @map("location_type")
+  locationType  LocationType      @default(PERSONAL) @map("location_type")
 
   // --- soft delete fields ---
-  deletedAt       DateTime?        @map("deleted_at")
-  deletedById     String?          @map("deleted_by_id")
+  deletedAt   DateTime? @map("deleted_at")
+  deletedById String?   @map("deleted_by_id")
 
   @@index([workspaceId])
   @@index([spaceId])
@@ -1421,10 +1496,10 @@ model DocumentOwnershipTransfer {
   expiresAt           DateTime?      @map("expires_at")
   metadata            Json?
 
-  fromOwner           User           @relation("DocumentTransferFrom", fields: [fromOwnerId], references: [id])
-  toOwner             User           @relation("DocumentTransferTo", fields: [toOwnerId], references: [id])
-  requester           User           @relation("DocumentTransferRequestedBy", fields: [requestedBy], references: [id])
-  document            Document       @relation("DocumentTransfers", fields: [documentId], references: [id], onDelete: Cascade)
+  fromOwner User     @relation("DocumentTransferFrom", fields: [fromOwnerId], references: [id])
+  toOwner   User     @relation("DocumentTransferTo", fields: [toOwnerId], references: [id])
+  requester User     @relation("DocumentTransferRequestedBy", fields: [requestedBy], references: [id])
+  document  Document @relation("DocumentTransfers", fields: [documentId], references: [id], onDelete: Cascade)
 
   @@index([documentId])
   @@index([fromOwnerId])
@@ -1441,12 +1516,12 @@ model DocumentOwnershipTransfer {
 }
 
 model DocumentRelationship {
-  id              String   @id @default(cuid())
-  documentId      String   @map("document_id")
-  targetType      String   // "TASK" or "DOCUMENT"
-  targetId        String   @map("target_id")
-  createdAt       DateTime @default(now()) @map("created_at")
-  document        Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  id         String   @id @default(cuid())
+  documentId String   @map("document_id")
+  targetType String // "TASK" or "DOCUMENT"
+  targetId   String   @map("target_id")
+  createdAt  DateTime @default(now()) @map("created_at")
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
 
   @@unique([documentId, targetType, targetId])
   @@index([documentId])
@@ -1454,25 +1529,25 @@ model DocumentRelationship {
 }
 
 model DocumentComment {
-  id           String                @id @default(cuid())
-  documentId   String                @map("document_id")
-  userId       String                @map("user_id")
-  parentId     String?               @map("parent_id")
+  id           String                      @id @default(cuid())
+  documentId   String                      @map("document_id")
+  userId       String                      @map("user_id")
+  parentId     String?                     @map("parent_id")
   content      String
-  isEdited     Boolean               @default(false) @map("is_edited")
-  isResolved   Boolean               @default(false) @map("is_resolved")
-  resolvedById String?               @map("resolved_by_id")
-  resolvedAt   DateTime?             @map("resolved_at")
-  assigneeId   String?               @map("assignee_id")
-  editedAt     DateTime?             @map("edited_at")
-  createdAt    DateTime              @default(now()) @map("created_at")
-  updatedAt    DateTime              @updatedAt @map("updated_at")
-  document     Document              @relation(fields: [documentId], references: [id], onDelete: Cascade)
-  user         User                  @relation("DocumentCommentAuthor", fields: [userId], references: [id], onDelete: Cascade)
-  assignee     User?                 @relation("DocumentCommentAssignee", fields: [assigneeId], references: [id])
-  resolvedBy   User?                 @relation("DocumentCommentResolver", fields: [resolvedById], references: [id])
-  parent       DocumentComment?      @relation("DocCommentReplies", fields: [parentId], references: [id])
-  replies      DocumentComment[]     @relation("DocCommentReplies")
+  isEdited     Boolean                     @default(false) @map("is_edited")
+  isResolved   Boolean                     @default(false) @map("is_resolved")
+  resolvedById String?                     @map("resolved_by_id")
+  resolvedAt   DateTime?                   @map("resolved_at")
+  assigneeId   String?                     @map("assignee_id")
+  editedAt     DateTime?                   @map("edited_at")
+  createdAt    DateTime                    @default(now()) @map("created_at")
+  updatedAt    DateTime                    @updatedAt @map("updated_at")
+  document     Document                    @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  user         User                        @relation("DocumentCommentAuthor", fields: [userId], references: [id], onDelete: Cascade)
+  assignee     User?                       @relation("DocumentCommentAssignee", fields: [assigneeId], references: [id])
+  resolvedBy   User?                       @relation("DocumentCommentResolver", fields: [resolvedById], references: [id])
+  parent       DocumentComment?            @relation("DocCommentReplies", fields: [parentId], references: [id])
+  replies      DocumentComment[]           @relation("DocCommentReplies")
   attachments  DocumentCommentAttachment[]
   reactions    DocumentCommentReaction[]
 
@@ -1495,7 +1570,6 @@ model DocumentWatcher {
   // Prisma handles nullable unique fields properly (enforces uniqueness for non-null tuples)
   @@unique([documentId, userId])
   @@unique([documentId, teamId])
-  
   @@index([userId])
   @@index([teamId])
   @@map("document_watchers")
@@ -1581,8 +1655,8 @@ model Channel {
   tasks           Task[]
 
   // --- soft delete fields ---
-  deletedAt       DateTime?        @map("deleted_at")
-  deletedById     String?          @map("deleted_by_id")
+  deletedAt   DateTime? @map("deleted_at")
+  deletedById String?   @map("deleted_by_id")
 
   @@index([workspaceId])
   @@index([type])
@@ -1693,34 +1767,34 @@ model WorkspaceAnalytics {
 }
 
 model Automation {
-  id             String              @id @default(cuid())
-  workspaceId    String?             @map("workspace_id")
-  ownerId        String               @map("owner_id")
+  id             String                 @id @default(cuid())
+  workspaceId    String?                @map("workspace_id")
+  ownerId        String                 @map("owner_id")
   name           String
   description    String?
   status         AutomationEntityStatus @default(ACTIVE)
   conditions     Json?
   actions        Json
-  isActive       Boolean             @default(true) @map("is_active")
-  runCount       Int                 @default(0) @map("run_count")
-  lastRanAt      DateTime?           @map("last_ran_at")
-  createdAt      DateTime            @default(now()) @map("created_at")
-  updatedAt      DateTime            @updatedAt @map("updated_at")
-  agentId        String?             @map("agent_id") @db.Uuid
-  cronExpression String?             @map("cron_expression")
-  isScheduled    Boolean             @default(false) @map("is_scheduled")
-  projectId      String?             @map("project_id")
-  spaceId        String?             @map("space_id")
-  teamId         String?             @map("team_id")
-  timezone       String?             @default("UTC")
+  isActive       Boolean                @default(true) @map("is_active")
+  runCount       Int                    @default(0) @map("run_count")
+  lastRanAt      DateTime?              @map("last_ran_at")
+  createdAt      DateTime               @default(now()) @map("created_at")
+  updatedAt      DateTime               @updatedAt @map("updated_at")
+  agentId        String?                @map("agent_id") @db.Uuid
+  cronExpression String?                @map("cron_expression")
+  isScheduled    Boolean                @default(false) @map("is_scheduled")
+  projectId      String?                @map("project_id")
+  spaceId        String?                @map("space_id")
+  teamId         String?                @map("team_id")
+  timezone       String?                @default("UTC")
   logs           AutomationLog[]
   triggers       AutomationTrigger[]
-  aiAgent        AiAgent?            @relation(fields: [agentId], references: [id])
-  projects       Project?            @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  spaces         Space?              @relation(fields: [spaceId], references: [id], onDelete: Cascade)
-  teams          Team?               @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  workspace      Workspace?          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  owner          User                @relation("AutomationOwner", fields: [ownerId], references: [id], onDelete: Restrict)
+  aiAgent        AiAgent?               @relation(fields: [agentId], references: [id])
+  projects       Project?               @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  spaces         Space?                 @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  teams          Team?                  @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  workspace      Workspace?             @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  owner          User                   @relation("AutomationOwner", fields: [ownerId], references: [id], onDelete: Restrict)
 
   @@index([workspaceId])
   @@index([isActive])
@@ -1842,11 +1916,11 @@ model MarketplaceApplication {
 /// A published item in the marketplace (template, agent, tool, task, talent, team, project).
 model MarketplaceListing {
   // ─── Identity ───────────────────────────────────────────────────────────────
-  id     String        @id @default(cuid())
+  id            String         @id @default(cuid())
   conversations Conversation[]
-  slug   String        @unique // SEO-friendly URL slug
-  type   ListingType
-  status ListingStatus @default(DRAFT)
+  slug          String         @unique // SEO-friendly URL slug
+  type          ListingType
+  status        ListingStatus  @default(DRAFT)
 
   // ─── Content ────────────────────────────────────────────────────────────────
   title            String
@@ -1934,8 +2008,8 @@ model MarketplaceListing {
   versions     ListingVersion[]         @relation("listingVersions")
 
   // --- soft delete fields ---
-  deletedAt       DateTime?        @map("deleted_at")
-  deletedById     String?          @map("deleted_by_id")
+  deletedAt   DateTime? @map("deleted_at")
+  deletedById String?   @map("deleted_by_id")
 
   // ─── Indexes ────────────────────────────────────────────────────────────────
   @@index([slug])
@@ -2173,28 +2247,28 @@ model Earning {
 }
 
 model Project {
-  id                 String                     @id @default(cuid())
-  workspaceId        String?                    @map("workspace_id")
-  organizationId     String?                    @map("organization_id")
-  ownerId            String                     @map("owner_id")
-  previousOwnerId    String?                    @map("previous_owner_id")
+  id                 String                 @id @default(cuid())
+  workspaceId        String?                @map("workspace_id")
+  organizationId     String?                @map("organization_id")
+  ownerId            String                 @map("owner_id")
+  previousOwnerId    String?                @map("previous_owner_id")
   name               String
   description        String
   logo               String?
   icon               String?
   color              String?
   tags               String[]
-  status             ProjectStatus              @default(DRAFT)
-  isActive           Boolean                    @default(true) @map("is_active")
-  visibility         Visibility                 @default(ADMINS)
-  isPublic           Boolean                    @default(true) @map("is_public")
+  status             ProjectStatus          @default(DRAFT)
+  isActive           Boolean                @default(true) @map("is_active")
+  visibility         Visibility             @default(ADMINS)
+  isPublic           Boolean                @default(true) @map("is_public")
   embedding          Unsupported("vector")?
-  embeddingUpdatedAt DateTime?                  @map("embedding_updated_at")
-  createdAt          DateTime                   @default(now()) @map("created_at")
-  updatedAt          DateTime                   @updatedAt @map("updated_at")
-  launchedAt         DateTime?                  @map("launched_at")
-  transferredAt       DateTime?                 @map("transferred_at")
-  spaceId            String?                    @map("space_id")
+  embeddingUpdatedAt DateTime?              @map("embedding_updated_at")
+  createdAt          DateTime               @default(now()) @map("created_at")
+  updatedAt          DateTime               @updatedAt @map("updated_at")
+  launchedAt         DateTime?              @map("launched_at")
+  transferredAt      DateTime?              @map("transferred_at")
+  spaceId            String?                @map("space_id")
 
   activityLogs       ActivityLog[]
   aiAgents           AiAgent[]
@@ -2219,24 +2293,25 @@ model Project {
   // Owner: restrict deletion — a User cannot be hard-deleted while they own a
   // Project. Force a transfer (see ProjectOwnershipTransfer) or anonymize the
   // User row instead. See note below on why this isn't Cascade.
-  owner              User                       @relation("ProjectOwner", fields: [ownerId], references: [id], onDelete: Restrict)
+  owner User @relation("ProjectOwner", fields: [ownerId], references: [id], onDelete: Restrict)
 
   // Previous owner: now a real relation instead of a bare string, so it's
   // queryable and referentially safe. SetNull on delete — losing the
   // historical "previous owner" link is fine, it's not authoritative
   // (ProjectOwnershipTransfer is the source of truth for history).
-  previousOwner      User?                      @relation("ProjectPreviousOwner", fields: [previousOwnerId], references: [id], onDelete: SetNull)
+  previousOwner User? @relation("ProjectPreviousOwner", fields: [previousOwnerId], references: [id], onDelete: SetNull)
 
-  space              Space?                     @relation(fields: [spaceId], references: [id])
-  workspace          Workspace?                 @relation(fields: [workspaceId], references: [id])
-  organization       Organization?              @relation(fields: [organizationId], references: [id])
-  requests           Request[]
-  reviews            Review[]
-  taskStatuses       TaskStatus[]
-  taskTypes          TaskType[]
-  tasks              Task[]
-  views              View[]
-  documents          Document[]
+  space                   Space?                   @relation(fields: [spaceId], references: [id])
+  workspace               Workspace?               @relation(fields: [workspaceId], references: [id])
+  organization            Organization?            @relation(fields: [organizationId], references: [id])
+  requests                Request[]
+  reviews                 Review[]
+  taskStatuses            TaskStatus[]
+  taskTypes               TaskType[]
+  tasks                   Task[]
+  views                   View[]
+  documents               Document[]
+  taskCustomRelationships TaskCustomRelationship[]
 
   // --- soft delete fields ---
   deletedAt   DateTime? @map("deleted_at")
@@ -2253,24 +2328,24 @@ model Project {
 }
 
 model ProjectMember {
-  id                 String           @id @default(cuid())
-  projectId          String           @map("project_id")
-  userId             String           @map("user_id")
-  role               String
-  title              String?
-  permissions        Permission[]
-  status             MemberStatus     @default(ACTIVE)
-  canPost            Boolean          @default(true) @map("can_post")
-  canComment         Boolean          @default(true) @map("can_comment")
-  canViewProject     Boolean          @default(true) @map("can_view_project")
-  isBlocked          Boolean          @default(false) @map("is_blocked")
-  blockedAt          DateTime?        @map("blocked_at")
-  blockedBy          String?          @map("blocked_by")
-  blockReason        String?          @map("block_reason")
-  joinedAt           DateTime         @default(now()) @map("joined_at")
-  leftAt             DateTime?        @map("left_at")
-  project            Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  user               User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id             String       @id @default(cuid())
+  projectId      String       @map("project_id")
+  userId         String       @map("user_id")
+  role           String
+  title          String?
+  permissions    Permission[]
+  status         MemberStatus @default(ACTIVE)
+  canPost        Boolean      @default(true) @map("can_post")
+  canComment     Boolean      @default(true) @map("can_comment")
+  canViewProject Boolean      @default(true) @map("can_view_project")
+  isBlocked      Boolean      @default(false) @map("is_blocked")
+  blockedAt      DateTime?    @map("blocked_at")
+  blockedBy      String?      @map("blocked_by")
+  blockReason    String?      @map("block_reason")
+  joinedAt       DateTime     @default(now()) @map("joined_at")
+  leftAt         DateTime?    @map("left_at")
+  project        Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([projectId, userId])
   @@index([isBlocked])
@@ -2279,16 +2354,16 @@ model ProjectMember {
 }
 
 model ProjectOwnershipTransfer {
-  id                 String         @id @default(cuid())
-  projectId          String         @map("project_id")
-  fromOwnerId        String         @map("from_owner_id")
-  toOwnerId          String         @map("to_owner_id")
+  id          String @id @default(cuid())
+  projectId   String @map("project_id")
+  fromOwnerId String @map("from_owner_id")
+  toOwnerId   String @map("to_owner_id")
 
   // Who actually triggered this transfer. Usually == fromOwnerId, but not
   // always — an admin can force a transfer during offboarding, abuse
   // handling, or dispute resolution, and that shouldn't be indistinguishable
   // from a normal owner-initiated transfer.
-  requestedBy        String         @map("requested_by")
+  requestedBy String @map("requested_by")
 
   reason             String?
   notes              String?
@@ -2302,14 +2377,14 @@ model ProjectOwnershipTransfer {
 
   // Store a hash, never the raw token. Compare by hashing the incoming
   // token from the accept-link and looking up the hash.
-  acceptanceTokenHash String?       @unique @map("acceptance_token_hash")
-  expiresAt          DateTime?      @map("expires_at")
-  metadata           Json?
+  acceptanceTokenHash String?   @unique @map("acceptance_token_hash")
+  expiresAt           DateTime? @map("expires_at")
+  metadata            Json?
 
-  fromOwner          User           @relation("TransferFrom", fields: [fromOwnerId], references: [id])
-  toOwner            User           @relation("TransferTo", fields: [toOwnerId], references: [id])
-  requester          User           @relation("TransferRequestedBy", fields: [requestedBy], references: [id])
-  project            Project        @relation("ProjectTransfers", fields: [projectId], references: [id], onDelete: Cascade)
+  fromOwner User    @relation("TransferFrom", fields: [fromOwnerId], references: [id])
+  toOwner   User    @relation("TransferTo", fields: [toOwnerId], references: [id])
+  requester User    @relation("TransferRequestedBy", fields: [requestedBy], references: [id])
+  project   Project @relation("ProjectTransfers", fields: [projectId], references: [id], onDelete: Cascade)
 
   @@index([projectId])
   @@index([fromOwnerId])
@@ -2352,47 +2427,47 @@ model ProjectBlockedMember {
 }
 
 model Post {
-  id           String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  userId       String         @map("user_id")
-  title        String?
-  content      String
-  type         PostType       @default(UPDATE)
-  topic        PostTopic      @default(OTHERS)
-  projectId    String?        @map("project_id")
-  teamId       String?        @map("team_id")
-  communityGroupId String?    @map("community_group_id")
-  slug         String?        @unique
-  coverImage   String?        @map("cover_image")
-  attachments  String[]
-  tags         String[]
-  visibility   PostVisibility @default(PUBLIC)
-  isPinned     Boolean        @default(false) @map("is_pinned")
-  isEdited     Boolean        @default(false) @map("is_edited")
-  likeCount    Int            @default(0) @map("like_count")
-  commentCount Int            @default(0) @map("comment_count")
-  shareCount   Int            @default(0) @map("share_count")
-  viewCount    Int            @default(0) @map("view_count")
-  createdAt    DateTime       @default(now()) @map("created_at")
-  updatedAt    DateTime       @updatedAt @map("updated_at")
-  deletedAt    DateTime?      @map("deleted_at")
-  deletedById  String?        @map("deleted_by_id")
-  editedAt     DateTime?      @map("edited_at")
-  isHidden     Boolean        @default(false) @map("is_hidden")
-  reportCount  Int            @default(0)     @map("report_count")
-  publishedAt  DateTime?      @map("published_at")
-  scheduledAt  DateTime?      @map("scheduled_at")
-  comments     PostComment[]
-  likes        PostLike[]
-  shares       PostShare[]
-  bookmarks    PostBookmark[]
-  follows      PostFollow[]
-  reports      PostReport[]
-  project      Project?       @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  team         Team?          @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  communityGroup CommunityGroup? @relation(fields: [communityGroupId], references: [id], onDelete: Cascade)
-  user         User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  embedding                      Unsupported("vector")?
-  embeddingUpdatedAt  DateTime?              @map("embedding_updated_at")
+  id                 String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId             String                 @map("user_id")
+  title              String?
+  content            String
+  type               PostType               @default(UPDATE)
+  topic              PostTopic              @default(OTHERS)
+  projectId          String?                @map("project_id")
+  teamId             String?                @map("team_id")
+  communityGroupId   String?                @map("community_group_id")
+  slug               String?                @unique
+  coverImage         String?                @map("cover_image")
+  attachments        String[]
+  tags               String[]
+  visibility         PostVisibility         @default(PUBLIC)
+  isPinned           Boolean                @default(false) @map("is_pinned")
+  isEdited           Boolean                @default(false) @map("is_edited")
+  likeCount          Int                    @default(0) @map("like_count")
+  commentCount       Int                    @default(0) @map("comment_count")
+  shareCount         Int                    @default(0) @map("share_count")
+  viewCount          Int                    @default(0) @map("view_count")
+  createdAt          DateTime               @default(now()) @map("created_at")
+  updatedAt          DateTime               @updatedAt @map("updated_at")
+  deletedAt          DateTime?              @map("deleted_at")
+  deletedById        String?                @map("deleted_by_id")
+  editedAt           DateTime?              @map("edited_at")
+  isHidden           Boolean                @default(false) @map("is_hidden")
+  reportCount        Int                    @default(0) @map("report_count")
+  publishedAt        DateTime?              @map("published_at")
+  scheduledAt        DateTime?              @map("scheduled_at")
+  comments           PostComment[]
+  likes              PostLike[]
+  shares             PostShare[]
+  bookmarks          PostBookmark[]
+  follows            PostFollow[]
+  reports            PostReport[]
+  project            Project?               @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  team               Team?                  @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  communityGroup     CommunityGroup?        @relation(fields: [communityGroupId], references: [id], onDelete: Cascade)
+  user               User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  embedding          Unsupported("vector")?
+  embeddingUpdatedAt DateTime?              @map("embedding_updated_at")
 
   @@index([userId])
   @@index([projectId])
@@ -2428,15 +2503,15 @@ model CommunityGroup {
 }
 
 model CommunityGroupMember {
-  id        String         @id @default(cuid())
-  groupId   String         @map("group_id")
-  userId    String         @map("user_id")
-  role      String         @default("MEMBER")
-  joinedAt  DateTime       @default(now()) @map("joined_at")
-  leftAt    DateTime?      @map("left_at")
-  isActive  Boolean        @default(true) @map("is_active")
-  group     CommunityGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
-  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id       String         @id @default(cuid())
+  groupId  String         @map("group_id")
+  userId   String         @map("user_id")
+  role     String         @default("MEMBER")
+  joinedAt DateTime       @default(now()) @map("joined_at")
+  leftAt   DateTime?      @map("left_at")
+  isActive Boolean        @default(true) @map("is_active")
+  group    CommunityGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user     User           @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([groupId, userId])
   @@index([userId])
@@ -2465,20 +2540,20 @@ model CommunityGroupBan {
 }
 
 model CommunityGroupAppeal {
-  id               String                   @id @default(cuid())
-  groupId          String                   @map("group_id")
-  userId           String                   @map("user_id")
+  id               String                @id @default(cuid())
+  groupId          String                @map("group_id")
+  userId           String                @map("user_id")
   message          String
-  status           CommunityAppealStatus    @default(PENDING)
-  responseMessage  String?                  @map("response_message")
-  reviewedByUserId String?                  @map("reviewed_by_user_id")
-  reviewedAt       DateTime?                @map("reviewed_at")
-  reportedToAdmin  Boolean                  @default(false) @map("reported_to_admin")
-  createdAt        DateTime                 @default(now()) @map("created_at")
-  updatedAt        DateTime                 @updatedAt @map("updated_at")
-  group            CommunityGroup           @relation(fields: [groupId], references: [id], onDelete: Cascade)
-  user             User                     @relation("CommunityGroupAppealUser", fields: [userId], references: [id], onDelete: Cascade)
-  reviewedBy       User?                    @relation("CommunityGroupAppealReviewer", fields: [reviewedByUserId], references: [id], onDelete: SetNull)
+  status           CommunityAppealStatus @default(PENDING)
+  responseMessage  String?               @map("response_message")
+  reviewedByUserId String?               @map("reviewed_by_user_id")
+  reviewedAt       DateTime?             @map("reviewed_at")
+  reportedToAdmin  Boolean               @default(false) @map("reported_to_admin")
+  createdAt        DateTime              @default(now()) @map("created_at")
+  updatedAt        DateTime              @updatedAt @map("updated_at")
+  group            CommunityGroup        @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user             User                  @relation("CommunityGroupAppealUser", fields: [userId], references: [id], onDelete: Cascade)
+  reviewedBy       User?                 @relation("CommunityGroupAppealReviewer", fields: [reviewedByUserId], references: [id], onDelete: SetNull)
 
   @@index([groupId, createdAt])
   @@index([userId, createdAt])
@@ -2677,31 +2752,32 @@ model Team {
   Requests            Request[]
   taskAssignees       TaskAssignee[]         @relation("TaskAssigneesTeam")
 
-  taskStatuses TaskStatus[]
-  taskTypes    TaskType[]
-  tasks        Task[]
-  documentWatchers DocumentWatcher[]
-  members      TeamMember[]  @relation("TeamMemberTeam")
+  taskStatuses       TaskStatus[]
+  taskTypes          TaskType[]
+  tasks              Task[]
+  documentWatchers   DocumentWatcher[]
+  members            TeamMember[]            @relation("TeamMemberTeam")
   ownershipTransfers TeamOwnershipTransfer[] @relation("TeamTransfers")
-  organization Organization? @relation(fields: [organizationId], references: [id])
+  organization       Organization?           @relation(fields: [organizationId], references: [id])
 
   // Owner: restrict deletion — a User cannot be hard-deleted while they own a
   // Team. Force a transfer (see TeamOwnershipTransfer) or anonymize the
   // User row instead.
-  owner        User          @relation("TeamOwner", fields: [ownerId], references: [id], onDelete: Restrict)
+  owner User @relation("TeamOwner", fields: [ownerId], references: [id], onDelete: Restrict)
 
   // Previous owner: queryable historical link. SetNull on delete — losing the
   // link is fine; TeamOwnershipTransfer is the source of truth for history.
-  previousOwner User?        @relation("TeamPreviousOwner", fields: [previousOwnerId], references: [id], onDelete: SetNull)
-  space        Space?        @relation(fields: [spaceId], references: [id])
-  workspace    Workspace?    @relation(fields: [workspaceId], references: [id])
-  viewShares   ViewShare[]
-  views        View[]
-  documents    Document[]
+  previousOwner           User?                    @relation("TeamPreviousOwner", fields: [previousOwnerId], references: [id], onDelete: SetNull)
+  space                   Space?                   @relation(fields: [spaceId], references: [id])
+  workspace               Workspace?               @relation(fields: [workspaceId], references: [id])
+  viewShares              ViewShare[]
+  views                   View[]
+  documents               Document[]
+  taskCustomRelationships TaskCustomRelationship[]
 
   // --- soft delete fields ---
-  deletedAt       DateTime?        @map("deleted_at")
-  deletedById     String?          @map("deleted_by_id")
+  deletedAt   DateTime? @map("deleted_at")
+  deletedById String?   @map("deleted_by_id")
 
   @@index([ownerId])
   @@index([previousOwnerId])
@@ -2730,10 +2806,10 @@ model TeamOwnershipTransfer {
   expiresAt           DateTime?      @map("expires_at")
   metadata            Json?
 
-  fromOwner           User           @relation("TeamTransferFrom", fields: [fromOwnerId], references: [id])
-  toOwner             User           @relation("TeamTransferTo", fields: [toOwnerId], references: [id])
-  requester           User           @relation("TeamTransferRequestedBy", fields: [requestedBy], references: [id])
-  team                Team           @relation("TeamTransfers", fields: [teamId], references: [id], onDelete: Cascade)
+  fromOwner User @relation("TeamTransferFrom", fields: [fromOwnerId], references: [id])
+  toOwner   User @relation("TeamTransferTo", fields: [toOwnerId], references: [id])
+  requester User @relation("TeamTransferRequestedBy", fields: [requestedBy], references: [id])
+  team      Team @relation("TeamTransfers", fields: [teamId], references: [id], onDelete: Cascade)
 
   @@index([teamId])
   @@index([fromOwnerId])
@@ -2750,20 +2826,20 @@ model TeamOwnershipTransfer {
 }
 
 model TeamMember {
-  id               String            @id @default(cuid())
-  teamId           String            @map("team_id")
-  userId           String            @map("user_id")
+  id               String       @id @default(cuid())
+  teamId           String       @map("team_id")
+  userId           String       @map("user_id")
   role             String
   title            String?
-  status           MemberStatus      @default(ACTIVE)
+  status           MemberStatus @default(ACTIVE)
   permissions      Permission[]
-  salaryAmount     Float?            @map("salary_amount")
-  equityPercentage Float?            @map("equity_percentage")
-  hourlyRate       Float?            @map("hourly_rate")
-  joinedAt         DateTime          @default(now()) @map("joined_at")
-  leftAt           DateTime?         @map("left_at")
-  team             Team              @relation("TeamMemberTeam", fields: [teamId], references: [id], onDelete: Cascade)
-  user             User              @relation("TeamMemberUser", fields: [userId], references: [id], onDelete: Cascade)
+  salaryAmount     Float?       @map("salary_amount")
+  equityPercentage Float?       @map("equity_percentage")
+  hourlyRate       Float?       @map("hourly_rate")
+  joinedAt         DateTime     @default(now()) @map("joined_at")
+  leftAt           DateTime?    @map("left_at")
+  team             Team         @relation("TeamMemberTeam", fields: [teamId], references: [id], onDelete: Cascade)
+  user             User         @relation("TeamMemberUser", fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([teamId, userId])
   @@map("team_members")
@@ -2907,59 +2983,59 @@ model Connection {
   receiver    User             @relation("ConnectionReceiver", fields: [receiverId], references: [id], onDelete: Cascade)
   requester   User             @relation("ConnectionRequester", fields: [requesterId], references: [id], onDelete: Cascade)
 
-  conversationId String?           @unique @map("conversation_id") @db.Uuid
-  conversation   Conversation?     @relation(fields: [conversationId], references: [id])
+  conversationId String?       @unique @map("conversation_id") @db.Uuid
+  conversation   Conversation? @relation(fields: [conversationId], references: [id])
 
   @@unique([requesterId, receiverId])
   @@map("connections")
 }
 
 model Conversation {
-  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  participantIds  String[]  @map("participant_ids")
-  marketplaceListingId String? @map("marketplace_listing_id")
-  messageSequence BigInt    @default(0) @map("message_sequence")
-  createdAt       DateTime  @default(now()) @map("created_at")
-  updatedAt       DateTime  @default(now()) @updatedAt @map("updated_at")
+  id                   String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  participantIds       String[] @map("participant_ids")
+  marketplaceListingId String?  @map("marketplace_listing_id")
+  messageSequence      BigInt   @default(0) @map("message_sequence")
+  createdAt            DateTime @default(now()) @map("created_at")
+  updatedAt            DateTime @default(now()) @updatedAt @map("updated_at")
 
-  pinnedBy        String[]  @default([]) @map("pinned_by")
-  archivedBy      String[]  @default([]) @map("archived_by")
-  mutedBy         String[]  @default([]) @map("muted_by")
-  hiddenStatusBy  String[]  @default([]) @map("hidden_status_by")
-  blockedBy       String[]  @default([]) @map("blocked_by")
+  pinnedBy       String[] @default([]) @map("pinned_by")
+  archivedBy     String[] @default([]) @map("archived_by")
+  mutedBy        String[] @default([]) @map("muted_by")
+  hiddenStatusBy String[] @default([]) @map("hidden_status_by")
+  blockedBy      String[] @default([]) @map("blocked_by")
 
-  messages        Message[]
-  listing         MarketplaceListing? @relation(fields: [marketplaceListingId], references: [id])
-  connection      Connection?
+  messages   Message[]
+  listing    MarketplaceListing? @relation(fields: [marketplaceListingId], references: [id])
+  connection Connection?
 
   @@unique([participantIds, marketplaceListingId])
   @@map("conversations")
 }
 
 model Message {
-  id             String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  conversationId String?           @map("conversation_id") @db.Uuid
-  senderId       String            @map("sender_id")
-  receiverId     String            @map("receiver_id")
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  conversationId String?   @map("conversation_id") @db.Uuid
+  senderId       String    @map("sender_id")
+  receiverId     String    @map("receiver_id")
   content        String
-  isRead         Boolean           @default(false) @map("is_read")
-  readAt         DateTime?         @map("read_at")
+  isRead         Boolean   @default(false) @map("is_read")
+  readAt         DateTime? @map("read_at")
   attachments    String[]
-  replyToId      String?           @map("reply_to_id") @db.Uuid
-  reactions      Json              @default("[]")
-  sequenceNumber BigInt?           @map("sequence_number")
-  deliveryStatus String            @default("PERSISTED") @map("delivery_status") @db.VarChar(20)
-  createdAt      DateTime          @default(now()) @map("created_at")
+  replyToId      String?   @map("reply_to_id") @db.Uuid
+  reactions      Json      @default("[]")
+  sequenceNumber BigInt?   @map("sequence_number")
+  deliveryStatus String    @default("PERSISTED") @map("delivery_status") @db.VarChar(20)
+  createdAt      DateTime  @default(now()) @map("created_at")
 
-  isPinned       Boolean           @default(false) @map("is_pinned")
-  deletedFor     String[]          @default([]) @map("deleted_for")
+  isPinned   Boolean  @default(false) @map("is_pinned")
+  deletedFor String[] @default([]) @map("deleted_for")
 
-  deliveries     MessageDelivery[]
-  conversation   Conversation?     @relation(fields: [conversationId], references: [id])
-  receiver       User              @relation("MessageReceiver", fields: [receiverId], references: [id], onDelete: Cascade)
-  replyTo        Message?          @relation("MessageReply", fields: [replyToId], references: [id])
-  replies        Message[]         @relation("MessageReply")
-  sender         User              @relation("MessageSender", fields: [senderId], references: [id], onDelete: Cascade)
+  deliveries   MessageDelivery[]
+  conversation Conversation?     @relation(fields: [conversationId], references: [id])
+  receiver     User              @relation("MessageReceiver", fields: [receiverId], references: [id], onDelete: Cascade)
+  replyTo      Message?          @relation("MessageReply", fields: [replyToId], references: [id])
+  replies      Message[]         @relation("MessageReply")
+  sender       User              @relation("MessageSender", fields: [senderId], references: [id], onDelete: Cascade)
 
   @@index([conversationId, sequenceNumber])
   @@index([senderId, createdAt])
@@ -4367,8 +4443,8 @@ model AiAgent {
   taskAssignees     TaskAssignee[]
 
   // --- soft delete fields ---
-  deletedAt       DateTime?        @map("deleted_at")
-  deletedById     String?          @map("deleted_by_id")
+  deletedAt   DateTime? @map("deleted_at")
+  deletedById String?   @map("deleted_by_id")
 
   @@index([agentType])
   @@index([createdAt])
@@ -4414,67 +4490,67 @@ model SystemTool {
 }
 
 model CompositeTool {
-  id              String           @id @default(cuid())
-  workspaceId     String?          @map("workspace_id")
-  spaceId         String?          @map("space_id")
-  projectId       String?          @map("project_id")
-  teamId          String?          @map("team_id")
-  ownerId         String           @map("owner_id")
-  name            String
-  description     String?
-  systemPrompt    String?          @map("system_prompt")
-  category        String?
-  functionSchema  Json
-  steps           Json
-  mode            ToolCreationMode @default(MANUAL)
-  isPublic        Boolean          @default(true) @map("is_public")
-  createdAt       DateTime         @default(now()) @map("created_at")
-  updatedAt       DateTime         @updatedAt @map("updated_at")
+  id             String           @id @default(cuid())
+  workspaceId    String?          @map("workspace_id")
+  spaceId        String?          @map("space_id")
+  projectId      String?          @map("project_id")
+  teamId         String?          @map("team_id")
+  ownerId        String           @map("owner_id")
+  name           String
+  description    String?
+  systemPrompt   String?          @map("system_prompt")
+  category       String?
+  functionSchema Json
+  steps          Json
+  mode           ToolCreationMode @default(MANUAL)
+  isPublic       Boolean          @default(true) @map("is_public")
+  createdAt      DateTime         @default(now()) @map("created_at")
+  updatedAt      DateTime         @updatedAt @map("updated_at")
 
-  workspace       Workspace?       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  owner           User             @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  space           Space?           @relation(fields: [spaceId], references: [id], onDelete: Cascade)
-  project         Project?         @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  team            Team?            @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  workspace       Workspace?                  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  owner           User                        @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  space           Space?                      @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  project         Project?                    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  team            Team?                       @relation(fields: [teamId], references: [id], onDelete: Cascade)
   aiConversations AiConversation[]
   versions        CompositeToolVersion[]
   executionLogs   CompositeToolExecutionLog[]
 
   // soft delete — for consistency with User and audit trail integrity
-  deletedAt       DateTime?        @map("deleted_at")
-  deletedById     String?          @map("deleted_by_id")
+  deletedAt   DateTime? @map("deleted_at")
+  deletedById String?   @map("deleted_by_id")
 
   @@index([workspaceId])
   @@index([spaceId])
   @@index([projectId])
   @@index([teamId])
   @@index([ownerId])
-  @@index([ownerId, createdAt])      // "my tools, newest first"
-  @@index([isPublic, category])      // public marketplace browsing by category
-  @@index([createdAt])               // global recency sort
+  @@index([ownerId, createdAt]) // "my tools, newest first"
+  @@index([isPublic, category]) // public marketplace browsing by category
+  @@index([createdAt]) // global recency sort
   @@index([deletedAt])
   @@map("composite_tools")
 }
 
 model CompositeToolVersion {
-  id              String         @id @default(cuid())
-  compositeToolId String         @map("composite_tool_id")
+  id              String   @id @default(cuid())
+  compositeToolId String   @map("composite_tool_id")
   version         Int
   name            String?
   description     String?
   functionSchema  Json
   steps           Json
-  isLive          Boolean        @default(false) @map("is_live")
-  createdAt       DateTime       @default(now()) @map("created_at")
-  createdById     String         @map("created_by_id")
+  isLive          Boolean  @default(false) @map("is_live")
+  createdAt       DateTime @default(now()) @map("created_at")
+  createdById     String   @map("created_by_id")
 
-  compositeTool   CompositeTool  @relation(fields: [compositeToolId], references: [id], onDelete: Cascade)
-  createdBy       User           @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  compositeTool CompositeTool @relation(fields: [compositeToolId], references: [id], onDelete: Cascade)
+  createdBy     User          @relation(fields: [createdById], references: [id], onDelete: Cascade)
 
-  executionLogs   CompositeToolExecutionLog[]
+  executionLogs CompositeToolExecutionLog[]
 
-  @@unique([compositeToolId, version])              // prevent duplicate version numbers
-  @@index([compositeToolId, isLive])                 // fast "get live version" lookup
+  @@unique([compositeToolId, version]) // prevent duplicate version numbers
+  @@index([compositeToolId, isLive]) // fast "get live version" lookup
   @@index([createdById])
   @@map("composite_tool_versions")
 }
@@ -4494,27 +4570,27 @@ enum ExecutionStatus {
 }
 
 model CompositeToolExecutionLog {
-  id              String           @id @default(cuid())
-  compositeToolId String           @map("composite_tool_id")
-  versionId       String?          @map("version_id")
-  userId          String?          @map("user_id")
-  status          ExecutionStatus  @default(PENDING)
+  id              String          @id @default(cuid())
+  compositeToolId String          @map("composite_tool_id")
+  versionId       String?         @map("version_id")
+  userId          String?         @map("user_id")
+  status          ExecutionStatus @default(PENDING)
   input           Json?
   output          Json?
   steps           Json?
   error           String?
-  executionTimeMs Int?             @map("execution_time_ms")
-  createdAt       DateTime         @default(now()) @map("created_at")
-  finishedAt      DateTime?        @map("finished_at")
+  executionTimeMs Int?            @map("execution_time_ms")
+  createdAt       DateTime        @default(now()) @map("created_at")
+  finishedAt      DateTime?       @map("finished_at")
 
-  compositeTool   CompositeTool         @relation(fields: [compositeToolId], references: [id], onDelete: Cascade)
-  version         CompositeToolVersion? @relation(fields: [versionId], references: [id], onDelete: SetNull)
-  user            User?                 @relation(fields: [userId], references: [id], onDelete: SetNull)
+  compositeTool CompositeTool         @relation(fields: [compositeToolId], references: [id], onDelete: Cascade)
+  version       CompositeToolVersion? @relation(fields: [versionId], references: [id], onDelete: SetNull)
+  user          User?                 @relation(fields: [userId], references: [id], onDelete: SetNull)
 
-  @@index([compositeToolId, createdAt])  // tool's execution history, time-ordered
+  @@index([compositeToolId, createdAt]) // tool's execution history, time-ordered
   @@index([versionId])
   @@index([userId, createdAt])
-  @@index([status])                       // dashboards filtering failed/pending runs
+  @@index([status]) // dashboards filtering failed/pending runs
   @@map("composite_tool_execution_logs")
 }
 
@@ -4524,20 +4600,19 @@ model CompositeToolExecutionLog {
 /// emails, Stripe charges) and never return large payloads through Inngest
 /// step output (result is read from here on retry).
 model ToolStepResult {
-  id              String   @id @default(cuid())
-  idempotencyKey  String   @unique @map("idempotency_key")
-  toolId          String   @map("tool_id")
-  runId           String   @map("run_id")
-  stepId          String   @map("step_id")
-  stepName        String?  @map("step_name")
-  result          Json?
-  createdAt       DateTime @default(now()) @map("created_at")
+  id             String   @id @default(cuid())
+  idempotencyKey String   @unique @map("idempotency_key")
+  toolId         String   @map("tool_id")
+  runId          String   @map("run_id")
+  stepId         String   @map("step_id")
+  stepName       String?  @map("step_name")
+  result         Json?
+  createdAt      DateTime @default(now()) @map("created_at")
 
-  @@index([runId])           // look up all steps for a given run
-  @@index([toolId, runId])   // per-tool run history
+  @@index([runId]) // look up all steps for a given run
+  @@index([toolId, runId]) // per-tool run history
   @@map("tool_step_results")
 }
-
 
 model AgentSkill {
   id          String         @id @default(cuid())
@@ -4749,7 +4824,6 @@ model AgentRunEvent {
   @@map("agent_run_events")
 }
 
-
 // ============================================================
 // CORE MODEL
 // ============================================================
@@ -4778,8 +4852,8 @@ model Workforce {
   aiConversations AiConversation[]
 
   // --- soft delete fields ---
-  deletedAt       DateTime?        @map("deleted_at")
-  deletedById     String?          @map("deleted_by_id")
+  deletedAt   DateTime? @map("deleted_at")
+  deletedById String?   @map("deleted_by_id")
 
   @@index([workspaceId])
   @@index([spaceId])
@@ -4885,8 +4959,8 @@ model Template {
   versions  TemplateVersion[]
 
   // --- soft delete fields ---
-  deletedAt       DateTime?        @map("deleted_at")
-  deletedById     String?          @map("deleted_by_id")
+  deletedAt   DateTime? @map("deleted_at")
+  deletedById String?   @map("deleted_by_id")
 
   @@index([workspaceId])
   @@index([organizationId])
@@ -4957,63 +5031,63 @@ model TemplateAuditLog {
 }
 
 model BugReport {
-  id          String   @id @default(cuid())
-  userId      String   @map("user_id")
+  id     String @id @default(cuid())
+  userId String @map("user_id")
 
   // Global entity reference – links a report to any entity in the platform
-  entityType  String?  @map("entity_type") // "tool" | "agent" | "workspace" | "task" | "marketplace" | "platform"
-  entityId    String?  @map("entity_id")
+  entityType String? @map("entity_type") // "tool" | "agent" | "workspace" | "task" | "marketplace" | "platform"
+  entityId   String? @map("entity_id")
 
   // Report content
-  title             String
-  description       String
-  stepsToReproduce  String?           @map("steps_to_reproduce")
-  expectedBehavior  String?           @map("expected_behavior")
-  actualBehavior    String?           @map("actual_behavior")
-  reproducibility   Reproducibility?
+  title            String
+  description      String
+  stepsToReproduce String?          @map("steps_to_reproduce")
+  expectedBehavior String?          @map("expected_behavior")
+  actualBehavior   String?          @map("actual_behavior")
+  reproducibility  Reproducibility?
 
   // Classification
-  category    BugReportCategory
-  severity    BugReportSeverity @default(MEDIUM)
-  priority    BugReportPriority @default(NORMAL)
-  status      BugReportStatus   @default(OPEN)
-  tags        String[]          @default([])
+  category BugReportCategory
+  severity BugReportSeverity @default(MEDIUM)
+  priority BugReportPriority @default(NORMAL)
+  status   BugReportStatus   @default(OPEN)
+  tags     String[]          @default([])
 
   // Automatically captured context
-  pageUrl     String?  @map("page_url")
-  region      String?
-  locale      String?
-  userAgent   String?  @map("user_agent")
-  appVersion  String?  @map("app_version")
-  os          String?
-  deviceType  String?  @map("device_type")
+  pageUrl    String? @map("page_url")
+  region     String?
+  locale     String?
+  userAgent  String? @map("user_agent")
+  appVersion String? @map("app_version")
+  os         String?
+  deviceType String? @map("device_type")
 
   // Admin / support resolution fields
-  assignedToId  String?   @map("assigned_to_id")
-  resolution    String?
-  resolvedAt    DateTime? @map("resolved_at")
-  closedAt      DateTime? @map("closed_at")
-  adminNotes    String?   @map("admin_notes")
+  assignedToId String?   @map("assigned_to_id")
+  resolution   String?
+  resolvedAt   DateTime? @map("resolved_at")
+  closedAt     DateTime? @map("closed_at")
+  adminNotes   String?   @map("admin_notes")
 
   // Duplicate tracking & external issue linking
-  duplicateOfId String?  @map("duplicate_of_id")
-  externalRef   String?  @map("external_ref") // e.g. "GH-123", "JIRA-456"
+  duplicateOfId String? @map("duplicate_of_id")
+  externalRef   String? @map("external_ref") // e.g. "GH-123", "JIRA-456"
 
   // Lifecycle
-  createdAt   DateTime  @default(now())   @map("created_at")
-  updatedAt   DateTime  @updatedAt        @map("updated_at")
-  deletedAt   DateTime? @map("deleted_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
 
   // Relations
-  user         User      @relation("ReportedBugs", fields: [userId], references: [id], onDelete: Cascade)
-  assignedTo   User?     @relation("AssignedBugs", fields: [assignedToId], references: [id], onDelete: SetNull)
+  user       User  @relation("ReportedBugs", fields: [userId], references: [id], onDelete: Cascade)
+  assignedTo User? @relation("AssignedBugs", fields: [assignedToId], references: [id], onDelete: SetNull)
 
-  duplicateOf  BugReport?  @relation("DuplicateReports", fields: [duplicateOfId], references: [id], onDelete: SetNull)
-  duplicates   BugReport[] @relation("DuplicateReports")
+  duplicateOf BugReport?  @relation("DuplicateReports", fields: [duplicateOfId], references: [id], onDelete: SetNull)
+  duplicates  BugReport[] @relation("DuplicateReports")
 
-  attachments  BugReportAttachment[]
-  comments     BugReportComment[]
-  statusLog    BugReportStatusHistory[]
+  attachments BugReportAttachment[]
+  comments    BugReportComment[]
+  statusLog   BugReportStatusHistory[]
 
   @@index([userId])
   @@index([assignedToId])
@@ -5033,19 +5107,19 @@ model BugReport {
 // ============================================================
 
 model BugReportAttachment {
-  id          String   @id @default(cuid())
-  bugReportId String   @map("bug_report_id")
+  id          String @id @default(cuid())
+  bugReportId String @map("bug_report_id")
 
-  fileKey      String   @map("file_key")  // storage key/path
-  fileName     String   @map("file_name")
-  mimeType     String   @map("mime_type")
-  fileSize     Int      @map("file_size") // bytes
+  fileKey  String @map("file_key") // storage key/path
+  fileName String @map("file_name")
+  mimeType String @map("mime_type")
+  fileSize Int    @map("file_size") // bytes
 
-  uploadedById String  @map("uploaded_by_id")
-  createdAt   DateTime @default(now()) @map("created_at")
+  uploadedById String   @map("uploaded_by_id")
+  createdAt    DateTime @default(now()) @map("created_at")
 
-  bugReport   BugReport @relation(fields: [bugReportId], references: [id], onDelete: Cascade)
-  uploadedBy  User      @relation(fields: [uploadedById], references: [id], onDelete: Cascade)
+  bugReport  BugReport @relation(fields: [bugReportId], references: [id], onDelete: Cascade)
+  uploadedBy User      @relation(fields: [uploadedById], references: [id], onDelete: Cascade)
 
   @@index([bugReportId])
   @@map("bug_report_attachments")
@@ -5056,18 +5130,18 @@ model BugReportAttachment {
 // ============================================================
 
 model BugReportComment {
-  id          String   @id @default(cuid())
-  bugReportId String   @map("bug_report_id")
-  authorId    String   @map("author_id")
+  id          String @id @default(cuid())
+  bugReportId String @map("bug_report_id")
+  authorId    String @map("author_id")
 
-  body        String
-  isInternal  Boolean  @default(false) @map("is_internal") // admin-only note vs. visible to reporter
+  body       String
+  isInternal Boolean @default(false) @map("is_internal") // admin-only note vs. visible to reporter
 
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt      @map("updated_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
-  bugReport   BugReport @relation(fields: [bugReportId], references: [id], onDelete: Cascade)
-  author      User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  bugReport BugReport @relation(fields: [bugReportId], references: [id], onDelete: Cascade)
+  author    User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
 
   @@index([bugReportId])
   @@map("bug_report_comments")
@@ -5078,18 +5152,18 @@ model BugReportComment {
 // ============================================================
 
 model BugReportStatusHistory {
-  id          String   @id @default(cuid())
-  bugReportId String   @map("bug_report_id")
+  id          String @id @default(cuid())
+  bugReportId String @map("bug_report_id")
 
   fromStatus  BugReportStatus? @map("from_status")
   toStatus    BugReportStatus  @map("to_status")
   changedById String           @map("changed_by_id")
   note        String?
 
-  createdAt   DateTime @default(now()) @map("created_at")
+  createdAt DateTime @default(now()) @map("created_at")
 
-  bugReport   BugReport @relation(fields: [bugReportId], references: [id], onDelete: Cascade)
-  changedBy   User      @relation(fields: [changedById], references: [id], onDelete: Cascade)
+  bugReport BugReport @relation(fields: [bugReportId], references: [id], onDelete: Cascade)
+  changedBy User      @relation(fields: [changedById], references: [id], onDelete: Cascade)
 
   @@index([bugReportId])
   @@map("bug_report_status_history")
@@ -6297,3 +6371,4 @@ enum Reproducibility {
   RARELY
   UNABLE
 }
+
