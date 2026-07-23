@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Switch } from '@/components/ui/switch';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { X, ChevronDown, ChevronUp, Lock, Info, Network, Briefcase, Building2, Folder as FolderIconLucide, User, ListChecks, Check, Search, MousePointer2, Eye, Pencil } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -80,7 +81,7 @@ export function NewCustomRelationshipPopover({
     ]);
     const [isInputFocused, setIsInputFocused] = React.useState(false);
     const [showAddException, setShowAddException] = React.useState(false);
-    
+
     const [createRollupFields, setCreateRollupFields] = React.useState(false);
     const [description, setDescription] = React.useState('');
     const [isRequired, setIsRequired] = React.useState(false);
@@ -279,7 +280,7 @@ export function NewCustomRelationshipPopover({
         <Popover modal={true} open={open} onOpenChange={onOpenChange}>
             {trigger && <PopoverTrigger asChild>{trigger}</PopoverTrigger>}
             <PopoverContent
-                className="w-[320px] p-0 overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-xl flex flex-col max-h-[min(560px,var(--radix-popover-content-available-height))]"
+                className="w-[350px] p-0 overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-xl flex flex-col max-h-[min(560px,var(--radix-popover-content-available-height))]"
                 align={align}
                 side={side}
                 sideOffset={4}
@@ -306,7 +307,7 @@ export function NewCustomRelationshipPopover({
                                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 11a.5.5 0 1 0 0-1 .5.5 0 0 0 0 1Z" /><path d="M15 11a.5.5 0 1 0 0-1 .5.5 0 0 0 0 1Z" /><path d="M22 12c0 5.523-4.477 10-10 10S2 17.523 2 12 6.477 2 12 2c2.148 0 4.138.677 5.76 1.838" /><path d="M16 2v4" /><path d="M14 4h4" /><path d="M8 16c1.5 1 4.5 1 6 0" /></svg>
                                 </span>
                                 <input
-                                    className="w-full bg-transparent border-none outline-none text-[14px] text-zinc-900 placeholder:text-zinc-400 h-5"
+                                    className="w-full bg-transparent border-none outline-none !text-xs text-zinc-900 placeholder:text-zinc-400 h-5"
                                     placeholder="Enter name..."
                                     value={name}
                                     onChange={(e) => setName(e.target.value)}
@@ -320,11 +321,11 @@ export function NewCustomRelationshipPopover({
                             <RadioGroup value={relatedTo} onValueChange={setRelatedTo} className="gap-1">
                                 <div className="flex items-center space-x-3">
                                     <RadioGroupItem value="any" id="any" className="h-4 w-4 text-indigo-500 border-zinc-300" />
-                                    <Label htmlFor="any" className={cn("!text-[14px] !font-normal cursor-pointer", relatedTo === 'any' ? "text-zinc-900" : "text-zinc-500")}>any task in your Workspace</Label>
+                                    <Label htmlFor="any" className={cn("!text-xs !font-normal cursor-pointer", relatedTo === 'any' ? "text-zinc-900" : "text-zinc-500")}>any task in your Workspace</Label>
                                 </div>
                                 <div className="flex items-center space-x-3">
                                     <RadioGroupItem value="specific" id="specific" className="h-4 w-4 text-indigo-500 border-zinc-300" />
-                                    <Label htmlFor="specific" className={cn("!text-[14px] !font-normal cursor-pointer", relatedTo === 'specific' ? "text-zinc-900" : "text-zinc-500")}>tasks from a specific List</Label>
+                                    <Label htmlFor="specific" className={cn("!text-xs !font-normal cursor-pointer", relatedTo === 'specific' ? "text-zinc-900" : "text-zinc-500")}>tasks from a specific List</Label>
                                 </div>
                             </RadioGroup>
                         </div>
@@ -336,7 +337,7 @@ export function NewCustomRelationshipPopover({
                                 </Label>
                                 <Popover open={listPickerOpen} onOpenChange={setListPickerOpen}>
                                     <PopoverTrigger asChild>
-                                        <Button variant="outline" className="w-full justify-between h-8 font-normal rounded-lg border-zinc-200 text-zinc-500 hover:bg-zinc-50">
+                                        <Button variant="outline" className="w-full justify-between h-8 font-normal rounded-lg border-zinc-200 text-zinc-500 hover:bg-zinc-50 text-[13px]">
                                             <span className="flex items-center gap-2">
                                                 {selectedListName}
                                             </span>
@@ -458,9 +459,9 @@ export function NewCustomRelationshipPopover({
                             </div>
                         )}
 
-                        <div className="flex items-center justify-between pt-1">
-                            <Label className="!text-[13px] !font-normal !text-zinc-600">Create rollup fields from related List</Label>
+                        <div className="flex items-center gap-3 pt-1">
                             <Switch checked={createRollupFields} onCheckedChange={setCreateRollupFields} />
+                            <Label className="!text-xs !font-normal text-zinc-700 cursor-pointer leading-none !m-0" onClick={() => setCreateRollupFields(!createRollupFields)}>Create rollup fields from related List</Label>
                         </div>
                     </div>
 
@@ -468,7 +469,7 @@ export function NewCustomRelationshipPopover({
                         <button
                             type="button"
                             onClick={() => setShowMore(!showMore)}
-                            className="w-full flex items-center justify-between px-4 py-3.5 text-[14px] font-semibold text-zinc-800 hover:bg-zinc-50 transition-colors cursor-pointer"
+                            className="w-full flex items-center justify-between px-4 py-3.5 text-[13px] font-semibold text-zinc-800 hover:bg-zinc-50 transition-colors cursor-pointer"
                         >
                             More settings and permissions
                             {showMore ? <ChevronUp className="h-4 w-4 text-zinc-500" /> : <ChevronDown className="h-4 w-4 text-zinc-500" />}
@@ -566,13 +567,22 @@ export function NewCustomRelationshipPopover({
                                 </div>
                             </div>
 
-                            <div className="space-y-4">
+                            <div className="space-y-2">
                                 <div className="space-y-0.5">
                                     <div className="flex items-center">
                                         <Label className="!text-xs !font-medium !text-zinc-600">Exceptions</Label>
-                                        <Info className="h-3.5 w-3.5 text-zinc-400 ml-1 mb-1" />
+                                        <TooltipProvider delayDuration={300}>
+                                            <Tooltip>
+                                                <TooltipTrigger asChild>
+                                                    <Info className="h-3 w-3 text-zinc-400 ml-1 mb-1.5 cursor-help" />
+                                                </TooltipTrigger>
+                                                <TooltipContent side="top" align="center" className="bg-zinc-900 text-white border-zinc-800 text-[13px] py-2 px-3 font-medium max-w-[300px] text-center z-[200]">
+                                                    All users will have the permissions set above. To customize access for certain people, add exceptions below.
+                                                </TooltipContent>
+                                            </Tooltip>
+                                        </TooltipProvider>
                                     </div>
-                                    <p className="text-[11px] text-zinc-400 leading-relaxed">
+                                    <p className="text-[11px] text-zinc-400 leading-none">
                                         Override default permissions for specific members or teams.
                                     </p>
                                 </div>
@@ -669,7 +679,15 @@ export function NewCustomRelationshipPopover({
 
                                     {showAddException ? (
                                         <div className="flex items-center gap-2">
-                                            <Popover open={isInputFocused} onOpenChange={setIsInputFocused}>
+                                            <Popover
+                                                open={isInputFocused}
+                                                onOpenChange={(open) => {
+                                                    setIsInputFocused(open);
+                                                    if (!open && selectedMembers.length === 0) {
+                                                        setShowAddException(false);
+                                                    }
+                                                }}
+                                            >
                                                 <PopoverTrigger asChild>
                                                     <div
                                                         className={cn(
@@ -711,6 +729,9 @@ export function NewCustomRelationshipPopover({
                                                                 onBlur={(e) => {
                                                                     if (!e.relatedTarget?.closest('[data-radix-popper-content-wrapper]')) {
                                                                         setIsInputFocused(false);
+                                                                        if (selectedMembers.length === 0) {
+                                                                            setShowAddException(false);
+                                                                        }
                                                                     }
                                                                 }}
                                                             />
@@ -862,20 +883,20 @@ export function NewCustomRelationshipPopover({
                             </div>
 
                             <div className="space-y-2">
-                                <Label className="!text-xs !font-medium !text-zinc-600 !mb-2">Display settings</Label>
-                                <div className="flex items-center justify-between">
-                                    <Label className="!text-[13px] !font-normal !text-zinc-600">Required in tasks</Label>
+                                <Label className="!text-xs !font-medium !text-zinc-600 !mb-3">Display settings</Label>
+                                <div className="flex items-center gap-3">
                                     <Switch checked={isRequired} onCheckedChange={setIsRequired} />
+                                    <Label className="!text-xs !font-normal text-zinc-700 cursor-pointer leading-none !m-0" onClick={() => setIsRequired(!isRequired)}>Required in tasks</Label>
                                 </div>
-                                <div className="flex items-center justify-between">
-                                    <Label className="!text-[13px] !font-normal !text-zinc-600">Visible to Guests and Limited Members</Label>
+                                <div className="flex items-center gap-3">
                                     <Switch checked={isVisibleToGuests} onCheckedChange={setIsVisibleToGuests} className="data-[state=checked]:bg-indigo-500" />
+                                    <Label className="!text-xs !font-normal text-zinc-700 cursor-pointer leading-none !m-0" onClick={() => setIsVisibleToGuests(!isVisibleToGuests)}>Visible to Guests and Limited Members</Label>
                                 </div>
                             </div>
 
                             <div className="space-y-1">
                                 <Label className="!text-xs !font-medium !text-zinc-600">Belongs to</Label>
-                                <p className="text-[14px] text-zinc-500 leading-relaxed mb-3">
+                                <p className="text-xs text-zinc-500 leading-relaxed mb-3">
                                     Field will exist on all tasks at locations below
                                 </p>
                                 {contextName ? (

@@ -685,14 +685,26 @@ export function ChecklistsSection({ taskId, workspaceMembers = [] }: ChecklistsS
                     <>
                         {/* Header */}
                         <div className="flex items-center justify-between gap-3 group/header border-b border-zinc-200 pb-2">
-                            <div
-                                className={cn(
-                                    "flex items-center gap-2",
-                                    checklists.length > 0 && "cursor-pointer hover:bg-zinc-50 py-1 px-1 -ml-1 rounded transition-colors group"
+                            <div className="flex items-center gap-1.5 -ml-1">
+                                {checklists.length > 0 ? (
+                                    <button
+                                        type="button"
+                                        onClick={(e) => {
+                                            e.preventDefault();
+                                            e.stopPropagation();
+                                            setIsCollapsed(!isCollapsed);
+                                        }}
+                                        className="cursor-pointer h-6 w-6 flex items-center justify-center rounded-md hover:bg-zinc-200 text-zinc-400 hover:text-zinc-600 transition-colors"
+                                    >
+                                        <svg viewBox="0 0 100 100" className={cn("h-2.5 w-2.5 fill-current transition-transform duration-200", !isCollapsed && "rotate-90")}>
+                                          <polygon points="20,10 80,50 20,90" />
+                                        </svg>
+                                    </button>
+                                ) : (
+                                    <div className="h-6 w-6 flex items-center justify-center">
+                                        <ListChecks className="h-4 w-4 text-zinc-400" />
+                                    </div>
                                 )}
-                                onClick={() => checklists.length > 0 && setIsCollapsed(!isCollapsed)}
-                            >
-                                <ChevronRight className={cn("h-4 w-4 text-zinc-400 group-hover:text-zinc-600 transition-transform", !isCollapsed && "rotate-90")} />
                                 <span className="text-sm font-semibold text-zinc-900">Checklists</span>
                                 {overallCounts.total > 0 && (
                                     <div className="flex items-center min-w-[80px] pl-2">
@@ -708,7 +720,7 @@ export function ChecklistsSection({ taskId, workspaceMembers = [] }: ChecklistsS
                                     </span>
                                 )}
                                 {assignedToMeCount > 0 && (
-                                    <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-600">
+                                    <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-600 ml-1">
                                         {assignedToMeCount} Assigned to me
                                     </span>
                                 )}

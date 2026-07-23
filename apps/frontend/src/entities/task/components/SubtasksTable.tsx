@@ -1762,23 +1762,27 @@ export function SubtasksTable({
             <div className={cn("space-y-3 flex-1", isMaximized && "max-w-5xl w-full mx-auto mt-12")}>
                 {(allSubtasks.length > 0 || isAddingSubtask) && (
                     <div className="flex items-center justify-between gap-2 flex-wrap">
-                        <div
-                            className={cn(
-                                "flex items-center gap-1.5",
-                                (allSubtasks.length > 0 || isAddingSubtask) && "cursor-pointer hover:bg-zinc-50 py-1 px-1 -ml-1 rounded transition-colors group"
-                            )}
-                            onClick={() => {
-                                if (isAddingSubtask) {
-                                    setIsAddingSubtask(false);
-                                } else if (allSubtasks.length > 0) {
-                                    setIsCollapsed(!isCollapsed);
-                                }
-                            }}
-                        >
+                        <div className="flex items-center gap-1.5 -ml-1 group/header">
                             {(allSubtasks.length > 0 || isAddingSubtask) ? (
-                                <ChevronRight className={cn("h-4 w-4 text-zinc-400 group-hover:text-zinc-600 transition-transform", (!isCollapsed || isAddingSubtask) && "rotate-90")} />
+                                <button
+                                    type="button"
+                                    onClick={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        if (isAddingSubtask) {
+                                            setIsAddingSubtask(false);
+                                        } else if (allSubtasks.length > 0) {
+                                            setIsCollapsed(!isCollapsed);
+                                        }
+                                    }}
+                                    className="cursor-pointer h-6 w-6 flex items-center justify-center rounded-md hover:bg-zinc-200 text-zinc-400 hover:text-zinc-600 transition-colors"
+                                >
+                                    <svg viewBox="0 0 100 100" className={cn("h-2.5 w-2.5 fill-current transition-transform duration-200", (!isCollapsed || isAddingSubtask) && "rotate-90")}>
+                                      <polygon points="20,10 80,50 20,90" />
+                                    </svg>
+                                </button>
                             ) : (
-                                <div className="py-1 px-1 -ml-1">
+                                <div className="h-6 w-6 flex items-center justify-center">
                                     <ListIcon className="h-4 w-4 text-zinc-400" />
                                 </div>
                             )}

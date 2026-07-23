@@ -140,17 +140,23 @@ export function CustomFieldsSection({ taskId, workspaceId }: CustomFieldsSection
             <div className={cn("space-y-4", isMaximized && "max-w-5xl w-full mx-auto mt-12")}>
                 {customFields.length > 0 && (
                     <div className="flex items-center justify-between mb-2 group/header">
-                        <div
-                            className={cn(
-                                "flex items-center gap-2",
-                                customFields.length > 0 && "cursor-pointer hover:bg-zinc-50 py-1 px-1 -ml-1 rounded transition-colors group"
-                            )}
-                            onClick={() => customFields.length > 0 && setIsCollapsed(!isCollapsed)}
-                        >
+                        <div className="flex items-center gap-1.5 -ml-1">
                             {customFields.length > 0 ? (
-                                <ChevronRight className={cn("h-4 w-4 text-zinc-400 group-hover:text-zinc-600 transition-transform", !isCollapsed && "rotate-90")} />
+                                <button
+                                    type="button"
+                                    onClick={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        setIsCollapsed(!isCollapsed);
+                                    }}
+                                    className="cursor-pointer h-6 w-6 flex items-center justify-center rounded-md hover:bg-zinc-200 text-zinc-400 hover:text-zinc-600 transition-colors"
+                                >
+                                    <svg viewBox="0 0 100 100" className={cn("h-2.5 w-2.5 fill-current transition-transform duration-200", !isCollapsed && "rotate-90")}>
+                                      <polygon points="20,10 80,50 20,90" />
+                                    </svg>
+                                </button>
                             ) : (
-                                <div className="py-1 px-1 -ml-1">
+                                <div className="h-6 w-6 flex items-center justify-center">
                                     <SquarePlus className="h-4 w-4 text-zinc-400" />
                                 </div>
                             )}

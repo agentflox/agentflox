@@ -11,15 +11,17 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
 import {
     Search, Plus, MoreHorizontal, SortAsc, X, Pin, Lock, ShieldCheck, Home,
     Calendar, Users, Flag, Clock, Paperclip, MessageSquare, Star, UserRound,
     Copy, CopyPlus, Trash2, Edit3, ArrowRight, ChevronRight, ChevronDown, CheckCheck, ChevronUp, ChevronsUp, GripVertical, CheckCircle2,
-    LayoutList, SlidersHorizontal, ArrowUp, ArrowDown, Circle, CircleDot, CircleDashed, Spline, Save,
+    LayoutList, SlidersHorizontal, ArrowUp, ArrowDown, ArrowLeft, Circle, CircleDot, CircleDashed, Spline, Save,
     Link2, Target, Filter, Settings, Info, Play, ListChecks, AlignLeft, RefreshCcw,
     Type, Hash, CheckSquare, Tag, DollarSign, Globe, FunctionSquare, FileText,
-    Phone, Mail, MapPin, TrendingUp, Heart, PenTool, MousePointer, ListTodo, AlertTriangle, CircleMinus, Link, Slash, Box, List as ListIcon, CircleSlash,
-    Archive, UserPlus, CalendarCheck, CalendarClock, CalendarRange, Hourglass, UserCheck, RefreshCw, Timer, Download, Undo, ToggleLeft
+    Phone, Mail, MapPin, TrendingUp, Heart, PenTool, MousePointer, MousePointer2, ListTodo, AlertTriangle, CircleMinus, Link, Slash, Box, List as ListIcon, CircleSlash,
+    Archive, UserPlus, CalendarCheck, CalendarClock, CalendarRange, Hourglass, UserCheck, RefreshCw, Timer, Download, Undo, ToggleLeft,
+    Check, Eye, Pencil
 } from "lucide-react";
 import {
     Table,
@@ -127,7 +129,586 @@ import {
     verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { Textarea } from "@/components/ui/textarea";
-import { AI_FIELDS, ALL_FIELDS } from "@/entities/task/constants/fieldTypes";
+import { AI_FIELDS, ALL_FIELDS, FIELD_TYPE_DROPDOWN_OPTIONS, type FieldTypeOption } from "@/entities/task/constants/fieldTypes";
+import { CustomFieldsManagerModal } from "@/entities/customfields/components/CustomFieldsManagerModal";
+import { FieldsPanelSlideout } from "@/features/dashboard/components/shared/FieldsPanelSlideout";
+import { AssigneesPanelSlideout } from "@/features/dashboard/components/shared/AssigneesPanelSlideout";
+
+function CreateFieldFormPanel({
+    workspaceId,
+    listId,
+    listName,
+    initialType,
+    onBack,
+    onClose
+}: {
+    workspaceId?: string,
+    listId?: string,
+    listName?: string,
+    initialType: string,
+    onBack: () => void,
+    onClose: () => void
+}) {
+    const utils = trpc.useUtils();
+    const [name, setName] = useState('');
+    const [description, setDescription] = useState('');
+    const [type, setType] = useState<string>(initialType);
+    const [showMore, setShowMore] = useState(false);
+    const [permission, setPermission] = useState('workspace');
+    const [permissionOpen, setPermissionOpen] = useState(false);
+    const [isRequired, setIsRequired] = useState(false);
+    const [isPinned, setIsPinned] = useState(false);
+    const [isVisibleToGuests, setIsVisibleToGuests] = useState(true);
+
+    // Exceptions state
+    const exceptionInputRef = React.useRef<HTMLInputElement>(null);
+    const [selectedMembers, setSelectedMembers] = useState<{ id: string; name: string; avatar?: string; badge?: boolean }[]>([]);
+    const [permissionForAdd, setPermissionForAdd] = useState('VIEW');
+    const [customPermissions, setCustomPermissions] = useState([
+        { id: 'creator', name: 'You', role: 'creator', permission: 'EDIT', avatar: '' }
+    ]);
+    const [isInputFocused, setIsInputFocused] = useState(false);
+    const [showAddException, setShowAddException] = useState(false);
+
+    const permissionLevels = [
+        { value: 'EDIT', label: 'Can edit', icon: Pencil, description: 'Permission to set field values and edit the field definition' },
+        { value: 'SET', label: 'Can set', icon: MousePointer2, description: 'Permission to set field values on tasks, but not edit the field definition' },
+        { value: 'VIEW', label: 'Can view', icon: Eye, description: 'Read-only permission to view the field on tasks' },
+    ];
+
+    const { data: workspaceData } = trpc.workspace.get.useQuery({ id: workspaceId! }, { enabled: !!workspaceId });
+    const { data: teamListData } = trpc.team.list.useQuery({ workspaceId: workspaceId!, scope: 'all' as any }, { enabled: !!workspaceId });
+
+    const workspaceMembers = useMemo(() => {
+        const users = (workspaceData?.members || []).map((m: any) => ({
+            id: m.user.id,
+            name: m.user.name || m.user.email,
+            avatar: m.user.image,
+            badge: false
+        }));
+        const tms = (teamListData?.items || []).map((t: any) => ({
+            id: t.id,
+            name: t.name,
+            badge: true
+        }));
+        return [...users, ...tms];
+    }, [workspaceData, teamListData]);
+
+    const createField = trpc.customFields.create.useMutation({
+        onSuccess: () => {
+            if (workspaceId) {
+                utils.customFields.list.invalidate({ workspaceId, applyTo: 'TASK' });
+            }
+            toast.success('Custom field added');
+            onClose();
+        },
+        onError: (err) => toast.error(err.message || 'Failed to add field'),
+    });
+
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!workspaceId) {
+            toast.error('Workspace ID is missing');
+            return;
+        }
+        if (!name.trim()) {
+            toast.error('Field name is required');
+            return;
+        }
+        const config: Record<string, unknown> = {};
+        if (description.trim()) config.description = description.trim();
+        if (permission !== 'workspace') config.permissionLevel = permission;
+        if (type === 'DROPDOWN' || type === 'CUSTOM_DROPDOWN' || type === 'LABELS' || type === 'CATEGORIZE' || type === 'SENTIMENT' || type === 'TSHIRT_SIZE') {
+            config.options = config.options ?? [];
+        }
+        createField.mutate({
+            workspaceId,
+            name: name.trim(),
+            type,
+            applyTo: ['TASK'],
+            isRequired,
+            isPinned,
+            isVisibleToGuests,
+            visibility: permission === 'private' ? 'PRIVATE' : permission === 'anyone_view' ? 'EVERYONE' : permission === 'anyone_edit' ? 'MEMBERS' : 'ADMINS',
+            config: Object.keys(config).length ? config : undefined,
+        });
+    };
+
+    const selectedOption = FIELD_TYPE_DROPDOWN_OPTIONS.find((o) => o.type === type) || FIELD_TYPE_DROPDOWN_OPTIONS.find((o) => o.type === "TEXT");
+    const TypeIcon = selectedOption?.icon;
+    const selectedPermission = PERMISSION_OPTIONS.find(o => o.value === permission) || PERMISSION_OPTIONS[0];
+
+    return (
+        <div className="flex flex-col h-full bg-white">
+            <div className="flex flex-col border-b border-zinc-100">
+                <div className="flex items-center justify-between p-3">
+                    <div className="flex items-center gap-2">
+                        <button onClick={onBack} className="h-8 w-8 rounded-md flex items-center justify-center hover:bg-zinc-100 text-zinc-500 cursor-pointer">
+                            <ArrowLeft className="h-4 w-4" />
+                        </button>
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <button className="text-[13px] font-normal text-zinc-900 flex items-center gap-1.5 hover:bg-zinc-50 py-1 px-2 rounded-md -ml-2 cursor-pointer outline-none">
+                                    {selectedOption?.label || "Dropdown"} <ChevronDown className="h-4 w-4 text-zinc-400" />
+                                </button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent className="w-56" align="start">
+                                {FIELD_TYPE_DROPDOWN_OPTIONS.map((opt) => {
+                                    const Icon = opt.icon;
+                                    return (
+                                        <DropdownMenuItem key={opt.id} onClick={() => setType(opt.type)} className="py-2.5 px-3 cursor-pointer focus:bg-violet-50/50 border border-transparent focus:border-violet-200 transition-all rounded-lg group">
+                                            <div className="flex items-center gap-3">
+                                                <div className={cn("h-6 w-6 rounded-md flex items-center justify-center transition-all", opt.isAi ? "bg-purple-50" : "bg-zinc-100 group-focus:bg-white group-focus:shadow-sm")}>
+                                                    <Icon className={cn("h-3.5 w-3.5", opt.color, "group-focus:text-violet-900")} />
+                                                </div>
+                                                <span className="text-[13px] font-normal text-zinc-900 group-focus:text-violet-900 transition-colors">{opt.label}</span>
+                                            </div>
+                                        </DropdownMenuItem>
+                                    );
+                                })}
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                    </div>
+                    <button onClick={onClose} className="h-8 w-8 rounded-full flex items-center justify-center bg-zinc-100 hover:bg-zinc-200 text-zinc-500">
+                        <X className="h-4 w-4" />
+                    </button>
+                </div>
+            </div>
+
+            <ScrollArea className="flex-1 min-h-0">
+                <form id="add-field-sidebar-form" onSubmit={handleSubmit}>
+                    <div className="p-5 space-y-5">
+                        <div className="space-y-2">
+                            <label htmlFor="field-name" className="!text-xs !font-medium !text-zinc-600 flex items-center gap-1">
+                                Field name <span className="text-red-500">*</span>
+                            </label>
+                            <div className="flex items-center gap-2 px-3 bg-white rounded-lg border border-zinc-200/80 focus-within:ring-2 focus-within:ring-indigo-500/30 focus-within:border-indigo-500 transition-all h-9">
+                                {TypeIcon && (
+                                    <div className="text-zinc-500 shrink-0 flex items-center justify-center">
+                                        <TypeIcon className="h-4 w-4" />
+                                    </div>
+                                )}
+                                <input
+                                    id="field-name"
+                                    value={name}
+                                    onChange={(e) => setName(e.target.value)}
+                                    placeholder="Enter name..."
+                                    className="w-full bg-transparent border-none outline-none text-[13px] text-zinc-900 placeholder:text-zinc-400 h-full"
+                                />
+                            </div>
+                        </div>
+
+                        {type === "DROPDOWN" && (
+                            <div className="space-y-1.5">
+                                <div className="flex items-center justify-between">
+                                    <label className="text-[13px] font-medium text-zinc-500 flex items-center gap-1">
+                                        Dropdown options <span className="text-red-500">*</span>
+                                    </label>
+                                    <span className="text-xs text-zinc-400 flex items-center gap-1"><ChevronUp className="h-3 w-3" /> Manual</span>
+                                </div>
+                                <div className="space-y-2">
+                                    <div className="flex items-center gap-2">
+                                        <div className="h-4 w-4 rounded-full border border-zinc-200 bg-indigo-100"></div>
+                                        <Input className="h-8 text-[13px]" defaultValue="Option 1" />
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <div className="h-4 w-4 rounded-full border border-zinc-200 bg-pink-100"></div>
+                                        <Input className="h-8 text-[13px]" defaultValue="Option 2" />
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <Button variant="outline" type="button" className="h-8 flex-1 justify-start text-zinc-500 font-normal text-[13px] border-dashed">
+                                            <Plus className="h-3.5 w-3.5 mr-2" /> Add option
+                                        </Button>
+                                        <Button variant="outline" size="icon" type="button" className="h-8 w-8 text-zinc-500">
+                                            <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 20h9" /><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" /></svg>
+                                        </Button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {(type === "DROPDOWN" || type === "TEXT") && (
+                            <div className="space-y-1.5">
+                                <label className="text-[13px] font-medium text-zinc-500">
+                                    Fill method
+                                </label>
+                                <div className="flex p-1 bg-zinc-100 rounded-lg">
+                                    <button type="button" className="flex-1 py-1.5 px-3 text-[13px] font-medium bg-white rounded-md shadow-sm text-zinc-900 border border-zinc-200">
+                                        Manual fill
+                                    </button>
+                                    <button type="button" className="flex-1 py-1.5 px-3 text-[13px] font-medium text-zinc-500 hover:text-zinc-700 flex items-center justify-center gap-1.5">
+                                        <svg className="h-3.5 w-3.5 text-purple-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" /></svg> Fill with AI
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="border-t border-zinc-100 mt-2">
+                        <button
+                            type="button"
+                            onClick={() => setShowMore(!showMore)}
+                            className="w-full flex items-center justify-between px-5 py-3.5 text-[13px] font-semibold text-zinc-800 hover:bg-zinc-50 transition-colors cursor-pointer"
+                        >
+                            More settings and permissions
+                            {showMore ? <ChevronDown className="h-4 w-4 text-zinc-500" /> : <ChevronRight className="h-4 w-4 text-zinc-500" />}
+                        </button>
+                    </div>
+
+                    {showMore && (
+                        <div className="px-5 pb-5 pt-1 space-y-5">
+                            <div className="space-y-2">
+                                <label className="block !text-xs !font-medium !text-zinc-600">Description</label>
+                                <Textarea
+                                    className="min-h-[70px] text-[13px] rounded-lg resize-y border-zinc-200 focus-visible:ring-1 focus-visible:ring-zinc-300 placeholder:text-zinc-400"
+                                    placeholder="Tell other users how to use this field"
+                                    value={description}
+                                    onChange={(e) => setDescription(e.target.value)}
+                                />
+                            </div>
+
+                            <div className="space-y-2">
+                                <label className="block !text-xs !font-medium !text-zinc-600">Permissions</label>
+                                <div className="flex gap-2">
+                                    <Popover open={permissionOpen} onOpenChange={setPermissionOpen}>
+                                        <PopoverTrigger asChild>
+                                            <Button
+                                                variant="outline"
+                                                type="button"
+                                                className="w-full justify-between h-9 rounded-lg text-[13px] font-normal border-zinc-200 text-zinc-800 hover:bg-zinc-50"
+                                            >
+                                                <span className="flex items-center gap-2">
+                                                    <PermissionIcon value={selectedPermission.value} className="h-4 w-4 text-zinc-400 shrink-0" />
+                                                    <span className="font-normal">{selectedPermission.label}</span>
+                                                </span>
+                                                <ChevronDown className="h-4 w-4 text-zinc-400 shrink-0" />
+                                            </Button>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-[280px] p-1 shadow-lg border-zinc-200 rounded-xl" align="start">
+                                            {PERMISSION_OPTIONS.map((opt) => (
+                                                <button
+                                                    key={opt.value}
+                                                    type="button"
+                                                    onClick={() => { setPermission(opt.value); setPermissionOpen(false); }}
+                                                    className={cn(
+                                                        "w-full flex items-start gap-3 px-3 py-2.5 rounded-lg text-left cursor-pointer hover:bg-zinc-50 transition-colors",
+                                                        permission === opt.value && "bg-indigo-50"
+                                                    )}
+                                                >
+                                                    <div className="mt-0.5 shrink-0 text-zinc-400">
+                                                        <PermissionIcon value={opt.value} className="h-4 w-4" />
+                                                    </div>
+                                                    <div className="flex-1 min-w-0">
+                                                        <div className={cn("text-[13px] font-medium", permission === opt.value ? "text-indigo-700" : "text-zinc-900")}>
+                                                            {opt.label}
+                                                        </div>
+                                                        <div className="text-[11.5px] text-zinc-500 mt-0.5 leading-snug">{opt.description}</div>
+                                                    </div>
+                                                </button>
+                                            ))}
+                                        </PopoverContent>
+                                    </Popover>
+                                </div>
+                            </div>
+
+                            <div>
+                                <Label className="block !text-xs !font-medium !text-zinc-600 !mb-3">Display settings</Label>
+                                <div className="space-y-3">
+                                    <div className="flex items-center gap-3">
+                                        <Switch checked={isRequired} onCheckedChange={setIsRequired} />
+                                        <Label className="!text-xs !font-normal text-zinc-700 cursor-pointer leading-none !m-0" onClick={() => setIsRequired(!isRequired)}>Required in tasks</Label>
+                                    </div>
+                                    <div className="flex items-center gap-3">
+                                        <Switch checked={isPinned} onCheckedChange={setIsPinned} />
+                                        <Label className="!text-xs !font-normal text-zinc-700 cursor-pointer leading-none !m-0" onClick={() => setIsPinned(!isPinned)}>Pinned</Label>
+                                    </div>
+                                    <div className="flex items-center gap-3">
+                                        <Switch checked={isVisibleToGuests} onCheckedChange={setIsVisibleToGuests} className="data-[state=checked]:bg-indigo-500" />
+                                        <Label className="!text-xs !font-normal text-zinc-700 cursor-pointer leading-none !m-0" onClick={() => setIsVisibleToGuests(!isVisibleToGuests)}>Visible to Guests and Limited Members</Label>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Exceptions */}
+                            <div className="space-y-4">
+                                <div className="space-y-0.5">
+                                    <div className="flex items-center">
+                                        <Label className="!text-xs !font-medium !text-zinc-600">Exceptions</Label>
+                                        <TooltipProvider delayDuration={300}>
+                                            <Tooltip>
+                                                <TooltipTrigger asChild>
+                                                    <Info className="h-3 w-3 text-zinc-400 ml-1 mb-1.5 cursor-help" />
+                                                </TooltipTrigger>
+                                                <TooltipContent side="top" align="center" className="bg-zinc-900 text-white border-zinc-800 text-[13px] py-2 px-3 font-medium max-w-[300px] text-center">
+                                                    All users will have the permissions set above. To customize access for certain people, add exceptions below.
+                                                </TooltipContent>
+                                            </Tooltip>
+                                        </TooltipProvider>
+                                    </div>
+                                    <p className="text-[11px] text-zinc-400 leading-none">
+                                        Override default permissions for specific members or teams.
+                                    </p>
+                                </div>
+
+                                <div className="space-y-1 mt-2">
+                                    {customPermissions.map(p => (
+                                        <div key={p.id} className="flex items-center justify-between py-1 group">
+                                            <div className="flex items-center gap-2 flex-1 min-w-0">
+                                                <div className={cn(
+                                                    "h-[22px] w-[22px] rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0",
+                                                    p.role === 'creator' ? 'bg-zinc-900' : 'bg-indigo-500'
+                                                )}>
+                                                    {p.avatar ? (
+                                                        p.avatar.length > 2 ? <img src={p.avatar} alt="" className="w-full h-full object-cover rounded-full" /> : p.avatar
+                                                    ) : p.name.charAt(0).toUpperCase()}
+                                                </div>
+                                                <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                                                    <span className="text-[13px] text-zinc-700 font-medium truncate min-w-0">{p.name}</span>
+                                                    {p.role === 'creator' && (
+                                                        <span className="text-[13px] text-zinc-400 shrink-0">(Creator)</span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center gap-1 shrink-0">
+                                                {p.role === 'creator' ? (
+                                                    <div className="flex items-center gap-1 text-zinc-600 cursor-default px-2 py-1">
+                                                        <span className="text-[13px] font-medium">{permissionLevels.find(pl => pl.value === p.permission)?.label}</span>
+                                                        <ChevronDown className="h-3.5 w-3.5 opacity-70" />
+                                                    </div>
+                                                ) : (
+                                                    <Popover>
+                                                        <PopoverTrigger asChild>
+                                                            <button className="flex items-center gap-1 text-zinc-600 hover:text-zinc-900 transition-colors cursor-pointer focus:outline-none px-2 py-1 rounded hover:bg-zinc-100">
+                                                                <span className="text-[13px] font-medium">{permissionLevels.find(pl => pl.value === p.permission)?.label}</span>
+                                                                <ChevronDown className="h-3.5 w-3.5 opacity-70" />
+                                                            </button>
+                                                        </PopoverTrigger>
+                                                        <PopoverContent className="w-[280px] p-1 shadow-2xl border-zinc-200 rounded-xl z-[150]" align="end">
+                                                            <div className="space-y-0.5">
+                                                                {permissionLevels.map(pl => (
+                                                                    <button
+                                                                        key={pl.value}
+                                                                        type="button"
+                                                                        onClick={() => setCustomPermissions(prev => prev.map(item => item.id === p.id ? { ...item, permission: pl.value } : item))}
+                                                                        className={cn(
+                                                                            "w-full flex items-start gap-3 rounded-lg py-2.5 px-2.5 transition-all text-left group cursor-pointer",
+                                                                            p.permission === pl.value ? "bg-indigo-50" : "hover:bg-zinc-50"
+                                                                        )}
+                                                                    >
+                                                                        <div className={cn(
+                                                                            "mt-0.5 h-7 w-7 rounded-md border flex items-center justify-center shrink-0 transition-all",
+                                                                            p.permission === pl.value ? "bg-white border-indigo-200 text-indigo-600 shadow-sm" : "bg-zinc-50 border-zinc-100 text-zinc-400 group-hover:bg-white group-hover:border-zinc-200"
+                                                                        )}>
+                                                                            <pl.icon className="h-3.5 w-3.5" />
+                                                                        </div>
+                                                                        <div className="flex flex-col gap-0 min-w-0 flex-1">
+                                                                            <div className="flex items-center justify-between">
+                                                                                <span className={cn("text-[13px] font-semibold leading-tight", p.permission === pl.value ? "text-indigo-900" : "text-zinc-800")}>{pl.label}</span>
+                                                                                {p.permission === pl.value && <Check className="h-3.5 w-3.5 text-indigo-600" />}
+                                                                            </div>
+                                                                            <span className="text-[10px] text-zinc-400 leading-normal line-clamp-2">{pl.description}</span>
+                                                                        </div>
+                                                                    </button>
+                                                                ))}
+                                                            </div>
+                                                        </PopoverContent>
+                                                    </Popover>
+                                                )}
+                                                <div className="w-6 flex justify-center">
+                                                    {p.role !== 'creator' && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setCustomPermissions(prev => prev.filter(item => item.id !== p.id))}
+                                                            className="h-6 w-6 rounded-md flex items-center justify-center text-zinc-400 hover:bg-zinc-200 hover:text-zinc-700 transition-colors opacity-0 group-hover:opacity-100 cursor-pointer"
+                                                        >
+                                                            <X className="h-3.5 w-3.5" />
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+
+                                {showAddException ? (
+                                    <div className="flex items-center gap-2">
+                                        <Popover
+                                            open={isInputFocused}
+                                            onOpenChange={(open) => {
+                                                setIsInputFocused(open);
+                                                if (!open && selectedMembers.length === 0) {
+                                                    setShowAddException(false);
+                                                }
+                                            }}
+                                        >
+                                            <PopoverTrigger asChild>
+                                                <div
+                                                    className={cn(
+                                                        "flex-1 flex items-center h-[36px] bg-white border border-zinc-200 rounded-lg px-2 gap-1.5 transition-all cursor-text overflow-hidden",
+                                                        isInputFocused && "ring-2 ring-indigo-500/10 border-indigo-300"
+                                                    )}
+                                                    onMouseDown={(e) => {
+                                                        if (e.target !== exceptionInputRef.current) {
+                                                            e.preventDefault();
+                                                            exceptionInputRef.current?.focus();
+                                                        }
+                                                    }}
+                                                >
+                                                    <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                                                        {selectedMembers.slice(0, 2).map(m => (
+                                                            <div key={m.id} className="group/pill flex items-center gap-1 bg-zinc-100 border border-zinc-200 rounded px-1.5 h-[24px] max-w-[120px] transition-all hover:bg-zinc-200/50 cursor-pointer shrink-0">
+                                                                <span className="text-[11px] font-medium text-zinc-700 truncate">{m.name}</span>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={(e) => { e.stopPropagation(); setSelectedMembers(prev => prev.filter(sm => sm.id !== m.id)); }}
+                                                                    className="h-4 w-4 flex items-center justify-center rounded-full text-zinc-400 hover:text-red-500 hover:bg-zinc-300/80 transition-all ml-0.5 cursor-pointer"
+                                                                >
+                                                                    <X className="h-3 w-3" />
+                                                                </button>
+                                                            </div>
+                                                        ))}
+                                                        {selectedMembers.length > 2 && (
+                                                            <span className="text-[10px] font-bold text-zinc-400 bg-zinc-100 px-1 h-[24px] flex items-center rounded border border-zinc-200 tabular-nums shrink-0">
+                                                                +{selectedMembers.length - 2}
+                                                            </span>
+                                                        )}
+                                                        <input
+                                                            ref={exceptionInputRef}
+                                                            placeholder={selectedMembers.length === 0 ? 'Add members or teams' : ''}
+                                                            className="flex-1 bg-transparent border-none w-full outline-none text-sm placeholder:text-zinc-400 min-w-[30px] h-full cursor-text"
+                                                            onFocus={() => setIsInputFocused(true)}
+                                                            onBlur={(e) => {
+                                                                if (!e.relatedTarget?.closest('[data-radix-popper-content-wrapper]')) {
+                                                                    setIsInputFocused(false);
+                                                                    if (selectedMembers.length === 0) {
+                                                                        setShowAddException(false);
+                                                                    }
+                                                                }
+                                                            }}
+                                                        />
+                                                    </div>
+                                                </div>
+                                            </PopoverTrigger>
+                                            <PopoverContent className="w-[300px] p-1 shadow-2xl border-zinc-200 rounded-xl max-h-[240px] overflow-y-auto" align="start" onOpenAutoFocus={(e) => e.preventDefault()}>
+                                                <div className="space-y-0.5">
+                                                    {workspaceMembers.map((m: any) => {
+                                                        const isSelected = selectedMembers.find(s => s.id === m.id);
+                                                        return (
+                                                            <button
+                                                                key={m.id}
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    if (isSelected) {
+                                                                        setSelectedMembers(prev => prev.filter(sm => sm.id !== m.id));
+                                                                    } else {
+                                                                        setSelectedMembers(prev => [...prev, m]);
+                                                                    }
+                                                                }}
+                                                                className={cn(
+                                                                    "w-full flex items-center gap-3 rounded-lg py-2 px-2 hover:bg-zinc-50 transition-colors group text-left cursor-pointer",
+                                                                    isSelected && "bg-indigo-50/30"
+                                                                )}
+                                                            >
+                                                                <div className={cn(
+                                                                    "h-8 w-8 rounded-full overflow-hidden border shrink-0 flex items-center justify-center bg-zinc-100 text-xs font-medium text-zinc-600",
+                                                                    isSelected ? "border-indigo-200" : "border-zinc-200"
+                                                                )}>
+                                                                    {m.avatar ? (
+                                                                        <img src={m.avatar} alt="" className="w-full h-full object-cover" />
+                                                                    ) : (
+                                                                        m.name.charAt(0).toUpperCase()
+                                                                    )}
+                                                                </div>
+                                                                <div className="flex-1 min-w-0">
+                                                                    <div className="text-[13px] font-medium text-zinc-800 truncate">{m.name}</div>
+                                                                    {m.badge && <div className="text-[11px] text-zinc-400">Team</div>}
+                                                                </div>
+                                                                {isSelected && <Check className="h-4 w-4 text-indigo-600 shrink-0" />}
+                                                            </button>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </PopoverContent>
+                                        </Popover>
+                                        {selectedMembers.length > 0 && (
+                                            <Button
+                                                type="button"
+                                                size="sm"
+                                                className="h-9 px-3 bg-indigo-500 text-white hover:bg-indigo-600 text-[13px] font-medium rounded-lg shrink-0"
+                                                onClick={() => {
+                                                    selectedMembers.forEach(m => {
+                                                        setCustomPermissions(prev => [
+                                                            ...prev,
+                                                            { id: m.id, name: m.name, role: 'member', permission: permissionForAdd, avatar: m.avatar || '' }
+                                                        ]);
+                                                    });
+                                                    setSelectedMembers([]);
+                                                    setShowAddException(false);
+                                                }}
+                                            >
+                                                Add
+                                            </Button>
+                                        )}
+                                    </div>
+                                ) : (
+                                    <Button
+                                        variant="secondary"
+                                        type="button"
+                                        className="w-full h-8 text-[13px] font-medium rounded-lg bg-zinc-100 hover:bg-zinc-200 text-zinc-500"
+                                        onClick={() => {
+                                            setShowAddException(true);
+                                            setTimeout(() => {
+                                                setIsInputFocused(true);
+                                                exceptionInputRef.current?.focus();
+                                            }, 50);
+                                        }}
+                                    >
+                                        Add exception
+                                    </Button>
+                                )}
+                            </div>
+
+                            {/* Belongs to */}
+                            <div className="space-y-1">
+                                <Label className="!text-xs !font-medium !text-zinc-600">Belongs to</Label>
+                                <p className="text-[13px] text-zinc-500 leading-none mb-3">
+                                    Field will exist on all tasks at locations below
+                                </p>
+                                {listName ? (
+                                    <div className="flex items-center gap-2 pt-1 text-[13px] text-zinc-800">
+                                        <ListChecks className="h-4 w-4 text-zinc-400 shrink-0" />
+                                        <span className="font-medium">{listName}</span>
+                                    </div>
+                                ) : (
+                                    <div className="text-[13px] text-zinc-400 italic">No location context available</div>
+                                )}
+                            </div>
+                        </div>
+                    )}
+                </form>
+            </ScrollArea>
+
+            <div className="flex items-center justify-end gap-2.5 px-5 py-3.5 border-t border-zinc-100 bg-white shrink-0">
+                <Button
+                    type="button"
+                    variant="outline"
+                    onClick={onClose}
+                    className="h-9 px-4 border-zinc-200 text-zinc-700 hover:bg-zinc-50 hover:text-zinc-900 shadow-sm transition-all font-medium text-[13px] rounded-md"
+                >
+                    Cancel
+                </Button>
+                <Button
+                    type="submit"
+                    form="add-field-sidebar-form"
+                    disabled={createField.isPending || !name.trim()}
+                    className="h-9 px-4 bg-indigo-500 text-white hover:bg-indigo-600 shadow-sm transition-all font-medium border border-transparent text-[13px] rounded-md"
+                >
+                    {createField.isPending ? 'Creating...' : 'Create'}
+                </Button>
+            </div>
+        </div>
+    );
+}
 
 type Task = {
     id: string;
@@ -314,6 +895,7 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
     const router = useRouter();
     const searchParams = useSearchParams();
     const [searchQuery, setSearchQuery] = useState("");
+    const [managerModalOpen, setManagerModalOpen] = useState(false);
     const [isToolbarSearchOpen, setIsToolbarSearchOpen] = useState(false);
     const [selectedDetailTaskId, setSelectedDetailTaskId] = useState<string | null>(null);
     const effectiveSelectedTaskId = onTaskSelect ? (selectedTaskIdFromParent ?? null) : selectedDetailTaskId;
@@ -504,12 +1086,7 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
     const [inlineAddPriority, setInlineAddPriority] = useState<"URGENT" | "HIGH" | "NORMAL" | "LOW" | null>(null);
     const [expandedParents, setExpandedParents] = useState<Set<string>>(new Set());
     const [addTaskModalOpen, setAddTaskModalOpen] = useState(false);
-    const [fieldsPanelTab, setFieldsPanelTab] = useState<"existing" | "create">("existing");
-    const [fieldsPanelShownExpanded, setFieldsPanelShownExpanded] = useState(true);
-    const [fieldsPanelPropertiesExpanded, setFieldsPanelPropertiesExpanded] = useState(true);
-    const [fieldsPanelCustomFieldsExpanded, setFieldsPanelCustomFieldsExpanded] = useState(true);
-    const [fieldsPanelCustomFieldsWorkspaceExpanded, setFieldsPanelCustomFieldsWorkspaceExpanded] = useState(true);
-    const [createFieldSearch, setCreateFieldSearch] = useState("");
+    // Fields panel internal state is now managed by FieldsPanelSlideout
     const [dependenciesTask, setDependenciesTask] = useState<Task | null>(null);
     const [customizePanelOpen, setCustomizePanelOpen] = useState(false);
     const [layoutOptionsOpen, setLayoutOptionsOpen] = useState(false);
@@ -4304,347 +4881,23 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
             </div>
 
             {/* Fields panel */}
-            {fieldsPanelOpen && (
-                <>
-                    <div className="absolute inset-0 z-40" onClick={() => { setFieldsPanelOpen(false); setCreateFieldSearch(""); }} aria-hidden />
-                    <div className="absolute right-0 bottom-0 top-0 w-[360px] max-w-[90vw] bg-white border-l border-zinc-200 shadow-xl z-50 flex flex-col">
-                        <div className="flex flex-col border-b border-zinc-100">
-                            <div className="flex items-center justify-between p-4 pb-2">
-                                <h3 className="font-semibold text-zinc-900">Fields</h3>
-                                <div className="flex items-center gap-1">
-                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-zinc-500 hover:text-zinc-900">
-                                        <Settings className="h-4 w-4" />
-                                    </Button>
-                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-zinc-500 hover:text-zinc-900" onClick={() => { setFieldsPanelOpen(false); setCreateFieldSearch(""); }}>
-                                        <X className="h-4 w-4" />
-                                    </Button>
-                                </div>
-                            </div>
-                            <div className="px-4 pb-3">
-                                <div className="relative">
-                                    <Input className="h-9 text-sm pl-3 focus-visible:ring-2 focus-visible:ring-violet-500/20 focus-visible:border-violet-500" placeholder="Search Task Fields" value={fieldsPanelTab === "create" ? createFieldSearch : fieldsSearch} onChange={e => fieldsPanelTab === "create" ? setCreateFieldSearch(e.target.value) : setFieldsSearch(e.target.value)} />
-                                </div>
-                            </div>
-                            <div className="flex px-4 gap-4">
-                                <button type="button" className={cn("pb-2 text-sm font-medium border-b-2 cursor-pointer", fieldsPanelTab === "create" ? "border-zinc-900 text-zinc-900" : "border-transparent text-zinc-500 hover:text-zinc-700")} onClick={() => setFieldsPanelTab("create")}>Create new</button>
-                                <button type="button" className={cn("pb-2 text-sm font-medium border-b-2 cursor-pointer", fieldsPanelTab === "existing" ? "border-zinc-900 text-zinc-900" : "border-transparent text-zinc-500 hover:text-zinc-700")} onClick={() => setFieldsPanelTab("existing")}>Add existing</button>
-                            </div>
-                        </div>
-
-                        {fieldsPanelTab === "existing" ? (
-                            <ScrollArea className="flex-1 p-3 pb-4 h-full">
-                                <div
-                                    className="flex items-center justify-between mb-1 mt-1 py-2 px-2 -mx-1 rounded-md hover:bg-zinc-100 cursor-pointer group"
-                                    onClick={() => setFieldsPanelShownExpanded(!fieldsPanelShownExpanded)}
-                                >
-                                    <p className="text-xs font-medium text-zinc-500 flex items-center gap-1.5 group-hover:text-zinc-700">
-                                        Shown
-                                        <svg width="8" height="8" viewBox="0 0 8 8" className={cn("fill-current transition-transform translate-y-[1px]", fieldsPanelShownExpanded ? "" : "-rotate-90")}><polygon points="0,0 8,0 4,6" /></svg>
-                                    </p>
-                                    <span className="text-xs text-blue-600 font-medium">{FIELD_CONFIG.filter(f => visibleColumns.has(f.id)).length}</span>
-                                </div>
-                                {fieldsPanelShownExpanded && (
-                                    <DndContext
-                                        sensors={sensors}
-                                        collisionDetection={closestCenter}
-                                        onDragEnd={(event) => {
-                                            const { active, over } = event;
-                                            if (over && active.id !== over.id) {
-                                                setColumnOrder(prev => {
-                                                    const oldIndex = prev.indexOf(active.id as string);
-                                                    const newIndex = prev.indexOf(over.id as string);
-                                                    if (oldIndex === -1 || newIndex === -1) return prev;
-                                                    return arrayMove(prev, oldIndex, newIndex);
-                                                });
-                                            }
-                                        }}
-                                    >
-                                        <SortableContext items={columnOrder} strategy={verticalListSortingStrategy}>
-                                            <div className="space-y-1 mb-4">
-                                                {/* Name is always first and not draggable */}
-                                                {(() => {
-                                                    const nameField = FIELD_CONFIG.find(f => f.id === "name");
-                                                    if (!nameField || (fieldsSearch.trim() && !nameField.label.toLowerCase().includes(fieldsSearch.toLowerCase()))) return null;
-                                                    const iconAny = (nameField as any).icon;
-                                                    const IconEl = (() => {
-                                                        if (typeof iconAny === "function") return React.createElement(iconAny, { className: "h-4 w-4 text-zinc-400 shrink-0" });
-                                                        switch (iconAny) {
-                                                            case "Aa": return <span className="text-[10px] font-bold tracking-tighter text-zinc-400 shrink-0 w-4 h-4 flex items-center justify-center">Aa</span>;
-                                                            default: return <Circle className="h-4 w-4 text-zinc-400 shrink-0" />;
-                                                        }
-                                                    })();
-                                                    return (
-                                                        <div className="flex items-center gap-2 py-2 px-2 rounded opacity-60">
-                                                            <div className="w-4 h-4 flex items-center justify-center shrink-0">{IconEl}</div>
-                                                            <span className="text-sm flex-1 text-zinc-400">{nameField.label}</span>
-                                                            <Switch checked onCheckedChange={() => { }} disabled />
-                                                        </div>
-                                                    );
-                                                })()}
-                                                {/* Remaining shown fields in columnOrder, rendered as sortable */}
-                                                {columnOrder.filter(colId => {
-                                                    const f = FIELD_CONFIG.find(x => x.id === colId);
-                                                    if (!f) return false;
-                                                    return !fieldsSearch.trim() || f.label.toLowerCase().includes(fieldsSearch.toLowerCase());
-                                                }).map(colId => {
-                                                    const f = FIELD_CONFIG.find(x => x.id === colId);
-                                                    if (!f) return null;
-                                                    const iconAny = (f as any).icon;
-                                                    const IconEl = (() => {
-                                                        if (typeof iconAny === "function") return React.createElement(iconAny, { className: "h-4 w-4 text-zinc-400 shrink-0" });
-                                                        switch (iconAny) {
-                                                            case "Aa": return <span className="text-[10px] font-bold tracking-tighter text-zinc-400 shrink-0 w-4 h-4 flex items-center justify-center">Aa</span>;
-                                                            case "person": return <UserRound className="h-4 w-4 text-zinc-400 shrink-0" />;
-                                                            case "calendar": return <Calendar className="h-4 w-4 text-zinc-400 shrink-0" />;
-                                                            case "flag": return <Flag className="h-4 w-4 text-zinc-400 shrink-0" />;
-                                                            case "circle": return <Circle className="h-4 w-4 text-zinc-400 shrink-0" />;
-                                                            case "message": return <MessageSquare className="h-4 w-4 text-zinc-400 shrink-0" />;
-                                                            case "tag": return <Tag className="h-4 w-4 text-zinc-400 shrink-0" />;
-                                                            case "clock": return <Clock className="h-4 w-4 text-zinc-400 shrink-0" />;
-                                                            case "link": return <Link2 className="h-4 w-4 text-zinc-400 shrink-0" />;
-                                                            case "box": return <Box className="h-4 w-4 text-zinc-400 shrink-0" />;
-                                                            default: return <Circle className="h-4 w-4 text-zinc-400 shrink-0" />;
-                                                        }
-                                                    })();
-                                                    return (
-                                                        <SortableFieldRow key={colId} id={colId}>
-                                                            <div className="w-4 h-4 flex items-center justify-center shrink-0">
-                                                                <GripVertical className="h-4 w-4 text-zinc-300 cursor-grab hidden group-hover:block" />
-                                                                <div className="group-hover:hidden flex items-center justify-center">
-                                                                    {IconEl}
-                                                                </div>
-                                                            </div>
-                                                            <span className="text-sm flex-1 text-zinc-800">{f.label}</span>
-                                                            <Switch checked onCheckedChange={() => toggleColumn(colId)} />
-                                                        </SortableFieldRow>
-                                                    );
-                                                })}
-                                            </div>
-                                        </SortableContext>
-                                    </DndContext>
-                                )}
-                                <div className="border-t border-zinc-100 my-4" />
-                                <TooltipProvider>
-                                    <Tooltip delayDuration={300}>
-                                        <TooltipTrigger asChild>
-                                            <div
-                                                className="flex items-center justify-between mb-1 py-2 px-2 -mx-1 rounded-md hover:bg-zinc-100 cursor-pointer group"
-                                                onClick={() => setFieldsPanelPropertiesExpanded(!fieldsPanelPropertiesExpanded)}
-                                            >
-                                                <p className="text-xs font-medium text-zinc-500 flex items-center gap-1.5 group-hover:text-zinc-700">
-                                                    Properties
-                                                    <svg width="8" height="8" viewBox="0 0 8 8" className={cn("fill-current transition-transform translate-y-[1px]", fieldsPanelPropertiesExpanded ? "" : "-rotate-90")}><polygon points="0,0 8,0 4,6" /></svg>
-                                                </p>
-                                                <span className="text-xs text-zinc-500 font-medium">{FIELD_CONFIG.filter(f => !visibleColumns.has(f.id) && !f.isCustom).length}</span>
-                                            </div>
-                                        </TooltipTrigger>
-                                        <TooltipContent side="bottom" align="center" className="bg-zinc-900 text-white border-zinc-800 text-xs py-1.5">
-                                            <p>Built-in Task Fields available on every task.</p>
-                                        </TooltipContent>
-                                    </Tooltip>
-                                </TooltipProvider>
-                                {fieldsPanelPropertiesExpanded && (
-                                    <div className="space-y-1">
-                                        {FIELD_CONFIG.filter(f => !visibleColumns.has(f.id) && !f.isCustom && (!fieldsSearch.trim() || f.label.toLowerCase().includes(fieldsSearch.toLowerCase()))).map(f => {
-                                            const iconAny = (f as any).icon;
-                                            const IconEl = (() => {
-                                                if (typeof iconAny === "function") return React.createElement(iconAny, { className: "h-4 w-4 text-zinc-400 shrink-0" });
-                                                switch (iconAny) {
-                                                    case "Aa": return <span className="text-[10px] font-bold tracking-tighter text-zinc-400 shrink-0 w-4 h-4 flex items-center justify-center">Aa</span>;
-                                                    case "person": return <UserRound className="h-4 w-4 text-zinc-400 shrink-0" />;
-                                                    case "calendar": return <Calendar className="h-4 w-4 text-zinc-400 shrink-0" />;
-                                                    case "flag": return <Flag className="h-4 w-4 text-zinc-400 shrink-0" />;
-                                                    case "circle": return <Circle className="h-4 w-4 text-zinc-400 shrink-0" />;
-                                                    case "message": return <MessageSquare className="h-4 w-4 text-zinc-400 shrink-0" />;
-                                                    case "tag": return <Tag className="h-4 w-4 text-zinc-400 shrink-0" />;
-                                                    case "clock": return <Clock className="h-4 w-4 text-zinc-400 shrink-0" />;
-                                                    case "link": return <Link2 className="h-4 w-4 text-zinc-400 shrink-0" />;
-                                                    case "box": return <Box className="h-4 w-4 text-zinc-400 shrink-0" />;
-                                                    default: return <Circle className="h-4 w-4 text-zinc-400 shrink-0" />;
-                                                }
-                                            })();
-                                            return (
-                                                <div key={f.id} className="flex items-center justify-between py-2 px-2 rounded hover:bg-zinc-50">
-                                                    <div className="flex items-center gap-2">
-                                                        {IconEl}
-                                                        <span className="text-sm text-zinc-800">{f.label}</span>
-                                                    </div>
-                                                    <Switch checked={false} onCheckedChange={() => toggleColumn(f.id)} />
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                )}
-
-                                <div className="border-t border-zinc-100 my-4" />
-                                <TooltipProvider>
-                                    <Tooltip delayDuration={300}>
-                                        <TooltipTrigger asChild>
-                                            <div
-                                                className="flex items-center justify-between mb-1 py-2 px-2 -mx-1 rounded-md hover:bg-zinc-100 cursor-pointer group"
-                                                onClick={() => setFieldsPanelCustomFieldsExpanded(!fieldsPanelCustomFieldsExpanded)}
-                                            >
-                                                <p className="text-xs font-medium text-zinc-500 flex items-center gap-1.5 group-hover:text-zinc-700">
-                                                    Custom Fields
-                                                    <svg width="8" height="8" viewBox="0 0 8 8" className={cn("fill-current transition-transform translate-y-[1px]", fieldsPanelCustomFieldsExpanded ? "" : "-rotate-90")}><polygon points="0,0 8,0 4,6" /></svg>
-                                                </p>
-                                                <span className="text-xs text-zinc-500 font-medium">{FIELD_CONFIG.filter(f => !visibleColumns.has(f.id) && f.isCustom).length}</span>
-                                            </div>
-                                        </TooltipTrigger>
-                                        <TooltipContent side="bottom" align="center" className="bg-zinc-900 text-white border-zinc-800 text-xs py-1.5">
-                                            <p>Custom Task Fields added to tasks on this List.</p>
-                                        </TooltipContent>
-                                    </Tooltip>
-                                </TooltipProvider>
-                                {fieldsPanelCustomFieldsExpanded && (
-                                    <div className="space-y-1">
-                                        {FIELD_CONFIG.filter(f => !visibleColumns.has(f.id) && f.isCustom && (!fieldsSearch.trim() || f.label.toLowerCase().includes(fieldsSearch.toLowerCase()))).map(f => {
-                                            const iconAny = (f as any).icon;
-                                            const IconEl = (() => {
-                                                if (typeof iconAny === "function") return React.createElement(iconAny, { className: "h-4 w-4 text-zinc-400 shrink-0" });
-                                                switch (iconAny) {
-                                                    case "Aa": return <span className="text-[10px] font-bold tracking-tighter text-zinc-400 shrink-0 w-4 h-4 flex items-center justify-center">Aa</span>;
-                                                    case "person": return <UserRound className="h-4 w-4 text-zinc-400 shrink-0" />;
-                                                    case "calendar": return <Calendar className="h-4 w-4 text-zinc-400 shrink-0" />;
-                                                    case "flag": return <Flag className="h-4 w-4 text-zinc-400 shrink-0" />;
-                                                    case "circle": return <Circle className="h-4 w-4 text-zinc-400 shrink-0" />;
-                                                    case "message": return <MessageSquare className="h-4 w-4 text-zinc-400 shrink-0" />;
-                                                    case "tag": return <Tag className="h-4 w-4 text-zinc-400 shrink-0" />;
-                                                    case "clock": return <Clock className="h-4 w-4 text-zinc-400 shrink-0" />;
-                                                    case "link": return <Link2 className="h-4 w-4 text-zinc-400 shrink-0" />;
-                                                    case "box": return <Box className="h-4 w-4 text-zinc-400 shrink-0" />;
-                                                    default: return <Circle className="h-4 w-4 text-zinc-400 shrink-0" />;
-                                                }
-                                            })();
-                                            return (
-                                                <div key={f.id} className="flex items-center justify-between py-2 px-2 rounded hover:bg-zinc-50">
-                                                    <div className="flex items-center gap-2">
-                                                        {IconEl}
-                                                        <span className="text-sm text-zinc-800">{f.label}</span>
-                                                    </div>
-                                                    <Switch checked={false} onCheckedChange={() => toggleColumn(f.id)} />
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                )}
-
-                                <div className="border-t border-zinc-100 my-4" />
-                                <TooltipProvider>
-                                    <Tooltip delayDuration={300}>
-                                        <TooltipTrigger asChild>
-                                            <div
-                                                className="flex items-center justify-between mb-1 py-2 px-2 -mx-1 rounded-md hover:bg-zinc-100 cursor-pointer group"
-                                                onClick={() => setFieldsPanelCustomFieldsWorkspaceExpanded(!fieldsPanelCustomFieldsWorkspaceExpanded)}
-                                            >
-                                                <p className="text-xs font-medium text-zinc-500 flex items-center gap-1.5 group-hover:text-zinc-700">
-                                                    Custom Fields in Workspace
-                                                    <svg width="8" height="8" viewBox="0 0 8 8" className={cn("fill-current transition-transform translate-y-[1px]", fieldsPanelCustomFieldsWorkspaceExpanded ? "" : "-rotate-90")}><polygon points="0,0 8,0 4,6" /></svg>
-                                                </p>
-                                                <span className="text-xs text-zinc-500 font-medium">{(customFields as any[])?.filter(cf => !usedCustomFieldIds.has(cf.id)).length || 0}</span>
-                                            </div>
-                                        </TooltipTrigger>
-                                        <TooltipContent side="bottom" align="center" className="bg-zinc-900 text-white border-zinc-800 text-xs py-1.5">
-                                            <p>All other Custom Task Fields in your Workspace.</p>
-                                        </TooltipContent>
-                                    </Tooltip>
-                                </TooltipProvider>
-                                {fieldsPanelCustomFieldsWorkspaceExpanded && (
-                                    <div className="space-y-1">
-                                        {(customFields as any[])?.filter(cf => !usedCustomFieldIds.has(cf.id) && (!fieldsSearch.trim() || cf.name.toLowerCase().includes(fieldsSearch.toLowerCase()))).map(cf => {
-                                            const IconComponent = getCustomFieldIcon(cf.type);
-                                            return (
-                                                <div key={cf.id} className="flex items-center justify-between py-2 px-2 rounded hover:bg-zinc-50">
-                                                    <div className="flex items-center gap-2">
-                                                        {IconComponent && <IconComponent className="h-4 w-4 text-zinc-400 shrink-0" />}
-                                                        <span className="text-sm text-zinc-800">{cf.name}</span>
-                                                    </div>
-                                                    <Switch checked={false} onCheckedChange={() => toggleColumn(cf.id)} />
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                )}
-                            </ScrollArea>
-                        ) : (
-                            <ScrollArea className="flex-1 p-3 pb-4 h-full">
-                                {(() => {
-                                    const filteredAi = AI_FIELDS.filter(
-                                        (f) => !createFieldSearch.trim() || f.label.toLowerCase().includes(createFieldSearch.toLowerCase())
-                                    );
-                                    const filteredAll = ALL_FIELDS.filter(
-                                        (f) => !createFieldSearch.trim() || f.label.toLowerCase().includes(createFieldSearch.toLowerCase())
-                                    );
-                                    return (
-                                        <div className="space-y-0.5">
-                                            {/* AI Fields */}
-                                            {filteredAi.length > 0 && (
-                                                <div className="mb-3">
-                                                    <p className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider px-2 py-1.5">
-                                                        AI Fields
-                                                    </p>
-                                                    <div className="space-y-0.5">
-                                                        {filteredAi.map((field) => {
-                                                            const Icon = field.icon;
-                                                            return (
-                                                                <button
-                                                                    key={field.id}
-                                                                    type="button"
-                                                                    onClick={() => {
-                                                                        console.log("Create field type:", field.type, field.label);
-                                                                        setFieldsPanelOpen(false);
-                                                                    }}
-                                                                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg border border-transparent hover:border-violet-200 hover:bg-violet-50/50 transition-all text-left group cursor-pointer"
-                                                                >
-                                                                    <div className={cn("h-8 w-8 rounded-md flex items-center justify-center bg-purple-50 group-hover:scale-110 transition-transform", field.color)}>
-                                                                        <Icon className="h-4 w-4" />
-                                                                    </div>
-                                                                    <span className="text-sm font-medium text-zinc-700 group-hover:text-violet-900 transition-colors">{field.label}</span>
-                                                                </button>
-                                                            );
-                                                        })}
-                                                    </div>
-                                                </div>
-                                            )}
-                                            {/* All Fields */}
-                                            <div>
-                                                <p className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider px-2 py-1.5">
-                                                    All
-                                                </p>
-                                                <div className="space-y-0.5">
-                                                    {filteredAll.map((field) => {
-                                                        const Icon = field.icon;
-                                                        return (
-                                                            <button
-                                                                key={field.id}
-                                                                type="button"
-                                                                onClick={() => {
-                                                                    console.log("Create field type:", field.type, field.label);
-                                                                    setFieldsPanelOpen(false);
-                                                                }}
-                                                                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg border border-transparent hover:border-violet-200 hover:bg-violet-50/50 transition-all text-left group cursor-pointer"
-                                                            >
-                                                                <div className={cn("h-6 w-6 rounded-md flex items-center justify-center transition-all", field.isAi ? "bg-purple-50" : "bg-zinc-100 group-hover:bg-white group-hover:shadow-sm", field.color)}>
-                                                                    <Icon className="h-3.5 w-3.5" />
-                                                                </div>
-                                                                <span className="text-sm font-medium text-zinc-700 group-hover:text-violet-900 transition-colors">{field.label}</span>
-                                                            </button>
-                                                        );
-                                                    })}
-                                                </div>
-                                            </div>
-                                            {filteredAi.length === 0 && filteredAll.length === 0 && (
-                                                <p className="text-sm text-zinc-500 py-6 text-center">No matching field types</p>
-                                            )}
-                                        </div>
-                                    );
-                                })()}
-                            </ScrollArea>
-                        )}
-                    </div>
-                </>
-            )}
-
+            <FieldsPanelSlideout
+                open={fieldsPanelOpen}
+                onClose={() => setFieldsPanelOpen(false)}
+                onOpenManagerModal={() => setManagerModalOpen(true)}
+                workspaceId={workspaceId}
+                listId={listId}
+                listName={currentList?.name}
+                fieldConfig={FIELD_CONFIG}
+                visibleColumns={visibleColumns}
+                columnOrder={columnOrder}
+                onColumnOrderChange={setColumnOrder}
+                toggleColumn={toggleColumn}
+                sensors={sensors}
+                customFields={customFields as any[]}
+                usedCustomFieldIds={usedCustomFieldIds}
+                getCustomFieldIcon={getCustomFieldIcon}
+            />
             {/* Customize view panel (ClickUp-style) */}
             <SidePanel
                 open={customizePanelOpen && !layoutOptionsOpen}
@@ -5108,73 +5361,14 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
 
             {/* Advanced Filters panel moved to Popover */}
 
-            {/* Assignees panel ?Eimage 8 */}
-            {
-                assigneesPanelOpen && (
-                    <>
-                        <div className="absolute inset-0 z-40" onClick={() => setAssigneesPanelOpen(false)} aria-hidden />
-                        <div className="absolute top-0 right-0 h-full w-[320px] max-w-[90vw] bg-white border-l border-zinc-200 shadow-xl z-50 flex flex-col">
-                            <div className="flex items-center justify-between p-4 border-b border-zinc-100">
-                                <h3 className="font-semibold text-zinc-900">Assignees</h3>
-                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setAssigneesPanelOpen(false)}><X className="h-4 w-4" /></Button>
-                            </div>
-                            <div className="p-3 border-b border-zinc-100">
-                                <div className="relative">
-                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
-                                    <Input className="pl-9 h-9 text-sm" placeholder="Search by user or team" value={assigneesSearch} onChange={e => setAssigneesSearch(e.target.value)} />
-                                </div>
-                            </div>
-                            <ScrollArea className="flex-1 p-3">
-                                <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-2">People {users.length}</p>
-                                <div className="space-y-1 mb-4">
-                                    <label className="flex items-center gap-2 py-2 px-2 rounded hover:bg-zinc-50 cursor-pointer">
-                                        <Checkbox
-                                            checked={filterAssignee.includes("__unassigned__")}
-                                            onCheckedChange={(checked) => {
-                                                setFilterAssignee(prev =>
-                                                    checked
-                                                        ? [...prev, "__unassigned__"]
-                                                        : prev.filter(id => id !== "__unassigned__")
-                                                );
-                                            }}
-                                        />
-                                        <span className="text-sm text-zinc-700">Unassigned</span>
-                                    </label>
-                                    {users
-                                        .filter(u => !assigneesSearch.trim() || (u.name || "").toLowerCase().includes(assigneesSearch.toLowerCase()))
-                                        .map(u => (
-                                            <label key={u.id} className="flex items-center gap-2 py-2 px-2 rounded hover:bg-zinc-50 cursor-pointer">
-                                                <Checkbox
-                                                    checked={filterAssignee.includes(u.id)}
-                                                    onCheckedChange={(checked) => {
-                                                        setFilterAssignee(prev =>
-                                                            checked
-                                                                ? [...prev, u.id]
-                                                                : prev.filter(id => id !== u.id)
-                                                        );
-                                                    }}
-                                                />
-                                                <Avatar className="h-6 w-6">
-                                                    <AvatarImage src={u.image || undefined} />
-                                                    <AvatarFallback className="text-[9px]">
-                                                        {u.name?.slice(0, 2).toUpperCase()}
-                                                    </AvatarFallback>
-                                                </Avatar>
-                                                <span className="text-sm text-zinc-700 truncate">{u.name}</span>
-                                            </label>
-                                        ))}
-                                </div>
-                                <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-2">Teams 0</p>
-                                <div className="py-2 text-sm text-zinc-500">No teams</div>
-                            </ScrollArea>
-                            <div className="p-3 border-t border-zinc-100 flex items-center justify-between">
-                                <span className="text-sm text-zinc-700 flex items-center gap-1.5"><MessageSquare className="h-4 w-4 text-zinc-400" /> Assigned comments</span>
-                                <Switch />
-                            </div>
-                        </div>
-                    </>
-                )
-            }
+            {/* Assignees panel */}
+            <AssigneesPanelSlideout
+                open={assigneesPanelOpen}
+                onClose={() => setAssigneesPanelOpen(false)}
+                users={users}
+                selectedAssignees={filterAssignee}
+                onSelectionChange={setFilterAssignee}
+            />
 
             {/* Bulk edit bar when tasks selected */}
             {
@@ -5898,6 +6092,12 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+
+            <CustomFieldsManagerModal
+                open={managerModalOpen}
+                onOpenChange={setManagerModalOpen}
+                workspaceId={workspaceId}
+            />
         </div >
     );
 }

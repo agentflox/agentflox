@@ -58,6 +58,7 @@ interface TaskRelationshipsSectionProps {
 export function TaskRelationshipsSection({ taskId, workspaceId, task }: TaskRelationshipsSectionProps) {
     const [isMaximized, setIsMaximized] = React.useState(false);
     const [activeTab, setActiveTab] = React.useState<string>('related');
+    const [isCollapsed, setIsCollapsed] = React.useState(false);
 
     const router = useRouter();
     const pathname = usePathname();
@@ -246,12 +247,20 @@ export function TaskRelationshipsSection({ taskId, workspaceId, task }: TaskRela
                     {/* Header with Tabs */}
                     <div className="flex items-center justify-between group/header border-b border-zinc-200">
                         <div className="flex items-center gap-4">
+                            <button
+                                type="button"
+                                onClick={() => setIsCollapsed(!isCollapsed)}
+                                className="cursor-pointer h-6 w-6 flex items-center justify-center rounded-md hover:bg-zinc-200 text-zinc-400 hover:text-zinc-600 transition-colors -mr-1"
+                            >
+                                <svg viewBox="0 0 100 100" className={cn("h-2.5 w-2.5 fill-current transition-transform duration-200", !isCollapsed && "rotate-90")}>
+                                    <polygon points="20,10 80,50 20,90" />
+                                </svg>
+                            </button>
                             {(totalRelated > 0 || effectiveActiveTab === 'related') && (
                                 <div
                                     className={cn("flex items-center gap-1.5 cursor-pointer pb-1.5 border-b-2 transition-colors", effectiveActiveTab === 'related' ? "border-zinc-900" : "border-transparent hover:border-zinc-300")}
                                     onClick={() => setActiveTab('related')}
                                 >
-                                    <ChevronRight className={cn("h-4 w-4 transition-transform", effectiveActiveTab === 'related' ? "text-zinc-900 rotate-90" : "text-zinc-400")} />
                                     <span className={cn("text-sm font-semibold", effectiveActiveTab === 'related' ? "text-zinc-900" : "text-zinc-500")}>Related</span>
                                     {totalRelated > 0 && (
                                         <span className={cn("text-xs", effectiveActiveTab === 'related' ? "text-zinc-500" : "text-zinc-400")}>{totalRelated}</span>
@@ -408,7 +417,7 @@ export function TaskRelationshipsSection({ taskId, workspaceId, task }: TaskRela
                     </div>
 
                     {/* Content */}
-                    <div className="pt-2">
+                    <div className={cn("pt-2", isCollapsed && "hidden")}>
                         {effectiveActiveTab === 'related' && (
                             totalRelated === 0 ? (
                                 <div className="flex flex-col items-center justify-center py-6 gap-2">
