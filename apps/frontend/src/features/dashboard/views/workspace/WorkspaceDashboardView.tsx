@@ -103,6 +103,7 @@ import {
     MoreHorizontal,
     Star,
     Briefcase,
+    Table,
     Activity,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -132,7 +133,7 @@ const viewConfig: Partial<Record<
     DOC: { label: "Doc", icon: FileText, description: "Document" },
     DOCS: { label: "Docs", icon: FileText, description: "Documents" },
     FORM: { label: "Form", icon: LayoutDashboard, description: "Form" },
-    TABLE: { label: "Table", icon: ClipboardList, description: "Table view" },
+    TABLE: { label: "Table", icon: Table, description: "Table view" },
     TIMELINE: { label: "Timeline", icon: Clock, description: "Timeline view" },
     WORKLOAD: { label: "Workload", icon: BarChart3, description: "Workload view" },
     WHITEBOARD: { label: "Whiteboard", icon: PenTool, description: "Whiteboard" },
@@ -374,6 +375,7 @@ export default function WorkspaceDashboardView({ workspaceId }: WorkspaceViewPro
             case "TASKS":
                 return (
                     <ListView
+                        context="workspace"
                         workspaceId={workspaceId}
                         viewId={view.id}
                         initialConfig={view.config as any}
@@ -384,6 +386,7 @@ export default function WorkspaceDashboardView({ workspaceId }: WorkspaceViewPro
             case "BOARD":
                 return (
                     <BoardView
+                        context="workspace"
                         workspaceId={workspaceId}
                         viewId={view.id}
                         initialConfig={view.config as any}
@@ -394,6 +397,7 @@ export default function WorkspaceDashboardView({ workspaceId }: WorkspaceViewPro
             case "TABLE":
                 return (
                     <TableView
+                        context="workspace"
                         workspaceId={workspaceId}
                         viewId={view.id}
                         initialConfig={view.config as any}
@@ -404,6 +408,7 @@ export default function WorkspaceDashboardView({ workspaceId }: WorkspaceViewPro
             case "CALENDAR":
                 return (
                     <CalendarView
+                        context="workspace"
                         workspaceId={workspaceId}
                         viewId={view.id}
                         initialConfig={view.config as any}
@@ -414,6 +419,7 @@ export default function WorkspaceDashboardView({ workspaceId }: WorkspaceViewPro
             case "GANTT":
                 return (
                     <GanttView
+                        context="workspace"
                         workspaceId={workspaceId}
                         viewId={view.id}
                         initialConfig={view.config as any}
@@ -424,6 +430,7 @@ export default function WorkspaceDashboardView({ workspaceId }: WorkspaceViewPro
             case "TIMELINE":
                 return (
                     <TimelineView
+                        context="workspace"
                         workspaceId={workspaceId}
                         viewId={view.id}
                         initialConfig={view.config as any}
@@ -434,6 +441,7 @@ export default function WorkspaceDashboardView({ workspaceId }: WorkspaceViewPro
             case "FORM":
                 return (
                     <FormView
+                        context="workspace"
                         workspaceId={workspaceId}
                         viewId={view.id}
                         initialConfig={view.config as any}
@@ -444,6 +452,7 @@ export default function WorkspaceDashboardView({ workspaceId }: WorkspaceViewPro
             case "PEOPLE":
                 return (
                     <PeopleView
+                        context="workspace"
                         workspaceId={workspaceId}
                         viewId={view.id}
                         initialConfig={view.config as any}
@@ -454,6 +463,7 @@ export default function WorkspaceDashboardView({ workspaceId }: WorkspaceViewPro
             case "ACTIVITY":
                 return (
                     <ActivityView
+                        context="workspace"
                         workspaceId={workspaceId}
                         viewId={view.id}
                         initialConfig={view.config as any}
@@ -464,6 +474,7 @@ export default function WorkspaceDashboardView({ workspaceId }: WorkspaceViewPro
             case "MIND_MAP":
                 return (
                     <MindMapView
+                        context="workspace"
                         workspaceId={workspaceId}
                         viewId={view.id}
                         initialConfig={view.config as any}
@@ -474,6 +485,7 @@ export default function WorkspaceDashboardView({ workspaceId }: WorkspaceViewPro
             case "WORKLOAD":
                 return (
                     <WorkloadView
+                        context="workspace"
                         workspaceId={workspaceId}
                         viewId={view.id}
                         initialConfig={view.config as any}
@@ -484,6 +496,7 @@ export default function WorkspaceDashboardView({ workspaceId }: WorkspaceViewPro
             case "WHITEBOARD":
                 return (
                     <WhiteboardView
+                        context="workspace"
                         workspaceId={workspaceId}
                         viewId={view.id}
                         initialConfig={view.config as any}
@@ -494,6 +507,7 @@ export default function WorkspaceDashboardView({ workspaceId }: WorkspaceViewPro
             case "MAP":
                 return (
                     <MapView
+                        context="workspace"
                         workspaceId={workspaceId}
                         viewId={view.id}
                         initialConfig={view.config as any}
@@ -504,6 +518,7 @@ export default function WorkspaceDashboardView({ workspaceId }: WorkspaceViewPro
             case "DASHBOARD":
                 return (
                     <GenericDashboardView
+                        context="workspace"
                         workspaceId={workspaceId}
                         viewId={view.id}
                         initialConfig={view.config as any}
@@ -514,6 +529,7 @@ export default function WorkspaceDashboardView({ workspaceId }: WorkspaceViewPro
             case "DOC":
                 return (
                     <DocView
+                        context="workspace"
                         workspaceId={workspaceId}
                         viewId={view.id}
                         initialConfig={view.config as any}
@@ -534,6 +550,7 @@ export default function WorkspaceDashboardView({ workspaceId }: WorkspaceViewPro
             case "GOOGLE_DRIVE":
                 return (
                     <EmbedView
+                        context="workspace"
                         workspaceId={workspaceId}
                         viewId={view.id}
                         initialConfig={view.config as any}
@@ -630,8 +647,8 @@ export default function WorkspaceDashboardView({ workspaceId }: WorkspaceViewPro
                                 contextName={workspace?.name || "Workspace"}
                             />
                         ) : (
-                            <Tabs value={activeTab || undefined} onValueChange={handleTabChange} className="h-full flex flex-col">
-                                <div className="border-b border-slate-200 bg-white px-4 py-1">
+                            <Tabs value={activeTab || undefined} onValueChange={handleTabChange} className="h-full flex flex-col gap-0">
+                                <div className="bg-white px-4 pt-1 pb-0 border-slate-200 border-x">
                                     <div className="flex items-center gap-1 min-w-0 overflow-visible">
                                         <TabsList className="h-auto bg-transparent p-0 flex-1 min-w-0 flex items-center overflow-visible">
                                             <ViewTabsOverflow
@@ -758,7 +775,7 @@ export default function WorkspaceDashboardView({ workspaceId }: WorkspaceViewPro
                                                                                 {view.isPinned && <Pin className="h-3 w-3 shrink-0 rotate-45 text-muted-foreground" />}
                                                                                 {view.isPrivate && <Lock className="h-3 w-3 shrink-0 text-muted-foreground" />}
                                                                                 {activeTab === view.id && (
-                                                                                    <div className="absolute left-0 right-0 h-0.5 bg-primary rounded-t-full" style={{ bottom: "-5px" }} />
+                                                                                    <div className="absolute left-0 right-0 h-0.5 bg-primary rounded-t-full" style={{ bottom: "-1px" }} />
                                                                                 )}
                                                                             </div>
                                                                         </TabsTrigger>

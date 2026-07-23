@@ -96,6 +96,7 @@ import { SidePanel } from "@/features/dashboard/components/shared/SidePanel";
 import { parseEncodedTag, formatEncodedTag } from "@/entities/task/utils/tags";
 import { TaskCalendar } from "@/entities/task/components/TaskCalendar";
 import { TaskTypeIcon } from "@/entities/task/components/TaskTypeIcon";
+import { TaskStatusPopover } from "@/entities/task/components/TaskStatusPopover";
 import { format } from "date-fns";
 import type { FilterCondition, FilterGroup, ListViewSavedConfig, FilterOperator } from "./listViewTypes";
 import { FILTER_OPTIONS, FIELD_OPERATORS, STANDARD_FIELD_CONFIG } from "./listViewConstants";
@@ -119,7 +120,14 @@ import {
 } from "@dnd-kit/core";
 import { LazyDescriptionEditor } from "@/entities/shared/components/LazyDescriptionEditor";
 import { CSS } from "@dnd-kit/utilities";
+import {
+    SortableContext,
+    useSortable,
+    arrayMove,
+    verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
 import { Textarea } from "@/components/ui/textarea";
+import { AI_FIELDS, ALL_FIELDS } from "@/entities/task/constants/fieldTypes";
 
 type Task = {
     id: string;
@@ -269,60 +277,6 @@ export interface ListViewProps {
     context?: "workspace" | "space" | "project" | "team" | "folder" | "list";
 }
 
-const CREATE_FIELD_TYPES = [
-    // Basic fields
-    { id: "TEXT", label: "Text", icon: Type, type: "TEXT" },
-    { id: "NUMBER", label: "Number", icon: Hash, type: "NUMBER" },
-    { id: "DATE", label: "Date", icon: Calendar, type: "DATE" },
-    { id: "CHECKBOX", label: "Checkbox", icon: CheckSquare, type: "CHECKBOX" },
-    { id: "DROPDOWN", label: "Dropdown", icon: LayoutList, type: "DROPDOWN" },
-
-    // Text fields
-    { id: "TEXT_AREA", label: "Text area (Long Text)", icon: AlignLeft, type: "TEXT_AREA" },
-    { id: "LONG_TEXT", label: "Long Text", icon: AlignLeft, type: "LONG_TEXT" },
-    { id: "CUSTOM_TEXT", label: "Custom Text", icon: Type, type: "CUSTOM_TEXT" },
-
-    // Selection fields
-    { id: "LABELS", label: "Labels", icon: Tag, type: "LABELS" },
-    { id: "CUSTOM_DROPDOWN", label: "Custom Dropdown", icon: LayoutList, type: "CUSTOM_DROPDOWN" },
-    { id: "CATEGORIZE", label: "Categorize", icon: Target, type: "CATEGORIZE" },
-    { id: "TSHIRT_SIZE", label: "T-Shirt Size", icon: Users, type: "TSHIRT_SIZE" },
-
-    // Contact fields
-    { id: "EMAIL", label: "Email", icon: Mail, type: "EMAIL" },
-    { id: "PHONE", label: "Phone", icon: Phone, type: "PHONE" },
-    { id: "URL", label: "Website", icon: Globe, type: "URL" },
-
-    // Financial & numeric
-    { id: "MONEY", label: "Money", icon: DollarSign, type: "MONEY" },
-    { id: "FORMULA", label: "Formula", icon: FunctionSquare, type: "FORMULA" },
-
-    // Files & attachments
-    { id: "FILES", label: "Files", icon: Paperclip, type: "FILES" },
-
-    // Relationships
-    { id: "RELATIONSHIP", label: "Relationship", icon: Link2, type: "RELATIONSHIP" },
-    { id: "PEOPLE", label: "People", icon: Users, type: "PEOPLE" },
-    { id: "TASKS", label: "Tasks", icon: ListTodo, type: "TASKS" },
-
-    // Progress & tracking
-    { id: "PROGRESS_AUTO", label: "Progress (Auto)", icon: TrendingUp, type: "PROGRESS_AUTO" },
-    { id: "PROGRESS_MANUAL", label: "Progress (Manual)", icon: SlidersHorizontal, type: "PROGRESS_MANUAL" },
-
-    // AI & special fields
-    { id: "SUMMARY", label: "Summary", icon: FileText, type: "SUMMARY" },
-    { id: "PROGRESS_UPDATES", label: "Progress Updates", icon: MessageSquare, type: "PROGRESS_UPDATES" },
-    { id: "TRANSLATION", label: "Translation", icon: Globe, type: "TRANSLATION" },
-    { id: "SENTIMENT", label: "Sentiment", icon: Heart, type: "SENTIMENT" },
-
-    // Location & other
-    { id: "LOCATION", label: "Location", icon: MapPin, type: "LOCATION" },
-    { id: "RATING", label: "Rating", icon: Star, type: "RATING" },
-    { id: "VOTING", label: "Voting", icon: Users, type: "VOTING" },
-    { id: "SIGNATURE", label: "Signature", icon: PenTool, type: "SIGNATURE" },
-    { id: "BUTTON", label: "Button", icon: MousePointer, type: "BUTTON" },
-    { id: "ACTION_ITEMS", label: "Action Items", icon: ListChecks, type: "ACTION_ITEMS" },
-];
 
 function stableStringify(obj: any) {
     const sortObject = (v: any): any => {
@@ -336,6 +290,21 @@ function stableStringify(obj: any) {
         return v;
     };
     return JSON.stringify(sortObject(obj));
+}
+
+function SortableFieldRow({ id, children }: { id: string; children: React.ReactNode }) {
+    const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+    const style = {
+        transform: CSS.Transform.toString(transform),
+        transition,
+        zIndex: isDragging ? 100 : "auto",
+        position: "relative" as const,
+    };
+    return (
+        <div ref={setNodeRef} style={style} {...attributes} {...listeners} className={cn("group flex items-center gap-2 py-2 px-2 rounded hover:bg-zinc-50 cursor-default", isDragging && "bg-white shadow-md ring-1 ring-zinc-200")}>
+            {children}
+        </div>
+    );
 }
 
 export default function ListView({ spaceId, projectId, teamId, listId, viewId, workspaceId, initialConfig, selectedTaskIdFromParent, onTaskSelect, scope, context }: ListViewProps) {
@@ -535,7 +504,11 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
     const [inlineAddPriority, setInlineAddPriority] = useState<"URGENT" | "HIGH" | "NORMAL" | "LOW" | null>(null);
     const [expandedParents, setExpandedParents] = useState<Set<string>>(new Set());
     const [addTaskModalOpen, setAddTaskModalOpen] = useState(false);
-    const [createFieldModalOpen, setCreateFieldModalOpen] = useState(false);
+    const [fieldsPanelTab, setFieldsPanelTab] = useState<"existing" | "create">("existing");
+    const [fieldsPanelShownExpanded, setFieldsPanelShownExpanded] = useState(true);
+    const [fieldsPanelPropertiesExpanded, setFieldsPanelPropertiesExpanded] = useState(true);
+    const [fieldsPanelCustomFieldsExpanded, setFieldsPanelCustomFieldsExpanded] = useState(true);
+    const [fieldsPanelCustomFieldsWorkspaceExpanded, setFieldsPanelCustomFieldsWorkspaceExpanded] = useState(true);
     const [createFieldSearch, setCreateFieldSearch] = useState("");
     const [dependenciesTask, setDependenciesTask] = useState<Task | null>(null);
     const [customizePanelOpen, setCustomizePanelOpen] = useState(false);
@@ -576,7 +549,7 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
 
     // Column resizing logic
     const [colWidths, setColWidths] = useState<Record<string, number>>({
-        name: 420,
+        name: 500,
         assignee: 150,
         dueDate: 150,
         priority: 120,
@@ -659,6 +632,8 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
     const [visibleColumns, setVisibleColumns] = useState<Set<string>>(
         new Set(["name", "status", "assignee", "priority", "dueDate", "tags"])
     );
+    // Ordered list of visible column IDs (excludes "name" which is always first)
+    const [columnOrder, setColumnOrder] = useState<string[]>(["status", "assignee", "priority", "dueDate", "tags"]);
 
     const {
         resolvedWorkspaceId,
@@ -1437,10 +1412,16 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
     };
 
     const toggleColumn = (col: string) => {
+        if (col === "name") return; // name is always shown
         setVisibleColumns(prev => {
             const next = new Set(prev);
-            if (next.has(col)) next.delete(col);
-            else next.add(col);
+            if (next.has(col)) {
+                next.delete(col);
+                setColumnOrder(order => order.filter(id => id !== col));
+            } else {
+                next.add(col);
+                setColumnOrder(order => [...order, col]);
+            }
             return next;
         });
     };
@@ -1723,7 +1704,6 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                                 <Button variant="outline" size="sm" className="h-7 px-2 text-xs text-zinc-700 border-zinc-200 hover:bg-zinc-100 hover:text-zinc-900 rounded-md">
-                                    <Circle className="h-3.5 w-3.5 mr-1 text-zinc-500" />
                                     {(() => {
                                         const typeId = inlineAddTaskType;
                                         const tt = availableTaskTypes?.find((t: any) => t.id === typeId || t.name === typeId);
@@ -1923,9 +1903,9 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
                                 isDragging && "bg-zinc-200/70"
                             )}
                         >
-                            <TableCell className="w-full py-2 overflow-hidden" style={{ minWidth: Math.max(colWidths.name || 200, 200) }}>
+                            <TableCell className="py-2 overflow-hidden" style={{ width: Math.max(colWidths.name || 200, 200), minWidth: Math.max(colWidths.name || 200, 200) }}>
                                 <div className={cn("flex gap-2 min-w-0", (wrapText || (showTaskLocations && (task as any).list)) ? "items-start py-1" : "items-center")}>
-                                    <div className="flex items-center gap-1 shrink-0 mt-0.5 w-10 relative group/action h-6">
+                                    <div className="flex items-center gap-1 shrink-0 w-10 relative group/action h-6">
                                         <div className={cn(
                                             "flex items-center gap-1 transition-opacity",
                                             (isSelected) ? "opacity-100" : "opacity-0 group-hover/row:opacity-100"
@@ -1934,7 +1914,7 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
                                             <Checkbox checked={isSelected} onCheckedChange={() => setSelectedTasks(prev => prev.includes(task.id) ? prev.filter(id => id !== task.id) : [...prev, task.id])} className="border-zinc-300 shrink-0 h-4 w-4 cursor-pointer" />
                                         </div>
                                     </div>
-                                    <div className={cn("flex items-center gap-2 shrink-0", (wrapText || (showTaskLocations && (task as any).list)) && "mt-1")} style={{ paddingLeft: depth * 16 }}>
+                                    <div className={cn("flex items-center gap-2 shrink-0 h-6")} style={{ paddingLeft: depth * 16 }}>
                                         <Tooltip>
                                             <TooltipTrigger asChild>
                                                 <button
@@ -1956,16 +1936,51 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
                                                             return next;
                                                         });
                                                     }}
-                                                    className="shrink-0 p-1 rounded hover:bg-zinc-200/80 cursor-pointer"
+                                                    className={cn(
+                                                        "shrink-0 flex items-center justify-center h-6 w-6 rounded transition-all duration-150 cursor-pointer",
+                                                        hasChildren
+                                                            ? "opacity-100 hover:bg-zinc-200/80 text-zinc-500 hover:text-zinc-700"
+                                                            : "opacity-0 group-hover/row:opacity-100 hover:bg-zinc-200/80 text-zinc-300 hover:text-zinc-400"
+                                                    )}
                                                 >
-                                                    <ChevronRight className={cn("h-3.5 w-3.5 text-zinc-500 transition-transform", isExpanded && "rotate-90")} />
+                                                    <Play className={cn("h-2.5 w-2.5 shrink-0 fill-current transition-transform duration-150", isExpanded ? "rotate-90" : "rotate-0")} />
                                                 </button>
                                             </TooltipTrigger>
                                             <TooltipContent className="bg-zinc-900 text-white font-medium text-xs px-2.5 py-1.5 border-0 rounded-md" side="top" sideOffset={4}>
                                                 {isExpanded ? "Collapse subtasks" : "Expand subtasks"}
                                             </TooltipContent>
                                         </Tooltip>
-                                        <span className={cn("h-2 w-2 rounded-full shrink-0", task.status?.name === "Done" ? "bg-emerald-500" : task.status?.name === "In Progress" ? "bg-blue-500" : "bg-slate-400")} style={task.status?.color ? { backgroundColor: task.status.color } : undefined} />
+                                        <TooltipProvider>
+                                            <Tooltip delayDuration={300}>
+                                                <TaskStatusPopover
+                                                    task={task}
+                                                    availableStatuses={allAvailableStatuses}
+                                                    availableTaskTypes={availableTaskTypes}
+                                                    onUpdateTask={(id, data) => updateTask.mutate({ id, ...data } as any)}
+                                                >
+                                                    <TooltipTrigger asChild>
+                                                        <button className="shrink-0 flex items-center justify-center h-6 w-6 rounded transition-all duration-150 cursor-pointer hover:bg-zinc-200/80 outline-none focus:outline-none">
+                                                            {(() => {
+                                                                const tt = task.taskType || availableTaskTypes.find((t: any) => t.isDefault) || availableTaskTypes[0];
+                                                                const isDefault = !tt || tt.name?.toLowerCase() === "task" || tt.isDefault;
+                                                                const statusName = task.status?.name?.toLowerCase() || "";
+                                                                const statusColor = task.status?.color || (statusName.includes("done") || statusName.includes("complete") ? "#10B981" : statusName.includes("progress") || statusName.includes("doing") ? "#3B82F6" : "#94A3B8");
+
+                                                                if (isDefault) {
+                                                                    if (statusName.includes("done") || statusName.includes("complete")) return <CheckCircle2 className="h-4 w-4" style={{ color: statusColor }} />;
+                                                                    if (statusName.includes("progress") || statusName.includes("doing")) return <CircleDot className="h-4 w-4" style={{ color: statusColor }} />;
+                                                                    return <CircleDashed className="h-4 w-4" style={{ color: statusColor }} />;
+                                                                }
+                                                                return <TaskTypeIcon type={tt} className="h-4 w-4" size={16} color={statusColor} />;
+                                                            })()}
+                                                        </button>
+                                                    </TooltipTrigger>
+                                                </TaskStatusPopover>
+                                                <TooltipContent className="bg-zinc-900 text-white font-medium text-xs px-2.5 py-1.5 border-0 rounded-md" side="top" sideOffset={4}>
+                                                    <span style={{ color: task.status?.color || '#fff' }}>{task.status?.name?.toUpperCase() || "NO STATUS"}</span>
+                                                </TooltipContent>
+                                            </Tooltip>
+                                        </TooltipProvider>
                                     </div>
 
                                     <div className="flex-1 min-w-0 flex flex-col justify-center">
@@ -2051,12 +2066,6 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
                                                         wrapText ? "whitespace-normal break-words" : "truncate"
                                                     )}
                                                 >
-                                                    {(() => {
-                                                        const typeId = task.taskTypeId || task.taskType?.id || task.taskType;
-                                                        const tt = availableTaskTypes?.find((t: any) => t.id === typeId || t.name === typeId);
-                                                        const dynamicType = tt || task.taskType;
-                                                        return <TaskTypeIcon type={dynamicType} className="h-3.5 w-3.5 shrink-0 inline-block mr-1.5" />;
-                                                    })()}
                                                     {task.title || task.name}
                                                 </span>
                                             )}
@@ -2274,254 +2283,67 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
                                     </div>
                                 </div>
                             </TableCell>
-                            {visibleColumns.has("assignee") && (
-                                <TableCell className="py-2 overflow-hidden" style={{ width: colWidths.assignee, minWidth: 80 }}>
-                                    <AssigneeSelector
-                                        users={users as any}
-                                        agents={agents}
-                                        workspaceId={resolvedWorkspaceId}
-                                        variant="compact"
-                                        side="right"
-                                        avoidCollisions={false}
-                                        collisionPadding={12}
-                                        sideOffset={8}
-                                        value={formatAssigneeIdsForSelector(task.assignees ?? [])}
-                                        onChange={(newIds) => {
-                                            handleTaskUpdate(task.id, {
-                                                assigneeIds: newIds,
-                                            });
-                                        }}
-                                        trigger={
-                                            <button
-                                                type="button"
-                                                className="flex items-center -space-x-1.5 rounded hover:bg-zinc-100 px-1 py-0.5 cursor-pointer"
-                                                onClick={(e) => { e.stopPropagation(); }}
-                                                title="Edit assignees"
-                                            >
-                                                {assignees.length > 0 ? assignees.slice(0, 4).map((a: any, i: number) => (
-                                                    <Avatar key={a.user?.id || a.aiAgent?.id || a.agent?.id || i} className="h-6 w-6 border-2 border-white ring-1 ring-zinc-100">
-                                                        <AvatarImage src={a.user?.image || a.aiAgent?.avatar || a.aiAgent?.image || a.agent?.avatar || undefined} />
-                                                        <AvatarFallback className="text-[9px] bg-indigo-50 text-indigo-600">{a.user?.name?.slice(0, 2)?.toUpperCase() || a.aiAgent?.name?.slice(0, 2)?.toUpperCase() || a.agent?.name?.slice(0, 2)?.toUpperCase() || "??"}</AvatarFallback>
-                                                    </Avatar>
-                                                )) : (
-                                                    <div className="h-6 w-6 rounded-full border border-dashed border-zinc-300 flex items-center justify-center"><Users className="h-3 w-3 text-zinc-400" /></div>
-                                                )}
-                                            </button>
-                                        }
-                                    />
-                                </TableCell>
-                            )}
-                            {visibleColumns.has("dueDate") && (
-                                <TableCell className="py-2 overflow-hidden" style={{ width: colWidths.dueDate, minWidth: 80 }}>
-                                    <Popover>
-                                        <PopoverTrigger asChild>
-                                            <button
-                                                type="button"
-                                                className={cn("text-xs rounded px-1 py-0.5 hover:bg-zinc-100 cursor-pointer", dueDateInfo ? dueDateInfo.color : "text-zinc-400")}
-                                                onClick={(e) => { e.stopPropagation(); }}
-                                                title="Edit due date"
-                                            >
-                                                {dueDateInfo ? dueDateInfo.text : "Add Date"}
-                                            </button>
-                                        </PopoverTrigger>
-                                        <PopoverContent className="w-auto p-0" align="start" sideOffset={8} collisionPadding={10}>
-                                            <TaskCalendar
-                                                startDate={task.startDate ? new Date(task.startDate) : undefined}
-                                                endDate={task.dueDate ? new Date(task.dueDate) : undefined}
-                                                onStartDateChange={(date) => {
-                                                    handleTaskUpdate(task.id, { startDate: date ? date.toISOString() : null });
-                                                }}
-                                                onEndDateChange={(date) => {
-                                                    handleTaskUpdate(task.id, { dueDate: date ? date.toISOString() : null });
-                                                }}
-                                            />
-                                        </PopoverContent>
-                                    </Popover>
-                                </TableCell>
-                            )}
-                            {visibleColumns.has("priority") && (
-                                <TableCell className="py-2 overflow-hidden" style={{ width: colWidths.priority, minWidth: 80 }}>
-                                    <DropdownMenu>
-                                        <DropdownMenuTrigger asChild>
-                                            <Button
-                                                type="button"
-                                                variant="outline"
-                                                size="sm"
-                                                className="h-6 w-auto min-w-[90px] border-zinc-200 bg-white hover:bg-zinc-50 focus:ring-0 px-2.5 rounded-sm text-xs font-medium transition-all text-zinc-700 cursor-pointer"
-                                                onClick={(e) => { e.stopPropagation(); }}
-                                                title="Edit priority"
-                                            >
-                                                <div className="flex items-center gap-1.5 w-full">
-                                                    <div className={cn("flex items-center gap-1.5",
-                                                        task.priority === 'URGENT' ? "text-red-500" :
-                                                            task.priority === 'HIGH' ? "text-orange-500" :
-                                                                task.priority === 'NORMAL' ? "text-blue-500" :
-                                                                    task.priority === 'LOW' ? "text-zinc-400" : "text-zinc-400"
-                                                    )}>
-                                                        <Flag className="h-3 w-3 fill-current" />
-                                                    </div>
-                                                    <span>{task.priority ? task.priority.charAt(0) + task.priority.slice(1).toLowerCase() : "Priority"}</span>
-                                                </div>
-                                            </Button>
-                                        </DropdownMenuTrigger>
-                                        <DropdownMenuContent align="start" className="w-48 z-[200]">
-                                            <DropdownMenuLabel className="text-xs">Priority</DropdownMenuLabel>
-                                            <DropdownMenuItem onClick={() => handleTaskUpdate(task.id, { priority: "URGENT" })}>
-                                                <Flag className="h-3 w-3 mr-2 text-red-600 fill-current" /> Urgent
-                                            </DropdownMenuItem>
-                                            <DropdownMenuItem onClick={() => handleTaskUpdate(task.id, { priority: "HIGH" })}>
-                                                <Flag className="h-3 w-3 mr-2 text-orange-600 fill-current" /> High
-                                            </DropdownMenuItem>
-                                            <DropdownMenuItem onClick={() => handleTaskUpdate(task.id, { priority: "NORMAL" })}>
-                                                <Flag className="h-3 w-3 mr-2 text-blue-600 fill-current" /> Normal
-                                            </DropdownMenuItem>
-                                            <DropdownMenuItem onClick={() => handleTaskUpdate(task.id, { priority: "LOW" })}>
-                                                <Flag className="h-3 w-3 mr-2 text-slate-600 fill-current" /> Low
-                                            </DropdownMenuItem>
-                                            <DropdownMenuSeparator />
-                                            <DropdownMenuItem onClick={() => handleTaskUpdate(task.id, { priority: null })}>
-                                                <CircleSlash className="h-3 w-3 mr-2 text-slate-500" />Clear
-                                            </DropdownMenuItem>
-                                        </DropdownMenuContent>
-                                    </DropdownMenu>
-                                </TableCell>
-                            )}
-                            {visibleColumns.has("status") && (
-                                <TableCell className="py-2 overflow-hidden" style={{ width: colWidths.status, minWidth: 80 }}>
-                                    <DropdownMenu>
-                                        <DropdownMenuTrigger asChild>
-                                            <button
-                                                type="button"
-                                                className={cn("inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-medium border hover:opacity-90 cursor-pointer", getStatusStyles(task.status?.name || ""))}
-                                                onClick={(e) => { e.stopPropagation(); }}
-                                                title="Edit status"
-                                            >
-                                                <span className="h-2 w-2 rounded-full" style={{ backgroundColor: task.status?.color || "#94A3B8" }} />
-                                                {task.status?.name || "No Status"}
-                                            </button>
-                                        </DropdownMenuTrigger>
-                                        <DropdownMenuContent align="start" className="w-56">
-                                            <DropdownMenuLabel className="text-xs">Status</DropdownMenuLabel>
-                                            {(((task as any).list?.statuses ?? []) as any[]).length > 0
-                                                ? (((task as any).list?.statuses ?? []) as any[]).map((s: any) => (
-                                                    <DropdownMenuItem key={s.id} onClick={() => handleTaskUpdate(task.id, { statusId: s.id })}>
-                                                        <div className="flex items-center gap-2">
-                                                            <span className="h-2 w-2 rounded-full" style={{ backgroundColor: s.color || "#94A3B8" }} />
-                                                            <span>{s.name}</span>
-                                                        </div>
-                                                    </DropdownMenuItem>
-                                                ))
-                                                : allAvailableStatuses
-                                                    .filter(s => {
-                                                        const taskListId = (task as any).listId ?? task.list?.id;
-                                                        return !taskListId || s.listId === taskListId;
-                                                    })
-                                                    .map((s) => (
-                                                        <DropdownMenuItem key={s.id} onClick={() => handleTaskUpdate(task.id, { statusId: s.id })}>
-                                                            <div className="flex items-center gap-2">
-                                                                <span className="h-2 w-2 rounded-full" style={{ backgroundColor: (s as any).color || "#94A3B8" }} />
-                                                                <span>{(s as any).name}</span>
-                                                            </div>
-                                                        </DropdownMenuItem>
-                                                    ))}
-                                        </DropdownMenuContent>
-                                    </DropdownMenu>
-                                </TableCell>
-                            )}
-                            {visibleColumns.has("dateCreated") && (
-                                <TableCell className="py-2 text-xs text-zinc-500 overflow-hidden" style={{ width: colWidths.dateCreated, minWidth: 80 }}>
-                                    {task.createdAt ? format(new Date(task.createdAt), "MMM d, yyyy") : "—"}
-                                </TableCell>
-                            )}
-                            {visibleColumns.has("timeEstimate") && (
-                                <TableCell className="py-2 text-xs text-zinc-500 overflow-hidden" style={{ width: colWidths.timeEstimate, minWidth: 80 }}>{task.timeEstimate ?? "—"}</TableCell>
-                            )}
-                            {visibleColumns.has("comments") && (
-                                <TableCell className="py-2 text-xs text-zinc-500 overflow-hidden" style={{ width: colWidths.comments, minWidth: 60 }}>{task._count?.comments ?? 0}</TableCell>
-                            )}
-                            {visibleColumns.has("timeTracked") && (
-                                <TableCell className="py-2 text-xs text-zinc-500 overflow-hidden" style={{ width: colWidths.timeTracked, minWidth: 80 }}>{task.timeTracked ?? "—"}</TableCell>
-                            )}
-                            {visibleColumns.has("pullRequests") && (
-                                <TableCell className="py-2 text-xs text-zinc-500 overflow-hidden" style={{ width: colWidths.pullRequests, minWidth: 80 }}>—</TableCell>
-                            )}
-                            {visibleColumns.has("linkedTasks") && (
-                                <TableCell className="py-2 text-xs text-zinc-500 overflow-hidden" style={{ width: colWidths.linkedTasks, minWidth: 80 }}>{task._count?.other_tasks ?? 0}</TableCell>
-                            )}
-                            {visibleColumns.has("taskType") && (
-                                <TableCell className="py-2 overflow-hidden" style={{ width: colWidths.taskType, minWidth: 80 }}>
-                                    <DropdownMenu>
-                                        <DropdownMenuTrigger asChild>
-                                            <button
-                                                type="button"
-                                                className="flex items-center gap-2 text-xs font-medium text-zinc-700 hover:bg-zinc-100 p-1 -ml-1 rounded transition-colors group px-2"
-                                                onClick={(e) => e.stopPropagation()}
-                                            >
-                                                {(() => {
-                                                    const typeId = task.taskTypeId || task.taskType?.id || task.taskType;
-                                                    const tt = availableTaskTypes?.find((t: any) => t.id === typeId || t.name === typeId);
-                                                    return (
-                                                        <>
-                                                            <TaskTypeIcon type={tt || typeId} className="h-3.5 w-3.5" />
-                                                            <span>{tt?.name || (typeof typeId === 'string' ? typeId : 'Task')}</span>
-                                                        </>
-                                                    );
-                                                })()}
-                                            </button>
-                                        </DropdownMenuTrigger>
-                                        <DropdownMenuContent align="start">
-                                            {availableTaskTypes?.length > 0 ? (
-                                                availableTaskTypes.map((tt: any) => (
-                                                    <DropdownMenuItem
-                                                        key={tt.id}
-                                                        onClick={() => void updateTask.mutateAsync({ id: task.id, taskTypeId: tt.id } as any)}
-                                                    >
-                                                        <div className="flex items-center gap-2">
-                                                            <TaskTypeIcon type={tt} className="h-3.5 w-3.5" />
-                                                            <span>{tt.name}</span>
-                                                        </div>
-                                                    </DropdownMenuItem>
-                                                ))
-                                            ) : (
-                                                [
-                                                    { value: 'TASK', label: 'Task', icon: CheckCircle2, color: 'text-blue-500' },
-                                                    { value: 'MILESTONE', label: 'Milestone', icon: Target, color: 'text-purple-500' },
-                                                    { value: 'FORM_RESPONSE', label: 'Form Response', icon: ListIcon, color: 'text-green-500' },
-                                                    { value: 'MEETING_NOTE', label: 'Meeting Note', icon: FileText, color: 'text-orange-500' },
-                                                ].map((type) => (
-                                                    <DropdownMenuItem
-                                                        key={type.value}
-                                                        onClick={() => void updateTask.mutateAsync({ id: task.id, taskType: type.value as any } as any)}
-                                                    >
-                                                        <div className="flex items-center gap-2">
-                                                            <type.icon className={cn("h-3.5 w-3.5", type.color)} />
-                                                            <span>{type.label}</span>
-                                                        </div>
-                                                    </DropdownMenuItem>
-                                                ))
-                                            )}
-                                        </DropdownMenuContent>
-                                    </DropdownMenu>
-                                </TableCell>
-                            )}
-                            {FIELD_CONFIG.filter(f => f.isCustom && visibleColumns.has(f.id) && f.id).map(f => {
-                                const customField = (f as any).customField;
-                                const value = getCustomFieldValue(task, f.id as string);
-                                const formattedValue = formatCustomFieldValue(value, customField);
-                                return (
-                                    <TableCell key={f.id} className="py-2 text-xs text-zinc-700 overflow-hidden" style={{ width: colWidths[f.id] ?? 120, minWidth: 80 }}>
-                                        <button
-                                            type="button"
-                                            className="w-full text-left rounded px-1 py-0.5 hover:bg-zinc-100"
-                                            onClick={(e) => { e.stopPropagation(); openTaskDetail(task.id); }}
-                                            title={`Edit ${f.label}`}
-                                        >
-                                            {formattedValue}
-                                        </button>
+                            {columnOrder.map(colId => {
+                                const colWidth = colWidths[colId] ?? 100;
+                                if (colId === "assignee") return (
+                                    <TableCell key="assignee" className="py-2 overflow-hidden" style={{ width: colWidth, minWidth: 80 }}>
+                                        <AssigneeSelector users={users as any} agents={agents} workspaceId={resolvedWorkspaceId} variant="compact" side="right" avoidCollisions={false} collisionPadding={12} sideOffset={8} value={formatAssigneeIdsForSelector(task.assignees ?? [])} onChange={(newIds) => { handleTaskUpdate(task.id, { assigneeIds: newIds }); }} trigger={<button type="button" className="flex items-center -space-x-1.5 rounded hover:bg-zinc-100 px-1 py-0.5 cursor-pointer" onClick={(e) => { e.stopPropagation(); }} title="Edit assignees">{assignees.length > 0 ? assignees.slice(0, 4).map((a: any, i: number) => (<Avatar key={a.user?.id || a.aiAgent?.id || a.agent?.id || i} className="h-6 w-6 border-2 border-white ring-1 ring-zinc-100"><AvatarImage src={a.user?.image || a.aiAgent?.avatar || a.aiAgent?.image || a.agent?.avatar || undefined} /><AvatarFallback className="text-[9px] bg-indigo-50 text-indigo-600">{a.user?.name?.slice(0, 2)?.toUpperCase() || a.aiAgent?.name?.slice(0, 2)?.toUpperCase() || a.agent?.name?.slice(0, 2)?.toUpperCase() || "??"}</AvatarFallback></Avatar>)) : (<div className="h-6 w-6 rounded-full border border-dashed border-zinc-300 flex items-center justify-center"><Users className="h-3 w-3 text-zinc-400" /></div>)}</button>} />
                                     </TableCell>
                                 );
+                                if (colId === "dueDate") return (
+                                    <TableCell key="dueDate" className="py-2 overflow-hidden" style={{ width: colWidth, minWidth: 80 }}>
+                                        <Popover><PopoverTrigger asChild><button type="button" className={cn("text-xs rounded px-1 py-0.5 hover:bg-zinc-100 cursor-pointer", dueDateInfo ? dueDateInfo.color : "text-zinc-400")} onClick={(e) => { e.stopPropagation(); }} title="Edit due date">{dueDateInfo ? dueDateInfo.text : "Add Date"}</button></PopoverTrigger><PopoverContent className="w-auto p-0" align="start" sideOffset={8} collisionPadding={10}><TaskCalendar startDate={task.startDate ? new Date(task.startDate) : undefined} endDate={task.dueDate ? new Date(task.dueDate) : undefined} onStartDateChange={(date) => { handleTaskUpdate(task.id, { startDate: date ? date.toISOString() : null }); }} onEndDateChange={(date) => { handleTaskUpdate(task.id, { dueDate: date ? date.toISOString() : null }); }} /></PopoverContent></Popover>
+                                    </TableCell>
+                                );
+                                if (colId === "priority") return (
+                                    <TableCell key="priority" className="py-2 overflow-hidden" style={{ width: colWidth, minWidth: 80 }}>
+                                        <DropdownMenu><DropdownMenuTrigger asChild><Button type="button" variant="outline" size="sm" className="h-6 w-auto min-w-[90px] border-zinc-200 bg-white hover:bg-zinc-50 focus:ring-0 px-2.5 rounded-sm text-xs font-medium transition-all text-zinc-700 cursor-pointer" onClick={(e) => { e.stopPropagation(); }} title="Edit priority"><div className="flex items-center gap-1.5 w-full"><div className={cn("flex items-center gap-1.5", task.priority === 'URGENT' ? "text-red-500" : task.priority === 'HIGH' ? "text-orange-500" : task.priority === 'NORMAL' ? "text-blue-500" : "text-zinc-400")}><Flag className="h-3 w-3 fill-current" /></div><span>{task.priority ? task.priority.charAt(0) + task.priority.slice(1).toLowerCase() : "Priority"}</span></div></Button></DropdownMenuTrigger><DropdownMenuContent align="start" className="w-48 z-[200]"><DropdownMenuLabel className="text-xs">Priority</DropdownMenuLabel><DropdownMenuItem onClick={() => handleTaskUpdate(task.id, { priority: "URGENT" })}><Flag className="h-3 w-3 mr-2 text-red-600 fill-current" /> Urgent</DropdownMenuItem><DropdownMenuItem onClick={() => handleTaskUpdate(task.id, { priority: "HIGH" })}><Flag className="h-3 w-3 mr-2 text-orange-600 fill-current" /> High</DropdownMenuItem><DropdownMenuItem onClick={() => handleTaskUpdate(task.id, { priority: "NORMAL" })}><Flag className="h-3 w-3 mr-2 text-blue-600 fill-current" /> Normal</DropdownMenuItem><DropdownMenuItem onClick={() => handleTaskUpdate(task.id, { priority: "LOW" })}><Flag className="h-3 w-3 mr-2 text-slate-600 fill-current" /> Low</DropdownMenuItem><DropdownMenuSeparator /><DropdownMenuItem onClick={() => handleTaskUpdate(task.id, { priority: null })}><CircleSlash className="h-3 w-3 mr-2 text-slate-500" />Clear</DropdownMenuItem></DropdownMenuContent></DropdownMenu>
+                                    </TableCell>
+                                );
+                                if (colId === "status") return (
+                                    <TableCell key="status" className="py-2 overflow-hidden" style={{ width: colWidth, minWidth: 80 }}>
+                                        <TaskStatusPopover task={task} availableStatuses={(((task as any).list?.statuses ?? []) as any[]).length > 0 ? (((task as any).list?.statuses ?? []) as any[]) : allAvailableStatuses.filter(s => { const taskListId = (task as any).listId ?? task.list?.id; return !taskListId || s.listId === taskListId; })} availableTaskTypes={availableTaskTypes} onUpdateTask={(id, data) => handleTaskUpdate(id, data)} hideTaskTypeTab={true}><button type="button" className={cn("inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-medium border hover:opacity-90 cursor-pointer outline-none focus:outline-none", getStatusStyles(task.status?.name || ""))} onClick={(e) => { e.stopPropagation(); }} title="Edit status"><span className="h-2 w-2 rounded-full" style={{ backgroundColor: task.status?.color || "#94A3B8" }} />{task.status?.name || "No Status"}</button></TaskStatusPopover>
+                                    </TableCell>
+                                );
+                                if (colId === "dateCreated") return (
+                                    <TableCell key="dateCreated" className="py-2 text-xs text-zinc-500 overflow-hidden" style={{ width: colWidth, minWidth: 80 }}>{task.createdAt ? format(new Date(task.createdAt), "MMM d, yyyy") : "—"}</TableCell>
+                                );
+                                if (colId === "timeEstimate") return (
+                                    <TableCell key="timeEstimate" className="py-2 text-xs text-zinc-500 overflow-hidden" style={{ width: colWidth, minWidth: 80 }}>{task.timeEstimate ?? "—"}</TableCell>
+                                );
+                                if (colId === "comments") return (
+                                    <TableCell key="comments" className="py-2 text-xs text-zinc-500 overflow-hidden" style={{ width: colWidth, minWidth: 60 }}>{task._count?.comments ?? 0}</TableCell>
+                                );
+                                if (colId === "timeTracked") return (
+                                    <TableCell key="timeTracked" className="py-2 text-xs text-zinc-500 overflow-hidden" style={{ width: colWidth, minWidth: 80 }}>{task.timeTracked ?? "—"}</TableCell>
+                                );
+                                if (colId === "pullRequests") return (
+                                    <TableCell key="pullRequests" className="py-2 text-xs text-zinc-500 overflow-hidden" style={{ width: colWidth, minWidth: 80 }}>—</TableCell>
+                                );
+                                if (colId === "linkedTasks") return (
+                                    <TableCell key="linkedTasks" className="py-2 text-xs text-zinc-500 overflow-hidden" style={{ width: colWidth, minWidth: 80 }}>{task._count?.other_tasks ?? 0}</TableCell>
+                                );
+                                if (colId === "taskType") return (
+                                    <TableCell key="taskType" className="py-2 overflow-hidden" style={{ width: colWidth, minWidth: 80 }}>
+                                        <DropdownMenu><DropdownMenuTrigger asChild><button type="button" className="flex items-center gap-2 text-xs font-medium text-zinc-700 hover:bg-zinc-100 p-1 -ml-1 rounded transition-colors group px-2" onClick={(e) => e.stopPropagation()}>{(() => { const typeId = task.taskTypeId || task.taskType?.id || task.taskType; const tt = availableTaskTypes?.find((t: any) => t.id === typeId || t.name === typeId); return (<><TaskTypeIcon type={tt || typeId} className="h-3.5 w-3.5" /><span>{tt?.name || (typeof typeId === 'string' ? typeId : 'Task')}</span></>); })()}</button></DropdownMenuTrigger><DropdownMenuContent align="start">{availableTaskTypes?.length > 0 ? availableTaskTypes.map((tt: any) => (<DropdownMenuItem key={tt.id} onClick={() => void updateTask.mutateAsync({ id: task.id, taskTypeId: tt.id } as any)}><div className="flex items-center gap-2"><TaskTypeIcon type={tt} className="h-3.5 w-3.5" /><span>{tt.name}</span></div></DropdownMenuItem>)) : ([{ value: 'TASK', label: 'Task', icon: CheckCircle2, color: 'text-blue-500' }, { value: 'MILESTONE', label: 'Milestone', icon: Target, color: 'text-purple-500' }, { value: 'FORM_RESPONSE', label: 'Form Response', icon: ListIcon, color: 'text-green-500' }, { value: 'MEETING_NOTE', label: 'Meeting Note', icon: FileText, color: 'text-orange-500' }].map((type) => (<DropdownMenuItem key={type.value} onClick={() => void updateTask.mutateAsync({ id: task.id, taskType: type.value as any } as any)}><div className="flex items-center gap-2"><type.icon className={cn("h-3.5 w-3.5", type.color)} /><span>{type.label}</span></div></DropdownMenuItem>)))}</DropdownMenuContent></DropdownMenu>
+                                    </TableCell>
+                                );
+                                // Custom fields
+                                const cfEntry = FIELD_CONFIG.find(f => f.id === colId && f.isCustom);
+                                if (cfEntry) {
+                                    const customField = (cfEntry as any).customField;
+                                    const value = getCustomFieldValue(task, colId);
+                                    const formattedValue = formatCustomFieldValue(value, customField);
+                                    return (
+                                        <TableCell key={colId} className="py-2 text-xs text-zinc-700 overflow-hidden" style={{ width: colWidths[colId] ?? 120, minWidth: 80 }}>
+                                            <button type="button" className="w-full text-left rounded px-1 py-0.5 hover:bg-zinc-100" onClick={(e) => { e.stopPropagation(); openTaskDetail(task.id); }} title={`Edit ${cfEntry.label}`}>{formattedValue}</button>
+                                        </TableCell>
+                                    );
+                                }
+                                // Tags or any unknown column
+                                return <TableCell key={colId} className="py-2 text-xs text-zinc-500 overflow-hidden" style={{ width: colWidth, minWidth: 80 }}>—</TableCell>;
                             })}
-                            <TableCell className="w-[50px] py-2 pr-4 text-right">
+                            <TableCell className="w-full py-2 pr-4 text-right">
                                 <TaskActionsPopover
                                     task={task as any}
                                     context={spaceId ? "SPACE" : projectId ? "PROJECT" : "GENERAL"}
@@ -2579,7 +2401,7 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
         const headNameText = "text-xs font-medium text-zinc-500 ml-4"
         return (
             <TableRow key={key} className="bg-white border-b border-zinc-100 group/header">
-                <TableHead className="w-full relative py-2" style={{ minWidth: Math.max(colWidths.name || 200, 200) }}>
+                <TableHead className="relative py-2" style={{ width: Math.max(colWidths.name || 200, 200), minWidth: Math.max(colWidths.name || 200, 200) }}>
                     <div className="flex items-center gap-3 pl-3">
                         <div className="w-4 h-4 flex items-center justify-center">
                             <Checkbox
@@ -2592,76 +2414,34 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
                     </div>
                     <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-zinc-300 z-10" onMouseDown={(e) => startResize(e, "name")} onClick={(e) => e.stopPropagation()} />
                 </TableHead>
-                {visibleColumns.has("assignee") && (
-                    <TableHead className="relative py-2" style={{ width: colWidths.assignee, minWidth: 80 }}>
-                        <span className={headText}>Assignee</span>
-                        <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-zinc-300 z-10" onMouseDown={(e) => startResize(e, "assignee")} onClick={(e) => e.stopPropagation()} />
-                    </TableHead>
-                )}
-                {visibleColumns.has("dueDate") && (
-                    <TableHead className="relative py-2" style={{ width: colWidths.dueDate, minWidth: 80 }}>
-                        <span className={headText}>Due date</span>
-                        <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-zinc-300 z-10" onMouseDown={(e) => startResize(e, "dueDate")} onClick={(e) => e.stopPropagation()} />
-                    </TableHead>
-                )}
-                {visibleColumns.has("priority") && (
-                    <TableHead className="relative py-2" style={{ width: colWidths.priority, minWidth: 80 }}>
-                        <span className={headText}>Priority</span>
-                        <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-zinc-300 z-10" onMouseDown={(e) => startResize(e, "priority")} onClick={(e) => e.stopPropagation()} />
-                    </TableHead>
-                )}
-                {visibleColumns.has("status") && (
-                    <TableHead className="relative py-2" style={{ width: colWidths.status, minWidth: 80 }}>
-                        <span className={headText}>Status</span>
-                        <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-zinc-300 z-10" onMouseDown={(e) => startResize(e, "status")} onClick={(e) => e.stopPropagation()} />
-                    </TableHead>
-                )}
-                {visibleColumns.has("dateCreated") && (
-                    <TableHead className="relative py-2" style={{ width: colWidths.dateCreated, minWidth: 80 }}>
-                        <span className={headText}>Date created</span>
-                        <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-zinc-300 z-10" onMouseDown={(e) => startResize(e, "dateCreated")} onClick={(e) => e.stopPropagation()} />
-                    </TableHead>
-                )}
-                {visibleColumns.has("timeEstimate") && (
-                    <TableHead className="relative py-2" style={{ width: colWidths.timeEstimate, minWidth: 60 }}>
-                        <span className={headText}>Time estimate</span>
-                        <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-zinc-300 z-10" onMouseDown={(e) => startResize(e, "timeEstimate")} onClick={(e) => e.stopPropagation()} />
-                    </TableHead>
-                )}
-                {visibleColumns.has("comments") && (
-                    <TableHead className="relative py-2" style={{ width: colWidths.comments, minWidth: 60 }}>
-                        <span className={headText}>Comments</span>
-                        <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-zinc-300 z-10" onMouseDown={(e) => startResize(e, "comments")} onClick={(e) => e.stopPropagation()} />
-                    </TableHead>
-                )}
-                {visibleColumns.has("timeTracked") && (
-                    <TableHead className="relative py-2" style={{ width: colWidths.timeTracked, minWidth: 80 }}>
-                        <span className={headText}>Time tracked</span>
-                        <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-zinc-300 z-10" onMouseDown={(e) => startResize(e, "timeTracked")} onClick={(e) => e.stopPropagation()} />
-                    </TableHead>
-                )}
-                {visibleColumns.has("pullRequests") && (
-                    <TableHead className="relative py-2" style={{ width: colWidths.pullRequests, minWidth: 80 }}>
-                        <span className={headText}>Pull Requests</span>
-                        <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-zinc-300 z-10" onMouseDown={(e) => startResize(e, "pullRequests")} onClick={(e) => e.stopPropagation()} />
-                    </TableHead>
-                )}
-                {visibleColumns.has("linkedTasks") && (
-                    <TableHead className="relative py-2" style={{ width: colWidths.linkedTasks, minWidth: 80 }}>
-                        <span className={headText}>Linked tasks</span>
-                        <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-zinc-300 z-10" onMouseDown={(e) => startResize(e, "linkedTasks")} onClick={(e) => e.stopPropagation()} />
-                    </TableHead>
-                )}
-                {FIELD_CONFIG.filter(f => f.isCustom && visibleColumns.has(f.id)).map(f => (
-                    <TableHead key={f.id} className="relative py-2" style={{ width: colWidths[f.id] ?? 120, minWidth: 80 }}>
-                        <span className={headText}>{f.label}</span>
-                        <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-zinc-300 z-10" onMouseDown={(e) => startResize(e, f.id)} onClick={(e) => e.stopPropagation()} />
-                    </TableHead>
-                ))}
-                <TableHead className="w-[50px] pr-4 py-2 text-right">
-                    <Button variant="ghost" size="icon" className="h-7 w-7 text-zinc-400 hover:text-zinc-600" onClick={() => { setFieldsPanelOpen(true); setFiltersPanelOpen(false); setAssigneesPanelOpen(false); }} title="Add column or manage fields">
-                        <Plus className="h-3.5 w-3.5" />
-                    </Button>
+                {columnOrder.map(colId => {
+                    const colLabels: Record<string, string> = {
+                        assignee: "Assignee", dueDate: "Due date", priority: "Priority",
+                        status: "Status", dateCreated: "Date created", timeEstimate: "Time estimate",
+                        comments: "Comments", timeTracked: "Time tracked", pullRequests: "Pull Requests",
+                        linkedTasks: "Linked tasks", taskType: "Task type", tags: "Tags",
+                    };
+                    const customField = FIELD_CONFIG.find(f => f.id === colId && f.isCustom);
+                    const label = colLabels[colId] ?? customField?.label ?? colId;
+                    const width = colWidths[colId] ?? (customField ? 120 : 100);
+                    return (
+                        <TableHead key={colId} className="relative py-2" style={{ width, minWidth: 80 }}>
+                            <span className={headText}>{label}</span>
+                            <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-zinc-300 z-10" onMouseDown={(e) => startResize(e, colId)} onClick={(e) => e.stopPropagation()} />
+                        </TableHead>
+                    );
+                })}
+                <TableHead className="w-full pl-4 py-2 text-left">
+                    <TooltipProvider>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-7 w-7 text-zinc-400 hover:text-zinc-600" onClick={() => { setFieldsPanelOpen(true); setFiltersPanelOpen(false); setAssigneesPanelOpen(false); }}>
+                                    <Plus className="h-3.5 w-3.5" />
+                                </Button>
+                            </TooltipTrigger>
+                            <TooltipContent side="bottom">Add column or manage fields</TooltipContent>
+                        </Tooltip>
+                    </TooltipProvider>
                 </TableHead>
             </TableRow>
         );
@@ -2793,40 +2573,50 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
                                         {groupLocationPath}
                                     </div>
                                 )}
-                                <div className="flex items-center gap-2 py-1">
-                                    <button
-                                        type="button"
-                                        className="flex items-center gap-2 min-w-0 text-left rounded-md hover:bg-zinc-100/80 px-2 py-1 -mx-2 cursor-pointer"
-                                        onClick={() => toggleGroup(entry.groupName)}
-                                    >
-                                        <ChevronRight className={cn("h-3.5 w-3.5 text-zinc-500 shrink-0 transition-transform", isExpanded && "rotate-90")} />
-                                        {effectiveGroupBy === "status" ? (() => {
-                                            const isToDo = entry.groupName.toLowerCase() === "to do";
-                                            const groupPillColor = getGroupPillColor(entry.groupName, groupTasks);
-                                            const hasColor = groupPillColor && groupPillColor !== "#87909e" && !isToDo;
-                                            return (
-                                                <span
-                                                    className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-[4px] text-[11px] font-bold uppercase tracking-wider shrink-0"
-                                                    style={{
-                                                        backgroundColor: hasColor ? groupPillColor : "#f4f4f5",
-                                                        color: hasColor ? "#ffffff" : "#52525b",
-                                                    }}
+                                <div className="flex items-center gap-1.5 py-1">
+                                    <TooltipProvider>
+                                        <Tooltip>
+                                            <TooltipTrigger asChild>
+                                                <button
+                                                    type="button"
+                                                    className="flex items-center justify-center h-5 w-5 rounded hover:bg-zinc-200/80 text-zinc-500 hover:text-zinc-700 shrink-0 transition-colors cursor-pointer"
+                                                    onClick={() => toggleGroup(entry.groupName)}
                                                 >
-                                                    {isToDo ? (
-                                                        <CircleDashed className="h-3.5 w-3.5 shrink-0" />
-                                                    ) : (
-                                                        <CircleDot className="h-3.5 w-3.5 shrink-0" />
-                                                    )}
-                                                    {entry.groupName}
-                                                </span>
-                                            );
-                                        })() : (
-                                            <span className="inline-flex items-center gap-1.5 text-[15px] font-medium text-zinc-900 shrink-0">
+                                                    <Play className={cn("h-2.5 w-2.5 shrink-0 fill-current transition-transform duration-150", isExpanded ? "rotate-90" : "rotate-0")} />
+                                                </button>
+                                            </TooltipTrigger>
+                                            <TooltipContent side="bottom" className="text-xs">
+                                                {isExpanded ? "Collapse group" : "Expand group"}
+                                            </TooltipContent>
+                                        </Tooltip>
+                                    </TooltipProvider>
+                                    {effectiveGroupBy === "status" ? (() => {
+                                        const isToDo = entry.groupName.toLowerCase() === "to do";
+                                        const groupPillColor = getGroupPillColor(entry.groupName, groupTasks);
+                                        const hasColor = groupPillColor && groupPillColor !== "#87909e" && !isToDo;
+                                        return (
+                                            <span
+                                                className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-[4px] text-[11px] font-bold uppercase tracking-wider shrink-0"
+                                                style={{
+                                                    backgroundColor: hasColor ? groupPillColor : "#f4f4f5",
+                                                    color: hasColor ? "#ffffff" : "#52525b",
+                                                }}
+                                            >
+                                                {isToDo ? (
+                                                    <CircleDashed className="h-3.5 w-3.5 shrink-0" />
+                                                ) : (
+                                                    <CircleDot className="h-3.5 w-3.5 shrink-0" />
+                                                )}
                                                 {entry.groupName}
                                             </span>
-                                        )}
-                                        <span className="text-[10px] text-zinc-500 bg-zinc-100 px-1.5 rounded-full shrink-0">{groupTasks.length}</span>
-                                    </button>
+                                        );
+                                    })() : (
+                                        <span className="inline-flex items-center gap-1.5 text-[15px] font-medium text-zinc-900 shrink-0">
+                                            {entry.groupName}
+                                        </span>
+                                    )}
+                                    <span className="text-[10px] text-zinc-500 bg-zinc-100 px-1.5 rounded-full shrink-0">{groupTasks.length}</span>
+                                    <span className="flex-1" />
                                     <DropdownMenu>
                                         <DropdownMenuTrigger asChild>
                                             <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0 text-zinc-400 hover:text-zinc-600">
@@ -3705,9 +3495,9 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
     );
 
     return (
-        <div className="h-full w-full flex flex-col bg-white border border-zinc-200/60 shadow-sm overflow-hidden font-sans relative min-w-0">
+        <div className="h-full w-full flex flex-col bg-white shadow-sm overflow-hidden font-sans relative min-w-0">
             {/* Toolbar ?EClickUp layout */}
-            <div className="border-b border-zinc-100 bg-white px-3 py-2 shrink-0">
+            <div className="border-x border-t border-slate-200 bg-white px-3 py-2 shrink-0">
                 <>
                     <div className="flex items-center justify-between gap-3 overflow-x-auto">
                         {/* Left: Group, Expanded, Columns */}
@@ -4074,7 +3864,7 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
             </div>
 
             {/* List content */}
-            <div ref={listScrollRef} className="flex-1 relative min-w-0 overflow-x-auto overflow-y-auto pt-2">
+            <div ref={listScrollRef} className="flex-1 relative min-w-0 overflow-x-auto overflow-y-auto">
                 {pinDescription && currentList && (
                     <div
                         className="shrink-0 px-4 py-3 bg-zinc-50 border-b border-zinc-100 cursor-pointer hover:bg-zinc-100 transition-colors"
@@ -4097,12 +3887,12 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
                     </div>
                 )}
                 {isLoading ? (
-                    <div className="flex flex-col items-center justify-center h-full p-8">
+                    <div className="flex flex-col items-center justify-center h-full p-8 border border-slate-200">
                         <div className="animate-spin rounded-full h-8 w-8 border-2 border-blue-600 border-t-transparent" />
                         <p className="text-xs text-zinc-500 mt-3">Loading tasks...</p>
                     </div>
                 ) : filteredTasks.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center h-full p-8 text-center">
+                    <div className="flex flex-col items-center justify-center h-full p-8 text-center border border-slate-200">
                         <p className="text-sm font-medium text-zinc-700">No tasks found</p>
                         <p className="text-xs text-zinc-500 mt-1">Adjust filters or create a task.</p>
                         <TaskCreationModal context={spaceId ? "SPACE" : projectId ? "PROJECT" : "GENERAL"} contextId={spaceId || projectId} workspaceId={resolvedWorkspaceId} users={users} lists={lists} defaultListId={listId} availableStatuses={allAvailableStatuses} trigger={<button type="button" className="flex items-center gap-1.5 h-8 px-3 mt-4 rounded-lg text-[13px] font-bold text-white bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 transition-all cursor-pointer shadow-sm"><CheckSquare className="h-3 w-3" />Create a task</button>} />
@@ -4116,9 +3906,9 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
                         onDragEnd={(e) => void handleDragEnd(e)}
                         onDragCancel={() => { setDragActiveId(null); setDragOverId(null); setDraggingIds([]); setDropPosition(null); }}
                     >
-                        <Table containerClassName="pb-12" className="table-fixed w-full">
+                        <Table containerClassName="pb-12" className="table-fixed w-full border-collapse">
                             <colgroup>
-                                <col className="w-full" style={{ minWidth: Math.max(colWidths.name || 200, 200) }} />
+                                <col style={{ width: Math.max(colWidths.name || 200, 200), minWidth: Math.max(colWidths.name || 200, 200) }} />
                                 {visibleColumns.has("assignee") && <col style={{ width: colWidths.assignee, minWidth: 80 }} />}
                                 {visibleColumns.has("dueDate") && <col style={{ width: colWidths.dueDate, minWidth: 80 }} />}
                                 {visibleColumns.has("priority") && <col style={{ width: colWidths.priority, minWidth: 80 }} />}
@@ -4132,12 +3922,12 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
                                 {FIELD_CONFIG.filter(f => f.isCustom && visibleColumns.has(f.id)).map(f => (
                                     <col key={f.id} style={{ width: colWidths[f.id] ?? 120, minWidth: 80 }} />
                                 ))}
-                                <col className="w-[50px]" />
+                                <col className="w-full min-w-[50px]" />
                             </colgroup>
                             {groupBy === "none" && (
-                                <TableHeader className="sticky top-0 bg-white/95 backdrop-blur z-10 border-b border-zinc-200 group/header">
-                                    <TableRow className="hover:bg-transparent border-none">
-                                        <TableHead className="w-full relative py-3 cursor-pointer" style={{ minWidth: Math.max(colWidths.name || 200, 200) }} onClick={() => handleSort("name")}>
+                                <TableHeader className="sticky top-0 bg-white/95 backdrop-blur z-10 group/header" style={{ borderBottom: '1px solid #e4e4e7' }}>
+                                    <TableRow className="hover:bg-transparent border-b border-zinc-200">
+                                        <TableHead className="relative py-3 cursor-pointer bg-[#f4f5fa] text-[13px] font-normal text-zinc-500" style={{ width: Math.max(colWidths.name || 200, 200), minWidth: Math.max(colWidths.name || 200, 200) }} onClick={() => handleSort("name")}>
                                             <div className="flex items-center gap-6 pl-5">
                                                 <div className="w-4 h-4 flex items-center justify-center">
                                                     <Checkbox
@@ -4151,81 +3941,88 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
                                             <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-zinc-300 z-10" onMouseDown={(e) => startResize(e, "name")} onClick={(e) => e.stopPropagation()} />
                                         </TableHead>
                                         {visibleColumns.has("assignee") && (
-                                            <TableHead className="relative py-3" style={{ width: colWidths.assignee, minWidth: 80 }}>
+                                            <TableHead className="relative py-3 text-[13px] font-normal text-zinc-500 bg-white" style={{ width: colWidths.assignee, minWidth: 80 }}>
                                                 Assignee
                                                 <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-zinc-300 z-10" onMouseDown={(e) => startResize(e, "assignee")} onClick={(e) => e.stopPropagation()} />
                                             </TableHead>
                                         )}
                                         {visibleColumns.has("dueDate") && (
-                                            <TableHead className="relative py-3 cursor-pointer" style={{ width: colWidths.dueDate, minWidth: 80 }} onClick={() => handleSort("dueDate")}>
+                                            <TableHead className="relative py-3 cursor-pointer text-[13px] font-normal text-zinc-500 bg-white" style={{ width: colWidths.dueDate, minWidth: 80 }} onClick={() => handleSort("dueDate")}>
                                                 Due date
                                                 <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-zinc-300 z-10" onMouseDown={(e) => startResize(e, "dueDate")} onClick={(e) => e.stopPropagation()} />
                                             </TableHead>
                                         )}
                                         {visibleColumns.has("priority") && (
-                                            <TableHead className="relative py-3 cursor-pointer" style={{ width: colWidths.priority, minWidth: 80 }} onClick={() => handleSort("priority")}>
+                                            <TableHead className="relative py-3 cursor-pointer text-[13px] font-normal text-zinc-500 bg-white" style={{ width: colWidths.priority, minWidth: 80 }} onClick={() => handleSort("priority")}>
                                                 Priority
                                                 <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-zinc-300 z-10" onMouseDown={(e) => startResize(e, "priority")} onClick={(e) => e.stopPropagation()} />
                                             </TableHead>
                                         )}
                                         {visibleColumns.has("status") && (
-                                            <TableHead className="relative py-3 cursor-pointer" style={{ width: colWidths.status, minWidth: 80 }} onClick={() => handleSort("status")}>
+                                            <TableHead className="relative py-3 cursor-pointer text-[13px] font-normal text-zinc-500 bg-white" style={{ width: colWidths.status, minWidth: 80 }} onClick={() => handleSort("status")}>
                                                 Status
                                                 <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-zinc-300 z-10" onMouseDown={(e) => startResize(e, "status")} onClick={(e) => e.stopPropagation()} />
                                             </TableHead>
                                         )}
                                         {visibleColumns.has("dateCreated") && (
-                                            <TableHead className="relative py-3" style={{ width: colWidths.dateCreated, minWidth: 80 }}>
+                                            <TableHead className="relative py-3 text-[13px] font-normal text-zinc-500 bg-white" style={{ width: colWidths.dateCreated, minWidth: 80 }}>
                                                 Date created
                                                 <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-zinc-300 z-10" onMouseDown={(e) => startResize(e, "dateCreated")} onClick={(e) => e.stopPropagation()} />
                                             </TableHead>
                                         )}
                                         {visibleColumns.has("timeEstimate") && (
-                                            <TableHead className="relative py-3" style={{ width: colWidths.timeEstimate, minWidth: 80 }}>
+                                            <TableHead className="relative py-3 text-[13px] font-normal text-zinc-500 bg-white" style={{ width: colWidths.timeEstimate, minWidth: 80 }}>
                                                 Time estimate
                                                 <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-zinc-300 z-10" onMouseDown={(e) => startResize(e, "timeEstimate")} onClick={(e) => e.stopPropagation()} />
                                             </TableHead>
                                         )}
                                         {visibleColumns.has("comments") && (
-                                            <TableHead className="relative py-3" style={{ width: colWidths.comments, minWidth: 60 }}>
+                                            <TableHead className="relative py-3 text-[13px] font-normal text-zinc-500 bg-white" style={{ width: colWidths.comments, minWidth: 60 }}>
                                                 Comments
                                                 <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-zinc-300 z-10" onMouseDown={(e) => startResize(e, "comments")} onClick={(e) => e.stopPropagation()} />
                                             </TableHead>
                                         )}
                                         {visibleColumns.has("timeTracked") && (
-                                            <TableHead className="relative py-3" style={{ width: colWidths.timeTracked, minWidth: 80 }}>
+                                            <TableHead className="relative py-3 text-[13px] font-normal text-zinc-500 bg-white" style={{ width: colWidths.timeTracked, minWidth: 80 }}>
                                                 Time tracked
                                                 <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-zinc-300 z-10" onMouseDown={(e) => startResize(e, "timeTracked")} onClick={(e) => e.stopPropagation()} />
                                             </TableHead>
                                         )}
                                         {visibleColumns.has("pullRequests") && (
-                                            <TableHead className="relative py-3" style={{ width: colWidths.pullRequests, minWidth: 80 }}>
+                                            <TableHead className="relative py-3 text-[13px] font-normal text-zinc-500 bg-white" style={{ width: colWidths.pullRequests, minWidth: 80 }}>
                                                 Pull Requests
                                                 <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-zinc-300 z-10" onMouseDown={(e) => startResize(e, "pullRequests")} onClick={(e) => e.stopPropagation()} />
                                             </TableHead>
                                         )}
                                         {visibleColumns.has("linkedTasks") && (
-                                            <TableHead className="relative py-3" style={{ width: colWidths.linkedTasks, minWidth: 80 }}>
+                                            <TableHead className="relative py-3 text-[13px] font-normal text-zinc-500 bg-white" style={{ width: colWidths.linkedTasks, minWidth: 80 }}>
                                                 Linked tasks
                                                 <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-zinc-300 z-10" onMouseDown={(e) => startResize(e, "linkedTasks")} onClick={(e) => e.stopPropagation()} />
                                             </TableHead>
                                         )}
                                         {visibleColumns.has("taskType") && (
-                                            <TableHead className="relative py-3" style={{ width: colWidths.taskType, minWidth: 80 }}>
+                                            <TableHead className="relative py-3 text-[13px] font-normal text-zinc-500 bg-white" style={{ width: colWidths.taskType, minWidth: 80 }}>
                                                 Type
                                                 <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-zinc-300 z-10" onMouseDown={(e) => startResize(e, "taskType")} onClick={(e) => e.stopPropagation()} />
                                             </TableHead>
                                         )}
                                         {FIELD_CONFIG.filter(f => f.isCustom && visibleColumns.has(f.id)).map(f => (
-                                            <TableHead key={f.id} className="relative py-3" style={{ width: colWidths[f.id] ?? 120, minWidth: 80 }}>
+                                            <TableHead key={f.id} className="relative py-3 text-[13px] font-normal text-zinc-500 bg-white" style={{ width: colWidths[f.id] ?? 120, minWidth: 80 }}>
                                                 {f.label}
                                                 <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-zinc-300 z-10" onMouseDown={(e) => startResize(e, f.id)} onClick={(e) => e.stopPropagation()} />
                                             </TableHead>
                                         ))}
-                                        <TableHead className="w-[50px] pr-4 text-right">
-                                            <Button variant="ghost" size="icon" className="h-7 w-7 text-zinc-400 hover:text-zinc-600" onClick={() => { setFieldsPanelOpen(true); setFiltersPanelOpen(false); setAssigneesPanelOpen(false); }} title="Add column or manage fields">
-                                                <Plus className="h-3.5 w-3.5" />
-                                            </Button>
+                                        <TableHead className="w-full pl-4 text-left text-[13px] font-normal text-zinc-500 bg-white">
+                                            <TooltipProvider>
+                                                <Tooltip>
+                                                    <TooltipTrigger asChild>
+                                                        <Button variant="ghost" size="icon" className="h-7 w-7 text-zinc-400 hover:text-zinc-600" onClick={() => { setFieldsPanelOpen(true); setFiltersPanelOpen(false); setAssigneesPanelOpen(false); }}>
+                                                            <Plus className="h-3.5 w-3.5" />
+                                                        </Button>
+                                                    </TooltipTrigger>
+                                                    <TooltipContent side="bottom">Add column or manage fields</TooltipContent>
+                                                </Tooltip>
+                                            </TooltipProvider>
                                         </TableHead>
                                     </TableRow>
                                 </TableHeader>
@@ -4259,10 +4056,6 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
                                                         <DropdownMenu>
                                                             <DropdownMenuTrigger asChild>
                                                                 <Button variant="outline" size="sm" className="h-7 px-2 text-xs text-zinc-700 border-zinc-200 hover:bg-zinc-100 hover:text-zinc-900 rounded-md">
-                                                                    {(() => {
-                                                                        const tt = availableTaskTypes?.find((t: any) => t.id === inlineAddTaskType || t.name === inlineAddTaskType);
-                                                                        return <TaskTypeIcon type={tt} className="h-3.5 w-3.5 mr-1" />;
-                                                                    })()}
                                                                     {(() => {
                                                                         const tt = availableTaskTypes?.find((t: any) => t.id === inlineAddTaskType || t.name === inlineAddTaskType);
                                                                         if (!tt) {
@@ -4510,72 +4303,344 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
                 )}
             </div>
 
-            {/* Fields panel (Columns click or + in last column) ?Etoggle show/hide columns */}
-            {fieldsPanelOpen && !createFieldModalOpen && (
+            {/* Fields panel */}
+            {fieldsPanelOpen && (
                 <>
-                    <div className="absolute inset-0 bg-black/20 z-40" onClick={() => setFieldsPanelOpen(false)} aria-hidden />
+                    <div className="absolute inset-0 z-40" onClick={() => { setFieldsPanelOpen(false); setCreateFieldSearch(""); }} aria-hidden />
                     <div className="absolute right-0 bottom-0 top-0 w-[360px] max-w-[90vw] bg-white border-l border-zinc-200 shadow-xl z-50 flex flex-col">
-                        <div className="flex items-center justify-between p-4 border-b border-zinc-100">
-                            <h3 className="font-semibold text-zinc-900">Fields</h3>
-                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setFieldsPanelOpen(false)}><X className="h-4 w-4" /></Button>
-                        </div>
-                        <div className="p-3 border-b border-zinc-100">
-                            <div className="relative">
-                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
-                                <Input className="pl-9 h-9 text-sm" placeholder="Search for new or existing fields" value={fieldsSearch} onChange={e => setFieldsSearch(e.target.value)} />
+                        <div className="flex flex-col border-b border-zinc-100">
+                            <div className="flex items-center justify-between p-4 pb-2">
+                                <h3 className="font-semibold text-zinc-900">Fields</h3>
+                                <div className="flex items-center gap-1">
+                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-zinc-500 hover:text-zinc-900">
+                                        <Settings className="h-4 w-4" />
+                                    </Button>
+                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-zinc-500 hover:text-zinc-900" onClick={() => { setFieldsPanelOpen(false); setCreateFieldSearch(""); }}>
+                                        <X className="h-4 w-4" />
+                                    </Button>
+                                </div>
+                            </div>
+                            <div className="px-4 pb-3">
+                                <div className="relative">
+                                    <Input className="h-9 text-sm pl-3 focus-visible:ring-2 focus-visible:ring-violet-500/20 focus-visible:border-violet-500" placeholder="Search Task Fields" value={fieldsPanelTab === "create" ? createFieldSearch : fieldsSearch} onChange={e => fieldsPanelTab === "create" ? setCreateFieldSearch(e.target.value) : setFieldsSearch(e.target.value)} />
+                                </div>
+                            </div>
+                            <div className="flex px-4 gap-4">
+                                <button type="button" className={cn("pb-2 text-sm font-medium border-b-2 cursor-pointer", fieldsPanelTab === "create" ? "border-zinc-900 text-zinc-900" : "border-transparent text-zinc-500 hover:text-zinc-700")} onClick={() => setFieldsPanelTab("create")}>Create new</button>
+                                <button type="button" className={cn("pb-2 text-sm font-medium border-b-2 cursor-pointer", fieldsPanelTab === "existing" ? "border-zinc-900 text-zinc-900" : "border-transparent text-zinc-500 hover:text-zinc-700")} onClick={() => setFieldsPanelTab("existing")}>Add existing</button>
                             </div>
                         </div>
-                        <ScrollArea className="flex-1 p-3 pb-20 h-full">
-                            <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-2">Shown</p>
-                            <div className="space-y-1 mb-4">
-                                {FIELD_CONFIG.filter(f => visibleColumns.has(f.id) && (!fieldsSearch.trim() || f.label.toLowerCase().includes(fieldsSearch.toLowerCase()))).map(f => {
-                                    const iconAny = (f as any).icon;
-                                    const IconEl = typeof iconAny === "function"
-                                        ? React.createElement(iconAny, { className: "h-4 w-4 text-zinc-400 shrink-0" })
-                                        : null;
-                                    return (
-                                        <div key={f.id} className="flex items-center gap-2 py-2 px-2 rounded hover:bg-zinc-50">
-                                            <GripVertical className="h-4 w-4 text-zinc-300 shrink-0 cursor-grab" />
-                                            {IconEl}
-                                            <span className="text-sm text-zinc-800 flex-1">{f.label}</span>
-                                            <Switch checked onCheckedChange={() => toggleColumn(f.id)} />
-                                        </div>
-                                    );
-                                })}
-                                {FIELD_CONFIG.filter(f => visibleColumns.has(f.id)).length > 0 && (
-                                    <button type="button" className="text-xs text-violet-600 hover:underline" onClick={() => setVisibleColumns(new Set())}>Hide all</button>
-                                )}
-                            </div>
-                            <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-2">Popular</p>
-                            <div className="space-y-1">
-                                {FIELD_CONFIG.filter(f => !visibleColumns.has(f.id) && (!fieldsSearch.trim() || f.label.toLowerCase().includes(fieldsSearch.toLowerCase()))).map(f => {
-                                    const iconAny = (f as any).icon;
-                                    const IconEl = typeof iconAny === "function"
-                                        ? React.createElement(iconAny, { className: "h-4 w-4 text-zinc-400 shrink-0" })
-                                        : null;
-                                    return (
-                                        <div key={f.id} className="flex items-center justify-between py-2 px-2 rounded hover:bg-zinc-50">
-                                            <div className="flex items-center gap-2">
-                                                {IconEl}
-                                                <span className="text-sm text-zinc-800">{f.label}</span>
+
+                        {fieldsPanelTab === "existing" ? (
+                            <ScrollArea className="flex-1 p-3 pb-4 h-full">
+                                <div
+                                    className="flex items-center justify-between mb-1 mt-1 py-2 px-2 -mx-1 rounded-md hover:bg-zinc-100 cursor-pointer group"
+                                    onClick={() => setFieldsPanelShownExpanded(!fieldsPanelShownExpanded)}
+                                >
+                                    <p className="text-xs font-medium text-zinc-500 flex items-center gap-1.5 group-hover:text-zinc-700">
+                                        Shown
+                                        <svg width="8" height="8" viewBox="0 0 8 8" className={cn("fill-current transition-transform translate-y-[1px]", fieldsPanelShownExpanded ? "" : "-rotate-90")}><polygon points="0,0 8,0 4,6" /></svg>
+                                    </p>
+                                    <span className="text-xs text-blue-600 font-medium">{FIELD_CONFIG.filter(f => visibleColumns.has(f.id)).length}</span>
+                                </div>
+                                {fieldsPanelShownExpanded && (
+                                    <DndContext
+                                        sensors={sensors}
+                                        collisionDetection={closestCenter}
+                                        onDragEnd={(event) => {
+                                            const { active, over } = event;
+                                            if (over && active.id !== over.id) {
+                                                setColumnOrder(prev => {
+                                                    const oldIndex = prev.indexOf(active.id as string);
+                                                    const newIndex = prev.indexOf(over.id as string);
+                                                    if (oldIndex === -1 || newIndex === -1) return prev;
+                                                    return arrayMove(prev, oldIndex, newIndex);
+                                                });
+                                            }
+                                        }}
+                                    >
+                                        <SortableContext items={columnOrder} strategy={verticalListSortingStrategy}>
+                                            <div className="space-y-1 mb-4">
+                                                {/* Name is always first and not draggable */}
+                                                {(() => {
+                                                    const nameField = FIELD_CONFIG.find(f => f.id === "name");
+                                                    if (!nameField || (fieldsSearch.trim() && !nameField.label.toLowerCase().includes(fieldsSearch.toLowerCase()))) return null;
+                                                    const iconAny = (nameField as any).icon;
+                                                    const IconEl = (() => {
+                                                        if (typeof iconAny === "function") return React.createElement(iconAny, { className: "h-4 w-4 text-zinc-400 shrink-0" });
+                                                        switch (iconAny) {
+                                                            case "Aa": return <span className="text-[10px] font-bold tracking-tighter text-zinc-400 shrink-0 w-4 h-4 flex items-center justify-center">Aa</span>;
+                                                            default: return <Circle className="h-4 w-4 text-zinc-400 shrink-0" />;
+                                                        }
+                                                    })();
+                                                    return (
+                                                        <div className="flex items-center gap-2 py-2 px-2 rounded opacity-60">
+                                                            <div className="w-4 h-4 flex items-center justify-center shrink-0">{IconEl}</div>
+                                                            <span className="text-sm flex-1 text-zinc-400">{nameField.label}</span>
+                                                            <Switch checked onCheckedChange={() => { }} disabled />
+                                                        </div>
+                                                    );
+                                                })()}
+                                                {/* Remaining shown fields in columnOrder, rendered as sortable */}
+                                                {columnOrder.filter(colId => {
+                                                    const f = FIELD_CONFIG.find(x => x.id === colId);
+                                                    if (!f) return false;
+                                                    return !fieldsSearch.trim() || f.label.toLowerCase().includes(fieldsSearch.toLowerCase());
+                                                }).map(colId => {
+                                                    const f = FIELD_CONFIG.find(x => x.id === colId);
+                                                    if (!f) return null;
+                                                    const iconAny = (f as any).icon;
+                                                    const IconEl = (() => {
+                                                        if (typeof iconAny === "function") return React.createElement(iconAny, { className: "h-4 w-4 text-zinc-400 shrink-0" });
+                                                        switch (iconAny) {
+                                                            case "Aa": return <span className="text-[10px] font-bold tracking-tighter text-zinc-400 shrink-0 w-4 h-4 flex items-center justify-center">Aa</span>;
+                                                            case "person": return <UserRound className="h-4 w-4 text-zinc-400 shrink-0" />;
+                                                            case "calendar": return <Calendar className="h-4 w-4 text-zinc-400 shrink-0" />;
+                                                            case "flag": return <Flag className="h-4 w-4 text-zinc-400 shrink-0" />;
+                                                            case "circle": return <Circle className="h-4 w-4 text-zinc-400 shrink-0" />;
+                                                            case "message": return <MessageSquare className="h-4 w-4 text-zinc-400 shrink-0" />;
+                                                            case "tag": return <Tag className="h-4 w-4 text-zinc-400 shrink-0" />;
+                                                            case "clock": return <Clock className="h-4 w-4 text-zinc-400 shrink-0" />;
+                                                            case "link": return <Link2 className="h-4 w-4 text-zinc-400 shrink-0" />;
+                                                            case "box": return <Box className="h-4 w-4 text-zinc-400 shrink-0" />;
+                                                            default: return <Circle className="h-4 w-4 text-zinc-400 shrink-0" />;
+                                                        }
+                                                    })();
+                                                    return (
+                                                        <SortableFieldRow key={colId} id={colId}>
+                                                            <div className="w-4 h-4 flex items-center justify-center shrink-0">
+                                                                <GripVertical className="h-4 w-4 text-zinc-300 cursor-grab hidden group-hover:block" />
+                                                                <div className="group-hover:hidden flex items-center justify-center">
+                                                                    {IconEl}
+                                                                </div>
+                                                            </div>
+                                                            <span className="text-sm flex-1 text-zinc-800">{f.label}</span>
+                                                            <Switch checked onCheckedChange={() => toggleColumn(colId)} />
+                                                        </SortableFieldRow>
+                                                    );
+                                                })}
                                             </div>
-                                            <Switch checked={false} onCheckedChange={() => toggleColumn(f.id)} />
+                                        </SortableContext>
+                                    </DndContext>
+                                )}
+                                <div className="border-t border-zinc-100 my-4" />
+                                <TooltipProvider>
+                                    <Tooltip delayDuration={300}>
+                                        <TooltipTrigger asChild>
+                                            <div
+                                                className="flex items-center justify-between mb-1 py-2 px-2 -mx-1 rounded-md hover:bg-zinc-100 cursor-pointer group"
+                                                onClick={() => setFieldsPanelPropertiesExpanded(!fieldsPanelPropertiesExpanded)}
+                                            >
+                                                <p className="text-xs font-medium text-zinc-500 flex items-center gap-1.5 group-hover:text-zinc-700">
+                                                    Properties
+                                                    <svg width="8" height="8" viewBox="0 0 8 8" className={cn("fill-current transition-transform translate-y-[1px]", fieldsPanelPropertiesExpanded ? "" : "-rotate-90")}><polygon points="0,0 8,0 4,6" /></svg>
+                                                </p>
+                                                <span className="text-xs text-zinc-500 font-medium">{FIELD_CONFIG.filter(f => !visibleColumns.has(f.id) && !f.isCustom).length}</span>
+                                            </div>
+                                        </TooltipTrigger>
+                                        <TooltipContent side="bottom" align="center" className="bg-zinc-900 text-white border-zinc-800 text-xs py-1.5">
+                                            <p>Built-in Task Fields available on every task.</p>
+                                        </TooltipContent>
+                                    </Tooltip>
+                                </TooltipProvider>
+                                {fieldsPanelPropertiesExpanded && (
+                                    <div className="space-y-1">
+                                        {FIELD_CONFIG.filter(f => !visibleColumns.has(f.id) && !f.isCustom && (!fieldsSearch.trim() || f.label.toLowerCase().includes(fieldsSearch.toLowerCase()))).map(f => {
+                                            const iconAny = (f as any).icon;
+                                            const IconEl = (() => {
+                                                if (typeof iconAny === "function") return React.createElement(iconAny, { className: "h-4 w-4 text-zinc-400 shrink-0" });
+                                                switch (iconAny) {
+                                                    case "Aa": return <span className="text-[10px] font-bold tracking-tighter text-zinc-400 shrink-0 w-4 h-4 flex items-center justify-center">Aa</span>;
+                                                    case "person": return <UserRound className="h-4 w-4 text-zinc-400 shrink-0" />;
+                                                    case "calendar": return <Calendar className="h-4 w-4 text-zinc-400 shrink-0" />;
+                                                    case "flag": return <Flag className="h-4 w-4 text-zinc-400 shrink-0" />;
+                                                    case "circle": return <Circle className="h-4 w-4 text-zinc-400 shrink-0" />;
+                                                    case "message": return <MessageSquare className="h-4 w-4 text-zinc-400 shrink-0" />;
+                                                    case "tag": return <Tag className="h-4 w-4 text-zinc-400 shrink-0" />;
+                                                    case "clock": return <Clock className="h-4 w-4 text-zinc-400 shrink-0" />;
+                                                    case "link": return <Link2 className="h-4 w-4 text-zinc-400 shrink-0" />;
+                                                    case "box": return <Box className="h-4 w-4 text-zinc-400 shrink-0" />;
+                                                    default: return <Circle className="h-4 w-4 text-zinc-400 shrink-0" />;
+                                                }
+                                            })();
+                                            return (
+                                                <div key={f.id} className="flex items-center justify-between py-2 px-2 rounded hover:bg-zinc-50">
+                                                    <div className="flex items-center gap-2">
+                                                        {IconEl}
+                                                        <span className="text-sm text-zinc-800">{f.label}</span>
+                                                    </div>
+                                                    <Switch checked={false} onCheckedChange={() => toggleColumn(f.id)} />
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                )}
+
+                                <div className="border-t border-zinc-100 my-4" />
+                                <TooltipProvider>
+                                    <Tooltip delayDuration={300}>
+                                        <TooltipTrigger asChild>
+                                            <div
+                                                className="flex items-center justify-between mb-1 py-2 px-2 -mx-1 rounded-md hover:bg-zinc-100 cursor-pointer group"
+                                                onClick={() => setFieldsPanelCustomFieldsExpanded(!fieldsPanelCustomFieldsExpanded)}
+                                            >
+                                                <p className="text-xs font-medium text-zinc-500 flex items-center gap-1.5 group-hover:text-zinc-700">
+                                                    Custom Fields
+                                                    <svg width="8" height="8" viewBox="0 0 8 8" className={cn("fill-current transition-transform translate-y-[1px]", fieldsPanelCustomFieldsExpanded ? "" : "-rotate-90")}><polygon points="0,0 8,0 4,6" /></svg>
+                                                </p>
+                                                <span className="text-xs text-zinc-500 font-medium">{FIELD_CONFIG.filter(f => !visibleColumns.has(f.id) && f.isCustom).length}</span>
+                                            </div>
+                                        </TooltipTrigger>
+                                        <TooltipContent side="bottom" align="center" className="bg-zinc-900 text-white border-zinc-800 text-xs py-1.5">
+                                            <p>Custom Task Fields added to tasks on this List.</p>
+                                        </TooltipContent>
+                                    </Tooltip>
+                                </TooltipProvider>
+                                {fieldsPanelCustomFieldsExpanded && (
+                                    <div className="space-y-1">
+                                        {FIELD_CONFIG.filter(f => !visibleColumns.has(f.id) && f.isCustom && (!fieldsSearch.trim() || f.label.toLowerCase().includes(fieldsSearch.toLowerCase()))).map(f => {
+                                            const iconAny = (f as any).icon;
+                                            const IconEl = (() => {
+                                                if (typeof iconAny === "function") return React.createElement(iconAny, { className: "h-4 w-4 text-zinc-400 shrink-0" });
+                                                switch (iconAny) {
+                                                    case "Aa": return <span className="text-[10px] font-bold tracking-tighter text-zinc-400 shrink-0 w-4 h-4 flex items-center justify-center">Aa</span>;
+                                                    case "person": return <UserRound className="h-4 w-4 text-zinc-400 shrink-0" />;
+                                                    case "calendar": return <Calendar className="h-4 w-4 text-zinc-400 shrink-0" />;
+                                                    case "flag": return <Flag className="h-4 w-4 text-zinc-400 shrink-0" />;
+                                                    case "circle": return <Circle className="h-4 w-4 text-zinc-400 shrink-0" />;
+                                                    case "message": return <MessageSquare className="h-4 w-4 text-zinc-400 shrink-0" />;
+                                                    case "tag": return <Tag className="h-4 w-4 text-zinc-400 shrink-0" />;
+                                                    case "clock": return <Clock className="h-4 w-4 text-zinc-400 shrink-0" />;
+                                                    case "link": return <Link2 className="h-4 w-4 text-zinc-400 shrink-0" />;
+                                                    case "box": return <Box className="h-4 w-4 text-zinc-400 shrink-0" />;
+                                                    default: return <Circle className="h-4 w-4 text-zinc-400 shrink-0" />;
+                                                }
+                                            })();
+                                            return (
+                                                <div key={f.id} className="flex items-center justify-between py-2 px-2 rounded hover:bg-zinc-50">
+                                                    <div className="flex items-center gap-2">
+                                                        {IconEl}
+                                                        <span className="text-sm text-zinc-800">{f.label}</span>
+                                                    </div>
+                                                    <Switch checked={false} onCheckedChange={() => toggleColumn(f.id)} />
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                )}
+
+                                <div className="border-t border-zinc-100 my-4" />
+                                <TooltipProvider>
+                                    <Tooltip delayDuration={300}>
+                                        <TooltipTrigger asChild>
+                                            <div
+                                                className="flex items-center justify-between mb-1 py-2 px-2 -mx-1 rounded-md hover:bg-zinc-100 cursor-pointer group"
+                                                onClick={() => setFieldsPanelCustomFieldsWorkspaceExpanded(!fieldsPanelCustomFieldsWorkspaceExpanded)}
+                                            >
+                                                <p className="text-xs font-medium text-zinc-500 flex items-center gap-1.5 group-hover:text-zinc-700">
+                                                    Custom Fields in Workspace
+                                                    <svg width="8" height="8" viewBox="0 0 8 8" className={cn("fill-current transition-transform translate-y-[1px]", fieldsPanelCustomFieldsWorkspaceExpanded ? "" : "-rotate-90")}><polygon points="0,0 8,0 4,6" /></svg>
+                                                </p>
+                                                <span className="text-xs text-zinc-500 font-medium">{(customFields as any[])?.filter(cf => !usedCustomFieldIds.has(cf.id)).length || 0}</span>
+                                            </div>
+                                        </TooltipTrigger>
+                                        <TooltipContent side="bottom" align="center" className="bg-zinc-900 text-white border-zinc-800 text-xs py-1.5">
+                                            <p>All other Custom Task Fields in your Workspace.</p>
+                                        </TooltipContent>
+                                    </Tooltip>
+                                </TooltipProvider>
+                                {fieldsPanelCustomFieldsWorkspaceExpanded && (
+                                    <div className="space-y-1">
+                                        {(customFields as any[])?.filter(cf => !usedCustomFieldIds.has(cf.id) && (!fieldsSearch.trim() || cf.name.toLowerCase().includes(fieldsSearch.toLowerCase()))).map(cf => {
+                                            const IconComponent = getCustomFieldIcon(cf.type);
+                                            return (
+                                                <div key={cf.id} className="flex items-center justify-between py-2 px-2 rounded hover:bg-zinc-50">
+                                                    <div className="flex items-center gap-2">
+                                                        {IconComponent && <IconComponent className="h-4 w-4 text-zinc-400 shrink-0" />}
+                                                        <span className="text-sm text-zinc-800">{cf.name}</span>
+                                                    </div>
+                                                    <Switch checked={false} onCheckedChange={() => toggleColumn(cf.id)} />
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                )}
+                            </ScrollArea>
+                        ) : (
+                            <ScrollArea className="flex-1 p-3 pb-4 h-full">
+                                {(() => {
+                                    const filteredAi = AI_FIELDS.filter(
+                                        (f) => !createFieldSearch.trim() || f.label.toLowerCase().includes(createFieldSearch.toLowerCase())
+                                    );
+                                    const filteredAll = ALL_FIELDS.filter(
+                                        (f) => !createFieldSearch.trim() || f.label.toLowerCase().includes(createFieldSearch.toLowerCase())
+                                    );
+                                    return (
+                                        <div className="space-y-0.5">
+                                            {/* AI Fields */}
+                                            {filteredAi.length > 0 && (
+                                                <div className="mb-3">
+                                                    <p className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider px-2 py-1.5">
+                                                        AI Fields
+                                                    </p>
+                                                    <div className="space-y-0.5">
+                                                        {filteredAi.map((field) => {
+                                                            const Icon = field.icon;
+                                                            return (
+                                                                <button
+                                                                    key={field.id}
+                                                                    type="button"
+                                                                    onClick={() => {
+                                                                        console.log("Create field type:", field.type, field.label);
+                                                                        setFieldsPanelOpen(false);
+                                                                    }}
+                                                                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg border border-transparent hover:border-violet-200 hover:bg-violet-50/50 transition-all text-left group cursor-pointer"
+                                                                >
+                                                                    <div className={cn("h-8 w-8 rounded-md flex items-center justify-center bg-purple-50 group-hover:scale-110 transition-transform", field.color)}>
+                                                                        <Icon className="h-4 w-4" />
+                                                                    </div>
+                                                                    <span className="text-sm font-medium text-zinc-700 group-hover:text-violet-900 transition-colors">{field.label}</span>
+                                                                </button>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                </div>
+                                            )}
+                                            {/* All Fields */}
+                                            <div>
+                                                <p className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider px-2 py-1.5">
+                                                    All
+                                                </p>
+                                                <div className="space-y-0.5">
+                                                    {filteredAll.map((field) => {
+                                                        const Icon = field.icon;
+                                                        return (
+                                                            <button
+                                                                key={field.id}
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    console.log("Create field type:", field.type, field.label);
+                                                                    setFieldsPanelOpen(false);
+                                                                }}
+                                                                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg border border-transparent hover:border-violet-200 hover:bg-violet-50/50 transition-all text-left group cursor-pointer"
+                                                            >
+                                                                <div className={cn("h-6 w-6 rounded-md flex items-center justify-center transition-all", field.isAi ? "bg-purple-50" : "bg-zinc-100 group-hover:bg-white group-hover:shadow-sm", field.color)}>
+                                                                    <Icon className="h-3.5 w-3.5" />
+                                                                </div>
+                                                                <span className="text-sm font-medium text-zinc-700 group-hover:text-violet-900 transition-colors">{field.label}</span>
+                                                            </button>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
+                                            {filteredAi.length === 0 && filteredAll.length === 0 && (
+                                                <p className="text-sm text-zinc-500 py-6 text-center">No matching field types</p>
+                                            )}
                                         </div>
                                     );
-                                })}
-                            </div>
-                        </ScrollArea>
-                        <div className="p-3 sticky bottom-0 left-0 right-0 border-t bg-white border-zinc-100">
-                            <Button
-                                className="w-full bg-zinc-900 hover:bg-zinc-800 text-white"
-                                onClick={() => {
-                                    setFieldsPanelOpen(false);
-                                    setCreateFieldModalOpen(true);
-                                }}
-                            >
-                                <Plus className="h-4 w-4 mr-2" />Create field
-                            </Button>
-                        </div>
+                                })()}
+                            </ScrollArea>
+                        )}
                     </div>
                 </>
             )}
@@ -5040,70 +5105,6 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
                 </ScrollArea>
             </SidePanel>
 
-            {/* Create field modal ?Efield types and Add existing fields */}
-            {
-                createFieldModalOpen && (
-                    <>
-                        <div className="absolute inset-0 bg-black/20 z-[60]" onClick={() => { setCreateFieldModalOpen(false); setCreateFieldSearch(""); }} aria-hidden />
-                        <div className="absolute right-0 bottom-0 top-0 w-[380px] max-w-[90vw] bg-white border-l border-zinc-200 shadow-xl z-[70] flex flex-col">
-                            <div className="flex items-center justify-between p-4 border-b border-zinc-100">
-                                <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-8 w-8 -ml-1"
-                                    onClick={() => {
-                                        setCreateFieldModalOpen(false);
-                                        setCreateFieldSearch("");
-                                        setFieldsPanelOpen(true);
-                                    }}
-                                >
-                                    <ArrowRight className="h-4 w-4 rotate-180" />
-                                </Button>
-                                <h3 className="font-semibold text-zinc-900">Create field</h3>
-                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setCreateFieldModalOpen(false); setCreateFieldSearch(""); }}><X className="h-4 w-4" /></Button>
-                            </div>
-                            <div className="p-3 border-b border-zinc-100">
-                                <div className="relative">
-                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
-                                    <Input className="pl-9 h-9 text-sm" placeholder="Search for new or existing fields" value={createFieldSearch} onChange={e => setCreateFieldSearch(e.target.value)} />
-                                </div>
-                            </div>
-                            <ScrollArea className="flex-1 p-3 pb-20 h-full">
-                                <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-2">All</p>
-                                <div className="space-y-0.5">
-                                    {CREATE_FIELD_TYPES.filter(f => !createFieldSearch.trim() || f.label.toLowerCase().includes(createFieldSearch.toLowerCase())).map(f => {
-                                        const IconComponent = f.icon as any;
-                                        return (
-                                            <button key={f.id} type="button" className="w-full flex items-center gap-2 py-2.5 px-2 rounded-md hover:bg-zinc-50 text-left text-sm text-zinc-800" onClick={() => {
-                                                // TODO: Open field creation modal/form with field type pre-selected
-                                                console.log("Create field type:", f.type, f.label);
-                                                setCreateFieldModalOpen(false);
-                                            }}>
-                                                {typeof IconComponent === "function"
-                                                    ? React.createElement(IconComponent, { className: "h-4 w-4 text-zinc-400 shrink-0" })
-                                                    : null}
-                                                {f.label}
-                                            </button>
-                                        );
-                                    })}
-                                </div>
-                            </ScrollArea>
-                            <div className="p-3 sticky bottom-0 left-0 right-0 border-t border-zinc-100 bg-white">
-                                <Button
-                                    variant="outline"
-                                    className="w-full justify-center text-zinc-900 border-zinc-200 hover:bg-zinc-50 font-medium h-10"
-                                    onClick={() => { setCreateFieldModalOpen(false); setFieldsPanelOpen(true); }}
-                                >
-                                    <div className="h-4 w-4 rounded-full bg-zinc-900 text-white flex items-center justify-center mr-2">
-                                        <Plus className="h-3 w-3" />
-                                    </div>
-                                    Add existing fields
-                                </Button>
-                            </div>
-                        </div>
-                    </>
-                )
-            }
 
             {/* Advanced Filters panel moved to Popover */}
 
@@ -5111,7 +5112,7 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
             {
                 assigneesPanelOpen && (
                     <>
-                        <div className="absolute inset-0 bg-black/20 z-40" onClick={() => setAssigneesPanelOpen(false)} aria-hidden />
+                        <div className="absolute inset-0 z-40" onClick={() => setAssigneesPanelOpen(false)} aria-hidden />
                         <div className="absolute top-0 right-0 h-full w-[320px] max-w-[90vw] bg-white border-l border-zinc-200 shadow-xl z-50 flex flex-col">
                             <div className="flex items-center justify-between p-4 border-b border-zinc-100">
                                 <h3 className="font-semibold text-zinc-900">Assignees</h3>

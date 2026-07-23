@@ -79,13 +79,13 @@ import {
     Phone, Mail, MapPin, TrendingUp, Heart, PenTool, MousePointer, ListTodo, AlertCircle, Link, Clock, Target, ListChecks, AlignLeft,
     Spline, CircleMinus, ChevronDown, ChevronsUp, ChevronsLeft, Copy, CopyPlus, Slash,
     Save, ToggleLeft, Undo, RefreshCcw, UserRound, Box, ChevronLeft, Wand2, Pin, Lock, ShieldCheck, Home, ArrowUpDown, ChevronsUpDown,
-    ArrowDown, ArrowUp, ChevronUp, Bot,
+    ArrowDown, ArrowUp, ChevronUp, Bot, CircleSlash
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { CustomFieldRenderer } from "@/entities/task/components/CustomFieldRenderer";
 import { TaskCreationModal } from "@/entities/task/components/TaskCreationModal";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { LazyTaskDetailModal as TaskDetailModal } from "@/entities/task/components/LazyTaskDetailModal";
 import { TagsPopover } from "@/entities/task/components/TagsPopover";
 import { TagsModal } from "@/entities/task/components/TagsModal";
@@ -97,6 +97,7 @@ import { DuplicateTaskModal } from "@/entities/task/components/DuplicateTaskModa
 import { DestinationPicker } from "@/entities/task/components/DestinationPicker";
 import { TaskCalendar } from "@/entities/task/components/TaskCalendar";
 import { TaskTypeIcon } from "@/entities/task/components/TaskTypeIcon";
+import { TaskStatusPopover } from "@/entities/task/components/TaskStatusPopover";
 import { SingleDateCalendar } from "@/components/ui/date-picker";
 import { ViewToolbarSaveDropdown } from "@/features/dashboard/components/shared/ViewToolbarSaveDropdown";
 import { ViewToolbarClosedPopover } from "@/features/dashboard/components/shared/ViewToolbarClosedPopover";
@@ -346,7 +347,7 @@ const QuickAddCard = ({
                     onChange={onAssigneeChange}
                     trigger={
                         <div className={cn("flex items-center gap-2.5 group cursor-pointer transition-colors", assigneeIds.length > 0 ? "text-zinc-700" : "text-zinc-400 hover:text-zinc-600")}>
-                            <UserCircle className="h-5 w-5 opacity-80" />
+                            <UserCircle className="h-4 w-4 opacity-80" />
                             <span className="text-[13px] font-medium tracking-tight">
                                 {assigneeIds.length > 0 ? (
                                     <div className="flex -space-x-1.5">
@@ -372,7 +373,7 @@ const QuickAddCard = ({
                 <Popover>
                     <PopoverTrigger asChild>
                         <div className={cn("flex items-center gap-2.5 group cursor-pointer transition-colors", dueDate ? "text-zinc-700" : "text-zinc-400 hover:text-zinc-600")}>
-                            <Calendar className="h-5 w-5 opacity-80" />
+                            <Calendar className="h-4 w-4 opacity-80" />
                             <span className="text-[13px] font-medium tracking-tight">
                                 {dueDate ? dueDate.toLocaleDateString() : "Add dates"}
                             </span>
@@ -391,7 +392,7 @@ const QuickAddCard = ({
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                         <div className={cn("flex items-center gap-2.5 group cursor-pointer transition-colors", priority ? "text-zinc-700" : "text-zinc-400 hover:text-zinc-600")}>
-                            <Flag className={cn("h-5 w-5 opacity-80", priority === "URGENT" && "text-red-500 opacity-100", priority === "HIGH" && "text-orange-500 opacity-100", priority === "NORMAL" && "text-blue-500 opacity-100", priority === "LOW" && "text-zinc-400")} />
+                            <Flag className={cn("h-4 w-4 opacity-80", priority === "URGENT" && "text-red-500 opacity-100", priority === "HIGH" && "text-orange-500 opacity-100", priority === "NORMAL" && "text-blue-500 opacity-100", priority === "LOW" && "text-zinc-400")} />
                             <span className="text-[13px] font-medium tracking-tight capitalize">
                                 {priority ? priority.toLowerCase() : "Add priority"}
                             </span>
@@ -400,19 +401,21 @@ const QuickAddCard = ({
                     <DropdownMenuContent align="start" className="w-48">
                         <DropdownMenuLabel className="text-xs">Priority</DropdownMenuLabel>
                         <DropdownMenuItem onClick={() => onPriorityChange("URGENT")}>
-                            <Flag className="h-3.5 w-3.5 mr-2 text-red-500" /> Urgent
+                            <Flag className="h-3.5 w-3.5 mr-2 text-red-500 fill-current" /> Urgent
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => onPriorityChange("HIGH")}>
-                            <Flag className="h-3.5 w-3.5 mr-2 text-orange-500" /> High
+                            <Flag className="h-3.5 w-3.5 mr-2 text-orange-500 fill-current" /> High
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => onPriorityChange("NORMAL")}>
-                            <Flag className="h-3.5 w-3.5 mr-2 text-blue-500" /> Normal
+                            <Flag className="h-3.5 w-3.5 mr-2 text-blue-500 fill-current" /> Normal
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => onPriorityChange("LOW")}>
-                            <Flag className="h-3.5 w-3.5 mr-2 text-zinc-400" /> Low
+                            <Flag className="h-3.5 w-3.5 mr-2 text-zinc-400 fill-current" /> Low
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem onClick={() => onPriorityChange(null)}>Clear</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => onPriorityChange(null)}>
+                            <CircleSlash className="h-3 w-3 mr-2 text-slate-500" />Clear
+                        </DropdownMenuItem>
                     </DropdownMenuContent>
                 </DropdownMenu>
 
@@ -422,7 +425,7 @@ const QuickAddCard = ({
                     allAvailableTags={allAvailableTags}
                     trigger={
                         <div className={cn("flex items-center gap-2.5 group cursor-pointer transition-colors", tags && tags.length > 0 ? "text-zinc-700" : "text-zinc-400 hover:text-zinc-600")}>
-                            <Tag className="h-5 w-5 opacity-80" />
+                            <Tag className="h-4 w-4 opacity-80" />
                             <span className="text-[13px] font-medium tracking-tight">
                                 {tags && tags.length > 0 ? `${tags.length} Tag${tags.length !== 1 ? 's' : ''}` : "Add tag"}
                             </span>
@@ -430,30 +433,30 @@ const QuickAddCard = ({
                     }
                 />
 
-                <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                        <div className={cn("flex items-center gap-2.5 group cursor-pointer transition-colors", taskType ? "text-zinc-700" : "text-zinc-400 hover:text-zinc-600")}>
-                            {(() => {
-                                const selected = availableTaskTypes?.find(t => t.id === taskType);
-                                return <TaskTypeIcon type={selected} className="h-5 w-5" />;
-                            })()}
-                            <span className="text-[13px] font-medium tracking-tight">
-                                {availableTaskTypes?.find(t => t.id === taskType)?.name || defaultQuickAddTaskType?.name || "Task"}
-                            </span>
-                        </div>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="start" className="w-48">
-                        <DropdownMenuLabel className="text-xs">Task Type</DropdownMenuLabel>
-                        {availableTaskTypes?.map(t => (
-                            <DropdownMenuItem key={t.id} onClick={() => onTaskTypeChange?.(t.id)}>
-                                <div className="flex items-center gap-2 text-xs">
-                                    <TaskTypeIcon type={t} className="h-3.5 w-3.5" />
-                                    <span>{t.name}</span>
-                                </div>
-                            </DropdownMenuItem>
-                        ))}
-                    </DropdownMenuContent>
-                </DropdownMenu>
+                <TaskStatusPopover
+                    task={{
+                        id: "quick-add",
+                        taskType: availableTaskTypes?.find(t => t.id === taskType) || defaultQuickAddTaskType
+                    }}
+                    availableStatuses={[]}
+                    availableTaskTypes={availableTaskTypes || []}
+                    onUpdateTask={(_id, data) => {
+                        if (data.taskTypeId) {
+                            onTaskTypeChange?.(data.taskTypeId);
+                        }
+                    }}
+                    hideStatusTab={true}
+                >
+                    <div className={cn("flex items-center gap-2.5 group cursor-pointer transition-colors", taskType ? "text-zinc-700" : "text-zinc-400 hover:text-zinc-600")}>
+                        {(() => {
+                            const selected = availableTaskTypes?.find(t => t.id === taskType);
+                            return <TaskTypeIcon type={selected} className="h-4 w-4" />;
+                        })()}
+                        <span className="text-[13px] font-medium tracking-tight">
+                            {availableTaskTypes?.find(t => t.id === taskType)?.name || defaultQuickAddTaskType?.name || "Task"}
+                        </span>
+                    </div>
+                </TaskStatusPopover>
             </div>
         </div>
     );
@@ -775,7 +778,7 @@ function TaskCardInner({
     const renderSubtask = (subtask: Task, depthLevel: number = 1, flat: boolean = false) => {
         return (
             <div key={subtask.id} className={flat ? "mb-2" : cn("mb-2", depthLevel > 1 && "ml-4")}>
-                <TaskCard
+                <TaskCardInner
                     task={subtask}
                     allTasks={allTasks}
                     spaceId={spaceId}
@@ -855,57 +858,69 @@ function TaskCardInner({
                     onClick={(e) => e.stopPropagation()}
                     data-no-click
                 >
-                    <button
-                        className="h-6 w-6 flex items-center justify-center hover:bg-zinc-50 text-zinc-400 hover:text-green-600 transition-colors"
-                        title="Mark complete"
-                        onClick={async (e) => {
-                            e.stopPropagation();
-                            // Find the "Complete" or "Done" status
-                            const doneStatus = allAvailableStatuses.find(s =>
-                                (s.name.toUpperCase() === "DONE" || s.name.toUpperCase() === "COMPLETE" || s.name.toUpperCase() === "CLOSED") &&
-                                (s.listId === task.listId)
-                            ) || allAvailableStatuses.find(s =>
-                                s.name.toUpperCase() === "DONE" || s.name.toUpperCase() === "COMPLETE" || s.name.toUpperCase() === "CLOSED"
-                            );
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <button
+                                className="h-6 w-6 flex items-center justify-center hover:bg-zinc-50 text-zinc-400 hover:text-green-600 transition-colors"
+                                onClick={async (e) => {
+                                    e.stopPropagation();
+                                    // Find the "Complete" or "Done" status
+                                    const doneStatus = allAvailableStatuses.find(s =>
+                                        (s.name.toUpperCase() === "DONE" || s.name.toUpperCase() === "COMPLETE" || s.name.toUpperCase() === "CLOSED") &&
+                                        (s.listId === task.listId)
+                                    ) || allAvailableStatuses.find(s =>
+                                        s.name.toUpperCase() === "DONE" || s.name.toUpperCase() === "COMPLETE" || s.name.toUpperCase() === "CLOSED"
+                                    );
 
-                            if (doneStatus) {
-                                await onTaskUpdate?.({ statusId: doneStatus.id, isCompleted: true });
-                                toast.success("Task marked as complete");
-                            } else {
-                                // Fallback: at least set isCompleted even if we can't find a status
-                                await onTaskUpdate?.({ isCompleted: true });
-                                toast.success("Task marked as complete");
-                            }
-                        }}
-                    >
-                        <CheckCircle2 className="h-3.5 w-3.5" />
-                    </button>
+                                    if (doneStatus) {
+                                        await onTaskUpdate?.({ statusId: doneStatus.id, isCompleted: true });
+                                        toast.success("Task marked as complete");
+                                    } else {
+                                        // Fallback: at least set isCompleted even if we can't find a status
+                                        await onTaskUpdate?.({ isCompleted: true });
+                                        toast.success("Task marked as complete");
+                                    }
+                                }}
+                            >
+                                <CheckCircle2 className="h-3.5 w-3.5" />
+                            </button>
+                        </TooltipTrigger>
+                        <TooltipContent side="top">Mark complete</TooltipContent>
+                    </Tooltip>
                     <div className="w-[1px] h-3 bg-zinc-100" />
 
-                    <button
-                        className="h-6 w-6 flex items-center justify-center hover:bg-zinc-50 text-zinc-400 hover:text-blue-600 transition-colors"
-                        title="Add subtask"
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            setLocalSubtasksExpanded(true);
-                            onAddSubtask?.(task.id);
-                        }}
-                    >
-                        <Plus className="h-3.5 w-3.5" />
-                    </button>
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <button
+                                className="h-6 w-6 flex items-center justify-center hover:bg-zinc-50 text-zinc-400 hover:text-blue-600 transition-colors"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setLocalSubtasksExpanded(true);
+                                    onAddSubtask?.(task.id);
+                                }}
+                            >
+                                <Plus className="h-3.5 w-3.5" />
+                            </button>
+                        </TooltipTrigger>
+                        <TooltipContent side="top">Add subtask</TooltipContent>
+                    </Tooltip>
 
                     <div className="w-[1px] h-3 bg-zinc-100" />
-                    <button
-                        className="h-6 w-6 flex items-center justify-center hover:bg-zinc-50 text-zinc-400 hover:text-zinc-700 transition-colors"
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            setRenamingTaskId(task.id);
-                            setRenameDraft(task.title || task.name || "");
-                        }}
-                        title="Rename"
-                    >
-                        <Edit3 className="h-3.5 w-3.5" />
-                    </button>
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <button
+                                className="h-6 w-6 flex items-center justify-center hover:bg-zinc-50 text-zinc-400 hover:text-zinc-700 transition-colors"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setRenamingTaskId(task.id);
+                                    setRenameDraft(task.title || task.name || "");
+                                }}
+                            >
+                                <Edit3 className="h-3.5 w-3.5" />
+                            </button>
+                        </TooltipTrigger>
+                        <TooltipContent side="top">Rename</TooltipContent>
+                    </Tooltip>
                     <div className="w-[1px] h-3 bg-zinc-100" />
                     {showMoreActions ? (
                         <TaskActionsPopover
@@ -921,12 +936,18 @@ function TaskCardInner({
                             onUpdate={async (_id, data) => { if (onTaskUpdate) await onTaskUpdate(data); }}
                             onAction={() => { }}
                         >
-                            <button
-                                className="h-6 w-6 flex items-center justify-center hover:bg-zinc-50 text-zinc-400 hover:text-zinc-700 transition-colors"
-                                title="More actions"
-                            >
-                                <MoreHorizontal className="h-3.5 w-3.5" />
-                            </button>
+                            <div>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <button
+                                            className="h-6 w-6 flex items-center justify-center hover:bg-zinc-50 text-zinc-400 hover:text-zinc-700 transition-colors"
+                                        >
+                                            <MoreHorizontal className="h-3.5 w-3.5" />
+                                        </button>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="top">More actions</TooltipContent>
+                                </Tooltip>
+                            </div>
                         </TaskActionsPopover>
                     ) : (
                         <div className="w-1" />
@@ -1213,31 +1234,27 @@ function TaskCardInner({
                                     variant="compact"
                                     value={formatAssigneeIdsForSelector(task.assignees ?? [])}
                                     onChange={(newIds) => onTaskUpdate?.({ assigneeIds: newIds })}
-                                    trigger={
-                                        <div className="flex items-center -space-x-1.5 cursor-pointer hover:opacity-80 transition-opacity" onClick={(e) => e.stopPropagation()}>
-                                            {task.assignees && task.assignees.length > 0 ? (
-                                                <>
-                                                    {task.assignees.slice(0, 3).map((assignee: any) => (
-                                                        <Avatar key={assignee.id || assignee.user?.id || assignee.agent?.id} className="h-5 w-5 border border-white bg-zinc-100">
-                                                            <AvatarImage src={assignee.user?.image || assignee.agent?.avatar || undefined} />
-                                                            <AvatarFallback className={cn("text-[8px]", assignee.agent ? "bg-purple-100 text-purple-700" : "bg-orange-100 text-orange-700")}>
-                                                                {assignee.agent ? <Bot className="h-3 w-3" /> : (assignee.user?.name?.substring(0, 2).toUpperCase() || "??")}
+                                    trigger={(() => {
+                                        const assignees = task.assignees?.length ? task.assignees : (task.assignee ? [{ user: task.assignee }] : []);
+                                        return (
+                                            <div className="flex items-center -space-x-1.5 rounded px-1 py-0.5 cursor-pointer" onClick={(e) => e.stopPropagation()}>
+                                                {assignees.length > 0 ? (
+                                                    assignees.slice(0, 4).map((a: any, i: number) => (
+                                                        <Avatar key={a.user?.id || a.aiAgent?.id || a.agent?.id || i} className="h-6 w-6 border-2 border-white ring-1 ring-zinc-100 hover:scale-110 hover:z-10 transition-transform relative">
+                                                            <AvatarImage src={a.user?.image || a.aiAgent?.avatar || a.aiAgent?.image || a.agent?.avatar || undefined} />
+                                                            <AvatarFallback className="text-[9px] bg-indigo-50 text-indigo-600">
+                                                                {a.user?.name?.slice(0, 2)?.toUpperCase() || a.aiAgent?.name?.slice(0, 2)?.toUpperCase() || a.agent?.name?.slice(0, 2)?.toUpperCase() || "??"}
                                                             </AvatarFallback>
                                                         </Avatar>
-                                                    ))}
-                                                    {task.assignees.length > 3 && (
-                                                        <div className="h-5 w-5 rounded-full bg-zinc-100 border border-white flex items-center justify-center z-10">
-                                                            <span className="text-[8px] text-zinc-500 font-medium">+{task.assignees.length - 3}</span>
-                                                        </div>
-                                                    )}
-                                                </>
-                                            ) : (
-                                                <div className="h-5 w-5 rounded-full bg-zinc-50 border border-zinc-200 flex items-center justify-center text-zinc-400 hover:text-zinc-600 hover:border-zinc-300 transition-colors">
-                                                    <UserPlus className="h-3 w-3" />
-                                                </div>
-                                            )}
-                                        </div>
-                                    }
+                                                    ))
+                                                ) : (
+                                                    <div className="h-6 w-6 rounded-full border border-dashed border-zinc-300 flex items-center justify-center">
+                                                        <Users className="h-3 w-3 text-zinc-400" />
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    })()}
                                 />
                             )}
 
@@ -1304,7 +1321,7 @@ function TaskCardInner({
                                         </DropdownMenuItem>
                                         <DropdownMenuSeparator />
                                         <DropdownMenuItem className="text-xs" onClick={() => onTaskUpdate?.({ priority: null })}>
-                                            Clear
+                                            <CircleSlash className="h-3 w-3 mr-2 text-slate-500" />Clear
                                         </DropdownMenuItem>
                                     </DropdownMenuContent>
                                 </DropdownMenu>

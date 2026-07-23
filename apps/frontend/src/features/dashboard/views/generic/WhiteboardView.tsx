@@ -281,9 +281,10 @@ interface WhiteboardViewProps {
     initialConfig?: any;
     selectedTaskIdFromParent?: string | null;
     onTaskSelect?: (taskId: string | null) => void;
+    context?: "workspace" | "space" | "project" | "team" | "folder" | "list";
 }
 
-export default function WhiteboardView({ listId, spaceId, projectId, teamId, viewId, initialConfig, selectedTaskIdFromParent, onTaskSelect }: WhiteboardViewProps) {
+export default function WhiteboardView({ listId, spaceId, projectId, teamId, viewId, initialConfig, selectedTaskIdFromParent, onTaskSelect, context }: WhiteboardViewProps) {
     const [elements, setElements] = useState<WhiteboardElement[]>([]);
     const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
     const [zoom, setZoom] = useState(100);

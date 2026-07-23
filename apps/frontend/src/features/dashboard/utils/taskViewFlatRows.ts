@@ -9,7 +9,7 @@ export type GroupedFlatRowEntry =
   | { kind: "top-group-header"; groupName: string; listId: string }
   | { kind: "subgroup-header"; groupName: string; topGroupId: string; subGroupName: string }
   | { kind: "group-cols"; groupName: string }
-  | { kind: "task"; groupName: string; taskId: string; depth: number }
+  | { kind: "task"; groupName: string; taskId: string; depth: number; index: number }
   | { kind: "inline-group"; groupName: string }
   | { kind: "inline-parent"; groupName: string; parentId: string; childDepth: number }
   | { kind: "group-add"; groupName: string };
@@ -115,9 +115,11 @@ export function buildGroupedFlatRowEntries({
 
         entries.push({ kind: "group-cols", groupName: combinedKey });
 
+        let rowIndex = 0;
+
         if (expandedSubtaskMode === "separate") {
           groupTasks.forEach((t) => {
-            entries.push({ kind: "task", groupName: combinedKey, taskId: t.id, depth: 0 });
+            entries.push({ kind: "task", groupName: combinedKey, taskId: t.id, depth: 0, index: rowIndex++ });
           });
         } else {
           const rootKey = "root";
@@ -136,7 +138,7 @@ export function buildGroupedFlatRowEntries({
             const task = allById.get(taskId);
             if (!task || rendered.has(taskId)) return;
             rendered.add(taskId);
-            entries.push({ kind: "task", groupName: combinedKey, taskId, depth });
+            entries.push({ kind: "task", groupName: combinedKey, taskId, depth, index: rowIndex++ });
 
             if (expandedSubtaskMode === "expanded" || expandedParents.has(task.id)) {
               const childIds = getChildrenIds(task.id);
@@ -167,9 +169,11 @@ export function buildGroupedFlatRowEntries({
 
       entries.push({ kind: "group-cols", groupName });
 
+      let rowIndex = 0;
+
       if (expandedSubtaskMode === "separate") {
         groupTasks.forEach((t) => {
-          entries.push({ kind: "task", groupName, taskId: t.id, depth: 0 });
+          entries.push({ kind: "task", groupName, taskId: t.id, depth: 0, index: rowIndex++ });
         });
       } else {
         const rootKey = "root";
@@ -188,7 +192,7 @@ export function buildGroupedFlatRowEntries({
           const task = allById.get(taskId);
           if (!task || rendered.has(taskId)) return;
           rendered.add(taskId);
-          entries.push({ kind: "task", groupName, taskId, depth });
+          entries.push({ kind: "task", groupName, taskId, depth, index: rowIndex++ });
 
           if (expandedSubtaskMode === "expanded" || expandedParents.has(task.id)) {
             const childIds = getChildrenIds(task.id);

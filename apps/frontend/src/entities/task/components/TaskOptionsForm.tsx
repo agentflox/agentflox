@@ -39,7 +39,7 @@ export function TaskOptionsForm() {
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
                     <EyeOff className="h-4 w-4 text-zinc-500" />
-                    <span className="font-medium text-sm text-zinc-900">Private</span>
+                    <span className="font-medium text-sm text-zinc-700">Private</span>
                   </div>
                   <p className="text-xs text-zinc-500 mt-1">
                     Only visible to you and assigned members.
@@ -56,7 +56,7 @@ export function TaskOptionsForm() {
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
                     <Users className="h-4 w-4 text-zinc-500" />
-                    <span className="font-medium text-sm text-zinc-900">Workspace & Team</span>
+                    <span className="font-medium text-sm text-zinc-700">Workspace & Team</span>
                   </div>
                   <p className="text-xs text-zinc-500 mt-1">
                     Visible to all members in this workspace/project.
@@ -79,7 +79,7 @@ export function TaskOptionsForm() {
 
         <div className="flex items-center justify-between p-3 rounded-lg border border-zinc-200 bg-zinc-50/30">
           <div className="space-y-0.5">
-            <Label htmlFor="isPublic" className="text-sm font-medium text-zinc-900 cursor-pointer">
+            <Label htmlFor="isPublic" className="text-sm font-medium text-zinc-700 cursor-pointer">
               Enable public link
             </Label>
             <p className="text-xs text-zinc-500">

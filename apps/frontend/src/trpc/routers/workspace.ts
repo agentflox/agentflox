@@ -149,10 +149,10 @@ export const workspaceRouter = router({
 				// Create default task types
 
 				const defaultTaskTypes = [
-					{ name: 'Task', icon: '📋', color: '#3b82f6', isDefault: true },
-					{ name: 'Milestone', icon: '🏁', color: '#8b5cf6', isDefault: false },
-					{ name: 'Form Response', icon: '📝', color: '#10b981', isDefault: false },
-					{ name: 'Meeting Note', icon: '📅', color: '#f59e0b', isDefault: false },
+					{ name: 'Task', icon: 'circle-dot', color: null, isDefault: true },
+					{ name: 'Milestone', icon: 'diamond', color: null, isDefault: false },
+					{ name: 'Form Response', icon: 'list', color: null, isDefault: false },
+					{ name: 'Meeting Note', icon: 'file-text', color: null, isDefault: false },
 				];
 
 				let currentPosition = 65536;

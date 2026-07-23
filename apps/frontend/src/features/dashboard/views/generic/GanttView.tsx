@@ -13,7 +13,7 @@ import {
     LayoutList, SlidersHorizontal, ArrowUp, ArrowDown, Circle, Spline, Link2, Target, Info, Play, ListChecks, AlignLeft, RefreshCcw, Type, Hash, CheckSquare, Tag,
     DollarSign, Globe, FunctionSquare, FileText, Phone, Mail, MapPin, TrendingUp, Heart, PenTool, MousePointer, ListTodo, AlertTriangle, CircleMinus, Link, Slash, Box,
     List as ListIcon, Archive, UserPlus, CalendarCheck, CalendarClock, CalendarRange, Hourglass, UserCheck, RefreshCw, Timer, Undo, ToggleLeft, Edit3, Trash2, Check, ChevronsUpDown,
-    ChevronDown, UserRound, ShieldCheck, Home, ChevronUp, ArrowRight, GripVertical, Minus 
+    ChevronDown, UserRound, ShieldCheck, Home, ChevronUp, ArrowRight, GripVertical, Minus
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { cn } from "@/lib/utils";
@@ -430,17 +430,17 @@ export function GanttView({ spaceId, projectId, teamId, listId, folderId, viewId
         const trimmed = newName.trim();
         const oldName = viewData?.name || "";
         setViewNameDraft(trimmed);
-        
+
         // Optimistically patch all parent caches so the tab bar updates immediately
         const patchViews = (views: any[]) => views.map((v: any) => v.id === viewId ? { ...v, name: trimmed } : v);
-        
+
         // Update generic caches
         if (spaceId) utils.space?.get?.setData({ id: spaceId }, (old: any) => old ? { ...old, views: patchViews(old.views ?? []) } : old);
         if (projectId) utils.project?.get?.setData({ id: projectId }, (old: any) => old ? { ...old, views: patchViews(old.views ?? []) } : old);
         if (teamId) utils.team?.get?.setData({ id: teamId }, (old: any) => old ? { ...old, views: patchViews(old.views ?? []) } : old);
         if (folderId) utils.folder?.get?.setData({ id: folderId }, (old: any) => old ? { ...old, views: patchViews(old.views ?? []) } : old);
         if (listId) utils.list?.get?.setData({ id: listId }, (old: any) => old ? { ...old, views: patchViews(old.views ?? []) } : old);
-        
+
         // Use a generic approach to update list.byContext
         const listByContextInput = resolvedWorkspaceId || spaceId || projectId || teamId
             ? {
@@ -463,7 +463,7 @@ export function GanttView({ spaceId, projectId, teamId, listId, folderId, viewId
                         };
                     });
                 }
-            } catch (e) {}
+            } catch (e) { }
         };
         updateListByContext();
 
@@ -477,11 +477,11 @@ export function GanttView({ spaceId, projectId, teamId, listId, folderId, viewId
             if (folderId && utils.folder?.get) void utils.folder.get.invalidate({ id: folderId });
             if (listId && utils.list?.get) void utils.list.get.invalidate({ id: listId });
             if (listId && utils.list?.byContext) void utils.list.byContext.invalidate();
-            
+
             if (typeof refetchViewData === 'function') void refetchViewData();
         } catch (e) {
             setViewNameDraft(oldName);
-            
+
             // Revert optimistic updates
             const revertViews = (views: any[]) => views.map((v: any) => v.id === viewId ? { ...v, name: oldName } : v);
             if (spaceId) utils.space?.get?.setData({ id: spaceId }, (old: any) => old ? { ...old, views: revertViews(old.views ?? []) } : old);
@@ -3045,225 +3045,235 @@ export function GanttView({ spaceId, projectId, teamId, listId, folderId, viewId
                                         renderRow={(idx) => {
                                             const task = displayedTasks[idx];
                                             return (
-                                        <TaskActionsPopover
-                                            key={task.id}
-                                            task={task}
-                                            context={spaceId ? "SPACE" : projectId ? "PROJECT" : "GENERAL"}
-                                            contextId={(spaceId || projectId) as any}
-                                            workspaceId={resolvedWorkspaceId as string}
-                                            users={users as any}
-                                            lists={[]}
-                                            defaultListId={listId}
-                                            availableStatuses={allAvailableStatuses}
-                                            openOnContextMenu
-                                            onDelete={async (id) => {
-                                                try { await deleteTask.mutateAsync({ id }); } catch (e) { }
-                                            }}
-                                            onUpdate={async (id, data) => {
-                                                try { await updateTask.mutateAsync({ id, ...(data as any) }); } catch (e) { }
-                                            }}
-                                            onAction={() => { }}
-                                        >
-                                            <div
-                                                className="h-12 px-0 flex items-center hover:bg-zinc-100/50 transition-colors cursor-pointer bg-white group"
-                                                onClick={() => { if (isDraggingRef.current) return; openTaskDetail(task.id); }}
-                                            >
-                                            <div
-                                                className="flex-1 flex items-center gap-2 px-4 truncate relative pr-16"
-                                                style={{
-                                                    paddingLeft:
-                                                        expandedSubtaskMode === "separate"
-                                                            ? 16
-                                                            : 16 + (nestedDepthByTaskId.get(task.id) ?? 0) * 20,
-                                                }}
-                                            >
-                                                {expandedSubtaskMode !== "separate" && (
-                                                    <>
-                                                        {(childCountByTaskId.get(task.id) ?? 0) > 0 ? (
-                                                            <ChevronDown className="h-3.5 w-3.5 text-zinc-500 shrink-0" />
-                                                        ) : (nestedDepthByTaskId.get(task.id) ?? 0) > 0 ? (
-                                                            <GitCommit className="h-3.5 w-3.5 text-zinc-400 shrink-0" />
-                                                        ) : (
-                                                            <span className="h-3.5 w-3.5 shrink-0" />
-                                                        )}
-                                                    </>
-                                                )}
-                                                <div className={cn("h-2 w-2 rounded-full flex-shrink-0", getPriorityColor(task.priority))} />
-                                                <span className="text-sm text-zinc-900 truncate font-medium">{task.title || task.name}</span>
-
-                                                <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                    <Popover
-                                                        open={subtaskPopoverTaskId === task.id}
-                                                        onOpenChange={(open) => {
-                                                            setSubtaskPopoverTaskId(open ? task.id : null);
-                                                            if (open) setSubtaskTitleDraft("");
-                                                        }}
+                                                <TaskActionsPopover
+                                                    key={task.id}
+                                                    task={task}
+                                                    context={spaceId ? "SPACE" : projectId ? "PROJECT" : "GENERAL"}
+                                                    contextId={(spaceId || projectId) as any}
+                                                    workspaceId={resolvedWorkspaceId as string}
+                                                    users={users as any}
+                                                    lists={[]}
+                                                    defaultListId={listId}
+                                                    availableStatuses={allAvailableStatuses}
+                                                    openOnContextMenu
+                                                    onDelete={async (id) => {
+                                                        try { await deleteTask.mutateAsync({ id }); } catch (e) { }
+                                                    }}
+                                                    onUpdate={async (id, data) => {
+                                                        try { await updateTask.mutateAsync({ id, ...(data as any) }); } catch (e) { }
+                                                    }}
+                                                    onAction={() => { }}
+                                                >
+                                                    <div
+                                                        className="h-12 px-0 flex items-center hover:bg-zinc-100/50 transition-colors bg-white group"
                                                     >
-                                                        <PopoverTrigger asChild>
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="icon"
-                                                                className="h-7 w-7 text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100"
-                                                                onClick={(e) => { e.stopPropagation(); }}
-                                                            >
-                                                                <Plus className="h-4 w-4" />
-                                                            </Button>
-                                                        </PopoverTrigger>
-                                                        <PopoverContent
-                                                            align="end"
-                                                            className="w-[360px] p-4 rounded-2xl shadow-2xl border border-zinc-200"
-                                                            onOpenAutoFocus={(e) => e.preventDefault()}
-                                                            onClick={(e) => e.stopPropagation()}
+                                                        <div
+                                                            className="flex-1 flex items-center gap-2 px-4 min-w-0 relative"
+                                                            style={{
+                                                                paddingLeft:
+                                                                    expandedSubtaskMode === "separate"
+                                                                        ? 16
+                                                                        : 16 + (nestedDepthByTaskId.get(task.id) ?? 0) * 20,
+                                                            }}
                                                         >
-                                                            <div className="space-y-3">
-                                                                <div className="text-sm font-semibold text-zinc-800">Create subtask</div>
-                                                                <div className="flex gap-2">
-                                                                    <Input
-                                                                        placeholder="Enter name"
-                                                                        value={subtaskTitleDraft}
-                                                                        onChange={(e) => setSubtaskTitleDraft(e.target.value)}
-                                                                        onKeyDown={async (e) => {
-                                                                            if (e.key !== "Enter") return;
-                                                                            e.preventDefault();
-                                                                            const title = subtaskTitleDraft.trim();
-                                                                            if (!title) return;
-                                                                            try {
-                                                                                await createTask.mutateAsync({
-                                                                                    title,
-                                                                                    parentId: task.id,
-                                                                                    listId: (task as any).listId ?? listId ?? undefined,
-                                                                                    workspaceId: resolvedWorkspaceId,
-                                                                                } as any);
-                                                                                setSubtaskPopoverTaskId(null);
-                                                                                setSubtaskTitleDraft("");
-                                                                            } catch (err) {
-                                                                                toast.error("Failed to create subtask");
-                                                                            }
-                                                                        }}
-                                                                    />
-                                                                    <Button
-                                                                        className="font-semibold"
-                                                                        disabled={!subtaskTitleDraft.trim() || createTask.isPending}
-                                                                        onClick={async (e) => {
-                                                                            e.stopPropagation();
-                                                                            const title = subtaskTitleDraft.trim();
-                                                                            if (!title) return;
-                                                                            try {
-                                                                                await createTask.mutateAsync({
-                                                                                    title,
-                                                                                    parentId: task.id,
-                                                                                    listId: (task as any).listId ?? listId ?? undefined,
-                                                                                    workspaceId: resolvedWorkspaceId,
-                                                                                } as any);
-                                                                                setSubtaskPopoverTaskId(null);
-                                                                                setSubtaskTitleDraft("");
-                                                                            } catch (err) {
-                                                                                toast.error("Failed to create subtask");
-                                                                            }
-                                                                        }}
-                                                                    >
-                                                                        Create
-                                                                    </Button>
-                                                                </div>
-                                                            </div>
-                                                        </PopoverContent>
-                                                    </Popover>
+                                                            {expandedSubtaskMode !== "separate" && (
+                                                                <>
+                                                                    {(childCountByTaskId.get(task.id) ?? 0) > 0 ? (
+                                                                        <ChevronDown className="h-3.5 w-3.5 text-zinc-500 shrink-0" />
+                                                                    ) : (nestedDepthByTaskId.get(task.id) ?? 0) > 0 ? (
+                                                                        <GitCommit className="h-3.5 w-3.5 text-zinc-400 shrink-0" />
+                                                                    ) : (
+                                                                        <span className="h-3.5 w-3.5 shrink-0" />
+                                                                    )}
+                                                                </>
+                                                            )}
+                                                            <div className={cn("h-2 w-2 rounded-full flex-shrink-0", getPriorityColor(task.priority))} />
+                                                            <span
+                                                                className="text-sm text-zinc-900 truncate font-medium cursor-pointer hover:text-indigo-600 transition-colors"
+                                                                onClick={(e) => { e.stopPropagation(); if (isDraggingRef.current) return; openTaskDetail(task.id); }}
+                                                            >{task.title || task.name}</span>
 
-                                                    <Popover
-                                                        open={renamePopoverTaskId === task.id}
-                                                        onOpenChange={(open) => {
-                                                            setRenamePopoverTaskId(open ? task.id : null);
-                                                            if (open) setRenameTitleDraft((task.title || task.name || "").toString());
-                                                        }}
-                                                    >
-                                                        <PopoverTrigger asChild>
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="icon"
-                                                                className="h-7 w-7 text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100"
-                                                                onClick={(e) => { e.stopPropagation(); }}
-                                                            >
-                                                                <Edit3 className="h-4 w-4" />
-                                                            </Button>
-                                                        </PopoverTrigger>
-                                                        <PopoverContent
-                                                            align="end"
-                                                            className="w-[360px] p-4 rounded-2xl shadow-2xl border border-zinc-200"
-                                                            onOpenAutoFocus={(e) => e.preventDefault()}
-                                                            onClick={(e) => e.stopPropagation()}
-                                                        >
-                                                            <div className="space-y-2">
-                                                                <div className="text-xs font-bold text-zinc-600 uppercase tracking-wider">Rename task:</div>
-                                                                <div className="flex gap-2">
-                                                                    <Input
-                                                                        value={renameTitleDraft}
-                                                                        onChange={(e) => setRenameTitleDraft(e.target.value)}
-                                                                        onKeyDown={async (e) => {
-                                                                            if (e.key !== "Enter") return;
-                                                                            e.preventDefault();
-                                                                            const nextTitle = renameTitleDraft.trim();
-                                                                            const current = (task.title || task.name || "").toString().trim();
-                                                                            if (!nextTitle || nextTitle === current) return;
-                                                                            try {
-                                                                                await updateTask.mutateAsync({ id: task.id, title: nextTitle } as any);
-                                                                                setRenamePopoverTaskId(null);
-                                                                            } catch (err) {
-                                                                                toast.error("Failed to rename task");
-                                                                            }
-                                                                        }}
-                                                                    />
-                                                                    <Button
-                                                                        className="font-semibold"
-                                                                        disabled={(() => {
-                                                                            const nextTitle = renameTitleDraft.trim();
-                                                                            const current = (task.title || task.name || "").toString().trim();
-                                                                            return !nextTitle || nextTitle === current || updateTask.isPending;
-                                                                        })()}
-                                                                        onClick={async (e) => {
-                                                                            e.stopPropagation();
-                                                                            const nextTitle = renameTitleDraft.trim();
-                                                                            const current = (task.title || task.name || "").toString().trim();
-                                                                            if (!nextTitle || nextTitle === current) return;
-                                                                            try {
-                                                                                await updateTask.mutateAsync({ id: task.id, title: nextTitle } as any);
-                                                                                setRenamePopoverTaskId(null);
-                                                                            } catch (err) {
-                                                                                toast.error("Failed to rename task");
-                                                                            }
-                                                                        }}
+                                                            <div className="ml-auto pl-2 shrink-0 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                                <Popover
+                                                                    open={subtaskPopoverTaskId === task.id}
+                                                                    onOpenChange={(open) => {
+                                                                        setSubtaskPopoverTaskId(open ? task.id : null);
+                                                                        if (open) setSubtaskTitleDraft("");
+                                                                    }}
+                                                                >
+                                                                    <PopoverTrigger asChild>
+                                                                        <Button
+                                                                            variant="outline"
+                                                                            size="icon"
+                                                                            className="h-6 w-6 rounded-md border border-zinc-300 bg-white text-zinc-500 hover:text-zinc-900 hover:border-zinc-400 shadow-sm"
+                                                                            onClick={(e) => { e.stopPropagation(); }}
+                                                                        >
+                                                                            <Plus className="h-3.5 w-3.5" />
+                                                                        </Button>
+                                                                    </PopoverTrigger>
+                                                                    <PopoverContent
+                                                                        align="end"
+                                                                        className="w-[340px] p-5 rounded-[20px] shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-zinc-200/80 bg-white"
+                                                                        onOpenAutoFocus={(e) => e.preventDefault()}
+                                                                        onClick={(e) => e.stopPropagation()}
                                                                     >
-                                                                        Save
-                                                                    </Button>
-                                                                </div>
-                                                                {(() => {
-                                                                    const nextTitle = renameTitleDraft.trim();
-                                                                    const current = (task.title || task.name || "").toString().trim();
-                                                                    if (!nextTitle) return <div className="text-xs text-red-500">Name is required</div>;
-                                                                    if (nextTitle === current) return <div className="text-xs text-red-500">Name must be different</div>;
-                                                                    return null;
-                                                                })()}
+                                                                        <div className="space-y-3">
+                                                                            <div className="flex items-center gap-1.5 text-xs font-bold text-zinc-600 uppercase tracking-widest">
+                                                                                <Plus className="h-3.5 w-3.5" />
+                                                                                <span>CREATE SUBTASK:</span>
+                                                                            </div>
+                                                                            <div className="flex items-stretch gap-2.5">
+                                                                                <Input
+                                                                                    placeholder="Enter name"
+                                                                                    className="h-9 text-xs rounded-lg px-3 border-zinc-200/80 focus-visible:ring-2 focus-visible:ring-indigo-500/20 focus-visible:border-indigo-500 transition-all bg-white font-medium"
+                                                                                    value={subtaskTitleDraft}
+                                                                                    onChange={(e) => setSubtaskTitleDraft(e.target.value)}
+                                                                                    onKeyDown={async (e) => {
+                                                                                        if (e.key !== "Enter") return;
+                                                                                        e.preventDefault();
+                                                                                        const title = subtaskTitleDraft.trim();
+                                                                                        if (!title) return;
+                                                                                        try {
+                                                                                            await createTask.mutateAsync({
+                                                                                                title,
+                                                                                                parentId: task.id,
+                                                                                                listId: (task as any).listId ?? listId ?? undefined,
+                                                                                                workspaceId: resolvedWorkspaceId,
+                                                                                            } as any);
+                                                                                            setSubtaskPopoverTaskId(null);
+                                                                                            setSubtaskTitleDraft("");
+                                                                                        } catch (err) {
+                                                                                            toast.error("Failed to create subtask");
+                                                                                        }
+                                                                                    }}
+                                                                                />
+                                                                                <Button
+                                                                                    className="h-9 rounded-lg px-4 font-semibold text-xs shadow-sm bg-[#5243FA] hover:bg-[#4335DF] text-white transition-all"
+                                                                                    disabled={!subtaskTitleDraft.trim() || createTask.isPending}
+                                                                                    onClick={async (e) => {
+                                                                                        e.stopPropagation();
+                                                                                        const title = subtaskTitleDraft.trim();
+                                                                                        if (!title) return;
+                                                                                        try {
+                                                                                            await createTask.mutateAsync({
+                                                                                                title,
+                                                                                                parentId: task.id,
+                                                                                                listId: (task as any).listId ?? listId ?? undefined,
+                                                                                                workspaceId: resolvedWorkspaceId,
+                                                                                            } as any);
+                                                                                            setSubtaskPopoverTaskId(null);
+                                                                                            setSubtaskTitleDraft("");
+                                                                                        } catch (err) {
+                                                                                            toast.error("Failed to create subtask");
+                                                                                        }
+                                                                                    }}
+                                                                                >
+                                                                                    Create
+                                                                                </Button>
+                                                                            </div>
+                                                                        </div>
+                                                                    </PopoverContent>
+                                                                </Popover>
+
+                                                                <Popover
+                                                                    open={renamePopoverTaskId === task.id}
+                                                                    onOpenChange={(open) => {
+                                                                        setRenamePopoverTaskId(open ? task.id : null);
+                                                                        if (open) setRenameTitleDraft((task.title || task.name || "").toString());
+                                                                    }}
+                                                                >
+                                                                    <PopoverTrigger asChild>
+                                                                        <Button
+                                                                            variant="outline"
+                                                                            size="icon"
+                                                                            className="h-6 w-6 rounded-md border border-zinc-300 bg-white text-zinc-500 hover:text-zinc-900 hover:border-zinc-400 shadow-sm"
+                                                                            onClick={(e) => { e.stopPropagation(); }}
+                                                                        >
+                                                                            <Edit3 className="h-3.5 w-3.5" />
+                                                                        </Button>
+                                                                    </PopoverTrigger>
+                                                                    <PopoverContent
+                                                                        align="end"
+                                                                        className="w-[340px] p-5 rounded-[20px] shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-zinc-200/80 bg-white"
+                                                                        onOpenAutoFocus={(e) => e.preventDefault()}
+                                                                        onClick={(e) => e.stopPropagation()}
+                                                                    >
+                                                                        <div className="space-y-3">
+                                                                            <div className="flex items-center gap-1.5 text-xs font-bold text-zinc-600 uppercase tracking-widest">
+                                                                                <Edit3 className="h-3.5 w-3.5" />
+                                                                                <span>RENAME TASK:</span>
+                                                                            </div>
+                                                                            <div className="flex items-stretch gap-2.5">
+                                                                                <Input
+                                                                                    className="h-9 text-xs rounded-lg px-3 border-zinc-200/80 focus-visible:ring-2 focus-visible:ring-indigo-500/20 focus-visible:border-indigo-500 transition-all bg-white font-medium"
+                                                                                    value={renameTitleDraft}
+                                                                                    onChange={(e) => setRenameTitleDraft(e.target.value)}
+                                                                                    onKeyDown={async (e) => {
+                                                                                        if (e.key !== "Enter") return;
+                                                                                        e.preventDefault();
+                                                                                        const nextTitle = renameTitleDraft.trim();
+                                                                                        const current = (task.title || task.name || "").toString().trim();
+                                                                                        if (!nextTitle || nextTitle === current) return;
+                                                                                        try {
+                                                                                            await updateTask.mutateAsync({ id: task.id, title: nextTitle } as any);
+                                                                                            setRenamePopoverTaskId(null);
+                                                                                        } catch (err) {
+                                                                                            toast.error("Failed to rename task");
+                                                                                        }
+                                                                                    }}
+                                                                                />
+                                                                                <Button
+                                                                                    className="h-9 rounded-lg px-4 font-semibold text-xs shadow-sm bg-[#5243FA] hover:bg-[#4335DF] text-white transition-all"
+                                                                                    disabled={(() => {
+                                                                                        const nextTitle = renameTitleDraft.trim();
+                                                                                        const current = (task.title || task.name || "").toString().trim();
+                                                                                        return !nextTitle || nextTitle === current || updateTask.isPending;
+                                                                                    })()}
+                                                                                    onClick={async (e) => {
+                                                                                        e.stopPropagation();
+                                                                                        const nextTitle = renameTitleDraft.trim();
+                                                                                        const current = (task.title || task.name || "").toString().trim();
+                                                                                        if (!nextTitle || nextTitle === current) return;
+                                                                                        try {
+                                                                                            await updateTask.mutateAsync({ id: task.id, title: nextTitle } as any);
+                                                                                            setRenamePopoverTaskId(null);
+                                                                                        } catch (err) {
+                                                                                            toast.error("Failed to rename task");
+                                                                                        }
+                                                                                    }}
+                                                                                >
+                                                                                    Save
+                                                                                </Button>
+                                                                            </div>
+                                                                            {(() => {
+                                                                                const nextTitle = renameTitleDraft.trim();
+                                                                                const current = (task.title || task.name || "").toString().trim();
+                                                                                if (!nextTitle) return <div className="text-[13px] text-red-500 px-1">Name is required</div>;
+                                                                                if (nextTitle === current) return <div className="text-[13px] text-red-500 px-1">Name must be different</div>;
+                                                                                return null;
+                                                                            })()}
+                                                                        </div>
+                                                                    </PopoverContent>
+                                                                </Popover>
                                                             </div>
-                                                        </PopoverContent>
-                                                    </Popover>
-                                                </div>
-                                            </div>
-                                            <div className="w-[184px] px-4 flex items-center justify-between">
-                                                <span className="text-xs text-zinc-500 font-medium">
-                                                    {task.dueDate ? new Date(task.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : "-"}
-                                                </span>
-                                                <TooltipProvider delayDuration={0}>
-                                                    <Tooltip>
-                                                        <TooltipTrigger asChild>
-                                                            <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100 text-zinc-300 hover:text-zinc-600">
-                                                                <Plus className="h-3.5 w-3.5" />
-                                                            </Button>
-                                                        </TooltipTrigger>
-                                                        <TooltipContent side="right">Edit dates</TooltipContent>
-                                                    </Tooltip>
-                                                </TooltipProvider>
-                                            </div>
-                                            </div>
-                                        </TaskActionsPopover>
+                                                        </div>
+                                                        <div className="w-[184px] px-4 flex items-center justify-between">
+                                                            <span className="text-sm text-zinc-500">
+                                                                {task.dueDate ? new Date(task.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : "-"}
+                                                            </span>
+                                                            <TooltipProvider delayDuration={0}>
+                                                                <Tooltip>
+                                                                    <TooltipTrigger asChild>
+                                                                        <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100 text-zinc-300 hover:text-zinc-600">
+                                                                            <Plus className="h-3.5 w-3.5" />
+                                                                        </Button>
+                                                                    </TooltipTrigger>
+                                                                    <TooltipContent side="right">Edit dates</TooltipContent>
+                                                                </Tooltip>
+                                                            </TooltipProvider>
+                                                        </div>
+                                                    </div>
+                                                </TaskActionsPopover>
                                             );
                                         }}
                                     />
@@ -3408,15 +3418,15 @@ export function GanttView({ spaceId, projectId, teamId, listId, folderId, viewId
                                                         return acc;
                                                     }, [])
                                                     .map((seg) => (
-                                                    <div
-                                                        key={seg.quarterKey}
-                                                        className="px-2 flex items-center justify-between text-[11px] font-semibold text-zinc-600 border-r border-zinc-200/60"
-                                                        style={{ width: seg.span * activeColumnWidth }}
-                                                    >
-                                                        <span>{seg.quarterLabel}</span>
-                                                        <span className="text-zinc-700">{seg.quarterYear}</span>
-                                                    </div>
-                                                ))}
+                                                        <div
+                                                            key={seg.quarterKey}
+                                                            className="px-2 flex items-center justify-between text-[11px] font-semibold text-zinc-600 border-r border-zinc-200/60"
+                                                            style={{ width: seg.span * activeColumnWidth }}
+                                                        >
+                                                            <span>{seg.quarterLabel}</span>
+                                                            <span className="text-zinc-700">{seg.quarterYear}</span>
+                                                        </div>
+                                                    ))}
                                             </div>
                                             <div className="h-8 flex">
                                                 {timelineUnits.map((unit, i) => (
@@ -3445,14 +3455,14 @@ export function GanttView({ spaceId, projectId, teamId, listId, folderId, viewId
                                                         return acc;
                                                     }, [])
                                                     .map((seg) => (
-                                                    <div
-                                                        key={seg.yearKey}
-                                                        className="px-2 flex items-center justify-center text-[12px] font-semibold text-zinc-700 border-r border-zinc-200/60"
-                                                        style={{ width: seg.span * activeColumnWidth }}
-                                                    >
-                                                        {seg.yearLabel}
-                                                    </div>
-                                                ))}
+                                                        <div
+                                                            key={seg.yearKey}
+                                                            className="px-2 flex items-center justify-center text-[12px] font-semibold text-zinc-700 border-r border-zinc-200/60"
+                                                            style={{ width: seg.span * activeColumnWidth }}
+                                                        >
+                                                            {seg.yearLabel}
+                                                        </div>
+                                                    ))}
                                             </div>
                                             <div className="h-8 flex">
                                                 {timelineUnits.map((unit, i) => (
@@ -3502,152 +3512,152 @@ export function GanttView({ spaceId, projectId, teamId, listId, folderId, viewId
                                         enabled={!draggedBarStyle}
                                         renderRow={(idx) => {
                                             const task = displayedTasks[idx];
-                                        const barStyle = getTaskBarStyle(task);
-                                        const isDraggingThis = draggedBarStyle?.taskId === task.id;
-                                        const barLeft = barStyle ? (isDraggingThis ? draggedBarStyle!.barLeft : barStyle.left) : 0;
-                                        const barWidth = barStyle ? (isDraggingThis ? draggedBarStyle!.barWidth : barStyle.width) : 0;
-                                        const labelLeft = barLeft + barWidth + BAR_LABEL_GAP_PX;
-                                        const { startDate, dueDate } = getEffectiveTaskDates(task);
+                                            const barStyle = getTaskBarStyle(task);
+                                            const isDraggingThis = draggedBarStyle?.taskId === task.id;
+                                            const barLeft = barStyle ? (isDraggingThis ? draggedBarStyle!.barLeft : barStyle.left) : 0;
+                                            const barWidth = barStyle ? (isDraggingThis ? draggedBarStyle!.barWidth : barStyle.width) : 0;
+                                            const labelLeft = barLeft + barWidth + BAR_LABEL_GAP_PX;
+                                            const { startDate, dueDate } = getEffectiveTaskDates(task);
 
-                                        return (
-                                            <div
-                                                key={task.id}
-                                                className="h-12 relative hover:bg-zinc-50/50 transition-colors group"
-                                                onMouseMove={(e) => {
-                                                    if (barStyle) return;
-                                                    const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect();
-                                                    const x = e.clientX - rect.left;
-                                                    setScheduleHover({
-                                                        taskId: task.id,
-                                                        leftPx: Math.max(0, Math.min(totalTimelineWidthPx, x)),
-                                                    });
-                                                }}
-                                                onMouseLeave={() => {
-                                                    setScheduleHover((prev) => (prev?.taskId === task.id ? null : prev));
-                                                }}
-                                                onClick={async (e) => {
-                                                    if (isDraggingRef.current) return;
-                                                    if (barStyle) {
-                                                        openTaskDetail(task.id);
-                                                        return;
-                                                    }
-                                                    const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect();
-                                                    const clickX = e.clientX - rect.left;
-                                                    const pickedDate = dateFromTimelinePx(clickX);
-                                                    if (!pickedDate) return;
-
-                                                    const optimistic = { startDate: pickedDate, dueDate: pickedDate, committed: false as const };
-                                                    setLocalTaskDates(prev => ({ ...prev, [task.id]: optimistic }));
-                                                    try {
-                                                        await updateTask.mutateAsync({
-                                                            id: task.id,
-                                                            startDate: pickedDate.toISOString(),
-                                                            dueDate: pickedDate.toISOString(),
-                                                        } as any);
-                                                        setLocalTaskDates(prev => prev[task.id]
-                                                            ? { ...prev, [task.id]: { ...prev[task.id], committed: true } }
-                                                            : prev
-                                                        );
-                                                        void utils.task.list.invalidate();
-                                                    } catch (err) {
-                                                        toast.error("Failed to schedule task");
-                                                        setLocalTaskDates(prev => {
-                                                            const next = { ...prev };
-                                                            delete next[task.id];
-                                                            return next;
+                                            return (
+                                                <div
+                                                    key={task.id}
+                                                    className="h-12 relative hover:bg-zinc-50/50 transition-colors group"
+                                                    onMouseMove={(e) => {
+                                                        if (barStyle) return;
+                                                        const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect();
+                                                        const x = e.clientX - rect.left;
+                                                        setScheduleHover({
+                                                            taskId: task.id,
+                                                            leftPx: Math.max(0, Math.min(totalTimelineWidthPx, x)),
                                                         });
-                                                    }
-                                                }}
-                                            >
-                                                {barStyle && (
-                                                    <TaskActionsPopover
-                                                        task={task}
-                                                        context={spaceId ? "SPACE" : projectId ? "PROJECT" : "GENERAL"}
-                                                        contextId={(spaceId || projectId) as any}
-                                                        workspaceId={resolvedWorkspaceId as string}
-                                                        users={users as any}
-                                                        lists={[]}
-                                                        defaultListId={listId}
-                                                        availableStatuses={allAvailableStatuses}
-                                                        openOnContextMenu
-                                                        onDelete={async (id) => {
-                                                            try { await deleteTask.mutateAsync({ id }); } catch (e) { }
-                                                        }}
-                                                        onUpdate={async (id, data) => {
-                                                            try { await updateTask.mutateAsync({ id, ...(data as any) }); } catch (e) { }
-                                                        }}
-                                                        onAction={() => { }}
-                                                    >
-                                                        <div
-                                                            className={cn(
-                                                                "absolute top-2 h-8 rounded-sm px-2 flex items-center text-xs text-white font-medium shadow-sm transition-all hover:scale-[1.02] cursor-pointer z-[2] group/bar overflow-visible border",
-                                                                getStatusColor(task.status?.name),
-                                                                !isDraggingThis && "group-hover/bar:ring-2 group-hover/bar:ring-violet-400/50"
-                                                            )}
-                                                            style={{ left: barLeft, width: barWidth }}
-                                                            title={`${task.title || task.name} (${startDate ? new Date(startDate).toLocaleDateString() : ''} - ${dueDate ? new Date(dueDate).toLocaleDateString() : ''})`}
-                                                        onClick={(e) => {
-                                                            if (isDraggingRef.current) return;
-                                                            e.stopPropagation();
+                                                    }}
+                                                    onMouseLeave={() => {
+                                                        setScheduleHover((prev) => (prev?.taskId === task.id ? null : prev));
+                                                    }}
+                                                    onClick={async (e) => {
+                                                        if (isDraggingRef.current) return;
+                                                        if (barStyle) {
                                                             openTaskDetail(task.id);
-                                                        }}
-                                                        >
-                                                        {showAssignees && task.assignee && (
-                                                            <Avatar className="h-5 w-5 ml-2 border-white ring-1 ring-white/20">
-                                                                <AvatarImage src={task.assignee.image ?? undefined} />
-                                                                <AvatarFallback className="text-[8px] bg-white/20 text-white">{task.assignee.name?.slice(0, 1)}</AvatarFallback>
-                                                            </Avatar>
-                                                        )}
+                                                            return;
+                                                        }
+                                                        const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect();
+                                                        const clickX = e.clientX - rect.left;
+                                                        const pickedDate = dateFromTimelinePx(clickX);
+                                                        if (!pickedDate) return;
 
-                                                        {/* Left resize handle + "drag line" */}
-                                                        <div
-                                                            className="absolute left-0 top-0 bottom-0 w-3 flex items-center justify-center opacity-0 group-hover/bar:opacity-100 transition-opacity cursor-col-resize z-20"
-                                                            onMouseDown={(e) => handleResizeStart(e, task, "left")}
+                                                        const optimistic = { startDate: pickedDate, dueDate: pickedDate, committed: false as const };
+                                                        setLocalTaskDates(prev => ({ ...prev, [task.id]: optimistic }));
+                                                        try {
+                                                            await updateTask.mutateAsync({
+                                                                id: task.id,
+                                                                startDate: pickedDate.toISOString(),
+                                                                dueDate: pickedDate.toISOString(),
+                                                            } as any);
+                                                            setLocalTaskDates(prev => prev[task.id]
+                                                                ? { ...prev, [task.id]: { ...prev[task.id], committed: true } }
+                                                                : prev
+                                                            );
+                                                            void utils.task.list.invalidate();
+                                                        } catch (err) {
+                                                            toast.error("Failed to schedule task");
+                                                            setLocalTaskDates(prev => {
+                                                                const next = { ...prev };
+                                                                delete next[task.id];
+                                                                return next;
+                                                            });
+                                                        }
+                                                    }}
+                                                >
+                                                    {barStyle && (
+                                                        <TaskActionsPopover
+                                                            task={task}
+                                                            context={spaceId ? "SPACE" : projectId ? "PROJECT" : "GENERAL"}
+                                                            contextId={(spaceId || projectId) as any}
+                                                            workspaceId={resolvedWorkspaceId as string}
+                                                            users={users as any}
+                                                            lists={[]}
+                                                            defaultListId={listId}
+                                                            availableStatuses={allAvailableStatuses}
+                                                            openOnContextMenu
+                                                            onDelete={async (id) => {
+                                                                try { await deleteTask.mutateAsync({ id }); } catch (e) { }
+                                                            }}
+                                                            onUpdate={async (id, data) => {
+                                                                try { await updateTask.mutateAsync({ id, ...(data as any) }); } catch (e) { }
+                                                            }}
+                                                            onAction={() => { }}
                                                         >
-                                                            <div className="w-[2.5px] h-4 rounded-full bg-white/90 shadow-sm" />
-                                                        </div>
+                                                            <div
+                                                                className={cn(
+                                                                    "absolute top-2 h-8 rounded-sm px-2 flex items-center text-xs text-white font-medium shadow-sm transition-all hover:scale-[1.02] cursor-pointer z-[2] group/bar overflow-visible border",
+                                                                    getStatusColor(task.status?.name),
+                                                                    !isDraggingThis && "group-hover/bar:ring-2 group-hover/bar:ring-violet-400/50"
+                                                                )}
+                                                                style={{ left: barLeft, width: barWidth }}
+                                                                title={`${task.title || task.name} (${startDate ? new Date(startDate).toLocaleDateString() : ''} - ${dueDate ? new Date(dueDate).toLocaleDateString() : ''})`}
+                                                                onClick={(e) => {
+                                                                    if (isDraggingRef.current) return;
+                                                                    e.stopPropagation();
+                                                                    openTaskDetail(task.id);
+                                                                }}
+                                                            >
+                                                                {showAssignees && task.assignee && (
+                                                                    <Avatar className="h-5 w-5 ml-2 border-white ring-1 ring-white/20">
+                                                                        <AvatarImage src={task.assignee.image ?? undefined} />
+                                                                        <AvatarFallback className="text-[8px] bg-white/20 text-white">{task.assignee.name?.slice(0, 1)}</AvatarFallback>
+                                                                    </Avatar>
+                                                                )}
 
-                                                        {/* Right resize handle */}
-                                                        <div
-                                                            className="absolute right-0 top-0 bottom-0 w-3 flex items-center justify-center opacity-0 group-hover/bar:opacity-100 transition-opacity cursor-col-resize z-20"
-                                                            onMouseDown={(e) => handleResizeStart(e, task, "right")}
-                                                        >
-                                                            <div className="w-[2.5px] h-4 rounded-full bg-white/90 shadow-sm" />
-                                                        </div>
-                                                        </div>
-                                                    </TaskActionsPopover>
-                                                )}
+                                                                {/* Left resize handle + "drag line" */}
+                                                                <div
+                                                                    className="absolute left-0 top-0 bottom-0 w-3 flex items-center justify-center opacity-0 group-hover/bar:opacity-100 transition-opacity cursor-col-resize z-20"
+                                                                    onMouseDown={(e) => handleResizeStart(e, task, "left")}
+                                                                >
+                                                                    <div className="w-[2.5px] h-4 rounded-full bg-white/90 shadow-sm" />
+                                                                </div>
 
-                                                {/* Always-visible task name label beside the bar */}
-                                                {barStyle && (
-                                                    <div
-                                                        className="absolute top-2 h-8 flex items-center z-[2] pointer-events-none"
-                                                        style={{ left: labelLeft }}
-                                                    >
-                                                        <span className="text-xs font-medium text-zinc-700 whitespace-nowrap">
-                                                            {task.title || task.name}
-                                                        </span>
-                                                    </div>
-                                                )}
-
-                                                {!barStyle && scheduleHover?.taskId === task.id && (
-                                                    <>
-                                                        <div
-                                                            className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 h-7 w-7 rounded-full border border-zinc-500 bg-zinc-200/90 z-[2] pointer-events-none"
-                                                            style={{ left: scheduleHover.leftPx }}
-                                                        />
-                                                        <div
-                                                            className="absolute -top-0.5 -translate-x-1/2 -translate-y-full z-[3] pointer-events-none"
-                                                            style={{ left: scheduleHover.leftPx }}
-                                                        >
-                                                            <div className="bg-zinc-900 text-white text-xs px-2 py-1 rounded-md whitespace-nowrap shadow">
-                                                                Click to Schedule Task
+                                                                {/* Right resize handle */}
+                                                                <div
+                                                                    className="absolute right-0 top-0 bottom-0 w-3 flex items-center justify-center opacity-0 group-hover/bar:opacity-100 transition-opacity cursor-col-resize z-20"
+                                                                    onMouseDown={(e) => handleResizeStart(e, task, "right")}
+                                                                >
+                                                                    <div className="w-[2.5px] h-4 rounded-full bg-white/90 shadow-sm" />
+                                                                </div>
                                                             </div>
+                                                        </TaskActionsPopover>
+                                                    )}
+
+                                                    {/* Always-visible task name label beside the bar */}
+                                                    {barStyle && (
+                                                        <div
+                                                            className="absolute top-2 h-8 flex items-center z-[2] pointer-events-none"
+                                                            style={{ left: labelLeft }}
+                                                        >
+                                                            <span className="text-xs font-medium text-zinc-700 whitespace-nowrap">
+                                                                {task.title || task.name}
+                                                            </span>
                                                         </div>
-                                                    </>
-                                                )}
-                                            </div>
-                                        );
+                                                    )}
+
+                                                    {!barStyle && scheduleHover?.taskId === task.id && (
+                                                        <>
+                                                            <div
+                                                                className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 h-7 w-7 rounded-full border border-zinc-500 bg-zinc-200/90 z-[2] pointer-events-none"
+                                                                style={{ left: scheduleHover.leftPx }}
+                                                            />
+                                                            <div
+                                                                className="absolute -top-0.5 -translate-x-1/2 -translate-y-full z-[3] pointer-events-none"
+                                                                style={{ left: scheduleHover.leftPx }}
+                                                            >
+                                                                <div className="bg-zinc-900 text-white text-xs px-2 py-1 rounded-md whitespace-nowrap shadow">
+                                                                    Click to Schedule Task
+                                                                </div>
+                                                            </div>
+                                                        </>
+                                                    )}
+                                                </div>
+                                            );
                                         }}
                                     />
                                 </div>
@@ -3666,145 +3676,145 @@ export function GanttView({ spaceId, projectId, teamId, listId, folderId, viewId
                         onClose={() => setCustomizePanelOpen(false)}
                         className="absolute bottom-0 right-0 h-full w-[380px] max-w-[90vw] bg-white border-l border-zinc-200 shadow-xl z-50 flex flex-col"
                     >
-                            <div className="flex items-center justify-between p-4 border-b border-zinc-100">
-                                <h3 className="font-semibold text-zinc-900">Customize view</h3>
-                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setCustomizePanelOpen(false)}><X className="h-4 w-4" /></Button>
-                            </div>
-                            <ScrollArea className="flex-1 min-h-0">
-                                <div className="p-3 space-y-2 pb-24">
-                                    <div className="flex items-center gap-2 mb-4">
-                                        <div className="flex items-center justify-center h-10 w-10 rounded-lg border border-zinc-200 bg-zinc-50 shrink-0">
-                                            <LayoutList className="h-5 w-5 text-zinc-600" />
-                                        </div>
-                                        <Input
-                                            value={viewNameDraft}
-                                            onChange={(e) => setViewNameDraft(e.target.value)}
-                                            onBlur={() => updateViewName(viewNameDraft)}
-                                            onKeyDown={(e) => {
-                                                if (e.key === "Enter") {
-                                                    updateViewName(viewNameDraft);
-                                                    (e.target as HTMLInputElement).blur();
-                                                }
-                                            }}
-                                            className="h-10 text-sm font-medium border-zinc-200"
-                                            placeholder="View name"
+                        <div className="flex items-center justify-between p-4 border-b border-zinc-100">
+                            <h3 className="font-semibold text-zinc-900">Customize view</h3>
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setCustomizePanelOpen(false)}><X className="h-4 w-4" /></Button>
+                        </div>
+                        <ScrollArea className="flex-1 min-h-0">
+                            <div className="p-3 space-y-2 pb-24">
+                                <div className="flex items-center gap-2 mb-4">
+                                    <div className="flex items-center justify-center h-10 w-10 rounded-lg border border-zinc-200 bg-zinc-50 shrink-0">
+                                        <LayoutList className="h-5 w-5 text-zinc-600" />
+                                    </div>
+                                    <Input
+                                        value={viewNameDraft}
+                                        onChange={(e) => setViewNameDraft(e.target.value)}
+                                        onBlur={() => updateViewName(viewNameDraft)}
+                                        onKeyDown={(e) => {
+                                            if (e.key === "Enter") {
+                                                updateViewName(viewNameDraft);
+                                                (e.target as HTMLInputElement).blur();
+                                            }
+                                        }}
+                                        className="h-10 text-sm font-medium border-zinc-200"
+                                        placeholder="View name"
+                                    />
+                                </div>
+
+                                <div className="space-y-1">
+                                    <div className="flex items-center justify-between py-1 px-2 cursor-pointer" onClick={() => setShowWeekends(!showWeekends)}>
+                                        <span className="text-sm text-zinc-800">Show weekends</span>
+                                        <Switch
+                                            checked={showWeekends}
+                                            onCheckedChange={setShowWeekends}
                                         />
                                     </div>
 
-                                    <div className="space-y-1">
-                                         <div className="flex items-center justify-between py-1 px-2 cursor-pointer" onClick={() => setShowWeekends(!showWeekends)}>
-                                            <span className="text-sm text-zinc-800">Show weekends</span>
-                                            <Switch
-                                                checked={showWeekends}
-                                                onCheckedChange={setShowWeekends}
-                                            />
-                                        </div>
-
-                                        <div className="flex items-center justify-between py-1 px-2">
-                                            <span className="text-sm text-zinc-800">Show critical path</span>
-                                            <Switch checked={showCriticalPath} onCheckedChange={setShowCriticalPath} />
-                                        </div>
-                                        <div className="flex items-center justify-between py-1 px-2">
-                                            <span className="text-sm text-zinc-800">Show slack time</span>
-                                            <Switch checked={showSlackTime} onCheckedChange={setShowSlackTime} />
-                                        </div>
-                                        <div className="flex items-center justify-between py-1 px-2">
-                                            <span className="text-sm text-zinc-800">Full screen mode</span>
-                                            <Switch checked={fullScreenMode} onCheckedChange={setFullScreenMode} />
-                                        </div>
-                                        <div className="flex items-center justify-between py-1 px-2">
-                                            <span className="text-sm text-zinc-800">Reschedule dependencies</span>
-                                            <Switch checked={rescheduleDependencies} onCheckedChange={setRescheduleDependencies} />
-                                        </div>
-                                        <button
-                                            type="button"
-                                            className="w-full flex items-center justify-between py-2.5 text-sm text-zinc-800 hover:bg-zinc-50 rounded-md px-2"
-                                            onClick={() => { setLayoutOptionsOpen(true); }}
-                                        >
-                                            <span className="flex items-center gap-2">More options</span>
-                                            <ChevronRight className="inline h-3 w-3 ml-1 text-zinc-400" />
-                                        </button>
+                                    <div className="flex items-center justify-between py-1 px-2">
+                                        <span className="text-sm text-zinc-800">Show critical path</span>
+                                        <Switch checked={showCriticalPath} onCheckedChange={setShowCriticalPath} />
                                     </div>
-                                    <div className="h-px bg-zinc-100 my-2" />
-                                    <div className="space-y-1">
-                                        <button type="button" className="w-full flex items-center justify-between py-2.5 text-sm text-zinc-800 hover:bg-zinc-50 rounded-md px-2" onClick={() => { setFieldsPanelOpen(true); setCustomizePanelOpen(false); }}>
-                                            <span className="flex items-center gap-2"><SlidersHorizontal className="h-4 w-4 text-zinc-400" />Fields</span>
-                                            <span className="text-xs text-zinc-500">{Array.from(visibleColumns).length} shown</span>
-                                        </button>
-                                        <Popover open={customizeViewFilterOpen} onOpenChange={setCustomizeViewFilterOpen}>
-                                            <PopoverTrigger asChild>
-                                                <button
-                                                    type="button"
-                                                    className="w-full flex items-center justify-between py-2.5 text-sm text-zinc-800 hover:bg-zinc-50 rounded-md px-2"
-                                                    onClick={() => { if (filterGroups.conditions.length === 0) { addFilterGroup(); } }}
-                                                >
-                                                    <span className="flex items-center gap-2"><Filter className="h-4 w-4 text-zinc-400" />Filter</span>
-                                                    <span className="text-xs text-zinc-500">{appliedFilterCount > 0 ? `${appliedFilterCount} applied` : "None"} <ChevronRight className="inline h-3 w-3 ml-1" /></span>
-                                                </button>
-                                            </PopoverTrigger>
-                                            <PopoverContent side="left" align="start" className="w-[600px] max-w-[90vw] p-0 overflow-hidden shadow-2xl rounded-2xl border border-zinc-200/80" sideOffset={16}>
-                                                {renderFilterContent({ onClose: () => setCustomizeViewFilterOpen(false) })}
-                                            </PopoverContent>
-                                        </Popover>
+                                    <div className="flex items-center justify-between py-1 px-2">
+                                        <span className="text-sm text-zinc-800">Show slack time</span>
+                                        <Switch checked={showSlackTime} onCheckedChange={setShowSlackTime} />
                                     </div>
-                                    <div className="h-px bg-zinc-100 my-2" />
-                                    <div className="space-y-1">
-                                        <div className="flex items-center justify-between py-2.5 px-2 hover:bg-zinc-50 rounded-md transition-colors">
-                                            <div className="flex items-center gap-2">
-                                                <Save className="h-4 w-4 text-zinc-400" />
-                                                <span className="text-sm text-zinc-800">Autosave for me</span>
-                                            </div>
-                                            <Switch checked={viewAutosave} onCheckedChange={handleToggleAutosave} />
-                                        </div>
-                                        <div className="flex items-center justify-between py-2.5 px-2 hover:bg-zinc-50 rounded-md transition-colors">
-                                            <div className="flex items-center gap-2">
-                                                <Pin className="h-4 w-4 text-zinc-400" />
-                                                <span className="text-sm text-zinc-800">Pin view</span>
-                                            </div>
-                                            <Switch checked={pinView} onCheckedChange={(val) => { setPinView(val); updateViewProperty('isPinned', val); }} />
-                                        </div>
-                                        <div className="flex items-center justify-between py-2.5 px-2 hover:bg-zinc-50 rounded-md transition-colors">
-                                            <div className="flex items-center gap-2">
-                                                <Lock className="h-4 w-4 text-zinc-400" />
-                                                <span className="text-sm text-zinc-800">Private view</span>
-                                            </div>
-                                            <Switch checked={privateView} onCheckedChange={(val) => { setPrivateView(val); updateViewProperty('isPrivate', val); }} />
-                                        </div>
-                                        <div className="flex items-center justify-between py-2.5 px-2 hover:bg-zinc-50 rounded-md transition-colors">
-                                            <div className="flex items-center gap-2">
-                                                <ShieldCheck className="h-4 w-4 text-zinc-400" />
-                                                <span className="text-sm text-zinc-800">Protect view</span>
-                                            </div>
-                                            <Switch checked={protectView} onCheckedChange={(val) => { setProtectView(val); updateViewProperty('isLocked', val); }} />
-                                        </div>
-                                        <div className="flex items-center justify-between py-2.5 px-2 hover:bg-zinc-50 rounded-md transition-colors">
-                                            <div className="flex items-center gap-2">
-                                                <Home className="h-4 w-4 text-zinc-400" />
-                                                <span className="text-sm text-zinc-800">Set as default view</span>
-                                            </div>
-                                            <Switch checked={defaultView} onCheckedChange={(val) => { setDefaultView(val); updateViewProperty('isDefault', val); }} />
-                                        </div>
+                                    <div className="flex items-center justify-between py-1 px-2">
+                                        <span className="text-sm text-zinc-800">Full screen mode</span>
+                                        <Switch checked={fullScreenMode} onCheckedChange={setFullScreenMode} />
                                     </div>
-                                    <div className="h-px bg-zinc-100 my-2" />
-                                    <div className="space-y-1">
-                                        <button type="button" className="w-full flex items-center justify-between py-2.5 text-sm text-zinc-800 hover:bg-zinc-50 rounded-md px-2" onClick={() => {
-                                            const url = `${window.location.origin}${window.location.pathname}?v=${viewId}`;
-                                            navigator.clipboard?.writeText(url);
-                                            toast.success("Link copied to clipboard");
-                                        }}>
-                                            <span className="flex items-center gap-2"><Link className="h-4 w-4 text-zinc-400" />Copy link to view</span>
-                                        </button>
-                                        <button
-                                            type="button"
-                                            className="w-full flex items-center justify-between py-2.5 text-sm text-zinc-800 hover:bg-zinc-50 rounded-md px-2"
-                                            onClick={() => setIsShareModalOpen(true)}
-                                        >
-                                            <span className="flex items-center gap-2"><Users className="h-4 w-4 text-zinc-400" />Sharing & Permissions</span>
-                                            <ChevronRight className="inline h-3 w-3 ml-1 text-zinc-400" />
-                                        </button>
+                                    <div className="flex items-center justify-between py-1 px-2">
+                                        <span className="text-sm text-zinc-800">Reschedule dependencies</span>
+                                        <Switch checked={rescheduleDependencies} onCheckedChange={setRescheduleDependencies} />
+                                    </div>
+                                    <button
+                                        type="button"
+                                        className="w-full flex items-center justify-between py-2.5 text-sm text-zinc-800 hover:bg-zinc-50 rounded-md px-2"
+                                        onClick={() => { setLayoutOptionsOpen(true); }}
+                                    >
+                                        <span className="flex items-center gap-2">More options</span>
+                                        <ChevronRight className="inline h-3 w-3 ml-1 text-zinc-400" />
+                                    </button>
+                                </div>
+                                <div className="h-px bg-zinc-100 my-2" />
+                                <div className="space-y-1">
+                                    <button type="button" className="w-full flex items-center justify-between py-2.5 text-sm text-zinc-800 hover:bg-zinc-50 rounded-md px-2" onClick={() => { setFieldsPanelOpen(true); setCustomizePanelOpen(false); }}>
+                                        <span className="flex items-center gap-2"><SlidersHorizontal className="h-4 w-4 text-zinc-400" />Fields</span>
+                                        <span className="text-xs text-zinc-500">{Array.from(visibleColumns).length} shown</span>
+                                    </button>
+                                    <Popover open={customizeViewFilterOpen} onOpenChange={setCustomizeViewFilterOpen}>
+                                        <PopoverTrigger asChild>
+                                            <button
+                                                type="button"
+                                                className="w-full flex items-center justify-between py-2.5 text-sm text-zinc-800 hover:bg-zinc-50 rounded-md px-2"
+                                                onClick={() => { if (filterGroups.conditions.length === 0) { addFilterGroup(); } }}
+                                            >
+                                                <span className="flex items-center gap-2"><Filter className="h-4 w-4 text-zinc-400" />Filter</span>
+                                                <span className="text-xs text-zinc-500">{appliedFilterCount > 0 ? `${appliedFilterCount} applied` : "None"} <ChevronRight className="inline h-3 w-3 ml-1" /></span>
+                                            </button>
+                                        </PopoverTrigger>
+                                        <PopoverContent side="left" align="start" className="w-[600px] max-w-[90vw] p-0 overflow-hidden shadow-2xl rounded-2xl border border-zinc-200/80" sideOffset={16}>
+                                            {renderFilterContent({ onClose: () => setCustomizeViewFilterOpen(false) })}
+                                        </PopoverContent>
+                                    </Popover>
+                                </div>
+                                <div className="h-px bg-zinc-100 my-2" />
+                                <div className="space-y-1">
+                                    <div className="flex items-center justify-between py-2.5 px-2 hover:bg-zinc-50 rounded-md transition-colors">
+                                        <div className="flex items-center gap-2">
+                                            <Save className="h-4 w-4 text-zinc-400" />
+                                            <span className="text-sm text-zinc-800">Autosave for me</span>
+                                        </div>
+                                        <Switch checked={viewAutosave} onCheckedChange={handleToggleAutosave} />
+                                    </div>
+                                    <div className="flex items-center justify-between py-2.5 px-2 hover:bg-zinc-50 rounded-md transition-colors">
+                                        <div className="flex items-center gap-2">
+                                            <Pin className="h-4 w-4 text-zinc-400" />
+                                            <span className="text-sm text-zinc-800">Pin view</span>
+                                        </div>
+                                        <Switch checked={pinView} onCheckedChange={(val) => { setPinView(val); updateViewProperty('isPinned', val); }} />
+                                    </div>
+                                    <div className="flex items-center justify-between py-2.5 px-2 hover:bg-zinc-50 rounded-md transition-colors">
+                                        <div className="flex items-center gap-2">
+                                            <Lock className="h-4 w-4 text-zinc-400" />
+                                            <span className="text-sm text-zinc-800">Private view</span>
+                                        </div>
+                                        <Switch checked={privateView} onCheckedChange={(val) => { setPrivateView(val); updateViewProperty('isPrivate', val); }} />
+                                    </div>
+                                    <div className="flex items-center justify-between py-2.5 px-2 hover:bg-zinc-50 rounded-md transition-colors">
+                                        <div className="flex items-center gap-2">
+                                            <ShieldCheck className="h-4 w-4 text-zinc-400" />
+                                            <span className="text-sm text-zinc-800">Protect view</span>
+                                        </div>
+                                        <Switch checked={protectView} onCheckedChange={(val) => { setProtectView(val); updateViewProperty('isLocked', val); }} />
+                                    </div>
+                                    <div className="flex items-center justify-between py-2.5 px-2 hover:bg-zinc-50 rounded-md transition-colors">
+                                        <div className="flex items-center gap-2">
+                                            <Home className="h-4 w-4 text-zinc-400" />
+                                            <span className="text-sm text-zinc-800">Set as default view</span>
+                                        </div>
+                                        <Switch checked={defaultView} onCheckedChange={(val) => { setDefaultView(val); updateViewProperty('isDefault', val); }} />
                                     </div>
                                 </div>
-                            </ScrollArea>
+                                <div className="h-px bg-zinc-100 my-2" />
+                                <div className="space-y-1">
+                                    <button type="button" className="w-full flex items-center justify-between py-2.5 text-sm text-zinc-800 hover:bg-zinc-50 rounded-md px-2" onClick={() => {
+                                        const url = `${window.location.origin}${window.location.pathname}?v=${viewId}`;
+                                        navigator.clipboard?.writeText(url);
+                                        toast.success("Link copied to clipboard");
+                                    }}>
+                                        <span className="flex items-center gap-2"><Link className="h-4 w-4 text-zinc-400" />Copy link to view</span>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className="w-full flex items-center justify-between py-2.5 text-sm text-zinc-800 hover:bg-zinc-50 rounded-md px-2"
+                                        onClick={() => setIsShareModalOpen(true)}
+                                    >
+                                        <span className="flex items-center gap-2"><Users className="h-4 w-4 text-zinc-400" />Sharing & Permissions</span>
+                                        <ChevronRight className="inline h-3 w-3 ml-1 text-zinc-400" />
+                                    </button>
+                                </div>
+                            </div>
+                        </ScrollArea>
                     </SidePanel>
                 )
             }
@@ -3815,116 +3825,116 @@ export function GanttView({ spaceId, projectId, teamId, listId, folderId, viewId
                         onClose={() => { setLayoutOptionsOpen(false); setCustomizePanelOpen(false); }}
                         className="absolute bottom-0 right-0 h-full w-[380px] max-w-[90vw] bg-white border-l border-zinc-200 shadow-xl z-50 flex flex-col"
                     >
-                            <div className="flex items-center justify-between p-4 border-b border-zinc-100">
-                                <Button variant="ghost" size="icon" className="h-8 w-8 -ml-1 cursor-pointer" onClick={() => { setLayoutOptionsOpen(false); setCustomizePanelOpen(true); }}>
-                                    <ArrowRight className="h-4 w-4 rotate-180" />
-                                </Button>
-                                <h3 className="font-semibold text-zinc-900">Layout options</h3>
-                                <Button variant="ghost" size="icon" className="h-8 w-8 cursor-pointer" onClick={() => { setLayoutOptionsOpen(false); setCustomizePanelOpen(false); }}><X className="h-4 w-4" /></Button>
-                            </div>
-                            <ScrollArea className="flex-1 min-h-0">
-                                <div className="p-3 space-y-6 pb-24">
-                                    <div className="space-y-1">
-                                        <p className="px-2 text-[11px] font-bold text-zinc-400 uppercase tracking-widest mb-2">Page & card layout</p>
+                        <div className="flex items-center justify-between p-4 border-b border-zinc-100">
+                            <Button variant="ghost" size="icon" className="h-8 w-8 -ml-1 cursor-pointer" onClick={() => { setLayoutOptionsOpen(false); setCustomizePanelOpen(true); }}>
+                                <ArrowRight className="h-4 w-4 rotate-180" />
+                            </Button>
+                            <h3 className="font-semibold text-zinc-900">Layout options</h3>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 cursor-pointer" onClick={() => { setLayoutOptionsOpen(false); setCustomizePanelOpen(false); }}><X className="h-4 w-4" /></Button>
+                        </div>
+                        <ScrollArea className="flex-1 min-h-0">
+                            <div className="p-3 space-y-6 pb-24">
+                                <div className="space-y-1">
+                                    <p className="px-2 text-[11px] font-bold text-zinc-400 uppercase tracking-widest mb-2">Page & card layout</p>
 
-                                        <div className="flex items-center justify-between py-2 px-2 hover:bg-zinc-50 rounded-lg cursor-pointer transition-colors group">
-                                            <span className="text-sm text-zinc-800">Color tasks by</span>
-                                            <div className="flex items-center gap-1 text-zinc-400 group-hover:text-zinc-600 transition-colors">
-                                                <span className="text-xs">Default</span>
-                                                <ChevronRight className="h-4 w-4" />
-                                            </div>
-                                        </div>
-
-                                        <div className="flex items-center justify-between py-1 px-2">
-                                            <span className="text-sm text-zinc-800">Show weekends</span>
-                                            <Switch checked={showWeekends} onCheckedChange={setShowWeekends} />
-                                        </div>
-                                        <div className="flex items-center justify-between py-1 px-2">
-                                            <span className="text-sm text-zinc-800">Show critical path</span>
-                                            <Switch checked={showCriticalPath} onCheckedChange={setShowCriticalPath} />
-                                        </div>
-                                        <div className="flex items-center justify-between py-1 px-2">
-                                            <span className="text-sm text-zinc-800">Show slack time</span>
-                                            <Switch checked={showSlackTime} onCheckedChange={setShowSlackTime} />
-                                        </div>
-                                        <div className="flex items-center justify-between py-1 px-2">
-                                            <span className="text-sm text-zinc-800">Full screen mode</span>
-                                            <Switch checked={fullScreenMode} onCheckedChange={setFullScreenMode} />
-                                        </div>
-                                        <div className="flex items-center justify-between py-1 px-2">
-                                            <span className="text-sm text-zinc-800">Reschedule dependencies</span>
-                                            <Switch checked={rescheduleDependencies} onCheckedChange={setRescheduleDependencies} />
-                                        </div>
-                                        <div className="flex items-center justify-between py-1 px-2">
-                                            <span className="text-sm text-zinc-800">Hide empty locations</span>
-                                            <Switch checked={hideEmptyLocations} onCheckedChange={setHideEmptyLocations} />
-                                        </div>
-                                        <div className="flex items-center justify-between py-1 px-2">
-                                            <span className="text-sm text-zinc-800">Show assignees</span>
-                                            <Switch checked={showAssignees} onCheckedChange={setShowAssignees} />
-                                        </div>
-                                        <div className="flex items-center justify-between py-1 px-2">
-                                            <span className="text-sm text-zinc-800">Show task names</span>
-                                            <Switch checked={showTaskNames} onCheckedChange={setShowTaskNames} />
-                                        </div>
-                                        <div className="flex items-center justify-between py-1 px-2">
-                                            <span className="text-sm text-zinc-800">Show tags</span>
-                                            <Switch checked={showTags} onCheckedChange={setShowTags} />
+                                    <div className="flex items-center justify-between py-2 px-2 hover:bg-zinc-50 rounded-lg cursor-pointer transition-colors group">
+                                        <span className="text-sm text-zinc-800">Color tasks by</span>
+                                        <div className="flex items-center gap-1 text-zinc-400 group-hover:text-zinc-600 transition-colors">
+                                            <span className="text-xs">Default</span>
+                                            <ChevronRight className="h-4 w-4" />
                                         </div>
                                     </div>
 
-                                    <div className="h-px bg-zinc-100" />
-
-                                    <div className="space-y-1">
-                                        <p className="px-2 text-[11px] font-bold text-zinc-400 uppercase tracking-widest mb-2">Task visibility</p>
-                                        <div className="flex items-center justify-between py-1 px-2">
-                                            <span className="text-sm text-zinc-800">Show tasks from other Lists</span>
-                                            <Switch checked={showTasksFromOtherLists} onCheckedChange={setShowTasksFromOtherLists} />
-                                        </div>
-                                        <div className="flex items-center justify-between py-1 px-2">
-                                            <span className="text-sm text-zinc-800">Show subtasks from other Lists</span>
-                                            <Switch checked={showSubtasksFromOtherLists} onCheckedChange={setShowSubtasksFromOtherLists} />
-                                        </div>
+                                    <div className="flex items-center justify-between py-1 px-2">
+                                        <span className="text-sm text-zinc-800">Show weekends</span>
+                                        <Switch checked={showWeekends} onCheckedChange={setShowWeekends} />
                                     </div>
-
-                                    <div className="h-px bg-zinc-100" />
-
-                                    <div className="space-y-1">
-                                        <p className="px-2 text-[11px] font-bold text-zinc-400 uppercase tracking-widest mb-2">View settings</p>
-                                        <div className="flex items-center justify-between py-2 px-2 hover:bg-zinc-50 rounded-lg cursor-pointer transition-colors">
-                                            <div className="flex items-center gap-2">
-                                                <UserRound className="h-4 w-4 text-zinc-400" />
-                                                <span className="text-sm text-zinc-800">Default to Me Mode</span>
-                                            </div>
-                                            <Switch checked={defaultToMeMode} onCheckedChange={setDefaultToMeMode} />
-                                        </div>
-                                        <div className="flex items-center justify-between py-2 px-2 hover:bg-zinc-50 rounded-lg cursor-pointer transition-colors group">
-                                            <div className="flex items-center gap-2 text-zinc-800">
-                                                <ArrowRight className="h-4 w-4 text-zinc-400" />
-                                                <span className="text-sm">Move view</span>
-                                            </div>
-                                            <ChevronRight className="h-4 w-4 text-zinc-400 group-hover:text-zinc-600" />
-                                        </div>
-                                        <div className="flex items-center justify-between py-2 px-2 hover:bg-zinc-50 rounded-lg cursor-pointer transition-colors group">
-                                            <div className="flex items-center gap-2 text-zinc-800">
-                                                <Copy className="h-4 w-4 text-zinc-400" />
-                                                <span className="text-sm">Duplicate view</span>
-                                            </div>
-                                            <ChevronRight className="h-4 w-4 text-zinc-400 group-hover:text-zinc-600" />
-                                        </div>
+                                    <div className="flex items-center justify-between py-1 px-2">
+                                        <span className="text-sm text-zinc-800">Show critical path</span>
+                                        <Switch checked={showCriticalPath} onCheckedChange={setShowCriticalPath} />
                                     </div>
-
-                                    <div className="h-px bg-zinc-100" />
-
-                                    <div
-                                        className="flex items-center gap-2 py-3 px-2 hover:bg-zinc-100/60 rounded-lg cursor-pointer transition-colors group"
-                                        onClick={resetViewToDefaults}
-                                    >
-                                        <RefreshCw className="h-4 w-4 text-zinc-500 group-hover:rotate-180 transition-transform duration-500" />
-                                        <span className="text-sm font-medium text-zinc-700">Reset view to defaults</span>
+                                    <div className="flex items-center justify-between py-1 px-2">
+                                        <span className="text-sm text-zinc-800">Show slack time</span>
+                                        <Switch checked={showSlackTime} onCheckedChange={setShowSlackTime} />
+                                    </div>
+                                    <div className="flex items-center justify-between py-1 px-2">
+                                        <span className="text-sm text-zinc-800">Full screen mode</span>
+                                        <Switch checked={fullScreenMode} onCheckedChange={setFullScreenMode} />
+                                    </div>
+                                    <div className="flex items-center justify-between py-1 px-2">
+                                        <span className="text-sm text-zinc-800">Reschedule dependencies</span>
+                                        <Switch checked={rescheduleDependencies} onCheckedChange={setRescheduleDependencies} />
+                                    </div>
+                                    <div className="flex items-center justify-between py-1 px-2">
+                                        <span className="text-sm text-zinc-800">Hide empty locations</span>
+                                        <Switch checked={hideEmptyLocations} onCheckedChange={setHideEmptyLocations} />
+                                    </div>
+                                    <div className="flex items-center justify-between py-1 px-2">
+                                        <span className="text-sm text-zinc-800">Show assignees</span>
+                                        <Switch checked={showAssignees} onCheckedChange={setShowAssignees} />
+                                    </div>
+                                    <div className="flex items-center justify-between py-1 px-2">
+                                        <span className="text-sm text-zinc-800">Show task names</span>
+                                        <Switch checked={showTaskNames} onCheckedChange={setShowTaskNames} />
+                                    </div>
+                                    <div className="flex items-center justify-between py-1 px-2">
+                                        <span className="text-sm text-zinc-800">Show tags</span>
+                                        <Switch checked={showTags} onCheckedChange={setShowTags} />
                                     </div>
                                 </div>
-                            </ScrollArea>
+
+                                <div className="h-px bg-zinc-100" />
+
+                                <div className="space-y-1">
+                                    <p className="px-2 text-[11px] font-bold text-zinc-400 uppercase tracking-widest mb-2">Task visibility</p>
+                                    <div className="flex items-center justify-between py-1 px-2">
+                                        <span className="text-sm text-zinc-800">Show tasks from other Lists</span>
+                                        <Switch checked={showTasksFromOtherLists} onCheckedChange={setShowTasksFromOtherLists} />
+                                    </div>
+                                    <div className="flex items-center justify-between py-1 px-2">
+                                        <span className="text-sm text-zinc-800">Show subtasks from other Lists</span>
+                                        <Switch checked={showSubtasksFromOtherLists} onCheckedChange={setShowSubtasksFromOtherLists} />
+                                    </div>
+                                </div>
+
+                                <div className="h-px bg-zinc-100" />
+
+                                <div className="space-y-1">
+                                    <p className="px-2 text-[11px] font-bold text-zinc-400 uppercase tracking-widest mb-2">View settings</p>
+                                    <div className="flex items-center justify-between py-2 px-2 hover:bg-zinc-50 rounded-lg cursor-pointer transition-colors">
+                                        <div className="flex items-center gap-2">
+                                            <UserRound className="h-4 w-4 text-zinc-400" />
+                                            <span className="text-sm text-zinc-800">Default to Me Mode</span>
+                                        </div>
+                                        <Switch checked={defaultToMeMode} onCheckedChange={setDefaultToMeMode} />
+                                    </div>
+                                    <div className="flex items-center justify-between py-2 px-2 hover:bg-zinc-50 rounded-lg cursor-pointer transition-colors group">
+                                        <div className="flex items-center gap-2 text-zinc-800">
+                                            <ArrowRight className="h-4 w-4 text-zinc-400" />
+                                            <span className="text-sm">Move view</span>
+                                        </div>
+                                        <ChevronRight className="h-4 w-4 text-zinc-400 group-hover:text-zinc-600" />
+                                    </div>
+                                    <div className="flex items-center justify-between py-2 px-2 hover:bg-zinc-50 rounded-lg cursor-pointer transition-colors group">
+                                        <div className="flex items-center gap-2 text-zinc-800">
+                                            <Copy className="h-4 w-4 text-zinc-400" />
+                                            <span className="text-sm">Duplicate view</span>
+                                        </div>
+                                        <ChevronRight className="h-4 w-4 text-zinc-400 group-hover:text-zinc-600" />
+                                    </div>
+                                </div>
+
+                                <div className="h-px bg-zinc-100" />
+
+                                <div
+                                    className="flex items-center gap-2 py-3 px-2 hover:bg-zinc-100/60 rounded-lg cursor-pointer transition-colors group"
+                                    onClick={resetViewToDefaults}
+                                >
+                                    <RefreshCw className="h-4 w-4 text-zinc-500 group-hover:rotate-180 transition-transform duration-500" />
+                                    <span className="text-sm font-medium text-zinc-700">Reset view to defaults</span>
+                                </div>
+                            </div>
+                        </ScrollArea>
                     </SidePanel>
                 )}
 

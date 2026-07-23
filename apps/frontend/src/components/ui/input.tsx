@@ -1,5 +1,5 @@
 import * as React from "react";
-import clsx from "clsx";
+import { cn } from "@/lib/utils";
 
 export type InputProps = React.InputHTMLAttributes<HTMLInputElement> & {
   variant?: "default" | "ghost";
@@ -10,7 +10,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
     return (
       <input
         ref={ref}
-        className={clsx(
+        className={cn(
           variant === "default" && "input",
           variant === "ghost" && "border-0 shadow-none ring-0 px-0",
           className

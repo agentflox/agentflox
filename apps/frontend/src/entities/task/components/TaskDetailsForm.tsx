@@ -32,7 +32,8 @@ import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { TaskCalendar } from './TaskCalendar';
 import { TaskTypeIcon } from './TaskTypeIcon';
-
+import { TaskStatusPopover } from './TaskStatusPopover';
+import { TaskPickerPopover } from './TaskPickerPopover';
 
 // Utility type for common props
 interface SelectOption { id: string; name: string; color?: string; type?: string; image?: string | null } // Added color/type for statuses, image for assignees
@@ -66,6 +67,7 @@ export function TaskDetailsForm({
   onAddStatus
 }: TaskDetailsFormProps) {
   const { register, setValue, watch, formState: { errors } } = useFormContext();
+  const [parentPickerOpen, setParentPickerOpen] = React.useState(false);
   // Removed isCreateListOpen state
 
 
@@ -126,12 +128,12 @@ export function TaskDetailsForm({
       <div className="flex-1 space-y-4">
         {/* Title Input - Large & Clean */}
         <div className="relative group">
-          <Input
+          <input
             id="title"
             placeholder="Task title"
             {...register('title')}
             className={cn(
-              "text-lg font-semibold border-none shadow-none px-0 focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-zinc-400 h-auto py-2 bg-transparent transition-all",
+              "w-full text-lg font-semibold border border-transparent focus:border-zinc-200 outline-none shadow-none px-3 -ml-3 placeholder:text-zinc-400 h-auto py-2 bg-transparent transition-all rounded-md",
               errors.title ? 'text-red-900 placeholder:text-red-300' : 'text-zinc-900'
             )}
             autoFocus
@@ -144,7 +146,7 @@ export function TaskDetailsForm({
         </div>
 
         {/* Description - Rich editor (ClickUp-style) */}
-        <div className="min-h-[100px] border border-zinc-200 rounded-md overflow-hidden bg-white">
+        <div className="min-h-[100px] overflow-hidden bg-white">
           <LazyDescriptionEditor
             minHeight={280}
             content={watch('description') || ''}
@@ -162,74 +164,61 @@ export function TaskDetailsForm({
         <div className="flex flex-wrap items-center gap-2">
 
           {/* Status Pill */}
-          <Select
-            value={statusId || (availableStatuses.length > 0 ? availableStatuses[0].id : '')}
-            onValueChange={(val) => setValue('statusId', val, { shouldDirty: true, shouldTouch: true })}
+          <TaskStatusPopover
+            task={{
+              id: currentTaskId || "new",
+              statusId: statusId || (availableStatuses.length > 0 ? availableStatuses[0].id : ''),
+              taskType: taskTypes?.find(t => t.id === watch('taskTypeId'))
+            }}
+            availableStatuses={availableStatuses}
+            availableTaskTypes={taskTypes || []}
+            onUpdateTask={(_, data) => {
+              if (data.statusId) setValue('statusId', data.statusId, { shouldDirty: true, shouldTouch: true });
+            }}
+            hideTaskTypeTab={true}
           >
-            <SelectTrigger className="h-7 w-auto min-w-[100px] border-zinc-200 bg-white hover:bg-zinc-50 focus:ring-0 px-2.5 rounded-md text-xs font-medium shadow-sm transition-all text-zinc-700">
-              <div className="flex items-center gap-1.5">
-                <div
-                  className="h-1.5 w-1.5 rounded-full ring-2 ring-transparent"
-                  style={{ backgroundColor: selectedStatus?.color || "#94A3B8" }}
-                />
-                <SelectValue placeholder="Status">
-                  {selectedStatus?.name || "Status"}
-                </SelectValue>
-              </div>
-            </SelectTrigger>
-            <SelectContent>
-              {availableStatuses.length > 0 ? (
-                availableStatuses.map(s => (
-                  <SelectItem key={s.id} value={s.id} className="text-xs">
-                    <div className="flex items-center gap-2">
-                      <span className="h-2 w-2 rounded-full" style={{ backgroundColor: s.color || "#94A3B8" }} />
-                      <span>{s.name}</span>
-                    </div>
-                  </SelectItem>
-                ))
-              ) : (
-                <SelectItem value="none" disabled className="text-xs">No statuses available</SelectItem>
-              )}
-            </SelectContent>
-          </Select>
+            <button
+              type="button"
+              className="inline-flex h-7 items-center gap-1.5 px-2.5 rounded-md text-xs font-medium border border-zinc-200 bg-white hover:bg-zinc-50 cursor-pointer transition-all text-zinc-700 outline-none focus:outline-none w-auto min-w-[100px]"
+              title="Edit status"
+            >
+              <span className="h-1.5 w-1.5 rounded-full ring-2 ring-transparent" style={{ backgroundColor: selectedStatus?.color || "#94A3B8" }} />
+              {selectedStatus?.name || "Status"}
+            </button>
+          </TaskStatusPopover>
 
           {/* Task Type Pill */}
           {(() => {
             const selected = taskTypes?.find(t => t.id === watch('taskTypeId'));
             return (
-              <Select
-                value={watch('taskTypeId') || ''}
-                onValueChange={(val) => {
-                  setValue('taskTypeId', val, { shouldDirty: true, shouldTouch: true });
-                  // Also update legacy taskType for compatibility if needed (optional)
-                  const typeName = taskTypes?.find(t => t.id === val)?.name;
-                  if (typeName && ['TASK', 'MILESTONE', 'FORM_RESPONSE', 'MEETING_NOTE'].includes(typeName.toUpperCase())) {
-                    setValue('taskType', typeName.toUpperCase());
+              <TaskStatusPopover
+                task={{
+                  id: currentTaskId || "new",
+                  statusId: statusId || (availableStatuses.length > 0 ? availableStatuses[0].id : ''),
+                  taskType: selected
+                }}
+                availableStatuses={availableStatuses}
+                availableTaskTypes={taskTypes || []}
+                onUpdateTask={(_, data) => {
+                  if (data.taskTypeId) {
+                    setValue('taskTypeId', data.taskTypeId, { shouldDirty: true, shouldTouch: true });
+                    const typeName = taskTypes?.find(t => t.id === data.taskTypeId)?.name;
+                    if (typeName && ['TASK', 'MILESTONE', 'FORM_RESPONSE', 'MEETING_NOTE'].includes(typeName.toUpperCase())) {
+                      setValue('taskType', typeName.toUpperCase());
+                    }
                   }
                 }}
+                hideStatusTab={true}
               >
-                <SelectTrigger className="h-7 w-auto min-w-[100px] border-zinc-200 bg-white hover:bg-zinc-50 focus:ring-0 px-2.5 rounded-md text-xs font-medium shadow-sm transition-all text-zinc-700">
-                  <div className="flex items-center gap-1.5">
-                    <TaskTypeIcon
-                      type={selected}
-                      className="h-3 w-3"
-                    />
-                    <SelectValue placeholder="Type">
-                      {selected?.name || "Type"}
-                    </SelectValue>
-                  </div>
-                </SelectTrigger>
-                <SelectContent>
-                  {taskTypes?.map(t => (
-                    <SelectItem key={t.id} value={t.id} className="text-xs">
-                      <div className="flex items-center gap-2">
-                        <TaskTypeIcon type={t} className="h-3 w-3" />
-                        <span>{t.name}</span>
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                <button
+                  type="button"
+                  className="inline-flex h-7 items-center gap-1.5 px-2.5 rounded-md text-xs font-medium border border-zinc-200 bg-white hover:bg-zinc-50 cursor-pointer transition-all text-zinc-700 outline-none focus:outline-none w-auto min-w-[100px]"
+                  title="Edit task type"
+                >
+                  <TaskTypeIcon type={selected} className="h-3 w-3" />
+                  {selected?.name || "Type"}
+                </button>
+              </TaskStatusPopover>
             );
           })()}
 
@@ -240,7 +229,7 @@ export function TaskDetailsForm({
                 type="button"
                 variant="outline"
                 size="sm"
-                className="h-7 w-auto min-w-[90px] border-zinc-200 bg-white hover:bg-zinc-50 focus:ring-0 px-2.5 rounded-md text-xs font-medium shadow-sm transition-all text-zinc-700"
+                className="h-7 w-auto min-w-[90px] border-zinc-200 bg-white hover:bg-zinc-50 focus:ring-0 px-2.5 rounded-md text-xs font-medium transition-all text-zinc-700"
               >
                 <div className="flex items-center gap-1.5 w-full">
                   <div className={cn("flex items-center gap-1.5",
@@ -294,7 +283,7 @@ export function TaskDetailsForm({
                 variant="outline"
                 size="sm"
                 className={cn(
-                  "h-7 w-auto border-zinc-200 bg-white hover:bg-zinc-50 focus:ring-0 px-2.5 rounded-md text-xs font-medium shadow-sm transition-all",
+                  "h-7 w-auto border-zinc-200 bg-white hover:bg-zinc-50 focus:ring-0 px-2.5 rounded-md text-xs font-medium transition-all",
                   dueDate ? "text-zinc-700" : "text-zinc-500"
                 )}
               >
@@ -329,26 +318,44 @@ export function TaskDetailsForm({
           </Popover>
 
           {/* Parent Task Pill */}
-          {workspaceId && availableParentTasks.length > 0 && (
-            <Select
-              value={watch('parentId') || 'none'}
-              onValueChange={(val) => setValue('parentId', val === 'none' ? null : val, { shouldDirty: true, shouldTouch: true })}
-            >
-              <SelectTrigger className="h-7 w-auto max-w-[150px] border-zinc-200 bg-white hover:bg-zinc-50 focus:ring-0 px-2.5 rounded-md text-xs font-medium shadow-sm transition-all text-zinc-700">
-                <div className="flex items-center gap-1.5 truncate">
-                  <GitBranch className="h-3 w-3 text-zinc-400" />
-                  <SelectValue placeholder="Parent" />
-                </div>
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none" className="text-xs">No parent</SelectItem>
-                {availableParentTasks.map((task) => (
-                  <SelectItem key={task.id} value={task.id} className="text-xs">
-                    {task.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          {workspaceId && (
+            <div className="flex items-center">
+              <TaskPickerPopover
+                open={parentPickerOpen}
+                onOpenChange={setParentPickerOpen}
+                taskId={currentTaskId || ""}
+                workspaceId={workspaceId}
+                onSelect={(id) => setValue('parentId', id, { shouldDirty: true, shouldTouch: true })}
+                trigger={
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className={cn(
+                      "h-7 w-auto max-w-[200px] border-zinc-200 bg-white hover:bg-zinc-50 focus:ring-0 px-2.5 rounded-md text-xs font-medium transition-all",
+                      watch('parentId') ? "text-zinc-700" : "text-zinc-500"
+                    )}
+                  >
+                    <GitBranch className="h-3 w-3 mr-1.5 opacity-70" />
+                    <span className="truncate">
+                      {watch('parentId')
+                        ? availableParentTasks?.find(t => t.id === watch('parentId'))?.name || "Parent"
+                        : "Parent"}
+                    </span>
+                  </Button>
+                }
+              />
+              {watch('parentId') && (
+                <button
+                  type="button"
+                  onClick={() => setValue('parentId', null, { shouldDirty: true, shouldTouch: true })}
+                  className="ml-1 text-zinc-400 hover:text-zinc-700 p-0.5 rounded-md hover:bg-zinc-100"
+                  title="Clear parent"
+                >
+                  <CircleSlash className="h-3 w-3" />
+                </button>
+              )}
+            </div>
           )}
 
         </div>

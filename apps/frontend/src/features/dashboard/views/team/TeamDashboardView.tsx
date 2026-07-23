@@ -102,6 +102,7 @@ import {
   CopyPlus,
   Trash2,
   MoreHorizontal,
+  Table,
   Star
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -138,7 +139,7 @@ const viewConfig: Partial<Record<
   DOC: { label: "Doc", icon: FileText, description: "Document" },
   DOCS: { label: "Docs", icon: FileText, description: "Documents" },
   FORM: { label: "Form", icon: LayoutDashboard, description: "Form" },
-  TABLE: { label: "Table", icon: ClipboardList, description: "Table view" },
+  TABLE: { label: "Table", icon: Table, description: "Table view" },
   TIMELINE: { label: "Timeline", icon: Clock, description: "Timeline view" },
   WORKLOAD: { label: "Workload", icon: BarChart3, description: "Workload view" },
   WHITEBOARD: { label: "Whiteboard", icon: PenTool, description: "Whiteboard" },
@@ -374,6 +375,7 @@ export default function TeamDashboardView({ listId, spaceId, projectId, teamId, 
       case "LIST":
         return (
           <ListView
+            context="team"
             workspaceId={resolvedWorkspaceId}
             listId={listId || undefined}
             spaceId={spaceId}
@@ -388,6 +390,7 @@ export default function TeamDashboardView({ listId, spaceId, projectId, teamId, 
       case "BOARD":
         return (
           <BoardView
+            context="team"
             workspaceId={resolvedWorkspaceId}
             listId={listId || undefined}
             spaceId={spaceId}
@@ -402,6 +405,7 @@ export default function TeamDashboardView({ listId, spaceId, projectId, teamId, 
       case "TABLE":
         return (
           <TableView
+            context="team"
             workspaceId={resolvedWorkspaceId}
             listId={listId || undefined}
             spaceId={spaceId}
@@ -416,6 +420,7 @@ export default function TeamDashboardView({ listId, spaceId, projectId, teamId, 
       case "CALENDAR":
         return (
           <CalendarView
+            context="team"
             workspaceId={resolvedWorkspaceId}
             listId={listId || undefined}
             spaceId={spaceId}
@@ -430,6 +435,7 @@ export default function TeamDashboardView({ listId, spaceId, projectId, teamId, 
       case "GANTT":
         return (
           <GanttView
+            context="team"
             workspaceId={resolvedWorkspaceId}
             listId={listId || undefined}
             spaceId={spaceId}
@@ -444,6 +450,7 @@ export default function TeamDashboardView({ listId, spaceId, projectId, teamId, 
       case "TIMELINE":
         return (
           <TimelineView
+            context="team"
             workspaceId={resolvedWorkspaceId}
             listId={listId || undefined}
             spaceId={spaceId}
@@ -458,6 +465,7 @@ export default function TeamDashboardView({ listId, spaceId, projectId, teamId, 
       case "FORM":
         return (
           <FormView
+            context="team"
             workspaceId={resolvedWorkspaceId}
             listId={listId || undefined}
             spaceId={spaceId}
@@ -472,6 +480,7 @@ export default function TeamDashboardView({ listId, spaceId, projectId, teamId, 
       case "PEOPLE":
         return (
           <PeopleView
+            context="team"
             workspaceId={resolvedWorkspaceId}
             listId={listId || undefined}
             spaceId={spaceId}
@@ -486,6 +495,7 @@ export default function TeamDashboardView({ listId, spaceId, projectId, teamId, 
       case "ACTIVITY":
         return (
           <ActivityView
+            context="team"
             workspaceId={resolvedWorkspaceId}
             listId={listId || undefined}
             spaceId={spaceId}
@@ -500,6 +510,7 @@ export default function TeamDashboardView({ listId, spaceId, projectId, teamId, 
       case "MIND_MAP":
         return (
           <MindMapView
+            context="team"
             workspaceId={resolvedWorkspaceId}
             listId={listId || undefined}
             spaceId={spaceId}
@@ -514,6 +525,7 @@ export default function TeamDashboardView({ listId, spaceId, projectId, teamId, 
       case "WORKLOAD":
         return (
           <WorkloadView
+            context="team"
             workspaceId={resolvedWorkspaceId}
             listId={listId || undefined}
             spaceId={spaceId}
@@ -528,6 +540,7 @@ export default function TeamDashboardView({ listId, spaceId, projectId, teamId, 
       case "WHITEBOARD":
         return (
           <WhiteboardView
+            context="team"
             listId={listId || undefined}
             spaceId={spaceId}
             projectId={projectId}
@@ -541,6 +554,7 @@ export default function TeamDashboardView({ listId, spaceId, projectId, teamId, 
       case "MAP":
         return (
           <MapView
+            context="team"
             listId={listId || undefined}
             spaceId={spaceId}
             projectId={projectId}
@@ -554,6 +568,7 @@ export default function TeamDashboardView({ listId, spaceId, projectId, teamId, 
       case "DASHBOARD":
         return (
           <GenericDashboardView
+            context="team"
             listId={listId || undefined}
             spaceId={spaceId}
             projectId={projectId}
@@ -568,6 +583,7 @@ export default function TeamDashboardView({ listId, spaceId, projectId, teamId, 
       case "DOC":
         return (
           <DocView
+            context="team"
             listId={listId || undefined}
             spaceId={spaceId}
             projectId={projectId}
@@ -593,6 +609,7 @@ export default function TeamDashboardView({ listId, spaceId, projectId, teamId, 
       case "GOOGLE_DRIVE":
         return (
           <EmbedView
+            context="team"
             listId={listId || undefined}
             spaceId={spaceId}
             projectId={projectId}
@@ -740,7 +757,7 @@ export default function TeamDashboardView({ listId, spaceId, projectId, teamId, 
                       />
                     ) : isOverviewTab && activeView ? (
                       <div className="flex-1 overflow-hidden relative">
-                        <Tabs value={activeTab || undefined} onValueChange={handleTabChange} className="h-full flex flex-col">
+                        <Tabs value={activeTab || undefined} onValueChange={handleTabChange} className="h-full flex flex-col gap-0">
                           <div className="border-b border-slate-200 bg-white px-4 py-1">
                             <div className="flex items-center gap-1 min-w-0 overflow-visible">
                               <TabsList className="h-auto bg-transparent p-0 flex-1 min-w-0 flex items-center overflow-visible">

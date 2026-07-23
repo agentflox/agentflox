@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { Settings, Plus, MoreHorizontal, Trash2, ChevronRight, SquarePlus, Search, Maximize2, Minimize2, X, MapPin, Edit } from 'lucide-react';
+import { Settings, Plus, MoreHorizontal, Trash2, ChevronRight, SquarePlus, Search, Maximize2, Minimize2, X, MapPin, Edit, Pin, EyeOff, PinOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
@@ -26,6 +26,8 @@ import { CustomFieldRenderer } from './CustomFieldRenderer';
 import { AddCustomFieldModal } from './AddCustomFieldModal';
 import { CustomFieldSettingsModal } from './CustomFieldSettingsModal';
 import { CustomFieldsManagerModal } from '@/entities/customfields/components/CustomFieldsManagerModal';
+import { FIELD_TYPE_DROPDOWN_OPTIONS } from '../constants/fieldTypes';
+import { Type } from 'lucide-react';
 
 interface CustomFieldsSectionProps {
     taskId: string;
@@ -55,6 +57,27 @@ export function CustomFieldsSection({ taskId, workspaceId }: CustomFieldsSection
         onSuccess: () => {
             utils.task.get.invalidate({ id: taskId });
         },
+    });
+
+    const updateFieldDefinition = trpc.customFields.update.useMutation({
+        onMutate: async (newFieldData) => {
+            await utils.customFields.list.cancel({ workspaceId, applyTo: 'TASK' });
+            const previousFields = utils.customFields.list.getData({ workspaceId, applyTo: 'TASK' });
+            if (previousFields) {
+                utils.customFields.list.setData({ workspaceId, applyTo: 'TASK' }, (old) =>
+                    old?.map((f: any) => f.id === newFieldData.id ? { ...f, isPinned: newFieldData.isPinned } : f)
+                );
+            }
+            return { previousFields };
+        },
+        onError: (err, newFieldData, context) => {
+            if (context?.previousFields) {
+                utils.customFields.list.setData({ workspaceId, applyTo: 'TASK' }, context.previousFields);
+            }
+        },
+        onSettled: () => {
+            utils.customFields.list.invalidate({ workspaceId, applyTo: 'TASK' });
+        }
     });
 
     const deleteCustomField = trpc.customFields.delete.useMutation({
@@ -87,8 +110,15 @@ export function CustomFieldsSection({ taskId, workspaceId }: CustomFieldsSection
     }, [isSearchOpen]);
 
     const filteredFields = React.useMemo(() => {
-        if (!searchQuery) return customFields;
-        return customFields.filter(f => f.name.toLowerCase().includes(searchQuery.toLowerCase()));
+        let fields = customFields as any[];
+        if (searchQuery) {
+            fields = fields.filter(f => f.name.toLowerCase().includes(searchQuery.toLowerCase()));
+        }
+        return [...fields].sort((a, b) => {
+            const aPinned = a.isPinned ? 1 : 0;
+            const bPinned = b.isPinned ? 1 : 0;
+            return bPinned - aPinned;
+        });
     }, [customFields, searchQuery]);
 
     const handleDeleteConfirm = () => {
@@ -203,72 +233,96 @@ export function CustomFieldsSection({ taskId, workspaceId }: CustomFieldsSection
                         {filteredFields.length > 0 ? (
                             <table className="w-full text-sm">
                                 <tbody>
-                                    {filteredFields.map((field) => (
-                                        <tr
-                                            key={field.id}
-                                            className="border-b border-zinc-100 last:border-b-0 hover:bg-zinc-50/50 transition-colors group"
-                                        >
-                                            <td
-                                                className="py-2 px-3 align-top cursor-pointer"
-                                                onClick={() => setSettingsField({
-                                                    id: field.id,
-                                                    name: field.name,
-                                                    type: field.type,
-                                                    config: (field.config && typeof field.config === 'object' && !Array.isArray(field.config))
-                                                        ? field.config as { description?: string }
-                                                        : undefined,
-                                                })}
+                                    {filteredFields.map((field: any, index: number) => {
+                                        const displayType = (field.config as { fieldType?: string } | null)?.fieldType ?? field.type;
+                                        const typeOption = FIELD_TYPE_DROPDOWN_OPTIONS.find((o) => o.type === displayType);
+                                        const TypeIcon = typeOption?.icon ?? Type;
+                                        return (
+                                            <tr
+                                                key={field.id}
+                                                className={cn("border-b border-zinc-100 last:border-b-0 hover:bg-zinc-50/50 transition-colors group", index === 0 && "border-t border-zinc-100")}
                                             >
-                                                <span className="font-normal text-zinc-900">{field.name}</span>
-                                            </td>
-                                            <td className="py-2 px-3 align-top">
-                                                <div className="min-w-[140px]">
-                                                    <CustomFieldRenderer
-                                                        field={field}
-                                                        value={getFieldValue(field.id)}
-                                                        onChange={(value) => handleValueChange(field.id, value)}
-                                                        disabled={updateCustomField.isPending}
-                                                        hideLabel
-                                                    />
-                                                </div>
-                                            </td>
-                                            <td className="py-2 px-2 align-top">
-                                                <DropdownMenu>
-                                                    <DropdownMenuTrigger asChild>
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="icon"
-                                                            className="h-8 w-8 shrink-0"
-                                                        >
-                                                            <MoreHorizontal className="h-4 w-4" />
-                                                        </Button>
-                                                    </DropdownMenuTrigger>
-                                                    <DropdownMenuContent align="end">
-                                                        <DropdownMenuItem
-                                                            onClick={() => setSettingsField({
-                                                                id: field.id,
-                                                                name: field.name,
-                                                                type: field.type,
-                                                                config: (field.config && typeof field.config === 'object' && !Array.isArray(field.config))
-                                                                    ? field.config as { description?: string }
-                                                                    : undefined,
-                                                            })}
-                                                        >
-                                                            <Settings className="h-4 w-4 mr-2" />
-                                                            Settings
-                                                        </DropdownMenuItem>
-                                                        <DropdownMenuItem
-                                                            variant="destructive"
-                                                            onClick={() => setDeleteFieldId(field.id)}
-                                                        >
-                                                            <Trash2 className="h-4 w-4 mr-2" />
-                                                            Delete
-                                                        </DropdownMenuItem>
-                                                    </DropdownMenuContent>
-                                                </DropdownMenu>
-                                            </td>
-                                        </tr>
-                                    ))}
+                                                <td className="py-2 px-3 align-top w-[260px] max-w-[260px]">
+                                                    <div className="flex items-center justify-between mt-0.5">
+                                                        <div className="flex items-center overflow-hidden min-w-0 mr-1">
+                                                            {!((field as any).isVisibleToGuests ?? true) && (
+                                                                <EyeOff className="h-3.5 w-3.5 text-zinc-400 mr-1.5 shrink-0" />
+                                                            )}
+                                                            <TooltipProvider delayDuration={300}>
+                                                                <Tooltip>
+                                                                    <TooltipTrigger asChild>
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                updateFieldDefinition.mutate({
+                                                                                    id: field.id,
+                                                                                    isPinned: !field.isPinned
+                                                                                });
+                                                                            }}
+                                                                            className={cn("mr-1.5 shrink-0 focus:outline-none transition-opacity cursor-pointer flex items-center justify-center h-6 w-6 rounded-md hover:bg-zinc-200/50", !field.isPinned && "opacity-0 group-hover:opacity-100")}
+                                                                        >
+                                                                            {field.isPinned ? (
+                                                                                <PinOff className="h-3.5 w-3.5 transition-colors fill-indigo-500 text-indigo-500" />
+                                                                            ) : (
+                                                                                <Pin className="h-3.5 w-3.5 transition-colors text-zinc-300 hover:text-zinc-400 -rotate-45" />
+                                                                            )}
+                                                                        </button>
+                                                                    </TooltipTrigger>
+                                                                    <TooltipContent className="bg-zinc-900 text-white font-medium text-xs px-2.5 py-1.5 border-0 rounded-md max-w-[200px] text-center" side="top" sideOffset={4}>
+                                                                        {field.isPinned ? "Unpin field" : "Pin (Always show this field everywhere it exists)"}
+                                                                    </TooltipContent>
+                                                                </Tooltip>
+                                                            </TooltipProvider>
+                                                            <TypeIcon className="h-3.5 w-3.5 text-zinc-400 mr-2 shrink-0" />
+                                                            <span className="font-normal text-zinc-900 truncate text-[13px]">{field.name}</span>
+                                                        </div>
+                                                        <TooltipProvider delayDuration={300}>
+                                                            <Tooltip>
+                                                                <TooltipTrigger asChild>
+                                                                    <Button
+                                                                        variant="ghost"
+                                                                        size="icon"
+                                                                        className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity rounded-md hover:bg-zinc-200/50 shrink-0"
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            setSettingsField({
+                                                                                id: field.id,
+                                                                                name: field.name,
+                                                                                type: field.type,
+                                                                                isRequired: field.isRequired ?? false,
+                                                                                isPinned: field.isPinned ?? false,
+                                                                                isVisibleToGuests: field.isVisibleToGuests ?? true,
+                                                                                config: (field.config && typeof field.config === 'object' && !Array.isArray(field.config))
+                                                                                    ? field.config as { description?: string }
+                                                                                    : undefined,
+                                                                            });
+                                                                        }}
+                                                                    >
+                                                                        <Settings className="h-3.5 w-3.5 text-zinc-500" />
+                                                                    </Button>
+                                                                </TooltipTrigger>
+                                                                <TooltipContent className="bg-zinc-900 text-white font-medium text-xs px-2.5 py-1.5 border-0 rounded-md" side="top" sideOffset={4}>
+                                                                    Settings
+                                                                </TooltipContent>
+                                                            </Tooltip>
+                                                        </TooltipProvider>
+                                                    </div>
+                                                </td>
+                                                <td className="py-2 px-3 align-top">
+                                                    <div className="min-w-[140px]">
+                                                        <CustomFieldRenderer
+                                                            field={field}
+                                                            value={getFieldValue(field.id)}
+                                                            onChange={(value) => handleValueChange(field.id, value)}
+                                                            disabled={updateCustomField.isPending}
+                                                            hideLabel
+                                                        />
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
                                 </tbody>
                             </table>
                         ) : (

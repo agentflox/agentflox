@@ -203,7 +203,13 @@ export function AssigneeSelector({
 
     const content = (
         <Command className={cn(hidePopover && "border-none shadow-none")}>
-            <CommandInput placeholder="Search or enter email..." className="h-9 text-xs" />
+            <div className="p-2 pb-0">
+                <CommandInput 
+                    placeholder="Search or enter email..." 
+                    className="h-8 text-xs outline-none focus:ring-0" 
+                    wrapperClassName="border border-zinc-200 rounded-md focus-within:border-indigo-500 focus-within:ring-1 focus-within:ring-indigo-500 bg-white"
+                />
+            </div>
             <CommandList className="max-h-[350px] overflow-y-auto">
                 <CommandEmpty>No results found.</CommandEmpty>
 
@@ -403,7 +409,7 @@ export function AssigneeSelector({
                             variant="outline"
                             size="sm"
                             className={cn(
-                                "h-7 border-zinc-200 bg-white hover:bg-zinc-50 focus:ring-0 px-2.5 rounded-md text-xs font-medium shadow-sm transition-all text-zinc-700 cursor-pointer",
+                                "h-7 border-zinc-200 bg-white hover:bg-zinc-50 focus:ring-0 px-2.5 rounded-md text-xs font-medium transition-all text-zinc-700 cursor-pointer",
                                 assigneeIds.length === 0 && "text-zinc-500 dashed border-zinc-300",
                                 className
                             )}
@@ -470,7 +476,7 @@ export function AssigneeSelector({
                     sideOffset={sideOffset}
                     collisionPadding={collisionPadding}
                     avoidCollisions={avoidCollisions}
-                    className={cn("w-[280px] p-0 shadow-2xl border-zinc-200 overflow-hidden rounded-2xl", contentClassName)}
+                    className={cn("w-[280px] p-0 shadow-2xl border-zinc-200 overflow-hidden rounded-md", contentClassName)}
                 >
                     {content}
                 </PopoverContent>

@@ -79,7 +79,7 @@ import {
     Phone, Mail, MapPin, TrendingUp, Heart, PenTool, MousePointer, ListTodo, AlertCircle, Link, Clock, Target, ListChecks, AlignLeft,
     Spline, CircleMinus, ChevronDown, ChevronsUp, ChevronsLeft, Copy, CopyPlus, Slash,
     Save, ToggleLeft, Undo, RefreshCcw, UserRound, Box, ChevronLeft, Wand2, Pin, Lock, ShieldCheck, Home, ArrowUpDown, ChevronsUpDown,
-    ArrowDown, ArrowUp, ChevronUp, Bot,
+    ArrowDown, ArrowUp, ChevronUp, Bot, CircleSlash
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -97,6 +97,7 @@ import { DuplicateTaskModal } from "@/entities/task/components/DuplicateTaskModa
 import { DestinationPicker } from "@/entities/task/components/DestinationPicker";
 import { TaskCalendar } from "@/entities/task/components/TaskCalendar";
 import { TaskTypeIcon } from "@/entities/task/components/TaskTypeIcon";
+import { TaskStatusPopover } from "@/entities/task/components/TaskStatusPopover";
 import { SingleDateCalendar } from "@/components/ui/date-picker";
 import { ViewToolbarSaveDropdown } from "@/features/dashboard/components/shared/ViewToolbarSaveDropdown";
 import { ViewToolbarClosedPopover } from "@/features/dashboard/components/shared/ViewToolbarClosedPopover";
@@ -391,7 +392,7 @@ const QuickAddCard = ({
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                         <div className={cn("flex items-center gap-2.5 group cursor-pointer transition-colors", priority ? "text-zinc-700" : "text-zinc-400 hover:text-zinc-600")}>
-                            <Flag className={cn("h-5 w-5 opacity-80", priority === "URGENT" && "text-red-500 opacity-100", priority === "HIGH" && "text-orange-500 opacity-100", priority === "NORMAL" && "text-blue-500 opacity-100", priority === "LOW" && "text-zinc-400")} />
+                            <Flag className={cn("h-5 w-5 opacity-80 fill-current", priority === "URGENT" && "text-red-500 opacity-100", priority === "HIGH" && "text-orange-500 opacity-100", priority === "NORMAL" && "text-blue-500 opacity-100", priority === "LOW" && "text-zinc-400")} />
                             <span className="text-[13px] font-medium tracking-tight capitalize">
                                 {priority ? priority.toLowerCase() : "Add priority"}
                             </span>
@@ -400,19 +401,21 @@ const QuickAddCard = ({
                     <DropdownMenuContent align="start" className="w-48">
                         <DropdownMenuLabel className="text-xs">Priority</DropdownMenuLabel>
                         <DropdownMenuItem onClick={() => onPriorityChange("URGENT")}>
-                            <Flag className="h-3.5 w-3.5 mr-2 text-red-500" /> Urgent
+                            <Flag className="h-3.5 w-3.5 mr-2 text-red-500 fill-current" /> Urgent
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => onPriorityChange("HIGH")}>
-                            <Flag className="h-3.5 w-3.5 mr-2 text-orange-500" /> High
+                            <Flag className="h-3.5 w-3.5 mr-2 text-orange-500 fill-current" /> High
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => onPriorityChange("NORMAL")}>
-                            <Flag className="h-3.5 w-3.5 mr-2 text-blue-500" /> Normal
+                            <Flag className="h-3.5 w-3.5 mr-2 text-blue-500 fill-current" /> Normal
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => onPriorityChange("LOW")}>
-                            <Flag className="h-3.5 w-3.5 mr-2 text-zinc-400" /> Low
+                            <Flag className="h-3.5 w-3.5 mr-2 text-zinc-400 fill-current" /> Low
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem onClick={() => onPriorityChange(null)}>Clear</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => onPriorityChange(null)}>
+                            <CircleSlash className="h-3.5 w-3.5 mr-2 text-slate-500" /> Clear
+                        </DropdownMenuItem>
                     </DropdownMenuContent>
                 </DropdownMenu>
 
@@ -430,30 +433,30 @@ const QuickAddCard = ({
                     }
                 />
 
-                <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                        <div className={cn("flex items-center gap-2.5 group cursor-pointer transition-colors", taskType ? "text-zinc-700" : "text-zinc-400 hover:text-zinc-600")}>
-                            {(() => {
-                                const selected = availableTaskTypes?.find(t => t.id === taskType);
-                                return <TaskTypeIcon type={selected} className="h-5 w-5" />;
-                            })()}
-                            <span className="text-[13px] font-medium tracking-tight">
-                                {availableTaskTypes?.find(t => t.id === taskType)?.name || defaultQuickAddTaskType?.name || "Task"}
-                            </span>
-                        </div>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="start" className="w-48">
-                        <DropdownMenuLabel className="text-xs">Task Type</DropdownMenuLabel>
-                        {availableTaskTypes?.map(t => (
-                            <DropdownMenuItem key={t.id} onClick={() => onTaskTypeChange?.(t.id)}>
-                                <div className="flex items-center gap-2 text-xs">
-                                    <TaskTypeIcon type={t} className="h-3.5 w-3.5" />
-                                    <span>{t.name}</span>
-                                </div>
-                            </DropdownMenuItem>
-                        ))}
-                    </DropdownMenuContent>
-                </DropdownMenu>
+                <TaskStatusPopover
+                    task={{
+                        id: "quick-add",
+                        taskType: availableTaskTypes?.find(t => t.id === taskType) || defaultQuickAddTaskType
+                    }}
+                    availableStatuses={[]}
+                    availableTaskTypes={availableTaskTypes || []}
+                    onUpdateTask={(_id, data) => {
+                        if (data.taskTypeId) {
+                            onTaskTypeChange?.(data.taskTypeId);
+                        }
+                    }}
+                    hideStatusTab={true}
+                >
+                    <div className={cn("flex items-center gap-2.5 group cursor-pointer transition-colors", taskType ? "text-zinc-700" : "text-zinc-400 hover:text-zinc-600")}>
+                        {(() => {
+                            const selected = availableTaskTypes?.find(t => t.id === taskType);
+                            return <TaskTypeIcon type={selected} className="h-4 w-4" />;
+                        })()}
+                        <span className="text-[13px] font-medium tracking-tight">
+                            {availableTaskTypes?.find(t => t.id === taskType)?.name || defaultQuickAddTaskType?.name || "Task"}
+                        </span>
+                    </div>
+                </TaskStatusPopover>
             </div>
         </div>
     );
@@ -814,7 +817,7 @@ function BoardColumnInner({
                 <button
                     onClick={() => onToggleCollapse(column.id)}
                     className={cn(
-                        "flex flex-col items-center justify-between gap-2 px-3 py-4 rounded-xl border transition-colors hover:opacity-90 min-h-[72px]",
+                        "flex flex-col items-center justify-between gap-2 px-3 py-4 rounded-xl border transition-colors hover:opacity-90 min-h-[72px] cursor-pointer",
                         badgeStyle
                     )}
                     style={!isStatusGroup && statusStyle.style ? statusStyle.style : undefined}
@@ -869,14 +872,14 @@ function BoardColumnInner({
                 <div className="flex items-center text-zinc-400 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button
                         onClick={() => onToggleCollapse(column.id)}
-                        className="p-1 hover:text-zinc-700 hover:bg-zinc-100 rounded"
+                        className="p-1 hover:text-zinc-700 hover:bg-zinc-100 rounded cursor-pointer"
                         title="Collapse group"
                     >
                         <ChevronRight className="h-3.5 w-3.5 rotate-180" />
                     </button>
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                            <button className="p-1 hover:text-zinc-700 hover:bg-zinc-100 rounded">
+                            <button className="p-1 hover:text-zinc-700 hover:bg-zinc-100 rounded cursor-pointer">
                                 <MoreHorizontal className="h-3.5 w-3.5" />
                             </button>
                         </DropdownMenuTrigger>
@@ -896,7 +899,7 @@ function BoardColumnInner({
                     </DropdownMenu>
                     <button
                         onClick={() => onAddTask(column.id)}
-                        className="p-1 hover:text-zinc-700 hover:bg-zinc-100 rounded"
+                        className="p-1 hover:text-zinc-700 hover:bg-zinc-100 rounded cursor-pointer"
                     >
                         <Plus className="h-3.5 w-3.5" />
                     </button>
@@ -964,20 +967,20 @@ export const BoardColumn = React.memo(BoardColumnInner, (prev, next) => {
     if (prev.isDragActive !== next.isDragActive) return false;
     if (prev.inlineAddColumnId !== next.inlineAddColumnId) return false;
     if (prev.inlineAddTaskId !== next.inlineAddTaskId) return false;
-    
+
     // Check items length
     if (prev.column.items.length !== next.column.items.length) return false;
-    
+
     // Check items shallow identity / IDs
     for (let i = 0; i < prev.column.items.length; i++) {
         if (prev.column.items[i].id !== next.column.items[i].id) return false;
         // Also check if task object updated (updatedAt or just check identity)
         if (prev.column.items[i] !== next.column.items[i]) return false;
     }
-    
+
     if (prev.settings !== next.settings) return false;
     if (prev.expandedParents !== next.expandedParents) return false;
     if (prev.selectedTasks !== next.selectedTasks) return false;
-    
+
     return true; // Skip render
 });

@@ -285,34 +285,34 @@ export const listRouter = router({
 
       const viewSelect = input.includeViewDetails
         ? {
-            id: true,
-            name: true,
-            type: true,
-            description: true,
-            config: true,
-            filters: true,
-            grouping: true,
-            sorting: true,
-            columns: true,
-            position: true,
-            isDefault: true,
-            isShared: true,
-            isPrivate: true,
-            isPinned: true,
-            isLocked: true,
-            isAutosave: true,
-            ownerId: true,
-            createdAt: true,
-            updatedAt: true,
-          }
+          id: true,
+          name: true,
+          type: true,
+          description: true,
+          config: true,
+          filters: true,
+          grouping: true,
+          sorting: true,
+          columns: true,
+          position: true,
+          isDefault: true,
+          isShared: true,
+          isPrivate: true,
+          isPinned: true,
+          isLocked: true,
+          isAutosave: true,
+          ownerId: true,
+          createdAt: true,
+          updatedAt: true,
+        }
         : {
-            id: true,
-            name: true,
-            type: true,
-            position: true,
-            isDefault: true,
-            isPinned: true,
-          };
+          id: true,
+          name: true,
+          type: true,
+          position: true,
+          isDefault: true,
+          isPinned: true,
+        };
 
       const lists = await prisma.list.findMany({
         where,
@@ -515,10 +515,9 @@ export const listRouter = router({
 
         // Create default statuses for the list
         const defaultStatuses = [
-          { name: "Open", type: "OPEN" as const, color: "#94A3B8", position: 0 },
+          { name: "To Do", type: "OPEN" as const, color: "#94A3B8", position: 0 },
           { name: "In Progress", type: "IN_PROGRESS" as const, color: "#3B82F6", position: 1 },
-          { name: "Completed", type: "COMPLETED" as const, color: "#10B981", position: 2 },
-          { name: "Closed", type: "CLOSED" as const, color: "#6B7280", position: 3 },
+          { name: "Done", type: "COMPLETED" as const, color: "#10B981", position: 2 },
         ];
 
         await Promise.all(

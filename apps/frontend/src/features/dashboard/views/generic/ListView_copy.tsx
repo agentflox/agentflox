@@ -101,6 +101,7 @@ import { format } from "date-fns";
 import type { FilterCondition, FilterGroup, ListViewSavedConfig, FilterOperator } from "./listViewTypes";
 import { FILTER_OPTIONS, FIELD_OPERATORS, STANDARD_FIELD_CONFIG } from "./listViewConstants";
 import { evaluateGroup, hasFilterValue, hasAnyValueInGroup, getCustomFieldValue } from "./filterUtils";
+import { ListViewFilterPopoverContent } from "./ListViewFilterPopoverContent";
 export type { FilterOperator, FilterCondition, FilterGroup } from "./listViewTypes";
 import {
     DndContext,
@@ -116,7 +117,6 @@ import {
     type DragEndEvent,
     type DragStartEvent,
     type DragOverEvent,
-    type DragMoveEvent,
 } from "@dnd-kit/core";
 import { LazyDescriptionEditor } from "@/entities/shared/components/LazyDescriptionEditor";
 import { CSS } from "@dnd-kit/utilities";
@@ -127,7 +127,7 @@ type Task = {
     title?: string;
     name?: string;
     description?: string | null;
-    status?: { id: string; name: string; color: string; type?: string } | null;
+    status?: { id: string; name: string; color?: string } | null;
     statusId?: string | null;
     priority?: string | null;
     dueDate?: string | Date | null;
@@ -139,6 +139,10 @@ type Task = {
     list?: { id: string; name: string; statuses?: { id: string; name: string; color: string }[] };
     tags?: string[];
     isStarred?: boolean;
+    space?: { id: string; name: string } | null;
+    team?: { id: string; name: string } | null;
+    project?: { id: string; name: string } | null;
+    folder?: { id: string; name: string } | null;
     timeTracked?: string | null;
     timeEstimate?: string | null;
     _count?: { comments?: number; attachments?: number; other_tasks?: number; checklists?: number };
@@ -250,7 +254,7 @@ function DroppableGroupRow({
     );
 }
 
-export interface TableViewProps {
+export interface ListViewProps {
     spaceId?: string;
     projectId?: string;
     folderId?: string;
@@ -261,6 +265,8 @@ export interface TableViewProps {
     initialConfig?: Record<string, any> | null;
     selectedTaskIdFromParent?: string | null;
     onTaskSelect?: (taskId: string | null) => void;
+    scope?: "owned" | "assigned" | "all";
+    /** Context level that determines default grouping and location display */
     context?: "workspace" | "space" | "project" | "team" | "folder" | "list";
 }
 
@@ -333,20 +339,22 @@ function stableStringify(obj: any) {
     return JSON.stringify(sortObject(obj));
 }
 
-export function TableView({ spaceId, projectId, teamId, listId, folderId, viewId, workspaceId, context, initialConfig, selectedTaskIdFromParent, onTaskSelect }: TableViewProps) {
+export default function ListView({ spaceId, projectId, teamId, listId, viewId, workspaceId, initialConfig, selectedTaskIdFromParent, onTaskSelect, scope, context }: ListViewProps) {
+    /** Whether this context shows tasks from many lists (workspace/space/project/team → show locations) */
     const isBroadContext = context === "workspace" || context === "space" || context === "project" || context === "team";
+
     const router = useRouter();
     const searchParams = useSearchParams();
     const [searchQuery, setSearchQuery] = useState("");
     const [isToolbarSearchOpen, setIsToolbarSearchOpen] = useState(false);
-    const toolbarSearchContainerRef = useRef<HTMLDivElement | null>(null);
-    const toolbarSearchInputRef = useRef<HTMLInputElement | null>(null);
     const [selectedDetailTaskId, setSelectedDetailTaskId] = useState<string | null>(null);
     const effectiveSelectedTaskId = onTaskSelect ? (selectedTaskIdFromParent ?? null) : selectedDetailTaskId;
 
     // Refs for batching updates to prevent UI stutter and race conditions
     const pendingUpdatesRef = useRef<Map<string, any>>(new Map());
     const batchTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
+    const toolbarSearchContainerRef = useRef<HTMLDivElement | null>(null);
+    const toolbarSearchInputRef = useRef<HTMLInputElement | null>(null);
     const openTaskDetail = (taskId: string) => {
         if (onTaskSelect) onTaskSelect(taskId);
         else setSelectedDetailTaskId(taskId);
@@ -363,14 +371,13 @@ export function TableView({ spaceId, projectId, teamId, listId, folderId, viewId
     const [filterAssignee, setFilterAssignee] = useState<string[]>([]);
     const [showCompleted, setShowCompleted] = useState(false);
     const [showCompletedSubtasks, setShowCompletedSubtasks] = useState(false);
-    const [groupBy, setGroupBy] = useState<string>(() => {
-        if (listId && !isBroadContext) return "status";
-        if (folderId) return "status"; // Folders usually have statuses from their lists
-        return "status"; // Default to status instead of list
-    });
+    const [groupBy, setGroupBy] = useState<string>(
+        () => (listId && !isBroadContext ? "status" : "list")
+    );
+    const [alsoGroupByList, setAlsoGroupByList] = useState(true);
     const [groupDirection, setGroupDirection] = useState<"asc" | "desc">("asc");
     const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
-    const [expandedSubtaskMode, setExpandedSubtaskMode] = useState<"collapsed" | "expanded" | "separate">("separate");
+    const [expandedSubtaskMode, setExpandedSubtaskMode] = useState<"collapsed" | "expanded" | "separate">("collapsed");
     const [fieldsPanelOpen, setFieldsPanelOpen] = useState(false);
     const [filtersPanelOpen, setFiltersPanelOpen] = useState(false);
     const [filterGroups, setFilterGroups] = useState<FilterGroup>(() => ({
@@ -417,6 +424,23 @@ export function TableView({ spaceId, projectId, teamId, listId, folderId, viewId
             void utils.view.list.invalidate();
         }
     });
+
+    useEffect(() => {
+        if (!isToolbarSearchOpen) return;
+        const raf = requestAnimationFrame(() => {
+            toolbarSearchInputRef.current?.focus();
+        });
+        const handleOutsideClick = (event: MouseEvent) => {
+            if (toolbarSearchContainerRef.current && !toolbarSearchContainerRef.current.contains(event.target as Node)) {
+                setIsToolbarSearchOpen(false);
+            }
+        };
+        document.addEventListener("mousedown", handleOutsideClick);
+        return () => {
+            cancelAnimationFrame(raf);
+            document.removeEventListener("mousedown", handleOutsideClick);
+        };
+    }, [isToolbarSearchOpen]);
 
     useEffect(() => {
         if (viewData) {
@@ -523,7 +547,7 @@ export function TableView({ spaceId, projectId, teamId, listId, folderId, viewId
     const [customizeViewSubtasksOpen, setCustomizeViewSubtasksOpen] = useState(false);
     const [showEmptyStatuses, setShowEmptyStatuses] = useState(false);
     const [wrapText, setWrapText] = useState(false);
-    const [showTaskLocations, setShowTaskLocations] = useState(false);
+    const [showTaskLocations, setShowTaskLocations] = useState(isBroadContext);
     const [showSubtaskParentNames, setShowSubtaskParentNames] = useState(false);
     const [showTaskProperties, setShowTaskProperties] = useState(true);
     const [showTasksFromOtherLists, setShowTasksFromOtherLists] = useState(false);
@@ -553,7 +577,7 @@ export function TableView({ spaceId, projectId, teamId, listId, folderId, viewId
 
     // Column resizing logic
     const [colWidths, setColWidths] = useState<Record<string, number>>({
-        name: 500,
+        name: 420,
         assignee: 150,
         dueDate: 150,
         priority: 120,
@@ -627,24 +651,6 @@ export function TableView({ spaceId, projectId, teamId, listId, folderId, viewId
     const [isDescriptionModalOpen, setIsDescriptionModalOpen] = useState(false);
     const [descriptionDraft, setDescriptionDraft] = useState("");
 
-    useEffect(() => {
-        if (!isToolbarSearchOpen) return;
-
-        toolbarSearchInputRef.current?.focus();
-
-        const handleClickOutside = (event: MouseEvent) => {
-            const target = event.target as Node;
-            if (!toolbarSearchContainerRef.current?.contains(target)) {
-                setIsToolbarSearchOpen(false);
-            }
-        };
-
-        document.addEventListener("mousedown", handleClickOutside);
-        return () => {
-            document.removeEventListener("mousedown", handleClickOutside);
-        };
-    }, [isToolbarSearchOpen]);
-
     const sensors = useSensors(
         useSensor(MouseSensor, { activationConstraint: { distance: 8 } }),
         useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 5 } })
@@ -678,7 +684,15 @@ export function TableView({ spaceId, projectId, teamId, listId, folderId, viewId
         updateTaskInList,
         addTaskToList,
         removeTaskFromList,
-    } = useGenericTaskViewData({ spaceId, projectId, teamId, listId, workspaceId, includeRelations: true });
+    } = useGenericTaskViewData({
+        spaceId,
+        projectId,
+        teamId,
+        listId,
+        workspaceId,
+        scope,
+        includeRelations: true,
+    });
 
     useEffect(() => {
         if (availableTaskTypes.length > 0 && !inlineAddTaskType) {
@@ -733,17 +747,16 @@ export function TableView({ spaceId, projectId, teamId, listId, folderId, viewId
         return typeMap[fieldType] || Type;
     };
 
-    // Initialize per-parent ordering (UI-only) from current task order
     useEffect(() => {
         const next: Record<string, string[]> = {};
         const rootKey = "root";
         next[rootKey] = [];
 
-        // Always sort by order before grouping to maintain correct sequence
-        const sortedTasks = [...tasks].sort((a, b) => (a.order || "").localeCompare(b.order || ""));
+        // Ensure tasks are sorted by position before building the order map
+        const sortedTasks = [...tasks].sort((a, b) => (a.position || "").localeCompare(b.position || ""));
 
         for (const t of sortedTasks) {
-            const key = normalizeParentId(t.parentId) ?? rootKey;
+            const key = t.parentId ?? rootKey;
             if (!next[key]) next[key] = [];
             next[key].push(t.id);
         }
@@ -813,7 +826,10 @@ export function TableView({ spaceId, projectId, teamId, listId, folderId, viewId
                     if (statusObj) updated.status = statusObj;
                 }
                 if ((variables as any).assigneeIds !== undefined) {
-                    updated.assignees = ((variables as any).assigneeIds as string[]).map((id: string) => ({ user: userById.get(id) }));
+                    updated.assignees = ((variables as any).assigneeIds as string[]).map((id: string) => {
+                        const cleanId = id.startsWith('user:') ? id.replace('user:', '') : id;
+                        return { user: userById.get(cleanId) };
+                    });
                 }
                 if ((variables as any).listId !== undefined) {
                     const listObj = lists.find(l => l.id === (variables as any).listId);
@@ -828,7 +844,20 @@ export function TableView({ spaceId, projectId, teamId, listId, folderId, viewId
     });
     const deleteTask = trpc.task.delete.useMutation({
         onMutate: async (variables) => {
+            // Optimistically remove the task from the list
+            const previousTasks = tasks;
             removeTaskFromList(variables.id);
+            return { previousTasks };
+        },
+        onSuccess: () => {
+            toast.success("Task deleted");
+        },
+        onError: (_err, _variables, context) => {
+            // Rollback: re-add the task if deletion failed
+            if (context?.previousTasks) {
+                void utils.task.list.invalidate(taskListInput);
+            }
+            toast.error("Failed to delete task");
         },
         onSettled: () => {
             void utils.task.list.invalidate(taskListInput);
@@ -1077,27 +1106,11 @@ export function TableView({ spaceId, projectId, teamId, listId, folderId, viewId
                     const o: Record<string, number> = { URGENT: 0, HIGH: 1, NORMAL: 2, LOW: 3 };
                     c = (o[a.priority as string] ?? 99) - (o[b.priority as string] ?? 99);
                 } else if (sortBy === "status") c = (a.status?.name || "").localeCompare(b.status?.name || "");
-                else if (sortBy === "order") c = (a.order || "").localeCompare(b.order || "");
                 return sortDirection === "asc" ? c : -c;
-            });
-        } else {
-            // Explicitly sort by order if manual, using optimistic state first
-            result = [...result].sort((a, b) => {
-                const parentA = normalizeParentId(a.parentId) ?? "root";
-                const parentB = normalizeParentId(b.parentId) ?? "root";
-
-                // If same parent, checking local override allows instant re-render
-                if (parentA === parentB && orderByParent[parentA]) {
-                    const idxA = orderByParent[parentA].indexOf(a.id);
-                    const idxB = orderByParent[parentA].indexOf(b.id);
-                    if (idxA !== -1 && idxB !== -1) return idxA - idxB;
-                }
-
-                return (a.order || "").localeCompare(b.order || "");
             });
         }
         return result;
-    }, [tasks, searchQuery, filterStatus, filterPriority, filterAssignee, showCompleted, showCompletedSubtasks, sortBy, sortDirection, filterGroups, orderByParent]);
+    }, [tasks, searchQuery, filterStatus, filterPriority, filterAssignee, showCompleted, showCompletedSubtasks, sortBy, sortDirection, filterGroups]);
 
     useEffect(() => {
         if (bulkCustomFieldId) {
@@ -1107,12 +1120,119 @@ export function TableView({ spaceId, projectId, teamId, listId, folderId, viewId
         }
     }, [bulkCustomFieldId, filteredTasks, selectedTasks]);
 
-    const groupedTasks = useMemo(() => {
-        if (groupBy === "none") return { "All Tasks": filteredTasks };
+    const effectiveGroupBy = isBroadContext && alsoGroupByList && groupBy === "none" ? "list" : groupBy;
+
+    const { flatGroups, nestedGroups, lookupGroups, allGroupKeys } = useMemo(() => {
+        let flatGroups: Record<string, Task[]> | undefined;
+        let nestedGroups: Record<string, Record<string, Task[]>> | undefined;
+        const lookupGroups: Record<string, Task[]> = {};
+        const allGroupKeys: string[] = [];
+
+        if (effectiveGroupBy === "none") {
+            flatGroups = { "All Tasks": filteredTasks };
+            lookupGroups["All Tasks"] = filteredTasks;
+            allGroupKeys.push("All Tasks");
+            return { flatGroups, nestedGroups, lookupGroups, allGroupKeys };
+        }
+
+        const isNested = isBroadContext && effectiveGroupBy !== "list" && alsoGroupByList;
+
+        if (isNested) {
+            const tempNested: Record<string, Record<string, Task[]>> = {};
+            const listKeys = new Set<string>();
+            filteredTasks.forEach(task => {
+                const listKey = task.list?.id || "no_list";
+                listKeys.add(listKey);
+            });
+
+            listKeys.forEach(listKey => {
+                tempNested[listKey] = {};
+                if (effectiveGroupBy === "status" && showEmptyStatuses) {
+                    allAvailableStatuses.forEach(s => {
+                        if (s.name && (s.listId === listKey || listKey === "no_list")) {
+                            tempNested[listKey][s.name] = [];
+                        }
+                    });
+                }
+            });
+
+            const visibleIds = new Set(filteredTasks.map(t => t.id));
+
+            filteredTasks.forEach(task => {
+                if (expandedSubtaskMode !== "separate" && task.parentId && visibleIds.has(task.parentId)) {
+                    return;
+                }
+
+                const listKey = task.list?.id || "no_list";
+                let subKey = "";
+                if (effectiveGroupBy === "status") subKey = task.status?.name || "No Status";
+                else if (effectiveGroupBy === "priority") subKey = task.priority || "No Priority";
+                else if (effectiveGroupBy === "assignee") subKey = task.assignees?.[0]?.user?.name || task.assignee?.name || "Unassigned";
+                else if (effectiveGroupBy === "dueDate") {
+                    if (!task.dueDate) subKey = "No due date";
+                    else {
+                        const d = new Date(task.dueDate);
+                        subKey = d.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
+                    }
+                } else if (effectiveGroupBy === "taskType") {
+                    const ttId = (task as any).type || (task as any).taskType;
+                    const tt = availableTaskTypes?.find((t: any) => t.id === ttId || t.name === ttId);
+                    subKey = tt?.name || ttId || "No Task Type";
+                } else if (effectiveGroupBy === "tags") {
+                    const tags = (task.tags ?? []) as string[];
+                    subKey = tags[0] || "No Tags";
+                } else {
+                    const cf = FIELD_CONFIG.find(f => f.id === effectiveGroupBy);
+                    if (cf && cf.isCustom && "customField" in cf) {
+                        const value = getCustomFieldValue(task, effectiveGroupBy);
+                        subKey = (value !== null && value !== undefined) ? formatCustomFieldValue(value, cf.customField) : `No ${cf.label}`;
+                    } else {
+                        subKey = "No Group";
+                    }
+                }
+
+                if (!tempNested[listKey][subKey]) tempNested[listKey][subKey] = [];
+                tempNested[listKey][subKey].push(task);
+            });
+
+            const listKeyToName = (key: string) => {
+                if (key === "no_list") return "No List";
+                const list = listsData?.items?.find((l: any) => l.id === key);
+                return list?.name || "Unknown List";
+            };
+            const sortedListKeys = Array.from(listKeys).sort((a, b) => listKeyToName(a).localeCompare(listKeyToName(b)));
+
+            nestedGroups = {};
+            sortedListKeys.forEach(listKey => {
+                const subGroups = tempNested[listKey];
+                const sortedSubEntries = Object.entries(subGroups).sort(([a], [b]) => {
+                    if (effectiveGroupBy === "status") {
+                        const indexA = allAvailableStatuses.findIndex(s => s.name === a && (s.listId === listKey || listKey === "no_list"));
+                        const indexB = allAvailableStatuses.findIndex(s => s.name === b && (s.listId === listKey || listKey === "no_list"));
+                        if (indexA !== -1 && indexB !== -1) {
+                            const diff = indexA - indexB;
+                            return groupDirection === "asc" ? diff : -diff;
+                        }
+                    }
+                    const cmp = a.localeCompare(b);
+                    return groupDirection === "asc" ? cmp : -cmp;
+                });
+                nestedGroups![listKey] = Object.fromEntries(sortedSubEntries);
+                allGroupKeys.push(listKey);
+                // For a top group, we might want its tasks for some calculations, but they are not directly used in rendering right now
+                for (const [subKey, tasks] of Object.entries(nestedGroups![listKey])) {
+                    const combinedKey = `${listKey}::${subKey}`;
+                    lookupGroups[combinedKey] = tasks;
+                    allGroupKeys.push(combinedKey);
+                }
+            });
+            return { flatGroups, nestedGroups, lookupGroups, allGroupKeys };
+        }
+
         const groups: Record<string, Task[]> = {};
 
         // If grouping by status and 'show empty statuses' is enabled, initialize groups for all statuses
-        if (groupBy === "status" && showEmptyStatuses) {
+        if (effectiveGroupBy === "status" && showEmptyStatuses) {
             allAvailableStatuses.forEach(s => {
                 if (s.name) {
                     groups[s.name] = [];
@@ -1131,28 +1251,28 @@ export function TableView({ spaceId, projectId, teamId, listId, folderId, viewId
             }
 
             let key = "";
-            if (groupBy === "status") key = task.status?.name || "No Status";
-            else if (groupBy === "priority") key = task.priority || "No Priority";
-            else if (groupBy === "assignee") key = task.assignees?.[0]?.user?.name || task.assignee?.name || "Unassigned";
-            else if (groupBy === "list") key = task.list?.name || "No List";
-            else if (groupBy === "dueDate") {
+            if (effectiveGroupBy === "status") key = task.status?.name || "No Status";
+            else if (effectiveGroupBy === "priority") key = task.priority || "No Priority";
+            else if (effectiveGroupBy === "assignee") key = task.assignees?.[0]?.user?.name || task.assignee?.name || "Unassigned";
+            else if (effectiveGroupBy === "list") key = task.list?.name || "No List";
+            else if (effectiveGroupBy === "dueDate") {
                 if (!task.dueDate) key = "No due date";
                 else {
                     const d = new Date(task.dueDate);
                     key = d.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
                 }
-            } else if (groupBy === "taskType") {
+            } else if (effectiveGroupBy === "taskType") {
                 const ttId = (task as any).type || (task as any).taskType;
                 const tt = availableTaskTypes?.find((t: any) => t.id === ttId || t.name === ttId);
                 key = tt?.name || ttId || "No Task Type";
-            } else if (groupBy === "tags") {
+            } else if (effectiveGroupBy === "tags") {
                 const tags = (task.tags ?? []) as string[];
                 key = tags[0] || "No Tags";
             } else {
                 // Must be a custom field ID
-                const cf = FIELD_CONFIG.find(f => f.id === groupBy);
+                const cf = FIELD_CONFIG.find(f => f.id === effectiveGroupBy);
                 if (cf && cf.isCustom && "customField" in cf) {
-                    const value = getCustomFieldValue(task, groupBy);
+                    const value = getCustomFieldValue(task, effectiveGroupBy);
                     key = (value !== null && value !== undefined) ? formatCustomFieldValue(value, cf.customField) : `No ${cf.label}`;
                 } else {
                     key = "No Group";
@@ -1166,7 +1286,7 @@ export function TableView({ spaceId, projectId, teamId, listId, folderId, viewId
         // Sort group keys according to groupDirection for stable ordering
         const sortedEntries = Object.entries(groups).sort(([a], [b]) => {
             // For status grouping, try to respect the original order if available
-            if (groupBy === "status") {
+            if (effectiveGroupBy === "status") {
                 const indexA = allAvailableStatuses.findIndex(s => s.name === a);
                 const indexB = allAvailableStatuses.findIndex(s => s.name === b);
 
@@ -1175,35 +1295,39 @@ export function TableView({ spaceId, projectId, teamId, listId, folderId, viewId
                     const diff = indexA - indexB;
                     return groupDirection === "asc" ? diff : -diff;
                 }
-
-                // If one is "No Status" (unknown), put it at start or end depending on direction?
-                // Usually "No Status" goes first or last. Let's stick to localeCompare fallback for mixed types.
             }
 
             const cmp = a.localeCompare(b);
             return groupDirection === "asc" ? cmp : -cmp;
         });
-        return Object.fromEntries(sortedEntries);
-    }, [filteredTasks, groupBy, groupDirection, showEmptyStatuses, allAvailableStatuses]);
+        flatGroups = Object.fromEntries(sortedEntries);
+
+        for (const [key, tasks] of Object.entries(flatGroups)) {
+            lookupGroups[key] = tasks;
+            allGroupKeys.push(key);
+        }
+
+        return { flatGroups, nestedGroups, lookupGroups, allGroupKeys };
+    }, [filteredTasks, effectiveGroupBy, alsoGroupByList, groupDirection, showEmptyStatuses, allAvailableStatuses, isBroadContext, expandedSubtaskMode, FIELD_CONFIG, availableTaskTypes, listsData]);
 
     const flatRowEntries = useMemo(
         () =>
             buildFlatRowEntries({
-                groupBy,
+                groupBy: effectiveGroupBy,
                 filteredTasks,
                 orderByParent,
                 expandedParents,
                 inlineAddGroupKey,
-                expandedSubtaskMode,
             }),
-        [groupBy, filteredTasks, orderByParent, expandedParents, inlineAddGroupKey, expandedSubtaskMode]
+        [effectiveGroupBy, filteredTasks, orderByParent, expandedParents, inlineAddGroupKey]
     );
 
     const groupedFlatRowEntries = useMemo(
         () =>
             buildGroupedFlatRowEntries({
-                groupBy,
-                groupedTasks,
+                groupBy: effectiveGroupBy,
+                groupedTasks: flatGroups,
+                nestedGroupedTasks: nestedGroups,
                 filteredTasks,
                 collapsedGroups,
                 orderByParent,
@@ -1211,7 +1335,7 @@ export function TableView({ spaceId, projectId, teamId, listId, folderId, viewId
                 inlineAddGroupKey,
                 expandedSubtaskMode,
             }),
-        [groupBy, groupedTasks, filteredTasks, collapsedGroups, orderByParent, expandedParents, inlineAddGroupKey, expandedSubtaskMode]
+        [effectiveGroupBy, flatGroups, nestedGroups, filteredTasks, collapsedGroups, orderByParent, expandedParents, inlineAddGroupKey, expandedSubtaskMode]
     );
 
     const orderedTasksForGroup = (groupTasks: Task[]) => {
@@ -1310,8 +1434,7 @@ export function TableView({ spaceId, projectId, teamId, listId, folderId, viewId
     };
 
     const collapseAllGroups = () => {
-        const allGroupNames = Object.keys(groupedTasks);
-        setCollapsedGroups(new Set(allGroupNames));
+        setCollapsedGroups(new Set(allGroupKeys));
     };
 
     const toggleColumn = (col: string) => {
@@ -1398,7 +1521,6 @@ export function TableView({ spaceId, projectId, teamId, listId, folderId, viewId
     };
     const handleTaskDelete = (taskId: string) => {
         deleteTask.mutate({ id: taskId });
-        toast.success("Task deleted");
     };
 
     const subtaskCount = (task: Task) => (task._count?.other_tasks ?? 0);
@@ -1569,7 +1691,7 @@ export function TableView({ spaceId, projectId, teamId, listId, folderId, viewId
         return (
             <TableRow key={`inline:${parentId ?? "root"}`} ref={inlineRowRef} className="bg-violet-50/30 border-b border-zinc-100">
                 <TableCell colSpan={20} className="py-2">
-                    <div className="flex items-center gap-2 min-w-0" style={{ paddingLeft: (depth * 16) + 44 }}>
+                    <div className="flex items-center gap-2 min-w-0" style={{ paddingLeft: depth * 16 + 48 }}>
                         {/* invisible chevron placeholder to align with title chevron at this depth */}
                         <button
                             type="button"
@@ -1605,10 +1727,12 @@ export function TableView({ spaceId, projectId, teamId, listId, folderId, viewId
                                     {(() => {
                                         const typeId = inlineAddTaskType;
                                         const tt = availableTaskTypes?.find((t: any) => t.id === typeId || t.name === typeId);
-                                        if (!tt) {
-                                            return typeof typeId === 'string' ? typeId : 'Task';
-                                        }
-                                        return tt.name;
+                                        return (
+                                            <div className="flex items-center gap-1.5">
+                                                <TaskTypeIcon type={tt || typeId} className="h-3.5 w-3.5" />
+                                                <span>{tt?.name || (typeof typeId === 'string' ? typeId : 'Task')}</span>
+                                            </div>
+                                        );
                                     })()}
                                 </Button>
                             </DropdownMenuTrigger>
@@ -1647,7 +1771,7 @@ export function TableView({ spaceId, projectId, teamId, listId, folderId, viewId
                             value={inlineAddAssigneeIds}
                             onChange={setInlineAddAssigneeIds}
                             trigger={
-                                <Button variant="outline" size="icon" className="h-7 w-7 text-zinc-600 border-zinc-200 hover:bg-zinc-100 hover:text-zinc-900 rounded-full">
+                                <Button variant="outline" size="icon" className="h-7 w-7 text-zinc-600 border-zinc-200 hover:bg-zinc-100 hover:text-zinc-900 rounded-md">
                                     <Users className="h-3.5 w-3.5" />
                                 </Button>
                             }
@@ -1655,7 +1779,7 @@ export function TableView({ spaceId, projectId, teamId, listId, folderId, viewId
 
                         <Popover>
                             <PopoverTrigger asChild>
-                                <Button variant="outline" size="icon" className="h-7 w-7 text-zinc-600 border-zinc-200 hover:bg-zinc-100 hover:text-zinc-900 rounded-full">
+                                <Button variant="outline" size="icon" className="h-7 w-7 text-zinc-600 border-zinc-200 hover:bg-zinc-100 hover:text-zinc-900 rounded-md">
                                     <Calendar className="h-3.5 w-3.5" />
                                 </Button>
                             </PopoverTrigger>
@@ -1675,7 +1799,7 @@ export function TableView({ spaceId, projectId, teamId, listId, folderId, viewId
                                     type="button"
                                     variant="outline"
                                     size="sm"
-                                    className="h-7 w-7 text-zinc-600 border-zinc-200 hover:bg-zinc-100 hover:text-zinc-900 rounded-full"
+                                    className="h-7 w-auto min-w-[90px] border-zinc-200 hover:bg-zinc-50 focus:ring-0 px-2.5 rounded-md text-xs font-medium transition-all text-zinc-700"
                                 >
                                     <div className="flex items-center gap-1.5 w-full">
                                         <div className={cn("flex items-center gap-1.5",
@@ -1715,14 +1839,14 @@ export function TableView({ spaceId, projectId, teamId, listId, folderId, viewId
                             <Button
                                 variant="ghost"
                                 size="sm"
-                                className="h-7 text-xs text-zinc-600 rounded-full hover:bg-zinc-100 px-3"
+                                className="h-7 text-xs text-zinc-600 rounded-md hover:bg-zinc-100 px-3 border border-zinc-200"
                                 onClick={() => handleCancelInlineAdd(true)}
                             >
                                 Cancel
                             </Button>
                             <Button
                                 size="sm"
-                                className="h-7 text-xs bg-zinc-900 hover:bg-zinc-800 text-white rounded-full px-4"
+                                className="h-7 text-xs bg-zinc-900 hover:bg-zinc-800 text-white rounded-md px-4"
                                 onClick={() => handleSaveInlineTask({ parentId, listIdForCreate, statusIdForCreate })}
                                 disabled={!inlineAddTitle.trim() || !listIdForCreate || !resolvedWorkspaceId || createTask.isPending}
                             >
@@ -1742,8 +1866,30 @@ export function TableView({ spaceId, projectId, teamId, listId, folderId, viewId
         const isSelected = selectedTasks.includes(task.id);
         const allTasksForSubtasks = filteredTasks; // Use all filtered tasks to find children regardless of grouping
         const directSubtasks = allTasksForSubtasks.filter((t: Task) => t.parentId === task.id);
+        const childrenCount = directSubtasks.length || subtaskCount(task);
         const hasChildren = directSubtasks.length > 0;
+        const isExpanded = expandedParents.has(task.id);
         const assignees = task.assignees?.length ? task.assignees : (task.assignee ? [{ user: task.assignee }] : []);
+        const checklistCount = task._count?.checklists ?? 0;
+        const attachmentCount = task._count?.attachments ?? 0;
+        const waitingCount = (task as any)._count?.dependencies ?? 0;
+        const blockingCount = (task as any)._count?.blockedDependencies ?? 0;
+        const linkCount = (task as any)._count?.linkedTasks ?? 0;
+        const hasDescription =
+            typeof task.description === "string" &&
+            task.description.replace(/<[^>]*>/g, "").trim().length > 0;
+
+        const subtaskStatusSummary = (() => {
+            if (!directSubtasks.length) return "";
+            const map = new Map<string, number>();
+            directSubtasks.forEach((st: Task) => {
+                const name = (st.status?.name || "No Status").toUpperCase();
+                map.set(name, (map.get(name) ?? 0) + 1);
+            });
+            return Array.from(map.entries())
+                .map(([name, count]) => `${count} ${name}`)
+                .join(", ");
+        })();
 
         const isBeingDraggedOver = dragOverId === task.id && dragActiveId && dragActiveId !== task.id;
         const showDropLineBefore = isBeingDraggedOver && dropPosition === "before";
@@ -1755,12 +1901,13 @@ export function TableView({ spaceId, projectId, teamId, listId, folderId, viewId
                     <>
                         {showDropLineBefore && (
                             <TableRow className="h-0 border-none">
-                                <TableCell colSpan={20} className="p-0 border-none">
+                                <TableCell colSpan={20} className="p-0">
                                     <div
-                                        className="flex items-center h-0 relative"
+                                        className="flex items-center h-0.5"
+                                        style={{ marginLeft: depth * 16 + 96 }}
                                     >
-                                        <div className="absolute left-0 w-2 h-2 rounded-full bg-blue-600 -translate-x-1/2 z-10 shadow-sm border border-white" />
-                                        <div className="flex-1 h-[2px] bg-blue-600 rounded-full" />
+                                        <div className="w-0 h-0 border-y-[4px] border-y-transparent border-l-[7px] border-l-indigo-500" />
+                                        <div className="flex-1 h-[2px] rounded bg-indigo-500" />
                                     </div>
                                 </TableCell>
                             </TableRow>
@@ -1770,30 +1917,59 @@ export function TableView({ spaceId, projectId, teamId, listId, folderId, viewId
                             ref={setNodeRef as any}
                             style={style}
                             className={cn(
-                                "group hover:bg-zinc-50/80 border-b border-zinc-100/80",
+                                "group/row hover:bg-zinc-50/80 border-b border-zinc-100/80",
                                 isSelected && "bg-blue-50/30",
                                 depth > 0 && "bg-zinc-50/50",
                                 isDragging && "bg-zinc-200/70"
                             )}
                         >
-                            <TableCell className="py-2 overflow-hidden" style={{ width: Math.max(colWidths.name || 200, 200), minWidth: Math.max(colWidths.name || 200, 200) }}>
+                            <TableCell className="w-full py-2 overflow-hidden" style={{ minWidth: Math.max(colWidths.name || 200, 200) }}>
                                 <div className={cn("flex gap-2 min-w-0", (wrapText || (showTaskLocations && (task as any).list)) ? "items-start py-1" : "items-center")}>
-                                    <div className="flex items-center gap-1 shrink-0 mt-0.5 w-10 relative group/action h-6">
+                                    <div className="flex items-center gap-1 shrink-0 w-10 relative group/action h-6">
                                         <div className={cn(
-                                            "absolute inset-0 flex items-center justify-center text-[10px] text-zinc-400 font-medium transition-opacity",
-                                            (isSelected) ? "opacity-0" : "opacity-100 group-hover:opacity-0"
-                                        )}>
-                                            {index !== undefined ? index + 1 : ""}
-                                        </div>
-                                        <div className={cn(
-                                            "flex items-center gap-1 transition-opacity relative z-10",
-                                            (isSelected) ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+                                            "flex items-center gap-1 transition-opacity",
+                                            (isSelected) ? "opacity-100" : "opacity-0 group-hover/row:opacity-100"
                                         )}>
                                             <GripVertical className="h-4 w-4 text-zinc-300 cursor-grab shrink-0" {...attributes} {...listeners} />
                                             <Checkbox checked={isSelected} onCheckedChange={() => setSelectedTasks(prev => prev.includes(task.id) ? prev.filter(id => id !== task.id) : [...prev, task.id])} className="border-zinc-300 shrink-0 h-4 w-4 cursor-pointer" />
                                         </div>
                                     </div>
-                                    <div className={cn("flex items-center gap-2 shrink-0 h-6", (wrapText || (showTaskLocations && (task as any).list)) && "mt-1")} style={{ paddingLeft: depth * 16 }}>
+                                    <div className={cn("flex items-center gap-2 shrink-0 h-6")} style={{ paddingLeft: depth * 16 }}>
+                                        <Tooltip>
+                                            <TooltipTrigger asChild>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        const parentKey = `parent:${task.id}`;
+                                                        if (!isExpanded && directSubtasks.length === 0) {
+                                                            // Expanding a parent with no visible children ?Eopen inline add automatically
+                                                            openInlineAdd(parentKey, task.id);
+                                                        } else if (isExpanded && inlineAddGroupKey === parentKey && directSubtasks.length === 0) {
+                                                            // Collapsing again ?Eclose inline add row if it was auto-opened
+                                                            setInlineAddGroupKey(null);
+                                                            setInlineAddParentId(null);
+                                                        }
+                                                        setExpandedParents(prev => {
+                                                            const next = new Set(prev);
+                                                            if (next.has(task.id)) next.delete(task.id);
+                                                            else next.add(task.id);
+                                                            return next;
+                                                        });
+                                                    }}
+                                                    className={cn(
+                                                        "shrink-0 flex items-center justify-center h-6 w-6 rounded transition-all duration-150 cursor-pointer",
+                                                        hasChildren
+                                                            ? "opacity-100 hover:bg-zinc-200/80 text-zinc-500 hover:text-zinc-700"
+                                                            : "opacity-0 group-hover/row:opacity-100 hover:bg-zinc-200/80 text-zinc-300 hover:text-zinc-400"
+                                                    )}
+                                                >
+                                                    <Play className={cn("h-2.5 w-2.5 shrink-0 fill-current transition-transform duration-150", isExpanded ? "rotate-90" : "rotate-0")} />
+                                                </button>
+                                            </TooltipTrigger>
+                                            <TooltipContent className="bg-zinc-900 text-white font-medium text-xs px-2.5 py-1.5 border-0 rounded-md" side="top" sideOffset={4}>
+                                                {isExpanded ? "Collapse subtasks" : "Expand subtasks"}
+                                            </TooltipContent>
+                                        </Tooltip>
                                         <TooltipProvider>
                                             <Tooltip delayDuration={300}>
                                                 <TaskStatusPopover
@@ -1833,7 +2009,9 @@ export function TableView({ spaceId, projectId, teamId, listId, folderId, viewId
                                             const contextList = (listsData?.items as any[])?.find((l: any) => l.id === listId);
 
                                             // Prioritize context list data as it contains full hierarchy
+                                            const teamName = contextList?.team?.name ?? (task as any).list?.team?.name;
                                             const spaceName = contextList?.space?.name ?? (task as any).list?.space?.name;
+                                            const projectName = contextList?.project?.name ?? (task as any).list?.project?.name;
                                             const folderName = contextList?.folder?.name ?? (task as any).list?.folder?.name;
                                             const listName = contextList?.name ?? (task as any).list?.name;
 
@@ -1841,9 +2019,21 @@ export function TableView({ spaceId, projectId, teamId, listId, folderId, viewId
 
                                             return (
                                                 <div className="flex items-center gap-1 text-[10px] text-zinc-500 mb-1 leading-normal h-3 overflow-hidden whitespace-nowrap">
+                                                    {teamName && (
+                                                        <>
+                                                            <span className="shrink-0">{teamName}</span>
+                                                            <span className="text-zinc-300">/</span>
+                                                        </>
+                                                    )}
                                                     {spaceName && (
                                                         <>
                                                             <span className="shrink-0">{spaceName}</span>
+                                                            <span className="text-zinc-300">/</span>
+                                                        </>
+                                                    )}
+                                                    {projectName && (
+                                                        <>
+                                                            <span className="shrink-0">{projectName}</span>
                                                             <span className="text-zinc-300">/</span>
                                                         </>
                                                     )}
@@ -1896,10 +2086,219 @@ export function TableView({ spaceId, projectId, teamId, listId, folderId, viewId
                                                         wrapText ? "whitespace-normal break-words" : "truncate"
                                                     )}
                                                 >
-                                                    {hasChildren && <Spline className="h-3 w-3 scale-y-[-1] mr-1 inline-block text-zinc-400" />}
                                                     {task.title || task.name}
                                                 </span>
                                             )}
+                                            {childrenCount > 0 && (
+                                                <Tooltip>
+                                                    <TooltipTrigger asChild>
+                                                        <button
+                                                            type="button"
+                                                            className="flex items-center gap-0.5 text-[10px] text-zinc-400 hover:text-zinc-600 cursor-pointer shrink-0 mt-0.5"
+                                                            onClick={() => (hasChildren ? toggleParentExpand(task.id) : undefined)}
+                                                        >
+                                                            <Spline className="h-3 w-3 scale-y-[-1]" />
+                                                            <span>{childrenCount}</span>
+                                                        </button>
+                                                    </TooltipTrigger>
+                                                    <TooltipContent>
+                                                        <p className="text-xs">{subtaskStatusSummary || `${childrenCount} subtasks`}</p>
+                                                    </TooltipContent>
+                                                </Tooltip>
+                                            )}
+
+                                            {hasDescription && showTaskProperties && (
+                                                <HoverCard openDelay={250} closeDelay={100}>
+                                                    <HoverCardTrigger asChild>
+                                                        <button
+                                                            type="button"
+                                                            className="p-0.5 rounded hover:bg-zinc-200/80 text-zinc-400 hover:text-zinc-700 cursor-pointer shrink-0"
+                                                        >
+                                                            <AlignLeft className="h-3.5 w-3.5" />
+                                                        </button>
+                                                    </HoverCardTrigger>
+                                                    <HoverCardContent className="w-[420px] max-w-[min(520px,calc(100vw-2rem))] p-4" align="start">
+                                                        <h3 className="text-sm font-semibold mb-2">Goal</h3>
+                                                        <div
+                                                            className="prose prose-sm max-w-none text-zinc-700 [&_a]:text-blue-600 [&_a]:underline"
+                                                            dangerouslySetInnerHTML={{ __html: task.description ?? "" }}
+                                                        />
+                                                    </HoverCardContent>
+                                                </HoverCard>
+                                            )}
+                                            <div className="flex items-center gap-1.5 shrink-0 ml-1">
+                                                {attachmentCount > 0 && showTaskProperties && (
+                                                    <button
+                                                        type="button"
+                                                        className="flex items-center gap-0.5 text-zinc-400 text-xs hover:text-zinc-700 cursor-pointer"
+                                                        onClick={() => openTaskDetail(task.id)}
+                                                    >
+                                                        <Paperclip className="h-3 w-3" />
+                                                    </button>
+                                                )}
+                                                {checklistCount > 0 && showTaskProperties && (
+                                                    <button
+                                                        type="button"
+                                                        className="flex items-center gap-0.5 text-zinc-400 text-xs hover:text-zinc-700 cursor-pointer"
+                                                        onClick={() => openTaskDetail(task.id)}
+                                                    >
+                                                        <ListChecks className="h-3 w-3" />
+                                                        <span>0/{checklistCount}</span>
+                                                    </button>
+                                                )}
+                                                {blockingCount > 0 && showTaskProperties && (
+                                                    <button
+                                                        type="button"
+                                                        className="p-0.5 rounded hover:bg-zinc-200/80 cursor-pointer"
+                                                        onClick={(e) => { e.stopPropagation(); setDependenciesTask(task); }}
+                                                    >
+                                                        <CircleMinus className="h-3.5 w-3.5 text-red-500" />
+                                                    </button>
+                                                )}
+                                                {waitingCount > 0 && showTaskProperties && (
+                                                    <button
+                                                        type="button"
+                                                        className="p-0.5 rounded hover:bg-zinc-200/80 cursor-pointer"
+                                                        onClick={(e) => { e.stopPropagation(); setDependenciesTask(task); }}
+                                                    >
+                                                        <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
+                                                    </button>
+                                                )}
+                                                {linkCount > 0 && showTaskProperties && (
+                                                    <button
+                                                        type="button"
+                                                        className="p-0.5 rounded hover:bg-zinc-200/80 cursor-pointer"
+                                                        onClick={(e) => { e.stopPropagation(); setDependenciesTask(task); }}
+                                                    >
+                                                        <Link className="h-3.5 w-3.5 text-blue-500" />
+                                                    </button>
+                                                )}
+                                                {(task.tags?.length ?? 0) > 0 && (
+                                                    <div className="flex items-center gap-1 ml-1">
+                                                        {task.tags!.slice(0, 2).map((encoded) => {
+                                                            const parsed = parseEncodedTag(encoded);
+                                                            const bg = parsed.color ?? "#ede9fe";
+                                                            return (
+                                                                <div
+                                                                    key={encoded}
+                                                                    className="relative inline-flex items-center group/tag"
+                                                                >
+                                                                    <span
+                                                                        className="px-1.5 py-1 rounded-md text-[10px] font-medium cursor-pointer"
+                                                                        style={{
+                                                                            backgroundColor: bg,
+                                                                            color: "#3730a3",
+                                                                        }}
+                                                                    >
+                                                                        {parsed.label}
+                                                                    </span>
+                                                                    <div
+                                                                        style={{ backgroundColor: bg }}
+                                                                        className="absolute inset-0 flex items-center text-bold justify-between text-zinc-400 px-1 rounded-full text-[10px] opacity-0 group-hover/tag:opacity-100 transition-opacity pointer-events-none"
+                                                                    >
+                                                                        <button
+                                                                            type="button"
+                                                                            className="px-0.5 pointer-events-auto cursor-pointer hover:text-zinc-700"
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                openTagEditor(task as any, encoded);
+                                                                            }}
+                                                                            title="Tag settings"
+                                                                        >
+                                                                            <MoreHorizontal className="h-3 w-3" />
+                                                                        </button>
+                                                                        <button
+                                                                            type="button"
+                                                                            className="px-0.5 pointer-events-auto cursor-pointer hover:text-red-500"
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                const nextTags = (task.tags ?? []).filter((t) => t !== encoded);
+                                                                                void updateTask.mutateAsync({ id: task.id, tags: nextTags } as any);
+                                                                            }}
+                                                                            title="Remove tag"
+                                                                        >
+                                                                            <X className="h-3 w-3" />
+                                                                        </button>
+                                                                    </div>
+                                                                </div>
+                                                            );
+                                                        })}
+                                                        {task.tags!.length > 2 && (
+                                                            <TagsPopover
+                                                                tags={task.tags ?? []}
+                                                                onChange={(nextTags) => {
+                                                                    // Preserve existing encoded values; new ones are plain labels
+                                                                    void updateTask.mutateAsync({ id: task.id, tags: nextTags } as any);
+                                                                }}
+                                                                trigger={
+                                                                    <button
+                                                                        type="button"
+                                                                        className="px-1.5 py-0.5 rounded-full bg-zinc-100 text-zinc-500 text-[10px] font-medium cursor-pointer"
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                        }}
+                                                                    >
+                                                                        +{task.tags!.length - 2}
+                                                                    </button>
+                                                                }
+                                                            />
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            <div className="flex items-center gap-1.5 shrink-0 ml-auto opacity-0 group-hover/row:opacity-100 transition-opacity">
+                                                {/* Inline actions: add subtask, rename, tags */}
+                                                <Tooltip>
+                                                    <TooltipTrigger asChild>
+                                                        <button
+                                                            type="button"
+                                                            className="p-0.5 rounded hover:bg-zinc-200/80 text-zinc-400 hover:text-zinc-700 cursor-pointer"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setExpandedParents(prev => {
+                                                                    const next = new Set(prev);
+                                                                    next.add(task.id);
+                                                                    return next;
+                                                                });
+                                                                const parentKey = `parent:${task.id}`;
+                                                                openInlineAdd(parentKey, task.id);
+                                                            }}
+                                                        >
+                                                            <Plus className="h-3.5 w-3.5" />
+                                                        </button>
+                                                    </TooltipTrigger>
+                                                    <TooltipContent side="top" sideOffset={4} className="bg-zinc-900 text-white font-medium text-xs px-2.5 py-1.5 border-0 rounded-md">
+                                                        Add subtask
+                                                    </TooltipContent>
+                                                </Tooltip>
+                                                <Tooltip>
+                                                    <TooltipTrigger asChild>
+                                                        <button
+                                                            type="button"
+                                                            className="p-0.5 rounded hover:bg-zinc-200/80 text-zinc-400 hover:text-zinc-700 cursor-pointer"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setRenamingTaskId(task.id);
+                                                                setRenameDraft(task.title || task.name || "");
+                                                            }}
+                                                        >
+                                                            <Edit3 className="h-3.5 w-3.5" />
+                                                        </button>
+                                                    </TooltipTrigger>
+                                                    <TooltipContent side="top" sideOffset={4} className="bg-zinc-900 text-white font-medium text-xs px-2.5 py-1.5 border-0 rounded-md">
+                                                        Rename task
+                                                    </TooltipContent>
+                                                </Tooltip>
+                                                {(task.tags?.length ?? 0) <= 2 && (
+                                                    <TagsPopover
+                                                        tags={task.tags ?? []}
+                                                        onChange={(nextTags) => {
+                                                            void updateTask.mutateAsync({ id: task.id, tags: nextTags } as any);
+                                                        }}
+                                                    />
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -1917,10 +2316,8 @@ export function TableView({ spaceId, projectId, teamId, listId, folderId, viewId
                                         sideOffset={8}
                                         value={formatAssigneeIdsForSelector(task.assignees ?? [])}
                                         onChange={(newIds) => {
-                                            const cleanIds = newIds;
                                             handleTaskUpdate(task.id, {
-                                                assigneeIds: cleanIds,
-                                                assigneeId: cleanIds[0] || null,
+                                                assigneeIds: newIds,
                                             });
                                         }}
                                         trigger={
@@ -1979,7 +2376,7 @@ export function TableView({ spaceId, projectId, teamId, listId, folderId, viewId
                                                 type="button"
                                                 variant="outline"
                                                 size="sm"
-                                                className="h-7 w-auto min-w-[90px] border-zinc-200 bg-white hover:bg-zinc-50 focus:ring-0 px-2.5 rounded-md text-xs font-medium transition-all text-zinc-700 cursor-pointer"
+                                                className="h-6 w-auto min-w-[90px] border-zinc-200 bg-white hover:bg-zinc-50 focus:ring-0 px-2.5 rounded-sm text-xs font-medium transition-all text-zinc-700 cursor-pointer"
                                                 onClick={(e) => { e.stopPropagation(); }}
                                                 title="Edit priority"
                                             >
@@ -2137,7 +2534,7 @@ export function TableView({ spaceId, projectId, teamId, listId, folderId, viewId
                                     </TableCell>
                                 );
                             })}
-                            <TableCell className="w-full py-2 pr-4 text-right">
+                            <TableCell className="w-[50px] py-2 pr-4 text-right">
                                 <TaskActionsPopover
                                     task={task as any}
                                     context={spaceId ? "SPACE" : projectId ? "PROJECT" : "GENERAL"}
@@ -2173,12 +2570,13 @@ export function TableView({ spaceId, projectId, teamId, listId, folderId, viewId
 
                         {showDropLineAfter && (
                             <TableRow className="h-0 border-none">
-                                <TableCell colSpan={20} className="p-0 border-none">
+                                <TableCell colSpan={20} className="p-0">
                                     <div
-                                        className="flex items-center h-0 relative"
+                                        className="flex items-center h-0.5"
+                                        style={{ marginLeft: (depth + 1) * 16 + 96 }}
                                     >
-                                        <div className="absolute left-0 w-2 h-2 rounded-full bg-blue-600 -translate-x-1/2 z-10 shadow-sm border border-white" />
-                                        <div className="flex-1 h-[2px] bg-blue-600 rounded-full" />
+                                        <div className="w-0 h-0 border-y-[4px] border-y-transparent border-l-[7px] border-l-indigo-500" />
+                                        <div className="flex-1 h-[2px] rounded bg-indigo-500" />
                                     </div>
                                 </TableCell>
                             </TableRow>
@@ -2191,12 +2589,19 @@ export function TableView({ spaceId, projectId, teamId, listId, folderId, viewId
 
     const renderGroupColumnHeaderRow = (key: string) => {
         const headText = "text-xs font-medium text-zinc-500";
+        const headNameText = "text-xs font-medium text-zinc-500 ml-4"
         return (
-            <TableRow key={key} className="bg-white border-b border-zinc-100">
-                <TableHead className="w-[50px] pl-2 py-2" />
-                <TableHead className="relative py-2" style={{ width: Math.max(colWidths.name || 200, 200), minWidth: Math.max(colWidths.name || 200, 200) }}>
-                    <div className="pl-3">
-                        <span className={headText}>Name</span>
+            <TableRow key={key} className="bg-white border-b border-zinc-100 group/header">
+                <TableHead className="w-full relative py-2" style={{ minWidth: Math.max(colWidths.name || 200, 200) }}>
+                    <div className="flex items-center gap-3 pl-3">
+                        <div className="w-4 h-4 flex items-center justify-center">
+                            <Checkbox
+                                checked={selectedTasks.length === filteredTasks.length && filteredTasks.length > 0}
+                                onCheckedChange={() => setSelectedTasks(selectedTasks.length === filteredTasks.length ? [] : filteredTasks.map(t => t.id))}
+                                className="border-zinc-300 opacity-0 group-hover/header:opacity-100 transition-opacity cursor-pointer"
+                            />
+                        </div>
+                        <span className={headNameText}>Name</span>
                     </div>
                     <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-zinc-300 z-10" onMouseDown={(e) => startResize(e, "name")} onClick={(e) => e.stopPropagation()} />
                 </TableHead>
@@ -2266,17 +2671,10 @@ export function TableView({ spaceId, projectId, teamId, listId, folderId, viewId
                         <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-zinc-300 z-10" onMouseDown={(e) => startResize(e, f.id)} onClick={(e) => e.stopPropagation()} />
                     </TableHead>
                 ))}
-                <TableHead className="w-full pl-4 py-2 text-left">
-                    <TooltipProvider>
-                        <Tooltip>
-                            <TooltipTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-7 w-7 text-zinc-400 hover:text-zinc-600" onClick={() => { setFieldsPanelOpen(true); setFiltersPanelOpen(false); setAssigneesPanelOpen(false); }}>
-                                    <Plus className="h-3.5 w-3.5" />
-                                </Button>
-                            </TooltipTrigger>
-                            <TooltipContent side="bottom">Add column or manage fields</TooltipContent>
-                        </Tooltip>
-                    </TooltipProvider>
+                <TableHead className="w-[50px] pr-4 py-2 text-right">
+                    <Button variant="ghost" size="icon" className="h-7 w-7 text-zinc-400 hover:text-zinc-600" onClick={() => { setFieldsPanelOpen(true); setFiltersPanelOpen(false); setAssigneesPanelOpen(false); }} title="Add column or manage fields">
+                        <Plus className="h-3.5 w-3.5" />
+                    </Button>
                 </TableHead>
             </TableRow>
         );
@@ -2284,17 +2682,130 @@ export function TableView({ spaceId, projectId, teamId, listId, folderId, viewId
 
     const renderGroupedFlatRowEntry = useCallback(
         (entry: GroupedFlatRowEntry) => {
-            const groupTasks = groupedTasks[entry.groupName] ?? [];
+            const groupTasks = lookupGroups[entry.groupName] ?? [];
             const pillColor = getGroupPillColor(entry.groupName, groupTasks);
             const listIdForGroup = getListIdForGroup(groupTasks);
             const statusIdForGroup = getStatusIdForGroup(entry.groupName);
             const isExpanded = !collapsedGroups.has(entry.groupName);
 
             switch (entry.kind) {
-                case "group-header":
+                case "top-group-header": {
+                    const listId = (entry as any).listId;
+                    const contextList = (listsData?.items as any[])?.find((l: any) => l.id === listId);
+                    const listName = contextList?.name || "No List";
+                    const teamName = contextList?.team?.name;
+                    const spaceName = contextList?.space?.name;
+                    const projectName = contextList?.project?.name;
+                    const folderName = contextList?.folder?.name ?? contextList?.parentFolder?.name;
+
+                    const parts: string[] = [];
+                    if (teamName) parts.push(teamName);
+                    if (spaceName) parts.push(spaceName);
+                    if (projectName) parts.push(projectName);
+                    if (folderName) parts.push(folderName);
+                    const groupLocationPath = parts.length > 0 ? parts.join(" / ") : null;
+
+                    return (
+                        <DroppableGroupRow key={`top-group-header:${listId}`} id={`top-group:${listId}`} className="border-none bg-transparent">
+                            <TableCell colSpan={20} className="py-2 px-4 align-top">
+                                {groupLocationPath && (
+                                    <div className="text-[12px] text-zinc-500 mb-0 ml-5 mt-1">
+                                        {groupLocationPath}
+                                    </div>
+                                )}
+                                <div className="flex items-center gap-2 py-1">
+                                    <button
+                                        type="button"
+                                        className="flex items-center gap-2 min-w-0 text-left rounded-md hover:bg-zinc-100/80 px-2 py-1 -mx-2 cursor-pointer"
+                                        onClick={() => toggleGroup(listId)}
+                                    >
+                                        <ChevronRight className={cn("h-4 w-4 text-zinc-500 shrink-0 transition-transform", isExpanded && "rotate-90")} />
+                                        <span className="inline-flex items-center gap-1.5 text-[16px] font-semibold text-zinc-900 shrink-0">
+                                            {listName}
+                                        </span>
+                                    </button>
+                                </div>
+                            </TableCell>
+                        </DroppableGroupRow>
+                    );
+                }
+                case "subgroup-header": {
+                    const subGroupName = (entry as any).subGroupName;
+                    const combinedKey = entry.groupName;
+                    const subGroupTasks = lookupGroups[combinedKey] || [];
+                    const subPillColor = getGroupPillColor(subGroupName, subGroupTasks);
+                    return (
+                        <DroppableGroupRow key={`subgroup-header:${combinedKey}`} id={`subgroup:${combinedKey}`} className="border-none bg-transparent">
+                            <TableCell colSpan={20} className="py-1.5 px-4 align-top">
+                                <div className="flex items-center gap-2 py-1 ml-6">
+                                    <button
+                                        type="button"
+                                        className="flex items-center gap-2 min-w-0 text-left rounded-md hover:bg-zinc-100/80 px-2 py-1 -mx-2 cursor-pointer"
+                                        onClick={() => toggleGroup(combinedKey)}
+                                    >
+                                        <ChevronRight className={cn("h-3.5 w-3.5 text-zinc-500 shrink-0 transition-transform", isExpanded && "rotate-90")} />
+                                        {effectiveGroupBy === "status" ? (() => {
+                                            const isToDo = subGroupName.toLowerCase() === "to do";
+                                            const hasColor = subPillColor && subPillColor !== "#87909e" && !isToDo;
+                                            return (
+                                                <span
+                                                    className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-[4px] text-[11px] font-bold uppercase tracking-wider shrink-0"
+                                                    style={{
+                                                        backgroundColor: hasColor ? subPillColor : "#f4f4f5",
+                                                        color: hasColor ? "#ffffff" : "#52525b",
+                                                    }}
+                                                >
+                                                    {isToDo ? (
+                                                        <CircleDashed className="h-3.5 w-3.5 shrink-0" />
+                                                    ) : (
+                                                        <CircleDot className="h-3.5 w-3.5 shrink-0" />
+                                                    )}
+                                                    {subGroupName}
+                                                </span>
+                                            );
+                                        })() : (
+                                            <span className="inline-flex items-center gap-1.5 text-[14px] font-medium text-zinc-800 shrink-0">
+                                                {subGroupName}
+                                            </span>
+                                        )}
+                                        <span className="text-[10px] text-zinc-500 bg-zinc-100 px-1.5 rounded-full shrink-0">{subGroupTasks.length}</span>
+                                    </button>
+                                </div>
+                            </TableCell>
+                        </DroppableGroupRow>
+                    );
+                }
+                case "group-header": {
+                    let groupLocationPath: string | null = null;
+                    if (effectiveGroupBy === "list" && groupTasks.length > 0) {
+                        const firstTask = groupTasks[0];
+                        const listId = (firstTask as any).listId ?? (firstTask as any).list?.id;
+                        const contextList = (listsData?.items as any[])?.find((l: any) => l.id === listId);
+
+                        const teamName = contextList?.team?.name ?? firstTask.team?.name ?? (firstTask as any).list?.team?.name;
+                        const spaceName = contextList?.space?.name ?? firstTask.space?.name ?? (firstTask as any).list?.space?.name;
+                        const projectName = contextList?.project?.name ?? firstTask.project?.name ?? (firstTask as any).list?.project?.name;
+                        const folderName = contextList?.folder?.name ?? contextList?.parentFolder?.name ?? firstTask.folder?.name ?? (firstTask as any).list?.folder?.name;
+
+                        const parts: string[] = [];
+                        if (teamName) parts.push(teamName);
+                        if (spaceName) parts.push(spaceName);
+                        if (projectName) parts.push(projectName);
+                        if (folderName) parts.push(folderName);
+
+                        if (parts.length > 0) {
+                            groupLocationPath = parts.join(" / ");
+                        }
+                    }
+
                     return (
                         <DroppableGroupRow key={`group-header:${entry.groupName}`} id={`group:${entry.groupName}`} className="border-none bg-transparent">
                             <TableCell colSpan={20} className="py-1.5 px-4 align-top">
+                                {groupLocationPath && (
+                                    <div className="text-[12px] text-zinc-500 mb-0 ml-5 mt-1">
+                                        {groupLocationPath}
+                                    </div>
+                                )}
                                 <div className="flex items-center gap-1.5 py-1">
                                     <TooltipProvider>
                                         <Tooltip>
@@ -2312,12 +2823,31 @@ export function TableView({ spaceId, projectId, teamId, listId, folderId, viewId
                                             </TooltipContent>
                                         </Tooltip>
                                     </TooltipProvider>
-                                    <span
-                                        className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-[4px] text-[11px] font-bold uppercase tracking-wider shrink-0 text-white"
-                                        style={{ backgroundColor: pillColor }}
-                                    >
-                                        {entry.groupName}
-                                    </span>
+                                    {effectiveGroupBy === "status" ? (() => {
+                                        const isToDo = entry.groupName.toLowerCase() === "to do";
+                                        const groupPillColor = getGroupPillColor(entry.groupName, groupTasks);
+                                        const hasColor = groupPillColor && groupPillColor !== "#87909e" && !isToDo;
+                                        return (
+                                            <span
+                                                className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-[4px] text-[11px] font-bold uppercase tracking-wider shrink-0"
+                                                style={{
+                                                    backgroundColor: hasColor ? groupPillColor : "#f4f4f5",
+                                                    color: hasColor ? "#ffffff" : "#52525b",
+                                                }}
+                                            >
+                                                {isToDo ? (
+                                                    <CircleDashed className="h-3.5 w-3.5 shrink-0" />
+                                                ) : (
+                                                    <CircleDot className="h-3.5 w-3.5 shrink-0" />
+                                                )}
+                                                {entry.groupName}
+                                            </span>
+                                        );
+                                    })() : (
+                                        <span className="inline-flex items-center gap-1.5 text-[15px] font-medium text-zinc-900 shrink-0">
+                                            {entry.groupName}
+                                        </span>
+                                    )}
                                     <span className="text-[10px] text-zinc-500 bg-zinc-100 px-1.5 rounded-full shrink-0">{groupTasks.length}</span>
                                     <span className="flex-1" />
                                     <DropdownMenu>
@@ -2357,12 +2887,13 @@ export function TableView({ spaceId, projectId, teamId, listId, folderId, viewId
                             </TableCell>
                         </DroppableGroupRow>
                     );
+                }
                 case "group-cols":
-                    return null;
+                    return renderGroupColumnHeaderRow(`group:${entry.groupName}:cols`);
                 case "task": {
                     const task = filteredTasks.find((t) => t.id === entry.taskId);
                     if (!task) return null;
-                    return renderTaskRow(task, groupTasks, entry.depth, entry.index);
+                    return renderTaskRow(task, groupTasks, entry.depth);
                 }
                 case "inline-parent":
                     return renderInlineEditorRow({
@@ -2387,11 +2918,11 @@ export function TableView({ spaceId, projectId, teamId, listId, folderId, viewId
                                 <Button
                                     variant="ghost"
                                     size="sm"
-                                    className="h-7 text-xs text-zinc-500 hover:text-zinc-700 justify-start pl-[44px] cursor-pointer"
+                                    className="h-7 text-sm text-zinc-800 hover:text-zinc-900 justify-start pl-[52px] font-normal cursor-pointer"
                                     onClick={() => openInlineAdd(entry.groupName, null)}
                                 >
                                     <Plus className="h-3.5 w-3.5 mr-1" />
-                                    <span className="hover:border-1 hover:border-zinc-300 hover:rounded-md p-1">Add Task</span>
+                                    <span className="hover:border-1 hover:border-zinc-300 hover:rounded-md px-1.5 py-1">Add Task</span>
                                 </Button>
                             </TableCell>
                         </TableRow>
@@ -2401,7 +2932,7 @@ export function TableView({ spaceId, projectId, teamId, listId, folderId, viewId
             }
         },
         [
-            groupedTasks,
+            lookupGroups,
             collapsedGroups,
             filteredTasks,
             getGroupPillColor,
@@ -2416,18 +2947,31 @@ export function TableView({ spaceId, projectId, teamId, listId, folderId, viewId
             openInlineAdd,
             setInlineAddGroupKey,
             setInlineAddTitle,
+            groupBy,
+            listsData,
         ]
     );
 
     const groupLabel = useMemo(() => {
-        if (groupBy === "none") return "None";
-        const standard = FILTER_OPTIONS.find(o => o.id === groupBy);
-        if (standard) return standard.label;
-        const custom = FIELD_CONFIG.find(f => f.id === groupBy);
-        if (custom) return custom.label;
-        return "None";
-    }, [groupBy, FIELD_CONFIG]);
-    const allGroupKeys = Object.keys(groupedTasks);
+        let baseLabel = "";
+        if (groupBy !== "none") {
+            const standard = FILTER_OPTIONS.find(o => o.id === groupBy);
+            if (standard) {
+                baseLabel = standard.label;
+            } else {
+                const custom = FIELD_CONFIG.find(f => f.id === groupBy);
+                if (custom) baseLabel = custom.label;
+            }
+        }
+
+        if (isBroadContext && alsoGroupByList) {
+            if (baseLabel) return `List & ${baseLabel}`;
+            return "List";
+        }
+
+        return baseLabel || "None";
+    }, [groupBy, FIELD_CONFIG, isBroadContext, alsoGroupByList]);
+
     const allExpanded = allGroupKeys.length === 0 || allGroupKeys.every(k => !collapsedGroups.has(k));
 
     const spaceDefaultViewConfig = useMemo(() => {
@@ -2451,6 +2995,7 @@ export function TableView({ spaceId, projectId, teamId, listId, folderId, viewId
 
         // Grouping and layout
         if (cfg.groupBy) setGroupBy(cfg.groupBy);
+        if (typeof cfg.alsoGroupByList === "boolean") setAlsoGroupByList(cfg.alsoGroupByList);
         if (cfg.groupDirection) setGroupDirection(cfg.groupDirection);
         if (cfg.subtasksMode) setExpandedSubtaskMode(cfg.subtasksMode);
         if (cfg.sortBy) setSortBy(cfg.sortBy);
@@ -2484,6 +3029,7 @@ export function TableView({ spaceId, projectId, teamId, listId, folderId, viewId
         // baseline snapshot for dirty-check
         const baseline = stableStringify({
             groupBy: cfg.groupBy ?? groupBy,
+            alsoGroupByList: typeof cfg.alsoGroupByList === "boolean" ? cfg.alsoGroupByList : alsoGroupByList,
             groupDirection: cfg.groupDirection ?? groupDirection,
             subtasksMode: cfg.subtasksMode ?? expandedSubtaskMode,
             sortBy: cfg.sortBy ?? sortBy,
@@ -2511,6 +3057,7 @@ export function TableView({ spaceId, projectId, teamId, listId, folderId, viewId
     const currentViewConfig: ListViewSavedConfig = useMemo(() => ({
         // Grouping and layout
         groupBy,
+        alsoGroupByList,
         groupDirection,
         subtasksMode: expandedSubtaskMode,
         sortBy,
@@ -2540,6 +3087,7 @@ export function TableView({ spaceId, projectId, teamId, listId, folderId, viewId
         filterGroups,
     }), [
         groupBy,
+        alsoGroupByList,
         expandedSubtaskMode,
         groupDirection,
         sortBy,
@@ -2596,7 +3144,8 @@ export function TableView({ spaceId, projectId, teamId, listId, folderId, viewId
         const cfg = spaceDefaultViewConfig || {};
 
         // Apply space defaults or system defaults
-        setGroupBy(cfg.groupBy ?? "status");
+        setGroupBy(cfg.groupBy ?? (listId ? "status" : "list"));
+        setAlsoGroupByList(cfg.alsoGroupByList ?? true);
         setGroupDirection(cfg.groupDirection ?? "asc");
         setExpandedSubtaskMode(cfg.subtasksMode ?? "collapsed");
         setSortBy(cfg.sortBy ?? "manual");
@@ -2673,7 +3222,8 @@ export function TableView({ spaceId, projectId, teamId, listId, folderId, viewId
         const cfg = viewConfigFromDb;
 
         // Grouping and layout - reset to defaults
-        setGroupBy(cfg.groupBy ?? "status");
+        setGroupBy(cfg.groupBy ?? (listId ? "status" : "list"));
+        setAlsoGroupByList(cfg.alsoGroupByList ?? true);
         setGroupDirection(cfg.groupDirection ?? "asc");
         setExpandedSubtaskMode(cfg.subtasksMode ?? "collapsed");
         setSortBy(cfg.sortBy ?? "manual");
@@ -2776,10 +3326,6 @@ export function TableView({ spaceId, projectId, teamId, listId, folderId, viewId
         setDropPosition(null);
     }, [selectedTasks]);
 
-    const handleDragMove = useCallback((event: DragMoveEvent) => {
-        setDragDeltaX(event.delta.x);
-    }, []);
-
     const handleDragOver = useCallback((event: DragOverEvent) => {
         const overId = event.over?.id ? String(event.over.id) : null;
         setDragOverId(overId);
@@ -2811,6 +3357,7 @@ export function TableView({ spaceId, projectId, teamId, listId, folderId, viewId
 
         // Early returns
         if (!over || active.id === over.id) {
+            console.log('??E?EEarly exit: no over or same element');
             return;
         }
 
@@ -2824,132 +3371,250 @@ export function TableView({ spaceId, projectId, teamId, listId, folderId, viewId
         const overTask = isOverGroup ? null : tasks.find(t => t.id === overId);
 
         if (!activeTask || (!overTask && !isOverGroup)) {
+            console.warn('??E?ETask or group not found', { activeId, overId });
             return;
-        }
-
-        // Switch to manual sort automatically if we're reordering
-        if (sortBy !== "manual") {
-            setSortBy("manual");
         }
 
         // ?EUse captured values instead of state
         const idsToMove = capturedDraggingIds.length ? capturedDraggingIds : [activeId];
-
-        // ?EFLAT LIST APPROACH: Work with ALL tasks as a single ordered list
-        // Get all tasks sorted by current order
-        const allTasksSorted = [...tasks].sort((a, b) => (a.order || "").localeCompare(b.order || ""));
-        const currentGlobalOrder = allTasksSorted.map(t => t.id);
-        const originalGlobalOrder = [...currentGlobalOrder];
-
-        // Step 1: Remove all items being dragged
-        const tempOrder = currentGlobalOrder.filter(id => !idsToMove.includes(id));
-
-        // Step 2: Find where to insert in the temp order
-        const targetIndex = tempOrder.indexOf(overId);
-
-        let finalGlobalOrder: string[];
-
-        if (targetIndex === -1) {
-
-            // Fallback: append to end
-            finalGlobalOrder = [...tempOrder, ...idsToMove];
-        } else {
-            // Insert based on position
-            let insertIndex: number;
-            if (capturedDropPosition === "before") {
-                insertIndex = targetIndex;
-            } else {
-                insertIndex = targetIndex + 1;
-            }
-
-            // Step 3: Insert the dragged items
-            finalGlobalOrder = [
-                ...tempOrder.slice(0, insertIndex),
-                ...idsToMove,
-                ...tempOrder.slice(insertIndex)
-            ];
-        }
-
-        // ?ECheck if final order is different from original
-        if (originalGlobalOrder.join(',') === finalGlobalOrder.join(',')) {
-            return;
-        }
-
-        // ?EUpdate orderByParent to reflect new global order
-        // Rebuild orderByParent from the new global order
-        const nextOrderByParent: Record<string, string[]> = {};
         const rootKey = "root";
 
-        finalGlobalOrder.forEach(taskId => {
-            const task = tasks.find(t => t.id === taskId);
-            if (!task) return;
+        // Determine parent based on horizontal drag
+        let newParent: string | null = normalizeParentId(activeTask.parentId);
+        let insertPosition: "before" | "after" | "child" = "after";
 
-            const parentKey = normalizeParentId(task.parentId) ?? rootKey;
-            if (!nextOrderByParent[parentKey]) {
-                nextOrderByParent[parentKey] = [];
+        if (isOverGroup) {
+            newParent = null; // Group drops go to root level
+            insertPosition = "after"; // At least after the header
+        } else if (overTask) {
+            const dragRightThreshold = 15;
+            const dragLeftThreshold = -10;
+            const isDraggingChildLeft = activeTask.parentId && !overTask.parentId && delta.x < 0;
+            const isDraggingChildToParentLevel =
+                activeTask.parentId &&
+                overTask.parentId &&
+                normalizeParentId(activeTask.parentId) !== normalizeParentId(overTask.parentId) &&
+                delta.x < 0;
+
+            // Determine new parent and insert position
+            if (delta.x > dragRightThreshold && capturedDropPosition !== "before") {
+                newParent = overTask.id;
+                insertPosition = "child";
+            } else if (delta.x < dragLeftThreshold || isDraggingChildLeft || isDraggingChildToParentLevel) {
+                newParent = normalizeParentId(overTask.parentId);
+                insertPosition = capturedDropPosition === "before" ? "before" : "after";
+            } else {
+                newParent = normalizeParentId(overTask.parentId);
+                insertPosition = capturedDropPosition === "before" ? "before" : "after";
             }
-            nextOrderByParent[parentKey].push(taskId);
+        }
+
+        // ?EValidate: Prevent circular dependencies
+        for (const id of idsToMove) {
+            if (wouldCreateCircularDependency(id, newParent, tasks)) {
+                console.warn('?? Circular dependency detected, aborting', { id, newParent });
+                return;
+            }
+        }
+
+        const newParentKey = newParent ?? rootKey;
+        const activeParentKey = normalizeParentId(activeTask.parentId) ?? rootKey;
+
+        // Track original bucket for change detection
+        let originalBucket: string[] = [];
+        let hasOrderChanged = false;
+
+        // Adjust insert position if dragging within same parent
+        if (newParentKey === activeParentKey) {
+            const currentBucket = capturedOrderByParent[newParentKey] ??
+                tasks
+                    .filter(t => (normalizeParentId(t.parentId) ?? rootKey) === newParentKey)
+                    .map(t => t.id);
+
+            originalBucket = [...currentBucket];
+            const fromIndex = currentBucket.indexOf(activeId);
+            const toIndex = currentBucket.indexOf(overId);
+
+            if (fromIndex > toIndex && insertPosition === "after") {
+                insertPosition = "before";
+            }
+        }
+
+        // Compute the new bucket order
+        const nextOrderByParent: Record<string, string[]> = { ...capturedOrderByParent };
+
+        // Remove tasks from old buckets
+        idsToMove.forEach(id => {
+            const t = tasks.find(task => task.id === id);
+            if (!t) return;
+
+            const oldKey = normalizeParentId(t.parentId) ?? rootKey;
+            const oldBucket = nextOrderByParent[oldKey] ?? [];
+            nextOrderByParent[oldKey] = oldBucket.filter(x => x !== id);
         });
 
+        // Initialize new bucket if needed
+        if (!nextOrderByParent[newParentKey] || nextOrderByParent[newParentKey].length === 0) {
+            const tasksInBucket = tasks.filter(t => {
+                const taskParentKey = normalizeParentId(t.parentId) ?? rootKey;
+                return taskParentKey === newParentKey && !idsToMove.includes(t.id);
+            });
+            nextOrderByParent[newParentKey] = tasksInBucket.map(t => t.id);
+        }
+
+        const bucket = nextOrderByParent[newParentKey];
+
+        // Calculate insert position
+        let insertAt: number;
+        if (insertPosition === "child") {
+            insertAt = bucket.length;
+        } else {
+            const overIndex = bucket.indexOf(overId);
+            if (overIndex === -1) {
+                insertAt = bucket.length;
+            } else {
+                insertAt = insertPosition === "before" ? overIndex : overIndex + 1;
+            }
+        }
+
+        // Insert tasks at calculated position
+        const moving = [...idsToMove];
+        nextOrderByParent[newParentKey] = [
+            ...bucket.slice(0, insertAt),
+            ...moving,
+            ...bucket.slice(insertAt),
+        ];
+
+        const newOrderForParent = nextOrderByParent[newParentKey];
+
+        // Check if order actually changed
+        if (originalBucket.length > 0 && originalBucket.join(',') !== newOrderForParent.join(',')) {
+            hasOrderChanged = true;
+        }
+
+        // ?? FIX: If order changed in bucket, regenerate ALL positions for that bucket
         const payloads: any[] = [];
 
         // Define target group attributes based on what we dropped onto
         const targetGroupData: any = {};
         if (isOverGroup && groupName) {
-            if (groupBy === "status") {
+            if (effectiveGroupBy === "status") {
                 targetGroupData.statusId = getStatusIdForGroup(groupName);
-            } else if (groupBy === "priority") {
+            } else if (effectiveGroupBy === "priority") {
                 targetGroupData.priority = groupName === "No Priority" ? null : groupName;
-            } else if (groupBy === "list") {
-                const tasksInGroup = groupedTasks[groupName] || [];
+            } else if (effectiveGroupBy === "list") {
+                const tasksInGroup = lookupGroups[groupName] || [];
                 targetGroupData.listId = getListIdForGroup(tasksInGroup);
             }
         } else if (overTask) {
-            if (groupBy === "status") targetGroupData.statusId = overTask.statusId ?? null;
-            else if (groupBy === "priority") targetGroupData.priority = overTask.priority ?? null;
-            else if (groupBy === "list") {
+            if (effectiveGroupBy === "status") targetGroupData.statusId = overTask.statusId ?? null;
+            else if (effectiveGroupBy === "priority") targetGroupData.priority = overTask.priority ?? null;
+            else if (effectiveGroupBy === "list") {
                 targetGroupData.listId = (overTask as any).listId ?? (overTask.list as any)?.id ?? null;
             }
         }
 
-        // ?ERegenerate order for ALL tasks in global order
-        let prevOrder: string | null = null;
+        if (hasOrderChanged && newParentKey === activeParentKey) {
 
-        finalGlobalOrder.forEach((taskId) => {
-            const task = tasks.find(t => t.id === taskId);
-            if (!task) return;
+            // Regenerate positions for entire bucket to match visual order
+            let prevPos: string | null = null;
 
-            const newOrder = generateKeyBetween(prevOrder, null);
-            prevOrder = newOrder;
+            newOrderForParent.forEach((taskId, index) => {
+                const task = tasks.find(t => t.id === taskId);
+                if (!task) return;
 
-            const updatePayload: any = { id: taskId, order: newOrder };
-            let changed = task.order !== newOrder;
+                const nextPos = index < newOrderForParent.length - 1 ? null : null; // Always generate after previous
+                const newPosition = generateKeyBetween(prevPos, null);
+                prevPos = newPosition;
 
-            // ?ECRITICAL: NEVER change parentId - only update group fields for moved tasks
-            if (idsToMove.includes(taskId)) {
+                if (task.position !== newPosition) {
+                    console.log(`  ?? ${taskId.substring(0, 8)}: "${task.position}" ?E"${newPosition}"`);
+
+                    const updatePayload: any = { id: taskId, position: newPosition };
+
+                    // Update grouping fields if this is the moved task
+                    if (idsToMove.includes(taskId)) {
+                        const currentParentId = normalizeParentId(task.parentId);
+                        const targetParentId = newParent;
+
+                        if (currentParentId !== targetParentId) {
+                            updatePayload.parentId = targetParentId;
+                        }
+
+                        // Apply group updates
+                        Object.entries(targetGroupData).forEach(([key, value]) => {
+                            if ((task as any)[key] !== value) {
+                                (updatePayload as any)[key] = value;
+                            }
+                        });
+                    }
+
+                    payloads.push(updatePayload);
+                }
+            });
+        } else {
+            // Original logic for position calculation
+            const prevId = insertAt > 0 ? newOrderForParent[insertAt - 1] : null;
+            const nextId = insertAt + moving.length < newOrderForParent.length
+                ? newOrderForParent[insertAt + moving.length]
+                : null;
+
+            const prevTask = prevId ? tasks.find(t => t.id === prevId) : null;
+            const nextTask = nextId ? tasks.find(t => t.id === nextId) : null;
+
+            let lastPos = prevTask?.position ?? null;
+            const nextPos = nextTask?.position ?? null;
+
+            idsToMove.forEach((id, idx) => {
+                const task = tasks.find(t => t.id === id);
+                if (!task) return;
+
+                const effectiveNextPos = (lastPos && nextPos && lastPos >= nextPos) ? null : nextPos;
+                const newPosition = generateKeyBetween(lastPos, effectiveNextPos);
+                lastPos = newPosition;
+
+                const updatePayload: any = { id };
+                let changed = false;
+
+                if (task.position !== newPosition) {
+                    updatePayload.position = newPosition;
+                    changed = true;
+                }
+
+                const currentParentId = normalizeParentId(task.parentId);
+                const targetParentId = newParent;
+
+                if (currentParentId !== targetParentId) {
+                    updatePayload.parentId = targetParentId;
+                    changed = true;
+                }
+
+                if (currentParentId !== targetParentId) {
+                    updatePayload.parentId = targetParentId;
+                    changed = true;
+                }
+
+                // Apply group updates
                 Object.entries(targetGroupData).forEach(([key, value]) => {
                     if ((task as any)[key] !== value) {
                         (updatePayload as any)[key] = value;
                         changed = true;
                     }
                 });
-            }
 
-            if (changed) {
-                payloads.push(updatePayload);
-            }
-        });
+                if (changed) {
+                    payloads.push(updatePayload);
+                }
+            });
+        }
 
-        // If no changes needed, exit
+        // If no changes needed, exit early
         if (payloads.length === 0) {
-            console.log('??E?E[DragEnd] No changes needed or generated');
+            console.log('??E?ENo changes needed - exiting');
             return;
         }
 
-        // ?? 1. Update orderByParent FIRST for immediate UI feedback
-        setOrderByParent(nextOrderByParent);
-
-        // ?? 2. Update cache state IMMEDIATELY after
+        // ?? 2. Update cache state IMMEDIATELY
         const previousData = utils.task.list.getData(taskListInput);
 
         // Apply optimistic update to cache
@@ -2967,11 +3632,17 @@ export function TableView({ spaceId, projectId, teamId, listId, folderId, viewId
             });
 
             updatedItems.sort((a: any, b: any) => {
-                return (a.order || "").localeCompare(b.order || "");
+                return (a.position || "").localeCompare(b.position || "");
             });
 
-            return { ...old, items: updatedItems };
+            return {
+                ...old,
+                items: updatedItems,
+            };
         });
+
+        // ?? FIX: Update orderByParent to match the new sorted order
+        setOrderByParent(nextOrderByParent);
 
         // ?? 3. Cleanup & Prep Background Sync
         void utils.task.list.cancel(taskListInput);
@@ -2987,18 +3658,22 @@ export function TableView({ spaceId, projectId, teamId, listId, folderId, viewId
         batchTimeoutRef.current = setTimeout(async () => {
             const batchedPayloads = Array.from(pendingUpdatesRef.current.values());
             pendingUpdatesRef.current.clear();
+
             if (batchedPayloads.length === 0) return;
 
             try {
-                await Promise.all(batchedPayloads.map(p => updateTask.mutateAsync(p)));
+                await Promise.all(
+                    batchedPayloads.map(payload => updateTask.mutateAsync(payload))
+                );
+
+                // Silently sync with backend after success
                 await utils.task.list.invalidate(taskListInput);
-                console.log('?E[DragEnd] Backend sync complete');
+
             } catch (e) {
-                console.error("?E[DragEnd] Backend update failed:", e);
                 if (previousData) {
-                    console.log('? [DragEnd] Rolling back cache and orderByParent');
                     utils.task.list.setData(taskListInput, previousData);
                     setOrderByParent(capturedOrderByParent);
+                    console.log('??E?ERolled back due to backend error');
                 }
             }
         }, 300);
@@ -3006,666 +3681,51 @@ export function TableView({ spaceId, projectId, teamId, listId, folderId, viewId
     }, [
         tasks,
         groupBy,
-        sortBy,
         updateTask,
         utils,
         taskListInput,
         draggingIds,
         dropPosition,
         orderByParent,
-        groupedTasks,
-        getStatusIdForGroup,
-        getListIdForGroup,
+        setDragOverId,
+        setDragActiveId,
+        setDraggingIds,
+        setDropPosition,
+        setOrderByParent,
     ]);
 
-    const renderFilterContent = (props?: { onClose?: () => void }) => {
-        return (
-            <div className="flex flex-col max-h-[85vh]">
-                <div className="flex items-center justify-between p-4 border-b border-zinc-100 bg-zinc-50/50">
-                    <div>
-                        <h3 className="font-bold text-zinc-900 flex items-center gap-2 text-base">
-                            Filters
-                            <Info className="h-4 w-4 text-zinc-400" />
-                        </h3>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <Popover open={savedFiltersPanelOpen} onOpenChange={setSavedFiltersPanelOpen}>
-                            <PopoverTrigger asChild>
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    className="h-8 text-xs font-bold gap-1.5 border-zinc-200 shadow-none hover:bg-white"
-                                >
-                                    Saved filters
-                                    <ChevronDown className={cn("h-3 w-3 transition-transform", savedFiltersPanelOpen && "rotate-180")} />
-                                </Button>
-                            </PopoverTrigger>
-                            <PopoverContent align="end" className="w-80 p-0 overflow-hidden shadow-2xl">
-                                <div className="p-3 border-b border-zinc-100 bg-zinc-50/50">
-                                    <div className="flex items-center h-8 rounded-md border border-zinc-200 bg-white px-2">
-                                        <Search className="h-3.5 w-3.5 text-zinc-400 shrink-0" />
-                                        <Input
-                                            variant="ghost"
-                                            placeholder="Search..."
-                                            className="h-full px-2 text-xs border-0 bg-transparent shadow-none focus:outline-none focus:ring-0 focus-visible:ring-0"
-                                            value={savedFiltersSearch}
-                                            onChange={e => setSavedFiltersSearch(e.target.value)}
-                                        />
-                                    </div>
-                                </div>
-                                <div className="max-h-[300px] overflow-auto">
-                                    {savedFilters.length === 0 ? (
-                                        <div className="p-8 text-center bg-white">
-                                            <p className="text-xs text-zinc-400">No saved filters yet</p>
-                                        </div>
-                                    ) : (
-                                        <div className="p-1 space-y-0.5 bg-white">
-                                            <p className="px-3 py-1.5 text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Workspace</p>
-                                            {savedFilters
-                                                .filter(f => !savedFiltersSearch || f.name.toLowerCase().includes(savedFiltersSearch.toLowerCase()))
-                                                .map(f => (
-                                                    <div
-                                                        key={f.id}
-                                                        className="group flex items-center justify-between px-3 py-2 rounded-lg hover:bg-zinc-50 cursor-pointer transition-colors"
-                                                        onClick={() => applySavedFilter(f.config)}
-                                                    >
-                                                        <span className="text-xs font-medium text-zinc-700">{f.name}</span>
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="icon"
-                                                            className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-zinc-200"
-                                                            onClick={(e) => deleteSavedFilter(f.id, e)}
-                                                        >
-                                                            <Trash2 className="h-3 w-3 text-zinc-400" />
-                                                        </Button>
-                                                    </div>
-                                                ))}
-                                        </div>
-                                    )}
-                                </div>
-                                <div className="p-3 border-t border-zinc-100 bg-zinc-50/30">
-                                    <div className="flex gap-2">
-                                        <Input
-                                            placeholder="Name..."
-                                            className="h-8 text-xs flex-1"
-                                            value={savedFilterName}
-                                            onChange={e => setSavedFilterName(e.target.value)}
-                                        />
-                                        <Button
-                                            className="h-8 text-xs font-bold bg-zinc-900 hover:bg-black text-white px-3"
-                                            onClick={saveNewFilter}
-                                            disabled={!savedFilterName.trim()}
-                                        >
-                                            Save new filter
-                                        </Button>
-                                    </div>
-                                </div>
-                            </PopoverContent>
-                        </Popover>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg hover:bg-zinc-100" onClick={() => props?.onClose ? props.onClose() : setFiltersPanelOpen(false)}><X className="h-4 w-4" /></Button>
-                    </div>
-                </div>
-
-                {filterGroups.conditions.length === 0 ? (
-                    <div className="p-6 h-[88px]">
-                        <Button
-                            className="h-9 px-3 text-sm font-bold bg-zinc-900 text-white hover:bg-zinc-800 rounded-xl shadow-sm cursor-pointer"
-                            onClick={() => addFilterGroup()}
-                        >
-                            <Plus className="h-4 w-4 mr-2" />
-                            Add filter
-                        </Button>
-                    </div>
-                ) : (
-                    <ScrollArea className="p-5 text-sm h-[350px]">
-                        <div className="space-y-4">
-                            <div className="space-y-4">
-                                {/* Render each top-level group */}
-                                {(() => {
-                                    const hasAnyValueAtRoot = filterGroups.conditions.some(c => {
-                                        if ("conditions" in c) {
-                                            return hasAnyValueInGroup(c as FilterGroup);
-                                        }
-                                        return hasFilterValue(c as FilterCondition);
-                                    });
-
-                                    // If any group has a value, only show groups with values
-                                    // BUT always show ALL empty groups at the end to allow adding multiple filters
-                                    const visibleGroups = hasAnyValueAtRoot
-                                        ? (() => {
-                                            const groupsWithValues = filterGroups.conditions.filter(c => {
-                                                if ("conditions" in c) {
-                                                    return hasAnyValueInGroup(c as FilterGroup);
-                                                }
-                                                return hasFilterValue(c as FilterCondition);
-                                            });
-                                            // Include ALL empty groups at the end (not just the last one)
-                                            const emptyGroups = filterGroups.conditions.filter(c => {
-                                                if ("conditions" in c) {
-                                                    return !hasAnyValueInGroup(c as FilterGroup);
-                                                }
-                                                return !hasFilterValue(c as FilterCondition);
-                                            });
-                                            // Return groups with values first, then all empty groups
-                                            return [...groupsWithValues, ...emptyGroups];
-                                        })()
-                                        : filterGroups.conditions;
-
-                                    return visibleGroups.map((groupItem, visibleGroupIdx) => {
-                                        const isGroup = "conditions" in groupItem;
-                                        if (!isGroup) {
-                                            // This shouldn't happen at root level, but handle it gracefully
-                                            return null;
-                                        }
-                                        const group = groupItem as FilterGroup;
-
-                                        // Find the original index in the full conditions array for "where" label logic
-                                        const originalIdx = filterGroups.conditions.findIndex(c => c.id === group.id);
-                                        const isFirstWithValue = hasAnyValueAtRoot && visibleGroupIdx === 0;
-                                        const shouldShowWhere = !hasAnyValueAtRoot ? (originalIdx === 0) : isFirstWithValue;
-                                        const shouldShowOperator = visibleGroups.length > 1 && visibleGroupIdx === 1;
-
-                                        return (
-                                            <div key={group.id} className="flex gap-3 items-start">
-                                                {/* Operator selector for inter-group logic - only show when multiple groups */}
-                                                {visibleGroups.length > 1 && (
-                                                    <div className="w-[60px] flex justify-end items-center shrink-0">
-                                                        {shouldShowWhere ? (
-                                                            <span className="text-[10px] font-bold text-zinc-400/80 pr-3 uppercase tracking-wider">Where</span>
-                                                        ) : shouldShowOperator ? (
-                                                            <Button
-                                                                variant="outline"
-                                                                size="sm"
-                                                                className="h-8 w-[50px] text-xs font-black uppercase tracking-widest bg-white border-zinc-200 rounded-sm shadow-sm hover:border-zinc-300 cursor-pointer mr-2 pl-2 pr-1"
-                                                                onClick={() => updateFilterGroupOperator("root", filterGroups.operator === "AND" ? "OR" : "AND")}
-                                                            >
-                                                                {filterGroups.operator}
-                                                                <ChevronDown className="h-3 w-3 ml-0 opacity-40 shrink-0" />
-                                                            </Button>
-                                                        ) : (
-                                                            <div className="pr-3 flex items-center h-8">
-                                                                <span className="text-xs font-black uppercase tracking-widest text-zinc-300">{filterGroups.operator}</span>
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                )}
-
-                                                {/* Group block */}
-                                                <div className="flex-1 p-5 bg-zinc-50/50 rounded-2xl border border-zinc-100/80 space-y-4">
-                                                    {/* Render conditions within this group */}
-                                                    {(() => {
-                                                        const hasAnyValue = hasAnyValueInGroup(group);
-                                                        // If any condition has a value, only show conditions with values
-                                                        // BUT always show ALL empty conditions at the end to allow adding multiple nested filters
-                                                        const visibleConditions = hasAnyValue
-                                                            ? (() => {
-                                                                const conditionsWithValues = group.conditions.filter(c => {
-                                                                    if ("conditions" in c) {
-                                                                        return hasAnyValueInGroup(c as FilterGroup);
-                                                                    }
-                                                                    return hasFilterValue(c as FilterCondition);
-                                                                });
-                                                                // Include ALL empty conditions at the end (not just the last one)
-                                                                const emptyConditions = group.conditions.filter(c => {
-                                                                    if ("conditions" in c) {
-                                                                        return !hasAnyValueInGroup(c as FilterGroup);
-                                                                    }
-                                                                    return !hasFilterValue(c as FilterCondition);
-                                                                });
-                                                                // Return conditions with values first, then all empty conditions
-                                                                return [...conditionsWithValues, ...emptyConditions];
-                                                            })()
-                                                            : group.conditions;
-
-                                                        return visibleConditions.map((item, visibleIdx) => {
-                                                            const isNestedGroup = "conditions" in item;
-                                                            const cond = !isNestedGroup ? (item as FilterCondition) : null;
-                                                            const field = cond ? (FILTER_OPTIONS.find(f => f.id === cond.field) || FIELD_CONFIG.find(f => f.id === cond.field)) : null;
-                                                            const availableOps = cond ? (FIELD_OPERATORS[cond.field] || [{ id: "is", label: "Is" }]) : [];
-
-                                                            if (isNestedGroup) {
-                                                                // Handle nested groups if needed (for future expansion)
-                                                                return null;
-                                                            }
-
-                                                            // Find the original index in the full conditions array for "where" label logic
-                                                            const originalIdx = group.conditions.findIndex(c => c.id === item.id);
-                                                            const isFirstWithValue = hasAnyValue && visibleIdx === 0;
-                                                            const shouldShowWhere = !hasAnyValue ? (originalIdx === 0) : isFirstWithValue;
-                                                            const shouldShowOperator = visibleConditions.length > 1 && visibleIdx === 1;
-
-                                                            return (
-                                                                <div key={item.id} className="flex gap-3 items-start">
-                                                                    {/* Label Column for conditions within group - only show when multiple conditions */}
-                                                                    {visibleConditions.length > 1 && (
-                                                                        <div className="w-[60px] flex justify-end items-center shrink-0">
-                                                                            {shouldShowWhere ? (
-                                                                                <span className="text-[10px] font-bold text-zinc-400/80 pr-3 uppercase tracking-wider">Where</span>
-                                                                            ) : shouldShowOperator ? (
-                                                                                <Button
-                                                                                    variant="outline"
-                                                                                    size="sm"
-                                                                                    className="h-8 w-[50px] text-xs font-black uppercase tracking-widest bg-white border-zinc-200 rounded-sm shadow-sm hover:border-zinc-300 cursor-pointer mr-2 pl-2 pr-1"
-                                                                                    onClick={() => updateFilterGroupOperator(group.id, group.operator === "AND" ? "OR" : "AND")}
-                                                                                >
-                                                                                    {group.operator}
-                                                                                    <ChevronDown className="h-3 w-3 ml-0 opacity-40 shrink-0" />
-                                                                                </Button>
-                                                                            ) : (
-                                                                                <span className="text-xs font-black uppercase tracking-widest text-zinc-300 pr-3">{group.operator}</span>
-                                                                            )}
-                                                                        </div>
-                                                                    )}
-
-                                                                    {/* Filter condition content */}
-                                                                    <div className="flex-1 min-w-0">
-                                                                        <div className="flex gap-2 items-center">
-                                                                            <DropdownMenu>
-                                                                                <DropdownMenuTrigger asChild>
-                                                                                    <Button variant="ghost" size="sm" className="h-8 text-xs font-medium gap-2 px-3 hover:bg-zinc-50 shrink-0 justify-between w-[120px] bg-white border border-zinc-200 rounded-sm shadow-sm hover:border-zinc-300 cursor-pointer text-zinc-700 truncate whitespace-nowrap">
-                                                                                        <div className="flex items-center gap-2 min-w-0">
-                                                                                            {field ? (
-                                                                                                <>
-                                                                                                    {typeof field.icon === "function" ? <field.icon className="h-3.5 w-3.5 text-zinc-500 shrink-0" /> : <Box className="h-3.5 w-3.5 text-zinc-500 shrink-0" />}
-                                                                                                    <span className="truncate">{field.label}</span>
-                                                                                                </>
-                                                                                            ) : (
-                                                                                                <span className="text-zinc-500">Select filter</span>
-                                                                                            )}
-                                                                                        </div>
-                                                                                        <ChevronDown className="h-3 w-3 opacity-30 shrink-0" />
-                                                                                    </Button>
-                                                                                </DropdownMenuTrigger>
-                                                                                <DropdownMenuContent
-                                                                                    side="bottom"
-                                                                                    align="start"
-                                                                                    avoidCollisions={false}
-                                                                                    sideOffset={6}
-                                                                                    className="w-64 max-h-[400px] overflow-auto p-0"
-                                                                                >
-                                                                                    <div className="p-2 border-b border-zinc-100 sticky top-0 bg-white z-10">
-                                                                                        <Input placeholder="Search fields..." className="h-8 text-xs border-zinc-100" value={filterSearch} onChange={e => setFilterSearch(e.target.value)} />
-                                                                                    </div>
-                                                                                    <div className="p-1">
-                                                                                        {FILTER_OPTIONS.filter(f => !filterSearch || f.label.toLowerCase().includes(filterSearch.toLowerCase())).map(f => (
-                                                                                            <DropdownMenuItem key={f.id} onClick={() => { updateFilterCondition(cond!.id, { field: f.id as string, operator: (FIELD_OPERATORS[f.id] || [{ id: "is" }])[0].id, value: [] }); setFilterSearch(""); }} className="rounded-lg h-9">
-                                                                                                <div className="flex items-center gap-2.5">
-                                                                                                    {typeof f.icon === "function" ? <f.icon className="h-4 w-4 text-zinc-400" /> : <Box className="h-4 w-4 text-zinc-400" />}
-                                                                                                    <span className="font-medium text-zinc-700">{f.label}</span>
-                                                                                                </div>
-                                                                                            </DropdownMenuItem>
-                                                                                        ))}
-                                                                                    </div>
-                                                                                </DropdownMenuContent>
-                                                                            </DropdownMenu>
-
-                                                                            {field && (
-                                                                                <>
-                                                                                    <DropdownMenu>
-                                                                                        <DropdownMenuTrigger asChild>
-                                                                                            <Button variant="ghost" size="sm" className="h-8 text-xs font-semibold px-3 text-zinc-800 hover:bg-zinc-50 shrink-0 w-20 justify-start bg-white border border-zinc-200 rounded-sm shadow-sm hover:border-zinc-300 cursor-pointer">
-                                                                                                {availableOps.find(o => o.id === cond!.operator)?.label || cond!.operator}
-                                                                                                <ChevronDown className="h-3 w-3 ml-auto opacity-30" />
-                                                                                            </Button>
-                                                                                        </DropdownMenuTrigger>
-                                                                                        <DropdownMenuContent className="w-48 p-1">
-                                                                                            {availableOps.map(op => (
-                                                                                                <DropdownMenuItem key={op.id} onClick={() => updateFilterCondition(cond!.id, { operator: op.id as any })} className="rounded-lg h-9">
-                                                                                                    <span className="font-medium text-zinc-700">{op.label}</span>
-                                                                                                </DropdownMenuItem>
-                                                                                            ))}
-                                                                                        </DropdownMenuContent>
-                                                                                    </DropdownMenu>
-
-                                                                                    <div className="flex-1 min-w-0">
-                                                                                        {cond!.operator === "is_set" || cond!.operator === "is_not_set" || cond!.operator === "is_archived" || cond!.operator === "is_not_archived" || cond!.operator === "has" || cond!.operator === "doesnt_have" ? null : (
-                                                                                            <>
-                                                                                                {cond!.field === "status" ? (
-                                                                                                    <Popover>
-                                                                                                        <PopoverTrigger asChild>
-                                                                                                            <Button variant="ghost" size="sm" className="h-8 w-full text-xs font-medium justify-start px-2 hover:bg-zinc-50 border border-zinc-100 rounded-sm">
-                                                                                                                {Array.isArray(cond!.value) && cond!.value.length > 0
-                                                                                                                    ? `${cond!.value.length} selected`
-                                                                                                                    : "Select option"}
-                                                                                                            </Button>
-                                                                                                        </PopoverTrigger>
-                                                                                                        <PopoverContent align="start" className="w-56 p-2">
-                                                                                                            <div className="space-y-0.5">
-                                                                                                                {allAvailableStatuses.map(s => (
-                                                                                                                    <label key={s.id} className="flex items-center gap-2 p-2 hover:bg-zinc-50 rounded-lg cursor-pointer transition-colors">
-                                                                                                                        <Checkbox
-                                                                                                                            checked={Array.isArray(cond!.value) && cond!.value.includes(s.id)}
-                                                                                                                            onCheckedChange={(checked) => {
-                                                                                                                                const current = Array.isArray(cond!.value) ? cond!.value : [];
-                                                                                                                                const next = checked ? [...current, s.id] : current.filter(id => id !== s.id);
-                                                                                                                                updateFilterCondition(cond!.id, { value: next });
-                                                                                                                            }}
-                                                                                                                        />
-                                                                                                                        <span className="h-2 w-2 rounded-full" style={{ backgroundColor: s.color }} />
-                                                                                                                        <span className="text-xs font-medium text-zinc-700 truncate">{s.name}</span>
-                                                                                                                    </label>
-                                                                                                                ))}
-                                                                                                            </div>
-                                                                                                        </PopoverContent>
-                                                                                                    </Popover>
-                                                                                                ) : cond!.field === "priority" ? (
-                                                                                                    <Popover>
-                                                                                                        <PopoverTrigger asChild>
-                                                                                                            <Button variant="ghost" size="sm" className="h-8 w-full text-xs font-medium justify-start px-2 hover:bg-zinc-50 border border-zinc-100 rounded-sm">
-                                                                                                                {Array.isArray(cond!.value) && cond!.value.length > 0
-                                                                                                                    ? `${cond!.value.length} selected`
-                                                                                                                    : "Select option"}
-                                                                                                            </Button>
-                                                                                                        </PopoverTrigger>
-                                                                                                        <PopoverContent align="start" className="w-48 p-2">
-                                                                                                            <div className="space-y-0.5">
-                                                                                                                {["URGENT", "HIGH", "NORMAL", "LOW"].map(p => (
-                                                                                                                    <label key={p} className="flex items-center gap-2 p-2 hover:bg-zinc-50 rounded-lg cursor-pointer transition-colors">
-                                                                                                                        <Checkbox
-                                                                                                                            checked={Array.isArray(cond!.value) && cond!.value.includes(p)}
-                                                                                                                            onCheckedChange={(checked) => {
-                                                                                                                                const current = Array.isArray(cond!.value) ? cond!.value : [];
-                                                                                                                                const next = checked ? [...current, p] : current.filter(val => val !== p);
-                                                                                                                                updateFilterCondition(cond!.id, { value: next });
-                                                                                                                            }}
-                                                                                                                        />
-                                                                                                                        <Flag className={cn("h-3.5 w-3.5", getPriorityStyles(p).icon)} />
-                                                                                                                        <span className="text-xs font-medium text-zinc-700 truncate capitalize">{p.toLowerCase()}</span>
-                                                                                                                    </label>
-                                                                                                                ))}
-                                                                                                            </div>
-                                                                                                        </PopoverContent>
-                                                                                                    </Popover>
-                                                                                                ) : cond!.field === "assignee" || cond!.field === "createdBy" || cond!.field === "follower" ? (
-                                                                                                    <Popover>
-                                                                                                        <PopoverTrigger asChild>
-                                                                                                            <Button variant="ghost" size="sm" className="h-8 w-full text-xs font-medium justify-start px-2 hover:bg-zinc-50 border border-zinc-100 rounded-sm">
-                                                                                                                {Array.isArray(cond!.value) && cond!.value.length > 0
-                                                                                                                    ? `${cond!.value.length} selected`
-                                                                                                                    : "Select option"}
-                                                                                                            </Button>
-                                                                                                        </PopoverTrigger>
-                                                                                                        <PopoverContent align="start" className="w-64 p-2">
-                                                                                                            <div className="p-2 border-b border-zinc-100 mb-1">
-                                                                                                                <div className="flex items-center h-8 rounded-md border border-zinc-200 bg-white px-2">
-                                                                                                                    <Search className="h-3.5 w-3.5 text-zinc-400 shrink-0" />
-                                                                                                                    <Input variant="ghost" placeholder="Search people..." className="h-full px-2 text-[10px] border-0 bg-transparent shadow-none focus:outline-none focus:ring-0 focus-visible:ring-0" value={assigneesSearch} onChange={e => setAssigneesSearch(e.target.value)} />
-                                                                                                                </div>
-                                                                                                            </div>
-                                                                                                            <ScrollArea className="h-[240px]">
-                                                                                                                {users.filter(u => !assigneesSearch || u.name?.toLowerCase().includes(assigneesSearch.toLowerCase())).map(u => (
-                                                                                                                    <label key={u.id} className="flex items-center gap-2 p-2 hover:bg-zinc-50 rounded-lg cursor-pointer transition-colors">
-                                                                                                                        <Checkbox
-                                                                                                                            checked={Array.isArray(cond!.value) && cond!.value.includes(u.id)}
-                                                                                                                            onCheckedChange={(checked) => {
-                                                                                                                                const current = Array.isArray(cond!.value) ? cond!.value : [];
-                                                                                                                                const next = checked ? [...current, u.id] : current.filter(id => id !== u.id);
-                                                                                                                                updateFilterCondition(cond!.id, { value: next });
-                                                                                                                            }}
-                                                                                                                        />
-                                                                                                                        <Avatar className="h-6 w-6">
-                                                                                                                            <AvatarImage src={u.image || undefined} />
-                                                                                                                            <AvatarFallback className="text-[10px]">{u.name?.slice(0, 2).toUpperCase()}</AvatarFallback>
-                                                                                                                        </Avatar>
-                                                                                                                        <span className="text-xs font-medium text-zinc-700 truncate">{u.name}</span>
-                                                                                                                    </label>
-                                                                                                                ))}
-                                                                                                            </ScrollArea>
-                                                                                                        </PopoverContent>
-                                                                                                    </Popover>
-                                                                                                ) : cond!.field === "tags" ? (
-                                                                                                    <Popover>
-                                                                                                        <PopoverTrigger asChild>
-                                                                                                            <Button variant="ghost" size="sm" className="h-8 w-full text-xs font-medium justify-start px-2 hover:bg-zinc-50 border border-zinc-100 rounded-sm">
-                                                                                                                {Array.isArray(cond!.value) && cond!.value.length > 0
-                                                                                                                    ? `${cond!.value.length} tags selected`
-                                                                                                                    : "Select option"}
-                                                                                                            </Button>
-                                                                                                        </PopoverTrigger>
-                                                                                                        <PopoverContent align="start" className="w-56 p-2">
-                                                                                                            {allAvailableTags.length === 0 ? (
-                                                                                                                <p className="text-[10px] text-zinc-500 p-4 text-center">No tags found in this view</p>
-                                                                                                            ) : (
-                                                                                                                <div className="space-y-0.5">
-                                                                                                                    {allAvailableTags.map(tag => {
-                                                                                                                        const parsed = parseEncodedTag(tag);
-                                                                                                                        return (
-                                                                                                                            <label key={tag} className="flex items-center gap-2 p-2 hover:bg-zinc-50 rounded-lg cursor-pointer transition-colors">
-                                                                                                                                <Checkbox
-                                                                                                                                    checked={Array.isArray(cond!.value) && cond!.value.includes(tag)}
-                                                                                                                                    onCheckedChange={(checked) => {
-                                                                                                                                        const current = Array.isArray(cond!.value) ? cond!.value : [];
-                                                                                                                                        const next = checked ? [...current, tag] : current.filter(t => t !== tag);
-                                                                                                                                        updateFilterCondition(cond!.id, { value: next });
-                                                                                                                                    }}
-                                                                                                                                />
-                                                                                                                                <span className="text-[11px] font-bold px-2 py-1 rounded-md" style={{ backgroundColor: parsed.color + '20', color: parsed.color }}>
-                                                                                                                                    {parsed.label}
-                                                                                                                                </span>
-                                                                                                                            </label>
-                                                                                                                        );
-                                                                                                                    })}
-                                                                                                                </div>
-                                                                                                            )}
-                                                                                                        </PopoverContent>
-                                                                                                    </Popover>
-                                                                                                ) : cond!.field === "dependency" ? (
-                                                                                                    <DropdownMenu>
-                                                                                                        <DropdownMenuTrigger asChild>
-                                                                                                            <Button variant="ghost" size="sm" className="h-8 w-full text-xs font-medium justify-start px-2 hover:bg-zinc-50 border border-zinc-100 rounded-sm">
-                                                                                                                {cond!.value || "Select dependency type"}
-                                                                                                            </Button>
-                                                                                                        </DropdownMenuTrigger>
-                                                                                                        <DropdownMenuContent align="start" className="w-48">
-                                                                                                            {["Blocking", "Waiting on", "Link", "Any"].map(v => (
-                                                                                                                <DropdownMenuItem key={v} onClick={() => updateFilterCondition(cond!.id, { value: v })} className="text-xs font-medium">
-                                                                                                                    {v}
-                                                                                                                </DropdownMenuItem>
-                                                                                                            ))}
-                                                                                                        </DropdownMenuContent>
-                                                                                                    </DropdownMenu>
-                                                                                                ) : cond!.field === "taskType" ? (
-                                                                                                    <Popover>
-                                                                                                        <PopoverTrigger asChild>
-                                                                                                            <Button variant="ghost" size="sm" className="h-8 w-full text-xs font-medium justify-start px-2 hover:bg-zinc-50 border border-zinc-100 rounded-sm">
-                                                                                                                {Array.isArray(cond!.value) && cond!.value.length > 0
-                                                                                                                    ? `${cond!.value.length} selected`
-                                                                                                                    : "Select type"}
-                                                                                                            </Button>
-                                                                                                        </PopoverTrigger>
-                                                                                                        <PopoverContent align="start" className="w-48 p-2">
-                                                                                                            <div className="space-y-0.5">
-                                                                                                                {availableTaskTypes?.map((t: any) => (
-                                                                                                                    <label key={t.id} className="flex items-center gap-2 p-2 hover:bg-zinc-50 rounded-lg cursor-pointer transition-colors">
-                                                                                                                        <Checkbox
-                                                                                                                            checked={Array.isArray(cond!.value) && cond!.value.includes(t.id)}
-                                                                                                                            onCheckedChange={(checked) => {
-                                                                                                                                const current = Array.isArray(cond!.value) ? cond!.value : [];
-                                                                                                                                const next = checked ? [...current, t.id] : current.filter(val => val !== t.id);
-                                                                                                                                updateFilterCondition(cond!.id, { value: next });
-                                                                                                                            }}
-                                                                                                                        />
-                                                                                                                        <TaskTypeIcon type={t} className="h-3.5 w-3.5" />
-                                                                                                                        <span className="text-xs font-medium text-zinc-700 capitalize">{t.name}</span>
-                                                                                                                    </label>
-                                                                                                                ))}
-                                                                                                            </div>
-                                                                                                        </PopoverContent>
-                                                                                                    </Popover>
-                                                                                                ) : ["dueDate", "startDate", "dateDone", "dateCreated", "dateUpdated", "latestStatusChange"].includes(cond!.field) ? (
-                                                                                                    <Popover>
-                                                                                                        <PopoverTrigger asChild>
-                                                                                                            <Button variant="ghost" size="sm" className="h-8 w-full text-xs font-medium justify-start px-2 hover:bg-zinc-50 border border-zinc-100 rounded-sm">
-                                                                                                                {(() => {
-                                                                                                                    const raw = cond!.value;
-                                                                                                                    const ts = typeof raw === "number" && raw > 0 ? raw : null;
-                                                                                                                    return ts ? format(new Date(ts), "MMM d, yyyy") : "Select date";
-                                                                                                                })()}
-                                                                                                            </Button>
-                                                                                                        </PopoverTrigger>
-                                                                                                        <PopoverContent align="start" className="w-auto p-0">
-                                                                                                            <SingleDateCalendar
-                                                                                                                selectedDate={(() => {
-                                                                                                                    const raw = cond!.value;
-                                                                                                                    if (typeof raw !== "number" || raw <= 0) return undefined;
-                                                                                                                    return new Date(raw);
-                                                                                                                })()}
-                                                                                                                onDateChange={(d) => updateFilterCondition(cond!.id, { value: d ? d.getTime() : null })}
-                                                                                                            />
-                                                                                                        </PopoverContent>
-                                                                                                    </Popover>
-                                                                                                ) : cond!.field === "location" ? (
-                                                                                                    <Popover>
-                                                                                                        <PopoverTrigger asChild>
-                                                                                                            <Button variant="ghost" size="sm" className="h-8 w-full text-xs font-medium justify-start px-2 hover:bg-zinc-50 border border-zinc-100 rounded-sm">
-                                                                                                                {cond!.value ? "Location selected" : "Select location"}
-                                                                                                            </Button>
-                                                                                                        </PopoverTrigger>
-                                                                                                        <PopoverContent align="start" className="w-[300px] p-0">
-                                                                                                            <DestinationPicker
-                                                                                                                workspaceId={resolvedWorkspaceId as string}
-                                                                                                                onSelect={(listId) => updateFilterCondition(cond!.id, { value: listId })}
-                                                                                                            />
-                                                                                                        </PopoverContent>
-                                                                                                    </Popover>
-                                                                                                ) : (
-                                                                                                    <div className="relative">
-                                                                                                        <Input
-                                                                                                            className="h-8 text-xs border-zinc-100 bg-white rounded-sm focus-visible:ring-violet-500 pr-8"
-                                                                                                            placeholder="Select option"
-                                                                                                            value={typeof cond!.value === "string" ? cond!.value : ""}
-                                                                                                            onChange={e => updateFilterCondition(cond!.id, { value: e.target.value })}
-                                                                                                        />
-                                                                                                        <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3 w-3 text-zinc-300 pointer-events-none" />
-                                                                                                    </div>
-                                                                                                )}
-                                                                                            </>
-                                                                                        )}
-                                                                                    </div>
-                                                                                </>
-                                                                            )}
-                                                                        </div>
-                                                                    </div>
-
-                                                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-zinc-300 hover:text-red-500 hover:bg-red-50 transition-colors shrink-0 mt-1 cursor-pointer" onClick={() => {
-                                                                        if (group.conditions.length === 1) {
-                                                                            // If this is the last condition in the group, remove the entire group
-                                                                            removeFilterItem(group.id);
-                                                                        } else {
-                                                                            // Otherwise, just remove this condition
-                                                                            removeFilterItem(item.id);
-                                                                        }
-                                                                    }}>
-                                                                        <Trash2 className="h-3.5 w-3.5" />
-                                                                    </Button>
-                                                                </div>
-                                                            );
-                                                        });
-                                                    })()}
-
-                                                    {/* Add nested filter button within group - hide only for first root-level "Where" condition when displaying first filter item with value */}
-                                                    {(() => {
-                                                        const hasAnyValue = hasAnyValueInGroup(group);
-                                                        // Get visible conditions to check if first one is "Where" with value
-                                                        const visibleConditions = hasAnyValue
-                                                            ? (() => {
-                                                                const conditionsWithValues = group.conditions.filter(c => {
-                                                                    if ("conditions" in c) {
-                                                                        return hasAnyValueInGroup(c as FilterGroup);
-                                                                    }
-                                                                    return hasFilterValue(c as FilterCondition);
-                                                                });
-                                                                const lastCondition = group.conditions[group.conditions.length - 1];
-                                                                if (lastCondition && !conditionsWithValues.includes(lastCondition)) {
-                                                                    const lastHasValue = "conditions" in lastCondition
-                                                                        ? hasAnyValueInGroup(lastCondition as FilterGroup)
-                                                                        : hasFilterValue(lastCondition as FilterCondition);
-                                                                    if (!lastHasValue) {
-                                                                        return [...conditionsWithValues, lastCondition];
-                                                                    }
-                                                                }
-                                                                return conditionsWithValues;
-                                                            })()
-                                                            : group.conditions;
-
-                                                        // Check if this is the first root-level group
-                                                        const isFirstRootGroup = filterGroups.conditions.findIndex(c => c.id === group.id) === 0;
-
-                                                        // Check if first visible condition is the first "Where" condition with value
-                                                        const firstVisibleCondition = visibleConditions[0];
-                                                        const firstConditionInGroup = group.conditions[0];
-
-                                                        // Hide if:
-                                                        // 1. This is the first root-level group
-                                                        // 2. We're displaying filters with values (hasAnyValue is true)
-                                                        // 3. The first visible condition exists and has a value
-                                                        // 4. The first visible condition is the first condition in the original group (the "Where" condition)
-                                                        const isFirstWhereWithValue = isFirstRootGroup &&
-                                                            hasAnyValue &&
-                                                            firstVisibleCondition &&
-                                                            !("conditions" in firstVisibleCondition) &&
-                                                            hasFilterValue(firstVisibleCondition as FilterCondition) &&
-                                                            firstConditionInGroup &&
-                                                            firstConditionInGroup.id === firstVisibleCondition.id;
-
-                                                        // Hide only if it's the first root-level "Where" condition with value
-                                                        return !isFirstWhereWithValue && (
-                                                            <div className="flex items-center justify-between pt-2 group/footer">
-                                                                <button
-                                                                    className="text-[11px] font-bold text-zinc-400 hover:text-zinc-500 hover:bg-zinc-200 cursor-pointer px-2 py-1 rounded-md"
-                                                                    onClick={() => addFilterCondition(group.id)}
-                                                                >
-                                                                    Add nested filter
-                                                                </button>
-                                                                {group.conditions.length >= 2 && (
-                                                                    <button
-                                                                        className="text-[11px] font-bold text-zinc-400 hover:text-zinc-500 hover:bg-zinc-200 transition-colors opacity-0 group-hover/footer:opacity-100 cursor-pointer px-2 py-1 rounded-md"
-                                                                        onClick={() => removeFilterItem(group.id)}
-                                                                    >
-                                                                        Clear group
-                                                                    </button>
-                                                                )}
-                                                            </div>
-                                                        );
-                                                    })()}
-                                                </div>
-                                            </div>
-                                        );
-                                    });
-                                })()}
-
-                            </div>
-                        </div>
-                    </ScrollArea>
-                )}
-                {filterGroups.conditions.length > 0 && (
-                    <div className="w-full p-4 border-t border-zinc-100 bg-white flex items-center justify-between z-10">
-                        <Button
-                            variant="outline"
-                            className="h-9 px-3 text-sm font-medium text-zinc-600 hover:text-zinc-900 hover:bg-zinc-50 border border-zinc-200 rounded-xl cursor-pointer"
-                            onClick={() => addFilterGroup()}
-                        >
-                            <Plus className="h-4 w-4 mr-1.5" />
-                            Add filter
-                        </Button>
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            className="text-red-500 hover:text-red-600 font-medium px-3 hover:bg-red-50 border border-red-200 rounded-xl cursor-pointer"
-                            onClick={() => setFilterGroups({
-                                id: "root",
-                                operator: "AND",
-                                conditions: [],
-                            })}
-                        >
-                            Clear all
-                        </Button>
-                    </div>
-                )}
-            </div>
-        );
-    };
-
+    const renderFilterContent = (opts?: { onClose?: () => void }) => (
+        <ListViewFilterPopoverContent
+            onClose={opts?.onClose ?? (() => setFiltersPanelOpen(false))}
+            savedFiltersPanelOpen={savedFiltersPanelOpen}
+            setSavedFiltersPanelOpen={setSavedFiltersPanelOpen}
+            savedFiltersSearch={savedFiltersSearch}
+            setSavedFiltersSearch={setSavedFiltersSearch}
+            savedFilterName={savedFilterName}
+            setSavedFilterName={setSavedFilterName}
+            savedFilters={savedFilters}
+            saveNewFilter={saveNewFilter}
+            deleteSavedFilter={deleteSavedFilter}
+            applySavedFilter={applySavedFilter}
+            filterGroups={filterGroups}
+            setFilterGroups={setFilterGroups}
+            addFilterGroup={addFilterGroup}
+            addFilterCondition={addFilterCondition}
+            removeFilterItem={removeFilterItem}
+            updateFilterCondition={updateFilterCondition}
+            updateFilterGroupOperator={updateFilterGroupOperator}
+            filterSearch={filterSearch}
+            setFilterSearch={setFilterSearch}
+            assigneesSearch={assigneesSearch}
+            setAssigneesSearch={setAssigneesSearch}
+            FIELD_CONFIG={FIELD_CONFIG}
+            users={users}
+            allAvailableStatuses={allAvailableStatuses}
+            allAvailableTags={allAvailableTags}
+            availableTaskTypes={availableTaskTypes}
+            resolvedWorkspaceId={resolvedWorkspaceId}
+        />
+    );
 
     return (
         <div className="h-full w-full flex flex-col bg-white shadow-sm overflow-hidden font-sans relative min-w-0">
@@ -3684,17 +3744,17 @@ export function TableView({ spaceId, projectId, teamId, listId, folderId, viewId
                                                 size="sm"
                                                 className={cn(
                                                     "h-8 gap-1.5 px-2.5 text-xs font-medium border-zinc-200 transition-colors cursor-pointer",
-                                                    groupBy !== "none" ? "bg-violet-50 text-violet-700 border-violet-200" : "text-zinc-700 bg-zinc-50 hover:bg-zinc-100"
+                                                    groupLabel !== "None" ? "bg-violet-50 text-violet-700 border-violet-200" : "text-zinc-700"
                                                 )}
                                             >
                                                 <LayoutList className="h-3.5 w-3.5" />
                                                 <span className="hidden sm:inline">
-                                                    {groupBy === "none" ? "Group: None" : `Group: ${groupLabel}`}
+                                                    {groupLabel === "None" ? "Group: None" : `Group: ${groupLabel}`}
                                                 </span>
                                             </Button>
                                         </DropdownMenuTrigger>
                                     </TooltipTrigger>
-                                    <TooltipContent side="bottom">Group by: {groupBy === "none" ? "None" : groupLabel}</TooltipContent>
+                                    <TooltipContent side="bottom">Group by: {groupLabel}</TooltipContent>
                                 </Tooltip>
                                 <DropdownMenuContent align="start" className="w-[240px] p-1.5 rounded-xl shadow-xl border-zinc-200/60">
                                     <div className="px-2 py-1.5 mb-1">
@@ -3787,37 +3847,91 @@ export function TableView({ spaceId, projectId, teamId, listId, folderId, viewId
                                             <Trash2 className="h-4 w-4" />
                                             <span className="flex-1">Remove grouping</span>
                                         </DropdownMenuItem>
+                                        {isBroadContext && (
+                                            <>
+                                                <DropdownMenuSeparator className="my-1.5 bg-zinc-100" />
+                                                <div className="px-2 py-1.5 flex items-center justify-between" onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}>
+                                                    <span className="text-sm text-zinc-800">Also group by List</span>
+                                                    <Switch
+                                                        checked={alsoGroupByList}
+                                                        onCheckedChange={setAlsoGroupByList}
+                                                    />
+                                                </div>
+                                            </>
+                                        )}
                                     </div>
                                 </DropdownMenuContent>
                             </DropdownMenu>
 
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                className={cn(
-                                    "h-8 gap-1.5 px-2.5 text-xs font-medium cursor-pointer",
-                                    expandedSubtaskMode === "separate"
-                                        ? "bg-violet-50 text-violet-700 border-violet-200"
-                                        : "bg-zinc-50 text-zinc-700 border-zinc-200 hover:bg-zinc-100"
-                                )}
-                                onClick={() => {
-                                    setExpandedSubtaskMode(prev => prev === "separate" ? "collapsed" : "separate");
-                                    if (expandedSubtaskMode !== "separate") {
-                                        // When enabling separate mode, we might want to clear expanded parents as they are now top-level
-                                        setExpandedParents(new Set());
-                                    }
-                                }}
-                            >
-                                <Spline className="h-3.5 w-3.5 scale-y-[-1]" />
-                                <span className="hidden sm:inline">{expandedSubtaskMode === "separate" ? "Shown" : "Subtasks"}</span>
-                            </Button>
+                            <Popover>
+                                <PopoverTrigger asChild>
+                                    <div>
+                                        <Tooltip>
+                                            <TooltipTrigger asChild>
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    className={cn(
+                                                        "h-8 gap-1.5 px-2.5 text-xs font-medium cursor-pointer",
+                                                        expandedSubtaskMode === "expanded"
+                                                            ? "bg-violet-50 text-violet-700 border-violet-200"
+                                                            : "text-zinc-700 border-zinc-200"
+                                                    )}
+                                                >
+                                                    <Spline className="h-3.5 w-3.5 scale-y-[-1]" />
+                                                    <span className="hidden sm:inline">{expandedSubtaskMode === "collapsed" ? "Subtasks" : expandedSubtaskMode === "expanded" ? "Expanded" : "Separate"}</span>
+                                                </Button>
+                                            </TooltipTrigger>
+                                            <TooltipContent side="bottom">
+                                                Subtasks: {expandedSubtaskMode === "collapsed" ? "Collapsed" : expandedSubtaskMode === "expanded" ? "Expanded" : "Separate"}
+                                            </TooltipContent>
+                                        </Tooltip>
+                                    </div>
+                                </PopoverTrigger>
+                                <PopoverContent align="start" className="w-56">
+                                    <DropdownMenuLabel className="text-xs px-0 pb-2">Show subtasks</DropdownMenuLabel>
+                                    <div className="space-y-1">
+                                        <button
+                                            type="button"
+                                            className={cn(
+                                                "w-full text-left text-xs px-2 py-1 rounded",
+                                                expandedSubtaskMode === "collapsed" ? "bg-zinc-100 text-zinc-900" : "text-zinc-700"
+                                            )}
+                                            onClick={() => {
+                                                setExpandedSubtaskMode("collapsed");
+                                                setExpandedParents(new Set());
+                                            }}
+                                        >
+                                            Collapsed (default)
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className={cn(
+                                                "w-full text-left text-xs px-2 py-1 rounded",
+                                                expandedSubtaskMode === "expanded" ? "bg-zinc-100 text-zinc-900" : "text-zinc-700"
+                                            )}
+                                            onClick={() => {
+                                                setExpandedSubtaskMode("expanded");
+                                                const next = new Set<string>();
+                                                filteredTasks.forEach((t: Task) => {
+                                                    if (hasSubtasks(t, filteredTasks as Task[])) next.add(t.id);
+                                                });
+                                                setExpandedParents(next);
+                                            }}
+                                        >
+                                            Expanded
+                                        </button>
+                                    </div>
+                                    <p className="px-0 pt-2 text-[10px] text-zinc-500">Use this to control how subtasks appear.</p>
+                                </PopoverContent>
+                            </Popover>
 
                             <Tooltip>
                                 <TooltipTrigger asChild>
                                     <Button
                                         variant="outline"
                                         size="sm"
-                                        className="h-8 gap-1.5 px-2.5 text-xs font-medium text-zinc-700 bg-zinc-50 border-zinc-200 hover:bg-zinc-100 cursor-pointer"
+                                        className="h-8 gap-1.5 px-2.5 text-xs font-medium text-zinc-700 border-zinc-200 cursor-pointer"
                                         onClick={() => { setFieldsPanelOpen(true); setFiltersPanelOpen(false); setAssigneesPanelOpen(false); }}
                                     >
                                         <SlidersHorizontal className="h-3.5 w-3.5" />
@@ -4025,9 +4139,9 @@ export function TableView({ spaceId, projectId, teamId, listId, folderId, viewId
                         onDragEnd={(e) => void handleDragEnd(e)}
                         onDragCancel={() => { setDragActiveId(null); setDragOverId(null); setDraggingIds([]); setDropPosition(null); }}
                     >
-                        <Table containerClassName="pb-12 !overflow-visible" className="table-fixed w-full border-separate border-spacing-0 [&_th]:border-r [&_th]:border-t [&_th]:border-b [&_th]:border-slate-200 [&_th:first-child]:border-l [&_td]:border-r [&_td]:border-b [&_td]:border-slate-200 [&_td:first-child]:border-l">
+                        <Table containerClassName="pb-12" className="table-fixed w-full border-collapse">
                             <colgroup>
-                                <col style={{ width: Math.max(colWidths.name || 200, 200), minWidth: Math.max(colWidths.name || 200, 200) }} />
+                                <col className="w-full" style={{ minWidth: Math.max(colWidths.name || 200, 200) }} />
                                 {visibleColumns.has("assignee") && <col style={{ width: colWidths.assignee, minWidth: 80 }} />}
                                 {visibleColumns.has("dueDate") && <col style={{ width: colWidths.dueDate, minWidth: 80 }} />}
                                 {visibleColumns.has("priority") && <col style={{ width: colWidths.priority, minWidth: 80 }} />}
@@ -4041,101 +4155,100 @@ export function TableView({ spaceId, projectId, teamId, listId, folderId, viewId
                                 {FIELD_CONFIG.filter(f => f.isCustom && visibleColumns.has(f.id)).map(f => (
                                     <col key={f.id} style={{ width: colWidths[f.id] ?? 120, minWidth: 80 }} />
                                 ))}
-                                <col className="w-full min-w-[50px]" />
+                                <col className="w-[50px]" />
                             </colgroup>
-                            {(true) && (
-                                <TableHeader className="sticky top-0 bg-white/95 backdrop-blur z-10">
+                            {groupBy === "none" && (
+                                <TableHeader className="sticky top-0 bg-white/95 backdrop-blur z-10 group/header" style={{ borderBottom: '1px solid #e4e4e7' }}>
                                     <TableRow className="hover:bg-transparent border-b border-zinc-200">
-                                        <TableHead className="relative py-3 cursor-pointer bg-white text-[13px] font-normal text-zinc-500 border-b border-zinc-200" style={{ width: Math.max(colWidths.name || 200, 200), minWidth: Math.max(colWidths.name || 200, 200) }} onClick={() => handleSort("name")}>
+                                        <TableHead className="w-full relative py-3 cursor-pointer bg-[#f4f5fa] text-[13px] font-normal text-zinc-500" style={{ minWidth: Math.max(colWidths.name || 200, 200) }} onClick={() => handleSort("name")}>
                                             <div className="flex items-center gap-6 pl-5">
-                                                <Checkbox checked={selectedTasks.length === filteredTasks.length && filteredTasks.length > 0} onCheckedChange={() => setSelectedTasks(selectedTasks.length === filteredTasks.length ? [] : filteredTasks.map(t => t.id))} className="border-zinc-300 cursor-pointer" />
+                                                <div className="w-4 h-4 flex items-center justify-center">
+                                                    <Checkbox
+                                                        checked={selectedTasks.length === filteredTasks.length && filteredTasks.length > 0}
+                                                        onCheckedChange={() => setSelectedTasks(selectedTasks.length === filteredTasks.length ? [] : filteredTasks.map(t => t.id))}
+                                                        className="border-zinc-300 opacity-0 group-hover/header:opacity-100 transition-opacity cursor-pointer"
+                                                    />
+                                                </div>
                                                 <span>Name</span>
                                             </div>
                                             <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-zinc-300 z-10" onMouseDown={(e) => startResize(e, "name")} onClick={(e) => e.stopPropagation()} />
                                         </TableHead>
                                         {visibleColumns.has("assignee") && (
-                                            <TableHead className="relative py-3 text-[13px] font-normal text-zinc-500 border-b border-zinc-200 bg-white" style={{ width: colWidths.assignee, minWidth: 80 }}>
+                                            <TableHead className="relative py-3 text-[13px] font-normal text-zinc-500 bg-white" style={{ width: colWidths.assignee, minWidth: 80 }}>
                                                 Assignee
                                                 <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-zinc-300 z-10" onMouseDown={(e) => startResize(e, "assignee")} onClick={(e) => e.stopPropagation()} />
                                             </TableHead>
                                         )}
                                         {visibleColumns.has("dueDate") && (
-                                            <TableHead className="relative py-3 cursor-pointer text-[13px] font-normal text-zinc-500 border-b border-zinc-200 bg-white" style={{ width: colWidths.dueDate, minWidth: 80 }} onClick={() => handleSort("dueDate")}>
+                                            <TableHead className="relative py-3 cursor-pointer text-[13px] font-normal text-zinc-500 bg-white" style={{ width: colWidths.dueDate, minWidth: 80 }} onClick={() => handleSort("dueDate")}>
                                                 Due date
                                                 <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-zinc-300 z-10" onMouseDown={(e) => startResize(e, "dueDate")} onClick={(e) => e.stopPropagation()} />
                                             </TableHead>
                                         )}
                                         {visibleColumns.has("priority") && (
-                                            <TableHead className="relative py-3 cursor-pointer text-[13px] font-normal text-zinc-500 border-b border-zinc-200 bg-white" style={{ width: colWidths.priority, minWidth: 80 }} onClick={() => handleSort("priority")}>
+                                            <TableHead className="relative py-3 cursor-pointer text-[13px] font-normal text-zinc-500 bg-white" style={{ width: colWidths.priority, minWidth: 80 }} onClick={() => handleSort("priority")}>
                                                 Priority
                                                 <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-zinc-300 z-10" onMouseDown={(e) => startResize(e, "priority")} onClick={(e) => e.stopPropagation()} />
                                             </TableHead>
                                         )}
                                         {visibleColumns.has("status") && (
-                                            <TableHead className="relative py-3 cursor-pointer text-[13px] font-normal text-zinc-500 border-b border-zinc-200 bg-white" style={{ width: colWidths.status, minWidth: 80 }} onClick={() => handleSort("status")}>
+                                            <TableHead className="relative py-3 cursor-pointer text-[13px] font-normal text-zinc-500 bg-white" style={{ width: colWidths.status, minWidth: 80 }} onClick={() => handleSort("status")}>
                                                 Status
                                                 <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-zinc-300 z-10" onMouseDown={(e) => startResize(e, "status")} onClick={(e) => e.stopPropagation()} />
                                             </TableHead>
                                         )}
                                         {visibleColumns.has("dateCreated") && (
-                                            <TableHead className="relative py-3 text-[13px] font-normal text-zinc-500 border-b border-zinc-200 bg-white" style={{ width: colWidths.dateCreated, minWidth: 80 }}>
+                                            <TableHead className="relative py-3 text-[13px] font-normal text-zinc-500 bg-white" style={{ width: colWidths.dateCreated, minWidth: 80 }}>
                                                 Date created
                                                 <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-zinc-300 z-10" onMouseDown={(e) => startResize(e, "dateCreated")} onClick={(e) => e.stopPropagation()} />
                                             </TableHead>
                                         )}
                                         {visibleColumns.has("timeEstimate") && (
-                                            <TableHead className="relative py-3 text-[13px] font-normal text-zinc-500 border-b border-zinc-200 bg-white" style={{ width: colWidths.timeEstimate, minWidth: 80 }}>
+                                            <TableHead className="relative py-3 text-[13px] font-normal text-zinc-500 bg-white" style={{ width: colWidths.timeEstimate, minWidth: 80 }}>
                                                 Time estimate
                                                 <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-zinc-300 z-10" onMouseDown={(e) => startResize(e, "timeEstimate")} onClick={(e) => e.stopPropagation()} />
                                             </TableHead>
                                         )}
                                         {visibleColumns.has("comments") && (
-                                            <TableHead className="relative py-3 text-[13px] font-normal text-zinc-500 border-b border-zinc-200 bg-white" style={{ width: colWidths.comments, minWidth: 60 }}>
+                                            <TableHead className="relative py-3 text-[13px] font-normal text-zinc-500 bg-white" style={{ width: colWidths.comments, minWidth: 60 }}>
                                                 Comments
                                                 <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-zinc-300 z-10" onMouseDown={(e) => startResize(e, "comments")} onClick={(e) => e.stopPropagation()} />
                                             </TableHead>
                                         )}
                                         {visibleColumns.has("timeTracked") && (
-                                            <TableHead className="relative py-3 text-[13px] font-normal text-zinc-500 border-b border-zinc-200 bg-white" style={{ width: colWidths.timeTracked, minWidth: 80 }}>
+                                            <TableHead className="relative py-3 text-[13px] font-normal text-zinc-500 bg-white" style={{ width: colWidths.timeTracked, minWidth: 80 }}>
                                                 Time tracked
                                                 <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-zinc-300 z-10" onMouseDown={(e) => startResize(e, "timeTracked")} onClick={(e) => e.stopPropagation()} />
                                             </TableHead>
                                         )}
                                         {visibleColumns.has("pullRequests") && (
-                                            <TableHead className="relative py-3 text-[13px] font-normal text-zinc-500 border-b border-zinc-200 bg-white" style={{ width: colWidths.pullRequests, minWidth: 80 }}>
+                                            <TableHead className="relative py-3 text-[13px] font-normal text-zinc-500 bg-white" style={{ width: colWidths.pullRequests, minWidth: 80 }}>
                                                 Pull Requests
                                                 <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-zinc-300 z-10" onMouseDown={(e) => startResize(e, "pullRequests")} onClick={(e) => e.stopPropagation()} />
                                             </TableHead>
                                         )}
                                         {visibleColumns.has("linkedTasks") && (
-                                            <TableHead className="relative py-3 text-[13px] font-normal text-zinc-500 border-b border-zinc-200 bg-white" style={{ width: colWidths.linkedTasks, minWidth: 80 }}>
+                                            <TableHead className="relative py-3 text-[13px] font-normal text-zinc-500 bg-white" style={{ width: colWidths.linkedTasks, minWidth: 80 }}>
                                                 Linked tasks
                                                 <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-zinc-300 z-10" onMouseDown={(e) => startResize(e, "linkedTasks")} onClick={(e) => e.stopPropagation()} />
                                             </TableHead>
                                         )}
                                         {visibleColumns.has("taskType") && (
-                                            <TableHead className="relative py-3 text-[13px] font-normal text-zinc-500 border-b border-zinc-200 bg-white" style={{ width: colWidths.taskType, minWidth: 80 }}>
+                                            <TableHead className="relative py-3 text-[13px] font-normal text-zinc-500 bg-white" style={{ width: colWidths.taskType, minWidth: 80 }}>
                                                 Type
                                                 <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-zinc-300 z-10" onMouseDown={(e) => startResize(e, "taskType")} onClick={(e) => e.stopPropagation()} />
                                             </TableHead>
                                         )}
                                         {FIELD_CONFIG.filter(f => f.isCustom && visibleColumns.has(f.id)).map(f => (
-                                            <TableHead key={f.id} className="relative py-3 text-[13px] font-normal text-zinc-500 border-b border-zinc-200 bg-white" style={{ width: colWidths[f.id] ?? 120, minWidth: 80 }}>
+                                            <TableHead key={f.id} className="relative py-3 text-[13px] font-normal text-zinc-500 bg-white" style={{ width: colWidths[f.id] ?? 120, minWidth: 80 }}>
                                                 {f.label}
                                                 <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-zinc-300 z-10" onMouseDown={(e) => startResize(e, f.id)} onClick={(e) => e.stopPropagation()} />
                                             </TableHead>
                                         ))}
-                                        <TableHead className="w-full pl-4 text-left text-[13px] font-normal text-zinc-500 border-b border-zinc-200 bg-white">
-                                            <TooltipProvider>
-                                                <Tooltip>
-                                                    <TooltipTrigger asChild>
-                                                        <Button variant="ghost" size="icon" className="h-7 w-7 text-zinc-400 hover:text-zinc-600" onClick={() => { setFieldsPanelOpen(true); setFiltersPanelOpen(false); setAssigneesPanelOpen(false); }}>
-                                                            <Plus className="h-3.5 w-3.5" />
-                                                        </Button>
-                                                    </TooltipTrigger>
-                                                    <TooltipContent side="bottom">Add column or manage fields</TooltipContent>
-                                                </Tooltip>
-                                            </TooltipProvider>
+                                        <TableHead className="w-[50px] pr-4 text-right text-[13px] font-normal text-zinc-500 bg-white">
+                                            <Button variant="ghost" size="icon" className="h-7 w-7 text-zinc-400 hover:text-zinc-600" onClick={() => { setFieldsPanelOpen(true); setFiltersPanelOpen(false); setAssigneesPanelOpen(false); }} title="Add column or manage fields">
+                                                <Plus className="h-3.5 w-3.5" />
+                                            </Button>
                                         </TableHead>
                                     </TableRow>
                                 </TableHeader>
@@ -4145,8 +4258,8 @@ export function TableView({ spaceId, projectId, teamId, listId, folderId, viewId
                                     <>
                                         {inlineAddGroupKey === "__top" && (
                                             <TableRow ref={inlineRowRef} className="bg-violet-50/30 border-b border-zinc-100">
-                                                <TableCell colSpan={20} className="py-2 pl-0">
-                                                    <div className="flex items-center gap-2 justify-start pl-[44px]">
+                                                <TableCell colSpan={20} className="py-2 pl-6">
+                                                    <div className="flex items-center gap-2 justify-start pl-[78px]">
                                                         <span className="h-2 w-2 rounded-full shrink-0 bg-zinc-400" />
                                                         <Input
                                                             variant="ghost"
@@ -4168,11 +4281,7 @@ export function TableView({ spaceId, projectId, teamId, listId, folderId, viewId
                                                         {/* Inline toolbar (ClickUp-like) */}
                                                         <DropdownMenu>
                                                             <DropdownMenuTrigger asChild>
-                                                                <Button variant="outline" size="sm" className="h-7 px-2 text-xs text-zinc-700 border-zinc-200 hover:bg-zinc-100 hover:text-zinc-900 rounded-full">
-                                                                    {(() => {
-                                                                        const tt = availableTaskTypes?.find((t: any) => t.id === inlineAddTaskType || t.name === inlineAddTaskType);
-                                                                        return <TaskTypeIcon type={tt} className="h-3.5 w-3.5 mr-1" />;
-                                                                    })()}
+                                                                <Button variant="outline" size="sm" className="h-7 px-2 text-xs text-zinc-700 border-zinc-200 hover:bg-zinc-100 hover:text-zinc-900 rounded-md">
                                                                     {(() => {
                                                                         const tt = availableTaskTypes?.find((t: any) => t.id === inlineAddTaskType || t.name === inlineAddTaskType);
                                                                         if (!tt) {
@@ -4207,7 +4316,7 @@ export function TableView({ spaceId, projectId, teamId, listId, folderId, viewId
                                                             value={inlineAddAssigneeIds}
                                                             onChange={setInlineAddAssigneeIds}
                                                             trigger={
-                                                                <Button variant="outline" size="icon" className="h-7 w-7 text-zinc-600 border-zinc-200 hover:bg-zinc-100 hover:text-zinc-900 rounded-full">
+                                                                <Button variant="outline" size="icon" className="h-7 w-7 text-zinc-600 border-zinc-200 hover:bg-zinc-100 hover:text-zinc-900 rounded-md">
                                                                     <Users className="h-3.5 w-3.5" />
                                                                 </Button>
                                                             }
@@ -4216,7 +4325,7 @@ export function TableView({ spaceId, projectId, teamId, listId, folderId, viewId
                                                         {/* Due date picker */}
                                                         <Popover>
                                                             <PopoverTrigger asChild>
-                                                                <Button variant="outline" size="icon" className="h-7 w-7 text-zinc-600 border-zinc-200 hover:bg-zinc-100 hover:text-zinc-900 rounded-full">
+                                                                <Button variant="outline" size="icon" className="h-7 w-7 text-zinc-600 border-zinc-200 hover:bg-zinc-100 hover:text-zinc-900 rounded-md">
                                                                     <Calendar className="h-3.5 w-3.5" />
                                                                 </Button>
                                                             </PopoverTrigger>
@@ -4237,7 +4346,7 @@ export function TableView({ spaceId, projectId, teamId, listId, folderId, viewId
                                                                     type="button"
                                                                     variant="outline"
                                                                     size="sm"
-                                                                    className="h-7 w-auto min-w-[90px] border-zinc-200 bg-white hover:bg-zinc-50 focus:ring-0 px-2.5 rounded-md text-xs font-medium shadow-sm transition-all text-zinc-700"
+                                                                    className="h-7 w-auto min-w-[90px] border-zinc-200 bg-white hover:bg-zinc-50 focus:ring-0 px-2.5 rounded-md text-xs font-medium transition-all text-zinc-700"
                                                                 >
                                                                     <div className="flex items-center gap-1.5 w-full">
                                                                         <div className={cn("flex items-center gap-1.5",
@@ -4277,14 +4386,14 @@ export function TableView({ spaceId, projectId, teamId, listId, folderId, viewId
                                                             <Button
                                                                 variant="ghost"
                                                                 size="sm"
-                                                                className="h-7 text-xs text-zinc-600 rounded-full hover:bg-zinc-100 px-3"
+                                                                className="h-7 text-xs text-zinc-600 rounded-md hover:bg-zinc-100 px-3 border border-zinc-200"
                                                                 onClick={() => handleCancelInlineAdd(true)}
                                                             >
                                                                 Cancel
                                                             </Button>
                                                             <Button
                                                                 size="sm"
-                                                                className="h-7 text-xs bg-zinc-900 hover:bg-zinc-800 text-white rounded-full px-4"
+                                                                className="h-7 text-xs bg-zinc-900 hover:bg-zinc-800 text-white rounded-md px-4"
                                                                 onClick={() => handleSaveInlineTask({ parentId: null, listIdForCreate: listId ?? lists[0]?.id })}
                                                                 disabled={!inlineAddTitle.trim() || (!listId && !lists[0]?.id) || !resolvedWorkspaceId || createTask.isPending}
                                                             >
@@ -4321,7 +4430,7 @@ export function TableView({ spaceId, projectId, teamId, listId, folderId, viewId
                                                     <Button
                                                         variant="ghost"
                                                         size="sm"
-                                                        className="h-7 text-xs text-zinc-500 hover:text-zinc-700 justify-start pl-[44px] cursor-pointer"
+                                                        className="h-7 text-xs text-zinc-500 hover:text-zinc-700 justify-start pl-16 cursor-pointer"
                                                         onClick={() => {
                                                             openInlineAdd("__top", null);
                                                         }}
@@ -4360,9 +4469,13 @@ export function TableView({ spaceId, projectId, teamId, listId, folderId, viewId
                                             <Table>
                                                 <TableBody>
                                                     <TableRow className="border-none hover:bg-transparent bg-transparent">
+                                                        <TableCell className="w-[40px] py-2 pl-4">
+                                                            <div className="flex items-center gap-2">
+                                                                <GripVertical className="h-4 w-4 text-zinc-400 shrink-0" />
+                                                            </div>
+                                                        </TableCell>
                                                         <TableCell className="min-w-[280px] py-2">
                                                             <div className="flex items-center gap-2 min-w-0">
-                                                                <GripVertical className="h-4 w-4 text-zinc-400 shrink-0" />
                                                                 <span className={cn("h-2 w-2 rounded-full shrink-0", overlayTask.status?.name === "Done" ? "bg-emerald-500" : overlayTask.status?.name === "In Progress" ? "bg-blue-500" : "bg-slate-400")} style={overlayTask.status?.color ? { backgroundColor: overlayTask.status.color } : undefined} />
                                                                 <span className="font-medium text-sm text-zinc-900 truncate">
                                                                     {overlayTask.title || overlayTask.name}
@@ -4427,7 +4540,6 @@ export function TableView({ spaceId, projectId, teamId, listId, folderId, viewId
                         </div>
                         <div className="p-3 border-b border-zinc-100">
                             <div className="relative">
-                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
                                 <Input className="pl-9 h-9 text-sm" placeholder="Search for new or existing fields" value={fieldsSearch} onChange={e => setFieldsSearch(e.target.value)} />
                             </div>
                         </div>
@@ -4487,456 +4599,464 @@ export function TableView({ spaceId, projectId, teamId, listId, folderId, viewId
             )}
 
             {/* Customize view panel (ClickUp-style) */}
-            {customizePanelOpen && !layoutOptionsOpen && (
-                <SidePanel
-                    open={customizePanelOpen && !layoutOptionsOpen}
-                    onClose={() => setCustomizePanelOpen(false)}
-                    className="absolute bottom-0 right-0 h-full w-[380px] max-w-[90vw] bg-white border-l border-zinc-200 shadow-xl z-50 flex flex-col"
-                >
-                    <div className="flex items-center justify-between p-4 border-b border-zinc-100">
-                        <h3 className="font-semibold text-zinc-900">Customize view</h3>
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setCustomizePanelOpen(false)}><X className="h-4 w-4" /></Button>
-                    </div>
-                    <ScrollArea className="flex-1 min-h-0">
-                        <div className="p-3 space-y-2 pb-24">
-                            <div className="flex items-center gap-2 mb-4">
-                                <div className="flex items-center justify-center h-10 w-10 rounded-lg border border-zinc-200 bg-zinc-50 shrink-0">
-                                    <LayoutList className="h-5 w-5 text-zinc-600" />
-                                </div>
-                                <Input
-                                    value={viewNameDraft}
-                                    onChange={(e) => setViewNameDraft(e.target.value)}
-                                    onBlur={() => updateViewName(viewNameDraft)}
-                                    onKeyDown={(e) => {
-                                        if (e.key === "Enter") {
-                                            updateViewName(viewNameDraft);
-                                            (e.target as HTMLInputElement).blur();
-                                        }
-                                    }}
-                                    className="h-10 text-sm font-medium border-zinc-200"
-                                    placeholder="View name"
-                                />
+            <SidePanel
+                open={customizePanelOpen && !layoutOptionsOpen}
+                onClose={() => setCustomizePanelOpen(false)}
+                className="absolute bottom-0 right-0 h-full w-[380px] max-w-[90vw] bg-white border-l border-zinc-200 shadow-xl z-50 flex flex-col"
+            >
+                <div className="flex items-center justify-between p-4 border-b border-zinc-100">
+                    <h3 className="font-semibold text-zinc-900">Customize view</h3>
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setCustomizePanelOpen(false)}><X className="h-4 w-4" /></Button>
+                </div>
+                <ScrollArea className="flex-1 min-h-0">
+                    <div className="p-3 space-y-2 pb-24">
+                        <div className="flex items-center gap-2 mb-4">
+                            <div className="flex items-center justify-center h-10 w-10 rounded-lg border border-zinc-200 bg-zinc-50 shrink-0">
+                                <LayoutList className="h-5 w-5 text-zinc-600" />
                             </div>
-
-                            <div className="space-y-1">
-                                {groupBy === "status" ? (
-                                    <div className="flex items-center justify-between py-1 px-2">
-                                        <span className="text-sm text-zinc-800">Show empty statuses</span>
-                                        <Switch
-                                            checked={showEmptyStatuses}
-                                            onCheckedChange={setShowEmptyStatuses}
-                                        />
-                                    </div>
-                                ) : (
-                                    <TooltipProvider delayDuration={0}>
-                                        <Tooltip>
-                                            <TooltipTrigger asChild>
-                                                <div className="flex items-center justify-between py-1 cursor-not-allowed opacity-50 px-2">
-                                                    <span className="text-sm text-zinc-800">Show empty statuses</span>
-                                                    <Switch
-                                                        checked={showEmptyStatuses}
-                                                        onCheckedChange={setShowEmptyStatuses}
-                                                        disabled
-                                                    />
-                                                </div>
-                                            </TooltipTrigger>
-                                            <TooltipContent side="left" className="bg-zinc-900 text-white border-none text-[11px] py-1.5 px-2.5">
-                                                Grouping by status is required to enable this
-                                            </TooltipContent>
-                                        </Tooltip>
-                                    </TooltipProvider>
-                                )}
-                                <div className="flex items-center justify-between py-1 px-2">
-                                    <span className="text-sm text-zinc-800">Wrap text</span>
-                                    <Switch checked={wrapText} onCheckedChange={setWrapText} />
-                                </div>
-                                <div className="flex items-center justify-between py-1 px-2">
-                                    <span className="text-sm text-zinc-800">Show task locations</span>
-                                    <Switch checked={showTaskLocations} onCheckedChange={setShowTaskLocations} />
-                                </div>
-                                <div className="flex items-center justify-between py-1 px-2">
-                                    <span className="text-sm text-zinc-800">Show subtask parent names</span>
-                                    <Switch checked={showSubtaskParentNames} onCheckedChange={setShowSubtaskParentNames} />
-                                </div>
-                                <div className="flex items-center justify-between py-1 px-2">
-                                    <span className="text-sm text-zinc-800">Show closed tasks</span>
-                                    <Switch checked={showCompleted} onCheckedChange={setShowCompleted} />
-                                </div>
-                                <button
-                                    type="button"
-                                    className="w-full flex items-center justify-between py-2.5 text-sm text-zinc-800 hover:bg-zinc-50 rounded-md px-2"
-                                    onClick={() => { setLayoutOptionsOpen(true); }}
-                                >
-                                    <span className="flex items-center gap-2">More options</span>
-                                    <ChevronRight className="inline h-3 w-3 ml-1 text-zinc-400" />
-                                </button>
-                            </div>
-                            <div className="h-px bg-zinc-100 my-2" />
-                            <div className="space-y-1">
-                                <button type="button" className="w-full flex items-center justify-between py-2.5 text-sm text-zinc-800 hover:bg-zinc-50 rounded-md px-2" onClick={() => { setFieldsPanelOpen(true); setCustomizePanelOpen(false); }}>
-                                    <span className="flex items-center gap-2"><SlidersHorizontal className="h-4 w-4 text-zinc-400" />Fields</span>
-                                    <span className="text-xs text-zinc-500">{Array.from(visibleColumns).length} shown</span>
-                                </button>
-                                <Popover open={customizeViewFilterOpen} onOpenChange={setCustomizeViewFilterOpen}>
-                                    <PopoverTrigger asChild>
-                                        <button
-                                            type="button"
-                                            className="w-full flex items-center justify-between py-2.5 text-sm text-zinc-800 hover:bg-zinc-50 rounded-md px-2"
-                                            onClick={() => { if (filterGroups.conditions.length === 0) { addFilterGroup(); } }}
-                                        >
-                                            <span className="flex items-center gap-2"><Filter className="h-4 w-4 text-zinc-400" />Filter</span>
-                                            <span className="text-xs text-zinc-500">{appliedFilterCount > 0 ? `${appliedFilterCount} applied` : "None"} <ChevronRight className="inline h-3 w-3 ml-1" /></span>
-                                        </button>
-                                    </PopoverTrigger>
-                                    <PopoverContent side="left" align="start" className="w-[600px] max-w-[90vw] p-0 overflow-hidden shadow-2xl rounded-2xl border border-zinc-200/80" sideOffset={16}>
-                                        {renderFilterContent({ onClose: () => setCustomizeViewFilterOpen(false) })}
-                                    </PopoverContent>
-                                </Popover>
-                                <Popover open={customizeViewGroupOpen} onOpenChange={setCustomizeViewGroupOpen}>
-                                    <PopoverTrigger asChild>
-                                        <button
-                                            type="button"
-                                            className="w-full flex items-center justify-between py-2.5 text-sm text-zinc-800 hover:bg-zinc-50 rounded-md px-2"
-                                        >
-                                            <span className="flex items-center gap-2"><LayoutList className="h-4 w-4 text-zinc-400" />Group</span>
-                                            <span className="text-xs text-zinc-500">{groupLabel} <ChevronRight className="inline h-3 w-3 ml-1" /></span>
-                                        </button>
-                                    </PopoverTrigger>
-                                    <PopoverContent side="left" align="start" className="w-[240px] p-1.5 rounded-xl shadow-xl border-zinc-200/60" sideOffset={16}>
-                                        <div className="px-2 py-1.5 mb-1">
-                                            <span className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">Group by</span>
-                                        </div>
-                                        <div className="space-y-0.5">
-                                            {[
-                                                { id: "status", label: "Status", icon: Circle },
-                                                { id: "assignee", label: "Assignee", icon: Users },
-                                                { id: "priority", label: "Priority", icon: Flag },
-                                                { id: "tags", label: "Tags", icon: Tag },
-                                                { id: "dueDate", label: "Due date", icon: Calendar },
-                                                { id: "taskType", label: "Task type", icon: Box },
-                                            ].map((opt) => (
-                                                <div
-                                                    key={opt.id}
-                                                    className={cn(
-                                                        "flex items-center gap-2.5 px-2 py-1.5 text-sm rounded-md cursor-pointer transition-colors",
-                                                        groupBy === opt.id ? "bg-violet-50 text-violet-700" : "text-zinc-600 hover:bg-zinc-100"
-                                                    )}
-                                                    onClick={() => { setGroupBy(opt.id as any); setCustomizeViewGroupOpen(false); }}
-                                                >
-                                                    <opt.icon className={cn("h-4 w-4", groupBy === opt.id ? "text-violet-500" : "text-zinc-400")} />
-                                                    <span className="flex-1">{opt.label}</span>
-                                                    {groupBy === opt.id && <div className="h-1.5 w-1.5 rounded-full bg-violet-600" />}
-                                                </div>
-                                            ))}
-                                            {FIELD_CONFIG.filter(f => f.isCustom).length > 0 && (
-                                                <>
-                                                    <div className="h-px bg-zinc-100 my-1.5" />
-                                                    <div className="px-2 py-1.5 mb-0.5">
-                                                        <span className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">Custom Fields</span>
-                                                    </div>
-                                                    {FIELD_CONFIG.filter(f => f.isCustom).map((f) => {
-                                                        const Icon = f.icon as any;
-                                                        return (
-                                                            <div
-                                                                key={f.id}
-                                                                className={cn(
-                                                                    "flex items-center gap-2.5 px-2 py-1.5 text-sm rounded-md cursor-pointer transition-colors",
-                                                                    groupBy === f.id ? "bg-violet-50 text-violet-700" : "text-zinc-600 hover:bg-zinc-100"
-                                                                )}
-                                                                onClick={() => { setGroupBy(f.id); setCustomizeViewGroupOpen(false); }}
-                                                            >
-                                                                <Icon className={cn("h-4 w-4", groupBy === f.id ? "text-violet-500" : "text-zinc-400")} />
-                                                                <span className="flex-1 truncate">{f.label}</span>
-                                                                {groupBy === f.id && <div className="h-1.5 w-1.5 rounded-full bg-violet-600" />}
-                                                            </div>
-                                                        );
-                                                    })}
-                                                </>
-                                            )}
-                                            {groupBy !== "none" && (
-                                                <>
-                                                    <div className="h-px bg-zinc-100 my-1.5" />
-                                                    <div className="flex items-center gap-1 p-1">
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="sm"
-                                                            className={cn("flex-1 h-7 text-[10px] uppercase tracking-wider font-bold", groupDirection === "asc" ? "bg-white shadow-sm border border-zinc-200 text-zinc-900" : "text-zinc-500")}
-                                                            onClick={() => setGroupDirection("asc")}
-                                                        >
-                                                            Ascending
-                                                        </Button>
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="sm"
-                                                            className={cn("flex-1 h-7 text-[10px] uppercase tracking-wider font-bold", groupDirection === "desc" ? "bg-white shadow-sm border border-zinc-200 text-zinc-900" : "text-zinc-500")}
-                                                            onClick={() => setGroupDirection("desc")}
-                                                        >
-                                                            Descending
-                                                        </Button>
-                                                    </div>
-                                                </>
-                                            )}
-                                            <div className="h-px bg-zinc-100 my-1.5" />
-                                            <div
-                                                className={cn(
-                                                    "flex items-center gap-2.5 px-2 py-1.5 text-sm rounded-md cursor-pointer transition-colors text-red-600 hover:bg-red-50 hover:text-red-700",
-                                                    groupBy === "none" && "bg-zinc-100"
-                                                )}
-                                                onClick={() => { setGroupBy("none"); setCustomizeViewGroupOpen(false); }}
-                                            >
-                                                <Trash2 className="h-4 w-4" />
-                                                <span className="flex-1">Remove grouping</span>
-                                            </div>
-                                        </div>
-                                    </PopoverContent>
-                                </Popover>
-                                <Popover open={customizeViewSubtasksOpen} onOpenChange={setCustomizeViewSubtasksOpen}>
-                                    <PopoverTrigger asChild>
-                                        <button
-                                            type="button"
-                                            className="w-full flex items-center justify-between py-2.5 text-sm text-zinc-800 hover:bg-zinc-50 rounded-md px-2"
-                                        >
-                                            <span className="flex items-center gap-2"><Link2 className="h-4 w-4 text-zinc-400" />Subtasks</span>
-                                            <span className="text-xs text-zinc-500">{expandedSubtaskMode === "collapsed" ? "Collapsed" : expandedSubtaskMode === "expanded" ? "Expanded" : "Separate"} <ChevronRight className="inline h-3 w-3 ml-1" /></span>
-                                        </button>
-                                    </PopoverTrigger>
-                                    <PopoverContent side="left" align="start" className="w-56" sideOffset={16}>
-                                        <div className="text-xs px-2 pb-2 font-semibold text-zinc-900">Show subtasks</div>
-                                        <div className="space-y-1">
-                                            <button
-                                                type="button"
-                                                className={cn(
-                                                    "w-full text-left text-xs px-2 py-1 rounded",
-                                                    expandedSubtaskMode === "collapsed" ? "bg-zinc-100 text-zinc-900" : "text-zinc-700 hover:bg-zinc-50"
-                                                )}
-                                                onClick={() => {
-                                                    setExpandedSubtaskMode("collapsed");
-                                                    setExpandedParents(new Set());
-                                                    setCustomizeViewSubtasksOpen(false);
-                                                }}
-                                            >
-                                                Collapsed (default)
-                                            </button>
-                                            <button
-                                                type="button"
-                                                className={cn(
-                                                    "w-full text-left text-xs px-2 py-1 rounded",
-                                                    expandedSubtaskMode === "expanded" ? "bg-zinc-100 text-zinc-900" : "text-zinc-700 hover:bg-zinc-50"
-                                                )}
-                                                onClick={() => {
-                                                    setExpandedSubtaskMode("expanded");
-                                                    const next = new Set<string>();
-                                                    filteredTasks.forEach((t: Task) => {
-                                                        if (hasSubtasks(t, filteredTasks as Task[])) next.add(t.id);
-                                                    });
-                                                    setExpandedParents(next);
-                                                    setCustomizeViewSubtasksOpen(false);
-                                                }}
-                                            >
-                                                Expanded
-                                            </button>
-                                            <button
-                                                type="button"
-                                                className={cn(
-                                                    "w-full text-left text-xs px-2 py-1 rounded",
-                                                    expandedSubtaskMode === "separate" ? "bg-zinc-100 text-zinc-900" : "text-zinc-700 hover:bg-zinc-50"
-                                                )}
-                                                onClick={() => {
-                                                    setExpandedSubtaskMode("separate");
-                                                    setExpandedParents(new Set());
-                                                    setCustomizeViewSubtasksOpen(false);
-                                                }}
-                                            >
-                                                As separate items
-                                            </button>
-                                        </div>
-                                    </PopoverContent>
-                                </Popover>
-                            </div>
-                            <div className="h-px bg-zinc-100 my-2" />
-                            <div className="space-y-1">
-                                <div className="flex items-center justify-between py-2.5 px-2 hover:bg-zinc-50 rounded-md transition-colors">
-                                    <div className="flex items-center gap-2">
-                                        <Save className="h-4 w-4 text-zinc-400" />
-                                        <span className="text-sm text-zinc-800">Autosave for me</span>
-                                    </div>
-                                    <Switch checked={viewAutosave} onCheckedChange={handleToggleAutosave} />
-                                </div>
-                                <div className="flex items-center justify-between py-2.5 px-2 hover:bg-zinc-50 rounded-md transition-colors">
-                                    <div className="flex items-center gap-2">
-                                        <Pin className="h-4 w-4 text-zinc-400" />
-                                        <span className="text-sm text-zinc-800">Pin view</span>
-                                    </div>
-                                    <Switch checked={pinView} onCheckedChange={(val) => { setPinView(val); updateViewProperty('isPinned', val); }} />
-                                </div>
-                                <div className="flex items-center justify-between py-2.5 px-2 hover:bg-zinc-50 rounded-md transition-colors">
-                                    <div className="flex items-center gap-2">
-                                        <Lock className="h-4 w-4 text-zinc-400" />
-                                        <span className="text-sm text-zinc-800">Private view</span>
-                                    </div>
-                                    <Switch checked={privateView} onCheckedChange={(val) => { setPrivateView(val); updateViewProperty('isPrivate', val); }} />
-                                </div>
-                                <div className="flex items-center justify-between py-2.5 px-2 hover:bg-zinc-50 rounded-md transition-colors">
-                                    <div className="flex items-center gap-2">
-                                        <ShieldCheck className="h-4 w-4 text-zinc-400" />
-                                        <span className="text-sm text-zinc-800">Protect view</span>
-                                    </div>
-                                    <Switch checked={protectView} onCheckedChange={(val) => { setProtectView(val); updateViewProperty('isLocked', val); }} />
-                                </div>
-                                <div className="flex items-center justify-between py-2.5 px-2 hover:bg-zinc-50 rounded-md transition-colors">
-                                    <div className="flex items-center gap-2">
-                                        <Home className="h-4 w-4 text-zinc-400" />
-                                        <span className="text-sm text-zinc-800">Set as default view</span>
-                                    </div>
-                                    <Switch checked={defaultView} onCheckedChange={(val) => { setDefaultView(val); updateViewProperty('isDefault', val); }} />
-                                </div>
-                            </div>
-                            <div className="h-px bg-zinc-100 my-2" />
-                            <div className="space-y-1">
-                                <button type="button" className="w-full flex items-center justify-between py-2.5 text-sm text-zinc-800 hover:bg-zinc-50 rounded-md px-2" onClick={() => {
-                                    const url = `${window.location.origin}${window.location.pathname}?v=${viewId}`;
-                                    navigator.clipboard?.writeText(url);
-                                    toast.success("Link copied to clipboard");
-                                }}>
-                                    <span className="flex items-center gap-2"><Link className="h-4 w-4 text-zinc-400" />Copy link to view</span>
-                                </button>
-                                <button
-                                    type="button"
-                                    className="w-full flex items-center justify-between py-2.5 text-sm text-zinc-800 hover:bg-zinc-50 rounded-md px-2"
-                                    onClick={() => setIsShareModalOpen(true)}
-                                >
-                                    <span className="flex items-center gap-2"><Users className="h-4 w-4 text-zinc-400" />Sharing & Permissions</span>
-                                    <ChevronRight className="inline h-3 w-3 ml-1 text-zinc-400" />
-                                </button>
-                            </div>
+                            <Input
+                                value={viewNameDraft}
+                                onChange={(e) => setViewNameDraft(e.target.value)}
+                                onBlur={() => updateViewName(viewNameDraft)}
+                                onKeyDown={(e) => {
+                                    if (e.key === "Enter") {
+                                        updateViewName(viewNameDraft);
+                                        (e.target as HTMLInputElement).blur();
+                                    }
+                                }}
+                                className="h-10 text-sm font-medium border-zinc-200"
+                                placeholder="View name"
+                            />
                         </div>
-                    </ScrollArea>
-                </SidePanel>
-            )}
-            {layoutOptionsOpen && (
-                <SidePanel
-                    open={layoutOptionsOpen}
-                    onClose={() => { setLayoutOptionsOpen(false); setCustomizePanelOpen(false); }}
-                    className="absolute bottom-0 right-0 h-full w-[380px] max-w-[90vw] bg-white border-l border-zinc-200 shadow-xl z-50 flex flex-col"
-                >
-                    <div className="flex items-center justify-between p-4 border-b border-zinc-100">
-                        <Button variant="ghost" size="icon" className="h-8 w-8 -ml-1 cursor-pointer" onClick={() => { setLayoutOptionsOpen(false); setCustomizePanelOpen(true); }}>
-                            <ArrowRight className="h-4 w-4 rotate-180" />
-                        </Button>
-                        <h3 className="font-semibold text-zinc-900">Layout options</h3>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 cursor-pointer" onClick={() => { setLayoutOptionsOpen(false); setCustomizePanelOpen(false); }}><X className="h-4 w-4" /></Button>
-                    </div>
-                    <ScrollArea className="flex-1 min-h-0">
-                        <div className="p-3 space-y-4 pb-24">
-                            <div className="space-y-2">
-                                <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-2">Page layout</p>
-                                {groupBy === "status" ? (
-                                    <div className="flex items-center justify-between py-1 px-2">
-                                        <span className="text-sm text-zinc-800">Show empty statuses</span>
-                                        <Switch
-                                            checked={showEmptyStatuses}
-                                            onCheckedChange={setShowEmptyStatuses}
-                                        />
-                                    </div>
-                                ) : (
-                                    <TooltipProvider delayDuration={0}>
-                                        <Tooltip>
-                                            <TooltipTrigger asChild>
-                                                <div className="flex items-center justify-between py-1 cursor-not-allowed opacity-50 px-2">
-                                                    <span className="text-sm text-zinc-800">Show empty statuses</span>
-                                                    <Switch
-                                                        checked={showEmptyStatuses}
-                                                        onCheckedChange={setShowEmptyStatuses}
-                                                        disabled
-                                                    />
-                                                </div>
-                                            </TooltipTrigger>
-                                            <TooltipContent side="left" className="bg-zinc-900 text-white border-none text-[11px] py-1.5 px-2.5">
-                                                Grouping by status is required to enable this
-                                            </TooltipContent>
-                                        </Tooltip>
-                                    </TooltipProvider>
-                                )}
+
+                        <div className="space-y-1">
+                            {groupBy === "status" ? (
                                 <div className="flex items-center justify-between py-1 px-2">
-                                    <span className="text-sm text-zinc-800">Pin description</span>
+                                    <span className="text-sm text-zinc-800">Show empty statuses</span>
                                     <Switch
-                                        checked={pinDescription}
-                                        onCheckedChange={setPinDescription}
-                                        disabled={!currentList}
+                                        checked={showEmptyStatuses}
+                                        onCheckedChange={setShowEmptyStatuses}
                                     />
                                 </div>
-                                <div className="flex items-center justify-between py-1 px-2">
-                                    <span className="text-sm text-zinc-800">Wrap text</span>
-                                    <Switch checked={wrapText} onCheckedChange={setWrapText} />
-                                </div>
+                            ) : (
+                                <TooltipProvider delayDuration={0}>
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <div className="flex items-center justify-between py-1 cursor-not-allowed opacity-50 px-2">
+                                                <span className="text-sm text-zinc-800">Show empty statuses</span>
+                                                <Switch
+                                                    checked={showEmptyStatuses}
+                                                    onCheckedChange={setShowEmptyStatuses}
+                                                    disabled
+                                                />
+                                            </div>
+                                        </TooltipTrigger>
+                                        <TooltipContent side="left" className="bg-zinc-900 text-white border-none text-[11px] py-1.5 px-2.5">
+                                            Grouping by status is required to enable this
+                                        </TooltipContent>
+                                    </Tooltip>
+                                </TooltipProvider>
+                            )}
+                            <div className="flex items-center justify-between py-1 px-2">
+                                <span className="text-sm text-zinc-800">Wrap text</span>
+                                <Switch checked={wrapText} onCheckedChange={setWrapText} />
                             </div>
-                            <div className="space-y-2">
-                                <div className="flex items-center justify-between py-1 px-2">
-                                    <span className="text-sm text-zinc-800">Show task locations</span>
-                                    <Switch checked={showTaskLocations} onCheckedChange={setShowTaskLocations} />
-                                </div>
-                                <div className="flex items-center justify-between py-1 px-2">
-                                    <span className="text-sm text-zinc-800">Show task properties</span>
-                                    <Switch checked={showTaskProperties} onCheckedChange={setShowTaskProperties} />
-                                </div>
-                                <div className="flex items-center justify-between py-1 px-2">
-                                    <span className="text-sm text-zinc-800">Show subtask parent names</span>
-                                    <Switch checked={showSubtaskParentNames} onCheckedChange={setShowSubtaskParentNames} />
-                                </div>
+                            <div className="flex items-center justify-between py-1 px-2">
+                                <span className="text-sm text-zinc-800">Show task locations</span>
+                                <Switch checked={showTaskLocations} onCheckedChange={setShowTaskLocations} />
                             </div>
-
-                            <div className="h-px bg-zinc-100" />
-
-                            <div className="space-y-2">
-                                <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-2">Task visibility</p>
-                                <div className="flex items-center justify-between py-1 px-2">
-                                    <span className="text-sm text-zinc-800">Show closed tasks</span>
-                                    <Switch checked={showCompleted} onCheckedChange={setShowCompleted} />
-                                </div>
-                                <div className="flex items-center justify-between py-1 px-2">
-                                    <span className="text-sm text-zinc-800">Show closed subtasks</span>
-                                    <Switch checked={showCompletedSubtasks} onCheckedChange={setShowCompletedSubtasks} />
-                                </div>
-                                <div className="flex items-center justify-between py-1 px-2">
-                                    <span className="text-sm text-zinc-800">Show tasks from other Lists</span>
-                                    <Switch checked={showTasksFromOtherLists} onCheckedChange={setShowTasksFromOtherLists} />
-                                </div>
-                                <div className="flex items-center justify-between py-1 px-2">
-                                    <span className="text-sm text-zinc-800">Show subtasks from other Lists</span>
-                                    <Switch checked={showSubtasksFromOtherLists} onCheckedChange={setShowSubtasksFromOtherLists} />
-                                </div>
-
+                            <div className="flex items-center justify-between py-1 px-2">
+                                <span className="text-sm text-zinc-800">Show subtask parent names</span>
+                                <Switch checked={showSubtaskParentNames} onCheckedChange={setShowSubtaskParentNames} />
                             </div>
-
-                            <div className="h-px bg-zinc-100" />
-
-                            <div className="space-y-2">
-                                <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-2">View settings</p>
-                                <div className="flex items-center justify-between py-1 px-2">
-                                    <span className="text-sm flex items-center gap-2"><UserRound className="h-4 w-4 text-zinc-400" />Default to Me Mode</span>
-                                    <Switch checked={defaultToMeMode} onCheckedChange={setDefaultToMeMode} />
+                            <div className="flex items-center justify-between py-1 px-2">
+                                <span className="text-sm text-zinc-800">Show closed tasks</span>
+                                <Switch checked={showCompleted} onCheckedChange={setShowCompleted} />
+                            </div>
+                            <button
+                                type="button"
+                                className="w-full flex items-center justify-between py-2.5 text-sm text-zinc-800 hover:bg-zinc-50 rounded-md px-2"
+                                onClick={() => { setLayoutOptionsOpen(true); }}
+                            >
+                                <span className="flex items-center gap-2">More options</span>
+                                <ChevronRight className="inline h-3 w-3 ml-1 text-zinc-400" />
+                            </button>
+                        </div>
+                        <div className="h-px bg-zinc-100 my-2" />
+                        <div className="space-y-1">
+                            <button type="button" className="w-full flex items-center justify-between py-2.5 text-sm text-zinc-800 hover:bg-zinc-50 rounded-md px-2" onClick={() => { setFieldsPanelOpen(true); setCustomizePanelOpen(false); }}>
+                                <span className="flex items-center gap-2"><SlidersHorizontal className="h-4 w-4 text-zinc-400" />Fields</span>
+                                <span className="text-xs text-zinc-500">{Array.from(visibleColumns).length} shown</span>
+                            </button>
+                            <Popover open={customizeViewFilterOpen} onOpenChange={setCustomizeViewFilterOpen}>
+                                <PopoverTrigger asChild>
+                                    <button
+                                        type="button"
+                                        className="w-full flex items-center justify-between py-2.5 text-sm text-zinc-800 hover:bg-zinc-50 rounded-md px-2"
+                                        onClick={() => { if (filterGroups.conditions.length === 0) { addFilterGroup(); } }}
+                                    >
+                                        <span className="flex items-center gap-2"><Filter className="h-4 w-4 text-zinc-400" />Filter</span>
+                                        <span className="text-xs text-zinc-500">{appliedFilterCount > 0 ? `${appliedFilterCount} applied` : "None"} <ChevronRight className="inline h-3 w-3 ml-1" /></span>
+                                    </button>
+                                </PopoverTrigger>
+                                <PopoverContent side="left" align="start" className="w-[600px] max-w-[90vw] p-0 overflow-hidden shadow-2xl rounded-2xl border border-zinc-200/80" sideOffset={16}>
+                                    {renderFilterContent({ onClose: () => setCustomizeViewFilterOpen(false) })}
+                                </PopoverContent>
+                            </Popover>
+                            <Popover open={customizeViewGroupOpen} onOpenChange={setCustomizeViewGroupOpen}>
+                                <PopoverTrigger asChild>
+                                    <button
+                                        type="button"
+                                        className="w-full flex items-center justify-between py-2.5 text-sm text-zinc-800 hover:bg-zinc-50 rounded-md px-2"
+                                    >
+                                        <span className="flex items-center gap-2"><LayoutList className="h-4 w-4 text-zinc-400" />Group</span>
+                                        <span className="text-xs text-zinc-500">{groupLabel} <ChevronRight className="inline h-3 w-3 ml-1" /></span>
+                                    </button>
+                                </PopoverTrigger>
+                                <PopoverContent side="left" align="start" className="w-[240px] p-1.5 rounded-xl shadow-xl border-zinc-200/60" sideOffset={16}>
+                                    <div className="px-2 py-1.5 mb-1">
+                                        <span className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">Group by</span>
+                                    </div>
+                                    <div className="space-y-0.5">
+                                        {[
+                                            { id: "status", label: "Status", icon: Circle },
+                                            { id: "assignee", label: "Assignee", icon: Users },
+                                            { id: "priority", label: "Priority", icon: Flag },
+                                            { id: "tags", label: "Tags", icon: Tag },
+                                            { id: "dueDate", label: "Due date", icon: Calendar },
+                                            { id: "taskType", label: "Task type", icon: Box },
+                                        ].map((opt) => (
+                                            <div
+                                                key={opt.id}
+                                                className={cn(
+                                                    "flex items-center gap-2.5 px-2 py-1.5 text-sm rounded-md cursor-pointer transition-colors",
+                                                    groupBy === opt.id ? "bg-violet-50 text-violet-700" : "text-zinc-600 hover:bg-zinc-100"
+                                                )}
+                                                onClick={() => { setGroupBy(opt.id as any); setCustomizeViewGroupOpen(false); }}
+                                            >
+                                                <opt.icon className={cn("h-4 w-4", groupBy === opt.id ? "text-violet-500" : "text-zinc-400")} />
+                                                <span className="flex-1">{opt.label}</span>
+                                                {groupBy === opt.id && <div className="h-1.5 w-1.5 rounded-full bg-violet-600" />}
+                                            </div>
+                                        ))}
+                                        {FIELD_CONFIG.filter(f => f.isCustom).length > 0 && (
+                                            <>
+                                                <div className="h-px bg-zinc-100 my-1.5" />
+                                                <div className="px-2 py-1.5 mb-0.5">
+                                                    <span className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">Custom Fields</span>
+                                                </div>
+                                                {FIELD_CONFIG.filter(f => f.isCustom).map((f) => {
+                                                    const Icon = f.icon as any;
+                                                    return (
+                                                        <div
+                                                            key={f.id}
+                                                            className={cn(
+                                                                "flex items-center gap-2.5 px-2 py-1.5 text-sm rounded-md cursor-pointer transition-colors",
+                                                                groupBy === f.id ? "bg-violet-50 text-violet-700" : "text-zinc-600 hover:bg-zinc-100"
+                                                            )}
+                                                            onClick={() => { setGroupBy(f.id); setCustomizeViewGroupOpen(false); }}
+                                                        >
+                                                            <Icon className={cn("h-4 w-4", groupBy === f.id ? "text-violet-500" : "text-zinc-400")} />
+                                                            <span className="flex-1 truncate">{f.label}</span>
+                                                            {groupBy === f.id && <div className="h-1.5 w-1.5 rounded-full bg-violet-600" />}
+                                                        </div>
+                                                    );
+                                                })}
+                                            </>
+                                        )}
+                                        {groupBy !== "none" && (
+                                            <>
+                                                <div className="h-px bg-zinc-100 my-1.5" />
+                                                <div className="flex items-center gap-1 p-1">
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        className={cn("flex-1 h-7 text-[10px] uppercase tracking-wider font-bold", groupDirection === "asc" ? "bg-white shadow-sm border border-zinc-200 text-zinc-900" : "text-zinc-500")}
+                                                        onClick={() => setGroupDirection("asc")}
+                                                    >
+                                                        Ascending
+                                                    </Button>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        className={cn("flex-1 h-7 text-[10px] uppercase tracking-wider font-bold", groupDirection === "desc" ? "bg-white shadow-sm border border-zinc-200 text-zinc-900" : "text-zinc-500")}
+                                                        onClick={() => setGroupDirection("desc")}
+                                                    >
+                                                        Descending
+                                                    </Button>
+                                                </div>
+                                            </>
+                                        )}
+                                        <div className="h-px bg-zinc-100 my-1.5" />
+                                        <div
+                                            className={cn(
+                                                "flex items-center gap-2.5 px-2 py-1.5 text-sm rounded-md cursor-pointer transition-colors text-red-600 hover:bg-red-50 hover:text-red-700",
+                                                groupBy === "none" && "bg-zinc-100"
+                                            )}
+                                            onClick={() => { setGroupBy("none"); setCustomizeViewGroupOpen(false); }}
+                                        >
+                                            <Trash2 className="h-4 w-4" />
+                                            <span className="flex-1">Remove grouping</span>
+                                        </div>
+                                        {isBroadContext && (
+                                            <>
+                                                <div className="h-px bg-zinc-100 my-1.5" />
+                                                <div className="px-2 py-1.5 flex items-center justify-between">
+                                                    <span className="text-sm text-zinc-800">Also group by List</span>
+                                                    <Switch
+                                                        checked={alsoGroupByList}
+                                                        onCheckedChange={setAlsoGroupByList}
+                                                    />
+                                                </div>
+                                            </>
+                                        )}
+                                    </div>
+                                </PopoverContent>
+                            </Popover>
+                            <Popover open={customizeViewSubtasksOpen} onOpenChange={setCustomizeViewSubtasksOpen}>
+                                <PopoverTrigger asChild>
+                                    <button
+                                        type="button"
+                                        className="w-full flex items-center justify-between py-2.5 text-sm text-zinc-800 hover:bg-zinc-50 rounded-md px-2"
+                                    >
+                                        <span className="flex items-center gap-2"><Link2 className="h-4 w-4 text-zinc-400" />Subtasks</span>
+                                        <span className="text-xs text-zinc-500">{expandedSubtaskMode === "collapsed" ? "Collapsed" : expandedSubtaskMode === "expanded" ? "Expanded" : "Separate"} <ChevronRight className="inline h-3 w-3 ml-1" /></span>
+                                    </button>
+                                </PopoverTrigger>
+                                <PopoverContent side="left" align="start" className="w-56" sideOffset={16}>
+                                    <div className="text-xs px-2 pb-2 font-semibold text-zinc-900">Show subtasks</div>
+                                    <div className="space-y-1">
+                                        <button
+                                            type="button"
+                                            className={cn(
+                                                "w-full text-left text-xs px-2 py-1 rounded",
+                                                expandedSubtaskMode === "collapsed" ? "bg-zinc-100 text-zinc-900" : "text-zinc-700 hover:bg-zinc-50"
+                                            )}
+                                            onClick={() => {
+                                                setExpandedSubtaskMode("collapsed");
+                                                setExpandedParents(new Set());
+                                                setCustomizeViewSubtasksOpen(false);
+                                            }}
+                                        >
+                                            Collapsed (default)
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className={cn(
+                                                "w-full text-left text-xs px-2 py-1 rounded",
+                                                expandedSubtaskMode === "expanded" ? "bg-zinc-100 text-zinc-900" : "text-zinc-700 hover:bg-zinc-50"
+                                            )}
+                                            onClick={() => {
+                                                setExpandedSubtaskMode("expanded");
+                                                const next = new Set<string>();
+                                                filteredTasks.forEach((t: Task) => {
+                                                    if (hasSubtasks(t, filteredTasks as Task[])) next.add(t.id);
+                                                });
+                                                setExpandedParents(next);
+                                                setCustomizeViewSubtasksOpen(false);
+                                            }}
+                                        >
+                                            Expanded
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className={cn(
+                                                "w-full text-left text-xs px-2 py-1 rounded",
+                                                expandedSubtaskMode === "separate" ? "bg-zinc-100 text-zinc-900" : "text-zinc-700 hover:bg-zinc-50"
+                                            )}
+                                            onClick={() => {
+                                                setExpandedSubtaskMode("separate");
+                                                setExpandedParents(new Set());
+                                                setCustomizeViewSubtasksOpen(false);
+                                            }}
+                                        >
+                                            As separate items
+                                        </button>
+                                    </div>
+                                </PopoverContent>
+                            </Popover>
+                        </div>
+                        <div className="h-px bg-zinc-100 my-2" />
+                        <div className="space-y-1">
+                            <div className="flex items-center justify-between py-2.5 px-2 hover:bg-zinc-50 rounded-md transition-colors">
+                                <div className="flex items-center gap-2">
+                                    <Save className="h-4 w-4 text-zinc-400" />
+                                    <span className="text-sm text-zinc-800">Autosave for me</span>
                                 </div>
-                                <div
-                                    className="flex items-center justify-between py-1 px-2 hover:bg-zinc-50 rounded cursor-pointer"
-                                    onClick={resetViewToDefaults}
-                                >
-                                    <span className="text-sm flex items-center gap-2"><RefreshCcw className="h-4 w-4 text-zinc-400" />Reset view to defaults</span>
+                                <Switch checked={viewAutosave} onCheckedChange={handleToggleAutosave} />
+                            </div>
+                            <div className="flex items-center justify-between py-2.5 px-2 hover:bg-zinc-50 rounded-md transition-colors">
+                                <div className="flex items-center gap-2">
+                                    <Pin className="h-4 w-4 text-zinc-400" />
+                                    <span className="text-sm text-zinc-800">Pin view</span>
                                 </div>
-                                <div
-                                    className="flex items-center justify-between py-1 px-2 hover:bg-zinc-50 rounded cursor-pointer"
-                                    onClick={() => {
-                                        setDefaultViewSettingsDraft(spaceDefaultViewConfig);
-                                        setIsDefaultViewSettingsModalOpen(true);
-                                    }}
-                                >
-                                    <span className="text-sm flex items-center gap-2"><Settings className="h-4 w-4 text-zinc-400" />Default view settings</span>
+                                <Switch checked={pinView} onCheckedChange={(val) => { setPinView(val); updateViewProperty('isPinned', val); }} />
+                            </div>
+                            <div className="flex items-center justify-between py-2.5 px-2 hover:bg-zinc-50 rounded-md transition-colors">
+                                <div className="flex items-center gap-2">
+                                    <Lock className="h-4 w-4 text-zinc-400" />
+                                    <span className="text-sm text-zinc-800">Private view</span>
                                 </div>
+                                <Switch checked={privateView} onCheckedChange={(val) => { setPrivateView(val); updateViewProperty('isPrivate', val); }} />
+                            </div>
+                            <div className="flex items-center justify-between py-2.5 px-2 hover:bg-zinc-50 rounded-md transition-colors">
+                                <div className="flex items-center gap-2">
+                                    <ShieldCheck className="h-4 w-4 text-zinc-400" />
+                                    <span className="text-sm text-zinc-800">Protect view</span>
+                                </div>
+                                <Switch checked={protectView} onCheckedChange={(val) => { setProtectView(val); updateViewProperty('isLocked', val); }} />
+                            </div>
+                            <div className="flex items-center justify-between py-2.5 px-2 hover:bg-zinc-50 rounded-md transition-colors">
+                                <div className="flex items-center gap-2">
+                                    <Home className="h-4 w-4 text-zinc-400" />
+                                    <span className="text-sm text-zinc-800">Set as default view</span>
+                                </div>
+                                <Switch checked={defaultView} onCheckedChange={(val) => { setDefaultView(val); updateViewProperty('isDefault', val); }} />
                             </div>
                         </div>
-                    </ScrollArea>
-                </SidePanel>
-            )
-            }
+                        <div className="h-px bg-zinc-100 my-2" />
+                        <div className="space-y-1">
+                            <button type="button" className="w-full flex items-center justify-between py-2.5 text-sm text-zinc-800 hover:bg-zinc-50 rounded-md px-2" onClick={() => {
+                                const url = `${window.location.origin}${window.location.pathname}?v=${viewId}`;
+                                navigator.clipboard?.writeText(url);
+                                toast.success("Link copied to clipboard");
+                            }}>
+                                <span className="flex items-center gap-2"><Link className="h-4 w-4 text-zinc-400" />Copy link to view</span>
+                            </button>
+                            <button
+                                type="button"
+                                className="w-full flex items-center justify-between py-2.5 text-sm text-zinc-800 hover:bg-zinc-50 rounded-md px-2"
+                                onClick={() => setIsShareModalOpen(true)}
+                            >
+                                <span className="flex items-center gap-2"><Users className="h-4 w-4 text-zinc-400" />Sharing & Permissions</span>
+                                <ChevronRight className="inline h-3 w-3 ml-1 text-zinc-400" />
+                            </button>
+                        </div>
+                    </div>
+                </ScrollArea>
+            </SidePanel>
+
+            <SidePanel
+                open={layoutOptionsOpen}
+                onClose={() => { setLayoutOptionsOpen(false); setCustomizePanelOpen(false); }}
+                className="absolute bottom-0 right-0 h-full w-[380px] max-w-[90vw] bg-white border-l border-zinc-200 shadow-xl z-50 flex flex-col"
+            >
+                <div className="flex items-center justify-between p-4 border-b border-zinc-100">
+                    <Button variant="ghost" size="icon" className="h-8 w-8 -ml-1 cursor-pointer" onClick={() => { setLayoutOptionsOpen(false); setCustomizePanelOpen(true); }}>
+                        <ArrowRight className="h-4 w-4 rotate-180" />
+                    </Button>
+                    <h3 className="font-semibold text-zinc-900">Layout options</h3>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 cursor-pointer" onClick={() => { setLayoutOptionsOpen(false); setCustomizePanelOpen(false); }}><X className="h-4 w-4" /></Button>
+                </div>
+                <ScrollArea className="flex-1 min-h-0">
+                    <div className="p-3 space-y-4 pb-24">
+                        <div className="space-y-2">
+                            <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-2">Page layout</p>
+                            {groupBy === "status" ? (
+                                <div className="flex items-center justify-between py-1 px-2">
+                                    <span className="text-sm text-zinc-800">Show empty statuses</span>
+                                    <Switch
+                                        checked={showEmptyStatuses}
+                                        onCheckedChange={setShowEmptyStatuses}
+                                    />
+                                </div>
+                            ) : (
+                                <TooltipProvider delayDuration={0}>
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <div className="flex items-center justify-between py-1 cursor-not-allowed opacity-50 px-2">
+                                                <span className="text-sm text-zinc-800">Show empty statuses</span>
+                                                <Switch
+                                                    checked={showEmptyStatuses}
+                                                    onCheckedChange={setShowEmptyStatuses}
+                                                    disabled
+                                                />
+                                            </div>
+                                        </TooltipTrigger>
+                                        <TooltipContent side="left" className="bg-zinc-900 text-white border-none text-[11px] py-1.5 px-2.5">
+                                            Grouping by status is required to enable this
+                                        </TooltipContent>
+                                    </Tooltip>
+                                </TooltipProvider>
+                            )}
+                            <div className="flex items-center justify-between py-1 px-2">
+                                <span className="text-sm text-zinc-800">Pin description</span>
+                                <Switch
+                                    checked={pinDescription}
+                                    onCheckedChange={setPinDescription}
+                                    disabled={!currentList}
+                                />
+                            </div>
+                            <div className="flex items-center justify-between py-1 px-2">
+                                <span className="text-sm text-zinc-800">Wrap text</span>
+                                <Switch checked={wrapText} onCheckedChange={setWrapText} />
+                            </div>
+                        </div>
+                        <div className="space-y-2">
+                            <div className="flex items-center justify-between py-1 px-2">
+                                <span className="text-sm text-zinc-800">Show task locations</span>
+                                <Switch checked={showTaskLocations} onCheckedChange={setShowTaskLocations} />
+                            </div>
+                            <div className="flex items-center justify-between py-1 px-2">
+                                <span className="text-sm text-zinc-800">Show task properties</span>
+                                <Switch checked={showTaskProperties} onCheckedChange={setShowTaskProperties} />
+                            </div>
+                            <div className="flex items-center justify-between py-1 px-2">
+                                <span className="text-sm text-zinc-800">Show subtask parent names</span>
+                                <Switch checked={showSubtaskParentNames} onCheckedChange={setShowSubtaskParentNames} />
+                            </div>
+                        </div>
+
+                        <div className="h-px bg-zinc-100" />
+
+                        <div className="space-y-2">
+                            <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-2">Task visibility</p>
+                            <div className="flex items-center justify-between py-1 px-2">
+                                <span className="text-sm text-zinc-800">Show closed tasks</span>
+                                <Switch checked={showCompleted} onCheckedChange={setShowCompleted} />
+                            </div>
+                            <div className="flex items-center justify-between py-1 px-2">
+                                <span className="text-sm text-zinc-800">Show closed subtasks</span>
+                                <Switch checked={showCompletedSubtasks} onCheckedChange={setShowCompletedSubtasks} />
+                            </div>
+                            <div className="flex items-center justify-between py-1 px-2">
+                                <span className="text-sm text-zinc-800">Show tasks from other Lists</span>
+                                <Switch checked={showTasksFromOtherLists} onCheckedChange={setShowTasksFromOtherLists} />
+                            </div>
+                            <div className="flex items-center justify-between py-1 px-2">
+                                <span className="text-sm text-zinc-800">Show subtasks from other Lists</span>
+                                <Switch checked={showSubtasksFromOtherLists} onCheckedChange={setShowSubtasksFromOtherLists} />
+                            </div>
+
+                        </div>
+
+                        <div className="h-px bg-zinc-100" />
+
+                        <div className="space-y-2">
+                            <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-2">View settings</p>
+                            <div className="flex items-center justify-between py-1 px-2">
+                                <span className="text-sm flex items-center gap-2"><UserRound className="h-4 w-4 text-zinc-400" />Default to Me Mode</span>
+                                <Switch checked={defaultToMeMode} onCheckedChange={setDefaultToMeMode} />
+                            </div>
+                            <div
+                                className="flex items-center justify-between py-1 px-2 hover:bg-zinc-50 rounded cursor-pointer"
+                                onClick={resetViewToDefaults}
+                            >
+                                <span className="text-sm flex items-center gap-2"><RefreshCcw className="h-4 w-4 text-zinc-400" />Reset view to defaults</span>
+                            </div>
+                            <div
+                                className="flex items-center justify-between py-1 px-2 hover:bg-zinc-50 rounded cursor-pointer"
+                                onClick={() => {
+                                    setDefaultViewSettingsDraft(spaceDefaultViewConfig);
+                                    setIsDefaultViewSettingsModalOpen(true);
+                                }}
+                            >
+                                <span className="text-sm flex items-center gap-2"><Settings className="h-4 w-4 text-zinc-400" />Default view settings</span>
+                            </div>
+                        </div>
+                    </div>
+                </ScrollArea>
+            </SidePanel>
 
             {/* Create field modal ?Efield types and Add existing fields */}
             {
@@ -4962,7 +5082,6 @@ export function TableView({ spaceId, projectId, teamId, listId, folderId, viewId
                             </div>
                             <div className="p-3 border-b border-zinc-100">
                                 <div className="relative">
-                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
                                     <Input className="pl-9 h-9 text-sm" placeholder="Search for new or existing fields" value={createFieldSearch} onChange={e => setCreateFieldSearch(e.target.value)} />
                                 </div>
                             </div>
@@ -5543,7 +5662,6 @@ export function TableView({ spaceId, projectId, teamId, listId, folderId, viewId
                 )
             }
 
-            {/* Dependencies modal */}
             {
                 dependenciesTask && (
                     <TaskDependenciesModal
@@ -5552,6 +5670,7 @@ export function TableView({ spaceId, projectId, teamId, listId, folderId, viewId
                             if (!open) setDependenciesTask(null);
                         }}
                         task={dependenciesTask}
+                        workspaceId={resolvedWorkspaceId as string}
                     />
                 )
             }
@@ -5678,7 +5797,7 @@ export function TableView({ spaceId, projectId, teamId, listId, folderId, viewId
                                 user: {
                                     id: currentUser?.id || 'anonymous',
                                     name: currentUser?.name || currentUser?.email || 'User',
-                                    color: (currentUser as { color?: string } | null)?.color
+                                    color: (currentUser as { color?: string } | undefined)?.color
                                 }
                             }}
                         />

@@ -615,11 +615,8 @@ export function BoardView({ spaceId, projectId, teamId, listId, folderId, viewId
         tags: [],
         customFields: {},
     });
-    const [groupBy, setGroupBy] = useState<string>(() => {
-        if (listId && !isBroadContext) return "status";
-        if (folderId) return "status"; // Folders usually have statuses from their lists
-        return "list"; // Workspace/Space/Project default to list
-    });
+    const [groupBy, setGroupBy] = useState<string>("status");
+
     const [groupDirection, setGroupDirection] = useState<"asc" | "desc">("asc");
     const [filterGroups, setFilterGroups] = useState<FilterGroup>(() => ({
         id: "root",
@@ -3248,18 +3245,6 @@ export function BoardView({ spaceId, projectId, teamId, listId, folderId, viewId
                                             </>
                                         )}
 
-                                        <DropdownMenuSeparator className="my-1.5 bg-zinc-100" />
-                                        <DropdownMenuItem
-                                            className={cn(
-                                                "flex items-center gap-2.5 px-2 py-1.5 text-sm rounded-md cursor-pointer transition-colors text-red-600 hover:bg-red-50 hover:text-red-700",
-                                                groupBy === "none" && "bg-zinc-100"
-                                            )}
-                                            onClick={() => setGroupBy("none")}
-                                            onSelect={(e) => e.preventDefault()}
-                                        >
-                                            <Trash2 className="h-4 w-4" />
-                                            <span className="flex-1">Remove grouping</span>
-                                        </DropdownMenuItem>
                                     </div>
                                 </DropdownMenuContent>
                             </DropdownMenu>
@@ -4173,17 +4158,6 @@ export function BoardView({ spaceId, projectId, teamId, listId, folderId, viewId
                                                         </div>
                                                     </>
                                                 )}
-                                                <div className="h-px bg-zinc-100 my-1.5" />
-                                                <div
-                                                    className={cn(
-                                                        "flex items-center gap-2.5 px-2 py-1.5 text-sm rounded-md cursor-pointer transition-colors text-red-600 hover:bg-red-50 hover:text-red-700",
-                                                        groupBy === "none" && "bg-zinc-100"
-                                                    )}
-                                                    onClick={() => { setGroupBy("none"); setCustomizePanelOpen(false); }}
-                                                >
-                                                    <Trash2 className="h-4 w-4" />
-                                                    <span className="flex-1">Remove grouping</span>
-                                                </div>
                                             </div>
                                         </PopoverContent>
                                     </Popover>

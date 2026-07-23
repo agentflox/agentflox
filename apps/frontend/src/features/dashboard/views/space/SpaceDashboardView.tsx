@@ -122,6 +122,7 @@ import {
     Save,
     CopyPlus,
     Trash2,
+    Table,
     MoreHorizontal
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -169,7 +170,7 @@ const viewConfig: Record<
     GANTT: { label: "Gantt", icon: Network, description: "Gantt chart" },
     DOC: { label: "Doc", icon: FileText, description: "Document" },
     FORM: { label: "Form", icon: LayoutDashboard, description: "Form" },
-    TABLE: { label: "Table", icon: ClipboardList, description: "Table view" },
+    TABLE: { label: "Table", icon: Table, description: "Table view" },
     TIMELINE: { label: "Timeline", icon: Clock, description: "Timeline view" },
     WORKLOAD: { label: "Workload", icon: BarChart3, description: "Workload view" },
     WHITEBOARD: { label: "Whiteboard", icon: PenTool, description: "Whiteboard" },
@@ -232,7 +233,7 @@ export default function SpaceDashboardView({ listId, spaceId, projectId, teamId,
 
     // Fetch Data
     const { data: space, isLoading: isSpaceLoading } = trpc.space.get.useQuery(
-        { id: spaceId! }, 
+        { id: spaceId! },
         { enabled: !!spaceId, staleTime: 60_000, gcTime: 5 * 60_000 }
     );
 
@@ -509,6 +510,7 @@ export default function SpaceDashboardView({ listId, spaceId, projectId, teamId,
             case "LIST":
                 return (
                     <ListView
+                        context="space"
                         workspaceId={resolvedWorkspaceId}
                         spaceId={spaceId!}
                         viewId={view.id}
@@ -520,6 +522,7 @@ export default function SpaceDashboardView({ listId, spaceId, projectId, teamId,
             case "BOARD":
                 return (
                     <BoardView
+                        context="space"
                         workspaceId={resolvedWorkspaceId}
                         spaceId={spaceId!}
                         viewId={view.id}
@@ -531,6 +534,7 @@ export default function SpaceDashboardView({ listId, spaceId, projectId, teamId,
             case "TABLE":
                 return (
                     <TableView
+                        context="space"
                         workspaceId={resolvedWorkspaceId}
                         spaceId={spaceId!}
                         viewId={view.id}
@@ -542,6 +546,7 @@ export default function SpaceDashboardView({ listId, spaceId, projectId, teamId,
             case "CALENDAR":
                 return (
                     <CalendarView
+                        context="space"
                         workspaceId={resolvedWorkspaceId}
                         spaceId={spaceId!}
                         viewId={view.id}
@@ -553,6 +558,7 @@ export default function SpaceDashboardView({ listId, spaceId, projectId, teamId,
             case "GANTT":
                 return (
                     <GanttView
+                        context="space"
                         workspaceId={resolvedWorkspaceId}
                         spaceId={spaceId!}
                         viewId={view.id}
@@ -564,6 +570,7 @@ export default function SpaceDashboardView({ listId, spaceId, projectId, teamId,
             case "TIMELINE":
                 return (
                     <TimelineView
+                        context="space"
                         workspaceId={resolvedWorkspaceId}
                         spaceId={spaceId!}
                         viewId={view.id}
@@ -575,6 +582,7 @@ export default function SpaceDashboardView({ listId, spaceId, projectId, teamId,
             case "FORM":
                 return (
                     <FormView
+                        context="space"
                         workspaceId={workspaceId}
                         spaceId={spaceId!}
                         viewId={view.id}
@@ -586,6 +594,7 @@ export default function SpaceDashboardView({ listId, spaceId, projectId, teamId,
             case "PEOPLE":
                 return (
                     <PeopleView
+                        context="space"
                         workspaceId={resolvedWorkspaceId}
                         spaceId={spaceId!}
                         viewId={view.id}
@@ -597,6 +606,7 @@ export default function SpaceDashboardView({ listId, spaceId, projectId, teamId,
             case "ACTIVITY":
                 return (
                     <ActivityView
+                        context="space"
                         workspaceId={resolvedWorkspaceId}
                         spaceId={spaceId!}
                         viewId={view.id}
@@ -608,6 +618,7 @@ export default function SpaceDashboardView({ listId, spaceId, projectId, teamId,
             case "MIND_MAP":
                 return (
                     <MindMapView
+                        context="space"
                         workspaceId={resolvedWorkspaceId}
                         spaceId={spaceId!}
                         viewId={view.id}
@@ -619,6 +630,7 @@ export default function SpaceDashboardView({ listId, spaceId, projectId, teamId,
             case "MAP":
                 return (
                     <MapView
+                        context="space"
                         workspaceId={resolvedWorkspaceId}
                         spaceId={spaceId!}
                         viewId={view.id}
@@ -631,6 +643,7 @@ export default function SpaceDashboardView({ listId, spaceId, projectId, teamId,
             case "WORKLOAD":
                 return (
                     <WorkloadView
+                        context="space"
                         workspaceId={resolvedWorkspaceId}
                         spaceId={spaceId!}
                         viewId={view.id}
@@ -642,6 +655,7 @@ export default function SpaceDashboardView({ listId, spaceId, projectId, teamId,
             case "WHITEBOARD":
                 return (
                     <WhiteboardView
+                        context="space"
                         spaceId={spaceId!}
                         viewId={view.id}
                         initialConfig={view.config}
@@ -652,6 +666,7 @@ export default function SpaceDashboardView({ listId, spaceId, projectId, teamId,
             case "DASHBOARD":
                 return (
                     <GenericDashboardView
+                        context="space"
                         spaceId={spaceId!}
                         viewId={view.id}
                         initialConfig={view.config}
@@ -663,6 +678,7 @@ export default function SpaceDashboardView({ listId, spaceId, projectId, teamId,
             case "DOC":
                 return (
                     <DocView
+                        context="space"
                         listId={listId}
                         spaceId={spaceId!}
                         projectId={projectId}
@@ -688,6 +704,7 @@ export default function SpaceDashboardView({ listId, spaceId, projectId, teamId,
             case "GOOGLE_DRIVE":
                 return (
                     <EmbedView
+                        context="space"
                         listId={listId}
                         spaceId={spaceId!}
                         projectId={projectId}
@@ -733,331 +750,280 @@ export default function SpaceDashboardView({ listId, spaceId, projectId, teamId,
             projectId={projectId}
             teamId={teamId}
         >
-        <div className="flex h-full flex-col">
-            {/* Dashboard Header */}
-            {/* DashboardHeader moved inside content area */}
+            <div className="flex h-full flex-col">
+                {/* Dashboard Header */}
+                {/* DashboardHeader moved inside content area */}
 
-            {/* Main Layout - Sidebar visibility controlled by layoutMode */}
-            <div className="flex h-full flex-1 overflow-hidden">
-                {/* Navigation Sidebar - Show only when layoutMode is "sidebar" */}
-                {layoutMode === "sidebar" && (
-                    <SpaceNavigationSidebar
-                        spaceId={spaceId!}
-                        activeView={(isListsTab ? "lists" : currentTab || "overview") as SpaceView}
-                        onViewChange={(view: SpaceView) => {
-                            const params = new URLSearchParams(searchParams.toString());
-                            params.delete("v"); // Always clear view ID when switching main contexts
-                            params.delete("pj");
-                            params.delete("tm");
-                            params.delete("lt");
-                            params.delete("ch");
-                            params.delete("ai");
+                {/* Main Layout - Sidebar visibility controlled by layoutMode */}
+                <div className="flex h-full flex-1 overflow-hidden">
+                    {/* Navigation Sidebar - Show only when layoutMode is "sidebar" */}
+                    {layoutMode === "sidebar" && (
+                        <SpaceNavigationSidebar
+                            spaceId={spaceId!}
+                            activeView={(isListsTab ? "lists" : currentTab || "overview") as SpaceView}
+                            onViewChange={(view: SpaceView) => {
+                                const params = new URLSearchParams(searchParams.toString());
+                                params.delete("v"); // Always clear view ID when switching main contexts
+                                params.delete("pj");
+                                params.delete("tm");
+                                params.delete("lt");
+                                params.delete("ch");
+                                params.delete("ai");
 
-                            // Special handling for "overview" tab - show tab-based interface
-                            if (view === "overview") {
-                                params.set("tab", "overview");
-                                if (views.length > 0) {
-                                    params.set("v", views[0].id);
-                                }
-                                router.push(`?${params.toString()}`, { scroll: false });
-                                return;
-                            }
-
-                            params.set("tab", view);
-
-                            // Handle auto-selection for projects and teams (client side optimistic)
-                            if (view === "projects" && spaceProjects.length > 0) {
-                                params.set("pj", spaceProjects[0].id);
-                            } else if (view === "teams" && spaceTeams.length > 0) {
-                                params.set("tm", spaceTeams[0].id);
-                            }
-
-                            router.push(`?${params.toString()}`, { scroll: false });
-                        }}
-                        collapsed={sidebarCollapsed}
-                        onToggleCollapse={() => setSidebarCollapsed((prev) => !prev)}
-                    />
-                )}
-
-                {/* Main Content */}
-                {/* Main Content */}
-                <div className="flex-1 overflow-hidden w-full max-w-full h-full bg-slate-50 flex flex-col">
-                    <DashboardHeader
-                        entityName={
-                            selectedListId && selectedList ? (
-                                <div className="flex items-center gap-2 text-sm">
-                                    <span className="truncate text-muted-foreground hover:text-foreground transition-colors cursor-pointer" onClick={() => router.push(`?tab=overview`)}>{space.name || "Untitled Space"}</span>
-                                    <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
-                                    <div className="flex items-center gap-1.5">
-                                        <List className="h-4 w-4 shrink-0" style={{ color: selectedList.color || undefined }} />
-                                        <span className="truncate font-semibold text-foreground">{selectedList.name}</span>
-                                    </div>
-                                </div>
-                            ) : (
-                                space.name || "Untitled Space"
-                            )
-                        }
-                        entityType="space"
-                        entityIcon={<Layers className="h-4 w-4" />}
-                        shareUrl={`${window.location.origin}${window.location.pathname}?spaceId=${spaceId}`}
-                        showSettings={false}
-                        onAskAIClick={() => setIsAskAIOpen(!isAskAIOpen)}
-                        onShareClick={() => setIsShareModalOpen(true)}
-                        showExit={true}
-                        agentPopoverContent={
-                            <QuickAgentModal
-                                contextId={spaceId}
-                                contextType="SPACE"
-                                onOpenChange={setIsAgentModalOpen}
-                            />
-                        }
-                        agentOpen={isAgentModalOpen}
-                        onAgentOpenChange={setIsAgentModalOpen}
-                        leftActions={[
-                            {
-                                id: "settings",
-                                label: "Settings",
-                                icon: Settings,
-                                onClick: () => { },
-                                render: () => (
-                                    <SpaceActionsMenu
-                                        workspaceId={workspaceId!}
-                                        spaceId={spaceId!}
-                                        trigger={
-                                            <Button variant="ghost" size="sm" className="h-8 relative group transition-all duration-200 ease-in-out w-8 hover:w-auto px-0 hover:px-3 justify-center hover:justify-start">
-                                                <div className="flex items-center justify-center w-8 h-8 shrink-0">
-                                                    <Settings className="h-4 w-4" />
-                                                </div>
-                                                <span className="hidden group-hover:inline overflow-hidden whitespace-nowrap transition-all duration-200">Settings</span>
-                                            </Button>
-                                        }
-                                    />
-                                )
-                            },
-                            {
-                                id: "layout-mode",
-                                label: layoutMode === "sidebar" ? "Sidebar" : "Top",
-                                icon: layoutMode === "sidebar" ? Sidebar : LayoutPanelTop,
-                                onClick: () => { },
-                                tooltip: "Switch layout mode",
-                                dropdownItems: [
-                                    {
-                                        id: "sidebar",
-                                        label: "Sidebar",
-                                        icon: Sidebar,
-                                        onClick: () => setLayoutMode("sidebar")
-                                    },
-                                    {
-                                        id: "top",
-                                        label: "Top",
-                                        icon: LayoutPanelTop,
-                                        onClick: () => setLayoutMode("top")
+                                // Special handling for "overview" tab - show tab-based interface
+                                if (view === "overview") {
+                                    params.set("tab", "overview");
+                                    if (views.length > 0) {
+                                        params.set("v", views[0].id);
                                     }
-                                ]
-                            }
-                        ]}
-                    />
-                    <div className="flex-1 overflow-hidden relative">
-                        <ResizableSplitLayout
-                            MainContent={
-                                selectedTaskId && taskViewMode === 'fullscreen' ? (
-                                    <div className="h-full w-full bg-white">
-                                        <TaskDetailContent
-                                            taskId={selectedTaskId}
-                                            layoutMode="fullscreen"
-                                            onLayoutModeChange={setTaskViewMode}
-                                            onClose={() => {
-                                                const params = new URLSearchParams(searchParams.toString());
-                                                params.delete("task");
-                                                router.push(`?${params.toString()}`);
-                                            }}
-                                        />
+                                    router.push(`?${params.toString()}`, { scroll: false });
+                                    return;
+                                }
+
+                                params.set("tab", view);
+
+                                // Handle auto-selection for projects and teams (client side optimistic)
+                                if (view === "projects" && spaceProjects.length > 0) {
+                                    params.set("pj", spaceProjects[0].id);
+                                } else if (view === "teams" && spaceTeams.length > 0) {
+                                    params.set("tm", spaceTeams[0].id);
+                                }
+
+                                router.push(`?${params.toString()}`, { scroll: false });
+                            }}
+                            collapsed={sidebarCollapsed}
+                            onToggleCollapse={() => setSidebarCollapsed((prev) => !prev)}
+                        />
+                    )}
+
+                    {/* Main Content */}
+                    {/* Main Content */}
+                    <div className="flex-1 overflow-hidden w-full max-w-full h-full bg-slate-50 flex flex-col">
+                        <DashboardHeader
+                            entityName={
+                                selectedListId && selectedList ? (
+                                    <div className="flex items-center gap-2 text-sm">
+                                        <span className="truncate text-muted-foreground hover:text-foreground transition-colors cursor-pointer" onClick={() => router.push(`?tab=overview`)}>{space.name || "Untitled Space"}</span>
+                                        <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+                                        <div className="flex items-center gap-1.5">
+                                            <List className="h-4 w-4 shrink-0" style={{ color: selectedList.color || undefined }} />
+                                            <span className="truncate font-semibold text-foreground">{selectedList.name}</span>
+                                        </div>
                                     </div>
                                 ) : (
-                                    <>
-                                        {/* Render dedicated view components for sidebar items */}
-                                        {isListsTab ? (
-                                            <SpaceListView
-                                                spaceId={spaceId!}
-                                                workspaceId={workspaceId!}
-                                                selectedListId={selectedListId || undefined}
-                                                onListSelect={handleListSelect}
+                                    space.name || "Untitled Space"
+                                )
+                            }
+                            entityType="space"
+                            entityIcon={<Layers className="h-4 w-4" />}
+                            shareUrl={`${window.location.origin}${window.location.pathname}?spaceId=${spaceId}`}
+                            showSettings={false}
+                            onAskAIClick={() => setIsAskAIOpen(!isAskAIOpen)}
+                            onShareClick={() => setIsShareModalOpen(true)}
+                            showExit={true}
+                            agentPopoverContent={
+                                <QuickAgentModal
+                                    contextId={spaceId}
+                                    contextType="SPACE"
+                                    onOpenChange={setIsAgentModalOpen}
+                                />
+                            }
+                            agentOpen={isAgentModalOpen}
+                            onAgentOpenChange={setIsAgentModalOpen}
+                            leftActions={[
+                                {
+                                    id: "settings",
+                                    label: "Settings",
+                                    icon: Settings,
+                                    onClick: () => { },
+                                    render: () => (
+                                        <SpaceActionsMenu
+                                            workspaceId={workspaceId!}
+                                            spaceId={spaceId!}
+                                            trigger={
+                                                <Button variant="ghost" size="sm" className="h-8 relative group transition-all duration-200 ease-in-out w-8 hover:w-auto px-0 hover:px-3 justify-center hover:justify-start">
+                                                    <div className="flex items-center justify-center w-8 h-8 shrink-0">
+                                                        <Settings className="h-4 w-4" />
+                                                    </div>
+                                                    <span className="hidden group-hover:inline overflow-hidden whitespace-nowrap transition-all duration-200">Settings</span>
+                                                </Button>
+                                            }
+                                        />
+                                    )
+                                },
+                                {
+                                    id: "layout-mode",
+                                    label: layoutMode === "sidebar" ? "Sidebar" : "Top",
+                                    icon: layoutMode === "sidebar" ? Sidebar : LayoutPanelTop,
+                                    onClick: () => { },
+                                    tooltip: "Switch layout mode",
+                                    dropdownItems: [
+                                        {
+                                            id: "sidebar",
+                                            label: "Sidebar",
+                                            icon: Sidebar,
+                                            onClick: () => setLayoutMode("sidebar")
+                                        },
+                                        {
+                                            id: "top",
+                                            label: "Top",
+                                            icon: LayoutPanelTop,
+                                            onClick: () => setLayoutMode("top")
+                                        }
+                                    ]
+                                }
+                            ]}
+                        />
+                        <div className="flex-1 overflow-hidden relative">
+                            <ResizableSplitLayout
+                                MainContent={
+                                    selectedTaskId && taskViewMode === 'fullscreen' ? (
+                                        <div className="h-full w-full bg-white">
+                                            <TaskDetailContent
+                                                taskId={selectedTaskId}
+                                                layoutMode="fullscreen"
+                                                onLayoutModeChange={setTaskViewMode}
+                                                onClose={() => {
+                                                    const params = new URLSearchParams(searchParams.toString());
+                                                    params.delete("task");
+                                                    router.push(`?${params.toString()}`);
+                                                }}
                                             />
-                                        ) : currentTab === "projects" ? (
-                                            <SpaceProjectView
-                                                spaceId={spaceId!}
-                                                workspaceId={workspaceId!}
-                                                selectedProjectId={selectedProjectId || undefined}
-                                                onProjectSelect={handleProjectSelect}
-                                            />
-                                        ) : currentTab === "teams" ? (
-                                            <SpaceTeamView
-                                                spaceId={spaceId!}
-                                                workspaceId={workspaceId!}
-                                                selectedTeamId={selectedTeamId || undefined}
-                                                onTeamSelect={handleTeamSelect}
-                                            />
-                                        ) : currentTab === "personal" ? (
-                                            <SpacePersonalView spaceId={spaceId!} workspaceId={workspaceId!} />
-                                        ) : currentTab === "docs" ? (
-                                            <SpaceDocsView spaceId={spaceId!} workspaceId={workspaceId!} />
-                                        ) : currentTab === "chats" ? (
-                                            <ChatView
-                                                workspaceId={workspaceId!}
-                                                selectedChatId={selectedChannelId || undefined}
-                                                onChatSelect={handleChatSelect}
-                                            />
-                                        ) : currentTab === "ai-chat" ? (
-                                            <SharedAIChatView
-                                                contextType="SPACE"
-                                                contextId={spaceId!}
-                                                contextName={space?.name || "Space"}
-                                            />
-                                        ) : isViewsTab ? (
-                                            <Tabs value={activeTab} onValueChange={handleTabChange} className="flex h-full flex-col">
-                                                <div className="border-b border-slate-200 bg-white px-4 py-1">
-                                                    <div className="flex items-center gap-1 min-w-0 overflow-visible">
-                                                        <TabsList className="h-auto bg-transparent p-0 flex-1 min-w-0 flex items-center overflow-visible">
-                                                            <ViewTabsOverflow
-                                                                views={views}
-                                                                activeTab={activeTab}
-                                                                onTabChange={handleTabChange}
-                                                                onAddView={() => setAddViewModalOpen(true)}
-                                                                onReorderViews={(activeId, overId, dropPosition) => {
-                                                                    const activeView = views.find((v: any) => v.id === activeId);
-                                                                    const overView = views.find((v: any) => v.id === overId);
-                                                                    if (!activeView || !overView || activeId === overId) return;
-                                                                    const otherViews = views.filter((v: any) => v.id !== activeId);
-                                                                    let targetViewId: string | null = overId;
-                                                                    if (dropPosition === "after") {
-                                                                        const idx = otherViews.findIndex((v: any) => v.id === overId);
-                                                                        targetViewId = idx >= 0 && idx < otherViews.length - 1 ? otherViews[idx + 1].id : null;
-                                                                    }
-                                                                    let newSortedViews: any[];
-                                                                    if (targetViewId) {
-                                                                        const idx = otherViews.findIndex((v: any) => v.id === targetViewId);
-                                                                        newSortedViews = [...otherViews.slice(0, idx), activeView, ...otherViews.slice(idx)];
-                                                                    } else {
-                                                                        newSortedViews = [...otherViews, activeView];
-                                                                    }
-                                                                    const moved = newSortedViews.find((v: any) => v.id === activeId);
-                                                                    if (moved) moved.isPinned = overView.isPinned;
-                                                                    newSortedViews.forEach((v: any, i: number) => { v.position = i * 1000; });
-                                                                    utils.space.get.setData({ id: spaceId! }, (old: any) => old ? { ...old, views: newSortedViews } : old);
-                                                                    reorderViewsMutation.mutate(newSortedViews.map((v: any, i: number) => ({ id: v.id, position: i * 1000 })));
-                                                                }}
-                                                                renderMoreAction={(view) => (
-                                                                    <Popover modal={false}>
-                                                                        <PopoverTrigger asChild>
-                                                                            <div role="button" className="h-6 w-6 p-0 flex items-center justify-center rounded hover:bg-slate-200" onClick={e => e.stopPropagation()}>
-                                                                                <MoreHorizontal className="h-4 w-4 text-muted-foreground shrink-0 m-auto" />
-                                                                            </div>
-                                                                        </PopoverTrigger>
-                                                                        <PopoverContent className="w-56 p-1" sideOffset={8} side="right" align="start">
-                                                                            <div className="flex flex-col">
-                                                                                <div role="button" className="flex items-center gap-2 px-2 py-1.5 text-sm hover:bg-slate-100 rounded-sm text-slate-700 w-full text-left cursor-pointer transition-colors" onClick={(e) => { e.stopPropagation(); setViewToRename({ id: view.id, name: view.name }); }}>
-                                                                                    <Edit className="h-4 w-4 shrink-0" /> Rename
+                                        </div>
+                                    ) : (
+                                        <>
+                                            {/* Render dedicated view components for sidebar items */}
+                                            {isListsTab ? (
+                                                <SpaceListView
+                                                    spaceId={spaceId!}
+                                                    workspaceId={workspaceId!}
+                                                    selectedListId={selectedListId || undefined}
+                                                    onListSelect={handleListSelect}
+                                                />
+                                            ) : currentTab === "projects" ? (
+                                                <SpaceProjectView
+                                                    spaceId={spaceId!}
+                                                    workspaceId={workspaceId!}
+                                                    selectedProjectId={selectedProjectId || undefined}
+                                                    onProjectSelect={handleProjectSelect}
+                                                />
+                                            ) : currentTab === "teams" ? (
+                                                <SpaceTeamView
+                                                    spaceId={spaceId!}
+                                                    workspaceId={workspaceId!}
+                                                    selectedTeamId={selectedTeamId || undefined}
+                                                    onTeamSelect={handleTeamSelect}
+                                                />
+                                            ) : currentTab === "personal" ? (
+                                                <SpacePersonalView spaceId={spaceId!} workspaceId={workspaceId!} />
+                                            ) : currentTab === "docs" ? (
+                                                <SpaceDocsView spaceId={spaceId!} workspaceId={workspaceId!} />
+                                            ) : currentTab === "chats" ? (
+                                                <ChatView
+                                                    workspaceId={workspaceId!}
+                                                    selectedChatId={selectedChannelId || undefined}
+                                                    onChatSelect={handleChatSelect}
+                                                />
+                                            ) : currentTab === "ai-chat" ? (
+                                                <SharedAIChatView
+                                                    contextType="SPACE"
+                                                    contextId={spaceId!}
+                                                    contextName={space?.name || "Space"}
+                                                />
+                                            ) : isViewsTab ? (
+                                                <Tabs value={activeTab} onValueChange={handleTabChange} className="flex h-full flex-col gap-0">
+                                                    <div className="border-b border-slate-200 bg-white px-4 py-1">
+                                                        <div className="flex items-center gap-1 min-w-0 overflow-visible">
+                                                            <TabsList className="h-auto bg-transparent p-0 flex-1 min-w-0 flex items-center overflow-visible">
+                                                                <ViewTabsOverflow
+                                                                    views={views}
+                                                                    activeTab={activeTab}
+                                                                    onTabChange={handleTabChange}
+                                                                    onAddView={() => setAddViewModalOpen(true)}
+                                                                    onReorderViews={(activeId, overId, dropPosition) => {
+                                                                        const activeView = views.find((v: any) => v.id === activeId);
+                                                                        const overView = views.find((v: any) => v.id === overId);
+                                                                        if (!activeView || !overView || activeId === overId) return;
+                                                                        const otherViews = views.filter((v: any) => v.id !== activeId);
+                                                                        let targetViewId: string | null = overId;
+                                                                        if (dropPosition === "after") {
+                                                                            const idx = otherViews.findIndex((v: any) => v.id === overId);
+                                                                            targetViewId = idx >= 0 && idx < otherViews.length - 1 ? otherViews[idx + 1].id : null;
+                                                                        }
+                                                                        let newSortedViews: any[];
+                                                                        if (targetViewId) {
+                                                                            const idx = otherViews.findIndex((v: any) => v.id === targetViewId);
+                                                                            newSortedViews = [...otherViews.slice(0, idx), activeView, ...otherViews.slice(idx)];
+                                                                        } else {
+                                                                            newSortedViews = [...otherViews, activeView];
+                                                                        }
+                                                                        const moved = newSortedViews.find((v: any) => v.id === activeId);
+                                                                        if (moved) moved.isPinned = overView.isPinned;
+                                                                        newSortedViews.forEach((v: any, i: number) => { v.position = i * 1000; });
+                                                                        utils.space.get.setData({ id: spaceId! }, (old: any) => old ? { ...old, views: newSortedViews } : old);
+                                                                        reorderViewsMutation.mutate(newSortedViews.map((v: any, i: number) => ({ id: v.id, position: i * 1000 })));
+                                                                    }}
+                                                                    renderMoreAction={(view) => (
+                                                                        <Popover modal={false}>
+                                                                            <PopoverTrigger asChild>
+                                                                                <div role="button" className="h-6 w-6 p-0 flex items-center justify-center rounded hover:bg-slate-200" onClick={e => e.stopPropagation()}>
+                                                                                    <MoreHorizontal className="h-4 w-4 text-muted-foreground shrink-0 m-auto" />
                                                                                 </div>
-                                                                                <div role="button" className="flex items-center gap-2 px-2 py-1.5 text-sm hover:bg-slate-100 rounded-sm text-slate-700 w-full text-left cursor-pointer transition-colors" onClick={(e) => { e.stopPropagation(); handleCopyViewLink(view); }}>
-                                                                                    <Copy className="h-4 w-4 shrink-0" /> Copy link to view
+                                                                            </PopoverTrigger>
+                                                                            <PopoverContent className="w-56 p-1" sideOffset={8} side="right" align="start">
+                                                                                <div className="flex flex-col">
+                                                                                    <div role="button" className="flex items-center gap-2 px-2 py-1.5 text-sm hover:bg-slate-100 rounded-sm text-slate-700 w-full text-left cursor-pointer transition-colors" onClick={(e) => { e.stopPropagation(); setViewToRename({ id: view.id, name: view.name }); }}>
+                                                                                        <Edit className="h-4 w-4 shrink-0" /> Rename
+                                                                                    </div>
+                                                                                    <div role="button" className="flex items-center gap-2 px-2 py-1.5 text-sm hover:bg-slate-100 rounded-sm text-slate-700 w-full text-left cursor-pointer transition-colors" onClick={(e) => { e.stopPropagation(); handleCopyViewLink(view); }}>
+                                                                                        <Copy className="h-4 w-4 shrink-0" /> Copy link to view
+                                                                                    </div>
+                                                                                    <div role="button" className="flex items-center gap-2 px-2 py-1.5 text-sm hover:bg-slate-100 rounded-sm text-slate-700 w-full text-left cursor-pointer transition-colors" onClick={(e) => { e.stopPropagation(); setViewToShare({ id: view.id, name: view.name }); }}>
+                                                                                        <Shield className="h-4 w-4 shrink-0" /> Permissions
+                                                                                    </div>
+                                                                                    <div className="h-px bg-slate-100 my-1 mx-2" />
+                                                                                    <div role="button" className="flex items-center justify-between px-2 py-1.5 text-sm hover:bg-slate-100 rounded-sm text-slate-700 w-full text-left cursor-pointer transition-colors" onClick={(e) => { e.stopPropagation(); togglePin(view); }}>
+                                                                                        <div className="flex items-center gap-2"><Pin className="h-4 w-4 shrink-0" /> Pin view</div>
+                                                                                        <Switch checked={view.isPinned} />
+                                                                                    </div>
+                                                                                    <div role="button" className="flex items-center justify-between px-2 py-1.5 text-sm hover:bg-slate-100 rounded-sm text-slate-700 w-full text-left cursor-pointer transition-colors" onClick={(e) => { e.stopPropagation(); togglePrivate(view); }}>
+                                                                                        <div className="flex items-center gap-2"><EyeOff className="h-4 w-4 shrink-0" /> Private view</div>
+                                                                                        <Switch checked={view.isPrivate} />
+                                                                                    </div>
+                                                                                    <div role="button" className="flex items-center justify-between px-2 py-1.5 text-sm hover:bg-slate-100 rounded-sm text-slate-700 w-full text-left cursor-pointer transition-colors" onClick={(e) => { e.stopPropagation(); toggleLock(view); }}>
+                                                                                        <div className="flex items-center gap-2"><Lock className="h-4 w-4 shrink-0" /> Protect view</div>
+                                                                                        <Switch checked={view.isLocked} />
+                                                                                    </div>
+                                                                                    <div role="button" className="flex items-center justify-between px-2 py-1.5 text-sm hover:bg-slate-100 rounded-sm text-slate-700 w-full text-left cursor-pointer transition-colors" onClick={(e) => { e.stopPropagation(); toggleDefault(view); }}>
+                                                                                        <div className="flex items-center gap-2"><Star className="h-4 w-4 shrink-0" /> Set as default view</div>
+                                                                                        <Switch checked={view.isDefault} />
+                                                                                    </div>
+                                                                                    <div className="h-px bg-slate-100 my-1 mx-2" />
+                                                                                    <div role="button" className="flex items-center gap-2 px-2 py-1.5 text-sm hover:bg-slate-100 rounded-sm text-slate-700 w-full text-left cursor-pointer transition-colors" onClick={(e) => { e.stopPropagation(); createViewMutation.mutate({ name: `${view.name} Copy`, type: view.type as any, spaceId: spaceId! }); }}>
+                                                                                        <CopyPlus className="h-4 w-4 shrink-0" /> Duplicate view
+                                                                                    </div>
+                                                                                    <div role="button" className="flex items-center gap-2 px-2 py-1.5 text-sm hover:bg-slate-100 rounded-sm text-slate-700 w-full text-left cursor-pointer transition-colors" onClick={(e) => { e.stopPropagation(); setViewToTemplate(view); }}>
+                                                                                        <Save className="h-4 w-4 shrink-0" /> Save as template
+                                                                                    </div>
+                                                                                    <div className="h-px bg-slate-100 my-1 mx-2" />
+                                                                                    <div role="button" className="flex items-center gap-2 px-2 py-1.5 text-sm hover:bg-red-50 hover:text-red-700 rounded-sm text-red-600 w-full text-left items-start cursor-pointer transition-colors" onClick={(e) => { e.stopPropagation(); setViewToDelete({ id: view.id, name: view.name }); }}>
+                                                                                        <Trash2 className="h-4 w-4 shrink-0" /> Delete view
+                                                                                    </div>
                                                                                 </div>
-                                                                                <div role="button" className="flex items-center gap-2 px-2 py-1.5 text-sm hover:bg-slate-100 rounded-sm text-slate-700 w-full text-left cursor-pointer transition-colors" onClick={(e) => { e.stopPropagation(); setViewToShare({ id: view.id, name: view.name }); }}>
-                                                                                    <Shield className="h-4 w-4 shrink-0" /> Permissions
-                                                                                </div>
-                                                                                <div className="h-px bg-slate-100 my-1 mx-2" />
-                                                                                <div role="button" className="flex items-center justify-between px-2 py-1.5 text-sm hover:bg-slate-100 rounded-sm text-slate-700 w-full text-left cursor-pointer transition-colors" onClick={(e) => { e.stopPropagation(); togglePin(view); }}>
-                                                                                    <div className="flex items-center gap-2"><Pin className="h-4 w-4 shrink-0" /> Pin view</div>
-                                                                                    <Switch checked={view.isPinned} />
-                                                                                </div>
-                                                                                <div role="button" className="flex items-center justify-between px-2 py-1.5 text-sm hover:bg-slate-100 rounded-sm text-slate-700 w-full text-left cursor-pointer transition-colors" onClick={(e) => { e.stopPropagation(); togglePrivate(view); }}>
-                                                                                    <div className="flex items-center gap-2"><EyeOff className="h-4 w-4 shrink-0" /> Private view</div>
-                                                                                    <Switch checked={view.isPrivate} />
-                                                                                </div>
-                                                                                <div role="button" className="flex items-center justify-between px-2 py-1.5 text-sm hover:bg-slate-100 rounded-sm text-slate-700 w-full text-left cursor-pointer transition-colors" onClick={(e) => { e.stopPropagation(); toggleLock(view); }}>
-                                                                                    <div className="flex items-center gap-2"><Lock className="h-4 w-4 shrink-0" /> Protect view</div>
-                                                                                    <Switch checked={view.isLocked} />
-                                                                                </div>
-                                                                                <div role="button" className="flex items-center justify-between px-2 py-1.5 text-sm hover:bg-slate-100 rounded-sm text-slate-700 w-full text-left cursor-pointer transition-colors" onClick={(e) => { e.stopPropagation(); toggleDefault(view); }}>
-                                                                                    <div className="flex items-center gap-2"><Star className="h-4 w-4 shrink-0" /> Set as default view</div>
-                                                                                    <Switch checked={view.isDefault} />
-                                                                                </div>
-                                                                                <div className="h-px bg-slate-100 my-1 mx-2" />
-                                                                                <div role="button" className="flex items-center gap-2 px-2 py-1.5 text-sm hover:bg-slate-100 rounded-sm text-slate-700 w-full text-left cursor-pointer transition-colors" onClick={(e) => { e.stopPropagation(); createViewMutation.mutate({ name: `${view.name} Copy`, type: view.type as any, spaceId: spaceId! }); }}>
-                                                                                    <CopyPlus className="h-4 w-4 shrink-0" /> Duplicate view
-                                                                                </div>
-                                                                                <div role="button" className="flex items-center gap-2 px-2 py-1.5 text-sm hover:bg-slate-100 rounded-sm text-slate-700 w-full text-left cursor-pointer transition-colors" onClick={(e) => { e.stopPropagation(); setViewToTemplate(view); }}>
-                                                                                    <Save className="h-4 w-4 shrink-0" /> Save as template
-                                                                                </div>
-                                                                                <div className="h-px bg-slate-100 my-1 mx-2" />
-                                                                                <div role="button" className="flex items-center gap-2 px-2 py-1.5 text-sm hover:bg-red-50 hover:text-red-700 rounded-sm text-red-600 w-full text-left items-start cursor-pointer transition-colors" onClick={(e) => { e.stopPropagation(); setViewToDelete({ id: view.id, name: view.name }); }}>
-                                                                                    <Trash2 className="h-4 w-4 shrink-0" /> Delete view
-                                                                                </div>
-                                                                            </div>
-                                                                        </PopoverContent>
-                                                                    </Popover>
-                                                                )}
-                                                                getIcon={(view) => {
-                                                                    const viewType = view.type as ViewType;
-                                                                    const config = viewConfig[viewType] || { icon: FileText };
-                                                                    const Icon = config.icon;
-                                                                    return <Icon className="h-full w-full" />;
-                                                                }}
-                                                                onTogglePin={(view) => togglePin(view)}
-                                                                renderDropdownItem={(view, trigger) => (
-                                                                    <ContextMenu key={`dd-${view.id}`}>
-                                                                        <ContextMenuTrigger asChild>
-                                                                            {trigger}
-                                                                        </ContextMenuTrigger>
-                                                                        <SpaceViewContextMenu
-                                                                            view={view}
-                                                                            onRename={(v) => setViewToRename({ id: v.id, name: v.name })}
-                                                                            onDelete={(v) => setViewToDelete({ id: v.id, name: v.name })}
-                                                                            onDuplicate={(v) => {
-                                                                                createViewMutation.mutate({
-                                                                                    name: `${v.name} Copy`,
-                                                                                    type: v.type,
-                                                                                    spaceId: v.spaceId,
-                                                                                });
-                                                                            }}
-                                                                            onTogglePin={togglePin}
-                                                                            onTogglePrivate={togglePrivate}
-                                                                            onToggleLock={toggleLock}
-                                                                            onToggleDefault={toggleDefault}
-                                                                            onCopyLink={handleCopyViewLink}
-                                                                            onShare={(v) => setViewToShare({ id: v.id, name: v.name })}
-                                                                            onSaveTemplate={(v) => setViewToTemplate(v)}
-                                                                        />
-                                                                    </ContextMenu>
-                                                                )}
-                                                                renderTab={(view, isActive) => {
-                                                                    const viewType = view.type as ViewType;
-                                                                    const config = viewConfig[viewType] || { label: view.name, icon: FileText };
-                                                                    const Icon = config.icon;
-                                                                    return (
-                                                                        <ContextMenu key={view.id}>
-                                                                            <ContextMenuTrigger>
-                                                                                <Tooltip>
-                                                                                    <TooltipTrigger asChild>
-                                                                                        <TabsTrigger value={view.id} asChild>
-                                                                                            <div className={cn(
-                                                                                                "group relative flex items-center gap-1.5 h-10 px-3 py-2 text-sm cursor-pointer whitespace-nowrap transition-colors rounded-md",
-                                                                                                activeTab === view.id
-                                                                                                    ? "text-primary font-medium"
-                                                                                                    : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
-                                                                                            )}>
-                                                                                                <Icon className={cn("h-4 w-4 shrink-0", activeTab === view.id ? "text-primary" : "text-slate-500 group-hover:text-slate-700")} />
-                                                                                                <span className="inline-block max-w-[120px] truncate align-bottom">{view.name}</span>
-                                                                                                {view.isPinned && <Pin className="h-3 w-3 shrink-0 rotate-45 text-muted-foreground" />}
-                                                                                                {view.isPrivate && <Lock className="h-3 w-3 shrink-0 text-muted-foreground" />}
-
-                                                                                                {activeTab === view.id && (
-                                                                                                    <div className="absolute left-0 right-0 h-0.5 bg-primary rounded-t-full" style={{ bottom: "-5px" }} />
-                                                                                                )}
-                                                                                            </div>
-                                                                                        </TabsTrigger>
-                                                                                    </TooltipTrigger>
-                                                                                    <TooltipContent>{view.name}</TooltipContent>
-                                                                                </Tooltip>
+                                                                            </PopoverContent>
+                                                                        </Popover>
+                                                                    )}
+                                                                    getIcon={(view) => {
+                                                                        const viewType = view.type as ViewType;
+                                                                        const config = viewConfig[viewType] || { icon: FileText };
+                                                                        const Icon = config.icon;
+                                                                        return <Icon className="h-full w-full" />;
+                                                                    }}
+                                                                    onTogglePin={(view) => togglePin(view)}
+                                                                    renderDropdownItem={(view, trigger) => (
+                                                                        <ContextMenu key={`dd-${view.id}`}>
+                                                                            <ContextMenuTrigger asChild>
+                                                                                {trigger}
                                                                             </ContextMenuTrigger>
                                                                             <SpaceViewContextMenu
                                                                                 view={view}
@@ -1079,224 +1045,275 @@ export default function SpaceDashboardView({ listId, spaceId, projectId, teamId,
                                                                                 onSaveTemplate={(v) => setViewToTemplate(v)}
                                                                             />
                                                                         </ContextMenu>
-                                                                    );
-                                                                }}
-                                                                renderMeasureTab={(view) => {
-                                                                    const viewType = view.type as ViewType;
-                                                                    const config = viewConfig[viewType] || { icon: FileText };
-                                                                    const Icon = config.icon;
-                                                                    return (
-                                                                        <div className="flex items-center gap-1.5 h-10 px-3 py-2 text-sm whitespace-nowrap font-medium">
-                                                                            <Icon className="h-4 w-4 shrink-0" />
-                                                                            <span className="max-w-[120px] truncate">{view.name}</span>
-                                                                            {view.isPinned && <Pin className="h-3 w-3 shrink-0 rotate-45" />}
-                                                                            {view.isPrivate && <Lock className="h-3 w-3 shrink-0" />}
-                                                                        </div>
-                                                                    );
-                                                                }}
-                                                            />
-                                                        </TabsList>
-                                                        <div className="flex items-center shrink-0">
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="sm"
-                                                                onClick={() => setAddViewModalOpen(true)}
-                                                                className="h-8 px-2.5 text-sm font-medium text-muted-foreground hover:text-foreground"
-                                                            >
-                                                                <Plus className="h-4 w-4 mr-1" />
-                                                                View
-                                                            </Button>
+                                                                    )}
+                                                                    renderTab={(view, isActive) => {
+                                                                        const viewType = view.type as ViewType;
+                                                                        const config = viewConfig[viewType] || { label: view.name, icon: FileText };
+                                                                        const Icon = config.icon;
+                                                                        return (
+                                                                            <ContextMenu key={view.id}>
+                                                                                <ContextMenuTrigger>
+                                                                                    <Tooltip>
+                                                                                        <TooltipTrigger asChild>
+                                                                                            <TabsTrigger value={view.id} asChild>
+                                                                                                <div className={cn(
+                                                                                                    "group relative flex items-center gap-1.5 h-10 px-3 py-2 text-sm cursor-pointer whitespace-nowrap transition-colors rounded-md",
+                                                                                                    activeTab === view.id
+                                                                                                        ? "text-primary font-medium"
+                                                                                                        : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                                                                                                )}>
+                                                                                                    <Icon className={cn("h-4 w-4 shrink-0", activeTab === view.id ? "text-primary" : "text-slate-500 group-hover:text-slate-700")} />
+                                                                                                    <span className="inline-block max-w-[120px] truncate align-bottom">{view.name}</span>
+                                                                                                    {view.isPinned && <Pin className="h-3 w-3 shrink-0 rotate-45 text-muted-foreground" />}
+                                                                                                    {view.isPrivate && <Lock className="h-3 w-3 shrink-0 text-muted-foreground" />}
+
+                                                                                                    {activeTab === view.id && (
+                                                                                                        <div className="absolute left-0 right-0 h-0.5 bg-primary rounded-t-full" style={{ bottom: "-5px" }} />
+                                                                                                    )}
+                                                                                                </div>
+                                                                                            </TabsTrigger>
+                                                                                        </TooltipTrigger>
+                                                                                        <TooltipContent>{view.name}</TooltipContent>
+                                                                                    </Tooltip>
+                                                                                </ContextMenuTrigger>
+                                                                                <SpaceViewContextMenu
+                                                                                    view={view}
+                                                                                    onRename={(v) => setViewToRename({ id: v.id, name: v.name })}
+                                                                                    onDelete={(v) => setViewToDelete({ id: v.id, name: v.name })}
+                                                                                    onDuplicate={(v) => {
+                                                                                        createViewMutation.mutate({
+                                                                                            name: `${v.name} Copy`,
+                                                                                            type: v.type,
+                                                                                            spaceId: v.spaceId,
+                                                                                        });
+                                                                                    }}
+                                                                                    onTogglePin={togglePin}
+                                                                                    onTogglePrivate={togglePrivate}
+                                                                                    onToggleLock={toggleLock}
+                                                                                    onToggleDefault={toggleDefault}
+                                                                                    onCopyLink={handleCopyViewLink}
+                                                                                    onShare={(v) => setViewToShare({ id: v.id, name: v.name })}
+                                                                                    onSaveTemplate={(v) => setViewToTemplate(v)}
+                                                                                />
+                                                                            </ContextMenu>
+                                                                        );
+                                                                    }}
+                                                                    renderMeasureTab={(view) => {
+                                                                        const viewType = view.type as ViewType;
+                                                                        const config = viewConfig[viewType] || { icon: FileText };
+                                                                        const Icon = config.icon;
+                                                                        return (
+                                                                            <div className="flex items-center gap-1.5 h-10 px-3 py-2 text-sm whitespace-nowrap font-medium">
+                                                                                <Icon className="h-4 w-4 shrink-0" />
+                                                                                <span className="max-w-[120px] truncate">{view.name}</span>
+                                                                                {view.isPinned && <Pin className="h-3 w-3 shrink-0 rotate-45" />}
+                                                                                {view.isPrivate && <Lock className="h-3 w-3 shrink-0" />}
+                                                                            </div>
+                                                                        );
+                                                                    }}
+                                                                />
+                                                            </TabsList>
+                                                            <div className="flex items-center shrink-0">
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="sm"
+                                                                    onClick={() => setAddViewModalOpen(true)}
+                                                                    className="h-8 px-2.5 text-sm font-medium text-muted-foreground hover:text-foreground"
+                                                                >
+                                                                    <Plus className="h-4 w-4 mr-1" />
+                                                                    View
+                                                                </Button>
+                                                            </div>
                                                         </div>
                                                     </div>
-                                                </div>
 
-                                                <div className={cn(
-                                                    "relative min-h-0 flex-1 min-w-0 max-w-full",
-                                                    (activeView && ["TASKS", "LIST", "BOARD", "TABLE", "CALENDAR", "GANTT", "TIMELINE", "WORKLOAD", "WHITEBOARD", "MIND_MAP", "MAP", "EMBED", "SPREADSHEET", "FILE", "VIDEO", "DESIGN", "DOC", "FORM", "DASHBOARD", "PEOPLE", "GOOGLE_CALENDAR", "GOOGLE_DOCS", "GOOGLE_MAPS", "GOOGLE_SLIDES", "GOOGLE_FORMS", "GOOGLE_DRIVE"].includes(activeView.type))
-                                                        ? "overflow-hidden"
-                                                        : "overflow-y-auto px-6 py-6"
-                                                )}>
-                                                    {activeView && (
-                                                        <TabsContent value={activeView.id} className="mt-0 h-full min-h-0 min-w-0 w-full max-w-full">
-                                                            {renderViewContent(activeView)}
-                                                        </TabsContent>
-                                                    )}
-                                                    
-                                                    {views.length === 0 && (
-                                                        <div className="flex flex-col items-center justify-center h-full p-8 text-center animate-in fade-in zoom-in-95 duration-700 ease-out fill-mode-both">
-                                                            <div className="relative mb-6 group">
-                                                                <div className="absolute inset-0 bg-primary/10 blur-2xl rounded-full transition-all duration-700 group-hover:bg-primary/20 group-hover:blur-3xl" />
-                                                                <div className="relative h-20 w-20 bg-gradient-to-br from-white to-slate-50 border border-slate-200/60 shadow-lg shadow-slate-200/20 rounded-3xl flex items-center justify-center text-primary transform transition-transform duration-500 group-hover:scale-105 group-hover:-translate-y-1">
-                                                                    <LayoutDashboard className="h-9 w-9 stroke-[1.5]" />
+                                                    <div className={cn(
+                                                        "relative min-h-0 flex-1 min-w-0 max-w-full",
+                                                        (activeView && ["TASKS", "LIST", "BOARD", "TABLE", "CALENDAR", "GANTT", "TIMELINE", "WORKLOAD", "WHITEBOARD", "MIND_MAP", "MAP", "EMBED", "SPREADSHEET", "FILE", "VIDEO", "DESIGN", "DOC", "FORM", "DASHBOARD", "PEOPLE", "GOOGLE_CALENDAR", "GOOGLE_DOCS", "GOOGLE_MAPS", "GOOGLE_SLIDES", "GOOGLE_FORMS", "GOOGLE_DRIVE"].includes(activeView.type))
+                                                            ? "overflow-hidden"
+                                                            : "overflow-y-auto px-6 py-6"
+                                                    )}>
+                                                        {activeView && (
+                                                            <TabsContent value={activeView.id} className="mt-0 h-full min-h-0 min-w-0 w-full max-w-full">
+                                                                {renderViewContent(activeView)}
+                                                            </TabsContent>
+                                                        )}
+
+                                                        {views.length === 0 && (
+                                                            <div className="flex flex-col items-center justify-center h-full p-8 text-center animate-in fade-in zoom-in-95 duration-700 ease-out fill-mode-both">
+                                                                <div className="relative mb-6 group">
+                                                                    <div className="absolute inset-0 bg-primary/10 blur-2xl rounded-full transition-all duration-700 group-hover:bg-primary/20 group-hover:blur-3xl" />
+                                                                    <div className="relative h-20 w-20 bg-gradient-to-br from-white to-slate-50 border border-slate-200/60 shadow-lg shadow-slate-200/20 rounded-3xl flex items-center justify-center text-primary transform transition-transform duration-500 group-hover:scale-105 group-hover:-translate-y-1">
+                                                                        <LayoutDashboard className="h-9 w-9 stroke-[1.5]" />
+                                                                    </div>
                                                                 </div>
+                                                                <h3 className="text-xl font-semibold text-slate-900 tracking-tight mb-2">No views configured</h3>
+                                                                <p className="text-sm text-slate-500 max-w-md mb-8 leading-relaxed">
+                                                                    Your space is currently a blank canvas. Add a view to start visualizing your data, tracking tasks, and organizing your workflow.
+                                                                </p>
+                                                                <Button
+                                                                    size="default"
+                                                                    onClick={() => setAddViewModalOpen(true)}
+                                                                    className="shadow-sm hover:shadow-md transition-all group rounded-full px-6"
+                                                                >
+                                                                    <Plus className="h-4 w-4 mr-2 transition-transform duration-300 group-hover:rotate-90" />
+                                                                    Create your first view
+                                                                </Button>
                                                             </div>
-                                                            <h3 className="text-xl font-semibold text-slate-900 tracking-tight mb-2">No views configured</h3>
-                                                            <p className="text-sm text-slate-500 max-w-md mb-8 leading-relaxed">
-                                                                Your space is currently a blank canvas. Add a view to start visualizing your data, tracking tasks, and organizing your workflow.
-                                                            </p>
-                                                            <Button 
-                                                                size="default" 
-                                                                onClick={() => setAddViewModalOpen(true)}
-                                                                className="shadow-sm hover:shadow-md transition-all group rounded-full px-6"
-                                                            >
-                                                                <Plus className="h-4 w-4 mr-2 transition-transform duration-300 group-hover:rotate-90" />
-                                                                Create your first view
-                                                            </Button>
-                                                        </div>
-                                                    )}
+                                                        )}
+                                                    </div>
+                                                </Tabs>
+                                            ) : (
+                                                <div className={cn("relative h-full overflow-y-auto px-6 py-6 min-w-0 max-w-full")}>
+                                                    {activeView && renderViewContent(activeView)}
                                                 </div>
-                                            </Tabs>
-                                        ) : (
-                                            <div className={cn("relative h-full overflow-y-auto px-6 py-6 min-w-0 max-w-full")}>
-                                                {activeView && renderViewContent(activeView)}
+                                            )}
+                                        </>
+                                    )
+                                }
+                                SidePanelContent={
+                                    <>
+                                        {isAskAIOpen && (
+                                            <SidePanelContainer
+                                                onClose={() => setIsAskAIOpen(false)}
+                                                title={<span className="text-xs font-semibold text-zinc-600 uppercase tracking-wider">AI Assistant</span>}
+                                                icon={<div className="h-2 w-2 rounded-full bg-indigo-500 animate-pulse" />}
+                                            >
+                                                <AIChatView
+                                                    workspaceId={workspaceId!}
+                                                />
+                                            </SidePanelContainer>
+                                        )}
+                                        {selectedTaskId && !isAskAIOpen && taskViewMode === 'sidebar' && (
+                                            <div className="h-full border-l border-zinc-200 bg-white">
+                                                <TaskDetailContent
+                                                    taskId={selectedTaskId}
+                                                    layoutMode="sidebar"
+                                                    onLayoutModeChange={setTaskViewMode}
+                                                    onClose={() => {
+                                                        const params = new URLSearchParams(searchParams.toString());
+                                                        params.delete("task");
+                                                        router.push(`?${params.toString()}`);
+                                                    }}
+                                                />
                                             </div>
                                         )}
                                     </>
-                                )
-                            }
-                            SidePanelContent={
-                                <>
-                                    {isAskAIOpen && (
-                                        <SidePanelContainer
-                                            onClose={() => setIsAskAIOpen(false)}
-                                            title={<span className="text-xs font-semibold text-zinc-600 uppercase tracking-wider">AI Assistant</span>}
-                                            icon={<div className="h-2 w-2 rounded-full bg-indigo-500 animate-pulse" />}
-                                        >
-                                            <AIChatView
-                                                workspaceId={workspaceId!}
-                                            />
-                                        </SidePanelContainer>
-                                    )}
-                                    {selectedTaskId && !isAskAIOpen && taskViewMode === 'sidebar' && (
-                                        <div className="h-full border-l border-zinc-200 bg-white">
-                                            <TaskDetailContent
-                                                taskId={selectedTaskId}
-                                                layoutMode="sidebar"
-                                                onLayoutModeChange={setTaskViewMode}
-                                                onClose={() => {
-                                                    const params = new URLSearchParams(searchParams.toString());
-                                                    params.delete("task");
-                                                    router.push(`?${params.toString()}`);
-                                                }}
-                                            />
-                                        </div>
-                                    )}
-                                </>
-                            }
-                            isPanelOpen={isAskAIOpen || (!!selectedTaskId && taskViewMode === 'sidebar')}
-                            sidePanelDefaultSize={50}
-                            sidePanelMinSize={40}
-                        />
+                                }
+                                isPanelOpen={isAskAIOpen || (!!selectedTaskId && taskViewMode === 'sidebar')}
+                                sidePanelDefaultSize={50}
+                                sidePanelMinSize={40}
+                            />
+                        </div>
                     </div>
                 </div>
-            </div>
 
-            {/* Task Detail Modal */}
-            {selectedTaskId && taskViewMode === 'modal' && (
-                <TaskDetailModal
-                    taskId={selectedTaskId}
-                    open={true}
-                    onOpenChange={(open) => {
-                        if (!open) {
-                            const params = new URLSearchParams(searchParams.toString());
-                            params.delete("task");
-                            router.push(`?${params.toString()}`);
-                        }
-                    }}
-                    layoutMode={taskViewMode}
-                    onLayoutModeChange={setTaskViewMode}
+                {/* Task Detail Modal */}
+                {selectedTaskId && taskViewMode === 'modal' && (
+                    <TaskDetailModal
+                        taskId={selectedTaskId}
+                        open={true}
+                        onOpenChange={(open) => {
+                            if (!open) {
+                                const params = new URLSearchParams(searchParams.toString());
+                                params.delete("task");
+                                router.push(`?${params.toString()}`);
+                            }
+                        }}
+                        layoutMode={taskViewMode}
+                        onLayoutModeChange={setTaskViewMode}
+                    />
+                )}
+
+                {/* Add View Modal */}
+                <AddViewModal
+                    open={addViewModalOpen}
+                    onOpenChange={setAddViewModalOpen}
+                    existingViews={views.map(v => v.type as ViewType)}
+                    onAddViews={handleAddViews}
+                    onAddFromTemplate={handleAddFromTemplate}
                 />
-            )}
 
-            {/* Add View Modal */}
-            <AddViewModal
-                open={addViewModalOpen}
-                onOpenChange={setAddViewModalOpen}
-                existingViews={views.map(v => v.type as ViewType)}
-                onAddViews={handleAddViews}
-                onAddFromTemplate={handleAddFromTemplate}
-            />
+                <ShareModal
+                    isOpen={isShareModalOpen}
+                    onClose={() => setIsShareModalOpen(false)}
+                    itemType="space"
+                    itemId={spaceId}
+                    itemName={space.name || "Space"}
+                    workspaceId={workspaceId!}
+                />
 
-            <ShareModal
-                isOpen={isShareModalOpen}
-                onClose={() => setIsShareModalOpen(false)}
-                itemType="space"
-                itemId={spaceId}
-                itemName={space.name || "Space"}
-                workspaceId={workspaceId!}
-            />
+                {/* Rename Dialog */}
+                <Dialog open={!!viewToRename} onOpenChange={(open) => !open && setViewToRename(null)}>
+                    <DialogContent>
+                        <DialogHeader>
+                            <DialogTitle>Rename View</DialogTitle>
+                            <DialogDescription>
+                                Enter a new name for this view.
+                            </DialogDescription>
+                        </DialogHeader>
+                        <div className="py-4">
+                            <Input
+                                value={viewToRename?.name || ""}
+                                onChange={(e) => setViewToRename(prev => prev ? { ...prev, name: e.target.value } : null)}
+                                onKeyDown={(e) => e.key === "Enter" && handleRenameView(viewToRename?.name || "")}
+                                autoFocus
+                            />
+                        </div>
+                        <DialogFooter>
+                            <Button variant="outline" onClick={() => setViewToRename(null)}>Cancel</Button>
+                            <Button onClick={() => handleRenameView(viewToRename?.name || "")}>Rename</Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
 
-            {/* Rename Dialog */}
-            <Dialog open={!!viewToRename} onOpenChange={(open) => !open && setViewToRename(null)}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>Rename View</DialogTitle>
-                        <DialogDescription>
-                            Enter a new name for this view.
-                        </DialogDescription>
-                    </DialogHeader>
-                    <div className="py-4">
-                        <Input
-                            value={viewToRename?.name || ""}
-                            onChange={(e) => setViewToRename(prev => prev ? { ...prev, name: e.target.value } : null)}
-                            onKeyDown={(e) => e.key === "Enter" && handleRenameView(viewToRename?.name || "")}
-                            autoFocus
+                {/* Delete Dialog */}
+                <Dialog open={!!viewToDelete} onOpenChange={(open) => !open && setViewToDelete(null)}>
+                    <DialogContent>
+                        <DialogHeader>
+                            <DialogTitle>Delete View?</DialogTitle>
+                            <DialogDescription>
+                                Are you sure you want to delete <strong>{viewToDelete?.name}</strong>? This action cannot be undone.
+                            </DialogDescription>
+                        </DialogHeader>
+                        <DialogFooter>
+                            <Button
+                                className="flex-1 sm:flex-none inline-flex items-center justify-center h-9 px-4 rounded-lg border border-zinc-200 bg-white text-[13.5px] font-medium text-zinc-600 hover:bg-zinc-50 hover:border-zinc-300 hover:text-zinc-800 transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 focus-visible:ring-offset-1"
+                                onClick={() => setViewToDelete(null)}>
+                                Cancel
+                            </Button>
+                            <Button
+                                onClick={() => viewToDelete && handleDeleteView(viewToDelete.id)}
+                                className="flex-1 sm:flex-none h-9 px-4 rounded-lg bg-red-600 hover:bg-red-700 text-[13.5px] font-medium shadow-sm shadow-red-900/10 transition-all duration-150">
+                                Delete
+                            </Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
+
+                {
+                    viewToShare && (
+                        <ShareViewPermissionModal
+                            viewId={viewToShare.id}
+                            workspaceId={workspaceId as string}
+                            open={!!viewToShare}
+                            onOpenChange={(open) => !open && setViewToShare(null)}
                         />
-                    </div>
-                    <DialogFooter>
-                        <Button variant="outline" onClick={() => setViewToRename(null)}>Cancel</Button>
-                        <Button onClick={() => handleRenameView(viewToRename?.name || "")}>Rename</Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
+                    )
+                }
 
-            {/* Delete Dialog */}
-            <Dialog open={!!viewToDelete} onOpenChange={(open) => !open && setViewToDelete(null)}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>Delete View?</DialogTitle>
-                        <DialogDescription>
-                            Are you sure you want to delete <strong>{viewToDelete?.name}</strong>? This action cannot be undone.
-                        </DialogDescription>
-                    </DialogHeader>
-                    <DialogFooter>
-                        <Button 
-                            className="flex-1 sm:flex-none inline-flex items-center justify-center h-9 px-4 rounded-lg border border-zinc-200 bg-white text-[13.5px] font-medium text-zinc-600 hover:bg-zinc-50 hover:border-zinc-300 hover:text-zinc-800 transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 focus-visible:ring-offset-1" 
-                            onClick={() => setViewToDelete(null)}>
-                            Cancel
-                        </Button>
-                        <Button 
-                            onClick={() => viewToDelete && handleDeleteView(viewToDelete.id)}
-                            className="flex-1 sm:flex-none h-9 px-4 rounded-lg bg-red-600 hover:bg-red-700 text-[13.5px] font-medium shadow-sm shadow-red-900/10 transition-all duration-150">
-                            Delete
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
+                {
+                    viewToTemplate && (
+                        <SaveTemplateModal
+                            open={!!viewToTemplate}
+                            onOpenChange={(open) => !open && setViewToTemplate(null)}
+                            view={viewToTemplate}
+                            workspaceId={space?.workspaceId || ""}
+                        />
+                    )
+                }
 
-            {
-                viewToShare && (
-                    <ShareViewPermissionModal
-                        viewId={viewToShare.id}
-                        workspaceId={workspaceId as string}
-                        open={!!viewToShare}
-                        onOpenChange={(open) => !open && setViewToShare(null)}
-                    />
-                )
-            }
-
-            {
-                viewToTemplate && (
-                    <SaveTemplateModal
-                        open={!!viewToTemplate}
-                        onOpenChange={(open) => !open && setViewToTemplate(null)}
-                        view={viewToTemplate}
-                        workspaceId={space?.workspaceId || ""}
-                    />
-                )
-            }
-
-        </div >
+            </div >
         </DashboardEntityProvider>
     );
 }

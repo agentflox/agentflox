@@ -290,7 +290,7 @@ export function DashboardHeader({
     return (
         <header
             className={cn(
-                "flex items-center justify-between gap-4 border-b border-slate-200 bg-white px-6 py-3",
+                "flex items-center justify-between gap-4 border-x border-b border-slate-200 bg-white px-6 py-3",
                 className
             )}
             role="banner"

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Target, FileText, List as ListIcon, CheckCircle2, Box } from 'lucide-react';
+import { Target, FileText, List as ListIcon, CheckCircle2, Box, ClipboardList } from 'lucide-react';
 import { DynamicLucideIcon } from '@/lib/lucideIcon';
 import { cn } from '@/lib/utils';
 
@@ -14,9 +14,10 @@ interface TaskTypeIconProps {
     type?: TaskType | string | null;
     className?: string;
     size?: number;
+    color?: string;
 }
 
-export function TaskTypeIcon({ type, className, size = 14 }: TaskTypeIconProps) {
+export function TaskTypeIcon({ type, className, size = 14, color }: TaskTypeIconProps) {
     let iconName = "";
     let typeName = "";
     let typeColor = "";
@@ -30,12 +31,15 @@ export function TaskTypeIcon({ type, className, size = 14 }: TaskTypeIconProps) 
         typeColor = type.color || "";
     }
 
+    // Override with explicit color prop if provided
+    const finalColor = color || typeColor;
+
     if (iconName) {
         if (iconName.length <= 2) {
             return (
                 <span
                     className={cn("inline-block", className)}
-                    style={{ fontSize: size, lineHeight: 1, color: typeColor }}
+                    style={{ fontSize: size, lineHeight: 1, color: finalColor }}
                 >
                     {iconName}
                 </span>
@@ -47,7 +51,7 @@ export function TaskTypeIcon({ type, className, size = 14 }: TaskTypeIconProps) 
                 name={iconName}
                 size={size}
                 className={className}
-                style={typeColor ? { color: typeColor } : undefined}
+                style={finalColor ? { color: finalColor } : undefined}
             />
         );
     }
@@ -58,7 +62,7 @@ export function TaskTypeIcon({ type, className, size = 14 }: TaskTypeIconProps) 
     const Icon = (() => {
         if (lowerIcon === 'target' || lowerName.includes('milestone')) return Target;
         if (lowerIcon === 'file-text' || lowerIcon === 'filetext' || lowerName.includes('meeting')) return FileText;
-        if (lowerIcon === 'list' || lowerName.includes('form')) return ListIcon;
+        if (lowerIcon === 'list' || lowerName.includes('form')) return ClipboardList;
         if (lowerIcon === 'box' || lowerIcon === 'package') return Box;
         return CheckCircle2;
     })();
@@ -74,8 +78,8 @@ export function TaskTypeIcon({ type, className, size = 14 }: TaskTypeIconProps) 
     return (
         <Icon
             size={size}
-            className={cn(className, !typeColor && defaultColorClass)}
-            style={typeColor ? { color: typeColor } : undefined}
+            className={cn(className, !finalColor && defaultColorClass)}
+            style={finalColor ? { color: finalColor } : undefined}
         />
     );
 }

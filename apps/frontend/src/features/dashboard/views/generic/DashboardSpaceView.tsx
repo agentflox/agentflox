@@ -76,6 +76,7 @@ import {
     Star,
     CopyPlus,
     Save,
+    Table,
     Trash2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -102,7 +103,7 @@ const viewConfig: Record<
 > = {
     LIST: { label: "List", icon: ListIcon, description: "List view" },
     BOARD: { label: "Board", icon: Kanban, description: "Kanban board" },
-    TABLE: { label: "Table", icon: ClipboardList, description: "Table view" },
+    TABLE: { label: "Table", icon: Table, description: "Table view" },
     CALENDAR: { label: "Calendar", icon: Calendar, description: "Calendar view" },
     GANTT: { label: "Gantt", icon: Network, description: "Gantt chart" },
     TIMELINE: { label: "Timeline", icon: Clock, description: "Timeline view" },

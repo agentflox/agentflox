@@ -58,6 +58,7 @@ import {
     Clock,
     ClipboardList,
     BarChart3,
+    Table,
     LayoutDashboard,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -86,7 +87,7 @@ const viewConfig: Partial<Record<
 >> = {
     LIST: { label: "List", icon: ListIcon, description: "List view" },
     BOARD: { label: "Board", icon: Kanban, description: "Kanban board" },
-    TABLE: { label: "Table", icon: ClipboardList, description: "Table view" },
+    TABLE: { label: "Table", icon: Table, description: "Table view" },
     CALENDAR: { label: "Calendar", icon: Calendar, description: "Calendar view" },
     GANTT: { label: "Gantt", icon: Network, description: "Gantt chart" },
     TIMELINE: { label: "Timeline", icon: Clock, description: "Timeline view" },
@@ -279,33 +280,33 @@ export default function DashboardFolderView({ folderId, spaceId, projectId, team
 
         switch (viewType) {
             case "LIST":
-                return <ListView workspaceId={effectiveWorkspaceId} folderId={folderId} spaceId={spaceId} projectId={projectId} teamId={teamId} context={context} selectedTaskIdFromParent={selectedTaskIdFromParent} onTaskSelect={onTaskSelect}  />;
+                return <ListView workspaceId={effectiveWorkspaceId} folderId={folderId} spaceId={spaceId} projectId={projectId} teamId={teamId} context={context} selectedTaskIdFromParent={selectedTaskIdFromParent} onTaskSelect={onTaskSelect} />;
             case "BOARD":
-                return <BoardView workspaceId={effectiveWorkspaceId} folderId={folderId} spaceId={spaceId} projectId={projectId} teamId={teamId} context={context} selectedTaskIdFromParent={selectedTaskIdFromParent} onTaskSelect={onTaskSelect}  />;
+                return <BoardView workspaceId={effectiveWorkspaceId} folderId={folderId} spaceId={spaceId} projectId={projectId} teamId={teamId} context={context} selectedTaskIdFromParent={selectedTaskIdFromParent} onTaskSelect={onTaskSelect} />;
             case "TABLE":
-                return <TableView context={context} workspaceId={effectiveWorkspaceId} folderId={folderId} spaceId={spaceId} viewId={view.id} initialConfig={view.config}  />;
+                return <TableView context={context} workspaceId={effectiveWorkspaceId} folderId={folderId} spaceId={spaceId} viewId={view.id} initialConfig={view.config} />;
             case "CALENDAR":
-                return <CalendarView context={context} workspaceId={effectiveWorkspaceId} folderId={folderId} spaceId={spaceId}  />;
+                return <CalendarView context={context} workspaceId={effectiveWorkspaceId} folderId={folderId} spaceId={spaceId} />;
             case "GANTT":
-                return <GanttView context={context} workspaceId={effectiveWorkspaceId} folderId={folderId} spaceId={spaceId}  />;
+                return <GanttView context={context} workspaceId={effectiveWorkspaceId} folderId={folderId} spaceId={spaceId} />;
             case "TIMELINE":
-                return <TimelineView context={context} workspaceId={effectiveWorkspaceId} folderId={folderId} spaceId={spaceId} viewId={view.id} initialConfig={view.config}  />;
+                return <TimelineView context={context} workspaceId={effectiveWorkspaceId} folderId={folderId} spaceId={spaceId} viewId={view.id} initialConfig={view.config} />;
             case "FORM":
-                return <FormView context={context} workspaceId={effectiveWorkspaceId} folderId={folderId} spaceId={spaceId} viewId={view.id} initialConfig={view.config}  />;
+                return <FormView context={context} workspaceId={effectiveWorkspaceId} folderId={folderId} spaceId={spaceId} viewId={view.id} initialConfig={view.config} />;
             case "PEOPLE":
-                return <PeopleView context={context} workspaceId={effectiveWorkspaceId} folderId={folderId} spaceId={spaceId} viewId={view.id} initialConfig={view.config as any} selectedTaskIdFromParent={selectedTaskIdFromParent} onTaskSelect={onTaskSelect}  />;
+                return <PeopleView context={context} workspaceId={effectiveWorkspaceId} folderId={folderId} spaceId={spaceId} viewId={view.id} initialConfig={view.config as any} selectedTaskIdFromParent={selectedTaskIdFromParent} onTaskSelect={onTaskSelect} />;
             case "ACTIVITY":
-                return <ActivityView context={context} workspaceId={effectiveWorkspaceId} folderId={folderId} spaceId={spaceId} viewId={view.id} initialConfig={view.config as any} selectedTaskIdFromParent={selectedTaskIdFromParent} onTaskSelect={onTaskSelect}  />;
+                return <ActivityView context={context} workspaceId={effectiveWorkspaceId} folderId={folderId} spaceId={spaceId} viewId={view.id} initialConfig={view.config as any} selectedTaskIdFromParent={selectedTaskIdFromParent} onTaskSelect={onTaskSelect} />;
             case "MIND_MAP":
-                return <MindMapView context={context} workspaceId={effectiveWorkspaceId} folderId={folderId} spaceId={spaceId} viewId={view.id} initialConfig={view.config}  />;
+                return <MindMapView context={context} workspaceId={effectiveWorkspaceId} folderId={folderId} spaceId={spaceId} viewId={view.id} initialConfig={view.config} />;
             case "WORKLOAD":
-                return <WorkloadView context={context} workspaceId={effectiveWorkspaceId} folderId={folderId} spaceId={spaceId} viewId={view.id} initialConfig={view.config}  />;
+                return <WorkloadView context={context} workspaceId={effectiveWorkspaceId} folderId={folderId} spaceId={spaceId} viewId={view.id} initialConfig={view.config} />;
             case "WHITEBOARD":
                 return <WhiteboardView folderId={folderId} spaceId={spaceId} viewId={view.id} initialConfig={view.config} />;
             case "MAP":
-                return <MapView context={context} workspaceId={effectiveWorkspaceId} folderId={folderId} spaceId={spaceId} viewId={view.id} initialConfig={view.config}  />;
+                return <MapView context={context} workspaceId={effectiveWorkspaceId} folderId={folderId} spaceId={spaceId} viewId={view.id} initialConfig={view.config} />;
             case "DASHBOARD":
-                return <GenericDashboardView context={context} workspaceId={effectiveWorkspaceId} folderId={folderId} spaceId={spaceId} viewId={view.id} initialConfig={view.config}  />;
+                return <GenericDashboardView context={context} workspaceId={effectiveWorkspaceId} folderId={folderId} spaceId={spaceId} viewId={view.id} initialConfig={view.config} />;
             case "DOC":
                 return (
                     <DocView context={context} workspaceId={effectiveWorkspaceId}
@@ -317,7 +318,7 @@ export default function DashboardFolderView({ folderId, spaceId, projectId, team
                         initialConfig={view.config as any}
                         selectedTaskIdFromParent={selectedTaskIdFromParent}
                         onTaskSelect={onTaskSelect}
-                     />
+                    />
                 );
             case "EMBED":
             case "SPREADSHEET":
@@ -414,162 +415,162 @@ export default function DashboardFolderView({ folderId, spaceId, projectId, team
             projectId={projectId}
             teamId={teamId}
         >
-        <div className="flex h-full flex-col">
-            <Tabs value={activeTab} onValueChange={handleTabChange} className="flex h-full flex-col">
-                <div className="border-b border-slate-200 bg-white px-6 py-1">
-                    <div className="flex items-center justify-start gap-2">
-                        <TabsList className="h-auto bg-transparent p-0">
-                            {views.map((view) => {
-                                const viewType = view.type as ViewType;
-                                const config = viewConfig[viewType] || { label: view.name, icon: FileText };
-                                const Icon = config.icon;
+            <div className="flex h-full flex-col">
+                <Tabs value={activeTab} onValueChange={handleTabChange} className="flex h-full flex-col gap-0">
+                    <div className="border-b border-slate-200 bg-white px-6 py-1">
+                        <div className="flex items-center justify-start gap-2">
+                            <TabsList className="h-auto bg-transparent p-0">
+                                {views.map((view) => {
+                                    const viewType = view.type as ViewType;
+                                    const config = viewConfig[viewType] || { label: view.name, icon: FileText };
+                                    const Icon = config.icon;
 
-                                return (
-                                    <ContextMenu key={view.id}>
-                                        <ContextMenuTrigger>
-                                            <TabsTrigger value={view.id} asChild>
-                                                <div className={cn(
-                                                    "group relative flex items-center gap-1.5 h-10 px-3 py-2 text-sm cursor-pointer whitespace-nowrap transition-colors rounded-md",
-                                                    activeTab === view.id
-                                                        ? "text-primary font-medium"
-                                                        : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
-                                                )}>
-                                                    <Icon className={cn("h-4 w-4 shrink-0", activeTab === view.id ? "text-primary" : "text-slate-500 group-hover:text-slate-700")} />
-                                                    <span className="inline-block max-w-[120px] truncate align-bottom">{view.name}</span>
-                                                    {view.isPinned && <Pin className="h-3 w-3 shrink-0 rotate-45 text-muted-foreground" />}
-                                                    {view.isPrivate && <Lock className="h-3 w-3 shrink-0 text-muted-foreground" />}
+                                    return (
+                                        <ContextMenu key={view.id}>
+                                            <ContextMenuTrigger>
+                                                <TabsTrigger value={view.id} asChild>
+                                                    <div className={cn(
+                                                        "group relative flex items-center gap-1.5 h-10 px-3 py-2 text-sm cursor-pointer whitespace-nowrap transition-colors rounded-md",
+                                                        activeTab === view.id
+                                                            ? "text-primary font-medium"
+                                                            : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                                                    )}>
+                                                        <Icon className={cn("h-4 w-4 shrink-0", activeTab === view.id ? "text-primary" : "text-slate-500 group-hover:text-slate-700")} />
+                                                        <span className="inline-block max-w-[120px] truncate align-bottom">{view.name}</span>
+                                                        {view.isPinned && <Pin className="h-3 w-3 shrink-0 rotate-45 text-muted-foreground" />}
+                                                        {view.isPrivate && <Lock className="h-3 w-3 shrink-0 text-muted-foreground" />}
 
-                                                    {activeTab === view.id && (
-                                                        <div className="absolute left-0 right-0 h-0.5 bg-primary rounded-t-full" style={{ bottom: "-5px" }} />
-                                                    )}
-                                                </div>
-                                            </TabsTrigger>
-                                        </ContextMenuTrigger>
-                                        <SpaceViewContextMenu
-                                            view={view}
-                                            onRename={(v) => setViewToRename({ id: v.id, name: v.name })}
-                                            onDelete={(v) => setViewToDelete({ id: v.id, name: v.name })}
-                                            onDuplicate={(v) => {
-                                                createViewMutation.mutate({
-                                                    name: `${v.name} Copy`,
-                                                    type: v.type,
-                                                    folderId: folderId,
-                                                });
-                                            }}
-                                            onTogglePin={togglePin}
-                                            onTogglePrivate={togglePrivate}
-                                            onToggleLock={toggleLock}
-                                            onToggleDefault={toggleDefault}
-                                            onCopyLink={handleCopyViewLink}
-                                            onShare={(v) => setViewToShare({ id: v.id, name: v.name })}
-                                            onSaveTemplate={(v) => setViewToTemplate(v)}
-                                        />
-                                    </ContextMenu>
-                                );
-                            })}
-                        </TabsList>
-                        <div className="flex items-center">
-                            <Button
-                                variant="outline"
-                                onClick={() => setAddViewModalOpen(true)}
-                                className="h-10 px-4 text-base font-medium"
-                            >
-                                <Plus className="mr-2 h-4 w-4" />
-                                View
-                            </Button>
+                                                        {activeTab === view.id && (
+                                                            <div className="absolute left-0 right-0 h-0.5 bg-primary rounded-t-full" style={{ bottom: "-5px" }} />
+                                                        )}
+                                                    </div>
+                                                </TabsTrigger>
+                                            </ContextMenuTrigger>
+                                            <SpaceViewContextMenu
+                                                view={view}
+                                                onRename={(v) => setViewToRename({ id: v.id, name: v.name })}
+                                                onDelete={(v) => setViewToDelete({ id: v.id, name: v.name })}
+                                                onDuplicate={(v) => {
+                                                    createViewMutation.mutate({
+                                                        name: `${v.name} Copy`,
+                                                        type: v.type,
+                                                        folderId: folderId,
+                                                    });
+                                                }}
+                                                onTogglePin={togglePin}
+                                                onTogglePrivate={togglePrivate}
+                                                onToggleLock={toggleLock}
+                                                onToggleDefault={toggleDefault}
+                                                onCopyLink={handleCopyViewLink}
+                                                onShare={(v) => setViewToShare({ id: v.id, name: v.name })}
+                                                onSaveTemplate={(v) => setViewToTemplate(v)}
+                                            />
+                                        </ContextMenu>
+                                    );
+                                })}
+                            </TabsList>
+                            <div className="flex items-center">
+                                <Button
+                                    variant="outline"
+                                    onClick={() => setAddViewModalOpen(true)}
+                                    className="h-10 px-4 text-base font-medium"
+                                >
+                                    <Plus className="mr-2 h-4 w-4" />
+                                    View
+                                </Button>
+                            </div>
                         </div>
                     </div>
-                </div>
 
-                <div className={cn(
-                    "relative flex-1",
-                    (activeView && ["LIST", "BOARD", "TABLE", "CALENDAR", "GANTT", "TIMELINE", "WORKLOAD", "WHITEBOARD", "MIND_MAP", "MAP", "EMBED", "SPREADSHEET", "FILE", "VIDEO", "DESIGN", "DOC", "FORM", "DASHBOARD"].includes(activeView.type))
-                        ? "overflow-hidden"
-                        : "overflow-y-auto px-6 py-6"
-                )}>
-                    {activeView && (
-                        <TabsContent value={activeView.id} className="mt-0 h-full">
-                            {renderViewContent(activeView)}
-                        </TabsContent>
-                    )}
-                </div>
-            </Tabs>
-
-            {/* Add View Modal */}
-            <AddViewModal
-                open={addViewModalOpen}
-                onOpenChange={setAddViewModalOpen}
-                existingViews={views.map(v => v.type as ViewType)}
-                onAddViews={handleAddViews}
-                onAddFromTemplate={handleAddFromTemplate}
-            />
-
-            {/* Rename Dialog */}
-            <Dialog open={!!viewToRename} onOpenChange={(open) => !open && setViewToRename(null)}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>Rename View</DialogTitle>
-                        <DialogDescription>
-                            Enter a new name for this view.
-                        </DialogDescription>
-                    </DialogHeader>
-                    <div className="py-4">
-                        <Input
-                            value={viewToRename?.name || ""}
-                            onChange={(e) => setViewToRename(prev => prev ? { ...prev, name: e.target.value } : null)}
-                            onKeyDown={(e) => e.key === "Enter" && handleRenameView(viewToRename?.name || "")}
-                            autoFocus
-                        />
+                    <div className={cn(
+                        "relative flex-1",
+                        (activeView && ["LIST", "BOARD", "TABLE", "CALENDAR", "GANTT", "TIMELINE", "WORKLOAD", "WHITEBOARD", "MIND_MAP", "MAP", "EMBED", "SPREADSHEET", "FILE", "VIDEO", "DESIGN", "DOC", "FORM", "DASHBOARD"].includes(activeView.type))
+                            ? "overflow-hidden"
+                            : "overflow-y-auto px-6 py-6"
+                    )}>
+                        {activeView && (
+                            <TabsContent value={activeView.id} className="mt-0 h-full">
+                                {renderViewContent(activeView)}
+                            </TabsContent>
+                        )}
                     </div>
-                    <DialogFooter>
-                        <Button variant="outline" onClick={() => setViewToRename(null)}>Cancel</Button>
-                        <Button onClick={() => handleRenameView(viewToRename?.name || "")}>Rename</Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
+                </Tabs>
 
-            {/* Delete Dialog */}
-            <Dialog open={!!viewToDelete} onOpenChange={(open) => !open && setViewToDelete(null)}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>Delete View?</DialogTitle>
-                        <DialogDescription>
-                            Are you sure you want to delete <strong>{viewToDelete?.name}</strong>? This action cannot be undone.
-                        </DialogDescription>
-                    </DialogHeader>
-                    <DialogFooter>
-                        <Button
-                            className="flex-1 sm:flex-none inline-flex items-center justify-center h-9 px-4 rounded-lg border border-zinc-200 bg-white text-[13.5px] font-medium text-zinc-600 hover:bg-zinc-50 hover:border-zinc-300 hover:text-zinc-800 transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 focus-visible:ring-offset-1"
-                            onClick={() => setViewToDelete(null)}>
-                            Cancel
-                        </Button>
-                        <Button
-                            onClick={() => viewToDelete && handleDeleteView(viewToDelete.id)}
-                            className="flex-1 sm:flex-none h-9 px-4 rounded-lg bg-red-600 hover:bg-red-700 text-[13.5px] font-medium shadow-sm shadow-red-900/10 transition-all duration-150">
-                            Delete
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
-
-            {viewToShare && (
-                <ShareViewPermissionModal
-                    viewId={viewToShare.id}
-                    workspaceId={workspaceId || folder.workspaceId as string}
-                    open={!!viewToShare}
-                    onOpenChange={(open) => !open && setViewToShare(null)}
+                {/* Add View Modal */}
+                <AddViewModal
+                    open={addViewModalOpen}
+                    onOpenChange={setAddViewModalOpen}
+                    existingViews={views.map(v => v.type as ViewType)}
+                    onAddViews={handleAddViews}
+                    onAddFromTemplate={handleAddFromTemplate}
                 />
-            )}
 
-            {viewToTemplate && folder && (
-                <SaveTemplateModal
-                    open={!!viewToTemplate}
-                    onOpenChange={(open) => !open && setViewToTemplate(null)}
-                    view={viewToTemplate}
-                    workspaceId={folder.workspaceId || ""}
-                />
-            )}
-        </div>
+                {/* Rename Dialog */}
+                <Dialog open={!!viewToRename} onOpenChange={(open) => !open && setViewToRename(null)}>
+                    <DialogContent>
+                        <DialogHeader>
+                            <DialogTitle>Rename View</DialogTitle>
+                            <DialogDescription>
+                                Enter a new name for this view.
+                            </DialogDescription>
+                        </DialogHeader>
+                        <div className="py-4">
+                            <Input
+                                value={viewToRename?.name || ""}
+                                onChange={(e) => setViewToRename(prev => prev ? { ...prev, name: e.target.value } : null)}
+                                onKeyDown={(e) => e.key === "Enter" && handleRenameView(viewToRename?.name || "")}
+                                autoFocus
+                            />
+                        </div>
+                        <DialogFooter>
+                            <Button variant="outline" onClick={() => setViewToRename(null)}>Cancel</Button>
+                            <Button onClick={() => handleRenameView(viewToRename?.name || "")}>Rename</Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
+
+                {/* Delete Dialog */}
+                <Dialog open={!!viewToDelete} onOpenChange={(open) => !open && setViewToDelete(null)}>
+                    <DialogContent>
+                        <DialogHeader>
+                            <DialogTitle>Delete View?</DialogTitle>
+                            <DialogDescription>
+                                Are you sure you want to delete <strong>{viewToDelete?.name}</strong>? This action cannot be undone.
+                            </DialogDescription>
+                        </DialogHeader>
+                        <DialogFooter>
+                            <Button
+                                className="flex-1 sm:flex-none inline-flex items-center justify-center h-9 px-4 rounded-lg border border-zinc-200 bg-white text-[13.5px] font-medium text-zinc-600 hover:bg-zinc-50 hover:border-zinc-300 hover:text-zinc-800 transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 focus-visible:ring-offset-1"
+                                onClick={() => setViewToDelete(null)}>
+                                Cancel
+                            </Button>
+                            <Button
+                                onClick={() => viewToDelete && handleDeleteView(viewToDelete.id)}
+                                className="flex-1 sm:flex-none h-9 px-4 rounded-lg bg-red-600 hover:bg-red-700 text-[13.5px] font-medium shadow-sm shadow-red-900/10 transition-all duration-150">
+                                Delete
+                            </Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
+
+                {viewToShare && (
+                    <ShareViewPermissionModal
+                        viewId={viewToShare.id}
+                        workspaceId={workspaceId || folder.workspaceId as string}
+                        open={!!viewToShare}
+                        onOpenChange={(open) => !open && setViewToShare(null)}
+                    />
+                )}
+
+                {viewToTemplate && folder && (
+                    <SaveTemplateModal
+                        open={!!viewToTemplate}
+                        onOpenChange={(open) => !open && setViewToTemplate(null)}
+                        view={viewToTemplate}
+                        workspaceId={folder.workspaceId || ""}
+                    />
+                )}
+            </div>
         </DashboardEntityProvider>
     );
 }

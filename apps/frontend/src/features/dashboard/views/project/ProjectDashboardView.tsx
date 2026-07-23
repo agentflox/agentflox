@@ -109,6 +109,7 @@ import {
     Trash2,
     MoreHorizontal,
     Star,
+    Table,
     Loader2
 } from "lucide-react";
 import { DashboardEntityProvider } from "@/features/dashboard/context/DashboardEntityContext";
@@ -145,7 +146,7 @@ const viewConfig: Partial<Record<
     GANTT: { label: "Gantt", icon: Network, description: "Gantt chart" },
     DOC: { label: "Doc", icon: FileText, description: "Document" },
     FORM: { label: "Form", icon: LayoutDashboard, description: "Form" },
-    TABLE: { label: "Table", icon: ClipboardList, description: "Table view" },
+    TABLE: { label: "Table", icon: Table, description: "Table view" },
     TIMELINE: { label: "Timeline", icon: Clock, description: "Timeline view" },
     WORKLOAD: { label: "Workload", icon: BarChart3, description: "Workload view" },
     WHITEBOARD: { label: "Whiteboard", icon: PenTool, description: "Whiteboard" },
@@ -390,6 +391,7 @@ export default function ProjectDashboardView({ listId, spaceId, projectId, teamI
             case "LIST":
                 return (
                     <ListView
+                        context="project"
                         listId={listId || undefined}
                         workspaceId={resolvedWorkspaceId}
                         spaceId={spaceId}
@@ -404,6 +406,7 @@ export default function ProjectDashboardView({ listId, spaceId, projectId, teamI
             case "BOARD":
                 return (
                     <BoardView
+                        context="project"
                         listId={listId || undefined}
                         workspaceId={resolvedWorkspaceId}
                         spaceId={spaceId}
@@ -418,6 +421,7 @@ export default function ProjectDashboardView({ listId, spaceId, projectId, teamI
             case "TABLE":
                 return (
                     <TableView
+                        context="project"
                         listId={listId || undefined}
                         workspaceId={resolvedWorkspaceId}
                         spaceId={spaceId}
@@ -432,6 +436,7 @@ export default function ProjectDashboardView({ listId, spaceId, projectId, teamI
             case "CALENDAR":
                 return (
                     <CalendarView
+                        context="project"
                         listId={listId || undefined}
                         workspaceId={resolvedWorkspaceId}
                         spaceId={spaceId}
@@ -446,6 +451,7 @@ export default function ProjectDashboardView({ listId, spaceId, projectId, teamI
             case "GANTT":
                 return (
                     <GanttView
+                        context="project"
                         listId={listId || undefined}
                         workspaceId={resolvedWorkspaceId}
                         spaceId={spaceId}
@@ -460,6 +466,7 @@ export default function ProjectDashboardView({ listId, spaceId, projectId, teamI
             case "TIMELINE":
                 return (
                     <TimelineView
+                        context="project"
                         listId={listId || undefined}
                         workspaceId={resolvedWorkspaceId}
                         spaceId={spaceId}
@@ -474,6 +481,7 @@ export default function ProjectDashboardView({ listId, spaceId, projectId, teamI
             case "FORM":
                 return (
                     <FormView
+                        context="project"
                         workspaceId={resolvedWorkspaceId}
                         listId={listId || undefined}
                         spaceId={spaceId}
@@ -488,6 +496,7 @@ export default function ProjectDashboardView({ listId, spaceId, projectId, teamI
             case "PEOPLE":
                 return (
                     <PeopleView
+                        context="project"
                         listId={listId || undefined}
                         workspaceId={resolvedWorkspaceId}
                         spaceId={spaceId}
@@ -502,6 +511,7 @@ export default function ProjectDashboardView({ listId, spaceId, projectId, teamI
             case "ACTIVITY":
                 return (
                     <ActivityView
+                        context="project"
                         listId={listId || undefined}
                         workspaceId={resolvedWorkspaceId}
                         spaceId={spaceId}
@@ -516,6 +526,7 @@ export default function ProjectDashboardView({ listId, spaceId, projectId, teamI
             case "MIND_MAP":
                 return (
                     <MindMapView
+                        context="project"
                         listId={listId || undefined}
                         workspaceId={resolvedWorkspaceId}
                         spaceId={spaceId}
@@ -530,6 +541,7 @@ export default function ProjectDashboardView({ listId, spaceId, projectId, teamI
             case "WORKLOAD":
                 return (
                     <WorkloadView
+                        context="project"
                         listId={listId || undefined}
                         workspaceId={resolvedWorkspaceId}
                         spaceId={spaceId}
@@ -544,6 +556,7 @@ export default function ProjectDashboardView({ listId, spaceId, projectId, teamI
             case "WHITEBOARD":
                 return (
                     <WhiteboardView
+                        context="project"
                         listId={listId || undefined}
                         workspaceId={resolvedWorkspaceId}
                         spaceId={spaceId}
@@ -558,6 +571,7 @@ export default function ProjectDashboardView({ listId, spaceId, projectId, teamI
             case "MAP":
                 return (
                     <MapView
+                        context="project"
                         listId={listId || undefined}
                         workspaceId={resolvedWorkspaceId}
                         spaceId={spaceId}
@@ -572,6 +586,7 @@ export default function ProjectDashboardView({ listId, spaceId, projectId, teamI
             case "DASHBOARD":
                 return (
                     <GenericDashboardView
+                        context="project"
                         listId={listId || undefined}
                         workspaceId={resolvedWorkspaceId}
                         spaceId={spaceId}
@@ -587,6 +602,7 @@ export default function ProjectDashboardView({ listId, spaceId, projectId, teamI
             case "DOC":
                 return (
                     <DocView
+                        context="project"
                         listId={listId || undefined}
                         workspaceId={resolvedWorkspaceId}
                         spaceId={spaceId}
@@ -613,6 +629,7 @@ export default function ProjectDashboardView({ listId, spaceId, projectId, teamI
             case "GOOGLE_DRIVE":
                 return (
                     <EmbedView
+                        context="project"
                         listId={listId || undefined}
                         workspaceId={resolvedWorkspaceId}
                         spaceId={spaceId}
@@ -782,7 +799,7 @@ export default function ProjectDashboardView({ listId, spaceId, projectId, teamI
                                             />
                                         ) : isViewsTab && activeView ? (
                                             <div className="flex-1 overflow-hidden relative">
-                                                <Tabs value={activeTab || undefined} onValueChange={handleTabChange} className="h-full flex flex-col">
+                                                <Tabs value={activeTab || undefined} onValueChange={handleTabChange} className="h-full flex flex-col gap-0">
                                                     <div className="border-b border-slate-200 bg-white px-4 py-1">
                                                         <div className="flex items-center gap-1 min-w-0 overflow-visible">
                                                             <TabsList className="h-auto bg-transparent p-0 flex-1 min-w-0 flex items-center overflow-visible">
