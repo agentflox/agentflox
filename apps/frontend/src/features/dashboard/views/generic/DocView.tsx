@@ -919,7 +919,7 @@ export function DocView({ listId, spaceId, projectId, viewId, teamId, folderId }
             {/* Sidebar */}
             {!(isSidebarCollapsed || pageSettings.focusModePage) ? (
                 <div
-                    className="flex flex-col shrink-0 bg-zinc-50/50 relative border-r border-zinc-200"
+                    className="flex flex-col shrink-0 bg-zinc-50/50 relative border-x border-zinc-200"
                     style={{ width: sidebarWidth, minWidth: sidebarWidth }}
                 >
                     {/* Resizer Handle */}

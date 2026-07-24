@@ -3784,7 +3784,7 @@ export function PeopleView({ spaceId, projectId, teamId, listId, folderId, viewI
                                     <Button
                                         variant="outline"
                                         size="sm"
-                                        className="h-8 text-xs font-medium text-zinc-700 border-zinc-200"
+                                        className="h-8 text-xs font-medium text-zinc-700 bg-white hover:bg-zinc-100 border-zinc-200 shadow-none"
                                     >
                                         <Link2 className="h-3.5 w-3.5 mr-1.5" />
                                         Subtasks
@@ -3820,7 +3820,7 @@ export function PeopleView({ spaceId, projectId, teamId, listId, folderId, viewI
                                     <Button
                                         variant="outline"
                                         size="sm"
-                                        className="h-8 text-xs font-medium text-zinc-700 border-zinc-200"
+                                        className="h-8 text-xs font-medium text-zinc-700 bg-white hover:bg-zinc-100 border-zinc-200 shadow-none"
                                     >
                                         <SortAsc className="h-3.5 w-3.5 mr-1.5" />
                                         Sort by
@@ -3868,21 +3868,26 @@ export function PeopleView({ spaceId, projectId, teamId, listId, folderId, viewI
                             }}>
                                 <PopoverTrigger asChild>
                                     <div className="relative group/filter inline-flex">
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            className={cn(
-                                                "h-8 text-xs font-medium pr-7",
-                                                filtersPanelOpen ? "bg-violet-50 text-violet-700 border-violet-200" : "text-zinc-700 border-zinc-200",
-                                                appliedFilterCount > 0 && "border-violet-200 bg-violet-50/50 text-violet-700"
-                                            )}
-                                            onClick={() => { if (!filtersPanelOpen && filterGroups.conditions.length === 0) { addFilterGroup(); } }}
-                                        >
-                                            <Filter className="h-3.5 w-3.5" />
-                                            <span className="hidden sm:inline ml-1">
-                                                {appliedFilterCount > 0 ? `${appliedFilterCount} Filter${appliedFilterCount !== 1 ? "s" : ""}` : "Filter"}
-                                            </span>
-                                        </Button>
+                                        <Tooltip>
+                                            <TooltipTrigger asChild>
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    className={cn(
+                                                        "h-8 text-xs font-medium pr-7 bg-white hover:bg-zinc-100 shadow-none",
+                                                        filtersPanelOpen ? "text-violet-700 border-violet-200" : "text-zinc-700 border-zinc-200",
+                                                        appliedFilterCount > 0 && "border-violet-200 text-violet-700"
+                                                    )}
+                                                    onClick={() => { if (!filtersPanelOpen && filterGroups.conditions.length === 0) { addFilterGroup(); } }}
+                                                >
+                                                    <Filter className="h-3.5 w-3.5" />
+                                                    <span className="hidden sm:inline ml-1">
+                                                        {appliedFilterCount > 0 ? `${appliedFilterCount} Filter${appliedFilterCount !== 1 ? "s" : ""}` : "Filter"}
+                                                    </span>
+                                                </Button>
+                                            </TooltipTrigger>
+                                            <TooltipContent side="bottom">Filter tasks</TooltipContent>
+                                        </Tooltip>
                                         {(appliedFilterCount > 0 || filtersPanelOpen) && (
                                             <div
                                                 className={cn(
@@ -3920,7 +3925,7 @@ export function PeopleView({ spaceId, projectId, teamId, listId, folderId, viewI
                                     <Button
                                         variant="outline"
                                         size="sm"
-                                        className={cn("h-8 text-xs font-medium", assigneesPanelOpen ? "bg-violet-50 text-violet-700 border-violet-200" : "text-zinc-700 border-zinc-200")}
+                                        className={cn("h-8 text-xs font-medium bg-white hover:bg-zinc-100 shadow-none", assigneesPanelOpen ? "text-violet-700 border-violet-200" : "text-zinc-700 border-zinc-200")}
                                         onClick={() => { setAssigneesPanelOpen(!assigneesPanelOpen); setFieldsPanelOpen(false); setFiltersPanelOpen(false); }}
                                     >
                                         <Users className="h-3.5 w-3.5" />
@@ -3954,7 +3959,7 @@ export function PeopleView({ spaceId, projectId, teamId, listId, folderId, viewI
                                             <Button
                                                 variant="outline"
                                                 size="sm"
-                                                className="h-8 w-8 p-0 text-zinc-700 border-zinc-200"
+                                                className="h-8 w-8 p-0 text-zinc-700 bg-white hover:bg-zinc-100 border-zinc-200 shadow-none"
                                                 onClick={() => setToolbarSearchOpen(true)}
                                             >
                                                 <Search className="h-4 w-4" />
@@ -3970,7 +3975,7 @@ export function PeopleView({ spaceId, projectId, teamId, listId, folderId, viewI
                                     <Button
                                         variant="outline"
                                         size="sm"
-                                        className="h-8 text-xs font-medium text-zinc-700 border-zinc-200"
+                                        className="h-8 text-xs font-medium text-zinc-700 bg-white hover:bg-zinc-100 border-zinc-200 shadow-none"
                                         onClick={() => setCustomizePanelOpen(true)}
                                     >
                                         <Settings className="h-3.5 w-3.5" />
@@ -4000,8 +4005,8 @@ export function PeopleView({ spaceId, projectId, teamId, listId, folderId, viewI
                                         variant="outline"
                                         size="sm"
                                         className={cn(
-                                            "h-8 text-xs font-medium border-zinc-200",
-                                            workloadSidebarOpen ? "bg-violet-50 text-violet-700 border-violet-200" : "text-zinc-700"
+                                            "h-8 text-xs font-medium border-zinc-200 bg-white hover:bg-zinc-100 shadow-none",
+                                            workloadSidebarOpen ? "text-violet-700 border-violet-200" : "text-zinc-700"
                                         )}
                                         onClick={() => setWorkloadSidebarOpen((v) => !v)}
                                     >

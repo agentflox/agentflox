@@ -509,25 +509,30 @@ export function ActivityView({ spaceId, projectId, teamId, listId, viewId, works
                             }}>
                                 <PopoverTrigger asChild>
                                     <div className="relative group/filter inline-flex">
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            className={cn(
-                                                "h-8 text-xs font-medium pr-7",
-                                                filtersPanelOpen ? "bg-violet-50 text-violet-700 border-violet-200" : "text-zinc-700 border-zinc-200",
-                                                appliedFilterCount > 0 && "border-violet-200 bg-violet-50/50 text-violet-700",
-                                            )}
-                                            onClick={() => {
-                                                if (!filtersPanelOpen && filterGroups.conditions.length === 0) {
-                                                    addFilterGroup();
-                                                }
-                                            }}
-                                        >
-                                            <Filter className="h-3.5 w-3.5" />
-                                            <span className="hidden sm:inline ml-1">
-                                                {appliedFilterCount > 0 ? `${appliedFilterCount} Filter${appliedFilterCount !== 1 ? "s" : ""}` : "Filter"}
-                                            </span>
-                                        </Button>
+                                        <Tooltip>
+                                            <TooltipTrigger asChild>
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    className={cn(
+                                                        "h-8 text-xs font-medium pr-7 bg-white hover:bg-zinc-100 shadow-none",
+                                                        filtersPanelOpen ? "text-violet-700 border-violet-200" : "text-zinc-700 border-zinc-200",
+                                                        appliedFilterCount > 0 && "border-violet-200 text-violet-700",
+                                                    )}
+                                                    onClick={() => {
+                                                        if (!filtersPanelOpen && filterGroups.conditions.length === 0) {
+                                                            addFilterGroup();
+                                                        }
+                                                    }}
+                                                >
+                                                    <Filter className="h-3.5 w-3.5" />
+                                                    <span className="hidden sm:inline ml-1">
+                                                        {appliedFilterCount > 0 ? `${appliedFilterCount} Filter${appliedFilterCount !== 1 ? "s" : ""}` : "Filter"}
+                                                    </span>
+                                                </Button>
+                                            </TooltipTrigger>
+                                            <TooltipContent side="bottom">Filter tasks</TooltipContent>
+                                        </Tooltip>
                                         {(appliedFilterCount > 0 || filtersPanelOpen) && (
                                             <div
                                                 className={cn(
@@ -559,8 +564,8 @@ export function ActivityView({ spaceId, projectId, teamId, listId, viewId, works
                                         variant="outline"
                                         size="sm"
                                         className={cn(
-                                            "h-8 text-xs font-medium",
-                                            assigneesPanelOpen ? "bg-violet-50 text-violet-700 border-violet-200" : "text-zinc-700 border-zinc-200",
+                                            "h-8 text-xs font-medium bg-white hover:bg-zinc-100 shadow-none",
+                                            assigneesPanelOpen ? "text-violet-700 border-violet-200" : "text-zinc-700 border-zinc-200",
                                         )}
                                         onClick={() => {
                                             setAssigneesPanelOpen(!assigneesPanelOpen);
@@ -595,15 +600,20 @@ export function ActivityView({ spaceId, projectId, teamId, listId, viewId, works
                                         </div>
                                     </div>
                                 ) : (
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        className="h-8 w-8 p-0 text-zinc-700 border-zinc-200"
-                                        onClick={() => setIsToolbarSearchOpen(true)}
-                                        title="Search"
-                                    >
-                                        <Search className="h-4 w-4" />
-                                    </Button>
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                className="h-8 w-8 p-0 text-zinc-700 bg-white hover:bg-zinc-100 border-zinc-200 shadow-none"
+                                                onClick={() => setIsToolbarSearchOpen(true)}
+                                                title="Search"
+                                            >
+                                                <Search className="h-4 w-4" />
+                                            </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent side="bottom">Search tasks</TooltipContent>
+                                    </Tooltip>
                                 )}
                             </div>
 
@@ -613,8 +623,8 @@ export function ActivityView({ spaceId, projectId, teamId, listId, viewId, works
                                         variant="outline"
                                         size="sm"
                                         className={cn(
-                                            "h-8 text-xs font-medium",
-                                            customizePanelOpen ? "bg-violet-50 text-violet-700 border-violet-200" : "text-zinc-700 border-zinc-200"
+                                            "h-8 text-xs font-medium bg-white hover:bg-zinc-100 shadow-none",
+                                            customizePanelOpen ? "text-violet-700 border-violet-200" : "text-zinc-700 border-zinc-200"
                                         )}
                                         onClick={() => setCustomizePanelOpen(true)}
                                     >
@@ -683,97 +693,104 @@ export function ActivityView({ spaceId, projectId, teamId, listId, viewId, works
                                     renderRow={(idx) => {
                                         const task = tasks[idx] as any;
                                         return (
-                                        <div
-                                            key={task.id}
-                                            onClick={() => handleTaskClick(task.id)}
-                                            className="bg-white rounded-xl border border-zinc-200 shadow-sm hover:shadow-md transition-all cursor-pointer group overflow-hidden"
-                                        >
-                                            <div className="p-5">
-                                                <div className="flex items-start gap-4">
-                                                    {/* Status/Type Icon Indicator */}
-                                                    <div className="mt-1 shrink-0">
-                                                        <div
-                                                            className="w-5 h-5 rounded-md flex items-center justify-center shrink-0"
-                                                            style={{ backgroundColor: task.status?.color || '#cbd5e1' }}
-                                                        >
-                                                            <CheckCircle2 className="h-3.5 w-3.5 text-white" />
-                                                        </div>
-                                                    </div>
-
-                                                    <div className="flex-1 min-w-0">
-                                                        <div className="flex items-center justify-between gap-4 mb-1">
-                                                            <h3 className="text-base font-medium text-zinc-900 truncate group-hover:text-brand-600 transition-colors">
-                                                                {task.name}
-                                                            </h3>
-                                                            <span className="text-xs text-zinc-500 whitespace-nowrap shrink-0 flex items-center gap-1.5">
-                                                                <Clock className="h-3.5 w-3.5" />
-                                                                {format(new Date(task.updatedAt || task.createdAt || Date.now()), 'MMM d, h:mm a')}
-                                                            </span>
+                                            <div
+                                                key={task.id}
+                                                onClick={() => handleTaskClick(task.id)}
+                                                className="bg-white rounded-xl border border-zinc-200 shadow-sm hover:shadow-md transition-all cursor-pointer group overflow-hidden"
+                                            >
+                                                <div className="p-5">
+                                                    <div className="flex items-start gap-4">
+                                                        {/* Status/Type Icon Indicator */}
+                                                        <div className="mt-1 shrink-0">
+                                                            <div
+                                                                className="w-5 h-5 rounded-md flex items-center justify-center shrink-0"
+                                                                style={{ backgroundColor: task.status?.color || '#cbd5e1' }}
+                                                            >
+                                                                <CheckCircle2 className="h-3.5 w-3.5 text-white" />
+                                                            </div>
                                                         </div>
 
-                                                        {showTaskProperties && (
-                                                            <div className="flex flex-wrap items-center gap-3 text-sm mt-2 text-zinc-500">
-                                                                {task.status && (
-                                                                    <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-medium bg-zinc-100 text-zinc-700">
-                                                                        <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: task.status.color }} />
-                                                                        {task.status.name}
-                                                                    </span>
-                                                                )}
+                                                        <div className="flex-1 min-w-0">
+                                                            <div className="flex items-center justify-between gap-4 mb-1">
+                                                                <h3 className="text-base font-medium text-zinc-900 truncate group-hover:text-brand-600 transition-colors">
+                                                                    {task.name}
+                                                                </h3>
+                                                                <span className="text-xs text-zinc-500 whitespace-nowrap shrink-0 flex items-center gap-1.5">
+                                                                    <Clock className="h-3.5 w-3.5" />
+                                                                    {format(new Date(task.updatedAt || task.createdAt || Date.now()), 'MMM d, h:mm a')}
+                                                                </span>
+                                                            </div>
 
-                                                                {task.priority && (
-                                                                    <span className={cn("inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium", getPriorityColor(task.priority))}>
-                                                                        {getPriorityIcon(task.priority)}
-                                                                        {task.priority.toLowerCase()}
-                                                                    </span>
-                                                                )}
-
-                                                                {task.dueDate && (
-                                                                    <span className="flex items-center gap-1 text-xs">
-                                                                        <Calendar className="h-3.5 w-3.5 text-zinc-400" />
-                                                                        <span className={new Date(task.dueDate) < new Date() ? "text-red-500" : ""}>
-                                                                            {format(new Date(task.dueDate), "MMM d")}
+                                                            {showTaskProperties && (
+                                                                <div className="flex flex-wrap items-center gap-3 text-sm mt-2 text-zinc-500">
+                                                                    {task.status && (
+                                                                        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-medium bg-zinc-100 text-zinc-700">
+                                                                            <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: task.status.color }} />
+                                                                            {task.status.name}
                                                                         </span>
+                                                                    )}
+
+                                                                    {task.priority && (
+                                                                        <span className={cn("inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium", getPriorityColor(task.priority))}>
+                                                                            {getPriorityIcon(task.priority)}
+                                                                            {task.priority.toLowerCase()}
+                                                                        </span>
+                                                                    )}
+
+                                                                    {task.dueDate && (
+                                                                        <span className="flex items-center gap-1 text-xs">
+                                                                            <Calendar className="h-3.5 w-3.5 text-zinc-400" />
+                                                                            <span className={new Date(task.dueDate) < new Date() ? "text-red-500" : ""}>
+                                                                                {format(new Date(task.dueDate), "MMM d")}
+                                                                            </span>
+                                                                        </span>
+                                                                    )}
+
+                                                                    {task.assignees?.length > 0 && (
+                                                                        <div className="flex -space-x-1 ml-auto">
+                                                                            {task.assignees.map((assigneeObj: any) => {
+                                                                                const entity = assigneeObj.user || assigneeObj.agent || assigneeObj.team;
+                                                                                if (!entity) return null;
+                                                                                const name = entity.name || "Unknown";
+                                                                                const image = entity.image || entity.avatar || undefined;
+                                                                                const id = entity.id || Math.random().toString();
+                                                                                return (
+                                                                                    <Avatar key={id} className="h-5 w-5 border-2 border-white">
+                                                                                        <AvatarImage src={image} />
+                                                                                        <AvatarFallback className="text-[9px] bg-brand-100 text-brand-700">
+                                                                                            {name.charAt(0).toUpperCase()}
+                                                                                        </AvatarFallback>
+                                                                                    </Avatar>
+                                                                                );
+                                                                            })}
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            )}
+
+                                                            <div className="mt-4 pt-3 border-t border-zinc-100 flex items-center justify-between text-xs text-zinc-500">
+                                                                <div className="flex gap-4">
+                                                                    <span className="flex items-center gap-1.5 hover:text-zinc-800">
+                                                                        <MessageSquare className="h-3.5 w-3.5" />
+                                                                        Discuss
                                                                     </span>
-                                                                )}
-
-                                                                {task.assignees?.length > 0 && (
-                                                                    <div className="flex -space-x-1 ml-auto">
-                                                                        {task.assignees.map((assigneeObj: any) => (
-                                                                            <Avatar key={assigneeObj.user.id} className="h-5 w-5 border-2 border-white">
-                                                                                <AvatarImage src={assigneeObj.user.image || undefined} />
-                                                                                <AvatarFallback className="text-[9px] bg-brand-100 text-brand-700">
-                                                                                    {assigneeObj.user.name?.charAt(0).toUpperCase()}
-                                                                                </AvatarFallback>
-                                                                            </Avatar>
-                                                                        ))}
-                                                                    </div>
-                                                                )}
-                                                            </div>
-                                                        )}
-
-                                                        <div className="mt-4 pt-3 border-t border-zinc-100 flex items-center justify-between text-xs text-zinc-500">
-                                                            <div className="flex gap-4">
-                                                                <span className="flex items-center gap-1.5 hover:text-zinc-800">
-                                                                    <MessageSquare className="h-3.5 w-3.5" />
-                                                                    Discuss
-                                                                </span>
-                                                                <span className="flex items-center gap-1.5 hover:text-zinc-800">
-                                                                    <ListChecks className="h-3.5 w-3.5" />
-                                                                    {task.subtasks?.length || 0} subtasks
-                                                                </span>
-                                                                <span className="flex items-center gap-1.5 hover:text-zinc-800">
-                                                                    <Paperclip className="h-3.5 w-3.5" />
-                                                                    Files
-                                                                </span>
-                                                            </div>
-                                                            <div className="opacity-0 group-hover:opacity-100 transition-opacity">
-                                                                <Button size="sm" variant="ghost" className="h-6 px-2 text-xs">Activity details</Button>
+                                                                    <span className="flex items-center gap-1.5 hover:text-zinc-800">
+                                                                        <ListChecks className="h-3.5 w-3.5" />
+                                                                        {task.subtasks?.length || 0} subtasks
+                                                                    </span>
+                                                                    <span className="flex items-center gap-1.5 hover:text-zinc-800">
+                                                                        <Paperclip className="h-3.5 w-3.5" />
+                                                                        Files
+                                                                    </span>
+                                                                </div>
+                                                                <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                                                                    <Button size="sm" variant="ghost" className="h-6 px-2 text-xs">Activity details</Button>
+                                                                </div>
                                                             </div>
                                                         </div>
                                                     </div>
                                                 </div>
                                             </div>
-                                        </div>
                                         );
                                     }}
                                 />

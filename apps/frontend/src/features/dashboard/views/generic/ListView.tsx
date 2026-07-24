@@ -2520,7 +2520,7 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
                                                             : "opacity-0 group-hover/row:opacity-100 hover:bg-zinc-200/80 text-zinc-300 hover:text-zinc-400"
                                                     )}
                                                 >
-                                                    <Play className={cn("h-2.5 w-2.5 shrink-0 fill-current transition-transform duration-150", isExpanded ? "rotate-90" : "rotate-0")} />
+                                                    <Play className={cn("h-2 w-2 shrink-0 fill-current transition-transform duration-150", isExpanded ? "rotate-90" : "rotate-0")} />
                                                 </button>
                                             </TooltipTrigger>
                                             <TooltipContent className="bg-zinc-900 text-white font-medium text-xs px-2.5 py-1.5 border-0 rounded-md" side="top" sideOffset={4}>
@@ -3159,7 +3159,7 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
                                                     className="flex items-center justify-center h-5 w-5 rounded hover:bg-zinc-200/80 text-zinc-500 hover:text-zinc-700 shrink-0 transition-colors cursor-pointer"
                                                     onClick={() => toggleGroup(entry.groupName)}
                                                 >
-                                                    <Play className={cn("h-2.5 w-2.5 shrink-0 fill-current transition-transform duration-150", isExpanded ? "rotate-90" : "rotate-0")} />
+                                                    <Play className={cn("h-2 w-2 shrink-0 fill-current transition-transform duration-150", isExpanded ? "rotate-90" : "rotate-0")} />
                                                 </button>
                                             </TooltipTrigger>
                                             <TooltipContent side="bottom" className="text-xs">
@@ -4087,8 +4087,8 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
                                                 variant="outline"
                                                 size="sm"
                                                 className={cn(
-                                                    "h-8 gap-1.5 px-2.5 text-xs font-medium border-zinc-200 transition-colors cursor-pointer",
-                                                    groupLabel !== "None" ? "bg-violet-50 text-violet-700 border-violet-200" : "text-zinc-700"
+                                                    "h-8 gap-1.5 px-2.5 text-xs font-medium bg-white hover:bg-zinc-100 transition-colors cursor-pointer shadow-none",
+                                                    groupLabel !== "None" ? "text-violet-700 border-violet-200" : "text-zinc-700 border-zinc-200"
                                                 )}
                                             >
                                                 <LayoutList className="h-3.5 w-3.5" />
@@ -4216,9 +4216,9 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
                                                     variant="outline"
                                                     size="sm"
                                                     className={cn(
-                                                        "h-8 gap-1.5 px-2.5 text-xs font-medium cursor-pointer",
+                                                        "h-8 gap-1.5 px-2.5 text-xs font-medium cursor-pointer bg-white hover:bg-zinc-100 shadow-none",
                                                         expandedSubtaskMode === "expanded"
-                                                            ? "bg-violet-50 text-violet-700 border-violet-200"
+                                                            ? "text-violet-700 border-violet-200"
                                                             : "text-zinc-700 border-zinc-200"
                                                     )}
                                                 >
@@ -4275,7 +4275,7 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
                                     <Button
                                         variant="outline"
                                         size="sm"
-                                        className="h-8 gap-1.5 px-2.5 text-xs font-medium text-zinc-700 border-zinc-200 cursor-pointer"
+                                        className="h-8 gap-1.5 px-2.5 text-xs font-medium text-zinc-700 bg-white hover:bg-zinc-100 border-zinc-200 cursor-pointer shadow-none"
                                         onClick={() => { setFieldsPanelOpen(true); setFiltersPanelOpen(false); setAssigneesPanelOpen(false); }}
                                     >
                                         <SlidersHorizontal className="h-3.5 w-3.5" />
@@ -4314,9 +4314,9 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
                                             variant="outline"
                                             size="sm"
                                             className={cn(
-                                                "h-8 text-xs font-medium pr-7",
-                                                filtersPanelOpen ? "bg-violet-50 text-violet-700 border-violet-200" : "text-zinc-700 border-zinc-200",
-                                                appliedFilterCount > 0 && "border-violet-200 bg-violet-50/50 text-violet-700"
+                                                "h-8 text-xs font-medium pr-7 bg-white hover:bg-zinc-100 shadow-none",
+                                                filtersPanelOpen ? "text-violet-700 border-violet-200" : "text-zinc-700 border-zinc-200",
+                                                appliedFilterCount > 0 && "border-violet-200 text-violet-700"
                                             )}
                                             onClick={() => { if (!filtersPanelOpen && filterGroups.conditions.length === 0) { addFilterGroup(); } }}
                                         >
@@ -4362,7 +4362,7 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
                                     <Button
                                         variant="outline"
                                         size="sm"
-                                        className={cn("h-8 text-xs font-medium", assigneesPanelOpen ? "bg-violet-50 text-violet-700 border-violet-200" : "text-zinc-700 border-zinc-200")}
+                                        className={cn("h-8 text-xs font-medium bg-white hover:bg-zinc-100 shadow-none", assigneesPanelOpen ? "text-violet-700 border-violet-200" : "text-zinc-700 border-zinc-200")}
                                         onClick={() => { setAssigneesPanelOpen(!assigneesPanelOpen); setFieldsPanelOpen(false); setFiltersPanelOpen(false); }}
                                     >
                                         <Users className="h-3.5 w-3.5" />
@@ -4393,15 +4393,20 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
                                         </div>
                                     </div>
                                 ) : (
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        className="h-8 w-8 p-0 text-zinc-700 border-zinc-200"
-                                        onClick={() => setIsToolbarSearchOpen(true)}
-                                        title="Search"
-                                    >
-                                        <Search className="h-4 w-4" />
-                                    </Button>
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                className="h-8 w-8 p-0 text-zinc-700 bg-white hover:bg-zinc-100 border-zinc-200 shadow-none"
+                                                onClick={() => setIsToolbarSearchOpen(true)}
+                                                title="Search"
+                                            >
+                                                <Search className="h-4 w-4" />
+                                            </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent side="bottom">Search tasks</TooltipContent>
+                                    </Tooltip>
                                 )}
                             </div>
 
@@ -4410,7 +4415,7 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
                                     <Button
                                         variant="outline"
                                         size="sm"
-                                        className="h-8 text-xs font-medium text-zinc-700 border-zinc-200"
+                                        className="h-8 text-xs font-medium text-zinc-700 bg-white hover:bg-zinc-100 border-zinc-200 shadow-none"
                                         onClick={() => setCustomizePanelOpen(true)}
                                     >
                                         <Settings className="h-3.5 w-3.5" />

@@ -527,7 +527,7 @@ export function EmbedView({
                                             <Button
                                                 variant="outline"
                                                 size="sm"
-                                                className="h-8 text-xs font-medium text-zinc-700 border-zinc-200"
+                                                className="h-8 text-xs font-medium text-zinc-700 bg-white hover:bg-zinc-100 border-zinc-200 shadow-none"
                                                 onClick={() => setCustomizePanelOpen(true)}
                                             >
                                                 <Settings className="h-3.5 w-3.5" />

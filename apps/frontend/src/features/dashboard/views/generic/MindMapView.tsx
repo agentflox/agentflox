@@ -1683,20 +1683,25 @@ function MindMapHeader({
                     <Popover open={filtersPanelOpen} onOpenChange={setFiltersPanelOpen}>
                         <PopoverTrigger asChild>
                             <div className="relative group/filter inline-flex">
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    className={cn(
-                                        "h-8 text-xs font-medium pr-7",
-                                        filtersPanelOpen ? "bg-violet-50 text-violet-700 border-violet-200" : "text-zinc-700 border-zinc-200",
-                                        appliedFilterCount > 0 && "border-violet-200 bg-violet-50/50 text-violet-700"
-                                    )}
-                                >
-                                    <Filter className="h-3.5 w-3.5" />
-                                    <span className="hidden sm:inline ml-1">
-                                        {appliedFilterCount > 0 ? `${appliedFilterCount} Filter${appliedFilterCount !== 1 ? "s" : ""}` : "Filter"}
-                                    </span>
-                                </Button>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            className={cn(
+                                                "h-8 text-xs font-medium pr-7 bg-white hover:bg-zinc-100 shadow-none",
+                                                filtersPanelOpen ? "text-violet-700 border-violet-200" : "text-zinc-700 border-zinc-200",
+                                                appliedFilterCount > 0 && "border-violet-200 text-violet-700"
+                                            )}
+                                        >
+                                            <Filter className="h-3.5 w-3.5" />
+                                            <span className="hidden sm:inline ml-1">
+                                                {appliedFilterCount > 0 ? `${appliedFilterCount} Filter${appliedFilterCount !== 1 ? "s" : ""}` : "Filter"}
+                                            </span>
+                                        </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="bottom">Filter tasks</TooltipContent>
+                                </Tooltip>
                                 {(appliedFilterCount > 0 || filtersPanelOpen) && (
                                     <div
                                         className={cn(
@@ -1743,15 +1748,20 @@ function MindMapHeader({
                                 </div>
                             </div>
                         ) : (
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                className="h-8 w-8 p-0 text-zinc-700 border-zinc-200"
-                                onClick={() => setIsToolbarSearchOpen(true)}
-                                title="Search"
-                            >
-                                <Search className="h-4 w-4" />
-                            </Button>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="h-8 w-8 p-0 text-zinc-700 bg-white hover:bg-zinc-100 border-zinc-200 shadow-none"
+                                        onClick={() => setIsToolbarSearchOpen(true)}
+                                        title="Search"
+                                    >
+                                        <Search className="h-4 w-4" />
+                                    </Button>
+                                </TooltipTrigger>
+                                <TooltipContent side="bottom">Search tasks</TooltipContent>
+                            </Tooltip>
                         )}
                     </div>
 
@@ -1761,8 +1771,8 @@ function MindMapHeader({
                                 variant="outline"
                                 size="sm"
                                 className={cn(
-                                    "h-8 text-xs font-medium",
-                                    customizePanelOpen ? "bg-violet-50 text-violet-700 border-violet-200" : "text-zinc-700 border-zinc-200"
+                                    "h-8 text-xs font-medium bg-white hover:bg-zinc-100 shadow-none",
+                                    customizePanelOpen ? "text-violet-700 border-violet-200" : "text-zinc-700 border-zinc-200"
                                 )}
                                 onClick={() => setCustomizePanelOpen(true)}
                             >

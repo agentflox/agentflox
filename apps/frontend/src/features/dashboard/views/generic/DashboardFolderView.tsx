@@ -486,7 +486,7 @@ export default function DashboardFolderView({ folderId, spaceId, projectId, team
                         "relative flex-1",
                         (activeView && ["LIST", "BOARD", "TABLE", "CALENDAR", "GANTT", "TIMELINE", "WORKLOAD", "WHITEBOARD", "MIND_MAP", "MAP", "EMBED", "SPREADSHEET", "FILE", "VIDEO", "DESIGN", "DOC", "FORM", "DASHBOARD"].includes(activeView.type))
                             ? "overflow-hidden"
-                            : "overflow-y-auto px-6 py-6"
+                            : "overflow-y-auto"
                     )}>
                         {activeView && (
                             <TabsContent value={activeView.id} className="mt-0 h-full">

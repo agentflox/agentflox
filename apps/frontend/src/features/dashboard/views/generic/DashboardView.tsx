@@ -111,6 +111,7 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Switch } from "@/components/ui/switch";
 import { FILTER_OPTIONS, FIELD_OPERATORS, STANDARD_FIELD_CONFIG } from "./listViewConstants";
@@ -1654,6 +1655,7 @@ export function DashboardView({
     const customizeOverlayOpen = customizePanelOpen || layoutOptionsOpen;
 
     return (
+        <TooltipProvider delayDuration={200}>
         <div className="h-full flex flex-col bg-gradient-to-br from-slate-50 to-zinc-50 overflow-y-auto relative">
             {/* Header */}
             <div className="sticky top-0 z-10 bg-white border-b border-zinc-200 shadow-sm">
@@ -1666,21 +1668,26 @@ export function DashboardView({
                             }}>
                                 <PopoverTrigger asChild>
                                     <div className="relative group/filter inline-flex">
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            className={cn(
-                                                "h-8 text-xs font-medium pr-7",
-                                                filtersPanelOpen ? "bg-violet-50 text-violet-700 border-violet-200" : "text-zinc-700 border-zinc-200",
-                                                appliedFilterCount > 0 && "border-violet-200 bg-violet-50/50 text-violet-700"
-                                            )}
-                                            onClick={() => { if (!filtersPanelOpen && filterGroups.conditions.length === 0) { addFilterGroup(); } }}
-                                        >
-                                            <Filter className="h-3.5 w-3.5" />
-                                            <span className="hidden sm:inline ml-1">
-                                                {appliedFilterCount > 0 ? `${appliedFilterCount} Filter${appliedFilterCount !== 1 ? "s" : ""}` : "Filter"}
-                                            </span>
-                                        </Button>
+                                        <Tooltip>
+                                            <TooltipTrigger asChild>
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    className={cn(
+                                                        "h-8 text-xs font-medium pr-7 bg-white hover:bg-zinc-100 shadow-none",
+                                                        filtersPanelOpen ? "text-violet-700 border-violet-200" : "text-zinc-700 border-zinc-200",
+                                                        appliedFilterCount > 0 && "border-violet-200 text-violet-700"
+                                                    )}
+                                                    onClick={() => { if (!filtersPanelOpen && filterGroups.conditions.length === 0) { addFilterGroup(); } }}
+                                                >
+                                                    <Filter className="h-3.5 w-3.5" />
+                                                    <span className="hidden sm:inline ml-1">
+                                                        {appliedFilterCount > 0 ? `${appliedFilterCount} Filter${appliedFilterCount !== 1 ? "s" : ""}` : "Filter"}
+                                                    </span>
+                                                </Button>
+                                            </TooltipTrigger>
+                                            <TooltipContent side="bottom">Filter dashboard</TooltipContent>
+                                        </Tooltip>
                                         {(appliedFilterCount > 0 || filtersPanelOpen) && (
                                             <div
                                                 className={cn(
@@ -1708,44 +1715,64 @@ export function DashboardView({
                         </div>
 
                         <div className="flex items-center gap-2 shrink-0">
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                className="h-8 gap-1.5 px-2.5 text-xs font-medium text-zinc-700 bg-zinc-50 border-zinc-200 hover:bg-zinc-100"
-                                onClick={handleToolbarRefresh}
-                            >
-                                <RefreshCw className="h-3.5 w-3.5" />
-                                Refreshed: {refreshedAgo}
-                            </Button>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="h-8 gap-1.5 px-2.5 text-xs font-medium text-zinc-700 bg-white hover:bg-zinc-100 border-zinc-200 shadow-none"
+                                        onClick={handleToolbarRefresh}
+                                    >
+                                        <RefreshCw className="h-3.5 w-3.5" />
+                                        Refreshed: {refreshedAgo}
+                                    </Button>
+                                </TooltipTrigger>
+                                <TooltipContent side="bottom">Refresh dashboard</TooltipContent>
+                            </Tooltip>
 
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                className="h-8 gap-1.5 px-2.5 text-xs font-medium text-zinc-700 bg-zinc-50 border-zinc-200 hover:bg-zinc-100"
-                                onClick={() => setAutoRefresh((v) => !v)}
-                            >
-                                <Clock className="h-3.5 w-3.5" />
-                                Auto refresh: {autoRefresh ? "On" : "Off"}
-                            </Button>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="h-8 gap-1.5 px-2.5 text-xs font-medium text-zinc-700 bg-white hover:bg-zinc-100 border-zinc-200 shadow-none"
+                                        onClick={() => setAutoRefresh((v) => !v)}
+                                    >
+                                        <Clock className="h-3.5 w-3.5" />
+                                        Auto refresh: {autoRefresh ? "On" : "Off"}
+                                    </Button>
+                                </TooltipTrigger>
+                                <TooltipContent side="bottom">Toggle auto refresh</TooltipContent>
+                            </Tooltip>
 
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                className="h-8 gap-1.5 px-2.5 text-xs font-medium text-zinc-700 bg-zinc-50 border-zinc-200 hover:bg-zinc-100"
-                            >
-                                <Zap className="h-3.5 w-3.5" />
-                                Schedule report
-                            </Button>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="h-8 gap-1.5 px-2.5 text-xs font-medium text-zinc-700 bg-white hover:bg-zinc-100 border-zinc-200 shadow-none"
+                                    >
+                                        <Zap className="h-3.5 w-3.5" />
+                                        Schedule report
+                                    </Button>
+                                </TooltipTrigger>
+                                <TooltipContent side="bottom">Schedule a report</TooltipContent>
+                            </Tooltip>
 
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                className="h-8 text-xs font-medium text-zinc-700 border-zinc-200"
-                                onClick={() => setCustomizePanelOpen(true)}
-                            >
-                                <Settings className="h-3.5 w-3.5" />
-                                <span className="hidden sm:inline ml-1">Customize</span>
-                            </Button>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="h-8 text-xs font-medium text-zinc-700 bg-white hover:bg-zinc-100 border-zinc-200 shadow-none"
+                                        onClick={() => setCustomizePanelOpen(true)}
+                                    >
+                                        <Settings className="h-3.5 w-3.5" />
+                                        <span className="hidden sm:inline ml-1">Customize</span>
+                                    </Button>
+                                </TooltipTrigger>
+                                <TooltipContent side="bottom">Customize view</TooltipContent>
+                            </Tooltip>
 
                             {/* Add Widget */}
                             <Dialog open={isAddWidgetOpen} onOpenChange={setIsAddWidgetOpen}>
@@ -2099,5 +2126,6 @@ export function DashboardView({
                 )}
             </div>
         </div>
+        </TooltipProvider>
     );
 }

@@ -32,8 +32,8 @@ export function ViewToolbarClosedPopover({
                                 variant="outline"
                                 size="sm"
                                 className={cn(
-                                    "h-8 text-xs font-medium pr-7",
-                                    hasClosed ? "bg-violet-50 text-violet-700 border-violet-200" : "text-zinc-700 border-zinc-200"
+                                    "h-8 text-xs font-medium pr-7 bg-white hover:bg-zinc-100",
+                                    hasClosed ? "text-violet-700 border-violet-200" : "text-zinc-700 border-zinc-200"
                                 )}
                             >
                                 <CheckCircle2 className="h-3.5 w-3.5" />
@@ -64,11 +64,11 @@ export function ViewToolbarClosedPopover({
             <PopoverContent className="w-64 p-3" align="end">
                 <div className="space-y-3">
                     <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium text-zinc-800">Tasks</span>
+                        <span className="text-sm font-normal text-zinc-800">Tasks</span>
                         <Switch checked={showCompleted} onCheckedChange={onShowCompletedChange} />
                     </div>
                     <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium text-zinc-800">Subtasks</span>
+                        <span className="text-sm font-normal text-zinc-800">Subtasks</span>
                         <Switch checked={showCompletedSubtasks} onCheckedChange={onShowCompletedSubtasksChange} />
                     </div>
                 </div>

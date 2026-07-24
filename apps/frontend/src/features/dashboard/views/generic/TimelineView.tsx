@@ -187,6 +187,7 @@ export function TimelineView({ spaceId, projectId, teamId, listId, folderId, vie
     const utils = trpc.useUtils();
     const [zoomLevel, setZoomLevel] = useState<ZoomLevel>('days');
     const [searchQuery, setSearchQuery] = useState("");
+    const [isToolbarSearchOpen, setIsToolbarSearchOpen] = useState(false);
     const [showWeekends, setShowWeekends] = useState(true);
     const [showToday, setShowToday] = useState(true);
     const [selectedTasks, setSelectedTasks] = useState<string[]>([]);
@@ -2537,10 +2538,10 @@ export function TimelineView({ spaceId, projectId, teamId, listId, folderId, vie
                 {/* Toolbar Area */}
                 <div className="flex items-center justify-between px-4 py-2 border-b border-zinc-200 bg-white gap-4 z-50">
                     <div className="flex items-center gap-2.5 shrink-0">
-                        <Button variant="outline" size="sm" className="h-8 text-xs text-zinc-600 border-zinc-200 shadow-none px-3.5 rounded-lg hover:bg-zinc-50 transition-all active:scale-95" onClick={scrollToToday}>Today</Button>
+                        <Button variant="outline" size="sm" className="h-8 text-xs text-zinc-700 bg-white border-zinc-200 shadow-none px-3.5 rounded-lg hover:bg-zinc-100 transition-all active:scale-95" onClick={scrollToToday}>Today</Button>
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                                <Button variant="outline" size="sm" className="h-8 gap-2 text-xs border-zinc-200 shadow-none px-3 rounded-lg hover:bg-zinc-50 transition-all active:scale-95">
+                                <Button variant="outline" size="sm" className="h-8 gap-2 text-xs border-zinc-200 bg-white shadow-none px-3 rounded-lg hover:bg-zinc-100 transition-all active:scale-95">
                                     <span className="capitalize">{zoomLevel.replace('_', ' ')}</span>
                                     <ChevronDown className="h-3 w-3 opacity-40 shrink-0" />
                                 </Button>
@@ -2585,8 +2586,8 @@ export function TimelineView({ spaceId, projectId, teamId, listId, folderId, vie
                                             variant="outline"
                                             size="sm"
                                             className={cn(
-                                                "h-8 gap-1.5 px-2.5 text-xs font-medium border-zinc-200 transition-colors cursor-pointer rounded-lg",
-                                                groupBy !== "none" ? "bg-violet-50 text-violet-700 border-violet-200" : "text-zinc-700 bg-zinc-50 hover:bg-zinc-100"
+                                                "h-8 gap-1.5 px-2.5 text-xs font-medium bg-white hover:bg-zinc-100 border-zinc-200 transition-colors cursor-pointer rounded-lg shadow-none",
+                                                groupBy !== "none" ? "text-violet-700 border-violet-200" : "text-zinc-700"
                                             )}
                                         >
                                             <LayoutList className="h-3.5 w-3.5" />
@@ -2703,21 +2704,26 @@ export function TimelineView({ spaceId, projectId, teamId, listId, folderId, vie
                         }}>
                             <PopoverTrigger asChild>
                                 <div className="relative group/filter inline-flex">
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        className={cn(
-                                            "h-8 text-xs font-medium pr-7 rounded-lg",
-                                            filtersPanelOpen ? "bg-violet-50 text-violet-700 border-violet-200" : "text-zinc-700 border-zinc-200",
-                                            appliedFilterCount > 0 && "border-violet-200 bg-violet-50/50 text-violet-700"
-                                        )}
-                                        onClick={() => { if (!filtersPanelOpen && filterGroups.conditions.length === 0) { addFilterGroup(); } }}
-                                    >
-                                        <Filter className="h-3.5 w-3.5" />
-                                        <span className="hidden sm:inline ml-1">
-                                            {appliedFilterCount > 0 ? `${appliedFilterCount} Filter${appliedFilterCount !== 1 ? "s" : ""}` : "Filter"}
-                                        </span>
-                                    </Button>
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                className={cn(
+                                                    "h-8 text-xs font-medium pr-7 rounded-lg bg-white hover:bg-zinc-100 shadow-none",
+                                                    filtersPanelOpen ? "text-violet-700 border-violet-200" : "text-zinc-700 border-zinc-200",
+                                                    appliedFilterCount > 0 && "border-violet-200 text-violet-700"
+                                                )}
+                                                onClick={() => { if (!filtersPanelOpen && filterGroups.conditions.length === 0) { addFilterGroup(); } }}
+                                            >
+                                                <Filter className="h-3.5 w-3.5" />
+                                                <span className="hidden sm:inline ml-1">
+                                                    {appliedFilterCount > 0 ? `${appliedFilterCount} Filter${appliedFilterCount !== 1 ? "s" : ""}` : "Filter"}
+                                                </span>
+                                            </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent side="bottom">Filter tasks</TooltipContent>
+                                    </Tooltip>
                                     {(appliedFilterCount > 0 || filtersPanelOpen) && (
                                         <div
                                             className={cn(
@@ -2755,7 +2761,7 @@ export function TimelineView({ spaceId, projectId, teamId, listId, folderId, vie
                                 <Button
                                     variant="outline"
                                     size="sm"
-                                    className={cn("h-8 text-xs font-medium rounded-lg px-3.5", assigneesPanelOpen ? "bg-violet-50 text-violet-700 border-violet-200" : "text-zinc-700 border-zinc-200")}
+                                    className={cn("h-8 text-xs font-medium rounded-lg px-3.5 bg-white hover:bg-zinc-100 shadow-none", assigneesPanelOpen ? "text-violet-700 border-violet-200" : "text-zinc-700 border-zinc-200")}
                                     onClick={() => { setAssigneesPanelOpen(!assigneesPanelOpen); setFiltersPanelOpen(false); }}
                                 >
                                     <Users className="h-3.5 w-3.5" />
@@ -2767,19 +2773,38 @@ export function TimelineView({ spaceId, projectId, teamId, listId, folderId, vie
 
                         <div className="h-6 w-[1px] bg-zinc-200 mx-1" />
 
-                        <div className="relative group/search">
-                            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
-                            <Input
-                                className="pl-8 h-8 bg-zinc-50/50 border-zinc-200 text-xs rounded-lg w-40 focus:w-64 transition-all"
-                                placeholder="Search..."
-                                value={searchQuery}
-                                onChange={e => setSearchQuery(e.target.value)}
-                            />
-                        </div>
+                        {isToolbarSearchOpen || searchQuery ? (
+                            <div className="relative flex-1 max-w-[200px] animate-in slide-in-from-right-2 duration-200">
+                                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-400" />
+                                <Input
+                                    autoFocus
+                                    placeholder="Search tasks..."
+                                    className="h-8 pl-8 text-xs bg-zinc-50/50 border-zinc-200 focus:bg-white transition-all rounded-lg"
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    onBlur={() => !searchQuery && setIsToolbarSearchOpen(false)}
+                                    onKeyDown={(e) => e.key === 'Escape' && setIsToolbarSearchOpen(false)}
+                                />
+                            </div>
+                        ) : (
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="h-8 w-8 p-0 text-zinc-700 bg-white hover:bg-zinc-100 border-zinc-200 rounded-lg shadow-none"
+                                        onClick={() => setIsToolbarSearchOpen(true)}
+                                    >
+                                        <Search className="h-4 w-4" />
+                                    </Button>
+                                </TooltipTrigger>
+                                <TooltipContent side="bottom">Search tasks</TooltipContent>
+                            </Tooltip>
+                        )}
 
                         <Tooltip>
                             <TooltipTrigger asChild>
-                                <Button variant="outline" size="sm" className="h-8 text-xs font-medium text-zinc-700 border-zinc-200 rounded-lg" onClick={() => setCustomizePanelOpen(true)}>
+                                <Button variant="outline" size="sm" className="h-8 text-xs font-medium text-zinc-700 bg-white hover:bg-zinc-100 border-zinc-200 rounded-lg shadow-none" onClick={() => setCustomizePanelOpen(true)}>
                                     <Settings className="h-3.5 w-3.5" />
                                     <span className="hidden sm:inline ml-1">Customize</span>
                                 </Button>
@@ -2818,7 +2843,7 @@ export function TimelineView({ spaceId, projectId, teamId, listId, folderId, vie
                             <TooltipTrigger asChild>
                                 <Button
                                     variant="outline"
-                                    className={cn("h-8 gap-1.5 px-3 text-xs font-medium border-zinc-200 rounded-lg shadow-sm transition-all ml-1", isRightSidebarExpanded ? "bg-violet-50 text-violet-700 border-violet-200 ring-1 ring-violet-200/50" : "text-zinc-700 bg-white hover:bg-zinc-50")}
+                                    className={cn("h-8 gap-1.5 px-3 text-xs font-medium border-zinc-200 rounded-lg shadow-none transition-all ml-1 bg-white hover:bg-zinc-100", isRightSidebarExpanded ? "text-violet-700 border-violet-200" : "text-zinc-700")}
                                     onClick={() => setIsRightSidebarExpanded(!isRightSidebarExpanded)}
                                 >
                                     <PanelRightClose className="h-3.5 w-3.5" />

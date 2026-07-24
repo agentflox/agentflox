@@ -1941,10 +1941,10 @@ export function MapView({ spaceId, projectId, teamId, listId, folderId, viewId, 
                                                     variant="outline"
                                                     size="sm"
                                                     className={cn(
-                                                        "h-8 gap-1.5 px-2.5 text-xs font-medium cursor-pointer",
+                                                        "h-8 gap-1.5 px-2.5 text-xs font-medium cursor-pointer bg-white hover:bg-zinc-100 shadow-none",
                                                         expandedSubtaskMode === "expanded"
-                                                            ? "bg-violet-50 text-violet-700 border-violet-200"
-                                                            : "bg-zinc-50 text-zinc-700 border-zinc-200 hover:bg-zinc-100"
+                                                            ? "text-violet-700 border-violet-200"
+                                                            : "text-zinc-700 border-zinc-200"
                                                     )}
                                                 >
                                                     <Spline className="h-3.5 w-3.5 scale-y-[-1]" />
@@ -2038,9 +2038,9 @@ export function MapView({ spaceId, projectId, teamId, listId, folderId, viewId, 
                                             variant="outline"
                                             size="sm"
                                             className={cn(
-                                                "h-8 text-xs font-medium pr-7",
-                                                filtersPanelOpen ? "bg-violet-50 text-violet-700 border-violet-200" : "text-zinc-700 border-zinc-200",
-                                                appliedFilterCount > 0 && "border-violet-200 bg-violet-50/50 text-violet-700"
+                                                "h-8 text-xs font-medium pr-7 bg-white hover:bg-zinc-100 shadow-none",
+                                                filtersPanelOpen ? "text-violet-700 border-violet-200" : "text-zinc-700 border-zinc-200",
+                                                appliedFilterCount > 0 && "border-violet-200 text-violet-700"
                                             )}
                                             onClick={() => { if (!filtersPanelOpen && filterGroups.conditions.length === 0) { addFilterGroup(); } }}
                                         >
@@ -2086,7 +2086,7 @@ export function MapView({ spaceId, projectId, teamId, listId, folderId, viewId, 
                                     <Button
                                         variant="outline"
                                         size="sm"
-                                        className={cn("h-8 text-xs font-medium", assigneesPanelOpen ? "bg-violet-50 text-violet-700 border-violet-200" : "text-zinc-700 border-zinc-200")}
+                                        className={cn("h-8 text-xs font-medium bg-white hover:bg-zinc-100 shadow-none", assigneesPanelOpen ? "text-violet-700 border-violet-200" : "text-zinc-700 border-zinc-200")}
                                         onClick={() => { setAssigneesPanelOpen(!assigneesPanelOpen); setFieldsPanelOpen(false); setFiltersPanelOpen(false); }}
                                     >
                                         <Users className="h-3.5 w-3.5" />
@@ -2120,7 +2120,7 @@ export function MapView({ spaceId, projectId, teamId, listId, folderId, viewId, 
                                     <Button
                                         variant="outline"
                                         size="sm"
-                                        className="h-8 w-8 p-0 text-zinc-700 border-zinc-200"
+                                        className="h-8 w-8 p-0 text-zinc-700 bg-white hover:bg-zinc-100 border-zinc-200 shadow-none"
                                         onClick={() => setIsToolbarSearchOpen(true)}
                                         title="Search"
                                     >
@@ -2134,7 +2134,7 @@ export function MapView({ spaceId, projectId, teamId, listId, folderId, viewId, 
                                     <Button
                                         variant="outline"
                                         size="sm"
-                                        className="h-8 text-xs font-medium text-zinc-700 border-zinc-200"
+                                        className="h-8 text-xs font-medium text-zinc-700 bg-white hover:bg-zinc-100 border-zinc-200 shadow-none"
                                         onClick={() => setCustomizePanelOpen(true)}
                                     >
                                         <Settings className="h-3.5 w-3.5" />
@@ -2540,8 +2540,8 @@ export function MapView({ spaceId, projectId, teamId, listId, folderId, viewId, 
                                                 variant="outline"
                                                 size="sm"
                                                 className={cn(
-                                                    "h-7 gap-1.5 px-2 text-[10px] font-medium border-zinc-200 transition-colors cursor-pointer rounded-lg bg-zinc-50 hover:bg-zinc-100",
-                                                    sort.length > 0 ? "bg-violet-50 text-violet-700 border-violet-200" : "text-zinc-600 border-zinc-200"
+                                                    "h-7 gap-1.5 px-2 text-[10px] font-medium border-zinc-200 transition-colors cursor-pointer rounded-lg bg-white hover:bg-zinc-100 shadow-none",
+                                                    sort.length > 0 ? "text-violet-700 border-violet-200" : "text-zinc-600 border-zinc-200"
                                                 )}
                                             >
                                                 {sort.length === 1 ? (

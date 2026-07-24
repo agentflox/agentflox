@@ -900,7 +900,7 @@ export default function DashboardListView({ listId, spaceId, projectId, teamId, 
                         "relative min-h-0 flex-1 min-w-0 max-w-full",
                         (activeView && ["LIST", "BOARD", "TABLE", "CALENDAR", "GANTT", "TIMELINE", "WORKLOAD", "WHITEBOARD", "MIND_MAP", "MAP", "EMBED", "SPREADSHEET", "FILE", "VIDEO", "DESIGN", "DOC", "FORM", "DASHBOARD", "PEOPLE", "ACTIVITY", "GOOGLE_CALENDAR", "GOOGLE_DOCS", "GOOGLE_MAPS", "GOOGLE_SLIDES", "GOOGLE_FORMS", "GOOGLE_DRIVE"].includes(activeView.type))
                             ? "overflow-hidden"
-                            : "overflow-y-auto px-6 py-6"
+                            : "overflow-y-auto"
                     )}>
                         {activeView && (
                             <TabsContent value={activeView.id} className="mt-0 h-full min-h-0 min-w-0 w-full max-w-full">

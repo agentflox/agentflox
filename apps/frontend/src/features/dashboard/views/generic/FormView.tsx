@@ -2300,8 +2300,8 @@ export function FormView({
                                 variant="outline"
                                 size="sm"
                                 className={cn(
-                                    "h-8 text-xs font-medium text-zinc-700 border-zinc-200 cursor-pointer",
-                                    showSettings && "bg-violet-50 text-violet-700 border-violet-200"
+                                    "h-8 text-xs font-medium border-zinc-200 cursor-pointer bg-white hover:bg-zinc-100 shadow-none",
+                                    showSettings ? "text-violet-700 border-violet-200" : "text-zinc-700 border-zinc-200"
                                 )}
                                 onClick={() => setShowSettings(!showSettings)}
                             >
@@ -2317,7 +2317,7 @@ export function FormView({
                             <Button
                                 variant="outline"
                                 size="sm"
-                                className="h-8 text-xs font-medium text-zinc-700 border-zinc-200 cursor-pointer"
+                                className="h-8 text-xs font-medium text-zinc-700 bg-white hover:bg-zinc-100 border-zinc-200 shadow-none cursor-pointer"
                                 onClick={() => window.open(publicFormUrl, "_blank")}
                             >
                                 <LinkIcon className="h-3.5 w-3.5" />
@@ -2332,7 +2332,7 @@ export function FormView({
                             <Button
                                 variant="outline"
                                 size="sm"
-                                className="h-8 text-xs font-medium text-zinc-700 border-zinc-200 cursor-pointer"
+                                className="h-8 text-xs font-medium text-zinc-700 bg-white hover:bg-zinc-100 border-zinc-200 shadow-none cursor-pointer"
                                 onClick={async () => {
                                     try {
                                         await navigator.clipboard.writeText(publicFormUrl);

@@ -676,6 +676,7 @@ export function BoardView({ spaceId, projectId, teamId, listId, folderId, viewId
     const [customizePanelOpen, setCustomizePanelOpen] = useState(false);
     const [filtersPanelOpen, setFiltersPanelOpen] = useState(false);
     const [sortPanelOpen, setSortPanelOpen] = useState(false);
+    const [sortSearchQuery, setSortSearchQuery] = useState("");
     const [assigneesPanelOpen, setAssigneesPanelOpen] = useState(false);
     const [createFieldModalOpen, setCreateFieldModalOpen] = useState(false);
     const [addTaskModalOpen, setAddTaskModalOpen] = useState(false);
@@ -3469,21 +3470,26 @@ export function BoardView({ spaceId, projectId, teamId, listId, folderId, viewId
                             }}>
                                 <PopoverTrigger asChild>
                                     <div className="relative group/filter inline-flex">
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            className={cn(
-                                                "h-8 text-xs font-medium pr-7",
-                                                filtersPanelOpen ? "bg-violet-50 text-violet-700 border-violet-200" : "text-zinc-700 border-zinc-200",
-                                                appliedFilterCount > 0 && "border-violet-200 bg-violet-50/50 text-violet-700"
-                                            )}
-                                            onClick={() => { if (!filtersPanelOpen && filterGroups.conditions.length === 0) { addFilterGroup(); } }}
-                                        >
-                                            <Filter className="h-3.5 w-3.5" />
-                                            <span className="hidden sm:inline ml-1">
-                                                {appliedFilterCount > 0 ? `${appliedFilterCount} Filter${appliedFilterCount !== 1 ? "s" : ""}` : "Filter"}
-                                            </span>
-                                        </Button>
+                                        <Tooltip>
+                                            <TooltipTrigger asChild>
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    className={cn(
+                                                        "h-8 text-xs font-medium pr-7 bg-white hover:bg-zinc-100 shadow-none",
+                                                        filtersPanelOpen ? "text-violet-700 border-violet-200" : "text-zinc-700 border-zinc-200",
+                                                        appliedFilterCount > 0 && "border-violet-200 text-violet-700"
+                                                    )}
+                                                    onClick={() => { if (!filtersPanelOpen && filterGroups.conditions.length === 0) { addFilterGroup(); } }}
+                                                >
+                                                    <Filter className="h-3.5 w-3.5" />
+                                                    <span className="hidden sm:inline ml-1">
+                                                        {appliedFilterCount > 0 ? `${appliedFilterCount} Filter${appliedFilterCount !== 1 ? "s" : ""}` : "Filter"}
+                                                    </span>
+                                                </Button>
+                                            </TooltipTrigger>
+                                            <TooltipContent side="bottom">Filter tasks</TooltipContent>
+                                        </Tooltip>
                                         {(appliedFilterCount > 0 || filtersPanelOpen) && (
                                             <div
                                                 className={cn(
@@ -3521,7 +3527,7 @@ export function BoardView({ spaceId, projectId, teamId, listId, folderId, viewId
                                     <Button
                                         variant="outline"
                                         size="sm"
-                                        className={cn("h-8 text-xs font-medium", assigneesPanelOpen ? "bg-violet-50 text-violet-700 border-violet-200" : "text-zinc-700 border-zinc-200")}
+                                        className={cn("h-8 text-xs font-medium bg-white hover:bg-zinc-100 shadow-none", assigneesPanelOpen ? "text-violet-700 border-violet-200" : "text-zinc-700 border-zinc-200")}
                                         onClick={() => { setAssigneesPanelOpen(!assigneesPanelOpen); setFieldsPanelOpen(false); setFiltersPanelOpen(false); }}
                                     >
                                         <Users className="h-3.5 w-3.5" />
@@ -3552,15 +3558,20 @@ export function BoardView({ spaceId, projectId, teamId, listId, folderId, viewId
                                         </div>
                                     </div>
                                 ) : (
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        className="h-8 w-8 p-0 text-zinc-700 border-zinc-200"
-                                        onClick={() => setIsToolbarSearchOpen(true)}
-                                        title="Search"
-                                    >
-                                        <Search className="h-4 w-4" />
-                                    </Button>
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                className="h-8 w-8 p-0 text-zinc-700 bg-white hover:bg-zinc-100 border-zinc-200 shadow-none"
+                                                onClick={() => setIsToolbarSearchOpen(true)}
+                                                title="Search"
+                                            >
+                                                <Search className="h-4 w-4" />
+                                            </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent side="bottom">Search tasks</TooltipContent>
+                                    </Tooltip>
                                 )}
                             </div>
 
@@ -3569,7 +3580,7 @@ export function BoardView({ spaceId, projectId, teamId, listId, folderId, viewId
                                     <Button
                                         variant="outline"
                                         size="sm"
-                                        className="h-8 text-xs font-medium text-zinc-700 border-zinc-200"
+                                        className="h-8 text-xs font-medium text-zinc-700 bg-white hover:bg-zinc-100 border-zinc-200 shadow-none"
                                         onClick={() => setCustomizePanelOpen(true)}
                                     >
                                         <Settings className="h-3.5 w-3.5" />
@@ -4177,14 +4188,17 @@ export function BoardView({ spaceId, projectId, teamId, listId, folderId, viewId
                                                         sort.length === 0 ? "None" :
                                                             sort.map(s => {
                                                                 const label = [
-                                                                    { id: "status", label: "Status" },
-                                                                    { id: "name", label: "Task Name" },
-                                                                    { id: "assignee", label: "Assignee" },
-                                                                    { id: "priority", label: "Priority" },
-                                                                    { id: "dueDate", label: "Due date" },
-                                                                    { id: "startDate", label: "Start date" },
+                                                                    { id: "assignee", label: "Assignees" },
                                                                     { id: "createdAt", label: "Date created" },
                                                                     { id: "updatedAt", label: "Date updated" },
+                                                                    { id: "dateDone", label: "Date done" },
+                                                                    { id: "dateClosed", label: "Date closed" },
+                                                                    { id: "dueDate", label: "Due date" },
+                                                                    { id: "id", label: "Task ID" },
+                                                                    { id: "name", label: "Task Name" },
+                                                                    { id: "priority", label: "Priority" },
+                                                                    { id: "startDate", label: "Start date" },
+                                                                    { id: "status", label: "Status" },
                                                                 ].find(opt => opt.id === s.id)?.label || s.id;
                                                                 return label;
                                                             }).join(" / ")
@@ -4194,88 +4208,87 @@ export function BoardView({ spaceId, projectId, teamId, listId, folderId, viewId
                                             </div>
                                         </PopoverTrigger>
                                         <PopoverContent side="left" align="start" className="w-[240px] p-1.5 rounded-xl shadow-xl border-zinc-200/60" sideOffset={10}>
-                                            <div className="px-2 py-1.5 mb-1">
-                                                <span className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">Sort By</span>
+                                            <div className="px-2 py-1.5">
+                                                <span className="text-xs font-medium text-zinc-400 tracking-widest">Sort By</span>
                                             </div>
-                                            <div className="space-y-0.5">
-                                                <div
-                                                    className="flex items-center gap-2.5 px-2 py-1.5 text-sm rounded-md cursor-pointer hover:bg-zinc-50 transition-colors text-zinc-600"
-                                                    onClick={() => setSort([])}
-                                                >
-                                                    <span className="flex-1">None (default)</span>
-                                                    {sort.length === 0 && <Check className="h-3.5 w-3.5 text-zinc-900" />}
+                                            <div className="px-1 mb-2.5">
+                                                <div className="relative border border-zinc-300 rounded-md overflow-hidden focus-within:ring-1 focus-within:ring-violet-500 focus-within:border-violet-500">
+                                                    <input
+                                                        type="text"
+                                                        placeholder="Search..."
+                                                        value={sortSearchQuery}
+                                                        onChange={(e) => setSortSearchQuery(e.target.value)}
+                                                        className="w-full text-sm pl-2 pr-2 py-1.5 outline-none placeholder:text-zinc-400"
+                                                    />
                                                 </div>
-
-                                                {[
-                                                    { id: "status", label: "Status" },
-                                                    { id: "name", label: "Task Name" },
-                                                    { id: "assignee", label: "Assignee" },
-                                                    { id: "priority", label: "Priority" },
-                                                    { id: "dueDate", label: "Due date" },
-                                                    { id: "startDate", label: "Start date" },
-                                                    { id: "createdAt", label: "Date created" },
-                                                    { id: "updatedAt", label: "Date updated" },
-                                                ].map((opt) => {
-                                                    const currentSortIndex = sort.findIndex(s => s.id === opt.id);
-                                                    const isSelected = currentSortIndex >= 0;
-                                                    const currentSort = isSelected ? sort[currentSortIndex] : null;
-
-                                                    return (
-                                                        <div
-                                                            key={opt.id}
-                                                            className={cn(
-                                                                "flex items-center gap-2.5 px-2 py-1.5 text-sm rounded-md cursor-pointer transition-colors group/item",
-                                                                isSelected ? "bg-zinc-50 text-zinc-900" : "text-zinc-600 hover:bg-zinc-100"
-                                                            )}
-                                                            onClick={() => {
-                                                                if (isSelected) {
-                                                                    setSort(s => s.filter(i => i.id !== opt.id));
-                                                                } else {
-                                                                    setSort(s => [...s, { id: opt.id, desc: false }]);
-                                                                }
-                                                            }}
-                                                        >
-                                                            <div
-                                                                className="h-5 w-5 flex items-center justify-center rounded hover:bg-zinc-200 transition-colors"
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    if (isSelected) {
-                                                                        setSort(s => s.map(i => i.id === opt.id ? { ...i, desc: !i.desc } : i));
-                                                                    } else {
-                                                                        setSort(s => [...s, { id: opt.id, desc: false }]);
-                                                                    }
-                                                                }}
-                                                            >
-                                                                {isSelected && currentSort &&
-                                                                    <Tooltip>
-                                                                        <TooltipTrigger asChild>
-                                                                            <div className="flex flex-col items-center -space-y-1">
-                                                                                <ChevronUp
-                                                                                    className={`h-3.5 w-3.5 ${currentSort.desc
-                                                                                        ? 'text-zinc-800'
-                                                                                        : 'text-zinc-300'
-                                                                                        }`}
-                                                                                />
-                                                                                <ChevronDown
-                                                                                    className={`h-3.5 w-3.5 ${currentSort.desc
-                                                                                        ? 'text-zinc-300'
-                                                                                        : 'text-zinc-800'
-                                                                                        }`}
-                                                                                />
-                                                                            </div>
-                                                                        </TooltipTrigger>
-                                                                        <TooltipContent side="top">
-                                                                            {currentSort.desc ? "Descending" : "Ascending"}
-                                                                        </TooltipContent>
-                                                                    </Tooltip>
-                                                                }
-                                                            </div>
-                                                            <span className="flex-1">{opt.label}</span>
-                                                            {isSelected && <Check className="h-3.5 w-3.5 text-zinc-900" />}
-                                                        </div>
-                                                    );
-                                                })}
                                             </div>
+                                            <div className="h-px bg-zinc-100" />
+                                            <ScrollArea className="h-[280px] py-3">
+                                                <div className="space-y-0.5 px-1">
+                                                    {[
+                                                        { id: "assignee", label: "Assignees" },
+                                                        { id: "createdAt", label: "Date created" },
+                                                        { id: "updatedAt", label: "Date updated" },
+                                                        { id: "dateDone", label: "Date done" },
+                                                        { id: "dateClosed", label: "Date closed" },
+                                                        { id: "dueDate", label: "Due date" },
+                                                        { id: "id", label: "Task ID" },
+                                                        { id: "name", label: "Task Name" },
+                                                        { id: "priority", label: "Priority" },
+                                                        { id: "startDate", label: "Start date" },
+                                                        { id: "status", label: "Status" },
+                                                    ]
+                                                        .filter(opt => opt.label.toLowerCase().includes(sortSearchQuery.toLowerCase()))
+                                                        .map((opt) => {
+                                                            const currentSortIndex = sort.findIndex(s => s.id === opt.id);
+                                                            const isSelected = currentSortIndex >= 0;
+                                                            const currentSort = isSelected ? sort[currentSortIndex] : null;
+
+                                                            return (
+                                                                <div
+                                                                    key={opt.id}
+                                                                    className="flex items-center justify-between px-2 py-1.5 text-sm rounded-md cursor-pointer transition-colors group/item text-zinc-700 bg-white hover:bg-zinc-100"
+                                                                    onClick={() => {
+                                                                        if (isSelected) {
+                                                                            setSort([]);
+                                                                        } else {
+                                                                            setSort([{ id: opt.id, desc: false }]);
+                                                                        }
+                                                                    }}
+                                                                >
+                                                                    <div className="flex items-center gap-2">
+                                                                        {isSelected && currentSort && (
+                                                                            <div
+                                                                                className="flex flex-col items-center justify-center h-[18px] w-[18px] bg-zinc-100 rounded hover:bg-zinc-200 transition-colors"
+                                                                                onClick={(e) => {
+                                                                                    e.stopPropagation();
+                                                                                    setSort([{ id: opt.id, desc: !currentSort.desc }]);
+                                                                                }}
+                                                                            >
+                                                                                <div className="flex flex-col items-center -space-y-1">
+                                                                                    <ChevronUp
+                                                                                        className={`h-[14px] w-[14px] ${currentSort.desc
+                                                                                            ? 'text-violet-300'
+                                                                                            : 'text-violet-500'
+                                                                                            }`}
+                                                                                    />
+                                                                                    <ChevronDown
+                                                                                        className={`h-[14px] w-[14px] ${currentSort.desc
+                                                                                            ? 'text-violet-500'
+                                                                                            : 'text-violet-300'
+                                                                                            }`}
+                                                                                    />
+                                                                                </div>
+                                                                            </div>
+                                                                        )}
+                                                                        <span>{opt.label}</span>
+                                                                    </div>
+                                                                    {isSelected && <Check className="h-4 w-4 text-violet-600" />}
+                                                                </div>
+                                                            );
+                                                        })}
+                                                </div>
+                                            </ScrollArea>
                                         </PopoverContent>
                                     </Popover>
                                     <Popover>

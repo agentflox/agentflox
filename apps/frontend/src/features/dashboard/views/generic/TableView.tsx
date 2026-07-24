@@ -121,6 +121,8 @@ import {
 import { LazyDescriptionEditor } from "@/entities/shared/components/LazyDescriptionEditor";
 import { CSS } from "@dnd-kit/utilities";
 import { Textarea } from "@/components/ui/textarea";
+import { FieldsPanelSlideout } from "@/features/dashboard/components/shared/FieldsPanelSlideout";
+import { AssigneesPanelSlideout } from "@/features/dashboard/components/shared/AssigneesPanelSlideout";
 
 type Task = {
     id: string;
@@ -654,6 +656,7 @@ export function TableView({ spaceId, projectId, teamId, listId, folderId, viewId
     const [visibleColumns, setVisibleColumns] = useState<Set<string>>(
         new Set(["name", "status", "assignee", "priority", "dueDate", "tags"])
     );
+    const [columnOrder, setColumnOrder] = useState<string[]>(["name", "status", "assignee", "priority", "dueDate", "tags"]);
 
     const {
         resolvedWorkspaceId,
@@ -1317,8 +1320,13 @@ export function TableView({ spaceId, projectId, teamId, listId, folderId, viewId
     const toggleColumn = (col: string) => {
         setVisibleColumns(prev => {
             const next = new Set(prev);
-            if (next.has(col)) next.delete(col);
-            else next.add(col);
+            if (next.has(col)) {
+                next.delete(col);
+                setColumnOrder(order => order.filter(id => id !== col));
+            } else {
+                next.add(col);
+                setColumnOrder(order => [...order, col]);
+            }
             return next;
         });
     };
@@ -2304,7 +2312,7 @@ export function TableView({ spaceId, projectId, teamId, listId, folderId, viewId
                                                     className="flex items-center justify-center h-5 w-5 rounded hover:bg-zinc-200/80 text-zinc-500 hover:text-zinc-700 shrink-0 transition-colors cursor-pointer"
                                                     onClick={() => toggleGroup(entry.groupName)}
                                                 >
-                                                    <Play className={cn("h-2.5 w-2.5 shrink-0 fill-current transition-transform duration-150", isExpanded ? "rotate-90" : "rotate-0")} />
+                                                    <Play className={cn("h-2 w-2 shrink-0 fill-current transition-transform duration-150", isExpanded ? "rotate-90" : "rotate-0")} />
                                                 </button>
                                             </TooltipTrigger>
                                             <TooltipContent side="bottom" className="text-xs">
@@ -3683,8 +3691,8 @@ export function TableView({ spaceId, projectId, teamId, listId, folderId, viewId
                                                 variant="outline"
                                                 size="sm"
                                                 className={cn(
-                                                    "h-8 gap-1.5 px-2.5 text-xs font-medium border-zinc-200 transition-colors cursor-pointer",
-                                                    groupBy !== "none" ? "bg-violet-50 text-violet-700 border-violet-200" : "text-zinc-700 bg-zinc-50 hover:bg-zinc-100"
+                                                    "h-8 gap-1.5 px-2.5 text-xs font-medium bg-white hover:bg-zinc-100 border-zinc-200 transition-colors cursor-pointer shadow-none",
+                                                    groupBy !== "none" ? "text-violet-700 border-violet-200" : "text-zinc-700"
                                                 )}
                                             >
                                                 <LayoutList className="h-3.5 w-3.5" />
@@ -3795,10 +3803,10 @@ export function TableView({ spaceId, projectId, teamId, listId, folderId, viewId
                                 variant="outline"
                                 size="sm"
                                 className={cn(
-                                    "h-8 gap-1.5 px-2.5 text-xs font-medium cursor-pointer",
+                                    "h-8 gap-1.5 px-2.5 text-xs font-medium bg-white hover:bg-zinc-100 cursor-pointer shadow-none",
                                     expandedSubtaskMode === "separate"
-                                        ? "bg-violet-50 text-violet-700 border-violet-200"
-                                        : "bg-zinc-50 text-zinc-700 border-zinc-200 hover:bg-zinc-100"
+                                        ? "text-violet-700 border-violet-200"
+                                        : "text-zinc-700 border-zinc-200"
                                 )}
                                 onClick={() => {
                                     setExpandedSubtaskMode(prev => prev === "separate" ? "collapsed" : "separate");
@@ -3817,7 +3825,7 @@ export function TableView({ spaceId, projectId, teamId, listId, folderId, viewId
                                     <Button
                                         variant="outline"
                                         size="sm"
-                                        className="h-8 gap-1.5 px-2.5 text-xs font-medium text-zinc-700 bg-zinc-50 border-zinc-200 hover:bg-zinc-100 cursor-pointer"
+                                        className="h-8 gap-1.5 px-2.5 text-xs font-medium text-zinc-700 bg-white border-zinc-200 hover:bg-zinc-100 cursor-pointer shadow-none"
                                         onClick={() => { setFieldsPanelOpen(true); setFiltersPanelOpen(false); setAssigneesPanelOpen(false); }}
                                     >
                                         <SlidersHorizontal className="h-3.5 w-3.5" />
@@ -3852,21 +3860,26 @@ export function TableView({ spaceId, projectId, teamId, listId, folderId, viewId
                             }}>
                                 <PopoverTrigger asChild>
                                     <div className="relative group/filter inline-flex">
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            className={cn(
-                                                "h-8 text-xs font-medium pr-7",
-                                                filtersPanelOpen ? "bg-violet-50 text-violet-700 border-violet-200" : "text-zinc-700 border-zinc-200",
-                                                appliedFilterCount > 0 && "border-violet-200 bg-violet-50/50 text-violet-700"
-                                            )}
-                                            onClick={() => { if (!filtersPanelOpen && filterGroups.conditions.length === 0) { addFilterGroup(); } }}
-                                        >
-                                            <Filter className="h-3.5 w-3.5" />
-                                            <span className="hidden sm:inline ml-1">
-                                                {appliedFilterCount > 0 ? `${appliedFilterCount} Filter${appliedFilterCount !== 1 ? "s" : ""}` : "Filter"}
-                                            </span>
-                                        </Button>
+                                        <Tooltip>
+                                            <TooltipTrigger asChild>
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    className={cn(
+                                                        "h-8 text-xs font-medium pr-7 bg-white hover:bg-zinc-100 shadow-none",
+                                                        filtersPanelOpen ? "text-violet-700 border-violet-200" : "text-zinc-700 border-zinc-200",
+                                                        appliedFilterCount > 0 && "border-violet-200 text-violet-700"
+                                                    )}
+                                                    onClick={() => { if (!filtersPanelOpen && filterGroups.conditions.length === 0) { addFilterGroup(); } }}
+                                                >
+                                                    <Filter className="h-3.5 w-3.5" />
+                                                    <span className="hidden sm:inline ml-1">
+                                                        {appliedFilterCount > 0 ? `${appliedFilterCount} Filter${appliedFilterCount !== 1 ? "s" : ""}` : "Filter"}
+                                                    </span>
+                                                </Button>
+                                            </TooltipTrigger>
+                                            <TooltipContent side="bottom">Filter tasks</TooltipContent>
+                                        </Tooltip>
                                         {(appliedFilterCount > 0 || filtersPanelOpen) && (
                                             <div
                                                 className={cn(
@@ -3904,7 +3917,7 @@ export function TableView({ spaceId, projectId, teamId, listId, folderId, viewId
                                     <Button
                                         variant="outline"
                                         size="sm"
-                                        className={cn("h-8 text-xs font-medium", assigneesPanelOpen ? "bg-violet-50 text-violet-700 border-violet-200" : "text-zinc-700 border-zinc-200")}
+                                        className={cn("h-8 text-xs font-medium bg-white hover:bg-zinc-100 shadow-none", assigneesPanelOpen ? "text-violet-700 border-violet-200" : "text-zinc-700 border-zinc-200")}
                                         onClick={() => { setAssigneesPanelOpen(!assigneesPanelOpen); setFieldsPanelOpen(false); setFiltersPanelOpen(false); }}
                                     >
                                         <Users className="h-3.5 w-3.5" />
@@ -3935,15 +3948,20 @@ export function TableView({ spaceId, projectId, teamId, listId, folderId, viewId
                                         </div>
                                     </div>
                                 ) : (
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        className="h-8 w-8 p-0 text-zinc-700 border-zinc-200"
-                                        onClick={() => setIsToolbarSearchOpen(true)}
-                                        title="Search"
-                                    >
-                                        <Search className="h-4 w-4" />
-                                    </Button>
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                className="h-8 w-8 p-0 text-zinc-700 bg-white hover:bg-zinc-100 border-zinc-200 shadow-none"
+                                                onClick={() => setIsToolbarSearchOpen(true)}
+                                                title="Search"
+                                            >
+                                                <Search className="h-4 w-4" />
+                                            </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent side="bottom">Search tasks</TooltipContent>
+                                    </Tooltip>
                                 )}
                             </div>
 
@@ -3952,7 +3970,7 @@ export function TableView({ spaceId, projectId, teamId, listId, folderId, viewId
                                     <Button
                                         variant="outline"
                                         size="sm"
-                                        className="h-8 text-xs font-medium text-zinc-700 border-zinc-200"
+                                        className="h-8 text-xs font-medium text-zinc-700 bg-white hover:bg-zinc-100 border-zinc-200 shadow-none"
                                         onClick={() => setCustomizePanelOpen(true)}
                                     >
                                         <Settings className="h-3.5 w-3.5" />
@@ -4416,75 +4434,27 @@ export function TableView({ spaceId, projectId, teamId, listId, folderId, viewId
                 )}
             </div>
 
-            {/* Fields panel (Columns click or + in last column) ?Etoggle show/hide columns */}
-            {fieldsPanelOpen && !createFieldModalOpen && (
-                <>
-                    <div className="absolute inset-0 bg-black/20 z-40" onClick={() => setFieldsPanelOpen(false)} aria-hidden />
-                    <div className="absolute right-0 bottom-0 top-0 w-[360px] max-w-[90vw] bg-white border-l border-zinc-200 shadow-xl z-50 flex flex-col">
-                        <div className="flex items-center justify-between p-4 border-b border-zinc-100">
-                            <h3 className="font-semibold text-zinc-900">Fields</h3>
-                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setFieldsPanelOpen(false)}><X className="h-4 w-4" /></Button>
-                        </div>
-                        <div className="p-3 border-b border-zinc-100">
-                            <div className="relative">
-                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
-                                <Input className="pl-9 h-9 text-sm" placeholder="Search for new or existing fields" value={fieldsSearch} onChange={e => setFieldsSearch(e.target.value)} />
-                            </div>
-                        </div>
-                        <ScrollArea className="flex-1 p-3 pb-20 h-full">
-                            <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-2">Shown</p>
-                            <div className="space-y-1 mb-4">
-                                {FIELD_CONFIG.filter(f => visibleColumns.has(f.id) && (!fieldsSearch.trim() || f.label.toLowerCase().includes(fieldsSearch.toLowerCase()))).map(f => {
-                                    const iconAny = (f as any).icon;
-                                    const IconEl = typeof iconAny === "function"
-                                        ? React.createElement(iconAny, { className: "h-4 w-4 text-zinc-400 shrink-0" })
-                                        : null;
-                                    return (
-                                        <div key={f.id} className="flex items-center gap-2 py-2 px-2 rounded hover:bg-zinc-50">
-                                            <GripVertical className="h-4 w-4 text-zinc-300 shrink-0 cursor-grab" />
-                                            {IconEl}
-                                            <span className="text-sm text-zinc-800 flex-1">{f.label}</span>
-                                            <Switch checked onCheckedChange={() => toggleColumn(f.id)} />
-                                        </div>
-                                    );
-                                })}
-                                {FIELD_CONFIG.filter(f => visibleColumns.has(f.id)).length > 0 && (
-                                    <button type="button" className="text-xs text-violet-600 hover:underline" onClick={() => setVisibleColumns(new Set())}>Hide all</button>
-                                )}
-                            </div>
-                            <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-2">Popular</p>
-                            <div className="space-y-1">
-                                {FIELD_CONFIG.filter(f => !visibleColumns.has(f.id) && (!fieldsSearch.trim() || f.label.toLowerCase().includes(fieldsSearch.toLowerCase()))).map(f => {
-                                    const iconAny = (f as any).icon;
-                                    const IconEl = typeof iconAny === "function"
-                                        ? React.createElement(iconAny, { className: "h-4 w-4 text-zinc-400 shrink-0" })
-                                        : null;
-                                    return (
-                                        <div key={f.id} className="flex items-center justify-between py-2 px-2 rounded hover:bg-zinc-50">
-                                            <div className="flex items-center gap-2">
-                                                {IconEl}
-                                                <span className="text-sm text-zinc-800">{f.label}</span>
-                                            </div>
-                                            <Switch checked={false} onCheckedChange={() => toggleColumn(f.id)} />
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        </ScrollArea>
-                        <div className="p-3 sticky bottom-0 left-0 right-0 border-t bg-white border-zinc-100">
-                            <Button
-                                className="w-full bg-zinc-900 hover:bg-zinc-800 text-white"
-                                onClick={() => {
-                                    setFieldsPanelOpen(false);
-                                    setCreateFieldModalOpen(true);
-                                }}
-                            >
-                                <Plus className="h-4 w-4 mr-2" />Create field
-                            </Button>
-                        </div>
-                    </div>
-                </>
-            )}
+            {/* Fields panel */}
+            <FieldsPanelSlideout
+                open={fieldsPanelOpen && !createFieldModalOpen}
+                onClose={() => setFieldsPanelOpen(false)}
+                onOpenManagerModal={() => {
+                    setFieldsPanelOpen(false);
+                    setCreateFieldModalOpen(true);
+                }}
+                workspaceId={resolvedWorkspaceId}
+                listId={listId}
+                listName={currentList?.name}
+                fieldConfig={FIELD_CONFIG}
+                visibleColumns={visibleColumns}
+                columnOrder={columnOrder}
+                onColumnOrderChange={setColumnOrder}
+                toggleColumn={toggleColumn}
+                sensors={sensors}
+                customFields={customFields as any[]}
+                usedCustomFieldIds={usedCustomFieldIds}
+                getCustomFieldIcon={getCustomFieldIcon}
+            />
 
             {/* Customize view panel (ClickUp-style) */}
             {customizePanelOpen && !layoutOptionsOpen && (
@@ -5005,73 +4975,14 @@ export function TableView({ spaceId, projectId, teamId, listId, folderId, viewId
 
             {/* Advanced Filters panel moved to Popover */}
 
-            {/* Assignees panel ?Eimage 8 */}
-            {
-                assigneesPanelOpen && (
-                    <>
-                        <div className="absolute inset-0 bg-black/20 z-40" onClick={() => setAssigneesPanelOpen(false)} aria-hidden />
-                        <div className="absolute top-0 right-0 h-full w-[320px] max-w-[90vw] bg-white border-l border-zinc-200 shadow-xl z-50 flex flex-col">
-                            <div className="flex items-center justify-between p-4 border-b border-zinc-100">
-                                <h3 className="font-semibold text-zinc-900">Assignees</h3>
-                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setAssigneesPanelOpen(false)}><X className="h-4 w-4" /></Button>
-                            </div>
-                            <div className="p-3 border-b border-zinc-100">
-                                <div className="relative">
-                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
-                                    <Input className="pl-9 h-9 text-sm" placeholder="Search by user or team" value={assigneesSearch} onChange={e => setAssigneesSearch(e.target.value)} />
-                                </div>
-                            </div>
-                            <ScrollArea className="flex-1 p-3">
-                                <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-2">People {users.length}</p>
-                                <div className="space-y-1 mb-4">
-                                    <label className="flex items-center gap-2 py-2 px-2 rounded hover:bg-zinc-50 cursor-pointer">
-                                        <Checkbox
-                                            checked={filterAssignee.includes("__unassigned__")}
-                                            onCheckedChange={(checked) => {
-                                                setFilterAssignee(prev =>
-                                                    checked
-                                                        ? [...prev, "__unassigned__"]
-                                                        : prev.filter(id => id !== "__unassigned__")
-                                                );
-                                            }}
-                                        />
-                                        <span className="text-sm text-zinc-700">Unassigned</span>
-                                    </label>
-                                    {users
-                                        .filter(u => !assigneesSearch.trim() || (u.name || "").toLowerCase().includes(assigneesSearch.toLowerCase()))
-                                        .map(u => (
-                                            <label key={u.id} className="flex items-center gap-2 py-2 px-2 rounded hover:bg-zinc-50 cursor-pointer">
-                                                <Checkbox
-                                                    checked={filterAssignee.includes(u.id)}
-                                                    onCheckedChange={(checked) => {
-                                                        setFilterAssignee(prev =>
-                                                            checked
-                                                                ? [...prev, u.id]
-                                                                : prev.filter(id => id !== u.id)
-                                                        );
-                                                    }}
-                                                />
-                                                <Avatar className="h-6 w-6">
-                                                    <AvatarImage src={u.image || undefined} />
-                                                    <AvatarFallback className="text-[9px]">
-                                                        {u.name?.slice(0, 2).toUpperCase()}
-                                                    </AvatarFallback>
-                                                </Avatar>
-                                                <span className="text-sm text-zinc-700 truncate">{u.name}</span>
-                                            </label>
-                                        ))}
-                                </div>
-                                <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-2">Teams 0</p>
-                                <div className="py-2 text-sm text-zinc-500">No teams</div>
-                            </ScrollArea>
-                            <div className="p-3 border-t border-zinc-100 flex items-center justify-between">
-                                <span className="text-sm text-zinc-700 flex items-center gap-1.5"><MessageSquare className="h-4 w-4 text-zinc-400" /> Assigned comments</span>
-                                <Switch />
-                            </div>
-                        </div>
-                    </>
-                )
-            }
+            {/* Assignees panel */}
+            <AssigneesPanelSlideout
+                open={assigneesPanelOpen}
+                onClose={() => setAssigneesPanelOpen(false)}
+                users={users}
+                selectedAssignees={filterAssignee}
+                onSelectionChange={setFilterAssignee}
+            />
 
             {/* Bulk edit bar when tasks selected */}
             {

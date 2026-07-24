@@ -2188,21 +2188,26 @@ export function CalendarView({ spaceId, projectId, teamId, folderId, listId, vie
                     }}>
                         <PopoverTrigger asChild>
                             <div className="relative group/filter inline-flex">
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    className={cn(
-                                        "h-8 text-xs font-medium pr-7",
-                                        filtersPanelOpen ? "bg-violet-50 text-violet-700 border-violet-200" : "text-zinc-700 border-zinc-200",
-                                        appliedFilterCount > 0 && "border-violet-200 bg-violet-50/50 text-violet-700"
-                                    )}
-                                    onClick={() => { if (!filtersPanelOpen && filterGroups.conditions.length === 0) { addFilterGroup(); } }}
-                                >
-                                    <Filter className="h-3.5 w-3.5" />
-                                    <span className="hidden sm:inline ml-1">
-                                        {appliedFilterCount > 0 ? `${appliedFilterCount} Filter${appliedFilterCount !== 1 ? "s" : ""}` : "Filter"}
-                                    </span>
-                                </Button>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            className={cn(
+                                                "h-8 text-xs font-medium pr-7 bg-white hover:bg-zinc-100 shadow-none",
+                                                filtersPanelOpen ? "text-violet-700 border-violet-200" : "text-zinc-700 border-zinc-200",
+                                                appliedFilterCount > 0 && "border-violet-200 text-violet-700"
+                                            )}
+                                            onClick={() => { if (!filtersPanelOpen && filterGroups.conditions.length === 0) { addFilterGroup(); } }}
+                                        >
+                                            <Filter className="h-3.5 w-3.5" />
+                                            <span className="hidden sm:inline ml-1">
+                                                {appliedFilterCount > 0 ? `${appliedFilterCount} Filter${appliedFilterCount !== 1 ? "s" : ""}` : "Filter"}
+                                            </span>
+                                        </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="bottom">Filter tasks</TooltipContent>
+                                </Tooltip>
                                 {(appliedFilterCount > 0 || filtersPanelOpen) && (
                                     <div
                                         className={cn(
@@ -2240,7 +2245,7 @@ export function CalendarView({ spaceId, projectId, teamId, folderId, listId, vie
                             <Button
                                 variant="outline"
                                 size="sm"
-                                className={cn("h-8 text-xs font-medium", assigneesPanelOpen ? "bg-violet-50 text-violet-700 border-violet-200" : "text-zinc-700 border-zinc-200")}
+                                className={cn("h-8 text-xs font-medium bg-white hover:bg-zinc-100 shadow-none", assigneesPanelOpen ? "text-violet-700 border-violet-200" : "text-zinc-700 border-zinc-200")}
                                 onClick={() => { setAssigneesPanelOpen(!assigneesPanelOpen); setFiltersPanelOpen(false); }}
                             >
                                 <Users className="h-3.5 w-3.5" />
@@ -2271,15 +2276,20 @@ export function CalendarView({ spaceId, projectId, teamId, folderId, listId, vie
                                 </div>
                             </div>
                         ) : (
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                className="h-8 w-8 p-0 text-zinc-700 border-zinc-200"
-                                onClick={() => setIsToolbarSearchOpen(true)}
-                                title="Search"
-                            >
-                                <Search className="h-4 w-4" />
-                            </Button>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="h-8 w-8 p-0 text-zinc-700 bg-white hover:bg-zinc-100 border-zinc-200 shadow-none"
+                                        onClick={() => setIsToolbarSearchOpen(true)}
+                                        title="Search"
+                                    >
+                                        <Search className="h-4 w-4" />
+                                    </Button>
+                                </TooltipTrigger>
+                                <TooltipContent side="bottom">Search tasks</TooltipContent>
+                            </Tooltip>
                         )}
                     </div>
 
@@ -2288,7 +2298,7 @@ export function CalendarView({ spaceId, projectId, teamId, folderId, listId, vie
                             <Button
                                 variant="outline"
                                 size="sm"
-                                className="h-8 text-xs font-medium text-zinc-700 border-zinc-200"
+                                className="h-8 text-xs font-medium text-zinc-700 bg-white hover:bg-zinc-100 border-zinc-200 shadow-none"
                                 onClick={() => setCustomizePanelOpen(true)}
                             >
                                 <Settings className="h-3.5 w-3.5" />

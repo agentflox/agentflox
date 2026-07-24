@@ -484,7 +484,7 @@ export function ViewTabsOverflow({
                         <DropdownMenuContent
                             align="start"
                             side="bottom"
-                            className="w-64 p-0 shadow-xl border border-slate-200 rounded-xl overflow-hidden flex flex-col"
+                            className="w-64 p-0 shadow-xl border border-slate-200 rounded-xl overflow-hidden flex flex-col z-[9999]"
                             sideOffset={4}
                             onInteractOutside={(e) => {
                                 if ((e.target as HTMLElement).closest('[data-radix-popper-content-wrapper]')) {
