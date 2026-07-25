@@ -38,7 +38,7 @@ import {
     DropdownMenuSubTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Popover, PopoverContent, PopoverTrigger, PopoverAnchor } from "@/components/ui/popover";
 import {
     Command,
     CommandEmpty,
@@ -300,7 +300,7 @@ export function GanttView({ spaceId, projectId, teamId, listId, folderId, viewId
         e.stopPropagation();
         resizingCol.current = colId;
         startX.current = e.clientX;
-        startWidth.current = colWidths[colId] ?? (colId === "name" ? 360 : 184);
+        startWidth.current = colWidths[colId] ?? (colId === "name" ? 300 : 184);
 
         const onMouseMove = (moveEvent: MouseEvent) => {
             if (!resizingCol.current) return;
@@ -328,6 +328,8 @@ export function GanttView({ spaceId, projectId, teamId, listId, folderId, viewId
     const [subtaskTitleDraft, setSubtaskTitleDraft] = useState("");
     const [renamePopoverTaskId, setRenamePopoverTaskId] = useState<string | null>(null);
     const [renameTitleDraft, setRenameTitleDraft] = useState("");
+    const [timelineRenamePopoverTaskId, setTimelineRenamePopoverTaskId] = useState<string | null>(null);
+    const [timelineRenameTitleDraft, setTimelineRenameTitleDraft] = useState("");
 
     // Group row action states
     const [renameGroupPopoverId, setRenameGroupPopoverId] = useState<string | null>(null);
@@ -371,8 +373,10 @@ export function GanttView({ spaceId, projectId, teamId, listId, folderId, viewId
         else setSelectedTaskId(null);
     };
     const openTaskDetail = (taskId: string) => {
-        if (onTaskSelect) onTaskSelect(taskId);
-        else setSelectedTaskId(taskId);
+        setTimeout(() => {
+            if (onTaskSelect) onTaskSelect(taskId);
+            else setSelectedTaskId(taskId);
+        }, 0);
     };
 
     const updateSpaceMutation = trpc.space.update.useMutation();
@@ -1403,9 +1407,19 @@ export function GanttView({ spaceId, projectId, teamId, listId, folderId, viewId
         return { start, end };
     }, [tasks, effectiveTimeScale]);
     const [dateRange, setDateRange] = useState<{ start: Date; end: Date }>(() => getBaseDateRange());
+
+    // Keep a ref so the scale-change effect always calls the latest getBaseDateRange
+    // (which includes current tasks) without listing it as a dependency.
+    const getBaseDateRangeRef = useRef(getBaseDateRange);
+    getBaseDateRangeRef.current = getBaseDateRange;
+
+    // Only reset the date range when the TIME SCALE changes from the dropdown.
+    // DO NOT depend on `tasks` here — that caused the view to rescale every time
+    // a date was added to a task.
     useEffect(() => {
-        setDateRange(getBaseDateRange());
-    }, [getBaseDateRange]);
+        setDateRange(getBaseDateRangeRef.current());
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [effectiveTimeScale]);
 
     const timelineUnits = useMemo(() => {
         const units: TimelineUnit[] = [];
@@ -1778,6 +1792,7 @@ export function GanttView({ spaceId, projectId, teamId, listId, folderId, viewId
 
     // Drag-resize state (TimelineView parity)
     const isDraggingRef = useRef(false);
+    const dragRafRef = useRef<number | null>(null);
     const dragStateRef = useRef<{
         taskId: string;
         handle: "left" | "right";
@@ -1790,6 +1805,63 @@ export function GanttView({ spaceId, projectId, teamId, listId, folderId, viewId
         currentBarWidth: number;
     } | null>(null);
     const [draggedBarStyle, setDraggedBarStyle] = useState<{ taskId: string; barLeft: number; barWidth: number } | null>(null);
+
+    // Timeline background pan dragging
+    const isTimelinePanningRef = useRef(false);
+    const panStartRef = useRef<{ x: number; y: number; scrollLeft: number; scrollTop: number } | null>(null);
+
+    const handleTimelinePanStart = useCallback((e: React.MouseEvent) => {
+        if (e.button !== 0) return;
+        const target = e.target as HTMLElement;
+        if (target.closest('button, input, [role="button"], a, select, textarea, .group\\/bar')) return;
+
+        const viewport = rightScrollAreaRef.current?.querySelector("[data-radix-scroll-area-viewport]") as HTMLElement | null;
+        if (!viewport) return;
+
+        isTimelinePanningRef.current = true;
+        panStartRef.current = {
+            x: e.clientX,
+            y: e.clientY,
+            scrollLeft: viewport.scrollLeft,
+            scrollTop: viewport.scrollTop,
+        };
+        document.body.style.cursor = "grabbing";
+        document.body.style.userSelect = "none";
+    }, []);
+
+    useEffect(() => {
+        const onMouseMove = (e: MouseEvent) => {
+            if (!isTimelinePanningRef.current || !panStartRef.current) return;
+            const viewport = rightScrollAreaRef.current?.querySelector("[data-radix-scroll-area-viewport]") as HTMLElement | null;
+            if (!viewport) return;
+
+            const dx = e.clientX - panStartRef.current.x;
+            const dy = e.clientY - panStartRef.current.y;
+
+            // Only activate scroll after a 4px movement threshold to prevent
+            // a plain click from corrupting scrollLeft (micro mouse movement during click)
+            if (Math.abs(dx) < 4 && Math.abs(dy) < 4) return;
+
+            viewport.scrollLeft = panStartRef.current.scrollLeft - dx;
+            viewport.scrollTop = panStartRef.current.scrollTop - dy;
+        };
+
+        const onMouseUp = () => {
+            if (isTimelinePanningRef.current) {
+                isTimelinePanningRef.current = false;
+                panStartRef.current = null;
+                document.body.style.cursor = "";
+                document.body.style.userSelect = "";
+            }
+        };
+
+        window.addEventListener("mousemove", onMouseMove);
+        window.addEventListener("mouseup", onMouseUp);
+        return () => {
+            window.removeEventListener("mousemove", onMouseMove);
+            window.removeEventListener("mouseup", onMouseUp);
+        };
+    }, []);
 
     const handleResizeStart = useCallback((e: React.MouseEvent, task: Task, handle: "left" | "right") => {
         e.preventDefault();
@@ -1841,7 +1913,10 @@ export function GanttView({ spaceId, projectId, teamId, listId, folderId, viewId
 
             drag.currentBarLeft = newLeft;
             drag.currentBarWidth = newWidth;
-            setDraggedBarStyle({ taskId: drag.taskId, barLeft: newLeft, barWidth: newWidth });
+            if (dragRafRef.current) cancelAnimationFrame(dragRafRef.current);
+            dragRafRef.current = requestAnimationFrame(() => {
+                setDraggedBarStyle({ taskId: drag.taskId, barLeft: newLeft, barWidth: newWidth });
+            });
         };
 
         const onMouseUp = async (e: MouseEvent) => {
@@ -3332,7 +3407,7 @@ export function GanttView({ spaceId, projectId, teamId, listId, folderId, viewId
                                 <div className="w-max min-w-full flex flex-col h-full">
                                     <div className="h-16 shrink-0 bg-white flex relative text-[13px] font-normal text-zinc-500">
                                         <div className="absolute top-0 left-0 right-0 h-8 border-b border-zinc-200/70 pointer-events-none" />
-                                        <div className="h-full px-4 relative flex flex-col shrink-0" style={{ width: colWidths.name ?? 360 }}>
+                                        <div className="h-full px-4 relative flex flex-col shrink-0" style={{ width: colWidths.name ?? 300 }}>
                                             <div className="h-8 flex items-center">Name</div>
                                             <div className="h-8" />
                                             <div className="absolute right-0 top-0 h-8 w-1 cursor-col-resize hover:bg-zinc-300 z-10" onMouseDown={(e) => startResize(e, "name")} onClick={(e) => e.stopPropagation()} />
@@ -3457,7 +3532,7 @@ export function GanttView({ spaceId, projectId, teamId, listId, folderId, viewId
                                                                 <div
                                                                     className="flex items-center gap-2 h-full shrink-0"
                                                                     style={{
-                                                                        width: colWidths.name ?? 360,
+                                                                        width: colWidths.name ?? 300,
                                                                         paddingLeft: 12 + indentPx,
                                                                         paddingRight: 12
                                                                     }}
@@ -3772,7 +3847,7 @@ export function GanttView({ spaceId, projectId, teamId, listId, folderId, viewId
                                                             contextId={(spaceId || projectId) as any}
                                                             workspaceId={resolvedWorkspaceId as string}
                                                             users={users as any}
-                                                            lists={[]}
+                                                            lists={lists}
                                                             defaultListId={listId}
                                                             availableStatuses={allAvailableStatuses}
                                                             openOnContextMenu
@@ -3782,7 +3857,14 @@ export function GanttView({ spaceId, projectId, teamId, listId, folderId, viewId
                                                             onUpdate={async (id, data) => {
                                                                 try { await updateTask.mutateAsync({ id, ...(data as any) }); } catch (e) { }
                                                             }}
-                                                            onAction={() => { }}
+                                                            onAction={(action) => {
+                                                                if (action === "rename") {
+                                                                    setRenameTitleDraft(task.title || task.name || "");
+                                                                    setRenamePopoverTaskId(task.id);
+                                                                } else if (action === "archive") {
+                                                                    try { updateTask.mutateAsync({ id: task.id, isArchived: true } as any); toast.success("Task archived"); } catch (e) { }
+                                                                }
+                                                            }}
                                                         >
                                                             <div className="h-12 px-0 flex items-center hover:bg-zinc-100/50 transition-colors bg-white group">
                                                                 {/* Index / Grip+Checkbox */}
@@ -3806,43 +3888,11 @@ export function GanttView({ spaceId, projectId, teamId, listId, folderId, viewId
                                                                     </div>
                                                                 </div>
 
-                                                                {/* Status icon */}
-                                                                <TooltipProvider>
-                                                                    <Tooltip delayDuration={300}>
-                                                                        <TaskStatusPopover
-                                                                            task={task}
-                                                                            availableStatuses={allAvailableStatuses}
-                                                                            availableTaskTypes={availableTaskTypes}
-                                                                            onUpdateTask={(id, data) => updateTask.mutate({ id, ...data } as any)}
-                                                                        >
-                                                                            <TooltipTrigger asChild>
-                                                                                <button className="shrink-0 flex items-center justify-center h-6 w-6 rounded transition-all duration-150 cursor-pointer hover:bg-zinc-200/80 outline-none focus:outline-none">
-                                                                                    {(() => {
-                                                                                        const tt = (task as any).taskType || availableTaskTypes.find((t: any) => t.isDefault) || availableTaskTypes[0];
-                                                                                        const isDefault = !tt || tt.name?.toLowerCase() === "task" || tt.isDefault;
-                                                                                        const statusName = task.status?.name?.toLowerCase() || "";
-                                                                                        const statusColor = task.status?.color || (statusName.includes("done") || statusName.includes("complete") ? "#10B981" : statusName.includes("progress") || statusName.includes("doing") ? "#3B82F6" : "#94A3B8");
-                                                                                        if (isDefault) {
-                                                                                            if (statusName.includes("done") || statusName.includes("complete")) return <CheckCircle2 className="h-4 w-4" style={{ color: statusColor }} />;
-                                                                                            if (statusName.includes("progress") || statusName.includes("doing")) return <CircleDot className="h-4 w-4" style={{ color: statusColor }} />;
-                                                                                            return <CircleDashed className="h-4 w-4" style={{ color: statusColor }} />;
-                                                                                        }
-                                                                                        return <TaskTypeIcon type={tt} className="h-4 w-4" size={16} color={statusColor} />;
-                                                                                    })()}
-                                                                                </button>
-                                                                            </TooltipTrigger>
-                                                                        </TaskStatusPopover>
-                                                                        <TooltipContent className="bg-zinc-900 text-white font-medium text-xs px-2.5 py-1.5 border-0 rounded-md" side="top" sideOffset={4}>
-                                                                            <span style={{ color: task.status?.color || '#fff' }}>{task.status?.name?.toUpperCase() || "NO STATUS"}</span>
-                                                                        </TooltipContent>
-                                                                    </Tooltip>
-                                                                </TooltipProvider>
-
                                                                 {/* Title + hover actions */}
                                                                 <div
                                                                     className="flex items-center gap-2 px-2 min-w-0 relative shrink-0"
                                                                     style={{
-                                                                        width: colWidths.name ?? 360,
+                                                                        width: colWidths.name ?? 300,
                                                                         paddingLeft:
                                                                             expandedSubtaskMode === "separate"
                                                                                 ? 8 + taskGroupDepth * 20
@@ -3880,9 +3930,41 @@ export function GanttView({ spaceId, projectId, teamId, listId, folderId, viewId
                                                                                 )}
                                                                         </>
                                                                     )}
+                                                                    {/* Status icon */}
+                                                                    <TooltipProvider>
+                                                                        <Tooltip delayDuration={300}>
+                                                                            <TaskStatusPopover
+                                                                                task={task}
+                                                                                availableStatuses={allAvailableStatuses}
+                                                                                availableTaskTypes={availableTaskTypes}
+                                                                                onUpdateTask={(id, data) => updateTask.mutate({ id, ...data } as any)}
+                                                                            >
+                                                                                <TooltipTrigger asChild>
+                                                                                    <button className="shrink-0 flex items-center justify-center h-6 w-6 rounded transition-all duration-150 cursor-pointer hover:bg-zinc-200/80 outline-none focus:outline-none">
+                                                                                        {(() => {
+                                                                                            const tt = (task as any).taskType || availableTaskTypes.find((t: any) => t.isDefault) || availableTaskTypes[0];
+                                                                                            const isDefault = !tt || tt.name?.toLowerCase() === "task" || tt.isDefault;
+                                                                                            const statusName = task.status?.name?.toLowerCase() || "";
+                                                                                            const statusColor = task.status?.color || (statusName.includes("done") || statusName.includes("complete") ? "#10B981" : statusName.includes("progress") || statusName.includes("doing") ? "#3B82F6" : "#94A3B8");
+                                                                                            if (isDefault) {
+                                                                                                if (statusName.includes("done") || statusName.includes("complete")) return <CheckCircle2 className="h-4 w-4" style={{ color: statusColor }} />;
+                                                                                                if (statusName.includes("progress") || statusName.includes("doing")) return <CircleDot className="h-4 w-4" style={{ color: statusColor }} />;
+                                                                                                return <CircleDashed className="h-4 w-4" style={{ color: statusColor }} />;
+                                                                                            }
+                                                                                            return <TaskTypeIcon type={tt} className="h-4 w-4" size={16} color={statusColor} />;
+                                                                                        })()}
+                                                                                    </button>
+                                                                                </TooltipTrigger>
+                                                                            </TaskStatusPopover>
+                                                                            <TooltipContent className="bg-zinc-900 text-white font-medium text-xs px-2.5 py-1.5 border-0 rounded-md" side="top" sideOffset={4}>
+                                                                                <span style={{ color: task.status?.color || '#fff' }}>{task.status?.name?.toUpperCase() || "NO STATUS"}</span>
+                                                                            </TooltipContent>
+                                                                        </Tooltip>
+                                                                    </TooltipProvider>
+
                                                                     <span
                                                                         className="text-sm text-zinc-900 truncate font-medium cursor-pointer hover:text-blue-600 transition-colors"
-                                                                        onClick={(e) => { e.stopPropagation(); if (isDraggingRef.current) return; openTaskDetail(task.id); }}
+                                                                        onClick={(e) => { e.stopPropagation(); e.nativeEvent.stopImmediatePropagation(); if (isDraggingRef.current) return; openTaskDetail(task.id); }}
                                                                     >{task.title || task.name}</span>
 
                                                                     <div className="ml-auto pl-2 shrink-0 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -4196,7 +4278,7 @@ export function GanttView({ spaceId, projectId, teamId, listId, folderId, viewId
                             </Button>
                         </div>
                         <ScrollArea ref={rightScrollAreaRef} className="flex-1 w-full">
-                            <div className="min-w-fit w-full" style={{ width: totalTimelineCanvasWidthPx }}>
+                            <div className="min-w-fit w-full cursor-grab active:cursor-grabbing select-none" style={{ width: totalTimelineCanvasWidthPx }} onMouseDown={handleTimelinePanStart}>
                                 {/* Month Headers */}
                                 <div className={cn(GANTT_HEADER_ROW_CLASS, "sticky top-0 z-30")}>
                                     {effectiveTimeScale === "Day" ? (
@@ -4413,27 +4495,32 @@ export function GanttView({ spaceId, projectId, teamId, listId, folderId, viewId
                                                     key={task.id}
                                                     className="h-12 relative hover:bg-zinc-50/50 transition-colors group"
                                                     onMouseMove={(e) => {
-                                                        if (barStyle) return;
+                                                        if (barStyle || isTimelinePanningRef.current || isDraggingRef.current) return;
                                                         const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect();
-                                                        const x = e.clientX - rect.left;
-                                                        setScheduleHover({
-                                                            taskId: task.id,
-                                                            leftPx: Math.max(0, Math.min(totalTimelineWidthPx, x)),
+                                                        const rawX = Math.max(0, Math.min(totalTimelineWidthPx, e.clientX - rect.left));
+                                                        setScheduleHover(prev => {
+                                                            if (prev?.taskId === task.id && Math.abs(prev.leftPx - rawX) < 1) return prev;
+                                                            return { taskId: task.id, leftPx: rawX };
                                                         });
                                                     }}
                                                     onMouseLeave={() => {
                                                         setScheduleHover((prev) => (prev?.taskId === task.id ? null : prev));
                                                     }}
                                                     onClick={async (e) => {
-                                                        if (isDraggingRef.current) return;
-                                                        if (barStyle) {
-                                                            openTaskDetail(task.id);
-                                                            return;
-                                                        }
+                                                        if (isDraggingRef.current || isTimelinePanningRef.current) return;
+                                                        // If this task already has a bar, only the bar element itself
+                                                        // opens the detail (it has its own onClick + stopPropagation).
+                                                        // Clicking the empty row area when a bar exists does nothing.
+                                                        if (barStyle) return;
+                                                        // Use same coordinate as the hover indicator (e.clientX - rect.left):
+                                                        // this reflects live scroll position and is immune to micro-pan scroll corruption.
                                                         const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect();
-                                                        const clickX = e.clientX - rect.left;
-                                                        const pickedDate = dateFromTimelinePx(clickX);
+                                                        const rawX = e.clientX - rect.left;
+                                                        const pickedDate = dateFromTimelinePx(rawX);
                                                         if (!pickedDate) return;
+
+                                                        // Clear hover immediately for instantaneous feedback
+                                                        setScheduleHover(null);
 
                                                         const optimistic = { startDate: pickedDate, dueDate: pickedDate, committed: false as const };
                                                         setLocalTaskDates(prev => ({ ...prev, [task.id]: optimistic }));
@@ -4465,7 +4552,7 @@ export function GanttView({ spaceId, projectId, teamId, listId, folderId, viewId
                                                             contextId={(spaceId || projectId) as any}
                                                             workspaceId={resolvedWorkspaceId as string}
                                                             users={users as any}
-                                                            lists={[]}
+                                                            lists={lists}
                                                             defaultListId={listId}
                                                             availableStatuses={allAvailableStatuses}
                                                             openOnContextMenu
@@ -4475,7 +4562,14 @@ export function GanttView({ spaceId, projectId, teamId, listId, folderId, viewId
                                                             onUpdate={async (id, data) => {
                                                                 try { await updateTask.mutateAsync({ id, ...(data as any) }); } catch (e) { }
                                                             }}
-                                                            onAction={() => { }}
+                                                            onAction={(action) => {
+                                                                if (action === "rename") {
+                                                                    setTimelineRenameTitleDraft(task.title || task.name || "");
+                                                                    setTimelineRenamePopoverTaskId(task.id);
+                                                                } else if (action === "archive") {
+                                                                    try { updateTask.mutateAsync({ id: task.id, isArchived: true } as any); toast.success("Task archived"); } catch (e) { }
+                                                                }
+                                                            }}
                                                         >
                                                             <div
                                                                 className={cn(
@@ -4488,6 +4582,9 @@ export function GanttView({ spaceId, projectId, teamId, listId, folderId, viewId
                                                                 onClick={(e) => {
                                                                     if (isDraggingRef.current) return;
                                                                     e.stopPropagation();
+                                                                    // Stop the native event from reaching Radix's document-level
+                                                                    // dismiss listener so the dialog doesn't close immediately.
+                                                                    e.nativeEvent.stopImmediatePropagation();
                                                                     openTaskDetail(task.id);
                                                                 }}
                                                             >
@@ -4497,6 +4594,75 @@ export function GanttView({ spaceId, projectId, teamId, listId, folderId, viewId
                                                                         <AvatarFallback className="text-[8px] bg-white/20 text-white">{task.assignee.name?.slice(0, 1)}</AvatarFallback>
                                                                     </Avatar>
                                                                 )}
+
+                                                                {/* Rename Popover next to the task bar */}
+                                                                <Popover
+                                                                    open={timelineRenamePopoverTaskId === task.id}
+                                                                    onOpenChange={(open) => {
+                                                                        setTimelineRenamePopoverTaskId(open ? task.id : null);
+                                                                        if (open) setTimelineRenameTitleDraft((task.title || task.name || "").toString());
+                                                                    }}
+                                                                >
+                                                                    <PopoverAnchor className="absolute inset-0 pointer-events-none" />
+                                                                    <PopoverContent
+                                                                        align="start"
+                                                                        side="bottom"
+                                                                        sideOffset={8}
+                                                                        className="w-[340px] p-5 rounded-[20px] shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-zinc-200/80 bg-white"
+                                                                        onOpenAutoFocus={(e) => e.preventDefault()}
+                                                                        onClick={(e) => e.stopPropagation()}
+                                                                    >
+                                                                        <div className="space-y-3">
+                                                                            <div className="flex items-center gap-1.5 text-xs font-bold text-zinc-600 uppercase">
+                                                                                <Edit3 className="h-3.5 w-3.5" />
+                                                                                <span>RENAME TASK:</span>
+                                                                            </div>
+                                                                            <div className="flex items-stretch gap-2 border border-zinc-200 rounded-xl p-1 bg-white focus-within:border-[#9381FF] focus-within:ring-[3px] focus-within:ring-[#9381FF]/20 transition-all">
+                                                                                <input
+                                                                                    placeholder="Enter name"
+                                                                                    className="flex-1 bg-transparent border-none outline-none px-2 text-[13px] text-zinc-800 placeholder:text-zinc-400 min-w-0"
+                                                                                    value={timelineRenameTitleDraft}
+                                                                                    onChange={(e) => setTimelineRenameTitleDraft(e.target.value)}
+                                                                                    onKeyDown={async (e) => {
+                                                                                        if (e.key !== "Enter") return;
+                                                                                        e.preventDefault();
+                                                                                        const nextTitle = timelineRenameTitleDraft.trim();
+                                                                                        const current = (task.title || task.name || "").toString().trim();
+                                                                                        if (!nextTitle || nextTitle === current) return;
+                                                                                        try {
+                                                                                            await updateTask.mutateAsync({ id: task.id, title: nextTitle } as any);
+                                                                                            setTimelineRenamePopoverTaskId(null);
+                                                                                        } catch (err) {
+                                                                                            toast.error("Failed to rename task");
+                                                                                        }
+                                                                                    }}
+                                                                                />
+                                                                                <button
+                                                                                    className="bg-[#9381FF] hover:bg-[#8370F5] text-white rounded-lg px-3 py-1.5 text-[13px] font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                                                                    disabled={(() => {
+                                                                                        const nextTitle = timelineRenameTitleDraft.trim();
+                                                                                        const current = (task.title || task.name || "").toString().trim();
+                                                                                        return !nextTitle || nextTitle === current || updateTask.isPending;
+                                                                                    })()}
+                                                                                    onClick={async (e) => {
+                                                                                        e.stopPropagation();
+                                                                                        const nextTitle = timelineRenameTitleDraft.trim();
+                                                                                        const current = (task.title || task.name || "").toString().trim();
+                                                                                        if (!nextTitle || nextTitle === current) return;
+                                                                                        try {
+                                                                                            await updateTask.mutateAsync({ id: task.id, title: nextTitle } as any);
+                                                                                            setTimelineRenamePopoverTaskId(null);
+                                                                                        } catch (err) {
+                                                                                            toast.error("Failed to rename task");
+                                                                                        }
+                                                                                    }}
+                                                                                >
+                                                                                    {updateTask.isPending ? "..." : "Save"}
+                                                                                </button>
+                                                                            </div>
+                                                                        </div>
+                                                                    </PopoverContent>
+                                                                </Popover>
 
                                                                 {/* Left resize handle + "drag line" */}
                                                                 <div
@@ -4919,8 +5085,8 @@ export function GanttView({ spaceId, projectId, teamId, listId, folderId, viewId
                 workspaceId={resolvedWorkspaceId as string}
             />
 
-            {/* Always show task detail modal when a task is selected */}
-            {effectiveSelectedTaskId && (
+            {/* Task detail modal when used standalone (no onTaskSelect from parent) */}
+            {!onTaskSelect && effectiveSelectedTaskId && (
                 <TaskDetailModal
                     taskId={effectiveSelectedTaskId}
                     open={true}

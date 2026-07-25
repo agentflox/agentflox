@@ -256,7 +256,7 @@ export function TaskCalendar({
                             {startDate && (
                                 <button
                                     onClick={clearStartDate}
-                                    className="ml-auto hover:bg-gray-100 rounded p-0.5"
+                                    className="ml-auto hover:bg-gray-100 rounded p-0.5 cursor-pointer"
                                 >
                                     <XIcon className="w-3 h-3 text-gray-400" />
                                 </button>
@@ -322,7 +322,7 @@ export function TaskCalendar({
                             {endDate && (
                                 <button
                                     onClick={clearEndDate}
-                                    className="ml-auto hover:bg-gray-100 rounded p-0.5"
+                                    className="ml-auto hover:bg-gray-100 rounded p-0.5 cursor-pointer"
                                 >
                                     <XIcon className="w-3 h-3 text-gray-400" />
                                 </button>

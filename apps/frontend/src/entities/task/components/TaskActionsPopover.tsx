@@ -8,6 +8,7 @@ import {
     Popover,
     PopoverContent,
     PopoverTrigger,
+    PopoverAnchor,
 } from "@/components/ui/popover";
 import {
     Tooltip,
@@ -181,15 +182,17 @@ export function TaskActionsPopover({
                 // Context-menu-only mode: children are NOT a PopoverTrigger.
                 // Clicks flow through normally to child's own onClick handler.
                 // The popover opens only on right-click via onContextMenu.
-                React.isValidElement(children)
-                    ? React.cloneElement(children as React.ReactElement<any>, {
-                        onContextMenu: (e: React.MouseEvent) => {
-                            const original = (children as any)?.props?.onContextMenu;
-                            if (typeof original === "function") original(e);
-                            if (!e.defaultPrevented) contextMenuHandler(e);
-                        },
-                    })
-                    : <span onContextMenu={contextMenuHandler}>{children}</span>
+                <PopoverAnchor asChild>
+                    {React.isValidElement(children)
+                        ? React.cloneElement(children as React.ReactElement<any>, {
+                            onContextMenu: (e: React.MouseEvent) => {
+                                const original = (children as any)?.props?.onContextMenu;
+                                if (typeof original === "function") original(e);
+                                if (!e.defaultPrevented) contextMenuHandler(e);
+                            },
+                        })
+                        : <span onContextMenu={contextMenuHandler}>{children}</span>}
+                </PopoverAnchor>
             ) : (() => {
                 if (tooltip) {
                     return (
