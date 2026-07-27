@@ -786,13 +786,6 @@ export function TaskCreationModal({
                   </div>
                 </div>
               </div>
-
-              <div className="flex items-center">
-                {/* Context Badge */}
-                <div className="hidden sm:flex text-[10px] text-zinc-400 font-medium bg-zinc-50 px-2 py-1 rounded border border-zinc-100 uppercase tracking-wide">
-                  {context} • {context === 'PROJECT' ? 'Project' : context === 'SPACE' ? 'Space' : 'General'}
-                </div>
-              </div>
             </DialogHeader>
 
             <ListCreationModal
@@ -896,10 +889,10 @@ export function TaskCreationModal({
                   Press <kbd className="font-mono bg-zinc-100 border border-zinc-200 rounded px-1 min-w-[20px] inline-block text-center">Enter</kbd> to create
                 </div>
                 <div className="flex items-center gap-3">
-                  <Button variant="ghost" type="button" onClick={() => handleOpenChange(false)} disabled={isSubmitting} className="text-zinc-600 hover:text-zinc-900">
+                  <Button variant="ghost" type="button" onClick={() => handleOpenChange(false)} disabled={isSubmitting} className="w-full rounded-xl hover:border hover:border-slate-200 bg-white text-slate-600 hover:text-slate-700 hover:bg-slate-200 sm:w-auto">
                     Cancel
                   </Button>
-                  <Button type="submit" disabled={isSubmitting} className="bg-blue-600 hover:bg-blue-700 min-w-[150px] shadow-sm">
+                  <Button type="submit" disabled={isSubmitting} className="bg-black hover:bg-gray-800 min-w-[150px] shadow-sm">
                     {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     Create Task
                   </Button>

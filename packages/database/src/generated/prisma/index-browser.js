@@ -476,8 +476,17 @@ exports.Prisma.TaskCommentScalarFieldEnum = {
   parentId: 'parentId',
   content: 'content',
   isEdited: 'isEdited',
+  editedAt: 'editedAt',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
+};
+
+exports.Prisma.TaskCommentReactionScalarFieldEnum = {
+  id: 'id',
+  commentId: 'commentId',
+  userId: 'userId',
+  emoji: 'emoji',
+  createdAt: 'createdAt'
 };
 
 exports.Prisma.TaskAttachmentScalarFieldEnum = {
@@ -963,6 +972,7 @@ exports.Prisma.TaskActivityScalarFieldEnum = {
   field: 'field',
   oldValue: 'oldValue',
   newValue: 'newValue',
+  commentId: 'commentId',
   createdAt: 'createdAt'
 };
 
@@ -4302,6 +4312,7 @@ exports.Prisma.ModelName = {
   TaskAssignee: 'TaskAssignee',
   TaskWatcher: 'TaskWatcher',
   TaskComment: 'TaskComment',
+  TaskCommentReaction: 'TaskCommentReaction',
   TaskAttachment: 'TaskAttachment',
   TaskLink: 'TaskLink',
   Checklist: 'Checklist',

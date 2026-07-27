@@ -14,7 +14,7 @@ import {
     DollarSign, Globe, FunctionSquare, FileText, Phone, Mail, MapPin, TrendingUp, Heart, PenTool, MousePointer, ListTodo, AlertTriangle, CircleMinus, Link, Slash, Box,
     List as ListIcon, Archive, UserPlus, CalendarCheck, CalendarClock, CalendarRange, Hourglass, UserCheck, RefreshCw, Timer, Undo, ToggleLeft, Edit3, Trash2, Check, ChevronsUpDown,
     ChevronDown, UserRound, ShieldCheck, Home, ChevronUp, ArrowRight, GripVertical, Minus,
-    CircleDot, CircleDashed, CornerDownRight, CircleSlash
+    CircleDot, CircleDashed, CornerDownRight, CircleSlash, PenOff
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { cn } from "@/lib/utils";
@@ -71,7 +71,7 @@ import { TaskTypeIcon } from "@/entities/task/components/TaskTypeIcon";
 import { format } from "date-fns";
 import type { FilterCondition, FilterGroup, ListViewSavedConfig } from "./listViewTypes";
 import { FILTER_OPTIONS, FIELD_OPERATORS, STANDARD_FIELD_CONFIG } from "./listViewConstants";
-import { evaluateGroup, hasFilterValue, hasAnyValueInGroup, evaluateCondition } from "./filterUtils";
+import { evaluateGroup, hasFilterValue, hasAnyValueInGroup, evaluateCondition, getCustomFieldValue } from "./filterUtils";
 import { DestinationPicker } from "@/entities/task/components/DestinationPicker";
 import { ShareViewPermissionModal } from "@/features/dashboard/components/shared/ShareViewPermissionModal";
 import { DuplicateTaskModal } from "@/entities/task/components/DuplicateTaskModal";
@@ -80,6 +80,14 @@ import { SidePanel } from "@/features/dashboard/components/shared/SidePanel";
 import { TaskStatusPopover } from "@/entities/task/components/TaskStatusPopover";
 import { CustomFieldsManagerModal } from "@/entities/customfields/components/CustomFieldsManagerModal";
 import { FieldsPanelSlideout } from "@/features/dashboard/components/shared/FieldsPanelSlideout";
+import { TaskCommentPopover } from "@/entities/task/components/TaskCommentPopover";
+import { TaskTimeTrackedPopover } from "@/entities/task/components/TaskTimeTrackedPopover";
+import { TaskDependenciesPopover } from "@/entities/task/components/TaskDependenciesPopover";
+import { TaskLinkedTasksPopover } from "@/entities/task/components/TaskLinkedTasksPopover";
+import { LinkedDocsCell } from "@/entities/task/components/TaskLinkedDocsPopover";
+import { TaskListPopover } from "@/entities/task/components/TaskListPopover";
+import { TagsPopover } from "@/entities/task/components/TagsPopover";
+import { TagEditorPopover } from "@/entities/task/components/TagEditorPopover";
 
 interface GanttViewProps {
     spaceId?: string;
@@ -159,20 +167,66 @@ const formatDueDate = (date: Date | string | null) => {
     return { text: d.toLocaleDateString("en-US", { month: "short", day: "numeric" }), color: "text-zinc-500" };
 };
 
+const formatCustomFieldValue = (value: any, customField: any): string => {
+    if (value === null || value === undefined) return "—";
+    const fieldType = customField?.type || customField?.config?.fieldType;
+    switch (fieldType) {
+        case "TEXT":
+        case "TEXT_AREA":
+        case "LONG_TEXT":
+        case "CUSTOM_TEXT":
+        case "EMAIL":
+        case "PHONE":
+        case "URL":
+            return String(value);
+        case "NUMBER":
+        case "MONEY":
+            return typeof value === "number" ? value.toLocaleString() : String(value);
+        case "DATE":
+            try {
+                return format(new Date(value), "MMM d, yyyy");
+            } catch {
+                return String(value);
+            }
+        case "CHECKBOX":
+            return value ? "Yes" : "No";
+        case "DROPDOWN":
+        case "CUSTOM_DROPDOWN":
+        case "LABELS":
+            if (typeof value === "string") return value;
+            if (Array.isArray(value)) return value.join(", ");
+            return String(value);
+        default:
+            return String(value);
+    }
+};
+
 const GANTT_FIELD_CONFIG = [
-    { id: "name", label: "Name", icon: Type, type: "TEXT" },
-    { id: "status", label: "Status", icon: Info, type: "STATUS" },
+    { id: "name", label: "Task Name", icon: Type, type: "TEXT" },
     { id: "assignee", label: "Assignee(s)", icon: User, type: "USER" },
+    { id: "dueDate", label: "Due date", icon: Calendar, type: "DATE" },
     { id: "priority", label: "Priority", icon: Flag, type: "PRIORITY" },
-    { id: "dueDate", label: "Due Date", icon: Calendar, type: "DATE" },
-    { id: "startDate", label: "Start Date", icon: CalendarClock, type: "DATE" },
-    { id: "dateCreated", label: "Created by", icon: Clock, type: "DATE" },
-    { id: "dateUpdated", label: "Date Updated", icon: RefreshCcw, type: "DATE" },
+    { id: "status", label: "Status", icon: Info, type: "STATUS" },
+    { id: "comments", label: "Comments", icon: MessageSquare, type: "NUMBER" },
+    { id: "timeTracked", label: "Time tracked", icon: Play, type: "NUMBER" },
+    { id: "dateCreated", label: "Date created", icon: Clock, type: "DATE" },
+    { id: "createdBy", label: "Created by", icon: User, type: "USER" },
+    { id: "dateClosed", label: "Date closed", icon: CalendarCheck, type: "DATE" },
+    { id: "dateDone", label: "Date done", icon: CalendarCheck, type: "DATE" },
+    { id: "startDate", label: "Start date", icon: CalendarClock, type: "DATE" },
+    { id: "dateUpdated", label: "Date updated", icon: RefreshCcw, type: "DATE" },
     { id: "tags", label: "Tags", icon: Tag, type: "TAGS" },
+    { id: "taskType", label: "Task Type", icon: Box, type: "TEXT" },
+    { id: "timeline", label: "Timeline", icon: CalendarRange, type: "DATE" },
+    { id: "linkedTasks", label: "Linked tasks", icon: Link2, type: "TEXT" },
+    { id: "linkedDocs", label: "Linked docs", icon: Link2, type: "TEXT" },
+    { id: "dependencies", label: "Dependencies", icon: Link2, type: "TEXT" },
+    { id: "taskId", label: "Task ID", icon: Hash, type: "TEXT" },
+    { id: "list", label: "Lists", icon: ListIcon, type: "TEXT" },
     { id: "timeEstimate", label: "Time Estimate", icon: Timer, type: "NUMBER" },
-    { id: "timeTracked", label: "Time Tracked", icon: Play, type: "NUMBER" },
     { id: "points", label: "Points", icon: Target, type: "NUMBER" },
 ];
+
 
 const CREATE_FIELD_TYPES = [
     // Basic fields
@@ -290,7 +344,31 @@ export function GanttView({ spaceId, projectId, teamId, listId, folderId, viewId
     const [showClosed, setShowClosed] = useState(false);
     const [leftPanelOpen, setLeftPanelOpen] = useState(true);
     const [leftPanelWidth, setLeftPanelWidth] = useState(480);
-    const [colWidths, setColWidths] = useState<Record<string, number>>({});
+    const [colWidths, setColWidths] = useState<Record<string, number>>({
+        name: 350,
+        assignee: 150,
+        dueDate: 150,
+        priority: 120,
+        status: 150,
+        dateCreated: 150,
+        timeEstimate: 120,
+        comments: 100,
+        timeTracked: 120,
+        pullRequests: 120,
+        linkedTasks: 150,
+        taskType: 130,
+        tags: 150,
+        linkedDocs: 150,
+        dependencies: 150,
+        taskId: 100,
+        list: 150,
+        createdBy: 150,
+        dateClosed: 150,
+        dateDone: 150,
+        startDate: 150,
+        dateUpdated: 150,
+        timeline: 180,
+    });
     const resizingCol = useRef<string | null>(null);
     const startX = useRef(0);
     const startWidth = useRef(0);
@@ -823,10 +901,16 @@ export function GanttView({ spaceId, projectId, teamId, listId, folderId, viewId
     });
 
     const toggleColumn = (colId: string) => {
+        if (colId === "name") return;
         setVisibleColumns(prev => {
             const next = new Set(prev);
-            if (next.has(colId)) next.delete(colId);
-            else next.add(colId);
+            if (next.has(colId)) {
+                next.delete(colId);
+                setColumnOrder(order => order.filter(id => id !== colId));
+            } else {
+                next.add(colId);
+                setColumnOrder(order => Array.from(new Set([...order, colId])));
+            }
             return next;
         });
     };
@@ -843,7 +927,7 @@ export function GanttView({ spaceId, projectId, teamId, listId, folderId, viewId
         onSuccess: () => { void utils.folder.byContext.invalidate(); void utils.task.list.invalidate(); }
     });
     const updateProject = trpc.project.update.useMutation({
-        onSuccess: () => { void utils.project.byContext.invalidate(); void utils.task.list.invalidate(); }
+        onSuccess: () => { void utils.project.invalidate(); void utils.task.list.invalidate(); }
     });
     const createList = trpc.list.create.useMutation({
         onSuccess: () => { void utils.list.byContext.invalidate(); void utils.task.list.invalidate(); }
@@ -884,6 +968,7 @@ export function GanttView({ spaceId, projectId, teamId, listId, folderId, viewId
         if (cfg.pinDescription !== undefined) setPinDescription(cfg.pinDescription);
         if (Array.isArray(cfg.columnOrder) && cfg.columnOrder.length) setColumnOrder(cfg.columnOrder);
         if (Array.isArray(cfg.visibleColumns) && cfg.visibleColumns.length) setVisibleColumns(new Set(cfg.visibleColumns));
+        if (cfg.colWidths && typeof cfg.colWidths === 'object') setColWidths(cfg.colWidths as Record<string, number>);
 
         // Layout options
         if (typeof cfg.showEmptyStatuses === "boolean") setShowEmptyStatuses(cfg.showEmptyStatuses);
@@ -915,8 +1000,8 @@ export function GanttView({ spaceId, projectId, teamId, listId, folderId, viewId
             showCompleted: typeof cfg.showCompleted === "boolean" ? cfg.showCompleted : showCompleted,
             showCompletedSubtasks: typeof cfg.showCompletedSubtasks === "boolean" ? cfg.showCompletedSubtasks : showCompletedSubtasks,
             defaultToMeMode,
-            pinDescription,
-            columnOrder,
+            columnOrder: Array.isArray(cfg.columnOrder) ? cfg.columnOrder : Array.from(columnOrder),
+            colWidths: cfg.colWidths && typeof cfg.colWidths === 'object' ? cfg.colWidths : colWidths,
             visibleColumns: Array.isArray(cfg.visibleColumns) ? cfg.visibleColumns : Array.from(visibleColumns),
             showEmptyStatuses: typeof cfg.showEmptyStatuses === "boolean" ? cfg.showEmptyStatuses : showEmptyStatuses,
             wrapText: typeof cfg.wrapText === "boolean" ? cfg.wrapText : wrapText,
@@ -927,7 +1012,6 @@ export function GanttView({ spaceId, projectId, teamId, listId, folderId, viewId
             showSubtasksFromOtherLists: typeof cfg.showSubtasksFromOtherLists === "boolean" ? cfg.showSubtasksFromOtherLists : showSubtasksFromOtherLists,
             pinDescription: typeof cfg.pinDescription === "boolean" ? cfg.pinDescription : pinDescription,
             viewAutosave: typeof cfg.viewAutosave === "boolean" ? cfg.viewAutosave : viewAutosave,
-            defaultToMeMode: typeof cfg.defaultToMeMode === "boolean" ? cfg.defaultToMeMode : defaultToMeMode,
             filterGroups: cfg.filterGroups && typeof (cfg.filterGroups as FilterGroup).conditions !== "undefined" ? (cfg.filterGroups as FilterGroup) : filterGroups,
         });
         setSavedSnapshot(baseline);
@@ -948,6 +1032,8 @@ export function GanttView({ spaceId, projectId, teamId, listId, folderId, viewId
         showCompletedSubtasks,
         showClosedTasks: !showCompleted,
         visibleColumns: Array.from(visibleColumns),
+        columnOrder: Array.from(columnOrder),
+        colWidths,
 
         // Layout options
         showEmptyStatuses,
@@ -974,6 +1060,8 @@ export function GanttView({ spaceId, projectId, teamId, listId, folderId, viewId
         showCompleted,
         showCompletedSubtasks,
         visibleColumns,
+        columnOrder,
+        colWidths,
         showEmptyStatuses,
         wrapText,
         showTaskLocations,
@@ -2971,7 +3059,7 @@ export function GanttView({ spaceId, projectId, teamId, listId, folderId, viewId
     }
 
     return (
-        <div ref={ganttContainerRef} className="h-full flex flex-col bg-white rounded-lg border border-zinc-200 shadow-sm overflow-hidden text-sm">
+        <div ref={ganttContainerRef} className="h-full flex flex-col bg-white border border-zinc-200 shadow-sm overflow-hidden text-sm">
             {/* Toolbar */}
             <div className="flex items-center justify-between px-4 py-2 border-b border-zinc-200 bg-white gap-4 overflow-x-auto">
                 {/* Left Side */}
@@ -3403,37 +3491,39 @@ export function GanttView({ spaceId, projectId, teamId, listId, folderId, viewId
                             className="bg-zinc-50/50 flex flex-col relative border-r border-zinc-200 group/left-sidebar absolute left-0 top-0 bottom-0 z-20"
                             style={{ width: leftPanelWidth }}
                         >
-                            <div className="flex-1 overflow-x-auto overflow-y-hidden flex flex-col">
-                                <div className="w-max min-w-full flex flex-col h-full">
-                                    <div className="h-16 shrink-0 bg-white flex relative text-[13px] font-normal text-zinc-500">
-                                        <div className="absolute top-0 left-0 right-0 h-8 border-b border-zinc-200/70 pointer-events-none" />
-                                        <div className="h-full px-4 relative flex flex-col shrink-0" style={{ width: colWidths.name ?? 300 }}>
-                                            <div className="h-8 flex items-center">Name</div>
-                                            <div className="h-8" />
-                                            <div className="absolute right-0 top-0 h-8 w-1 cursor-col-resize hover:bg-zinc-300 z-10" onMouseDown={(e) => startResize(e, "name")} onClick={(e) => e.stopPropagation()} />
-                                        </div>
-                                        {columnOrder.filter(c => visibleColumns.has(c) && c !== "name").map(colId => {
-                                            const field = GANTT_FIELD_CONFIG.find(f => f.id === colId) || FIELD_CONFIG.find(f => f.id === colId);
-                                            return (
-                                                <div key={colId} className="h-full px-4 relative flex flex-col shrink-0" style={{ width: colWidths[colId] ?? 184 }}>
-                                                    <div className="h-8 flex items-center">
-                                                        <span>{field?.label || colId}</span>
-                                                    </div>
-                                                    <div className="h-8" />
-                                                    <div className="absolute right-0 top-0 h-8 w-1 cursor-col-resize hover:bg-zinc-300 z-10" onMouseDown={(e) => startResize(e, colId)} onClick={(e) => e.stopPropagation()} />
-                                                </div>
-                                            );
-                                        })}
-                                        <div className="h-full w-[52px] sticky right-0 bg-white z-20 flex flex-col shrink-0 border-l border-zinc-100 shadow-[-4px_0_12px_rgba(0,0,0,0.02)]">
-                                            <div className="h-8 flex items-center justify-center">
-                                                <Button variant="ghost" size="icon" className="h-5 w-5 text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 rounded-full border border-dashed border-zinc-300 flex-shrink-0" onClick={() => setFieldsPanelOpen(true)}>
-                                                    <Plus className="h-3 w-3" />
-                                                </Button>
+                            <div className="flex-1 overflow-hidden flex flex-col">
+                                <ScrollArea ref={leftScrollAreaRef} orientation="both" className="flex-1 min-h-0 [&_[data-radix-scroll-area-scrollbar][data-orientation='vertical']]:hidden">
+                                    <div className="w-max min-w-full flex flex-col min-h-full">
+                                        {/* Sticky header row — inside ScrollArea so it shares the same scroll context */}
+                                        <div className="h-16 shrink-0 bg-white flex relative text-[13px] font-normal text-zinc-500 sticky top-0 z-30">
+                                            <div className="absolute top-0 left-0 right-0 h-8 border-b border-zinc-200/70 pointer-events-none z-40" />
+                                            <div className="h-full px-4 relative flex flex-col shrink-0 sticky left-0 z-30 bg-white" style={{ width: Math.max(colWidths.name ?? 300, 200), minWidth: Math.max(colWidths.name ?? 300, 200) }}>
+                                                <div className="h-8 flex items-center">Name</div>
+                                                <div className="h-8" />
+                                                <div className="absolute right-0 top-0 h-8 w-1 cursor-col-resize hover:bg-zinc-300 z-10" onMouseDown={(e) => startResize(e, "name")} onClick={(e) => e.stopPropagation()} />
                                             </div>
-                                            <div className="h-8" />
+                                            {columnOrder.filter(c => visibleColumns.has(c) && c !== "name").map(colId => {
+                                                const field = GANTT_FIELD_CONFIG.find(f => f.id === colId) || FIELD_CONFIG.find(f => f.id === colId);
+                                                return (
+                                                    <div key={colId} className="h-full px-4 relative flex flex-col shrink-0" style={{ width: Math.max(colWidths[colId] ?? 184, 100), minWidth: Math.max(colWidths[colId] ?? 184, 100) }}>
+                                                        <div className="h-8 flex items-center">
+                                                            <span>{field?.label || colId}</span>
+                                                        </div>
+                                                        <div className="h-8" />
+                                                        <div className="absolute right-0 top-0 h-8 w-1 cursor-col-resize hover:bg-zinc-300 z-10" onMouseDown={(e) => startResize(e, colId)} onClick={(e) => e.stopPropagation()} />
+                                                    </div>
+                                                );
+                                            })}
+                                            <div className="h-full w-[52px] sticky right-0 bg-white z-20 flex flex-col shrink-0">
+                                                <div className="h-8 flex items-center justify-center">
+                                                    <Button variant="ghost" size="icon" className="h-5 w-5 text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 rounded-full border border-dashed border-zinc-300 flex-shrink-0" onClick={() => setFieldsPanelOpen(true)}>
+                                                        <Plus className="h-3 w-3" />
+                                                    </Button>
+                                                </div>
+                                                <div className="h-8" />
+                                            </div>
                                         </div>
-                                    </div>
-                                    <ScrollArea ref={leftScrollAreaRef} className="flex-1 min-h-0 [&_[data-radix-scroll-area-scrollbar]]:hidden">
+                                        {/* Rows */}
                                         <div>
                                             <VirtualizedDivRows
                                                 scrollRef={rightScrollAreaRef}
@@ -3522,7 +3612,7 @@ export function GanttView({ spaceId, projectId, teamId, listId, folderId, viewId
                                                         return (
                                                             <div
                                                                 key={`group-${row.id}`}
-                                                                className="h-11 flex items-center border-b border-zinc-100 bg-white hover:bg-zinc-100/50 cursor-pointer select-none transition-colors group"
+                                                                className="h-11 flex items-center border-b border-zinc-100 bg-white hover:bg-zinc-50 cursor-pointer select-none transition-colors group"
                                                                 onClick={() => setCollapsedGroups(prev => {
                                                                     const next = new Set(prev);
                                                                     if (next.has(row.id)) next.delete(row.id); else next.add(row.id);
@@ -3530,9 +3620,10 @@ export function GanttView({ spaceId, projectId, teamId, listId, folderId, viewId
                                                                 })}
                                                             >
                                                                 <div
-                                                                    className="flex items-center gap-2 h-full shrink-0"
+                                                                    className="flex items-center gap-2 h-full shrink-0 sticky left-0 z-10 bg-white group-hover:bg-zinc-50"
                                                                     style={{
-                                                                        width: colWidths.name ?? 300,
+                                                                        width: Math.max(colWidths.name ?? 300, 200),
+                                                                        minWidth: Math.max(colWidths.name ?? 300, 200),
                                                                         paddingLeft: 12 + indentPx,
                                                                         paddingRight: 12
                                                                     }}
@@ -3866,39 +3957,39 @@ export function GanttView({ spaceId, projectId, teamId, listId, folderId, viewId
                                                                 }
                                                             }}
                                                         >
-                                                            <div className="h-12 px-0 flex items-center hover:bg-zinc-100/50 transition-colors bg-white group">
-                                                                {/* Index / Grip+Checkbox */}
-                                                                <div className="flex items-center gap-1 shrink-0 w-10 relative h-6 ml-2">
-                                                                    <div className={cn(
-                                                                        "absolute inset-0 flex items-center justify-center text-[10px] text-zinc-400 font-medium transition-opacity",
-                                                                        selectedTasks.includes(task.id) ? "opacity-0" : "opacity-100 group-hover:opacity-0"
-                                                                    )}>
-
-                                                                    </div>
-                                                                    <div className={cn(
-                                                                        "flex items-center gap-1 transition-opacity relative z-10",
-                                                                        selectedTasks.includes(task.id) ? "opacity-100" : "opacity-0 group-hover:opacity-100"
-                                                                    )}>
-                                                                        <GripVertical className="h-4 w-4 text-zinc-300 cursor-grab shrink-0" />
-                                                                        <Checkbox
-                                                                            checked={selectedTasks.includes(task.id)}
-                                                                            onCheckedChange={() => setSelectedTasks(prev => prev.includes(task.id) ? prev.filter(id => id !== task.id) : [...prev, task.id])}
-                                                                            className="border-zinc-300 shrink-0 h-4 w-4 cursor-pointer"
-                                                                        />
-                                                                    </div>
-                                                                </div>
-
-                                                                {/* Title + hover actions */}
+                                                            <div className="h-12 px-0 flex items-center hover:bg-zinc-50 transition-colors bg-white group">
+                                                                {/* Title + hover actions — includes checkbox/grip so it starts at left:0 like the header */}
                                                                 <div
-                                                                    className="flex items-center gap-2 px-2 min-w-0 relative shrink-0"
+                                                                    className="flex items-center gap-2 px-2 min-w-0 relative shrink-0 sticky left-0 z-10 bg-white group-hover:bg-zinc-50"
                                                                     style={{
-                                                                        width: colWidths.name ?? 300,
+                                                                        width: Math.max(colWidths.name ?? 300, 200),
+                                                                        minWidth: Math.max(colWidths.name ?? 300, 200),
                                                                         paddingLeft:
                                                                             expandedSubtaskMode === "separate"
                                                                                 ? 8 + taskGroupDepth * 20
-                                                                                : 8 + taskGroupDepth * 20 + (nestedDepthByTaskId.get(task.id) ?? 0) * 20,
+                                                                                : 8 + taskGroupDepth * 20 + (nestedDepthByTaskId.get(task.id) ?? 0) * 20
                                                                     }}
                                                                 >
+                                                                    {/* Grip + Checkbox — inside Name cell so widths align with header */}
+                                                                    <div className="flex items-center gap-1 shrink-0 w-10 relative h-6">
+                                                                        <div className={cn(
+                                                                            "absolute inset-0 flex items-center justify-center text-[10px] text-zinc-400 font-medium transition-opacity",
+                                                                            selectedTasks.includes(task.id) ? "opacity-0" : "opacity-100 group-hover:opacity-0"
+                                                                        )}>
+                                                                        </div>
+                                                                        <div className={cn(
+                                                                            "flex items-center gap-1 transition-opacity relative z-10",
+                                                                            selectedTasks.includes(task.id) ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+                                                                        )}>
+                                                                            <GripVertical className="h-4 w-4 text-zinc-300 cursor-grab shrink-0" />
+                                                                            <Checkbox
+                                                                                checked={selectedTasks.includes(task.id)}
+                                                                                onCheckedChange={() => setSelectedTasks(prev => prev.includes(task.id) ? prev.filter(id => id !== task.id) : [...prev, task.id])}
+                                                                                className="border-zinc-300 shrink-0 h-4 w-4 cursor-pointer"
+                                                                            />
+                                                                        </div>
+                                                                    </div>
+
                                                                     {expandedSubtaskMode !== "separate" && (
                                                                         <>
                                                                             {(childCountByTaskId.get(task.id) ?? 0) > 0 ? (() => {
@@ -4146,31 +4237,31 @@ export function GanttView({ spaceId, projectId, teamId, listId, folderId, viewId
                                                                     if (colId === "assignee") {
                                                                         const assignees = task.assignees?.length ? task.assignees : (task.assignee ? [{ user: task.assignee }] : []);
                                                                         return (
-                                                                            <div key={colId} className="px-4 flex items-center shrink-0" style={{ width: w }}>
-                                                                                <AssigneeSelector users={users as any} agents={[]} workspaceId={resolvedWorkspaceId as string} variant="compact" side="right" avoidCollisions={false} collisionPadding={12} sideOffset={8} value={formatAssigneeIdsForSelector(task.assignees ?? [])} onChange={(newIds) => { updateTask.mutate({ id: task.id, assigneeIds: newIds } as any); }} trigger={<button type="button" className="flex items-center -space-x-1.5 rounded hover:bg-zinc-100 px-1 py-0.5 cursor-pointer" onClick={(e) => { e.stopPropagation(); }} title="Edit assignees">{assignees.length > 0 ? assignees.slice(0, 4).map((a: any, i: number) => (<Avatar key={a.user?.id || a.aiAgent?.id || a.agent?.id || i} className="h-6 w-6 border-2 border-white ring-1 ring-zinc-100"><AvatarImage src={a.user?.image || a.aiAgent?.avatar || a.aiAgent?.image || a.agent?.avatar || undefined} /><AvatarFallback className="text-[9px] bg-indigo-50 text-indigo-600">{a.user?.name?.slice(0, 2)?.toUpperCase() || a.aiAgent?.name?.slice(0, 2)?.toUpperCase() || a.agent?.name?.slice(0, 2)?.toUpperCase() || "??"}</AvatarFallback></Avatar>)) : (<div className="h-6 w-6 rounded-full border border-dashed border-zinc-300 flex items-center justify-center"><Users className="h-3 w-3 text-zinc-400" /></div>)}</button>} />
+                                                                            <div key={colId} className="px-4 flex items-center shrink-0 w-full h-full min-h-[38px] p-0.5 rounded-sm overflow-hidden" style={{ width: Math.max(w, 100), minWidth: Math.max(w, 100) }}>
+                                                                                <AssigneeSelector users={users as any} agents={[]} workspaceId={resolvedWorkspaceId as string} variant="compact" side="right" avoidCollisions={false} collisionPadding={12} sideOffset={8} value={formatAssigneeIdsForSelector(task.assignees ?? [])} onChange={(newIds) => { updateTask.mutate({ id: task.id, assigneeIds: newIds } as any); }} trigger={<button type="button" className="w-full h-full min-h-[38px] flex items-center justify-start px-2 py-1 outline-none rounded-sm transition-shadow cursor-pointer hover:bg-zinc-100" onClick={(e) => { e.stopPropagation(); }} title="Edit assignees"><div className="flex items-center -space-x-1.5">{assignees.length > 0 ? assignees.slice(0, 4).map((a: any, i: number) => (<Avatar key={a.user?.id || a.aiAgent?.id || a.agent?.id || i} className="h-6 w-6 border-2 border-white ring-1 ring-zinc-100"><AvatarImage src={a.user?.image || a.aiAgent?.avatar || a.aiAgent?.image || a.agent?.avatar || undefined} /><AvatarFallback className="text-[9px] bg-indigo-50 text-indigo-600">{a.user?.name?.slice(0, 2)?.toUpperCase() || a.aiAgent?.name?.slice(0, 2)?.toUpperCase() || a.agent?.name?.slice(0, 2)?.toUpperCase() || "??"}</AvatarFallback></Avatar>)) : (<div className="h-6 w-6 rounded-full border border-dashed border-zinc-300 flex items-center justify-center"><Users className="h-3 w-3 text-zinc-400" /></div>)}</div></button>} />
                                                                             </div>
                                                                         );
                                                                     }
                                                                     if (colId === "dueDate") {
                                                                         const dueDateInfo = formatDueDate(task.dueDate ?? null);
                                                                         return (
-                                                                            <div key={colId} className="px-4 flex items-center shrink-0" style={{ width: w }}>
-                                                                                <Popover><PopoverTrigger asChild><button type="button" className={cn("text-xs rounded px-1 py-0.5 hover:bg-zinc-100 cursor-pointer", dueDateInfo ? dueDateInfo.color : "text-zinc-400")} onClick={(e) => { e.stopPropagation(); }} title="Edit due date">{dueDateInfo ? dueDateInfo.text : "Add Date"}</button></PopoverTrigger><PopoverContent className="w-auto p-0" align="start" sideOffset={8} collisionPadding={10}><TaskCalendar startDate={task.startDate ? new Date(task.startDate) : undefined} endDate={task.dueDate ? new Date(task.dueDate) : undefined} onStartDateChange={(date) => { updateTask.mutate({ id: task.id, startDate: date ? date.toISOString() : null } as any); }} onEndDateChange={(date) => { updateTask.mutate({ id: task.id, dueDate: date ? date.toISOString() : null } as any); }} /></PopoverContent></Popover>
+                                                                            <div key={colId} className="px-4 flex items-center shrink-0 w-full h-full min-h-[38px] p-0.5 rounded-sm overflow-hidden" style={{ width: Math.max(w, 100), minWidth: Math.max(w, 100) }}>
+                                                                                <Popover><PopoverTrigger asChild><button type="button" className={cn("text-xs w-full h-full min-h-[38px] flex items-center justify-start px-2 py-1 outline-none rounded-sm transition-shadow cursor-pointer hover:bg-zinc-100", dueDateInfo ? dueDateInfo.color : "text-zinc-400")} onClick={(e) => { e.stopPropagation(); }} title="Edit due date">{dueDateInfo ? dueDateInfo.text : "Add Date"}</button></PopoverTrigger><PopoverContent className="w-auto p-0" align="start" sideOffset={8} collisionPadding={10}><TaskCalendar startDate={task.startDate ? new Date(task.startDate) : undefined} endDate={task.dueDate ? new Date(task.dueDate) : undefined} onStartDateChange={(date) => { updateTask.mutate({ id: task.id, startDate: date ? date.toISOString() : null } as any); }} onEndDateChange={(date) => { updateTask.mutate({ id: task.id, dueDate: date ? date.toISOString() : null } as any); }} /></PopoverContent></Popover>
                                                                             </div>
                                                                         );
                                                                     }
                                                                     if (colId === "startDate") {
                                                                         const startDateInfo = formatDueDate(task.startDate ?? null);
                                                                         return (
-                                                                            <div key={colId} className="px-4 flex items-center shrink-0" style={{ width: w }}>
-                                                                                <Popover><PopoverTrigger asChild><button type="button" className={cn("text-xs rounded px-1 py-0.5 hover:bg-zinc-100 cursor-pointer", startDateInfo ? startDateInfo.color : "text-zinc-400")} onClick={(e) => { e.stopPropagation(); }} title="Edit start date">{startDateInfo ? startDateInfo.text : "Add Date"}</button></PopoverTrigger><PopoverContent className="w-auto p-0" align="start" sideOffset={8} collisionPadding={10}><TaskCalendar startDate={task.startDate ? new Date(task.startDate) : undefined} endDate={task.dueDate ? new Date(task.dueDate) : undefined} onStartDateChange={(date) => { updateTask.mutate({ id: task.id, startDate: date ? date.toISOString() : null } as any); }} onEndDateChange={(date) => { updateTask.mutate({ id: task.id, dueDate: date ? date.toISOString() : null } as any); }} /></PopoverContent></Popover>
+                                                                            <div key={colId} className="px-4 flex items-center shrink-0 w-full h-full min-h-[38px] p-0.5 rounded-sm overflow-hidden" style={{ width: Math.max(w, 100), minWidth: Math.max(w, 100) }}>
+                                                                                <Popover><PopoverTrigger asChild><button type="button" className={cn("text-xs w-full h-full min-h-[38px] flex items-center justify-start px-2 py-1 outline-none rounded-sm transition-shadow cursor-pointer hover:bg-zinc-100", task.startDate ? "text-zinc-700 font-medium" : "text-zinc-400")} onClick={(e) => { e.stopPropagation(); }} title="Edit start date">{task.startDate ? format(new Date(task.startDate), "M/d/yy") : "Add Date"}</button></PopoverTrigger><PopoverContent className="w-auto p-0" align="start" sideOffset={8} collisionPadding={10}><TaskCalendar startDate={task.startDate ? new Date(task.startDate) : undefined} endDate={task.dueDate ? new Date(task.dueDate) : undefined} onStartDateChange={(date) => { updateTask.mutate({ id: task.id, startDate: date ? date.toISOString() : null } as any); }} onEndDateChange={(date) => { updateTask.mutate({ id: task.id, dueDate: date ? date.toISOString() : null } as any); }} /></PopoverContent></Popover>
                                                                             </div>
                                                                         );
                                                                     }
                                                                     if (colId === "priority") {
                                                                         return (
-                                                                            <div key={colId} className="px-4 flex items-center shrink-0" style={{ width: w }}>
-                                                                                <DropdownMenu><DropdownMenuTrigger asChild><Button type="button" variant="outline" size="sm" className="h-6 w-auto min-w-[90px] border-zinc-200 bg-white hover:bg-zinc-50 focus:ring-0 px-2.5 rounded-sm text-xs font-medium transition-all text-zinc-700 cursor-pointer" onClick={(e) => { e.stopPropagation(); }} title="Edit priority"><div className="flex items-center gap-1.5 w-full"><div className={cn("flex items-center gap-1.5", task.priority === 'URGENT' ? "text-red-500" : task.priority === 'HIGH' ? "text-orange-500" : task.priority === 'NORMAL' ? "text-blue-500" : "text-zinc-400")}><Flag className="h-3 w-3 fill-current" /></div><span>{task.priority ? task.priority.charAt(0) + task.priority.slice(1).toLowerCase() : "Priority"}</span></div></Button></DropdownMenuTrigger><DropdownMenuContent align="start" className="w-48 z-[200]"><DropdownMenuLabel className="text-xs">Priority</DropdownMenuLabel><DropdownMenuItem onClick={() => updateTask.mutate({ id: task.id, priority: "URGENT" } as any)}><Flag className="h-3 w-3 mr-2 text-red-600 fill-current" /> Urgent</DropdownMenuItem><DropdownMenuItem onClick={() => updateTask.mutate({ id: task.id, priority: "HIGH" } as any)}><Flag className="h-3 w-3 mr-2 text-orange-600 fill-current" /> High</DropdownMenuItem><DropdownMenuItem onClick={() => updateTask.mutate({ id: task.id, priority: "NORMAL" } as any)}><Flag className="h-3 w-3 mr-2 text-blue-600 fill-current" /> Normal</DropdownMenuItem><DropdownMenuItem onClick={() => updateTask.mutate({ id: task.id, priority: "LOW" } as any)}><Flag className="h-3 w-3 mr-2 text-slate-600 fill-current" /> Low</DropdownMenuItem><DropdownMenuSeparator /><DropdownMenuItem onClick={() => updateTask.mutate({ id: task.id, priority: null } as any)}><CircleSlash className="h-3 w-3 mr-2 text-slate-500" />Clear</DropdownMenuItem></DropdownMenuContent></DropdownMenu>
+                                                                            <div key={colId} className="px-4 flex items-center shrink-0 w-full h-full min-h-[38px] p-0.5 rounded-sm overflow-hidden" style={{ width: Math.max(w, 100), minWidth: Math.max(w, 100) }}>
+                                                                                <DropdownMenu><DropdownMenuTrigger asChild><button type="button" className="w-full h-full min-h-[38px] flex items-center justify-start px-2 py-1 outline-none rounded-sm transition-shadow cursor-pointer hover:bg-zinc-100 text-xs font-medium text-zinc-700" onClick={(e) => { e.stopPropagation(); }} title="Edit priority"><div className="flex items-center gap-1.5 w-full truncate"><div className={cn("flex items-center gap-1.5 shrink-0", task.priority === 'URGENT' ? "text-red-500" : task.priority === 'HIGH' ? "text-orange-500" : task.priority === 'NORMAL' ? "text-blue-500" : "text-zinc-400")}><Flag className="h-3 w-3 fill-current" /></div><span className="truncate">{task.priority ? task.priority.charAt(0) + task.priority.slice(1).toLowerCase() : "Priority"}</span></div></button></DropdownMenuTrigger><DropdownMenuContent align="start" className="w-48 z-[200]"><DropdownMenuLabel className="text-xs">Priority</DropdownMenuLabel><DropdownMenuItem onClick={() => updateTask.mutate({ id: task.id, priority: "URGENT" } as any)}><Flag className="h-3 w-3 mr-2 text-red-600 fill-current" /> Urgent</DropdownMenuItem><DropdownMenuItem onClick={() => updateTask.mutate({ id: task.id, priority: "HIGH" } as any)}><Flag className="h-3 w-3 mr-2 text-orange-600 fill-current" /> High</DropdownMenuItem><DropdownMenuItem onClick={() => updateTask.mutate({ id: task.id, priority: "NORMAL" } as any)}><Flag className="h-3 w-3 mr-2 text-blue-600 fill-current" /> Normal</DropdownMenuItem><DropdownMenuItem onClick={() => updateTask.mutate({ id: task.id, priority: "LOW" } as any)}><Flag className="h-3 w-3 mr-2 text-slate-600 fill-current" /> Low</DropdownMenuItem><DropdownMenuSeparator /><DropdownMenuItem onClick={() => updateTask.mutate({ id: task.id, priority: null } as any)}><CircleSlash className="h-3 w-3 mr-2 text-slate-500" />Clear</DropdownMenuItem></DropdownMenuContent></DropdownMenu>
                                                                             </div>
                                                                         );
                                                                     }
@@ -4179,11 +4270,13 @@ export function GanttView({ spaceId, projectId, teamId, listId, folderId, viewId
                                                                             ? (((task as any).list?.statuses ?? []) as any[])
                                                                             : allAvailableStatuses.filter(s => { const taskListId = (task as any).listId ?? (task as any).list?.id; return !taskListId || s.listId === taskListId; });
                                                                         return (
-                                                                            <div key={colId} className="px-4 flex items-center shrink-0" style={{ width: w }}>
+                                                                            <div key={colId} className="px-4 flex items-center shrink-0 w-full h-full min-h-[38px] p-0.5 rounded-sm overflow-hidden" style={{ width: Math.max(w, 100), minWidth: Math.max(w, 100) }}>
                                                                                 <TaskStatusPopover task={task} availableStatuses={taskStatuses} availableTaskTypes={availableTaskTypes} onUpdateTask={(id, data) => updateTask.mutate({ id, ...data } as any)} hideTaskTypeTab={true}>
-                                                                                    <button type="button" className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-medium border hover:opacity-90 cursor-pointer outline-none focus:outline-none border-zinc-200 text-zinc-700 bg-white" onClick={(e) => { e.stopPropagation(); }} title="Edit status">
-                                                                                        <span className="h-2 w-2 rounded-full" style={{ backgroundColor: task.status?.color || "#94A3B8" }} />
-                                                                                        {task.status?.name || "No Status"}
+                                                                                    <button type="button" className="w-full h-full min-h-[38px] flex items-center justify-start px-2 py-1 outline-none rounded-sm transition-shadow cursor-pointer hover:bg-zinc-100 text-xs font-medium" onClick={(e) => { e.stopPropagation(); }} title="Edit status">
+                                                                                        <div className={cn("inline-flex items-center gap-1.5 px-2 py-0.5 rounded border truncate", task.status?.name?.toLowerCase() === "done" || task.status?.name?.toLowerCase() === "completed" ? "bg-emerald-50 text-emerald-700 border-emerald-200" : (task.status?.name?.toLowerCase() === "in progress" || task.status?.name?.toLowerCase() === "in_progress" ? "bg-blue-50 text-blue-700 border-blue-200" : "bg-slate-50 text-slate-700 border-slate-200"))}>
+                                                                                            <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: task.status?.color || "#94A3B8" }} />
+                                                                                            <span className="truncate">{task.status?.name || "No Status"}</span>
+                                                                                        </div>
                                                                                     </button>
                                                                                 </TaskStatusPopover>
                                                                             </div>
@@ -4191,47 +4284,326 @@ export function GanttView({ spaceId, projectId, teamId, listId, folderId, viewId
                                                                     }
                                                                     if (colId === "dateCreated") {
                                                                         return (
-                                                                            <div key={colId} className="px-4 flex items-center text-xs text-zinc-500 shrink-0" style={{ width: w }}>
-                                                                                {task.createdAt ? format(new Date(task.createdAt), "MMM d, yyyy") : "—"}
+                                                                            <div key={colId} className="px-4 flex items-center shrink-0 w-full h-full min-h-[38px] p-0.5 rounded-sm overflow-hidden" style={{ width: Math.max(w, 100), minWidth: Math.max(w, 100) }}>
+                                                                                <div className="w-full h-full min-h-[38px] flex items-center justify-between px-2 py-1 outline-none rounded-sm transition-shadow group/readonly text-xs text-zinc-500 cursor-default" onClick={(e) => { e.stopPropagation(); }}>
+                                                                                    <div className="truncate">{task.createdAt ? format(new Date(task.createdAt), "M/d/yy") : "—"}</div>
+                                                                                    <TooltipProvider delayDuration={100}><Tooltip><TooltipTrigger asChild><div className="opacity-0 group-hover/readonly:opacity-100 transition-opacity flex items-center justify-center h-6 w-6 rounded-md bg-zinc-100 hover:bg-zinc-200 cursor-default shrink-0" onClick={(e) => e.stopPropagation()}><PenOff className="h-3.5 w-3.5 text-zinc-500" /></div></TooltipTrigger><TooltipContent className="bg-zinc-900 text-white font-medium text-xs px-2.5 py-1.5 border-0 rounded-md" side="top" sideOffset={4}>Read-only</TooltipContent></Tooltip></TooltipProvider>
+                                                                                </div>
                                                                             </div>
                                                                         );
                                                                     }
                                                                     if (colId === "dateUpdated") {
                                                                         return (
-                                                                            <div key={colId} className="px-4 flex items-center text-xs text-zinc-500 shrink-0" style={{ width: w }}>
-                                                                                {task.updatedAt ? format(new Date(task.updatedAt), "MMM d, yyyy") : "—"}
+                                                                            <div key={colId} className="px-4 flex items-center shrink-0 w-full h-full min-h-[38px] p-0.5 rounded-sm overflow-hidden" style={{ width: Math.max(w, 100), minWidth: Math.max(w, 100) }}>
+                                                                                <div className="w-full h-full min-h-[38px] flex items-center justify-between px-2 py-1 outline-none rounded-sm transition-shadow group/readonly text-xs text-zinc-500 cursor-default" onClick={(e) => { e.stopPropagation(); }}>
+                                                                                    <div className="truncate">{task.updatedAt ? format(new Date(task.updatedAt), "M/d/yy h:mma") : "—"}</div>
+                                                                                    <TooltipProvider delayDuration={100}><Tooltip><TooltipTrigger asChild><div className="opacity-0 group-hover/readonly:opacity-100 transition-opacity flex items-center justify-center h-6 w-6 rounded-md bg-zinc-100 hover:bg-zinc-200 cursor-default shrink-0" onClick={(e) => e.stopPropagation()}><PenOff className="h-3.5 w-3.5 text-zinc-500" /></div></TooltipTrigger><TooltipContent className="bg-zinc-900 text-white font-medium text-xs px-2.5 py-1.5 border-0 rounded-md" side="top" sideOffset={4}>Read-only</TooltipContent></Tooltip></TooltipProvider>
+                                                                                </div>
                                                                             </div>
                                                                         );
                                                                     }
                                                                     if (colId === "timeEstimate") {
                                                                         return (
-                                                                            <div key={colId} className="px-4 flex items-center text-xs text-zinc-500 shrink-0" style={{ width: w }}>
-                                                                                {task.timeEstimate ?? "—"}
+                                                                            <div key={colId} className="px-4 flex items-center shrink-0 w-full h-full min-h-[38px] p-0.5 rounded-sm overflow-hidden" style={{ width: Math.max(w, 100), minWidth: Math.max(w, 100) }}>
+                                                                                <div className="w-full h-full min-h-[38px] flex items-center px-2 py-1 outline-none rounded-sm transition-shadow text-xs text-zinc-500 cursor-default">
+                                                                                    <div className="truncate">{task.timeEstimate ?? "—"}</div>
+                                                                                </div>
                                                                             </div>
                                                                         );
                                                                     }
                                                                     if (colId === "timeTracked") {
+                                                                        const totalTracked = typeof task.timeTracked === 'number' ? task.timeTracked : 0;
+                                                                        let timeLabel = "Add time";
+                                                                        if (totalTracked > 0) {
+                                                                            const hours = Math.floor(totalTracked / 3600);
+                                                                            const mins = Math.floor((totalTracked % 3600) / 60);
+                                                                            if (hours > 0 && mins > 0) timeLabel = `${hours}h ${mins}m`;
+                                                                            else if (hours > 0) timeLabel = `${hours}h`;
+                                                                            else timeLabel = `${mins}m`;
+                                                                        }
                                                                         return (
-                                                                            <div key={colId} className="px-4 flex items-center text-xs text-zinc-500 shrink-0" style={{ width: w }}>
-                                                                                {task.timeTracked ?? "—"}
+                                                                            <div key={colId} className="px-4 flex items-center shrink-0 w-full h-full min-h-[38px] p-0.5 rounded-sm overflow-hidden" style={{ width: Math.max(w, 100), minWidth: Math.max(w, 100) }}>
+                                                                                <TaskTimeTrackedPopover taskId={task.id} workspaceId={(task as any).workspaceId ?? resolvedWorkspaceId as string} totalTrackedSeconds={totalTracked} trigger={<button type="button" className="w-full h-full min-h-[38px] flex items-center justify-start px-2 py-1 outline-none rounded-sm transition-shadow cursor-pointer hover:bg-zinc-100 gap-1" onClick={(e) => e.stopPropagation()}><div className={cn('flex items-center gap-1.5 text-xs rounded-md px-1.5 py-1 transition-colors border', totalTracked > 0 ? 'text-zinc-700 bg-zinc-50 hover:bg-zinc-100 border-zinc-200' : 'text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 border-transparent')}><Play className="h-3 w-3 shrink-0" /><span className="font-medium">{timeLabel}</span></div></button>} />
+                                                                            </div>
+                                                                        );
+                                                                    }
+                                                                    if (colId === "createdBy") {
+                                                                        const creator = (task as any).createdBy ? workspaceMembers.find((m: any) => (m.user?.id ?? m.id) === (task as any).createdBy) : null;
+                                                                        return (
+                                                                            <div key={colId} className="px-4 flex items-center shrink-0 w-full h-full min-h-[38px] p-0.5 rounded-sm overflow-hidden" style={{ width: Math.max(w, 100), minWidth: Math.max(w, 100) }}>
+                                                                                <div className="w-full h-full min-h-[38px] flex items-center justify-between px-2 py-1 outline-none rounded-sm transition-shadow group/readonly cursor-default" onClick={(e) => { e.stopPropagation(); }}>
+                                                                                    <div className="truncate">
+                                                                                        {creator ? (
+                                                                                            <Avatar className="h-6 w-6"><AvatarImage src={creator.user?.image ?? undefined} /><AvatarFallback className="text-[10px] bg-zinc-900 text-white font-medium">{(creator.user?.name ?? "U").substring(0, 2).toUpperCase()}</AvatarFallback></Avatar>
+                                                                                        ) : <span className="text-xs text-zinc-500">—</span>}
+                                                                                    </div>
+                                                                                    <TooltipProvider delayDuration={100}><Tooltip><TooltipTrigger asChild><div className="opacity-0 group-hover/readonly:opacity-100 transition-opacity flex items-center justify-center h-6 w-6 rounded-md bg-zinc-100 hover:bg-zinc-200 cursor-default shrink-0" onClick={(e) => e.stopPropagation()}><PenOff className="h-3.5 w-3.5 text-zinc-500" /></div></TooltipTrigger><TooltipContent className="bg-zinc-900 text-white font-medium text-xs px-2.5 py-1.5 border-0 rounded-md" side="top" sideOffset={4}>Read-only</TooltipContent></Tooltip></TooltipProvider>
+                                                                                </div>
+                                                                            </div>
+                                                                        );
+                                                                    }
+                                                                    if (colId === "dateClosed") {
+                                                                        return (
+                                                                            <div key={colId} className="px-4 flex items-center shrink-0 w-full h-full min-h-[38px] p-0.5 rounded-sm overflow-hidden" style={{ width: Math.max(w, 100), minWidth: Math.max(w, 100) }}>
+                                                                                <div className="w-full h-full min-h-[38px] flex items-center justify-between px-2 py-1 outline-none rounded-sm transition-shadow group/readonly text-xs text-zinc-500 cursor-default" onClick={(e) => { e.stopPropagation(); }}>
+                                                                                    <div className="truncate">{(task as any).dateClosed ? format(new Date((task as any).dateClosed), "M/d/yy") : "—"}</div>
+                                                                                    <TooltipProvider delayDuration={100}><Tooltip><TooltipTrigger asChild><div className="opacity-0 group-hover/readonly:opacity-100 transition-opacity flex items-center justify-center h-6 w-6 rounded-md bg-zinc-100 hover:bg-zinc-200 cursor-default shrink-0" onClick={(e) => e.stopPropagation()}><PenOff className="h-3.5 w-3.5 text-zinc-500" /></div></TooltipTrigger><TooltipContent className="bg-zinc-900 text-white font-medium text-xs px-2.5 py-1.5 border-0 rounded-md" side="top" sideOffset={4}>Read-only</TooltipContent></Tooltip></TooltipProvider>
+                                                                                </div>
+                                                                            </div>
+                                                                        );
+                                                                    }
+                                                                    if (colId === "dateDone") {
+                                                                        return (
+                                                                            <div key={colId} className="px-4 flex items-center shrink-0 w-full h-full min-h-[38px] p-0.5 rounded-sm overflow-hidden" style={{ width: Math.max(w, 100), minWidth: Math.max(w, 100) }}>
+                                                                                <div className="w-full h-full min-h-[38px] flex items-center justify-between px-2 py-1 outline-none rounded-sm transition-shadow group/readonly text-xs text-zinc-500 cursor-default" onClick={(e) => { e.stopPropagation(); }}>
+                                                                                    <div className="truncate">{(task as any).dateDone ? format(new Date((task as any).dateDone), "M/d/yy") : "—"}</div>
+                                                                                    <TooltipProvider delayDuration={100}><Tooltip><TooltipTrigger asChild><div className="opacity-0 group-hover/readonly:opacity-100 transition-opacity flex items-center justify-center h-6 w-6 rounded-md bg-zinc-100 hover:bg-zinc-200 cursor-default shrink-0" onClick={(e) => e.stopPropagation()}><PenOff className="h-3.5 w-3.5 text-zinc-500" /></div></TooltipTrigger><TooltipContent className="bg-zinc-900 text-white font-medium text-xs px-2.5 py-1.5 border-0 rounded-md" side="top" sideOffset={4}>Read-only</TooltipContent></Tooltip></TooltipProvider>
+                                                                                </div>
+                                                                            </div>
+                                                                        );
+                                                                    }
+                                                                    if (colId === "taskType") {
+                                                                        const taskStatuses = (((task as any).list?.statuses ?? []) as any[]).length > 0 ? (((task as any).list?.statuses ?? []) as any[]) : allAvailableStatuses.filter(s => { const taskListId = (task as any).listId ?? (task as any).list?.id; return !taskListId || s.listId === taskListId; });
+                                                                        return (
+                                                                            <div key={colId} className="px-4 flex items-center shrink-0 w-full h-full min-h-[38px] p-0.5 rounded-sm overflow-hidden" style={{ width: Math.max(w, 100), minWidth: Math.max(w, 100) }}>
+                                                                                <TaskStatusPopover task={task} availableStatuses={taskStatuses} availableTaskTypes={availableTaskTypes} onUpdateTask={(id, data) => updateTask.mutate({ id, ...data } as any)} hideStatusTab={true}>
+                                                                                    <button type="button" onClick={(e) => e.stopPropagation()} className="w-full h-full min-h-[38px] flex items-center justify-start px-2 py-1 outline-none rounded-sm transition-shadow cursor-pointer hover:bg-zinc-100 gap-2 text-left text-xs text-zinc-700">
+                                                                                        <TaskTypeIcon type={(task as any).taskType} className="h-3.5 w-3.5 text-zinc-400 shrink-0" />
+                                                                                        <span className="truncate">{(task as any).taskType?.name ?? "Task"}</span>
+                                                                                    </button>
+                                                                                </TaskStatusPopover>
+                                                                            </div>
+                                                                        );
+                                                                    }
+                                                                    if (colId === "timeline") {
+                                                                        return (
+                                                                            <div key={colId} className="px-4 flex items-center shrink-0 w-full h-full min-h-[38px] p-0.5 rounded-sm overflow-hidden" style={{ width: Math.max(w, 100), minWidth: Math.max(w, 100) }}>
+                                                                                <Popover><PopoverTrigger asChild><button type="button" className={cn("w-full h-full min-h-[38px] flex items-center justify-start px-2 py-1 outline-none rounded-sm transition-shadow cursor-pointer hover:bg-zinc-100 text-xs gap-1.5", (task.startDate || task.dueDate) ? "text-zinc-700 font-medium" : "text-zinc-400")} onClick={(e) => { e.stopPropagation(); }} title="Edit timeline"><Calendar className="h-3.5 w-3.5" />{task.startDate || task.dueDate ? (<>{task.startDate ? format(new Date(task.startDate), "M/d/yy") : "—"} &rarr; {task.dueDate ? format(new Date(task.dueDate), "M/d/yy") : "—"}</>) : ""}</button></PopoverTrigger><PopoverContent className="w-auto p-0" align="start" sideOffset={8} collisionPadding={10}><TaskCalendar startDate={task.startDate ? new Date(task.startDate) : undefined} endDate={task.dueDate ? new Date(task.dueDate) : undefined} onStartDateChange={(date) => { updateTask.mutate({ id: task.id, startDate: date ? date.toISOString() : null } as any); }} onEndDateChange={(date) => { updateTask.mutate({ id: task.id, dueDate: date ? date.toISOString() : null } as any); }} /></PopoverContent></Popover>
+                                                                            </div>
+                                                                        );
+                                                                    }
+                                                                    if (colId === "linkedTasks") {
+                                                                        const deps = (task as any).dependencies || [];
+                                                                        const blocks = (task as any).blockedDependencies || [];
+                                                                        const depCount = ((task as any)._count?.dependencies ?? 0) + ((task as any)._count?.blockedDependencies ?? 0);
+                                                                        const firstLinkedTaskTitle = deps[0]?.dependsOn?.title || blocks[0]?.task?.title || "Task";
+                                                                        return (
+                                                                            <div key={colId} className="px-4 flex items-center shrink-0 w-full h-full min-h-[38px] p-0.5 rounded-sm overflow-hidden" style={{ width: Math.max(w, 100), minWidth: Math.max(w, 100) }}>
+                                                                                <TaskLinkedTasksPopover taskId={task.id} workspaceId={(task as any).workspaceId ?? resolvedWorkspaceId as string}>
+                                                                                    <button type="button" className="w-full h-full min-h-[38px] flex items-center justify-start px-2 py-1 outline-none rounded-sm transition-shadow cursor-pointer hover:bg-zinc-100 gap-1" onClick={(e) => e.stopPropagation()}>
+                                                                                        {depCount > 0 ? (
+                                                                                            <>
+                                                                                                <Badge variant="outline" className="h-5 px-1.5 text-xs font-normal border-zinc-200 bg-white truncate max-w-[80px] rounded-sm">{firstLinkedTaskTitle}</Badge>
+                                                                                                {depCount > 1 && <Badge variant="outline" className="h-5 px-1 text-xs font-normal border-zinc-200 bg-white rounded-sm">+{depCount - 1}</Badge>}
+                                                                                            </>
+                                                                                        ) : (
+                                                                                            <span className="text-xs text-zinc-500">—</span>
+                                                                                        )}
+                                                                                    </button>
+                                                                                </TaskLinkedTasksPopover>
+                                                                            </div>
+                                                                        );
+                                                                    }
+                                                                    if (colId === "linkedDocs") {
+                                                                        return (
+                                                                            <div key={colId} className="px-4 flex items-center shrink-0 w-full h-full min-h-[38px] p-0.5 rounded-sm overflow-hidden" style={{ width: Math.max(w, 100), minWidth: Math.max(w, 100) }}>
+                                                                                <LinkedDocsCell task={task as any} workspaceId={(task as any).workspaceId ?? resolvedWorkspaceId as string} />
+                                                                            </div>
+                                                                        );
+                                                                    }
+                                                                    if (colId === "dependencies") {
+                                                                        const depCount = ((task as any)._count?.dependencies ?? 0) + ((task as any)._count?.blockedDependencies ?? 0);
+                                                                        return (
+                                                                            <div key={colId} className="px-4 flex items-center shrink-0 w-full h-full min-h-[38px] p-0.5 rounded-sm overflow-hidden" style={{ width: Math.max(w, 100), minWidth: Math.max(w, 100) }}>
+                                                                                <TaskDependenciesPopover taskId={task.id} workspaceId={(task as any).workspaceId ?? resolvedWorkspaceId as string}>
+                                                                                    <button type="button" className="w-full h-full min-h-[38px] flex items-center justify-start px-2 py-1 outline-none rounded-sm transition-shadow cursor-pointer hover:bg-zinc-100 gap-1" onClick={(e) => e.stopPropagation()}>
+                                                                                        {depCount > 0 ? (
+                                                                                            <>
+                                                                                                <Badge variant="outline" className="h-5 px-1.5 text-xs font-normal border-zinc-200 bg-white truncate max-w-[80px] rounded-sm">Task</Badge>
+                                                                                                {depCount > 1 && <Badge variant="outline" className="h-5 px-1 text-xs font-normal border-zinc-200 bg-white rounded-sm">+{depCount - 1}</Badge>}
+                                                                                            </>
+                                                                                        ) : (
+                                                                                            <span className="text-xs text-zinc-500">—</span>
+                                                                                        )}
+                                                                                    </button>
+                                                                                </TaskDependenciesPopover>
+                                                                            </div>
+                                                                        );
+                                                                    }
+                                                                    if (colId === "taskId") {
+                                                                        return (
+                                                                            <div key={colId} className="px-4 flex items-center shrink-0 w-full h-full min-h-[38px] p-0.5 rounded-sm overflow-hidden text-xs text-zinc-500 font-mono group/taskid" style={{ width: Math.max(w, 100), minWidth: Math.max(w, 100) }}>
+                                                                                <div className="w-full h-full min-h-[38px] flex items-center justify-between px-2 py-1 outline-none rounded-sm transition-shadow cursor-default hover:bg-zinc-100" onClick={(e) => { e.stopPropagation(); }}>
+                                                                                    <span className="truncate max-w-[80px] shrink-0" title={task.id}># {task.id.slice(0, 7)}...</span>
+                                                                                    <TooltipProvider delayDuration={300}>
+                                                                                        <Tooltip>
+                                                                                            <TooltipTrigger asChild>
+                                                                                                <button
+                                                                                                    onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(task.id); toast.success('Task ID copied'); }}
+                                                                                                    className="opacity-0 group-hover/taskid:opacity-100 transition-opacity flex items-center justify-center h-6 w-6 rounded-md border border-zinc-200 bg-white hover:bg-zinc-50 text-zinc-500 hover:text-zinc-700 shrink-0 cursor-pointer"
+                                                                                                >
+                                                                                                    <Copy className="h-3.5 w-3.5" />
+                                                                                                </button>
+                                                                                            </TooltipTrigger>
+                                                                                            <TooltipContent side="top" className="bg-zinc-900 text-white font-medium text-xs px-2.5 py-1.5 border-0 rounded-md">
+                                                                                                Copy Task ID
+                                                                                            </TooltipContent>
+                                                                                        </Tooltip>
+                                                                                    </TooltipProvider>
+                                                                                </div>
+                                                                            </div>
+                                                                        );
+                                                                    }
+                                                                    if (colId === "list") {
+                                                                        return (
+                                                                            <div key={colId} className="px-4 flex items-center shrink-0 w-full h-full min-h-[38px] p-0.5 rounded-sm overflow-hidden" style={{ width: Math.max(w, 100), minWidth: Math.max(w, 100) }}>
+                                                                                <TaskListPopover taskId={task.id} workspaceId={((task as any).workspaceId ?? resolvedWorkspaceId) as string} currentListId={(task as any).list?.id} sharedLists={(task as any).sharedLists ?? []}>
+                                                                                    <button type="button" className="w-full h-full min-h-[38px] flex items-center justify-start px-2 py-1 outline-none rounded-sm transition-shadow cursor-pointer hover:bg-zinc-100 gap-1 group" onClick={(e) => e.stopPropagation()}>
+                                                                                        <Badge variant="outline" className="h-6 px-2 text-xs font-normal border-zinc-200 bg-white rounded-md text-zinc-700 truncate group-hover:bg-zinc-50 transition-colors">
+                                                                                            {(task as any).list?.name || '—'}
+                                                                                        </Badge>
+                                                                                        {((task as any).sharedLists?.length > 0) && (
+                                                                                            <Badge variant="outline" className="h-6 px-2 text-xs font-normal border-zinc-200 bg-white rounded-md text-zinc-500 group-hover:bg-zinc-50 transition-colors shrink-0">
+                                                                                                + {(task as any).sharedLists.length}
+                                                                                            </Badge>
+                                                                                        )}
+                                                                                        <div className="h-6 w-6 rounded-md border border-zinc-200 flex items-center justify-center text-zinc-400 group-hover:bg-white group-hover:text-zinc-600 transition-colors shrink-0 bg-white">
+                                                                                            <Plus className="h-3 w-3" />
+                                                                                        </div>
+                                                                                    </button>
+                                                                                </TaskListPopover>
+                                                                            </div>
+                                                                        );
+                                                                    }
+                                                                    if (colId === "comments") {
+                                                                        return (
+                                                                            <div key={colId} className="px-4 flex items-center shrink-0 w-full h-full min-h-[38px] p-0.5 rounded-sm overflow-hidden" style={{ width: Math.max(w, 100), minWidth: Math.max(w, 100) }}>
+                                                                                <TaskCommentPopover
+                                                                                    taskId={task.id}
+                                                                                    commentCount={(task as any)._count?.comments ?? 0}
+                                                                                    workspaceMembers={(workspaceMembers || []).map((u: any) => ({ id: u.user?.id ?? u.id, name: u.user?.name || u.user?.email || u.name || u.email, image: u.user?.image ?? u.image }))}
+                                                                                    trigger={
+                                                                                        <button type="button" className="w-full h-full min-h-[38px] flex items-center justify-start px-2 py-1 outline-none rounded-sm transition-shadow cursor-pointer hover:bg-zinc-100 gap-1" onClick={(e) => e.stopPropagation()}>
+                                                                                            <div className={cn(
+                                                                                                "flex items-center gap-1.5 text-xs rounded-md px-1.5 py-1 transition-colors border",
+                                                                                                ((task as any)._count?.comments ?? 0) > 0
+                                                                                                    ? "text-zinc-700 bg-zinc-50 hover:bg-zinc-100 border-zinc-200"
+                                                                                                    : "text-zinc-400 hover:text-zinc-600 hover:bg-zinc-50 border-transparent"
+                                                                                            )}>
+                                                                                                <MessageSquare className="h-3.5 w-3.5" />
+                                                                                                {((task as any)._count?.comments ?? 0) > 0 && <span className="font-medium">{(task as any)._count?.comments}</span>}
+                                                                                            </div>
+                                                                                        </button>
+                                                                                    }
+                                                                                />
                                                                             </div>
                                                                         );
                                                                     }
                                                                     if (colId === "tags") {
-                                                                        const tags = (task.tags ?? []).map((t: string) => { try { return parseEncodedTag(t); } catch { return { label: t, color: undefined }; } });
                                                                         return (
-                                                                            <div key={colId} className="px-4 flex items-center gap-1 shrink-0 overflow-hidden" style={{ width: w }}>
-                                                                                {tags.length > 0 ? tags.slice(0, 3).map((tag: any, i: number) => (
-                                                                                    <span key={i} className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium border" style={{ backgroundColor: tag.color ? `${tag.color}18` : '#f4f4f5', color: tag.color || '#71717a', borderColor: tag.color ? `${tag.color}40` : '#e4e4e7' }}>{tag.label}</span>
-                                                                                )) : <span className="text-xs text-zinc-400">—</span>}
+                                                                            <div key={colId} className="px-4 flex items-center shrink-0 w-full h-full min-h-[38px] p-0.5 rounded-sm overflow-hidden" style={{ width: Math.max(w, 100), minWidth: Math.max(w, 100) }}>
+                                                                                <div className="w-full h-full min-h-[38px] flex items-center px-2 py-1 outline-none rounded-sm transition-shadow gap-1 overflow-hidden group/tagcell cursor-default" onClick={(e) => { e.stopPropagation(); }}>
+                                                                                    {task.tags && task.tags.length > 0 ? (
+                                                                                        <>
+                                                                                            {task.tags.slice(0, 1).map((encoded) => {
+                                                                                                const parsed = parseEncodedTag(encoded);
+                                                                                                const bg = parsed.color ?? "#ede9fe";
+                                                                                                return (
+                                                                                                    <div key={encoded} className="relative inline-flex items-center group/tag min-w-[40px]">
+                                                                                                        <span
+                                                                                                            className="px-1.5 py-1 rounded-md text-xs font-medium cursor-pointer w-full text-center truncate max-w-[100px]"
+                                                                                                            style={{ backgroundColor: bg, color: "#3730a3" }}
+                                                                                                        >
+                                                                                                            {parsed.label}
+                                                                                                        </span>
+                                                                                                        <div
+                                                                                                            style={{ backgroundColor: bg }}
+                                                                                                            className="absolute inset-0 flex items-center justify-between text-zinc-400 px-1 rounded-md text-xs opacity-0 group-hover/tag:opacity-100 transition-opacity pointer-events-none"
+                                                                                                        >
+                                                                                                            <TagEditorPopover
+                                                                                                                tag={encoded}
+                                                                                                                tags={task.tags ?? []}
+                                                                                                                onChange={(nextTags) => { void updateTask.mutateAsync({ id: task.id, tags: nextTags } as any); }}
+                                                                                                            >
+                                                                                                                <button type="button" className="px-0.5 pointer-events-auto cursor-pointer hover:text-zinc-700" onClick={(e) => e.stopPropagation()} title="Tag settings">
+                                                                                                                    <MoreHorizontal className="h-3 w-3" />
+                                                                                                                </button>
+                                                                                                            </TagEditorPopover>
+                                                                                                            <button type="button" className="px-0.5 pointer-events-auto cursor-pointer hover:text-red-500" onClick={(e) => { e.stopPropagation(); const nextTags = (task.tags ?? []).filter((t) => t !== encoded); void updateTask.mutateAsync({ id: task.id, tags: nextTags } as any); }} title="Remove tag">
+                                                                                                                <X className="h-3 w-3" />
+                                                                                                            </button>
+                                                                                                        </div>
+                                                                                                    </div>
+                                                                                                );
+                                                                                            })}
+                                                                                            {task.tags.length > 1 ? (
+                                                                                                <TagsPopover
+                                                                                                    tags={task.tags ?? []}
+                                                                                                    onChange={(nextTags) => { void updateTask.mutateAsync({ id: task.id, tags: nextTags } as any); }}
+                                                                                                    trigger={
+                                                                                                        <button type="button" className="px-1.5 py-0.5 rounded-full bg-zinc-100 text-zinc-500 text-xs font-medium cursor-pointer hover:bg-zinc-200" onClick={(e) => e.stopPropagation()}>
+                                                                                                            +{task.tags.length - 1}
+                                                                                                        </button>
+                                                                                                    }
+                                                                                                />
+                                                                                            ) : (
+                                                                                                <TagsPopover
+                                                                                                    tags={task.tags ?? []}
+                                                                                                    onChange={(nextTags) => { void updateTask.mutateAsync({ id: task.id, tags: nextTags } as any); }}
+                                                                                                    trigger={
+                                                                                                        <button type="button" className="flex items-center justify-center h-5 w-5 rounded-md hover:bg-zinc-100 text-zinc-400 hover:text-zinc-600 transition-opacity opacity-0 group-hover/tagcell:opacity-100 cursor-pointer" onClick={(e) => e.stopPropagation()}>
+                                                                                                            <Plus className="h-3 w-3" />
+                                                                                                        </button>
+                                                                                                    }
+                                                                                                />
+                                                                                            )}
+                                                                                        </>
+                                                                                    ) : (
+                                                                                        <TagsPopover
+                                                                                            tags={task.tags ?? []}
+                                                                                            onChange={(nextTags) => { void updateTask.mutateAsync({ id: task.id, tags: nextTags } as any); }}
+                                                                                            trigger={
+                                                                                                <div className="flex items-center gap-1 w-full h-full cursor-pointer" onClick={(e) => e.stopPropagation()}>
+                                                                                                    <div className="text-xs text-zinc-500 hover:text-zinc-700 transition-colors">—</div>
+                                                                                                </div>
+                                                                                            }
+                                                                                        />
+                                                                                    )}
+                                                                                </div>
                                                                             </div>
                                                                         );
                                                                     }
+                                                                    if (colId === "pullRequests") {
+                                                                        return (
+                                                                            <div key={colId} className="px-4 flex items-center shrink-0 w-full h-full min-h-[38px] p-0.5 rounded-sm overflow-hidden" style={{ width: Math.max(w, 100), minWidth: Math.max(w, 100) }}>
+                                                                                <div className="w-full h-full min-h-[38px] flex items-center px-2 py-1 outline-none rounded-sm transition-shadow text-xs text-zinc-500 cursor-default" onClick={(e) => { e.stopPropagation(); }}>
+                                                                                    —
+                                                                                </div>
+                                                                            </div>
+                                                                        );
+                                                                    }
+
+                                                                    const cfEntry = FIELD_CONFIG.find(f => f.id === colId && (f as any).isCustom);
+                                                                    if (cfEntry) {
+                                                                        const customField = (cfEntry as any).customField || cfEntry;
+                                                                        const value = getCustomFieldValue(task, colId);
+                                                                        const formattedValue = formatCustomFieldValue(value, customField);
+                                                                        return (
+                                                                            <div key={colId} className="px-4 flex items-center shrink-0 w-full h-full min-h-[38px] p-0.5 rounded-sm overflow-hidden" style={{ width: Math.max(w, 100), minWidth: Math.max(w, 100) }}>
+                                                                                <button type="button" className="w-full h-full min-h-[38px] flex items-center justify-start px-2 py-1 outline-none rounded-sm transition-shadow cursor-pointer hover:bg-zinc-100 text-left text-xs text-zinc-700" onClick={(e) => { e.stopPropagation(); openTaskDetail(task.id); }} title={`Edit ${cfEntry.label}`}>{formattedValue}</button>
+                                                                            </div>
+                                                                        );
+                                                                    }
+
                                                                     return (
-                                                                        <div key={colId} className="px-4 flex items-center text-xs text-zinc-500 shrink-0" style={{ width: w }}>—</div>
+                                                                        <div key={colId} className="px-4 flex items-center shrink-0 w-full h-full min-h-[38px] p-0.5 rounded-sm overflow-hidden" style={{ width: Math.max(w, 100), minWidth: Math.max(w, 100) }}>
+                                                                            <div className="w-full h-full min-h-[38px] flex items-center px-2 py-1 outline-none rounded-sm transition-shadow text-xs text-zinc-500 cursor-default">
+                                                                                <div className="truncate">—</div>
+                                                                            </div>
+                                                                        </div>
                                                                     );
                                                                 })}
-                                                                <div className="w-[52px] sticky right-0 bg-white z-10 shrink-0 border-l border-zinc-100 shadow-[-4px_0_12px_rgba(0,0,0,0.02)] group-hover:bg-zinc-100/50 transition-colors" />
+                                                                <div className="w-[52px] sticky right-0 bg-white group-hover:bg-zinc-50 z-10 shrink-0 transition-colors" />
                                                             </div>
                                                         </TaskActionsPopover>
                                                     );
@@ -4240,8 +4612,8 @@ export function GanttView({ spaceId, projectId, teamId, listId, folderId, viewId
                                             <div ref={loadMoreRef} className="h-px w-full" />
                                         </div>
                                         <div className="h-4 shrink-0" />
-                                    </ScrollArea>
-                                </div>
+                                    </div>
+                                </ScrollArea>
                             </div>
                             <div
                                 className="absolute top-0 bottom-0 right-0 w-[6px] translate-x-[3px] cursor-col-resize z-30 flex items-center justify-center group/resize select-none"

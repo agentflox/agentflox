@@ -5,11 +5,24 @@ import { ScrollArea as ScrollAreaPrimitive } from "radix-ui"
 
 import { cn } from "@/lib/utils"
 
+interface ScrollAreaProps extends React.ComponentProps<typeof ScrollAreaPrimitive.Root> {
+  orientation?: "vertical" | "horizontal" | "both"
+}
+
 function ScrollArea({
   className,
   children,
+  orientation = "vertical",
   ...props
-}: React.ComponentProps<typeof ScrollAreaPrimitive.Root>) {
+}: ScrollAreaProps) {
+  // When scrolling horizontally, do NOT force flex-col on the inner div — that collapses horizontal overflow.
+  const viewportInnerClass =
+    orientation === "vertical"
+      ? "[&>div]:!min-h-full [&>div]:!flex [&>div]:!flex-col"
+      : orientation === "both"
+        ? "[&>div]:!min-h-full"
+        : ""
+
   return (
     <ScrollAreaPrimitive.Root
       data-slot="scroll-area"
@@ -18,11 +31,12 @@ function ScrollArea({
     >
       <ScrollAreaPrimitive.Viewport
         data-slot="scroll-area-viewport"
-        className="size-full rounded-[inherit] [&>div]:!min-h-full [&>div]:!flex [&>div]:!flex-col"
+        className={cn("size-full rounded-[inherit]", viewportInnerClass)}
       >
         {children}
       </ScrollAreaPrimitive.Viewport>
-      <ScrollBar />
+      {(orientation === "vertical" || orientation === "both") && <ScrollBar orientation="vertical" />}
+      {(orientation === "horizontal" || orientation === "both") && <ScrollBar orientation="horizontal" />}
       <ScrollAreaPrimitive.Corner />
     </ScrollAreaPrimitive.Root>
   )

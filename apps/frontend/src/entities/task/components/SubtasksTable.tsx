@@ -3,11 +3,12 @@
 import React, { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import {
     Plus, MoreHorizontal, GripVertical, ChevronRight, ChevronDown, X as XIcon, Target,
-    Flag, Clock, User as UserIcon, Calendar as CalendarIcon, Tag as TagIcon, Pencil,
+    Flag, Clock, User as UserIcon, Calendar as CalendarIcon, Calendar, Tag as TagIcon, Pencil,
     LayoutGrid, List as ListIcon, ArrowUpDown, Search, ArrowUp, ArrowDown, ChevronUp,
     Circle, Users, AlertTriangle, Spline, CheckCircle2, Copy, Trash2, Edit3, MessageSquare, Paperclip, ListChecks, AlignLeft,
     Type, Hash, CheckSquare, LayoutList, Globe, Mail, Phone, DollarSign, FunctionSquare, Link2, TrendingUp, SlidersHorizontal, FileText, Heart, MapPin, Star, PenTool, MousePointer,
-    CircleMinus, Link, Slash, Maximize2, Minimize2, Check, CircleSlash, PlusCircle, ArrowRight, CopyPlus, Tag, X, ListTree
+    CircleMinus, Link, Slash, Maximize2, Minimize2, Check, CircleSlash, PlusCircle, ArrowRight, CopyPlus, Tag, X, ListTree, CircleDot, CircleDashed,
+    Play, PenOff
 } from 'lucide-react';
 import { generateKeyBetween } from "fractional-indexing";
 import { Button } from '@/components/ui/button';
@@ -56,8 +57,19 @@ import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { AssigneeSelector } from './AssigneeSelector';
 import { TagsPopover } from './TagsPopover';
+import { TagEditorPopover } from './TagEditorPopover';
 import { TaskDependenciesModal } from './TaskDependenciesModal';
+import { TaskStatusPopover } from './TaskStatusPopover';
+import { TaskTypeIcon } from './TaskTypeIcon';
 import { parseEncodedTag } from "../utils/tags";
+import { TaskCommentPopover } from './TaskCommentPopover';
+import { TaskTimeTrackedPopover } from './TaskTimeTrackedPopover';
+import { TaskDependenciesPopover } from './TaskDependenciesPopover';
+import { TaskLinkedTasksPopover } from './TaskLinkedTasksPopover';
+import { LinkedDocsCell } from './TaskLinkedDocsPopover';
+import { TaskListPopover } from './TaskListPopover';
+import { toast } from 'sonner';
+import { getCustomFieldValue } from '@/features/dashboard/views/generic/filterUtils';
 import {
     Dialog,
     DialogTitle,
@@ -112,16 +124,48 @@ const wouldCreateCircularDependency = (
     return false;
 };
 
-const SUBTASK_FIELD_CONFIG: { id: string; label: string }[] = [
-    { id: 'name', label: 'Name' },
-    { id: 'assignee', label: 'Assignee' },
-    { id: 'priority', label: 'Priority' },
-    { id: 'dueDate', label: 'Due date' },
-    { id: 'status', label: 'Status' },
-    { id: 'timeTracked', label: 'Time tracked' },
-    { id: 'dateCreated', label: 'Date created' },
-    { id: 'taskType', label: 'Type' }
+const SUBTASK_FIELD_CONFIG: { id: string; label: string; icon: string }[] = [
+    { id: 'name', label: 'Task Name', icon: 'Aa' },
+    { id: 'assignee', label: 'Assignee', icon: 'person' },
+    { id: 'dueDate', label: 'Due date', icon: 'calendar' },
+    { id: 'priority', label: 'Priority', icon: 'flag' },
+    { id: 'status', label: 'Status', icon: 'circle' },
+    { id: 'comments', label: 'Comments', icon: 'message' },
+    { id: 'timeTracked', label: 'Time tracked', icon: 'clock' },
+    { id: 'dateCreated', label: 'Date created', icon: 'calendar' },
+    { id: 'createdBy', label: 'Created by', icon: 'person' },
+    { id: 'dateClosed', label: 'Date closed', icon: 'calendar' },
+    { id: 'dateDone', label: 'Date done', icon: 'calendar' },
+    { id: 'startDate', label: 'Start date', icon: 'calendar' },
+    { id: 'dateUpdated', label: 'Date updated', icon: 'calendar' },
+    { id: 'tags', label: 'Tags', icon: 'tag' },
+    { id: 'taskType', label: 'Task Type', icon: 'box' },
+    { id: 'timeline', label: 'Timeline', icon: 'calendar' },
+    { id: 'linkedTasks', label: 'Linked tasks', icon: 'link' },
+    { id: 'linkedDocs', label: 'Linked docs', icon: 'link' },
+    { id: 'dependencies', label: 'Dependencies', icon: 'link' },
+    { id: 'taskId', label: 'Task ID', icon: 'hash' },
+    { id: 'list', label: 'Lists', icon: 'folder' },
 ];
+
+function SubtaskFieldIcon({ icon }: { icon: string }) {
+    const cls = "h-3.5 w-3.5 text-zinc-400 shrink-0";
+    switch (icon) {
+        case 'person': return <UserIcon className={cls} />;
+        case 'calendar': return <CalendarIcon className={cls} />;
+        case 'flag': return <Flag className={cls} />;
+        case 'circle': return <Circle className={cls} />;
+        case 'clock': return <Clock className={cls} />;
+        case 'tag': return <TagIcon className={cls} />;
+        case 'box': return <LayoutGrid className={cls} />;
+        case 'link': return <Link className={cls} />;
+        case 'hash': return <Hash className={cls} />;
+        case 'message': return <MessageSquare className={cls} />;
+        case 'folder': return <ListIcon className={cls} />;
+        case 'Aa': return <span className="text-[10px] font-bold text-zinc-400 shrink-0 leading-none">Aa</span>;
+        default: return <SlidersHorizontal className={cls} />;
+    }
+}
 
 type SortOption = 'name' | 'status' | 'priority' | 'dueDate' | 'manual';
 
@@ -206,6 +250,7 @@ export function SubtasksTable({
     const [visibleColumns, setVisibleColumns] = React.useState<Set<string>>(
         new Set(['name', 'assignee', 'priority', 'dueDate', 'timeTracked'])
     );
+    const [columnOrder, setColumnOrder] = React.useState<string[]>(['assignee', 'priority', 'dueDate', 'timeTracked']);
     const [dragActiveId, setDragActiveId] = React.useState<string | null>(null);
     const [dragOverId, setDragOverId] = React.useState<string | null>(null);
     const [dropPosition, setDropPosition] = React.useState<'before' | 'after' | null>(null);
@@ -218,7 +263,7 @@ export function SubtasksTable({
 
     // Column resizing logic
     const [colWidths, setColWidths] = useState<Record<string, number>>({
-        name: 420,
+        name: 500,
         assignee: 150,
         dueDate: 150,
         priority: 120,
@@ -228,8 +273,19 @@ export function SubtasksTable({
         comments: 100,
         timeTracked: 120,
         pullRequests: 120,
-        linkedTasks: 120,
+        linkedTasks: 150,
         taskType: 130,
+        tags: 150,
+        linkedDocs: 150,
+        dependencies: 150,
+        taskId: 100,
+        list: 150,
+        createdBy: 150,
+        dateClosed: 150,
+        dateDone: 150,
+        startDate: 150,
+        dateUpdated: 150,
+        timeline: 180,
     });
 
     const [resizingCol, setResizingCol] = useState<string | null>(null);
@@ -559,10 +615,36 @@ export function SubtasksTable({
     const toggleColumn = (col: string) => {
         setVisibleColumns(prev => {
             const next = new Set(prev);
-            if (next.has(col)) next.delete(col);
-            else next.add(col);
+            if (next.has(col)) {
+                next.delete(col);
+                setColumnOrder(o => o.filter(c => c !== col));
+            } else {
+                next.add(col);
+                setColumnOrder(o => o.includes(col) ? o : [...o, col]);
+            }
             return next;
         });
+    };
+
+    const formatCustomFieldValue = (value: any, customField: any): string => {
+        if (value === null || value === undefined) return '—';
+        const fieldType = customField?.type || customField?.config?.fieldType;
+        switch (fieldType) {
+            case 'TEXT': case 'TEXT_AREA': case 'LONG_TEXT': case 'CUSTOM_TEXT': case 'EMAIL': case 'PHONE': case 'URL':
+                return String(value);
+            case 'NUMBER': case 'MONEY':
+                return typeof value === 'number' ? value.toLocaleString() : String(value);
+            case 'DATE':
+                try { return format(new Date(value), 'MMM d, yyyy'); } catch { return String(value); }
+            case 'CHECKBOX':
+                return value ? 'Yes' : 'No';
+            case 'DROPDOWN': case 'CUSTOM_DROPDOWN': case 'LABELS':
+                if (typeof value === 'string') return value;
+                if (Array.isArray(value)) return value.join(', ');
+                return String(value);
+            default:
+                return String(value);
+        }
     };
 
     const toggleParentExpand = (id: string) => {
@@ -632,8 +714,8 @@ export function SubtasksTable({
 
         return (
             <TableRow ref={inlineRowRef} key={`inline:${parentId ?? "root"}`} className="bg-violet-50/30 border-b border-zinc-100">
-                <TableCell colSpan={20} className="py-2">
-                    <div className="flex items-center gap-2 min-w-0" style={{ paddingLeft: depth * 16 + 50 }}>
+                <TableCell colSpan={20} className="py-2 bg-violet-50/30">
+                    <div className="sticky left-0 w-fit z-10 flex items-center gap-2 min-w-0" style={{ paddingLeft: depth * 16 + 50 }}>
                         <button
                             type="button"
                             className="shrink-0 p-1 rounded opacity-0 pointer-events-none"
@@ -646,7 +728,7 @@ export function SubtasksTable({
                         />
                         <Input
                             variant="ghost"
-                            className="flex-1 min-w-[200px] max-w-[400px] h-7 text-sm border-0 outline-none focus:outline-none ml-[20px] px-0"
+                            className="w-[240px] h-7 text-sm border-0 outline-none focus:outline-none ml-[20px] px-0 cursor-text"
                             placeholder="Task Name"
                             value={inlineAddTitle}
                             onChange={e => setInlineAddTitle(e.target.value)}
@@ -733,7 +815,7 @@ export function SubtasksTable({
                                     type="button"
                                     variant="outline"
                                     size="sm"
-                                    className="h-7 w-auto min-w-[90px] border-zinc-200 hover:bg-zinc-50 focus:ring-0 px-2.5 rounded-md text-xs font-medium transition-all text-zinc-700"
+                                    className="h-7 w-auto border-zinc-200 hover:bg-zinc-50 focus:ring-0 px-2.5 rounded-md text-xs font-medium transition-all text-zinc-700"
                                 >
                                     <div className="flex items-center gap-1.5 w-full">
                                         <div className={cn("flex items-center gap-1.5",
@@ -744,7 +826,6 @@ export function SubtasksTable({
                                         )}>
                                             <Flag className="h-3 w-3 fill-current" />
                                         </div>
-                                        <span>{inlineAddPriority ? inlineAddPriority.charAt(0) + inlineAddPriority.slice(1).toLowerCase() : "Priority"}</span>
                                     </div>
                                 </Button>
                             </DropdownMenuTrigger>
@@ -1159,7 +1240,7 @@ export function SubtasksTable({
                                 )}
                                 onClick={() => setSelectedTasks(prev => prev.includes(subtask.id) ? prev.filter(id => id !== subtask.id) : [...prev, subtask.id])}
                             >
-                                <TableCell className="py-1 overflow-hidden border-b border-zinc-100/80 border-t border-l border-transparent group-hover:border-zinc-200 rounded-l-md transition-all" style={{ width: colWidths.name, minWidth: 200, paddingLeft: depth * 16 + 8 }}>
+                                <TableCell className="py-1 overflow-hidden bg-white transition-colors group-hover:bg-[#fbfbfb]" style={{ width: Math.max(colWidths.name || 200, 200), minWidth: Math.max(colWidths.name || 200, 200), paddingLeft: depth * 16 + 8, position: 'sticky', left: 0, zIndex: 2, boxShadow: '2px 0 4px -1px rgba(0,0,0,0.06)' }}>
                                     <div className="flex items-center gap-2 min-w-0">
                                         <div className="flex items-center gap-1">
                                             <div className={cn(
@@ -1197,14 +1278,39 @@ export function SubtasksTable({
                                                 </button>
                                             </div>
                                         </div>
-                                        <div
-                                            className={cn(
-                                                'h-2 w-2 rounded-full shrink-0',
-                                                subtask.status?.name === 'Done' ? 'bg-emerald-500' : 'bg-slate-400'
-                                            )}
-                                            style={{ backgroundColor: subtask.status?.color }}
-                                            title={subtask.status?.name}
-                                        />
+                                        <TooltipProvider>
+                                            <Tooltip delayDuration={300}>
+                                                <TaskStatusPopover
+                                                    task={subtask as any}
+                                                    availableStatuses={statuses}
+                                                    availableTaskTypes={availableTaskTypes}
+                                                    onUpdateTask={(id, data) => updateTask({ id, ...data } as any)}
+                                                >
+                                                    <TooltipTrigger asChild>
+                                                        <button className="shrink-0 flex items-center justify-center h-6 w-6 rounded transition-all duration-150 cursor-pointer hover:bg-zinc-200/80 outline-none focus:outline-none" onClick={(e) => e.stopPropagation()}>
+                                                            {(() => {
+                                                                const tt = subtask.taskType || availableTaskTypes?.find((t: any) => t.isDefault) || availableTaskTypes?.[0];
+                                                                const isDefault = !tt || tt.name?.toLowerCase() === "task" || tt.isDefault || tt === 'TASK';
+                                                                const statusName = subtask.status?.name?.toLowerCase() || "";
+                                                                const statusColor = subtask.status?.color || (statusName.includes("done") || statusName.includes("complete") ? "#10B981" : statusName.includes("progress") || statusName.includes("doing") ? "#3B82F6" : "#94A3B8");
+
+                                                                if (isDefault) {
+                                                                    if (statusName.includes("done") || statusName.includes("complete")) return <CheckCircle2 className="h-4 w-4" style={{ color: statusColor }} />;
+                                                                    if (statusName.includes("progress") || statusName.includes("doing")) return <CircleDot className="h-4 w-4" style={{ color: statusColor }} />;
+                                                                    return <CircleDashed className="h-4 w-4" style={{ color: statusColor }} />;
+                                                                }
+
+                                                                const resolvedTt = typeof tt === 'string' ? availableTaskTypes?.find((t: any) => t.id === tt || t.name === tt) || tt : tt;
+                                                                return <TaskTypeIcon type={resolvedTt} className="h-4 w-4" size={16} color={statusColor} />;
+                                                            })()}
+                                                        </button>
+                                                    </TooltipTrigger>
+                                                </TaskStatusPopover>
+                                                <TooltipContent className="bg-zinc-900 text-white font-medium text-xs px-2.5 py-1.5 border-0 rounded-md" side="top" sideOffset={4}>
+                                                    <span style={{ color: subtask.status?.color || '#fff' }}>{subtask.status?.name?.toUpperCase() || "NO STATUS"}</span>
+                                                </TooltipContent>
+                                            </Tooltip>
+                                        </TooltipProvider>
                                         {renamingTaskId === subtask.id ? (
                                             <Input
                                                 value={renameDraft}
@@ -1239,25 +1345,6 @@ export function SubtasksTable({
                                                 }}
                                                 className="font-medium text-sm text-zinc-900 cursor-pointer hover:text-indigo-600 transition-colors truncate flex items-center gap-1.5"
                                             >
-                                                {(() => {
-                                                    const tt = availableTaskTypes?.find((t: any) => t.id === subtask.taskType || t.name === subtask.taskType);
-                                                    if (!tt) {
-                                                        if (subtask.taskType === 'TASK') return <CheckCircle2 className="h-3.5 w-3.5 text-blue-500 shrink-0" />;
-                                                        if (subtask.taskType === 'MILESTONE') return <Target className="h-3.5 w-3.5 text-purple-500 shrink-0" />;
-                                                        if (subtask.taskType === 'FORM_RESPONSE') return <ListIcon className="h-3.5 w-3.5 text-green-500 shrink-0" />;
-                                                        if (subtask.taskType === 'MEETING_NOTE') return <FileText className="h-3.5 w-3.5 text-orange-500 shrink-0" />;
-                                                        return <CheckCircle2 className="h-3.5 w-3.5 text-zinc-400 shrink-0" />;
-                                                    }
-
-                                                    const IconComp = (() => {
-                                                        if (tt.icon === 'Target') return Target;
-                                                        if (tt.icon === 'List') return ListIcon;
-                                                        if (tt.icon === 'FileText') return FileText;
-                                                        return CheckCircle2;
-                                                    })();
-
-                                                    return <IconComp className="h-3.5 w-3.5 shrink-0" style={{ color: tt.color || '#3b82f6' }} />;
-                                                })()}
                                                 <span className="truncate">{subtask.title}</span>
                                             </span>
                                         )}
@@ -1365,10 +1452,10 @@ export function SubtasksTable({
                                                         return (
                                                             <div
                                                                 key={encoded}
-                                                                className="relative inline-flex items-center group/tag"
+                                                                className="relative inline-flex items-center group/tag min-w-[40px]"
                                                             >
                                                                 <span
-                                                                    className="px-1.5 py-1 rounded-md text-[10px] font-medium cursor-pointer"
+                                                                    className="px-1.5 py-1 rounded-md text-[10px] font-medium cursor-pointer w-full text-center"
                                                                     style={{
                                                                         backgroundColor: bg,
                                                                         color: "#3730a3",
@@ -1378,19 +1465,26 @@ export function SubtasksTable({
                                                                 </span>
                                                                 <div
                                                                     style={{ backgroundColor: bg }}
-                                                                    className="absolute inset-0 flex items-center text-bold justify-between text-zinc-400 px-1 rounded-full text-[10px] opacity-0 group-hover/tag:opacity-100 transition-opacity pointer-events-none"
+                                                                    className="absolute inset-0 flex items-center text-bold justify-between text-zinc-400 px-1 rounded-md text-[10px] opacity-0 group-hover/tag:opacity-100 transition-opacity pointer-events-none"
                                                                 >
-                                                                    <button
-                                                                        type="button"
-                                                                        className="px-0.5 pointer-events-auto cursor-pointer hover:text-zinc-700"
-                                                                        onClick={(e) => {
-                                                                            e.stopPropagation();
-                                                                            openTagEditor(subtask, encoded);
+                                                                    <TagEditorPopover
+                                                                        tag={encoded}
+                                                                        tags={subtask.tags ?? []}
+                                                                        onChange={(nextTags) => {
+                                                                            updateTask({ id: subtask.id, tags: nextTags });
                                                                         }}
-                                                                        title="Tag settings"
                                                                     >
-                                                                        <MoreHorizontal className="h-3 w-3" />
-                                                                    </button>
+                                                                        <button
+                                                                            type="button"
+                                                                            className="px-0.5 pointer-events-auto cursor-pointer hover:text-zinc-700"
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                            }}
+                                                                            title="Tag settings"
+                                                                        >
+                                                                            <MoreHorizontal className="h-3 w-3" />
+                                                                        </button>
+                                                                    </TagEditorPopover>
                                                                     <button
                                                                         type="button"
                                                                         className="px-0.5 pointer-events-auto cursor-pointer hover:text-red-500"
@@ -1478,227 +1572,293 @@ export function SubtasksTable({
                                         </div>
                                     </div>
                                 </TableCell>
-                                {visibleColumns.has('assignee') && (
-                                    <TableCell className="py-1 overflow-hidden border-b border-zinc-100/80 transition-all" style={{ width: colWidths.assignee, minWidth: 80 }}>
-                                        <AssigneeSelector
-                                            users={workspaceMembers}
-                                            workspaceId={workspaceId ?? ''}
-                                            variant="compact"
-                                            value={
-                                                (subtask.assignees?.map((a: any) => `user:${a.userId ?? a.user?.id}`) ??
-                                                    (subtask.assignee?.id ? [`user:${subtask.assignee.id}`] : []))
-                                            }
-                                            onChange={(newIds) => {
-                                                const cleanIds = newIds.map(id => id.replace('user:', ''));
-                                                updateTask({
-                                                    id: subtask.id,
-                                                    assigneeIds: cleanIds,
-                                                    assigneeId: cleanIds[0] || null,
-                                                });
-                                            }}
-                                            trigger={
-                                                <button type="button" className="flex items-center -space-x-1.5 hover:bg-zinc-100 rounded px-1 py-0.5 cursor-pointer" onClick={(e) => e.stopPropagation()}>
-                                                    {subtask.assignees?.length > 0 ? (
-                                                        subtask.assignees.slice(0, 4).map((a: any, i: number) => (
-                                                            <Avatar key={a.user?.id || a.aiAgent?.id || a.agent?.id || i} className="h-6 w-6 border-2 border-white ring-1 ring-zinc-100">
-                                                                <AvatarImage src={a.user?.image || a.aiAgent?.avatar || a.aiAgent?.image || a.agent?.avatar || undefined} />
-                                                                <AvatarFallback className="text-[9px] bg-indigo-50 text-indigo-600">{a.user?.name?.slice(0, 2)?.toUpperCase() || a.aiAgent?.name?.slice(0, 2)?.toUpperCase() || a.agent?.name?.slice(0, 2)?.toUpperCase() || "??"}</AvatarFallback>
-                                                            </Avatar>
-                                                        ))
-                                                    ) : (
-                                                        <div className="h-6 w-6 rounded-full border border-dashed border-zinc-300 flex items-center justify-center"><Users className="h-3 w-3 text-zinc-400" /></div>
-                                                    )}
-                                                </button>
-                                            }
-                                        />
-                                    </TableCell>
-                                )}
-                                {visibleColumns.has('priority') && (
-                                    <TableCell className="py-1 overflow-hidden border-b border-zinc-100/80 transition-all" style={{ width: colWidths.priority, minWidth: 80 }}>
-                                        <DropdownMenu>
-                                            <DropdownMenuTrigger asChild>
-                                                <Button
-                                                    type="button"
-                                                    variant="outline"
-                                                    size="sm"
-                                                    className="h-6 w-auto min-w-[90px] border-zinc-200 bg-white hover:bg-zinc-50 focus:ring-0 px-2.5 rounded-sm text-xs font-medium transition-all text-zinc-700 cursor-pointer"
-                                                    onClick={(e) => { e.stopPropagation(); }}
-                                                    title="Edit priority"
-                                                >
-                                                    <div className="flex items-center gap-1.5 w-full">
-                                                        <div className={cn("flex items-center gap-1.5",
-                                                            subtask.priority === 'URGENT' ? "text-red-500" :
-                                                                subtask.priority === 'HIGH' ? "text-orange-500" :
-                                                                    subtask.priority === 'NORMAL' ? "text-blue-500" :
-                                                                        subtask.priority === 'LOW' ? "text-zinc-400" : "text-zinc-400"
-                                                        )}>
-                                                            <Flag className="h-3 w-3 fill-current" />
+                                {/* Render columns by columnOrder, matching ListView exactly */}
+                                {Array.from(new Set(columnOrder)).filter(colId => visibleColumns.has(colId)).map(colId => {
+                                    const colWidth = colWidths[colId] ?? 100;
+                                    if (colId === 'assignee') return (
+                                        <TableCell key="assignee" className="p-0.5 overflow-hidden" style={{ width: colWidth, minWidth: 80 }}>
+                                            <AssigneeSelector
+                                                users={workspaceMembers}
+                                                workspaceId={workspaceId ?? ''}
+                                                variant="compact"
+                                                side="right"
+                                                avoidCollisions={false}
+                                                collisionPadding={12}
+                                                sideOffset={8}
+                                                value={
+                                                    (subtask.assignees?.map((a: any) => `user:${a.userId ?? a.user?.id}`) ??
+                                                        (subtask.assignee?.id ? [`user:${subtask.assignee.id}`] : []))
+                                                }
+                                                onChange={(newIds) => {
+                                                    const cleanIds = newIds.map(id => id.replace('user:', ''));
+                                                    updateTask({ id: subtask.id, assigneeIds: cleanIds, assigneeId: cleanIds[0] || null });
+                                                }}
+                                                trigger={
+                                                    <button type="button" className="w-full h-full min-h-[38px] flex items-center justify-start px-2 py-1 outline-none rounded-sm ring-1 ring-inset ring-transparent hover:ring-zinc-200 focus-visible:ring-indigo-500 data-[state=open]:ring-indigo-500 transition-shadow cursor-pointer" onClick={(e) => e.stopPropagation()} title="Edit assignees">
+                                                        <div className="flex items-center -space-x-1.5">
+                                                            {subtask.assignees?.length > 0 ? subtask.assignees.slice(0, 4).map((a: any, i: number) => (
+                                                                <Avatar key={a.user?.id || a.aiAgent?.id || a.agent?.id || i} className="h-6 w-6 border-2 border-white ring-1 ring-zinc-100">
+                                                                    <AvatarImage src={a.user?.image || a.aiAgent?.avatar || a.aiAgent?.image || a.agent?.avatar || undefined} />
+                                                                    <AvatarFallback className="text-[9px] bg-indigo-50 text-indigo-600">{a.user?.name?.slice(0, 2)?.toUpperCase() || a.aiAgent?.name?.slice(0, 2)?.toUpperCase() || a.agent?.name?.slice(0, 2)?.toUpperCase() || '??'}</AvatarFallback>
+                                                                </Avatar>
+                                                            )) : (
+                                                                <div className="h-6 w-6 rounded-full border border-dashed border-zinc-300 flex items-center justify-center"><Users className="h-3 w-3 text-zinc-400" /></div>
+                                                            )}
                                                         </div>
-                                                        <span>{subtask.priority ? subtask.priority.charAt(0) + subtask.priority.slice(1).toLowerCase() : "Priority"}</span>
+                                                    </button>
+                                                }
+                                            />
+                                        </TableCell>
+                                    );
+                                    if (colId === 'dueDate') {
+                                        const dueInfo = (() => {
+                                            const date = subtask.dueDate ?? null;
+                                            if (!date) return null;
+                                            const d = new Date(date);
+                                            if (Number.isNaN(d.getTime())) return null;
+                                            const today = new Date(); today.setHours(0, 0, 0, 0);
+                                            const due = new Date(d); due.setHours(0, 0, 0, 0);
+                                            const days = Math.round((due.getTime() - today.getTime()) / (24 * 60 * 60 * 1000));
+                                            if (days < 0) return { text: `${Math.abs(days)} days ago`, color: 'text-red-600 font-medium' };
+                                            if (days === 0) return { text: 'Today', color: 'text-indigo-600 font-medium' };
+                                            if (days === 1) return { text: 'Tomorrow', color: 'text-orange-600' };
+                                            if (days < 7) return { text: d.toLocaleDateString('en-US', { weekday: 'short' }), color: 'text-indigo-600' };
+                                            return { text: d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }), color: 'text-zinc-500' };
+                                        })();
+                                        return (
+                                            <TableCell key="dueDate" className="p-0.5 overflow-hidden" style={{ width: colWidth, minWidth: 80 }}>
+                                                <Popover><PopoverTrigger asChild><button type="button" className={cn('text-xs w-full h-full min-h-[38px] flex items-center justify-start px-2 py-1 outline-none rounded-sm ring-1 ring-inset ring-transparent hover:ring-zinc-200 focus-visible:ring-indigo-500 data-[state=open]:ring-indigo-500 transition-shadow cursor-pointer', dueInfo ? dueInfo.color : 'text-zinc-400')} onClick={(e) => { e.stopPropagation(); }} title="Edit due date">{dueInfo ? dueInfo.text : 'Add Date'}</button></PopoverTrigger><PopoverContent className="w-auto p-0" align="start" sideOffset={8} collisionPadding={10}><TaskCalendar startDate={subtask.startDate ? new Date(subtask.startDate) : undefined} endDate={subtask.dueDate ? new Date(subtask.dueDate) : undefined} onStartDateChange={(date) => { updateTask({ id: subtask.id, startDate: date ? date.toISOString() : null }); }} onEndDateChange={(date) => { updateTask({ id: subtask.id, dueDate: date ? date.toISOString() : null }); }} /></PopoverContent></Popover>
+                                            </TableCell>
+                                        );
+                                    }
+                                    if (colId === 'priority') return (
+                                        <TableCell key="priority" className="p-0.5 overflow-hidden" style={{ width: colWidth, minWidth: 80 }}>
+                                            <DropdownMenu><DropdownMenuTrigger asChild><button type="button" className="w-full h-full min-h-[38px] flex items-center justify-start px-2 py-1 outline-none rounded-sm ring-1 ring-inset ring-transparent hover:ring-zinc-200 focus-visible:ring-indigo-500 data-[state=open]:ring-indigo-500 transition-shadow cursor-pointer text-xs font-medium text-zinc-700" onClick={(e) => { e.stopPropagation(); }} title="Edit priority"><div className="flex items-center gap-1.5 w-full"><div className={cn('flex items-center gap-1.5', subtask.priority === 'URGENT' ? 'text-red-500' : subtask.priority === 'HIGH' ? 'text-orange-500' : subtask.priority === 'NORMAL' ? 'text-blue-500' : 'text-zinc-400')}><Flag className="h-3 w-3 fill-current" /></div><span>{subtask.priority ? subtask.priority.charAt(0) + subtask.priority.slice(1).toLowerCase() : 'Priority'}</span></div></button></DropdownMenuTrigger><DropdownMenuContent align="start" className="w-48 z-[200]"><DropdownMenuLabel className="text-xs">Priority</DropdownMenuLabel><DropdownMenuItem onClick={() => updateTask({ id: subtask.id, priority: 'URGENT' })}><Flag className="h-3 w-3 mr-2 text-red-600 fill-current" /> Urgent</DropdownMenuItem><DropdownMenuItem onClick={() => updateTask({ id: subtask.id, priority: 'HIGH' })}><Flag className="h-3 w-3 mr-2 text-orange-600 fill-current" /> High</DropdownMenuItem><DropdownMenuItem onClick={() => updateTask({ id: subtask.id, priority: 'NORMAL' })}><Flag className="h-3 w-3 mr-2 text-blue-600 fill-current" /> Normal</DropdownMenuItem><DropdownMenuItem onClick={() => updateTask({ id: subtask.id, priority: 'LOW' })}><Flag className="h-3 w-3 mr-2 text-slate-600 fill-current" /> Low</DropdownMenuItem><DropdownMenuSeparator /><DropdownMenuItem onClick={() => updateTask({ id: subtask.id, priority: null })}><CircleSlash className="h-3 w-3 mr-2 text-slate-500" />Clear</DropdownMenuItem></DropdownMenuContent></DropdownMenu>
+                                        </TableCell>
+                                    );
+                                    if (colId === 'status') {
+                                        const getStatusStyles = (s: string) => {
+                                            const lower = (s || '').toLowerCase();
+                                            if (lower === 'done' || lower === 'completed') return 'bg-emerald-50 text-emerald-700 border-emerald-200';
+                                            if (lower === 'in progress' || lower === 'in_progress') return 'bg-blue-50 text-blue-700 border-blue-200';
+                                            return 'bg-slate-50 text-slate-700 border-slate-200';
+                                        };
+                                        return (
+                                            <TableCell key="status" className="p-0.5 overflow-hidden" style={{ width: colWidth, minWidth: 80 }}>
+                                                <TaskStatusPopover task={subtask as any} availableStatuses={statuses} availableTaskTypes={availableTaskTypes} onUpdateTask={(id, data) => updateTask({ id, ...data })} hideTaskTypeTab={true}><button type="button" className={cn('w-full h-full min-h-[38px] flex items-center justify-start px-2 py-1 outline-none rounded-sm ring-1 ring-inset ring-transparent hover:ring-zinc-200 focus-visible:ring-indigo-500 data-[state=open]:ring-indigo-500 transition-shadow cursor-pointer text-xs font-medium')} onClick={(e) => { e.stopPropagation(); }} title="Edit status"><div className={cn('inline-flex items-center gap-1.5 px-2 py-0.5 rounded border', getStatusStyles(subtask.status?.name || ''))}><span className="h-2 w-2 rounded-full" style={{ backgroundColor: subtask.status?.color || '#94A3B8' }} />{subtask.status?.name || 'No Status'}</div></button></TaskStatusPopover>
+                                            </TableCell>
+                                        );
+                                    }
+                                    if (colId === 'dateCreated') return (
+                                        <TableCell key="dateCreated" className="p-0.5 overflow-hidden" style={{ width: colWidth, minWidth: 80 }}>
+                                            <div className="w-full h-full min-h-[38px] flex items-center justify-between px-2 py-1 outline-none rounded-sm ring-1 ring-inset ring-transparent hover:ring-zinc-200 transition-shadow group/readonly text-xs text-zinc-500 cursor-default" onClick={(e) => { e.stopPropagation(); }}>
+                                                <div className="truncate">{subtask.createdAt ? format(new Date(subtask.createdAt), 'M/d/yy') : '—'}</div>
+                                                <TooltipProvider delayDuration={100}><Tooltip><TooltipTrigger asChild><div className="opacity-0 group-hover/readonly:opacity-100 transition-opacity flex items-center justify-center h-6 w-6 rounded-md bg-zinc-100 hover:bg-zinc-200 cursor-default shrink-0" onClick={(e) => e.stopPropagation()}><PenOff className="h-3.5 w-3.5 text-zinc-500" /></div></TooltipTrigger><TooltipContent className="bg-zinc-900 text-white font-medium text-xs px-2.5 py-1.5 border-0 rounded-md" side="top" sideOffset={4}>Read-only</TooltipContent></Tooltip></TooltipProvider>
+                                            </div>
+                                        </TableCell>
+                                    );
+                                    if (colId === 'createdBy') {
+                                        const creatorId = (subtask as any).createdBy;
+                                        const creatorMember = creatorId ? (workspaceMembers ?? []).find((m: any) => m.user?.id === creatorId || m.id === creatorId) : null;
+                                        const creator = creatorMember ? ((creatorMember as any).user ?? creatorMember) : null;
+                                        return (
+                                            <TableCell key="createdBy" className="p-0.5 overflow-hidden" style={{ width: colWidth, minWidth: 80 }}>
+                                                <div className="w-full h-full min-h-[38px] flex items-center justify-between px-2 py-1 outline-none rounded-sm ring-1 ring-inset ring-transparent hover:ring-zinc-200 transition-shadow group/readonly cursor-default" onClick={(e) => { e.stopPropagation(); }}>
+                                                    <div className="truncate">
+                                                        {creator ? (
+                                                            <Avatar className="h-6 w-6">
+                                                                <AvatarImage src={creator.image ?? undefined} />
+                                                                <AvatarFallback className="text-[10px] bg-zinc-900 text-white font-medium">{(creator.name ?? 'U').substring(0, 2).toUpperCase()}</AvatarFallback>
+                                                            </Avatar>
+                                                        ) : <span className="text-xs text-zinc-500">—</span>}
                                                     </div>
-                                                </Button>
-                                            </DropdownMenuTrigger>
-                                            <DropdownMenuContent align="start" className="w-48 z-[200]">
-                                                <DropdownMenuLabel className="text-xs">Priority</DropdownMenuLabel>
-                                                <DropdownMenuItem onClick={() => updateTask({ id: subtask.id, priority: "URGENT" })}>
-                                                    <Flag className="h-3 w-3 mr-2 text-red-600 fill-current" /> Urgent
-                                                </DropdownMenuItem>
-                                                <DropdownMenuItem onClick={() => updateTask({ id: subtask.id, priority: "HIGH" })}>
-                                                    <Flag className="h-3 w-3 mr-2 text-orange-600 fill-current" /> High
-                                                </DropdownMenuItem>
-                                                <DropdownMenuItem onClick={() => updateTask({ id: subtask.id, priority: "NORMAL" })}>
-                                                    <Flag className="h-3 w-3 mr-2 text-blue-600 fill-current" /> Normal
-                                                </DropdownMenuItem>
-                                                <DropdownMenuItem onClick={() => updateTask({ id: subtask.id, priority: "LOW" })}>
-                                                    <Flag className="h-3 w-3 mr-2 text-slate-600 fill-current" /> Low
-                                                </DropdownMenuItem>
-                                                <DropdownMenuSeparator />
-                                                <DropdownMenuItem onClick={() => updateTask({ id: subtask.id, priority: null })}>
-                                                    <CircleSlash className="h-3 w-3 mr-2 text-slate-500" />Clear
-                                                </DropdownMenuItem>
-                                            </DropdownMenuContent>
-                                        </DropdownMenu>
-                                    </TableCell>
-                                )}
-                                {visibleColumns.has('timeTracked') && (
-                                    <TableCell className="py-1 overflow-hidden border-b border-zinc-100/80 transition-all" style={{ width: colWidths.timeTracked, minWidth: 80 }}>
-                                        <span className="text-xs text-zinc-500">{subtask.timeTracked || "—"}</span>
-                                    </TableCell>
-                                )}
-                                {visibleColumns.has('dueDate') && (
-                                    <TableCell className="py-1 overflow-hidden border-b border-zinc-100/80 transition-all" style={{ width: colWidths.dueDate, minWidth: 80 }}>
-                                        <Popover>
-                                            <PopoverTrigger asChild>
-                                                <button
-                                                    type="button"
-                                                    className={cn("text-xs rounded px-1 py-0.5 hover:bg-zinc-100 cursor-pointer", subtask.dueDate ? "text-zinc-700" : "text-zinc-400")}
-                                                    onClick={(e) => e.stopPropagation()}
-                                                >
-                                                    {subtask.dueDate ? format(new Date(subtask.dueDate), 'MMM d') : 'Add Date'}
-                                                </button>
-                                            </PopoverTrigger>
-                                            <PopoverContent className="w-auto p-0" align="start" sideOffset={8} collisionPadding={10}>
-                                                <TaskCalendar
-                                                    startDate={subtask.startDate ? new Date(subtask.startDate) : undefined}
-                                                    endDate={subtask.dueDate ? new Date(subtask.dueDate) : undefined}
-                                                    onStartDateChange={(date) => updateTask({ id: subtask.id, startDate: date ? date.toISOString() : null })}
-                                                    onEndDateChange={(date) => updateTask({ id: subtask.id, dueDate: date ? date.toISOString() : null })}
-                                                />
-                                            </PopoverContent>
-                                        </Popover>
-                                    </TableCell>
-                                )}
-                                {visibleColumns.has('status') && (
-                                    <TableCell className="py-1 overflow-hidden border-b border-zinc-100/80 transition-all" style={{ width: colWidths.status, minWidth: 80 }}>
-                                        <DropdownMenu>
-                                            <DropdownMenuTrigger asChild>
-                                                <button
-                                                    type="button"
-                                                    className={cn("inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-medium border hover:opacity-90")}
-                                                    style={{
-                                                        backgroundColor: subtask.status?.color ? `${subtask.status.color}15` : '#f4f4f5',
-                                                        color: subtask.status?.color ?? '#52525b',
-                                                        borderColor: subtask.status?.color ? `${subtask.status.color}30` : '#e4e4e7'
-                                                    }}
-                                                    onClick={(e) => e.stopPropagation()}
-                                                >
-                                                    <span className="h-2 w-2 rounded-full" style={{ backgroundColor: subtask.status?.color || "#9CA3AF" }} />
-                                                    {subtask.status?.name || "No Status"}
-                                                </button>
-                                            </DropdownMenuTrigger>
-                                            <DropdownMenuContent align="start" className="w-56">
-                                                {statuses.map(s => (
-                                                    <DropdownMenuItem key={s.id} onClick={() => updateTask({ id: subtask.id, statusId: s.id })}>
-                                                        <span className="h-2 w-2 rounded-full mr-2" style={{ backgroundColor: s.color || "#9CA3AF" }} />
-                                                        {s.name}
-                                                    </DropdownMenuItem>
-                                                ))}
-                                            </DropdownMenuContent>
-                                        </DropdownMenu>
-                                    </TableCell>
-                                )}
-                                {visibleColumns.has('dateCreated') && (
-                                    <TableCell className="py-1 text-zinc-500 text-xs overflow-hidden border-b border-zinc-100/80 transition-all" style={{ width: colWidths.dateCreated, minWidth: 80 }}>
-                                        {subtask.createdAt ? format(new Date(subtask.createdAt), 'MMM d') : '—'}
-                                    </TableCell>
-                                )}
-                                {visibleColumns.has('taskType') && (
-                                    <TableCell className="py-1 overflow-hidden border-b border-zinc-100/80 transition-all" style={{ width: colWidths.taskType || 100, minWidth: 80 }}>
-                                        <DropdownMenu>
-                                            <DropdownMenuTrigger asChild>
-                                                <button
-                                                    type="button"
-                                                    className="flex items-center gap-2 text-xs font-medium text-zinc-700 hover:bg-zinc-100 p-1 -ml-1 rounded transition-colors group px-2"
-                                                    onClick={(e) => e.stopPropagation()}
-                                                >
-                                                    {(() => {
-                                                        const tt = availableTaskTypes?.find((t: any) => t.id === subtask.taskType || t.name === subtask.taskType);
-                                                        if (!tt) {
-                                                            if (subtask.taskType === 'TASK') return <><CheckCircle2 className="h-3.5 w-3.5 text-blue-500" /><span>Task</span></>;
-                                                            if (subtask.taskType === 'MILESTONE') return <><Target className="h-3.5 w-3.5 text-purple-500" /><span>Milestone</span></>;
-                                                            if (subtask.taskType === 'FORM_RESPONSE') return <><ListIcon className="h-3.5 w-3.5 text-green-500" /><span>Form Response</span></>;
-                                                            if (subtask.taskType === 'MEETING_NOTE') return <><FileText className="h-3.5 w-3.5 text-orange-500" /><span>Meeting Note</span></>;
-                                                            return <><CheckCircle2 className="h-3.5 w-3.5 text-zinc-400" /><span>{subtask.taskType || 'Task'}</span></>;
-                                                        }
-                                                        const IconComp = (() => {
-                                                            if (tt.icon === 'Target') return Target;
-                                                            if (tt.icon === 'List') return ListIcon;
-                                                            if (tt.icon === 'FileText') return FileText;
-                                                            return CheckCircle2;
-                                                        })();
-                                                        return (
-                                                            <>
-                                                                <IconComp className="h-3.5 w-3.5" style={{ color: tt.color || '#3b82f6' }} />
-                                                                <span>{tt.name}</span>
-                                                            </>
-                                                        );
-                                                    })()}
-                                                </button>
-                                            </DropdownMenuTrigger>
-                                            <DropdownMenuContent align="start">
-                                                {availableTaskTypes?.length > 0 ? (
-                                                    availableTaskTypes.map((tt: any) => {
-                                                        const IconComp = (() => {
-                                                            if (tt.icon === 'Target') return Target;
-                                                            if (tt.icon === 'List') return ListIcon;
-                                                            if (tt.icon === 'FileText') return FileText;
-                                                            return CheckCircle2;
-                                                        })();
-                                                        return (
-                                                            <DropdownMenuItem
-                                                                key={tt.id}
-                                                                onClick={() => updateTask({ id: subtask.id, taskTypeId: tt.id })}
-                                                            >
-                                                                <div className="flex items-center gap-2">
-                                                                    <IconComp className="h-3.5 w-3.5" style={{ color: tt.color || '#3b82f6' }} />
-                                                                    <span>{tt.name}</span>
+                                                    <TooltipProvider delayDuration={100}><Tooltip><TooltipTrigger asChild><div className="opacity-0 group-hover/readonly:opacity-100 transition-opacity flex items-center justify-center h-6 w-6 rounded-md bg-zinc-100 hover:bg-zinc-200 cursor-default shrink-0" onClick={(e) => e.stopPropagation()}><PenOff className="h-3.5 w-3.5 text-zinc-500" /></div></TooltipTrigger><TooltipContent className="bg-zinc-900 text-white font-medium text-xs px-2.5 py-1.5 border-0 rounded-md" side="top" sideOffset={4}>Read-only</TooltipContent></Tooltip></TooltipProvider>
+                                                </div>
+                                            </TableCell>
+                                        );
+                                    }
+                                    if (colId === 'dateClosed') return (
+                                        <TableCell key="dateClosed" className="p-0.5 overflow-hidden" style={{ width: colWidth, minWidth: 80 }}>
+                                            <div className="w-full h-full min-h-[38px] flex items-center justify-between px-2 py-1 outline-none rounded-sm ring-1 ring-inset ring-transparent hover:ring-zinc-200 transition-shadow group/readonly text-xs text-zinc-500 cursor-default" onClick={(e) => { e.stopPropagation(); }}>
+                                                <div className="truncate">{(subtask as any).dateClosed ? format(new Date((subtask as any).dateClosed), 'M/d/yy') : '—'}</div>
+                                                <TooltipProvider delayDuration={100}><Tooltip><TooltipTrigger asChild><div className="opacity-0 group-hover/readonly:opacity-100 transition-opacity flex items-center justify-center h-6 w-6 rounded-md bg-zinc-100 hover:bg-zinc-200 cursor-default shrink-0" onClick={(e) => e.stopPropagation()}><PenOff className="h-3.5 w-3.5 text-zinc-500" /></div></TooltipTrigger><TooltipContent className="bg-zinc-900 text-white font-medium text-xs px-2.5 py-1.5 border-0 rounded-md" side="top" sideOffset={4}>Read-only</TooltipContent></Tooltip></TooltipProvider>
+                                            </div>
+                                        </TableCell>
+                                    );
+                                    if (colId === 'dateDone') return (
+                                        <TableCell key="dateDone" className="p-0.5 overflow-hidden" style={{ width: colWidth, minWidth: 80 }}>
+                                            <div className="w-full h-full min-h-[38px] flex items-center justify-between px-2 py-1 outline-none rounded-sm ring-1 ring-inset ring-transparent hover:ring-zinc-200 transition-shadow group/readonly text-xs text-zinc-500 cursor-default" onClick={(e) => { e.stopPropagation(); }}>
+                                                <div className="truncate">{(subtask as any).dateDone ? format(new Date((subtask as any).dateDone), 'M/d/yy') : '—'}</div>
+                                                <TooltipProvider delayDuration={100}><Tooltip><TooltipTrigger asChild><div className="opacity-0 group-hover/readonly:opacity-100 transition-opacity flex items-center justify-center h-6 w-6 rounded-md bg-zinc-100 hover:bg-zinc-200 cursor-default shrink-0" onClick={(e) => e.stopPropagation()}><PenOff className="h-3.5 w-3.5 text-zinc-500" /></div></TooltipTrigger><TooltipContent className="bg-zinc-900 text-white font-medium text-xs px-2.5 py-1.5 border-0 rounded-md" side="top" sideOffset={4}>Read-only</TooltipContent></Tooltip></TooltipProvider>
+                                            </div>
+                                        </TableCell>
+                                    );
+                                    if (colId === 'startDate') return (
+                                        <TableCell key="startDate" className="p-0.5 overflow-hidden" style={{ width: colWidth, minWidth: 80 }}>
+                                            <Popover><PopoverTrigger asChild><button type="button" className={cn('w-full h-full min-h-[38px] flex items-center justify-start px-2 py-1 outline-none rounded-sm ring-1 ring-inset ring-transparent hover:ring-zinc-200 focus-visible:ring-indigo-500 data-[state=open]:ring-indigo-500 transition-shadow cursor-pointer text-xs', subtask.startDate ? 'text-zinc-700 font-medium' : 'text-zinc-400')} onClick={(e) => { e.stopPropagation(); }} title="Edit start date">{subtask.startDate ? format(new Date(subtask.startDate), 'M/d/yy') : 'Add Date'}</button></PopoverTrigger><PopoverContent className="w-auto p-0" align="start" sideOffset={8} collisionPadding={10}><TaskCalendar startDate={subtask.startDate ? new Date(subtask.startDate) : undefined} endDate={subtask.dueDate ? new Date(subtask.dueDate) : undefined} onStartDateChange={(date) => { updateTask({ id: subtask.id, startDate: date ? date.toISOString() : null }); }} onEndDateChange={(date) => { updateTask({ id: subtask.id, dueDate: date ? date.toISOString() : null }); }} /></PopoverContent></Popover>
+                                        </TableCell>
+                                    );
+                                    if (colId === 'dateUpdated') return (
+                                        <TableCell key="dateUpdated" className="p-0.5 overflow-hidden" style={{ width: colWidth, minWidth: 80 }}>
+                                            <div className="w-full h-full min-h-[38px] flex items-center justify-between px-2 py-1 outline-none rounded-sm ring-1 ring-inset ring-transparent hover:ring-zinc-200 transition-shadow group/readonly text-xs text-zinc-500 cursor-default" onClick={(e) => { e.stopPropagation(); }}>
+                                                <div className="truncate">{(subtask as any).updatedAt ? format(new Date((subtask as any).updatedAt), 'M/d/yy h:mma') : '—'}</div>
+                                                <TooltipProvider delayDuration={100}><Tooltip><TooltipTrigger asChild><div className="opacity-0 group-hover/readonly:opacity-100 transition-opacity flex items-center justify-center h-6 w-6 rounded-md bg-zinc-100 hover:bg-zinc-200 cursor-default shrink-0" onClick={(e) => e.stopPropagation()}><PenOff className="h-3.5 w-3.5 text-zinc-500" /></div></TooltipTrigger><TooltipContent className="bg-zinc-900 text-white font-medium text-xs px-2.5 py-1.5 border-0 rounded-md" side="top" sideOffset={4}>Read-only</TooltipContent></Tooltip></TooltipProvider>
+                                            </div>
+                                        </TableCell>
+                                    );
+                                    if (colId === 'tags') return (
+                                        <TableCell key="tags" className="p-0.5 overflow-hidden" style={{ width: colWidth, minWidth: 80 }}>
+                                            <div className="w-full h-full min-h-[38px] flex items-center px-2 py-1 outline-none rounded-sm ring-1 ring-inset ring-transparent hover:ring-zinc-200 transition-shadow gap-1 overflow-hidden group/tagcell cursor-default" onClick={(e) => { e.stopPropagation(); }}>
+                                                {subtask.tags && subtask.tags.length > 0 ? (
+                                                    <>
+                                                        {(subtask.tags as string[]).slice(0, 1).map((encoded) => {
+                                                            const parsed = parseEncodedTag(encoded);
+                                                            const bg = parsed.color ?? '#ede9fe';
+                                                            return (
+                                                                <div key={encoded} className="relative inline-flex items-center group/tag min-w-[40px]">
+                                                                    <span className="px-1.5 py-1 rounded-md text-xs font-medium cursor-pointer w-full text-center truncate max-w-[100px]" style={{ backgroundColor: bg, color: '#3730a3' }}>{parsed.label}</span>
+                                                                    <div style={{ backgroundColor: bg }} className="absolute inset-0 flex items-center text-bold justify-between text-zinc-400 px-1 rounded-md text-xs opacity-0 group-hover/tag:opacity-100 transition-opacity pointer-events-none">
+                                                                        <TagEditorPopover tag={encoded} tags={subtask.tags ?? []} onChange={(nextTags) => { updateTask({ id: subtask.id, tags: nextTags }); }}>
+                                                                            <button type="button" className="px-0.5 pointer-events-auto cursor-pointer hover:text-zinc-700" onClick={(e) => e.stopPropagation()} title="Tag settings"><MoreHorizontal className="h-3 w-3" /></button>
+                                                                        </TagEditorPopover>
+                                                                        <button type="button" className="px-0.5 pointer-events-auto cursor-pointer hover:text-red-500" onClick={(e) => { e.stopPropagation(); const nextTags = (subtask.tags ?? []).filter((t: string) => t !== encoded); updateTask({ id: subtask.id, tags: nextTags }); }} title="Remove tag"><X className="h-3 w-3" /></button>
+                                                                    </div>
                                                                 </div>
-                                                            </DropdownMenuItem>
-                                                        );
-                                                    })
+                                                            );
+                                                        })}
+                                                        {subtask.tags.length > 1 ? (
+                                                            <TagsPopover tags={subtask.tags ?? []} onChange={(nextTags) => { updateTask({ id: subtask.id, tags: nextTags }); }} trigger={<button type="button" className="px-1.5 py-0.5 rounded-full bg-zinc-100 text-zinc-500 text-xs font-medium cursor-pointer hover:bg-zinc-200" onClick={(e) => e.stopPropagation()}>+{subtask.tags.length - 1}</button>} />
+                                                        ) : (
+                                                            <TagsPopover tags={subtask.tags ?? []} onChange={(nextTags) => { updateTask({ id: subtask.id, tags: nextTags }); }} trigger={<button type="button" className="flex items-center justify-center h-5 w-5 rounded-md hover:bg-zinc-100 text-zinc-400 hover:text-zinc-600 transition-opacity opacity-0 group-hover/tagcell:opacity-100 cursor-pointer" onClick={(e) => e.stopPropagation()}><Plus className="h-3 w-3" /></button>} />
+                                                        )}
+                                                    </>
                                                 ) : (
-                                                    [
-                                                        { value: 'TASK', label: 'Task', icon: CheckCircle2, color: 'text-blue-500' },
-                                                        { value: 'MILESTONE', label: 'Milestone', icon: Target, color: 'text-purple-500' },
-                                                        { value: 'FORM_RESPONSE', label: 'Form Response', icon: ListIcon, color: 'text-green-500' },
-                                                        { value: 'MEETING_NOTE', label: 'Meeting Note', icon: FileText, color: 'text-orange-500' },
-                                                    ].map((type) => (
-                                                        <DropdownMenuItem
-                                                            key={type.value}
-                                                            onClick={() => updateTask({ id: subtask.id, taskType: type.value as any })}
-                                                        >
-                                                            <div className="flex items-center gap-2">
-                                                                <type.icon className={cn("h-3.5 w-3.5", type.color)} />
-                                                                <span>{type.label}</span>
-                                                            </div>
-                                                        </DropdownMenuItem>
-                                                    ))
+                                                    <TagsPopover tags={subtask.tags ?? []} onChange={(nextTags) => { updateTask({ id: subtask.id, tags: nextTags }); }} trigger={<div className="flex items-center gap-1 w-full h-full cursor-pointer" onClick={(e) => e.stopPropagation()}><div className="text-xs text-zinc-500 hover:text-zinc-700 transition-colors">—</div></div>} />
                                                 )}
-                                            </DropdownMenuContent>
-                                        </DropdownMenu>
-                                    </TableCell>
-                                )}
-                                <TableCell className="w-[50px] py-1 pr-4 border-b border-zinc-100/80 border-t border-r border-transparent group-hover:border-zinc-200 rounded-r-md transition-all">
+                                            </div>
+                                        </TableCell>
+                                    );
+                                    if (colId === 'taskType') return (
+                                        <TableCell key="taskType" className="p-0.5 overflow-hidden" style={{ width: colWidth, minWidth: 80 }}>
+                                            <TaskStatusPopover task={subtask as any} availableStatuses={statuses} availableTaskTypes={availableTaskTypes} onUpdateTask={(id, data) => updateTask({ id, ...data })} hideStatusTab={true}>
+                                                <button type="button" onClick={(e) => e.stopPropagation()} className="w-full h-full min-h-[38px] flex items-center justify-start px-2 py-1 outline-none rounded-sm ring-1 ring-inset ring-transparent hover:ring-zinc-200 focus-visible:ring-indigo-500 data-[state=open]:ring-indigo-500 transition-shadow cursor-pointer gap-2 text-left text-xs text-zinc-700">
+                                                    <TaskTypeIcon type={subtask.taskType} className="h-3.5 w-3.5 text-zinc-400 shrink-0" />
+                                                    <span className="truncate">{subtask.taskType?.name ?? 'Task'}</span>
+                                                </button>
+                                            </TaskStatusPopover>
+                                        </TableCell>
+                                    );
+                                    if (colId === 'timeline') return (
+                                        <TableCell key="timeline" className="p-0.5 overflow-hidden" style={{ width: colWidth, minWidth: 100 }}>
+                                            <Popover><PopoverTrigger asChild><button type="button" className={cn('w-full h-full min-h-[38px] flex items-center justify-start px-2 py-1 outline-none rounded-sm ring-1 ring-inset ring-transparent hover:ring-zinc-200 focus-visible:ring-indigo-500 data-[state=open]:ring-indigo-500 transition-shadow cursor-pointer text-xs gap-1.5', (subtask.startDate || subtask.dueDate) ? 'text-zinc-700 font-medium' : 'text-zinc-400')} onClick={(e) => { e.stopPropagation(); }} title="Edit timeline"><Calendar className="h-3.5 w-3.5" />{subtask.startDate || subtask.dueDate ? (<>{subtask.startDate ? format(new Date(subtask.startDate), 'M/d/yy') : '—'} &rarr; {subtask.dueDate ? format(new Date(subtask.dueDate), 'M/d/yy') : '—'}</>) : ''}</button></PopoverTrigger><PopoverContent className="w-auto p-0" align="start" sideOffset={8} collisionPadding={10}><TaskCalendar startDate={subtask.startDate ? new Date(subtask.startDate) : undefined} endDate={subtask.dueDate ? new Date(subtask.dueDate) : undefined} onStartDateChange={(date) => { updateTask({ id: subtask.id, startDate: date ? date.toISOString() : null }); }} onEndDateChange={(date) => { updateTask({ id: subtask.id, dueDate: date ? date.toISOString() : null }); }} /></PopoverContent></Popover>
+                                        </TableCell>
+                                    );
+                                    if (colId === 'linkedTasks') {
+                                        const deps = (subtask as any).dependencies || [];
+                                        const blocks = (subtask as any).blockedDependencies || [];
+                                        const depCount = ((subtask._count as any)?.dependencies ?? 0) + ((subtask._count as any)?.blockedDependencies ?? 0);
+                                        const firstLinkedTaskTitle = deps[0]?.dependsOn?.title || blocks[0]?.task?.title || 'Task';
+                                        return (
+                                            <TableCell key="linkedTasks" className="p-0.5 overflow-hidden" style={{ width: colWidth, minWidth: 80 }}>
+                                                <TaskLinkedTasksPopover taskId={subtask.id} workspaceId={(subtask as any).workspaceId ?? workspaceId ?? ''}>
+                                                    <button type="button" className="w-full h-full min-h-[38px] flex items-center justify-start px-2 py-1 outline-none rounded-sm ring-1 ring-inset ring-transparent hover:ring-zinc-200 focus-visible:ring-indigo-500 data-[state=open]:ring-indigo-500 transition-shadow cursor-pointer gap-1" onClick={(e) => e.stopPropagation()}>
+                                                        {depCount > 0 ? (<><Badge variant="outline" className="h-5 px-1.5 text-xs font-normal border-zinc-200 truncate max-w-[80px] rounded-sm">{firstLinkedTaskTitle}</Badge>{depCount > 1 && <Badge variant="outline" className="h-5 px-1 text-xs font-normal border-zinc-200 rounded-sm">+{depCount - 1}</Badge>}</>) : (<span className="text-xs text-zinc-500">—</span>)}
+                                                    </button>
+                                                </TaskLinkedTasksPopover>
+                                            </TableCell>
+                                        );
+                                    }
+                                    if (colId === 'linkedDocs') return (
+                                        <TableCell key="linkedDocs" className="p-0.5 overflow-hidden" style={{ width: colWidth, minWidth: 80 }}>
+                                            <LinkedDocsCell task={subtask as any} workspaceId={(subtask as any).workspaceId ?? workspaceId ?? ''} />
+                                        </TableCell>
+                                    );
+                                    if (colId === 'dependencies') {
+                                        const depCount = ((subtask._count as any)?.dependencies ?? 0) + ((subtask._count as any)?.blockedDependencies ?? 0);
+                                        return (
+                                            <TableCell key="dependencies" className="p-0.5 overflow-hidden" style={{ width: colWidth, minWidth: 80 }}>
+                                                <TaskDependenciesPopover taskId={subtask.id} workspaceId={(subtask as any).workspaceId ?? workspaceId ?? ''}>
+                                                    <button type="button" className="w-full h-full min-h-[38px] flex items-center justify-start px-2 py-1 outline-none rounded-sm ring-1 ring-inset ring-transparent hover:ring-zinc-200 focus-visible:ring-indigo-500 data-[state=open]:ring-indigo-500 transition-shadow cursor-pointer gap-1" onClick={(e) => e.stopPropagation()}>
+                                                        {depCount > 0 ? (<><Badge variant="outline" className="h-5 px-1.5 text-xs font-normal border-zinc-200 truncate max-w-[80px] rounded-sm">Task</Badge>{depCount > 1 && <Badge variant="outline" className="h-5 px-1 text-xs font-normal border-zinc-200 rounded-sm">+{depCount - 1}</Badge>}</>) : (<span className="text-xs text-zinc-500">—</span>)}
+                                                    </button>
+                                                </TaskDependenciesPopover>
+                                            </TableCell>
+                                        );
+                                    }
+                                    if (colId === 'taskId') return (
+                                        <TableCell key="taskId" className="p-0 overflow-hidden text-xs text-zinc-500 font-mono group/taskid" style={{ width: colWidth, minWidth: 80 }}>
+                                            <div className="w-full h-full min-h-[38px] flex items-center justify-between px-2 py-1 outline-none rounded-sm ring-1 ring-inset ring-transparent hover:ring-zinc-200 transition-shadow cursor-default" onClick={(e) => { e.stopPropagation(); }}>
+                                                <span className="truncate max-w-[80px] shrink-0" title={subtask.id}># {subtask.id.slice(0, 7)}...</span>
+                                                <TooltipProvider delayDuration={300}><Tooltip><TooltipTrigger asChild><button onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(subtask.id); toast.success('Task ID copied'); }} className="opacity-0 group-hover/taskid:opacity-100 transition-opacity flex items-center justify-center h-6 w-6 rounded-md border border-zinc-200 bg-white hover:bg-zinc-100 text-zinc-500 hover:text-zinc-700 shrink-0 cursor-pointer"><Copy className="h-3.5 w-3.5" /></button></TooltipTrigger><TooltipContent side="top" className="bg-zinc-900 text-white font-medium text-xs px-2.5 py-1.5 border-0 rounded-md">Copy Task ID</TooltipContent></Tooltip></TooltipProvider>
+                                            </div>
+                                        </TableCell>
+                                    );
+                                    if (colId === 'list') return (
+                                        <TableCell key="list" className="p-0.5 overflow-hidden" style={{ width: colWidth, minWidth: 100 }}>
+                                            <TaskListPopover taskId={subtask.id} workspaceId={((subtask as any).workspaceId ?? workspaceId ?? '') as string} currentListId={subtask.list?.id} sharedLists={(subtask as any).sharedLists ?? []}>
+                                                <button type="button" className="w-full h-full min-h-[38px] flex items-center justify-start px-2 py-1 outline-none rounded-sm ring-1 ring-inset ring-transparent hover:ring-zinc-200 focus-visible:ring-indigo-500 data-[state=open]:ring-indigo-500 transition-shadow cursor-pointer gap-1 group" onClick={(e) => e.stopPropagation()}>
+                                                    <Badge variant="outline" className="h-6 px-2 text-xs font-normal border-zinc-200 bg-white rounded-md text-zinc-700 truncate hover:bg-zinc-50 transition-colors">{subtask.list?.name || '—'}</Badge>
+                                                    {((subtask as any).sharedLists?.length > 0) && (<Badge variant="outline" className="h-6 px-2 text-xs font-normal border-zinc-200 bg-white rounded-md text-zinc-500 hover:bg-zinc-50 transition-colors shrink-0">+ {(subtask as any).sharedLists.length}</Badge>)}
+                                                    <div className="h-6 w-6 rounded-md border border-zinc-200 flex items-center justify-center text-zinc-400 group-hover:bg-zinc-50 group-hover:text-zinc-600 transition-colors shrink-0"><Plus className="h-3 w-3" /></div>
+                                                </button>
+                                            </TaskListPopover>
+                                        </TableCell>
+                                    );
+                                    if (colId === 'timeEstimate') return (
+                                        <TableCell key="timeEstimate" className="p-0.5 overflow-hidden" style={{ width: colWidth, minWidth: 80 }}>
+                                            <div className="w-full h-full min-h-[38px] flex items-center px-2 py-1 outline-none rounded-sm ring-1 ring-inset ring-transparent hover:ring-zinc-200 transition-shadow text-xs text-zinc-500 cursor-default" onClick={(e) => { e.stopPropagation(); }}>
+                                                {(subtask as any).timeEstimate ?? '—'}
+                                            </div>
+                                        </TableCell>
+                                    );
+                                    if (colId === 'comments') return (
+                                        <TableCell key="comments" className="p-0.5 overflow-hidden" style={{ width: colWidth, minWidth: 60 }}>
+                                            <TaskCommentPopover taskId={subtask.id} commentCount={subtask._count?.comments ?? 0} workspaceMembers={(workspaceMembers || []).map((u: any) => ({ id: u.user?.id ?? u.id, name: u.user?.name || u.name || u.user?.email || u.email, image: u.user?.image ?? u.image }))} trigger={<button type="button" className="w-full h-full min-h-[38px] flex items-center justify-start px-2 py-1 outline-none rounded-sm ring-1 ring-inset ring-transparent hover:ring-zinc-200 focus-visible:ring-indigo-500 data-[state=open]:ring-indigo-500 transition-shadow cursor-pointer gap-1" onClick={(e) => e.stopPropagation()}><div className={cn('flex items-center gap-1.5 text-xs rounded-md px-1.5 py-1 transition-colors', (subtask._count?.comments ?? 0) > 0 ? 'text-zinc-700 bg-zinc-50 hover:bg-zinc-100' : 'text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100')}><MessageSquare className="h-3.5 w-3.5" />{(subtask._count?.comments ?? 0) > 0 && <span className="font-medium">{subtask._count?.comments}</span>}</div></button>} />
+                                        </TableCell>
+                                    );
+                                    if (colId === 'timeTracked') {
+                                        const totalTracked = typeof subtask.timeTracked === 'number' ? subtask.timeTracked : 0;
+                                        let timeLabel = 'Add time';
+                                        if (totalTracked > 0) {
+                                            const hours = Math.floor(totalTracked / 3600);
+                                            const mins = Math.floor((totalTracked % 3600) / 60);
+                                            if (hours > 0 && mins > 0) timeLabel = `${hours}h ${mins}m`;
+                                            else if (hours > 0) timeLabel = `${hours}h`;
+                                            else timeLabel = `${mins}m`;
+                                        }
+                                        return (
+                                            <TableCell key="timeTracked" className="p-0.5 overflow-hidden" style={{ width: colWidth, minWidth: 80 }}>
+                                                <TaskTimeTrackedPopover taskId={subtask.id} workspaceId={(subtask as any).workspaceId ?? workspaceId ?? ''} totalTrackedSeconds={totalTracked} trigger={<button type="button" className="w-full h-full min-h-[38px] flex items-center justify-start px-2 py-1 outline-none rounded-sm ring-1 ring-inset ring-transparent hover:ring-zinc-200 focus-visible:ring-indigo-500 data-[state=open]:ring-indigo-500 transition-shadow cursor-pointer gap-1" onClick={(e) => e.stopPropagation()}><div className={cn('flex items-center gap-1.5 text-xs rounded-md px-1.5 py-1 transition-colors', totalTracked > 0 ? 'text-zinc-700 bg-zinc-50 hover:bg-zinc-100' : 'text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100')}><Play className="h-3 w-3 shrink-0" /><span className="font-medium">{timeLabel}</span></div></button>} />
+                                            </TableCell>
+                                        );
+                                    }
+                                    if (colId === 'pullRequests') return (
+                                        <TableCell key="pullRequests" className="p-0.5 overflow-hidden" style={{ width: colWidth, minWidth: 80 }}>
+                                            <div className="w-full h-full min-h-[38px] flex items-center px-2 py-1 outline-none rounded-sm ring-1 ring-inset ring-transparent hover:ring-zinc-200 transition-shadow text-xs text-zinc-500 cursor-default" onClick={(e) => { e.stopPropagation(); }}>—</div>
+                                        </TableCell>
+                                    );
+                                    // Custom fields
+                                    const cfEntry = SUBTASK_FIELD_CONFIG.find(f => (f as any).id === colId && (f as any).isCustom);
+                                    if (cfEntry) {
+                                        const customField = (cfEntry as any).customField;
+                                        const value = getCustomFieldValue(subtask as any, colId);
+                                        const formattedValue = formatCustomFieldValue(value, customField);
+                                        return (
+                                            <TableCell key={colId} className="p-0.5 overflow-hidden" style={{ width: colWidths[colId] ?? 120, minWidth: 80 }}>
+                                                <button type="button" className="w-full h-full min-h-[38px] flex items-center justify-start px-2 py-1 outline-none rounded-sm ring-1 ring-inset ring-transparent hover:ring-zinc-200 focus-visible:ring-indigo-500 data-[state=open]:ring-indigo-500 transition-shadow cursor-pointer text-left text-xs text-zinc-700" onClick={(e) => { e.stopPropagation(); }} title={`Edit ${(cfEntry as any).label}`}>{formattedValue}</button>
+                                            </TableCell>
+                                        );
+                                    }
+                                    // Fallback for any unknown column
+                                    return (
+                                        <TableCell key={colId} className="p-0.5 overflow-hidden" style={{ width: colWidth, minWidth: 80 }}>
+                                            <div className="w-full h-full min-h-[38px] flex items-center px-2 py-1 outline-none rounded-sm ring-1 ring-inset ring-transparent hover:ring-zinc-200 transition-shadow text-xs text-zinc-500 cursor-default" onClick={(e) => { e.stopPropagation(); }}>
+                                                —
+                                            </div>
+                                        </TableCell>
+                                    );
+                                })}
+                                <TableCell className="w-[50px] py-1 pr-4 bg-white transition-colors group-hover:bg-[#fbfbfb]" style={{ position: 'sticky', right: 0, zIndex: 2, boxShadow: '-2px 0 4px -1px rgba(0,0,0,0.06)' }}>
                                     <TaskActionsPopover
                                         task={subtask}
                                         context={task.spaceId ? "SPACE" : task.projectId ? "PROJECT" : "GENERAL"}
@@ -1778,7 +1938,7 @@ export function SubtasksTable({
                                     className="cursor-pointer h-6 w-6 flex items-center justify-center rounded-md hover:bg-zinc-200 text-zinc-400 hover:text-zinc-600 transition-colors"
                                 >
                                     <svg viewBox="0 0 100 100" className={cn("h-2.5 w-2.5 fill-current transition-transform duration-200", (!isCollapsed || isAddingSubtask) && "rotate-90")}>
-                                      <polygon points="20,10 80,50 20,90" />
+                                        <polygon points="20,10 80,50 20,90" />
                                     </svg>
                                 </button>
                             ) : (
@@ -1902,7 +2062,7 @@ export function SubtasksTable({
                 )}
 
                 {!isCollapsed && (allSubtasks.length > 0 || isAddingSubtask || !!inlineAddGroupKey) && (
-                    <div className="w-full">
+                    <div className="w-full overflow-x-auto">
                         {viewMode === 'list' ? (
                             <div className="divide-y divide-zinc-100">
                                 {displayRows.map((subtask) => {
@@ -2036,11 +2196,11 @@ export function SubtasksTable({
                                 onDragEnd={(e) => void handleDragEnd(e)}
                                 onDragCancel={() => { setDragActiveId(null); setDragOverId(null); setDropPosition(null); }}
                             >
-                                <Table className="table-fixed w-full border-separate border-spacing-0">
+                                <Table className="w-full border-separate border-spacing-0">
                                     {allSubtasks.length > 0 && (
                                         <TableHeader>
                                             <TableRow className="hover:bg-transparent bg-transparent border-none">
-                                                <TableHead className="relative py-3 pl-[30px] text-xs text-zinc-400 font-normal group" style={{ width: colWidths.name, minWidth: 200 }}>
+                                                <TableHead className="relative py-3 pl-[30px] text-xs text-zinc-400 font-normal group bg-white" style={{ width: colWidths.name, minWidth: Math.max(colWidths.name || 200, 200), position: 'sticky', left: 0, zIndex: 3, boxShadow: '2px 0 4px -1px rgba(0,0,0,0.06)' }}>
                                                     <div className="flex items-center gap-2">
                                                         <div className={cn(
                                                             "transition-opacity shrink-0",
@@ -2063,49 +2223,25 @@ export function SubtasksTable({
                                                     </div>
                                                     <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-zinc-300 z-10" onMouseDown={(e) => startResize(e, "name")} onClick={(e) => e.stopPropagation()} />
                                                 </TableHead>
-                                                {visibleColumns.has('assignee') && (
-                                                    <TableHead className="relative text-xs text-zinc-400 font-normal" style={{ width: colWidths.assignee, minWidth: 80 }}>
-                                                        Assignee
-                                                        <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-zinc-300 z-10" onMouseDown={(e) => startResize(e, "assignee")} onClick={(e) => e.stopPropagation()} />
-                                                    </TableHead>
-                                                )}
-                                                {visibleColumns.has('priority') && (
-                                                    <TableHead className="relative text-xs text-zinc-400 font-normal" style={{ width: colWidths.priority, minWidth: 80 }}>
-                                                        Priority
-                                                        <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-zinc-300 z-10" onMouseDown={(e) => startResize(e, "priority")} onClick={(e) => e.stopPropagation()} />
-                                                    </TableHead>
-                                                )}
-                                                {visibleColumns.has('timeTracked') && (
-                                                    <TableHead className="relative text-xs text-zinc-400 font-normal" style={{ width: colWidths.timeTracked, minWidth: 80 }}>
-                                                        Time Tracked
-                                                        <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-zinc-300 z-10" onMouseDown={(e) => startResize(e, "timeTracked")} onClick={(e) => e.stopPropagation()} />
-                                                    </TableHead>
-                                                )}
-                                                {visibleColumns.has('dueDate') && (
-                                                    <TableHead className="relative text-xs text-zinc-400 font-normal" style={{ width: colWidths.dueDate, minWidth: 80 }}>
-                                                        Due Date
-                                                        <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-zinc-300 z-10" onMouseDown={(e) => startResize(e, "dueDate")} onClick={(e) => e.stopPropagation()} />
-                                                    </TableHead>
-                                                )}
-                                                {visibleColumns.has('status') && (
-                                                    <TableHead className="relative text-xs text-zinc-400 font-normal" style={{ width: colWidths.status, minWidth: 80 }}>
-                                                        Status
-                                                        <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-zinc-300 z-10" onMouseDown={(e) => startResize(e, "status")} onClick={(e) => e.stopPropagation()} />
-                                                    </TableHead>
-                                                )}
-                                                {visibleColumns.has('dateCreated') && (
-                                                    <TableHead className="relative text-xs text-zinc-400 font-normal" style={{ width: colWidths.dateCreated, minWidth: 80 }}>
-                                                        Date Created
-                                                        <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-zinc-300 z-10" onMouseDown={(e) => startResize(e, "dateCreated")} onClick={(e) => e.stopPropagation()} />
-                                                    </TableHead>
-                                                )}
-                                                {visibleColumns.has('taskType') && (
-                                                    <TableHead className="relative text-xs text-zinc-400 font-normal" style={{ width: colWidths.taskType, minWidth: 80 }}>
-                                                        Type
-                                                        <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-zinc-300 z-10" onMouseDown={(e) => startResize(e, "taskType")} onClick={(e) => e.stopPropagation()} />
-                                                    </TableHead>
-                                                )}
-                                                <TableHead className="w-[50px] pr-4">
+                                                {(() => {
+                                                    const COLUMN_LABELS: Record<string, string> = {
+                                                        assignee: 'Assignee', priority: 'Priority', dueDate: 'Due Date',
+                                                        status: 'Status', dateCreated: 'Date Created', createdBy: 'Created By',
+                                                        dateClosed: 'Date Closed', dateDone: 'Date Done', startDate: 'Start Date',
+                                                        dateUpdated: 'Date Updated', tags: 'Tags', taskType: 'Type',
+                                                        timeline: 'Timeline', linkedTasks: 'Linked Tasks', linkedDocs: 'Linked Docs',
+                                                        dependencies: 'Dependencies', taskId: 'Task ID', list: 'Lists',
+                                                        timeEstimate: 'Time Estimate', comments: 'Comments',
+                                                        timeTracked: 'Time Tracked', pullRequests: 'Pull Requests',
+                                                    };
+                                                    return Array.from(new Set(columnOrder)).filter(colId => visibleColumns.has(colId)).map(colId => (
+                                                        <TableHead key={colId} className="relative text-xs text-zinc-400 font-normal" style={{ width: colWidths[colId] ?? 100, minWidth: 80 }}>
+                                                            {COLUMN_LABELS[colId] ?? colId}
+                                                            <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-zinc-300 z-10" onMouseDown={(e) => startResize(e, colId)} onClick={(e) => e.stopPropagation()} />
+                                                        </TableHead>
+                                                    ));
+                                                })()}
+                                                <TableHead className="w-[50px] pr-4 bg-white" style={{ position: 'sticky', right: 0, zIndex: 3, boxShadow: '-2px 0 4px -1px rgba(0,0,0,0.06)' }}>
                                                     <Popover>
                                                         <PopoverTrigger asChild>
                                                             <Button
@@ -2118,19 +2254,25 @@ export function SubtasksTable({
                                                             </Button>
                                                         </PopoverTrigger>
                                                         <PopoverContent align="end" className="w-[280px] p-0 gap-0 overflow-hidden" sideOffset={8}>
-                                                            <div className="px-4 py-3 border-b border-zinc-100">
-                                                                <h3 className="text-sm font-semibold text-zinc-900">Fields</h3>
-                                                            </div>
                                                             <div className="p-3 border-b border-zinc-100">
-                                                                <div className="relative">
-                                                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
-                                                                    <Input className="pl-9 h-9 text-sm" placeholder="Search" value={fieldsSearch} onChange={e => setFieldsSearch(e.target.value)} />
+                                                                <div className="flex items-center gap-2 px-3 h-9 bg-white border border-zinc-200 rounded-md focus-within:border-violet-500 focus-within:ring-2 focus-within:ring-violet-500/20 transition-all overflow-hidden cursor-text">
+                                                                    <Search className="h-4 w-4 text-zinc-400 shrink-0" />
+                                                                    <Input
+                                                                        variant="ghost"
+                                                                        className="flex-1 h-full border-0 p-0 shadow-none focus-visible:ring-0 text-sm bg-transparent placeholder:text-zinc-400 focus:outline-none focus:ring-0 focus-visible:ring-0"
+                                                                        placeholder="Search Task Fields"
+                                                                        value={fieldsSearch}
+                                                                        onChange={e => setFieldsSearch(e.target.value)}
+                                                                    />
                                                                 </div>
                                                             </div>
                                                             <ScrollArea className="h-[280px] p-3">
                                                                 {SUBTASK_FIELD_CONFIG.filter(f => !fieldsSearch.trim() || f.label.toLowerCase().includes(fieldsSearch.toLowerCase())).map(f => (
                                                                     <div key={f.id} className="flex items-center justify-between py-2 px-2 rounded hover:bg-zinc-50">
-                                                                        <span className="text-sm text-zinc-800">{f.label}</span>
+                                                                        <div className="flex items-center gap-2">
+                                                                            <SubtaskFieldIcon icon={f.icon} />
+                                                                            <span className="text-sm text-zinc-800">{f.label}</span>
+                                                                        </div>
                                                                         <Switch
                                                                             checked={visibleColumns.has(f.id)}
                                                                             onCheckedChange={() => toggleColumn(f.id)}
@@ -2154,16 +2296,18 @@ export function SubtasksTable({
                                         )}
                                         {!inlineAddGroupKey && (
                                             <TableRow>
-                                                <TableCell colSpan={20} className="py-2.5 pl-[74px] pr-4 w-full">
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        className="w-full h-8 text-sm text-zinc-800 hover:text-zinc-900 justify-start px-2 -ml-2 font-normal cursor-pointer"
-                                                        onClick={() => openInlineAdd(`parent:${parentId}`, parentId)}
-                                                    >
-                                                        <Plus className="h-3.5 w-3.5 mr-1" />
-                                                        <span className="hover:border-1 hover:border-zinc-300 hover:rounded-md px-1.5 py-1">Add Task</span>
-                                                    </Button>
+                                                <TableCell colSpan={20} className="py-0 pr-4 w-full">
+                                                    <div className="sticky left-0 z-10 py-2.5 pl-[74px]" style={{ width: Math.max(colWidths.name || 200, 200) }}>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            className="w-full h-8 text-sm text-zinc-800 hover:text-zinc-900 hover:bg-transparent justify-start px-2 -ml-2 font-normal cursor-pointer"
+                                                            onClick={() => openInlineAdd(`parent:${parentId}`, parentId)}
+                                                        >
+                                                            <Plus className="h-3.5 w-3.5 mr-1" />
+                                                            <span className="hover:border-1 hover:border-zinc-300 hover:rounded-md px-1.5 py-1">Add Task</span>
+                                                        </Button>
+                                                    </div>
                                                 </TableCell>
                                             </TableRow>
                                         )}

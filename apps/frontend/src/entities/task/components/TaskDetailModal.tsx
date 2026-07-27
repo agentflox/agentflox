@@ -64,10 +64,8 @@ import EmojiPicker, { Theme, EmojiClickData } from 'emoji-picker-react';
 import { SubtasksTable } from './SubtasksTable';
 import { AttachmentsSection } from './AttachmentsSection';
 import { TaskRelationshipsSection } from './TaskRelationshipsSection';
-import { BlockingPanelContent } from './BlockingPanelContent';
-import { WaitingOnPanelContent } from './WaitingOnPanelContent';
-import { DocLinksPanelContent } from './DocLinksPanelContent';
 import { useDebounce } from '@/hooks/useDebounce';
+import { TaskActivityPanel } from './TaskActivityPanel';
 import { RelatedPanelContent } from './RelatedPanelContent';
 import { CustomFieldsSection } from './CustomFieldsSection';
 import { ChatView } from '@/features/dashboard/views/shared/SharedAIChatView';
@@ -80,7 +78,7 @@ import { Image as ImageIcon, Circle, ChevronDown, Fingerprint, Droplet, Upload, 
 
 export type TaskLayoutMode = 'modal' | 'fullscreen' | 'sidebar';
 
-const ACTIVITY_FILTER_OPTIONS: { id: string; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
+export const ACTIVITY_FILTER_OPTIONS: { id: string; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
     { id: 'comments', label: 'Comments', icon: MessageSquare },
     { id: 'assignee', label: 'Assignee', icon: UserIcon },
     { id: 'due_date', label: 'Due date', icon: CalendarIcon },
@@ -661,6 +659,7 @@ export function TaskDetailContent({
             }
         });
     }, [commentText]);
+
     const [layoutDropdownOpen, setLayoutDropdownOpen] = React.useState(false);
     const [timeTrackingModalOpen, setTimeTrackingModalOpen] = React.useState(false);
     const [subtasksSidebarOpen, setSubtasksSidebarOpen] = React.useState(false);
@@ -978,17 +977,20 @@ export function TaskDetailContent({
         onMutate: async (input) => {
             await utils.task.get.cancel({ id: taskId || '' });
             const prev = utils.task.get.getData({ id: taskId || '' });
-            if (prev) {
+            if (prev && !input.parentId) {
                 const tempComment = {
                     id: `temp-${Date.now()}`,
                     content: input.content,
                     taskId: taskId,
                     userId: currentUserId,
+                    parentId: null,
+                    isEdited: false,
+                    editedAt: null,
                     user: { id: currentUserId, name: session?.name || session?.email || 'You', image: session?.image || null },
                     createdAt: new Date().toISOString(),
                     updatedAt: new Date().toISOString(),
                     reactions: [],
-                    type: 'comment',
+                    replies: [],
                 };
                 utils.task.get.setData({ id: taskId || '' }, {
                     ...prev,
@@ -1005,6 +1007,7 @@ export function TaskDetailContent({
             utils.task.get.invalidate({ id: taskId || '' });
         }
     });
+
 
     React.useEffect(() => {
         if (task) {
@@ -2108,186 +2111,27 @@ export function TaskDetailContent({
                                             )}
                                             {rightSidebarPanel === 'activity' && (
                                                 <>
-                                                    <div className="p-3 border-b border-zinc-100 flex items-center justify-between bg-white shrink-0">
-                                                        <span className="text-base font-semibold text-zinc-900">Activity</span>
-                                                        <div className="flex items-center gap-0.5">
-                                                            <Button size="icon" variant="ghost" className="h-8 w-8" aria-label="Search">
-                                                                <Search className="h-4 w-4" />
-                                                            </Button>
-                                                            <Button size="icon" variant="ghost" className="h-8 w-8 relative" aria-label="Notifications">
-                                                                <Bell className="h-4 w-4" />
-                                                                {filteredActivity.length > 0 && (
-                                                                    <span className="absolute top-1 right-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-purple-500 px-1 text-[10px] font-medium text-white">
-                                                                        {filteredActivity.length > 99 ? '99+' : filteredActivity.length}
-                                                                    </span>
-                                                                )}
-                                                            </Button>
-                                                            <Popover open={activityFilterOpen} onOpenChange={setActivityFilterOpen}>
-                                                                <PopoverTrigger asChild>
-                                                                    <Button size="icon" variant="ghost" className="h-8 w-8" aria-label="Filter activities">
-                                                                        <SlidersHorizontal className="h-4 w-4" />
-                                                                    </Button>
-                                                                </PopoverTrigger>
-                                                                <PopoverContent className="w-72 p-0" align="end">
-                                                                    <div className="flex items-center justify-between border-b border-zinc-100 px-3 py-2">
-                                                                        <span className="text-sm font-semibold text-zinc-900">Activities</span>
-                                                                        <button
-                                                                            type="button"
-                                                                            className="text-xs text-zinc-500 hover:text-zinc-700 cursor-pointer"
-                                                                            onClick={() => setActivityFilterTypes(new Set())}
-                                                                        >
-                                                                            Unselect All
-                                                                        </button>
-                                                                    </div>
-                                                                    <ScrollArea className="max-h-[280px]">
-                                                                        <div className="p-2 space-y-0.5">
-                                                                            {ACTIVITY_FILTER_OPTIONS.map((opt) => {
-                                                                                const Icon = opt.icon;
-                                                                                const checked = activityFilterTypes.has(opt.id);
-                                                                                return (
-                                                                                    <label
-                                                                                        key={opt.id}
-                                                                                        className="flex items-center gap-2 py-2 px-2 rounded-md hover:bg-zinc-50 cursor-pointer"
-                                                                                    >
-                                                                                        <Checkbox
-                                                                                            checked={checked}
-                                                                                            onCheckedChange={(c) => {
-                                                                                                setActivityFilterTypes((prev) => {
-                                                                                                    const next = new Set(prev);
-                                                                                                    if (c) next.add(opt.id); else next.delete(opt.id);
-                                                                                                    return next;
-                                                                                                });
-                                                                                            }}
-                                                                                        />
-                                                                                        <Icon className="h-4 w-4 text-zinc-500 shrink-0" />
-                                                                                        <span className="text-sm text-zinc-900 truncate">{opt.label}</span>
-                                                                                    </label>
-                                                                                );
-                                                                            })}
-                                                                        </div>
-                                                                    </ScrollArea>
-                                                                </PopoverContent>
-                                                            </Popover>
-                                                        </div>
-                                                    </div>
-                                                    <div className="flex-1 min-h-0"><ScrollArea className="h-full">
-                                                        <div className="p-4">
-                                                            {/* Show more */}
-                                                            {activityFilterTypes.size === 0 && (
-                                                                <p className="text-sm text-zinc-500 py-4">Select activity types in the filter to view activities.</p>
-                                                            )}
-                                                            {activityFilterTypes.size > 0 && filteredActivity.length > 3 && (
-                                                                <button type="button" className="flex items-center gap-1 text-xs text-zinc-500 hover:text-zinc-700 mb-3 cursor-pointer">
-                                                                    <ChevronRight className="h-3.5 w-3.5" /> Show more
-                                                                </button>
-                                                            )}
-                                                            <div className="space-y-4">
-                                                                {filteredActivity.map((item: any, i: number) => {
-                                                                    const isAgent = !!(item.agentId ?? item.agentName ?? item.sourceType === 'AGENT');
-                                                                    const displayName = isAgent ? (item.agentName || 'Automation Agent') : (item.user?.name ?? 'Someone');
-                                                                    return (
-                                                                        <div key={item.id || i} className="flex gap-3 text-sm">
-                                                                            {item.type === 'comment' ? (
-                                                                                isAgent ? (
-                                                                                    <div className="h-6 w-6 rounded-full bg-purple-100 flex items-center justify-center mt-0.5 shrink-0">
-                                                                                        <Bot className="h-3.5 w-3.5 text-purple-600" />
-                                                                                    </div>
-                                                                                ) : (
-                                                                                    <Avatar className="h-6 w-6 mt-0.5 shrink-0">
-                                                                                        <AvatarImage src={item.user?.image} />
-                                                                                        <AvatarFallback className="text-[9px]">{item.user?.name?.substring(0, 2).toUpperCase()}</AvatarFallback>
-                                                                                    </Avatar>
-                                                                                )
-                                                                            ) : (
-                                                                                isAgent ? (
-                                                                                    <div className="h-6 w-6 rounded-full bg-purple-100 flex items-center justify-center mt-0.5 shrink-0">
-                                                                                        <Bot className="h-3.5 w-3.5 text-purple-600" />
-                                                                                    </div>
-                                                                                ) : (
-                                                                                    <div className="h-6 w-6 rounded-full bg-zinc-100 flex items-center justify-center mt-0.5 shrink-0">
-                                                                                        <LayoutList className="h-3 w-3" />
-                                                                                    </div>
-                                                                                )
-                                                                            )}
-                                                                            <div className="space-y-1 min-w-0 flex-1">
-                                                                                <div className="text-zinc-600">
-                                                                                    {item.type === 'comment' ? (
-                                                                                        <>
-                                                                                            <span className="font-medium text-zinc-900">{displayName}</span>
-                                                                                            <p className="text-zinc-800 mt-0.5 break-words">{item.content}</p>
-                                                                                        </>
-                                                                                    ) : (
-                                                                                        <>
-                                                                                            <span className="font-medium">{displayName}</span>
-                                                                                            {' '}{item.action === 'CREATED' ? 'created the task' : item.action === 'ASSIGNED' ? 'assigned' : item.action === 'UNASSIGNED' ? 'unassigned' : item.action === 'STATUS_CHANGED' ? 'updated status' : item.action === 'PRIORITY_CHANGED' ? 'updated priority' : item.action === 'DUE_DATE_CHANGED' ? 'updated due date' : item.action === 'ATTACHED' ? 'added an attachment' : item.action === 'COMMENTED' ? 'commented' : item.action === 'MOVED' ? 'moved' : 'updated'}{' '}{item.field ? (item.field === 'title' ? 'name' : item.field === 'statusId' ? 'status' : item.field === 'listId' ? 'list' : item.field) : 'the task'}
-                                                                                        </>
-                                                                                    )}
-                                                                                </div>
-                                                                                <div className="text-[10px] text-zinc-400">
-                                                                                    {format(new Date(item.createdAt), 'MMM d, h:mm a')}
-                                                                                </div>
-                                                                            </div>
-                                                                        </div>
-                                                                    );
-                                                                })}
-                                                            </div>
-                                                        </div>
-                                                    </ScrollArea>
-                                                    </div>
-                                                    <div className="p-4 border-t border-zinc-100 bg-white shrink-0">
-
-                                                        {/* New comment / activity input (image 1 style) */}
-                                                        <div className="flex items-end gap-3 mt-1">
-                                                            <div className="flex-1 relative bg-zinc-100/50 backdrop-blur-sm rounded-[28px] border border-zinc-200/60 focus-within:border-indigo-400 focus-within:ring-4 focus-within:ring-indigo-500/10 transition-all duration-300 overflow-x-hidden shadow-inner min-h-[56px] flex flex-col justify-center">
-                                                                <Textarea
-                                                                    ref={textareaRef}
-                                                                    value={commentText}
-                                                                    onChange={(e) => setCommentText(e.target.value)}
-                                                                    placeholder="Write a comment... @mention for AI"
-                                                                    className="min-h-[56px] max-h-[200px] resize-none border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 pr-20 py-[16px] px-6 text-[14px] font-normal placeholder:text-zinc-400 leading-relaxed"
-                                                                    onKeyDown={(e) => {
-                                                                        if (e.key === 'Enter' && !e.shiftKey) {
-                                                                            e.preventDefault();
-                                                                            if (commentText.trim()) {
-                                                                                createComment.mutate({ taskId: task.id, content: commentText });
-                                                                                setCommentText('');
-                                                                            }
-                                                                        }
-                                                                    }}
-                                                                />
-                                                                <div className="absolute bottom-[6px] right-2 flex items-center gap-1">
-                                                                    <span className="text-[10px] text-zinc-400 font-medium mr-2 hidden sm:inline-block pointer-events-none">
-                                                                        Press Enter to send
-                                                                    </span>
-                                                                    <Popover open={showEmojiPicker} onOpenChange={setShowEmojiPicker}>
-                                                                        <PopoverTrigger asChild>
-                                                                            <button
-                                                                                type="button"
-                                                                                className="p-2.5 rounded-full hover:bg-zinc-200/80 text-zinc-400 hover:text-zinc-700 transition-all duration-200 hover:scale-105 cursor-pointer"
-                                                                                title="Add emoji"
-                                                                            >
-                                                                                <Smile className="h-5 w-5" />
-                                                                            </button>
-                                                                        </PopoverTrigger>
-                                                                        <PopoverContent className="w-auto p-0 border-0 shadow-2xl rounded-2xl overflow-hidden" align="end" sideOffset={12}>
-                                                                            <EmojiPicker
-                                                                                onEmojiClick={handleEmojiClick}
-                                                                                theme={Theme.LIGHT}
-                                                                                searchPlaceHolder="Search emoji..."
-                                                                                width={340}
-                                                                                height={420}
-                                                                                previewConfig={{ showPreview: false }}
-                                                                            />
-                                                                        </PopoverContent>
-                                                                    </Popover>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-
+                                                    <div className="flex flex-col h-full min-h-0 bg-white overflow-hidden">
+                                                        <TaskActivityPanel
+                                                            task={task}
+                                                            workspaceMembers={workspaceMembers}
+                                                            currentUserId={currentUserId}
+                                                            filteredActivity={filteredActivity}
+                                                            activityFilterOpen={activityFilterOpen}
+                                                            setActivityFilterOpen={setActivityFilterOpen}
+                                                            activityFilterTypes={activityFilterTypes}
+                                                            setActivityFilterTypes={setActivityFilterTypes}
+                                                            createComment={createComment}
+                                                            commentText={commentText}
+                                                            setCommentText={setCommentText}
+                                                            showEmojiPicker={showEmojiPicker}
+                                                            setShowEmojiPicker={setShowEmojiPicker}
+                                                            textareaRef={textareaRef}
+                                                            handleEmojiClick={handleEmojiClick}
+                                                        />
                                                     </div>
                                                 </>
                                             )}
-
                                             {rightSidebarPanel === 'related' && (
                                                 <div className="p-4 flex flex-col h-full min-h-0 overflow-auto">
                                                     <RelatedPanelContent
@@ -3099,186 +2943,27 @@ export function TaskDetailContent({
                                                     <div className="flex-1 h-full flex flex-col min-h-0 bg-white overflow-hidden">
                                                         {rightSidebarPanel === 'activity' && (
                                                             <>
-                                                                <div className="p-3 border-b border-zinc-100 flex items-center justify-between bg-white shrink-0">
-                                                                    <span className="text-base font-semibold text-zinc-900">Activity</span>
-                                                                    <div className="flex items-center gap-0.5">
-                                                                        <Button size="icon" variant="ghost" className="h-8 w-8" aria-label="Search">
-                                                                            <Search className="h-4 w-4" />
-                                                                        </Button>
-                                                                        <Button size="icon" variant="ghost" className="h-8 w-8 relative" aria-label="Notifications">
-                                                                            <Bell className="h-4 w-4" />
-                                                                            {filteredActivity.length > 0 && (
-                                                                                <span className="absolute top-1 right-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-purple-500 px-1 text-[10px] font-medium text-white">
-                                                                                    {filteredActivity.length > 99 ? '99+' : filteredActivity.length}
-                                                                                </span>
-                                                                            )}
-                                                                        </Button>
-                                                                        <Popover open={activityFilterOpen} onOpenChange={setActivityFilterOpen}>
-                                                                            <PopoverTrigger asChild>
-                                                                                <Button size="icon" variant="ghost" className="h-8 w-8" aria-label="Filter activities">
-                                                                                    <SlidersHorizontal className="h-4 w-4" />
-                                                                                </Button>
-                                                                            </PopoverTrigger>
-                                                                            <PopoverContent className="w-72 p-0" align="end">
-                                                                                <div className="flex items-center justify-between border-b border-zinc-100 px-3 py-2">
-                                                                                    <span className="text-sm font-semibold text-zinc-900">Activities</span>
-                                                                                    <button
-                                                                                        type="button"
-                                                                                        className="text-xs text-zinc-500 hover:text-zinc-700 cursor-pointer"
-                                                                                        onClick={() => setActivityFilterTypes(new Set())}
-                                                                                    >
-                                                                                        Unselect All
-                                                                                    </button>
-                                                                                </div>
-                                                                                <ScrollArea className="max-h-[280px]">
-                                                                                    <div className="p-2 space-y-0.5">
-                                                                                        {ACTIVITY_FILTER_OPTIONS.map((opt) => {
-                                                                                            const Icon = opt.icon;
-                                                                                            const checked = activityFilterTypes.has(opt.id);
-                                                                                            return (
-                                                                                                <label
-                                                                                                    key={opt.id}
-                                                                                                    className="flex items-center gap-2 py-2 px-2 rounded-md hover:bg-zinc-50 cursor-pointer"
-                                                                                                >
-                                                                                                    <Checkbox
-                                                                                                        checked={checked}
-                                                                                                        onCheckedChange={(c) => {
-                                                                                                            setActivityFilterTypes((prev) => {
-                                                                                                                const next = new Set(prev);
-                                                                                                                if (c) next.add(opt.id); else next.delete(opt.id);
-                                                                                                                return next;
-                                                                                                            });
-                                                                                                        }}
-                                                                                                    />
-                                                                                                    <Icon className="h-4 w-4 text-zinc-500 shrink-0" />
-                                                                                                    <span className="text-sm text-zinc-900 truncate">{opt.label}</span>
-                                                                                                </label>
-                                                                                            );
-                                                                                        })}
-                                                                                    </div>
-                                                                                </ScrollArea>
-                                                                            </PopoverContent>
-                                                                        </Popover>
-                                                                    </div>
-                                                                </div>
-                                                                <div className="flex-1 min-h-0"><ScrollArea className="h-full">
-                                                                    <div className="p-4">
-                                                                        {/* Show more */}
-                                                                        {activityFilterTypes.size === 0 && (
-                                                                            <p className="text-sm text-zinc-500 py-4">Select activity types in the filter to view activities.</p>
-                                                                        )}
-                                                                        {activityFilterTypes.size > 0 && filteredActivity.length > 3 && (
-                                                                            <button type="button" className="flex items-center gap-1 text-xs text-zinc-500 hover:text-zinc-700 mb-3 cursor-pointer">
-                                                                                <ChevronRight className="h-3.5 w-3.5" /> Show more
-                                                                            </button>
-                                                                        )}
-                                                                        <div className="space-y-4">
-                                                                            {filteredActivity.map((item: any, i: number) => {
-                                                                                const isAgent = !!(item.agentId ?? item.agentName ?? item.sourceType === 'AGENT');
-                                                                                const displayName = isAgent ? (item.agentName || 'Automation Agent') : (item.user?.name ?? 'Someone');
-                                                                                return (
-                                                                                    <div key={item.id || i} className="flex gap-3 text-sm">
-                                                                                        {item.type === 'comment' ? (
-                                                                                            isAgent ? (
-                                                                                                <div className="h-6 w-6 rounded-full bg-purple-100 flex items-center justify-center mt-0.5 shrink-0">
-                                                                                                    <Bot className="h-3.5 w-3.5 text-purple-600" />
-                                                                                                </div>
-                                                                                            ) : (
-                                                                                                <Avatar className="h-6 w-6 mt-0.5 shrink-0">
-                                                                                                    <AvatarImage src={item.user?.image} />
-                                                                                                    <AvatarFallback className="text-[9px]">{item.user?.name?.substring(0, 2).toUpperCase()}</AvatarFallback>
-                                                                                                </Avatar>
-                                                                                            )
-                                                                                        ) : (
-                                                                                            isAgent ? (
-                                                                                                <div className="h-6 w-6 rounded-full bg-purple-100 flex items-center justify-center mt-0.5 shrink-0">
-                                                                                                    <Bot className="h-3.5 w-3.5 text-purple-600" />
-                                                                                                </div>
-                                                                                            ) : (
-                                                                                                <div className="h-6 w-6 rounded-full bg-zinc-100 flex items-center justify-center mt-0.5 shrink-0">
-                                                                                                    <LayoutList className="h-3 w-3" />
-                                                                                                </div>
-                                                                                            )
-                                                                                        )}
-                                                                                        <div className="space-y-1 min-w-0 flex-1">
-                                                                                            <div className="text-zinc-600">
-                                                                                                {item.type === 'comment' ? (
-                                                                                                    <>
-                                                                                                        <span className="font-medium text-zinc-900">{displayName}</span>
-                                                                                                        <p className="text-zinc-800 mt-0.5 break-words">{item.content}</p>
-                                                                                                    </>
-                                                                                                ) : (
-                                                                                                    <>
-                                                                                                        <span className="font-medium">{displayName}</span>
-                                                                                                        {' '}{item.action === 'CREATED' ? 'created the task' : item.action === 'ASSIGNED' ? 'assigned' : item.action === 'UNASSIGNED' ? 'unassigned' : item.action === 'STATUS_CHANGED' ? 'updated status' : item.action === 'PRIORITY_CHANGED' ? 'updated priority' : item.action === 'DUE_DATE_CHANGED' ? 'updated due date' : item.action === 'ATTACHED' ? 'added an attachment' : item.action === 'COMMENTED' ? 'commented' : item.action === 'MOVED' ? 'moved' : 'updated'}{' '}{item.field ? (item.field === 'title' ? 'name' : item.field === 'statusId' ? 'status' : item.field === 'listId' ? 'list' : item.field) : 'the task'}
-                                                                                                    </>
-                                                                                                )}
-                                                                                            </div>
-                                                                                            <div className="text-[10px] text-zinc-400">
-                                                                                                {format(new Date(item.createdAt), 'MMM d, h:mm a')}
-                                                                                            </div>
-                                                                                        </div>
-                                                                                    </div>
-                                                                                );
-                                                                            })}
-                                                                        </div>
-                                                                    </div>
-                                                                </ScrollArea>
-                                                                </div>
-                                                                <div className="p-4 border-t border-zinc-100 bg-white shrink-0">
-
-                                                                    {/* New comment / activity input (image 1 style) */}
-                                                                    <div className="flex items-end gap-3 mt-1">
-                                                                        <div className="flex-1 relative bg-zinc-100/50 backdrop-blur-sm rounded-[28px] border border-zinc-200/60 focus-within:border-indigo-400 focus-within:ring-4 focus-within:ring-indigo-500/10 transition-all duration-300 overflow-x-hidden shadow-inner min-h-[56px] flex flex-col justify-center">
-                                                                            <Textarea
-                                                                                ref={textareaRef}
-                                                                                value={commentText}
-                                                                                onChange={(e) => setCommentText(e.target.value)}
-                                                                                placeholder="Write a comment... @mention for AI"
-                                                                                className="min-h-[56px] max-h-[200px] resize-none border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 pr-20 py-[16px] px-6 text-[14px] font-normal placeholder:text-zinc-400 leading-relaxed"
-                                                                                onKeyDown={(e) => {
-                                                                                    if (e.key === 'Enter' && !e.shiftKey) {
-                                                                                        e.preventDefault();
-                                                                                        if (commentText.trim()) {
-                                                                                            createComment.mutate({ taskId: task.id, content: commentText });
-                                                                                            setCommentText('');
-                                                                                        }
-                                                                                    }
-                                                                                }}
-                                                                            />
-                                                                            <div className="absolute bottom-[6px] right-2 flex items-center gap-1">
-                                                                                <span className="text-[10px] text-zinc-400 font-medium mr-2 hidden sm:inline-block pointer-events-none">
-                                                                                    Press Enter to send
-                                                                                </span>
-                                                                                <Popover open={showEmojiPicker} onOpenChange={setShowEmojiPicker}>
-                                                                                    <PopoverTrigger asChild>
-                                                                                        <button
-                                                                                            type="button"
-                                                                                            className="p-2.5 rounded-full hover:bg-zinc-200/80 text-zinc-400 hover:text-zinc-700 transition-all duration-200 hover:scale-105 cursor-pointer"
-                                                                                            title="Add emoji"
-                                                                                        >
-                                                                                            <Smile className="h-5 w-5" />
-                                                                                        </button>
-                                                                                    </PopoverTrigger>
-                                                                                    <PopoverContent className="w-auto p-0 border-0 shadow-2xl rounded-2xl overflow-hidden" align="end" sideOffset={12}>
-                                                                                        <EmojiPicker
-                                                                                            onEmojiClick={handleEmojiClick}
-                                                                                            theme={Theme.LIGHT}
-                                                                                            searchPlaceHolder="Search emoji..."
-                                                                                            width={340}
-                                                                                            height={420}
-                                                                                            previewConfig={{ showPreview: false }}
-                                                                                        />
-                                                                                    </PopoverContent>
-                                                                                </Popover>
-                                                                            </div>
-                                                                        </div>
-                                                                    </div>
-
+                                                                <div className="flex flex-col h-full min-h-0 bg-white overflow-hidden">
+                                                                    <TaskActivityPanel
+                                                                        task={task}
+                                                                        workspaceMembers={workspaceMembers}
+                                                                        currentUserId={currentUserId}
+                                                                        filteredActivity={filteredActivity}
+                                                                        activityFilterOpen={activityFilterOpen}
+                                                                        setActivityFilterOpen={setActivityFilterOpen}
+                                                                        activityFilterTypes={activityFilterTypes}
+                                                                        setActivityFilterTypes={setActivityFilterTypes}
+                                                                        createComment={createComment}
+                                                                        commentText={commentText}
+                                                                        setCommentText={setCommentText}
+                                                                        showEmojiPicker={showEmojiPicker}
+                                                                        setShowEmojiPicker={setShowEmojiPicker}
+                                                                        textareaRef={textareaRef}
+                                                                        handleEmojiClick={handleEmojiClick}
+                                                                    />
                                                                 </div>
                                                             </>
                                                         )}
-
                                                         {rightSidebarPanel === 'related' && (
                                                             <div className="p-4 flex flex-col h-full min-h-0 overflow-auto">
                                                                 <RelatedPanelContent

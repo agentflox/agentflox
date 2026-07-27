@@ -209,6 +209,8 @@ function buildTaskListInclude(relationMode: TaskListRelationMode | undefined, us
       },
     },
     tasks: { select: { id: true, title: true } },
+    dependencies: { include: { dependsOn: { select: { title: true, id: true } } } },
+    blockedDependencies: { include: { task: { select: { title: true, id: true } } } },
   } as const;
 
   if (relationMode === "card") {
@@ -457,9 +459,24 @@ export const taskRouter = router({
           team: { select: { id: true, name: true } },
           space: { select: { id: true, name: true } },
           list: { select: { id: true, name: true, locationType: true, folder: { select: { id: true, name: true } }, statuses: { select: { id: true, name: true, color: true } } } },
+          sharedLists: { select: { id: true, name: true } },
           watchers: { where: { userId }, select: { id: true } },
           checklists: { include: { items: { include: { assignee: true }, orderBy: { position: 'asc' } } } },
-          comments: { include: { user: { select: { id: true, name: true, image: true } } } },
+          comments: {
+            where: { parentId: null },
+            include: {
+              user: { select: { id: true, name: true, image: true } },
+              reactions: { include: { user: { select: { id: true, name: true, image: true } } } },
+              replies: {
+                include: {
+                  user: { select: { id: true, name: true, image: true } },
+                  reactions: { include: { user: { select: { id: true, name: true, image: true } } } },
+                },
+                orderBy: { createdAt: 'asc' },
+              },
+            },
+            orderBy: { createdAt: 'asc' },
+          },
           attachments: { include: { uploader: { select: { id: true, name: true, image: true } } } },
           taskLinks: { select: { id: true, url: true, title: true, description: true, createdAt: true, creator: { select: { id: true, name: true, image: true } } } },
 
@@ -470,8 +487,16 @@ export const taskRouter = router({
                   id: true,
                   title: true,
                   status: true,
+                  startDate: true,
                   dueDate: true,
                   priority: true,
+                  timeEstimate: true,
+                  createdAt: true,
+                  updatedAt: true,
+                  createdBy: true,
+                  creator: { select: { id: true, name: true, image: true } },
+                  taskTypeId: true,
+                  taskType: { select: { id: true, name: true, icon: true, color: true } },
                   assignees: { include: { user: { select: { id: true, name: true, image: true } } } },
                 },
               },
@@ -484,8 +509,16 @@ export const taskRouter = router({
                   id: true,
                   title: true,
                   status: true,
+                  startDate: true,
                   dueDate: true,
                   priority: true,
+                  timeEstimate: true,
+                  createdAt: true,
+                  updatedAt: true,
+                  createdBy: true,
+                  creator: { select: { id: true, name: true, image: true } },
+                  taskTypeId: true,
+                  taskType: { select: { id: true, name: true, icon: true, color: true } },
                   assignees: { include: { user: { select: { id: true, name: true, image: true } } } },
                 },
               },
@@ -936,6 +969,34 @@ export const taskRouter = router({
       return updated;
     }),
 
+  addToSharedList: protectedProcedure
+    .input(z.object({ id: z.string(), listId: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const perm = await permissionsService.permissions.resolvePermission("task", input.id, ctx.session);
+      if (!perm || (perm !== PermissionLevel.FULL && perm !== PermissionLevel.EDIT)) {
+        throw new Error("Task not found or permission denied");
+      }
+      return prisma.task.update({
+        where: { id: input.id },
+        data: { sharedLists: { connect: { id: input.listId } } },
+        select: { id: true, sharedLists: { select: { id: true, name: true } } },
+      });
+    }),
+
+  removeFromSharedList: protectedProcedure
+    .input(z.object({ id: z.string(), listId: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const perm = await permissionsService.permissions.resolvePermission("task", input.id, ctx.session);
+      if (!perm || (perm !== PermissionLevel.FULL && perm !== PermissionLevel.EDIT)) {
+        throw new Error("Task not found or permission denied");
+      }
+      return prisma.task.update({
+        where: { id: input.id },
+        data: { sharedLists: { disconnect: { id: input.listId } } },
+        select: { id: true, sharedLists: { select: { id: true, name: true } } },
+      });
+    }),
+
   delete: protectedProcedure
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
@@ -1111,7 +1172,7 @@ export const taskRouter = router({
 
   comment: router({
     create: protectedProcedure
-      .input(z.object({ taskId: z.string(), content: z.string() }))
+      .input(z.object({ taskId: z.string(), content: z.string(), parentId: z.string().optional() }))
       .mutation(async ({ ctx, input }) => {
         const userId = ctx.session!.user!.id;
         const comment = await prisma.taskComment.create({
@@ -1119,11 +1180,65 @@ export const taskRouter = router({
             taskId: input.taskId,
             userId,
             content: input.content,
+            parentId: input.parentId ?? null,
           },
-          include: { user: { select: { id: true, name: true, image: true } } }
+          include: {
+            user: { select: { id: true, name: true, image: true } },
+            reactions: true,
+            replies: { include: { user: { select: { id: true, name: true, image: true } }, reactions: true } },
+          },
         });
-        await recordTaskActivity(prisma as Tx, { taskId: input.taskId, userId, action: "COMMENTED", field: "comment" });
-        return comment;
+        const activity = await prisma.taskActivity.create({
+          data: {
+            taskId: input.taskId,
+            userId,
+            action: 'COMMENTED',
+            field: 'comment',
+            commentId: comment.id,
+          },
+        });
+        return { ...comment, activityId: activity.id };
+      }),
+
+    update: protectedProcedure
+      .input(z.object({ commentId: z.string(), content: z.string() }))
+      .mutation(async ({ ctx, input }) => {
+        const userId = ctx.session!.user!.id;
+        return prisma.taskComment.update({
+          where: { id: input.commentId, userId },
+          data: { content: input.content, isEdited: true, editedAt: new Date() },
+          include: {
+            user: { select: { id: true, name: true, image: true } },
+            reactions: true,
+            replies: { include: { user: { select: { id: true, name: true, image: true } }, reactions: true } },
+          },
+        });
+      }),
+
+    delete: protectedProcedure
+      .input(z.object({ commentId: z.string() }))
+      .mutation(async ({ ctx, input }) => {
+        const userId = ctx.session!.user!.id;
+        return prisma.taskComment.delete({
+          where: { id: input.commentId, userId },
+        });
+      }),
+
+    react: protectedProcedure
+      .input(z.object({ commentId: z.string(), emoji: z.string() }))
+      .mutation(async ({ ctx, input }) => {
+        const userId = ctx.session!.user!.id;
+        const existing = await prisma.taskCommentReaction.findUnique({
+          where: { commentId_userId_emoji: { commentId: input.commentId, userId, emoji: input.emoji } },
+        });
+        if (existing) {
+          return prisma.taskCommentReaction.delete({
+            where: { commentId_userId_emoji: { commentId: input.commentId, userId, emoji: input.emoji } },
+          });
+        }
+        return prisma.taskCommentReaction.create({
+          data: { commentId: input.commentId, userId, emoji: input.emoji },
+        });
       }),
   }),
 

@@ -744,6 +744,7 @@ export function FieldsPanelSlideout({
                                                     );
                                                 })()}
                                                 {columnOrder.filter((colId) => {
+                                                    if (colId === "name") return false;
                                                     const f = fieldConfig.find((x) => x.id === colId);
                                                     return f && (!fieldsSearch.trim() || f.label.toLowerCase().includes(fieldsSearch.toLowerCase()));
                                                 }).map((colId) => {

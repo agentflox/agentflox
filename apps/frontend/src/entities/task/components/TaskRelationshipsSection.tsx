@@ -2,8 +2,10 @@
 
 import * as React from 'react';
 import {
-    Repeat, Maximize2, Minimize2, ChevronRight, Plus, MinusCircle, AlertTriangle, ArrowLeftRight, CheckCircle2, FileText, CircleDot, PlusCircle, Columns, Calendar, CalendarCheck, CalendarClock, CalendarDays, Timer, Clock, Hourglass, Hash, MoreHorizontal, FoldVertical, UnfoldVertical, X, Flag, Settings2
+    Repeat, Maximize2, Minimize2, ChevronRight, Plus, MinusCircle, AlertTriangle, ArrowLeftRight, CheckCircle2, CircleDashed, FileText, CircleDot, PlusCircle, Columns, Calendar, CalendarCheck, CalendarClock, CalendarDays, Timer, Clock, Hourglass, Hash, MoreHorizontal, FoldVertical, UnfoldVertical, X, Flag, Settings2, PenOff, Copy, CircleSlash, Play
 } from 'lucide-react';
+import { TaskStatusPopover } from './TaskStatusPopover';
+import { TaskTypeIcon } from './TaskTypeIcon';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
@@ -12,6 +14,7 @@ import {
     DropdownMenuItem,
     DropdownMenuSeparator,
     DropdownMenuTrigger,
+    DropdownMenuLabel,
     DropdownMenuSub,
     DropdownMenuSubTrigger,
     DropdownMenuSubContent,
@@ -25,6 +28,13 @@ import { TaskDocPickerPopover } from './TaskDocPickerPopover';
 import { DocPickerPopover } from './DocPickerPopover';
 import { NewCustomRelationshipPopover } from './NewCustomRelationshipPopover';
 import { EditCustomRelationshipPopover } from './EditCustomRelationshipPopover';
+import { TaskCalendar } from './TaskCalendar';
+import { AssigneeSelector } from './AssigneeSelector';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { TaskTimeTrackedPopover } from './TaskTimeTrackedPopover';
+import { getCustomFieldValue } from '@/features/dashboard/views/generic/filterUtils';
+import { toast } from 'sonner';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 
 const AVAILABLE_COLUMNS = [
@@ -102,6 +112,22 @@ export function TaskRelationshipsSection({ taskId, workspaceId, task }: TaskRela
 
     const utils = trpc.useUtils();
 
+    const { data: statuses = [] } = trpc.taskStatus.list.useQuery(
+        { workspaceId: workspaceId || '' },
+        { enabled: !!workspaceId }
+    );
+
+    const { data: availableTaskTypes = [] } = trpc.task.listTaskTypes.useQuery(
+        { workspaceId: workspaceId || undefined },
+        { enabled: !!workspaceId }
+    );
+
+    const updateTask = trpc.task.update.useMutation({
+        onSuccess: () => {
+            utils.task.get.invalidate({ id: taskId });
+        }
+    });
+
     const { data: customRelationships } = trpc.taskCustomRelationships.list.useQuery(
         { workspaceId },
         { enabled: !!workspaceId }
@@ -131,6 +157,46 @@ export function TaskRelationshipsSection({ taskId, workspaceId, task }: TaskRela
     const customRelTasksCount = task?.dependencies?.filter((d: any) => d.customRelationshipId)?.length || 0;
     const totalItems = totalRelated + totalDependencies + customRelTasksCount;
 
+    const renderStatusIcon = (targetTask: any) => {
+        if (!targetTask) return <CircleDot className="h-4 w-4 text-blue-500 shrink-0" />;
+
+        return (
+            <TooltipProvider>
+                <Tooltip delayDuration={300}>
+                    <TaskStatusPopover
+                        task={targetTask}
+                        availableStatuses={statuses}
+                        availableTaskTypes={availableTaskTypes}
+                        onUpdateTask={(id, data) => updateTask.mutate({ id, ...data })}
+                    >
+                        <TooltipTrigger asChild>
+                            <button className="shrink-0 flex items-center justify-center h-6 w-6 rounded transition-all duration-150 cursor-pointer hover:bg-zinc-200/80 outline-none focus:outline-none" onClick={(e) => e.stopPropagation()}>
+                                {(() => {
+                                    const tt = targetTask.taskType || availableTaskTypes?.find((t: any) => t.isDefault) || availableTaskTypes?.[0];
+                                    const isDefault = !tt || tt.name?.toLowerCase() === "task" || tt.isDefault || tt === 'TASK';
+                                    const statusName = targetTask.status?.name?.toLowerCase() || "";
+                                    const statusColor = targetTask.status?.color || (statusName.includes("done") || statusName.includes("complete") ? "#10B981" : statusName.includes("progress") || statusName.includes("doing") ? "#3B82F6" : "#94A3B8");
+
+                                    if (isDefault) {
+                                        if (statusName.includes("done") || statusName.includes("complete")) return <CheckCircle2 className="h-4 w-4" style={{ color: statusColor }} />;
+                                        if (statusName.includes("progress") || statusName.includes("doing")) return <CircleDot className="h-4 w-4" style={{ color: statusColor }} />;
+                                        return <CircleDashed className="h-4 w-4" style={{ color: statusColor }} />;
+                                    }
+
+                                    const resolvedTt = typeof tt === 'string' ? availableTaskTypes?.find((t: any) => t.id === tt || t.name === tt) || tt : tt;
+                                    return <TaskTypeIcon type={resolvedTt} className="h-4 w-4" size={16} color={statusColor} />;
+                                })()}
+                            </button>
+                        </TooltipTrigger>
+                    </TaskStatusPopover>
+                    <TooltipContent className="bg-zinc-900 text-white font-medium text-xs px-2.5 py-1.5 border-0 rounded-md" side="top" sideOffset={4}>
+                        <span style={{ color: targetTask.status?.color || '#fff' }}>{targetTask.status?.name?.toUpperCase() || "NO STATUS"}</span>
+                    </TooltipContent>
+                </Tooltip>
+            </TooltipProvider>
+        );
+    };
+
     // Determine the effective active tab, gracefully falling back if the current activeTab has no items
     const availableTabs = [
         ...(totalRelated > 0 ? ['related'] : []),
@@ -147,26 +213,158 @@ export function TaskRelationshipsSection({ taskId, workspaceId, task }: TaskRela
     const [blockedByCollapsed, setBlockedByCollapsed] = React.useState(false);
     const [taskColumns, setTaskColumns] = React.useState<string[]>(['dueDate', 'priority']);
 
-    const renderTaskCell = (dep: any, colId: string) => {
-        const t = dep.dependsOn || dep.task || dep;
-        if (!t) return null;
-        switch (colId) {
-            case 'dueDate': return t.dueDate ? <span className="text-red-500 truncate block">{format(new Date(t.dueDate), 'M/d/yy, h:mma').toLowerCase()}</span> : null;
-            case 'priority': return t.priority ? <Flag className={cn("h-4 w-4", PRIORITY_COLORS[t.priority.toUpperCase()] || 'text-zinc-400')} /> : <Flag className="h-4 w-4 text-zinc-300" />;
-            case 'status': return t.status ? <span className="text-zinc-600 truncate block">{t.status.name}</span> : null;
-            case 'taskId': return <span className="text-zinc-500">{t.shortId}</span>;
-            case 'customTaskId': return <span className="text-zinc-500">{t.customId || t.shortId}</span>;
-            case 'dateCreated': return t.createdAt ? <span className="text-zinc-600">{format(new Date(t.createdAt), 'M/d/yy')}</span> : null;
-            case 'dateUpdated': return t.updatedAt ? <span className="text-zinc-600">{format(new Date(t.updatedAt), 'M/d/yy')}</span> : null;
-            case 'dateDone': return t.dateDone ? <span className="text-zinc-600">{format(new Date(t.dateDone), 'M/d/yy')}</span> : null;
-            case 'startDate': return t.startDate ? <span className="text-zinc-600">{format(new Date(t.startDate), 'M/d/yy')}</span> : null;
-            case 'timeTracked': return <span className="text-zinc-600">-</span>;
-            case 'timeEstimate': return <span className="text-zinc-600">-</span>;
-            case 'duration': return <span className="text-zinc-600">-</span>;
-            default: return null;
+    const formatCustomFieldValue = (value: any, customField: any): string => {
+        if (value === null || value === undefined) return '\u2014';
+        const fieldType = customField?.type || customField?.config?.fieldType;
+        switch (fieldType) {
+            case 'TEXT': case 'TEXT_AREA': case 'LONG_TEXT': case 'CUSTOM_TEXT': case 'EMAIL': case 'PHONE': case 'URL':
+                return String(value);
+            case 'NUMBER': case 'MONEY':
+                return typeof value === 'number' ? value.toLocaleString() : String(value);
+            case 'DATE':
+                try { return format(new Date(value), 'MMM d, yyyy'); } catch { return String(value); }
+            case 'CHECKBOX':
+                return value ? 'Yes' : 'No';
+            case 'DROPDOWN': case 'CUSTOM_DROPDOWN': case 'LABELS':
+                if (typeof value === 'string') return value;
+                if (Array.isArray(value)) return value.join(', ');
+                return String(value);
+            default:
+                return String(value);
         }
     };
 
+    const renderTaskCell = (dep: any, colId: string) => {
+        const t = dep.dependsOn || dep.task || dep;
+        if (!t) return null;
+
+        const updateDepTask = (data: any) => updateTask.mutate({ id: t.id, ...data });
+
+        const readOnlyCell = (value: React.ReactNode) => (
+            <div className="w-full h-full min-h-[32px] flex items-center justify-between px-2 py-1 outline-none rounded-sm ring-1 ring-inset ring-transparent hover:ring-zinc-200 transition-shadow group/readonly text-xs text-zinc-500 cursor-default" onClick={(e) => e.stopPropagation()}>
+                <div className="truncate">{value}</div>
+                <TooltipProvider delayDuration={100}><Tooltip><TooltipTrigger asChild><div className="opacity-0 group-hover/readonly:opacity-100 transition-opacity flex items-center justify-center h-6 w-6 rounded-md bg-zinc-100 hover:bg-zinc-200 cursor-default shrink-0" onClick={(e) => e.stopPropagation()}><PenOff className="h-3.5 w-3.5 text-zinc-500" /></div></TooltipTrigger><TooltipContent className="bg-zinc-900 text-white font-medium text-xs px-2.5 py-1.5 border-0 rounded-md" side="top" sideOffset={4}>Read-only</TooltipContent></Tooltip></TooltipProvider>
+            </div>
+        );
+
+        if (colId === 'status') {
+            const getStatusStyles = (s: string) => {
+                const lower = (s || '').toLowerCase();
+                if (lower === 'done' || lower === 'completed') return 'bg-emerald-50 text-emerald-700 border-emerald-200';
+                if (lower === 'in progress' || lower === 'in_progress') return 'bg-blue-50 text-blue-700 border-blue-200';
+                return 'bg-slate-50 text-slate-700 border-slate-200';
+            };
+            return (
+                <TaskStatusPopover task={t} availableStatuses={statuses} availableTaskTypes={availableTaskTypes} onUpdateTask={(id, data) => updateDepTask(data)} hideTaskTypeTab={true}>
+                    <button type="button" className={cn('w-full h-full min-h-[32px] flex items-center justify-start px-2 py-1 outline-none rounded-sm ring-1 ring-inset ring-transparent hover:ring-zinc-200 focus-visible:ring-indigo-500 data-[state=open]:ring-indigo-500 transition-shadow cursor-pointer text-xs font-medium')} onClick={(e) => e.stopPropagation()} title="Edit status">
+                        <div className={cn('inline-flex items-center gap-1.5 px-2 py-0.5 rounded border', getStatusStyles(t.status?.name || ''))}>
+                            <span className="h-2 w-2 rounded-full" style={{ backgroundColor: t.status?.color || '#94A3B8' }} />
+                            {t.status?.name || 'No Status'}
+                        </div>
+                    </button>
+                </TaskStatusPopover>
+            );
+        }
+
+        if (colId === 'dueDate') {
+            const dueInfo = (() => {
+                const date = t.dueDate ?? null;
+                if (!date) return null;
+                const d = new Date(date);
+                if (Number.isNaN(d.getTime())) return null;
+                const today = new Date(); today.setHours(0, 0, 0, 0);
+                const due = new Date(d); due.setHours(0, 0, 0, 0);
+                const days = Math.round((due.getTime() - today.getTime()) / (24 * 60 * 60 * 1000));
+                if (days < 0) return { text: `${Math.abs(days)} days ago`, color: 'text-red-600 font-medium' };
+                if (days === 0) return { text: 'Today', color: 'text-indigo-600 font-medium' };
+                if (days === 1) return { text: 'Tomorrow', color: 'text-orange-600' };
+                if (days < 7) return { text: d.toLocaleDateString('en-US', { weekday: 'short' }), color: 'text-indigo-600' };
+                return { text: d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }), color: 'text-zinc-500' };
+            })();
+            return (
+                <Popover><PopoverTrigger asChild><button type="button" className={cn('text-xs w-full h-full min-h-[32px] flex items-center justify-start px-2 py-1 outline-none rounded-sm ring-1 ring-inset ring-transparent hover:ring-zinc-200 focus-visible:ring-indigo-500 data-[state=open]:ring-indigo-500 transition-shadow cursor-pointer', dueInfo ? dueInfo.color : 'text-zinc-400')} onClick={(e) => e.stopPropagation()} title="Edit due date">{dueInfo ? dueInfo.text : 'Add Date'}</button></PopoverTrigger><PopoverContent className="w-auto p-0" align="start" sideOffset={8} collisionPadding={10}><TaskCalendar startDate={t.startDate ? new Date(t.startDate) : undefined} endDate={t.dueDate ? new Date(t.dueDate) : undefined} onStartDateChange={(date) => updateDepTask({ startDate: date ? date.toISOString() : null })} onEndDateChange={(date) => updateDepTask({ dueDate: date ? date.toISOString() : null })} /></PopoverContent></Popover>
+            );
+        }
+
+        if (colId === 'startDate') {
+            return (
+                <Popover><PopoverTrigger asChild><button type="button" className={cn('w-full h-full min-h-[32px] flex items-center justify-start px-2 py-1 outline-none rounded-sm ring-1 ring-inset ring-transparent hover:ring-zinc-200 focus-visible:ring-indigo-500 data-[state=open]:ring-indigo-500 transition-shadow cursor-pointer text-xs', t.startDate ? 'text-zinc-700 font-medium' : 'text-zinc-400')} onClick={(e) => e.stopPropagation()} title="Edit start date">{t.startDate ? format(new Date(t.startDate), 'M/d/yy') : 'Add Date'}</button></PopoverTrigger><PopoverContent className="w-auto p-0" align="start" sideOffset={8} collisionPadding={10}><TaskCalendar startDate={t.startDate ? new Date(t.startDate) : undefined} endDate={t.dueDate ? new Date(t.dueDate) : undefined} onStartDateChange={(date) => updateDepTask({ startDate: date ? date.toISOString() : null })} onEndDateChange={(date) => updateDepTask({ dueDate: date ? date.toISOString() : null })} /></PopoverContent></Popover>
+            );
+        }
+
+        if (colId === 'priority') {
+            return (
+                <DropdownMenu><DropdownMenuTrigger asChild><button type="button" className="w-full h-full min-h-[32px] flex items-center justify-start px-2 py-1 outline-none rounded-sm ring-1 ring-inset ring-transparent hover:ring-zinc-200 focus-visible:ring-indigo-500 data-[state=open]:ring-indigo-500 transition-shadow cursor-pointer text-xs font-medium text-zinc-700" onClick={(e) => e.stopPropagation()} title="Edit priority"><div className="flex items-center gap-1.5 w-full"><div className={cn('flex items-center gap-1.5', t.priority === 'URGENT' ? 'text-red-500' : t.priority === 'HIGH' ? 'text-orange-500' : t.priority === 'NORMAL' ? 'text-blue-500' : 'text-zinc-400')}><Flag className="h-3 w-3 fill-current" /></div><span>{t.priority ? t.priority.charAt(0) + t.priority.slice(1).toLowerCase() : 'Priority'}</span></div></button></DropdownMenuTrigger><DropdownMenuContent align="start" className="w-48 z-[200]"><DropdownMenuLabel className="text-xs">Priority</DropdownMenuLabel><DropdownMenuItem onClick={() => updateDepTask({ priority: 'URGENT' })}><Flag className="h-3 w-3 mr-2 text-red-600 fill-current" /> Urgent</DropdownMenuItem><DropdownMenuItem onClick={() => updateDepTask({ priority: 'HIGH' })}><Flag className="h-3 w-3 mr-2 text-orange-600 fill-current" /> High</DropdownMenuItem><DropdownMenuItem onClick={() => updateDepTask({ priority: 'NORMAL' })}><Flag className="h-3 w-3 mr-2 text-blue-600 fill-current" /> Normal</DropdownMenuItem><DropdownMenuItem onClick={() => updateDepTask({ priority: 'LOW' })}><Flag className="h-3 w-3 mr-2 text-slate-600 fill-current" /> Low</DropdownMenuItem><DropdownMenuSeparator /><DropdownMenuItem onClick={() => updateDepTask({ priority: null })}><CircleSlash className="h-3 w-3 mr-2 text-slate-500" />Clear</DropdownMenuItem></DropdownMenuContent></DropdownMenu>
+            );
+        }
+
+        if (colId === 'taskId') {
+            return (
+                <div className="w-full h-full min-h-[32px] flex items-center justify-between px-2 py-1 outline-none rounded-sm ring-1 ring-inset ring-transparent hover:ring-zinc-200 transition-shadow cursor-default text-xs text-zinc-500 font-mono group/taskid" onClick={(e) => e.stopPropagation()}>
+                    <span className="truncate max-w-[80px] shrink-0" title={t.id}># {t.id?.slice(0, 7)}...</span>
+                    <TooltipProvider delayDuration={300}><Tooltip><TooltipTrigger asChild><button onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(t.id); toast.success('Task ID copied'); }} className="opacity-0 group-hover/taskid:opacity-100 transition-opacity flex items-center justify-center h-6 w-6 rounded-md border border-zinc-200 bg-white hover:bg-zinc-100 text-zinc-500 hover:text-zinc-700 shrink-0 cursor-pointer"><Copy className="h-3.5 w-3.5" /></button></TooltipTrigger><TooltipContent side="top" className="bg-zinc-900 text-white font-medium text-xs px-2.5 py-1.5 border-0 rounded-md">Copy Task ID</TooltipContent></Tooltip></TooltipProvider>
+                </div>
+            );
+        }
+
+        if (colId === 'customTaskId') {
+            const customId = t.customId || t.shortId;
+            return (
+                <div className="w-full h-full min-h-[32px] flex items-center justify-between px-2 py-1 outline-none rounded-sm ring-1 ring-inset ring-transparent hover:ring-zinc-200 transition-shadow cursor-default text-xs text-zinc-500 font-mono group/customid" onClick={(e) => e.stopPropagation()}>
+                    <span className="truncate max-w-[80px] shrink-0">{customId || '\u2014'}</span>
+                    {customId && (
+                        <TooltipProvider delayDuration={300}><Tooltip><TooltipTrigger asChild><button onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(customId); toast.success('Custom ID copied'); }} className="opacity-0 group-hover/customid:opacity-100 transition-opacity flex items-center justify-center h-6 w-6 rounded-md border border-zinc-200 bg-white hover:bg-zinc-100 text-zinc-500 hover:text-zinc-700 shrink-0 cursor-pointer"><Copy className="h-3.5 w-3.5" /></button></TooltipTrigger><TooltipContent side="top" className="bg-zinc-900 text-white font-medium text-xs px-2.5 py-1.5 border-0 rounded-md">Copy Custom ID</TooltipContent></Tooltip></TooltipProvider>
+                    )}
+                </div>
+            );
+        }
+
+        if (colId === 'dateCreated') return readOnlyCell(t.createdAt ? format(new Date(t.createdAt), 'M/d/yy') : '\u2014');
+        if (colId === 'dateUpdated') return readOnlyCell(t.updatedAt ? format(new Date(t.updatedAt), 'M/d/yy h:mma') : '\u2014');
+        if (colId === 'dateDone') return readOnlyCell(t.dateDone ? format(new Date(t.dateDone), 'M/d/yy') : '\u2014');
+
+        if (colId === 'timeTracked') {
+            const totalTracked = typeof t.timeTracked === 'number' ? t.timeTracked : 0;
+            let timeLabel = 'Add time';
+            if (totalTracked > 0) {
+                const hours = Math.floor(totalTracked / 3600);
+                const mins = Math.floor((totalTracked % 3600) / 60);
+                if (hours > 0 && mins > 0) timeLabel = `${hours}h ${mins}m`;
+                else if (hours > 0) timeLabel = `${hours}h`;
+                else timeLabel = `${mins}m`;
+            }
+            return (
+                <TaskTimeTrackedPopover taskId={t.id} workspaceId={t.workspaceId ?? workspaceId ?? ''} totalTrackedSeconds={totalTracked} trigger={<button type="button" className="w-full h-full min-h-[32px] flex items-center justify-start px-2 py-1 outline-none rounded-sm ring-1 ring-inset ring-transparent hover:ring-zinc-200 focus-visible:ring-indigo-500 data-[state=open]:ring-indigo-500 transition-shadow cursor-pointer gap-1" onClick={(e) => e.stopPropagation()}><div className={cn('flex items-center gap-1.5 text-xs rounded-md px-1.5 py-1 transition-colors', totalTracked > 0 ? 'text-zinc-700 bg-zinc-50 hover:bg-zinc-100' : 'text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100')}><Play className="h-3 w-3 shrink-0" /><span className="font-medium">{timeLabel}</span></div></button>} />
+            );
+        }
+
+        if (colId === 'timeEstimate') {
+            return (
+                <div className="w-full h-full min-h-[32px] flex items-center px-2 py-1 outline-none rounded-sm ring-1 ring-inset ring-transparent hover:ring-zinc-200 transition-shadow text-xs text-zinc-500 cursor-default" onClick={(e) => e.stopPropagation()}>
+                    {t.timeEstimate ?? '\u2014'}
+                </div>
+            );
+        }
+
+        if (colId === 'duration') {
+            return (
+                <div className="w-full h-full min-h-[32px] flex items-center px-2 py-1 outline-none rounded-sm ring-1 ring-inset ring-transparent hover:ring-zinc-200 transition-shadow text-xs text-zinc-500 cursor-default" onClick={(e) => e.stopPropagation()}>—</div>
+            );
+        }
+
+        // Custom fields fallback
+        const cfValue = getCustomFieldValue(t, colId);
+        if (cfValue !== undefined) {
+            const formattedValue = formatCustomFieldValue(cfValue, null);
+            return (
+                <button type="button" className="w-full h-full min-h-[32px] flex items-center justify-start px-2 py-1 outline-none rounded-sm ring-1 ring-inset ring-transparent hover:ring-zinc-200 focus-visible:ring-indigo-500 data-[state=open]:ring-indigo-500 transition-shadow cursor-pointer text-left text-xs text-zinc-700" onClick={(e) => e.stopPropagation()}>
+                    {formattedValue}
+                </button>
+            );
+        }
+
+        return null;
+    };
 
     return (
         <div className={cn("transition-all duration-200 bg-white", isMaximized ? "absolute inset-0 z-50 p-8 overflow-y-auto flex flex-col" : "relative space-y-3")}>
@@ -455,8 +653,10 @@ export function TaskRelationshipsSection({ taskId, workspaceId, task }: TaskRela
                                                                 </DropdownMenuSubTrigger>
                                                                 <DropdownMenuSubContent className="w-56">
                                                                     <div className="px-2 py-1.5 flex items-center justify-between">
-                                                                        <span className="text-xs text-zinc-500 font-medium">{taskColumns.length} selected</span>
-                                                                        <button onClick={() => setTaskColumns([])} className="text-xs text-indigo-600 hover:underline cursor-pointer">Clear</button>
+                                                                        <span className="text-xs text-zinc-500 font-medium">{taskColumns.length === 0 ? "Display field as column" : `${taskColumns.length} selected`}</span>
+                                                                        {taskColumns.length > 0 && (
+                                                                            <button onClick={() => setTaskColumns([])} className="text-xs font-medium text-zinc-600 hover:text-zinc-700 hover:bg-zinc-100 px-2 py-0.5 rounded transition-colors cursor-pointer">Clear</button>
+                                                                        )}
                                                                     </div>
                                                                     <DropdownMenuSeparator />
                                                                     <div className="max-h-[300px] overflow-y-auto">
@@ -493,16 +693,16 @@ export function TaskRelationshipsSection({ taskId, workspaceId, task }: TaskRela
                                             {!tasksCollapsed && (
                                                 <>
                                                     <div className="overflow-x-auto custom-scrollbar">
-                                                        <table className="w-full text-[13px] min-w-[400px]">
+                                                        <table className="w-full text-[13px]" style={{ minWidth: 'max-content' }}>
                                                             <thead className="text-zinc-500 font-medium">
                                                                 <tr>
-                                                                    <th className="text-left font-medium pb-2 whitespace-nowrap">Name</th>
+                                                                    <th className="text-left font-medium pb-2 pl-2 whitespace-nowrap sticky left-0 bg-white z-10 border-b border-zinc-100" style={{ boxShadow: '2px 0 4px -1px rgba(0,0,0,0.06)' }}>Name</th>
                                                                     {taskColumns.map(colId => {
                                                                         const col = AVAILABLE_COLUMNS.find(c => c.id === colId);
                                                                         if (!col) return null;
-                                                                        return <th key={col.id} className="text-left font-medium pb-2 w-32 whitespace-nowrap">{col.label}</th>;
+                                                                        return <th key={col.id} className="text-left font-medium pb-2 min-w-[130px] whitespace-nowrap border-b border-zinc-100">{col.label}</th>;
                                                                     })}
-                                                                    <th className="text-center font-medium pb-2 w-10">
+                                                                    <th className="text-center font-medium pb-2 min-w-[50px] sticky right-0 bg-white z-10 border-b border-zinc-100" style={{ boxShadow: '-2px 0 4px -1px rgba(0,0,0,0.06)' }}>
                                                                         <DropdownMenu>
                                                                             <DropdownMenuTrigger asChild>
                                                                                 <button className="p-1 hover:bg-zinc-200 rounded mx-auto block cursor-pointer transition-colors">
@@ -511,8 +711,10 @@ export function TaskRelationshipsSection({ taskId, workspaceId, task }: TaskRela
                                                                             </DropdownMenuTrigger>
                                                                             <DropdownMenuContent align="end" className="w-56">
                                                                                 <div className="px-2 py-1.5 flex items-center justify-between">
-                                                                                    <span className="text-xs text-zinc-500 font-medium">{taskColumns.length} selected</span>
-                                                                                    <button onClick={() => setTaskColumns([])} className="text-xs text-indigo-600 hover:underline cursor-pointer">Clear</button>
+                                                                                    <span className="text-xs text-zinc-500 font-medium">{taskColumns.length === 0 ? "Display field as column" : `${taskColumns.length} selected`}</span>
+                                                                                    {taskColumns.length > 0 && (
+                                                                                        <button onClick={() => setTaskColumns([])} className="text-xs font-medium text-zinc-600 hover:text-zinc-700 hover:bg-zinc-100 px-2 py-0.5 rounded transition-colors cursor-pointer">Clear</button>
+                                                                                    )}
                                                                                 </div>
                                                                                 <DropdownMenuSeparator />
                                                                                 <div className="max-h-[300px] overflow-y-auto">
@@ -535,24 +737,24 @@ export function TaskRelationshipsSection({ taskId, workspaceId, task }: TaskRela
                                                                     </th>
                                                                 </tr>
                                                             </thead>
-                                                            <tbody className="divide-y divide-zinc-100 border-t border-b border-zinc-100">
+                                                            <tbody className="">
                                                                 {relatedTasks.map((dep: any) => {
                                                                     return (
                                                                         <tr key={dep.id} className="group hover:bg-zinc-50/80 transition-colors">
-                                                                            <td className="py-2.5 max-w-[200px]">
+                                                                            <td className="py-2.5 pl-2 max-w-[200px] min-w-[250px] sticky left-0 bg-white group-hover:bg-[#fbfbfb] z-10 border-b border-zinc-100" style={{ boxShadow: '2px 0 4px -1px rgba(0,0,0,0.06)' }}>
                                                                                 <div className="flex items-center gap-2">
-                                                                                    <CircleDot className="h-4 w-4 text-blue-500 shrink-0" />
-                                                                                    <span onClick={() => openTask(dep.dependsOn?.id || dep.dependsOnId)} className="font-medium text-zinc-900 truncate block hover:text-indigo-600 cursor-pointer transition-colors">{dep.dependsOn?.title || dep.task?.name || dep.name || 'Task'}</span>
+                                                                                    {renderStatusIcon(dep.dependsOn || dep.task)}
+                                                                                    <span onClick={() => openTask(dep.dependsOn?.id || dep.dependsOnId)} className="font-medium text-zinc-900 truncate block hover:text-indigo-600 cursor-pointer transition-colors">{dep.dependsOn?.title || dep.task?.title || dep.name || 'Task'}</span>
                                                                                 </div>
                                                                             </td>
                                                                             {taskColumns.map(colId => (
-                                                                                <td key={colId} className="py-2.5">
+                                                                                <td key={colId} className="py-2.5 border-b border-zinc-100">
                                                                                     {renderTaskCell(dep, colId)}
                                                                                 </td>
                                                                             ))}
-                                                                            <td className="py-2.5 text-center">
+                                                                            <td className="py-2.5 text-center sticky right-0 bg-white group-hover:bg-[#fbfbfb] z-10 border-b border-zinc-100" style={{ boxShadow: '-2px 0 4px -1px rgba(0,0,0,0.06)' }}>
                                                                                 <button
-                                                                                    className="opacity-0 group-hover:opacity-100 p-1 hover:bg-zinc-100 rounded cursor-pointer"
+                                                                                    className="opacity-0 group-hover:opacity-100 p-1 hover:bg-zinc-200 rounded cursor-pointer"
                                                                                     onClick={() => removeDependency.mutate({ taskId, dependsOnId: dep.dependsOnId })}
                                                                                 >
                                                                                     <X className="h-3.5 w-3.5 text-zinc-400" />
@@ -664,8 +866,10 @@ export function TaskRelationshipsSection({ taskId, workspaceId, task }: TaskRela
                                                                 </DropdownMenuSubTrigger>
                                                                 <DropdownMenuSubContent className="w-56">
                                                                     <div className="px-2 py-1.5 flex items-center justify-between">
-                                                                        <span className="text-xs text-zinc-500 font-medium">{taskColumns.length} selected</span>
-                                                                        <button onClick={() => setTaskColumns([])} className="text-xs text-indigo-600 hover:underline cursor-pointer">Clear</button>
+                                                                        <span className="text-xs text-zinc-500 font-medium">{taskColumns.length === 0 ? "Display field as column" : `${taskColumns.length} selected`}</span>
+                                                                        {taskColumns.length > 0 && (
+                                                                            <button onClick={() => setTaskColumns([])} className="text-xs font-medium text-zinc-600 hover:text-zinc-700 hover:bg-zinc-100 px-2 py-0.5 rounded transition-colors cursor-pointer">Clear</button>
+                                                                        )}
                                                                     </div>
                                                                     <DropdownMenuSeparator />
                                                                     <div className="max-h-[300px] overflow-y-auto">
@@ -702,16 +906,16 @@ export function TaskRelationshipsSection({ taskId, workspaceId, task }: TaskRela
                                             {!blocksCollapsed && (
                                                 <>
                                                     <div className="overflow-x-auto custom-scrollbar">
-                                                        <table className="w-full text-[13px] min-w-[400px]">
+                                                        <table className="w-full text-[13px]" style={{ minWidth: 'max-content' }}>
                                                             <thead className="text-zinc-500 font-medium">
                                                                 <tr>
-                                                                    <th className="text-left font-medium pb-2 whitespace-nowrap">Name</th>
+                                                                    <th className="text-left font-medium pb-2 pl-2 whitespace-nowrap sticky left-0 bg-white z-10 border-b border-zinc-100" style={{ boxShadow: '2px 0 4px -1px rgba(0,0,0,0.06)' }}>Name</th>
                                                                     {taskColumns.map(colId => {
                                                                         const col = AVAILABLE_COLUMNS.find(c => c.id === colId);
                                                                         if (!col) return null;
-                                                                        return <th key={col.id} className="text-left font-medium pb-2 w-32 whitespace-nowrap">{col.label}</th>;
+                                                                        return <th key={col.id} className="text-left font-medium pb-2 min-w-[130px] whitespace-nowrap border-b border-zinc-100">{col.label}</th>;
                                                                     })}
-                                                                    <th className="text-center font-medium pb-2 w-10">
+                                                                    <th className="text-center font-medium pb-2 min-w-[50px] sticky right-0 bg-white z-10 border-b border-zinc-100" style={{ boxShadow: '-2px 0 4px -1px rgba(0,0,0,0.06)' }}>
                                                                         <DropdownMenu>
                                                                             <DropdownMenuTrigger asChild>
                                                                                 <button className="p-1 hover:bg-zinc-200 rounded mx-auto block cursor-pointer transition-colors">
@@ -720,8 +924,10 @@ export function TaskRelationshipsSection({ taskId, workspaceId, task }: TaskRela
                                                                             </DropdownMenuTrigger>
                                                                             <DropdownMenuContent align="end" className="w-56">
                                                                                 <div className="px-2 py-1.5 flex items-center justify-between">
-                                                                                    <span className="text-xs text-zinc-500 font-medium">{taskColumns.length} selected</span>
-                                                                                    <button onClick={() => setTaskColumns([])} className="text-xs text-indigo-600 hover:underline cursor-pointer">Clear</button>
+                                                                                    <span className="text-xs text-zinc-500 font-medium">{taskColumns.length === 0 ? "Display field as column" : `${taskColumns.length} selected`}</span>
+                                                                                    {taskColumns.length > 0 && (
+                                                                                        <button onClick={() => setTaskColumns([])} className="text-xs font-medium text-zinc-600 hover:text-zinc-700 hover:bg-zinc-100 px-2 py-0.5 rounded transition-colors cursor-pointer">Clear</button>
+                                                                                    )}
                                                                                 </div>
                                                                                 <DropdownMenuSeparator />
                                                                                 <div className="max-h-[300px] overflow-y-auto">
@@ -744,24 +950,24 @@ export function TaskRelationshipsSection({ taskId, workspaceId, task }: TaskRela
                                                                     </th>
                                                                 </tr>
                                                             </thead>
-                                                            <tbody className="divide-y divide-zinc-100 border-t border-b border-zinc-100">
+                                                            <tbody className="">
                                                                 {blocksItems.map((dep: any) => {
                                                                     return (
                                                                         <tr key={dep.id} className="group hover:bg-zinc-50/80 transition-colors">
-                                                                            <td className="py-2.5 max-w-[200px]">
+                                                                            <td className="py-2.5 pl-2 max-w-[200px] min-w-[250px] sticky left-0 bg-white group-hover:bg-[#fbfbfb] z-10 border-b border-zinc-100" style={{ boxShadow: '2px 0 4px -1px rgba(0,0,0,0.06)' }}>
                                                                                 <div className="flex items-center gap-2">
-                                                                                    <CircleDot className="h-4 w-4 text-blue-500 shrink-0" />
-                                                                                    <span onClick={() => openTask(dep.task?.id || dep.dependsOn?.id || dep.id)} className="font-medium text-zinc-900 truncate block hover:text-indigo-600 cursor-pointer transition-colors">{dep.dependsOn?.title || dep.task?.name || dep.name || 'Task'}</span>
+                                                                                    {renderStatusIcon(dep.dependsOn || dep.task)}
+                                                                                    <span onClick={() => openTask(dep.task?.id || dep.dependsOn?.id || dep.id)} className="font-medium text-zinc-900 truncate block hover:text-indigo-600 cursor-pointer transition-colors">{dep.dependsOn?.title || dep.task?.title || dep.name || 'Task'}</span>
                                                                                 </div>
                                                                             </td>
                                                                             {taskColumns.map(colId => (
-                                                                                <td key={colId} className="py-2.5">
+                                                                                <td key={colId} className="py-2.5 border-b border-zinc-100">
                                                                                     {renderTaskCell(dep, colId)}
                                                                                 </td>
                                                                             ))}
-                                                                            <td className="py-2.5 text-center">
+                                                                            <td className="py-2.5 text-center sticky right-0 bg-white group-hover:bg-[#fbfbfb] z-10 border-b border-zinc-100" style={{ boxShadow: '-2px 0 4px -1px rgba(0,0,0,0.06)' }}>
                                                                                 <button
-                                                                                    className="opacity-0 group-hover:opacity-100 p-1 hover:bg-zinc-100 rounded cursor-pointer"
+                                                                                    className="opacity-0 group-hover:opacity-100 p-1 hover:bg-zinc-200 rounded cursor-pointer"
                                                                                     onClick={() => removeDependency.mutate({ taskId: dep.taskId ?? dep.id, dependsOnId: taskId })}
                                                                                 >
                                                                                     <X className="h-3.5 w-3.5 text-zinc-400" />
@@ -808,8 +1014,10 @@ export function TaskRelationshipsSection({ taskId, workspaceId, task }: TaskRela
                                                                 </DropdownMenuSubTrigger>
                                                                 <DropdownMenuSubContent className="w-56">
                                                                     <div className="px-2 py-1.5 flex items-center justify-between">
-                                                                        <span className="text-xs text-zinc-500 font-medium">{taskColumns.length} selected</span>
-                                                                        <button onClick={() => setTaskColumns([])} className="text-xs text-indigo-600 hover:underline cursor-pointer">Clear</button>
+                                                                        <span className="text-xs text-zinc-500 font-medium">{taskColumns.length === 0 ? "Display field as column" : `${taskColumns.length} selected`}</span>
+                                                                        {taskColumns.length > 0 && (
+                                                                            <button onClick={() => setTaskColumns([])} className="text-xs font-medium text-zinc-600 hover:text-zinc-700 hover:bg-zinc-100 px-2 py-0.5 rounded transition-colors cursor-pointer">Clear</button>
+                                                                        )}
                                                                     </div>
                                                                     <DropdownMenuSeparator />
                                                                     <div className="max-h-[300px] overflow-y-auto">
@@ -846,16 +1054,16 @@ export function TaskRelationshipsSection({ taskId, workspaceId, task }: TaskRela
                                             {!blockedByCollapsed && (
                                                 <>
                                                     <div className="overflow-x-auto custom-scrollbar">
-                                                        <table className="w-full text-[13px] min-w-[400px]">
+                                                        <table className="w-full text-[13px]" style={{ minWidth: 'max-content' }}>
                                                             <thead className="text-zinc-500 font-medium">
                                                                 <tr>
-                                                                    <th className="text-left font-medium pb-2 whitespace-nowrap">Name</th>
+                                                                    <th className="text-left font-medium pb-2 pl-2 whitespace-nowrap sticky left-0 bg-white z-10 border-b border-zinc-100" style={{ boxShadow: '2px 0 4px -1px rgba(0,0,0,0.06)' }}>Name</th>
                                                                     {taskColumns.map(colId => {
                                                                         const col = AVAILABLE_COLUMNS.find(c => c.id === colId);
                                                                         if (!col) return null;
-                                                                        return <th key={col.id} className="text-left font-medium pb-2 w-32 whitespace-nowrap">{col.label}</th>;
+                                                                        return <th key={col.id} className="text-left font-medium pb-2 min-w-[130px] whitespace-nowrap border-b border-zinc-100">{col.label}</th>;
                                                                     })}
-                                                                    <th className="text-center font-medium pb-2 w-10">
+                                                                    <th className="text-center font-medium pb-2 min-w-[50px] sticky right-0 bg-white z-10 border-b border-zinc-100" style={{ boxShadow: '-2px 0 4px -1px rgba(0,0,0,0.06)' }}>
                                                                         <DropdownMenu>
                                                                             <DropdownMenuTrigger asChild>
                                                                                 <button className="p-1 hover:bg-zinc-200 rounded mx-auto block cursor-pointer transition-colors">
@@ -864,8 +1072,10 @@ export function TaskRelationshipsSection({ taskId, workspaceId, task }: TaskRela
                                                                             </DropdownMenuTrigger>
                                                                             <DropdownMenuContent align="end" className="w-56">
                                                                                 <div className="px-2 py-1.5 flex items-center justify-between">
-                                                                                    <span className="text-xs text-zinc-500 font-medium">{taskColumns.length} selected</span>
-                                                                                    <button onClick={() => setTaskColumns([])} className="text-xs text-indigo-600 hover:underline cursor-pointer">Clear</button>
+                                                                                    <span className="text-xs text-zinc-500 font-medium">{taskColumns.length === 0 ? "Display field as column" : `${taskColumns.length} selected`}</span>
+                                                                                    {taskColumns.length > 0 && (
+                                                                                        <button onClick={() => setTaskColumns([])} className="text-xs font-medium text-zinc-600 hover:text-zinc-700 hover:bg-zinc-100 px-2 py-0.5 rounded transition-colors cursor-pointer">Clear</button>
+                                                                                    )}
                                                                                 </div>
                                                                                 <DropdownMenuSeparator />
                                                                                 <div className="max-h-[300px] overflow-y-auto">
@@ -888,24 +1098,24 @@ export function TaskRelationshipsSection({ taskId, workspaceId, task }: TaskRela
                                                                     </th>
                                                                 </tr>
                                                             </thead>
-                                                            <tbody className="divide-y divide-zinc-100 border-t border-b border-zinc-100">
+                                                            <tbody className="">
                                                                 {blockedByItems.map((dep: any) => {
                                                                     return (
                                                                         <tr key={dep.id} className="group hover:bg-zinc-50/80 transition-colors">
-                                                                            <td className="py-2.5 max-w-[200px]">
+                                                                            <td className="py-2.5 pl-2 max-w-[200px] min-w-[250px] sticky left-0 bg-white group-hover:bg-[#fbfbfb] z-10 border-b border-zinc-100" style={{ boxShadow: '2px 0 4px -1px rgba(0,0,0,0.06)' }}>
                                                                                 <div className="flex items-center gap-2">
-                                                                                    <CircleDot className="h-4 w-4 text-blue-500 shrink-0" />
-                                                                                    <span onClick={() => openTask(dep.dependsOn?.id || dep.dependsOnId)} className="font-medium text-zinc-900 truncate block hover:text-indigo-600 cursor-pointer transition-colors">{dep.dependsOn?.title || dep.task?.name || dep.name || 'Task'}</span>
+                                                                                    {renderStatusIcon(dep.dependsOn || dep.task)}
+                                                                                    <span onClick={() => openTask(dep.dependsOn?.id || dep.dependsOnId)} className="font-medium text-zinc-900 truncate block hover:text-indigo-600 cursor-pointer transition-colors">{dep.dependsOn?.title || dep.task?.title || dep.name || 'Task'}</span>
                                                                                 </div>
                                                                             </td>
                                                                             {taskColumns.map(colId => (
-                                                                                <td key={colId} className="py-2.5">
+                                                                                <td key={colId} className="py-2.5 border-b border-zinc-100">
                                                                                     {renderTaskCell(dep, colId)}
                                                                                 </td>
                                                                             ))}
-                                                                            <td className="py-2.5 text-center">
+                                                                            <td className="py-2.5 text-center sticky right-0 bg-white group-hover:bg-[#fbfbfb] z-10 border-b border-zinc-100" style={{ boxShadow: '-2px 0 4px -1px rgba(0,0,0,0.06)' }}>
                                                                                 <button
-                                                                                    className="opacity-0 group-hover:opacity-100 p-1 hover:bg-zinc-100 rounded cursor-pointer"
+                                                                                    className="opacity-0 group-hover:opacity-100 p-1 hover:bg-zinc-200 rounded cursor-pointer"
                                                                                     onClick={() => removeDependency.mutate({ taskId, dependsOnId: dep.dependsOnId })}
                                                                                 >
                                                                                     <X className="h-3.5 w-3.5 text-zinc-400" />
@@ -956,33 +1166,65 @@ export function TaskRelationshipsSection({ taskId, workspaceId, task }: TaskRela
                                 ) : (
                                     <div className="px-2">
                                         <div className="overflow-x-auto custom-scrollbar">
-                                            <table className="w-full text-[13px] min-w-[400px]">
+                                            <table className="w-full text-[13px]" style={{ minWidth: 'max-content' }}>
                                                 <thead className="text-zinc-500 font-medium">
                                                     <tr>
-                                                        <th className="text-left font-medium pb-2 whitespace-nowrap">Name</th>
+                                                        <th className="text-left font-medium pb-2 pl-2 whitespace-nowrap sticky left-0 bg-white z-10 border-b border-zinc-100" style={{ boxShadow: '2px 0 4px -1px rgba(0,0,0,0.06)' }}>Name</th>
                                                         {taskColumns.map(colId => {
                                                             const col = AVAILABLE_COLUMNS.find(c => c.id === colId);
                                                             if (!col) return null;
-                                                            return <th key={col.id} className="text-left font-medium pb-2 w-32 whitespace-nowrap">{col.label}</th>;
+                                                            return <th key={col.id} className="text-left font-medium pb-2 min-w-[130px] whitespace-nowrap border-b border-zinc-100">{col.label}</th>;
                                                         })}
-                                                        <th className="w-10" />
+                                                        <th className="text-center font-medium pb-2 min-w-[50px] sticky right-0 bg-white z-10 border-b border-zinc-100" style={{ boxShadow: '-2px 0 4px -1px rgba(0,0,0,0.06)' }}>
+                                                            <DropdownMenu>
+                                                                <DropdownMenuTrigger asChild>
+                                                                    <button className="p-1 hover:bg-zinc-200 rounded mx-auto block cursor-pointer transition-colors">
+                                                                        <PlusCircle className="h-4 w-4 text-zinc-500" />
+                                                                    </button>
+                                                                </DropdownMenuTrigger>
+                                                                <DropdownMenuContent align="end" className="w-56">
+                                                                    <div className="px-2 py-1.5 flex items-center justify-between">
+                                                                        <span className="text-xs text-zinc-500 font-medium">{taskColumns.length === 0 ? "Display field as column" : `${taskColumns.length} selected`}</span>
+                                                                        {taskColumns.length > 0 && (
+                                                                            <button onClick={() => setTaskColumns([])} className="text-xs font-medium text-zinc-600 hover:text-zinc-700 hover:bg-zinc-100 px-2 py-0.5 rounded transition-colors cursor-pointer">Clear</button>
+                                                                        )}
+                                                                    </div>
+                                                                    <DropdownMenuSeparator />
+                                                                    <div className="max-h-[300px] overflow-y-auto">
+                                                                        {AVAILABLE_COLUMNS.map(col => (
+                                                                            <DropdownMenuCheckboxItem
+                                                                                key={col.id}
+                                                                                checked={taskColumns.includes(col.id)}
+                                                                                onCheckedChange={(checked) => {
+                                                                                    if (checked) setTaskColumns([...taskColumns, col.id]);
+                                                                                    else setTaskColumns(taskColumns.filter(id => id !== col.id));
+                                                                                }}
+                                                                                className="text-[13px]"
+                                                                            >
+                                                                                <div className="flex items-center gap-2">{col.icon}{col.label}</div>
+                                                                            </DropdownMenuCheckboxItem>
+                                                                        ))}
+                                                                    </div>
+                                                                </DropdownMenuContent>
+                                                            </DropdownMenu>
+                                                        </th>
                                                     </tr>
                                                 </thead>
-                                                <tbody className="divide-y divide-zinc-100 border-t border-b border-zinc-100">
+                                                <tbody className="">
                                                     {customRelTasks.map((dep: any) => (
                                                         <tr key={dep.id} className="group hover:bg-zinc-50/80 transition-colors">
-                                                            <td className="py-2.5 max-w-[200px]">
+                                                            <td className="py-2.5 pl-2 max-w-[200px] min-w-[250px] sticky left-0 bg-white group-hover:bg-[#fbfbfb] z-10 border-b border-zinc-100" style={{ boxShadow: '2px 0 4px -1px rgba(0,0,0,0.06)' }}>
                                                                 <div className="flex items-center gap-2">
-                                                                    <CircleDot className="h-4 w-4 text-blue-500 shrink-0" />
+                                                                    {renderStatusIcon(dep.dependsOn || dep.task)}
                                                                     <span onClick={() => openTask(dep.dependsOn?.id || dep.dependsOnId)} className="font-medium text-zinc-900 truncate block hover:text-indigo-600 cursor-pointer transition-colors">{dep.dependsOn?.title || 'Task'}</span>
                                                                 </div>
                                                             </td>
                                                             {taskColumns.map(colId => (
-                                                                <td key={colId} className="py-2.5">{renderTaskCell(dep, colId)}</td>
+                                                                <td key={colId} className="py-2.5 border-b border-zinc-100">{renderTaskCell(dep, colId)}</td>
                                                             ))}
-                                                            <td className="py-2.5 text-center">
+                                                            <td className="py-2.5 text-center sticky right-0 bg-white group-hover:bg-[#fbfbfb] z-10 border-b border-zinc-100" style={{ boxShadow: '-2px 0 4px -1px rgba(0,0,0,0.06)' }}>
                                                                 <button
-                                                                    className="opacity-0 group-hover:opacity-100 p-1 hover:bg-zinc-100 rounded cursor-pointer"
+                                                                    className="opacity-0 group-hover:opacity-100 p-1 hover:bg-zinc-200 rounded cursor-pointer"
                                                                     onClick={() => removeDependency.mutate({ taskId, dependsOnId: dep.dependsOnId })}
                                                                 >
                                                                     <X className="h-3.5 w-3.5 text-zinc-400" />

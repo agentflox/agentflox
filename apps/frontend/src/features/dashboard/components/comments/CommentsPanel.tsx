@@ -1617,7 +1617,7 @@ function formatBytes(bytes: number, decimals = 1): string {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
 }
 
-function renderCommentText(text: string, mentionItems: { title: string; type: string; status?: string }[], isDisplayMode: boolean = false) {
+export function renderCommentText(text: string, mentionItems: { title: string; type: string; status?: string }[], isDisplayMode: boolean = false) {
     let result: React.ReactNode[] = [text];
 
     mentionItems.forEach(item => {

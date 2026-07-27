@@ -29,7 +29,7 @@ export function TaskStatusPopover({
     const [search, setSearch] = useState("");
 
     const filteredStatuses = availableStatuses.filter((s: any) => s.name?.toLowerCase().includes(search.toLowerCase()));
-    
+
     // Group statuses by type roughly based on color/status name for the UI
     const notStartedStatuses = filteredStatuses.filter((s: any) => ["#94A3B8", "slate"].some(c => s.color?.includes(c)) || s.name?.toLowerCase() === "to do" || s.name?.toLowerCase() === "open");
     const activeStatuses = filteredStatuses.filter((s: any) => ["#3B82F6", "blue", "yellow", "orange"].some(c => s.color?.includes(c)) || s.name?.toLowerCase() === "in progress");
@@ -40,7 +40,7 @@ export function TaskStatusPopover({
 
     const renderStatusItem = (status: any, fallbackIcon: React.ReactNode) => {
         const isSelected = task.statusId === status.id || task.status?.id === status.id || task.status?.name === status.name;
-        
+
         // As per requirements, if a task type is chosen (non-default), the status icon is the TaskTypeIcon
         // If it's the default task type, use the fallbackIcon (circle, circle-dot, etc)
         const icon = isDefaultType ? fallbackIcon : <TaskTypeIcon type={taskType} className="h-4 w-4" color={status.color || "#64748b"} />;
@@ -81,81 +81,81 @@ export function TaskStatusPopover({
                             <TabsTrigger value="taskType" className="text-xs font-medium rounded-md cursor-pointer data-[state=active]:bg-white data-[state=active]:shadow-sm">Task Type</TabsTrigger>
                         </TabsList>
                     )}
-                    
+
                     <div className="px-1 mb-2">
-                        <Input 
-                            placeholder="Search..." 
+                        <Input
+                            placeholder="Search..."
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
-                            className="h-7 text-xs bg-white focus-visible:ring-1 focus-visible:ring-indigo-500 rounded border-zinc-200 shadow-sm"
+                            className="h-7 text-xs bg-white focus-visible:ring-1 focus-visible:ring-indigo-500 rounded border-zinc-200"
                         />
                     </div>
 
                     {!hideStatusTab && (
                         <TabsContent value="status" className="m-0 max-h-[300px] overflow-y-auto">
                             <div className="px-1 pb-1">
-                            {notStartedStatuses.length > 0 && (
-                                <div className="mb-3">
-                                    <div className="text-[11px] font-semibold text-zinc-500 mb-1 flex items-center justify-between px-1">
-                                        <span>Not started</span>
-                                        <span className="opacity-50">...</span>
+                                {notStartedStatuses.length > 0 && (
+                                    <div className="mb-3">
+                                        <div className="text-[11px] font-semibold text-zinc-500 mb-1 flex items-center justify-between px-1">
+                                            <span>Not started</span>
+                                            <span className="opacity-50">...</span>
+                                        </div>
+                                        {notStartedStatuses.map((s: any) => renderStatusItem(s, <CircleDashed className="h-4 w-4" />))}
                                     </div>
-                                    {notStartedStatuses.map((s: any) => renderStatusItem(s, <CircleDashed className="h-4 w-4" />))}
-                                </div>
-                            )}
-                            
-                            {activeStatuses.length > 0 && (
-                                <div className="mb-3">
-                                    <div className="text-[11px] font-semibold text-zinc-500 mb-1 px-1">Active</div>
-                                    {activeStatuses.map((s: any) => renderStatusItem(s, <CircleDot className="h-4 w-4" />))}
-                                </div>
-                            )}
+                                )}
 
-                            {closedStatuses.length > 0 && (
-                                <div className="mb-3">
-                                    <div className="text-[11px] font-semibold text-zinc-500 mb-1 px-1">Closed</div>
-                                    {closedStatuses.map((s: any) => renderStatusItem(s, <CheckCircle2 className="h-4 w-4" />))}
-                                </div>
-                            )}
+                                {activeStatuses.length > 0 && (
+                                    <div className="mb-3">
+                                        <div className="text-[11px] font-semibold text-zinc-500 mb-1 px-1">Active</div>
+                                        {activeStatuses.map((s: any) => renderStatusItem(s, <CircleDot className="h-4 w-4" />))}
+                                    </div>
+                                )}
 
-                        </div>
-                    </TabsContent>
+                                {closedStatuses.length > 0 && (
+                                    <div className="mb-3">
+                                        <div className="text-[11px] font-semibold text-zinc-500 mb-1 px-1">Closed</div>
+                                        {closedStatuses.map((s: any) => renderStatusItem(s, <CheckCircle2 className="h-4 w-4" />))}
+                                    </div>
+                                )}
+
+                            </div>
+                        </TabsContent>
                     )}
 
                     {!hideTaskTypeTab && (
                         <TabsContent value="taskType" className="m-0 max-h-[300px] overflow-y-auto">
-                        <div className="px-1 pb-1">
-                            <div className="text-[11px] font-semibold text-zinc-500 mb-2 px-1">
-                                Task Types
-                            </div>
-                            
-                            {availableTaskTypes.map((type: any) => {
-                                const isSelected = task.taskType?.id ? task.taskType.id === type.id : type.isDefault;
-                                return (
-                                    <div
-                                        key={type.id}
-                                        onClick={() => {
-                                            onUpdateTask(task.id, { taskTypeId: type.id });
-                                            setOpen(false);
-                                        }}
-                                        className={cn(
-                                            "flex items-center justify-between px-2 py-1.5 rounded-md cursor-pointer text-sm mb-1",
-                                            isSelected ? "bg-zinc-100" : "hover:bg-zinc-100"
-                                        )}
-                                    >
-                                        <div className="flex items-center gap-2">
-                                            <TaskTypeIcon type={type} className="h-4 w-4 text-zinc-500" />
-                                            <span className="font-medium text-zinc-800 text-[13px]">
-                                                {type.name} {type.isDefault && <span className="text-zinc-400 font-normal">(default)</span>}
-                                            </span>
+                            <div className="px-1 pb-1">
+                                <div className="text-[11px] font-semibold text-zinc-500 mb-2 px-1">
+                                    Task Types
+                                </div>
+
+                                {availableTaskTypes.map((type: any) => {
+                                    const isSelected = task.taskType?.id ? task.taskType.id === type.id : type.isDefault;
+                                    return (
+                                        <div
+                                            key={type.id}
+                                            onClick={() => {
+                                                onUpdateTask(task.id, { taskTypeId: type.id });
+                                                setOpen(false);
+                                            }}
+                                            className={cn(
+                                                "flex items-center justify-between px-2 py-1.5 rounded-md cursor-pointer text-sm mb-1",
+                                                isSelected ? "bg-zinc-100" : "hover:bg-zinc-100"
+                                            )}
+                                        >
+                                            <div className="flex items-center gap-2">
+                                                <TaskTypeIcon type={type} className="h-4 w-4 text-zinc-500" />
+                                                <span className="font-medium text-zinc-800 text-[13px]">
+                                                    {type.name} {type.isDefault && <span className="text-zinc-400 font-normal">(default)</span>}
+                                                </span>
+                                            </div>
+                                            {isSelected && <Check className="h-4 w-4 text-zinc-900" />}
                                         </div>
-                                        {isSelected && <Check className="h-4 w-4 text-zinc-900" />}
-                                    </div>
-                                );
-                            })}
-                            
-                        </div>
-                    </TabsContent>
+                                    );
+                                })}
+
+                            </div>
+                        </TabsContent>
                     )}
                 </Tabs>
             </PopoverContent>

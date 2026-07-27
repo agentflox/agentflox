@@ -3,6 +3,7 @@
 import * as React from 'react';
 import {
     Popover,
+    PopoverAnchor,
     PopoverContent,
     PopoverTrigger,
 } from '@/components/ui/popover';
@@ -23,6 +24,7 @@ interface TaskPickerPopoverProps {
     dependencyType?: RelationshipDependencyType;
     onSelect: (selectedTaskId: string) => void;
     trigger?: React.ReactNode;
+    anchorRef?: React.RefObject<HTMLElement>; 
     side?: 'top' | 'right' | 'bottom' | 'left';
     align?: 'start' | 'center' | 'end';
     existingIds?: string[];
@@ -36,6 +38,7 @@ export function TaskPickerPopover({
     dependencyType,
     onSelect,
     trigger,
+    anchorRef,
     side = 'bottom',
     align = 'start',
     existingIds = []
@@ -85,8 +88,12 @@ export function TaskPickerPopover({
     return (
         <>
             <Popover modal={true} open={open} onOpenChange={onOpenChange}>
-                {trigger && <PopoverTrigger asChild>{trigger}</PopoverTrigger>}
-                <PopoverContent className="w-[380px] p-0 overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-lg" align={align} side={side} sideOffset={4} collisionPadding={16}>
+                {anchorRef ? (
+                    <PopoverAnchor virtualRef={anchorRef} />
+                ) : trigger ? (
+                    <PopoverTrigger asChild>{trigger}</PopoverTrigger>
+                ) : null}
+                <PopoverContent className="w-[380px] p-0 overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-lg z-[200]" align={align} side={side} sideOffset={4} collisionPadding={16}>
                     <div className="p-2 space-y-2">
                         <div className="flex h-9 items-center rounded-md border border-zinc-200 bg-white px-2 transition-colors focus-within:border-violet-400 focus-within:ring-4 focus-within:ring-violet-500/10">
                             <Search className="h-4 w-4 shrink-0 text-zinc-400 mr-2" />

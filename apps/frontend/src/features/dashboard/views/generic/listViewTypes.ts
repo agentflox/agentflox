@@ -56,6 +56,8 @@ export type ListViewSavedConfig = {
     groupDirection?: "asc" | "desc";
     subtasksMode?: "collapsed" | "expanded" | "separate";
     visibleColumns?: string[];
+    columnOrder?: string[];
+    colWidths?: Record<string, number>;
     sortBy?: "manual" | "name" | "dueDate" | "priority" | "status";
     sortDirection?: "asc" | "desc";
 

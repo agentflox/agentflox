@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, ReactNode } from "react";
-import { Tag, X } from "lucide-react";
+import { Tag, X, MoreHorizontal } from "lucide-react";
 import {
     Popover,
     PopoverContent,
@@ -12,18 +12,22 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { parseEncodedTag } from "../utils/tags";
+import { TagEditorPopover } from "./TagEditorPopover";
 
 interface TagsPopoverProps {
     tags: string[];
     onChange: (tags: string[]) => void;
     /** Optional custom trigger element (e.g. "+3" badge). */
     trigger?: ReactNode;
+    /** Callback when the user clicks the edit (...) button on a tag. */
+    onEditTag?: (tag: string) => void;
 }
 
 export function TagsPopover({
     tags,
     onChange,
     trigger,
+    onEditTag,
 }: TagsPopoverProps) {
     const [localTags, setLocalTags] = useState<string[]>(tags);
     const [inputValue, setInputValue] = useState("");
@@ -81,13 +85,29 @@ export function TagsPopover({
                                     key={`${tag}-${index}`}
                                     variant="secondary"
                                     style={{ backgroundColor: bg }}
-                                    className="text-zinc-600 border-zinc-200 text-[10px] h-5 px-1.5 gap-1"
+                                    className="text-zinc-600 border-zinc-200 text-[10px] h-5 px-1.5 gap-1 group"
                                 >
+                                    <TagEditorPopover
+                                        tag={tag}
+                                        tags={localTags}
+                                        onChange={(nextTags) => {
+                                            setLocalTags(nextTags);
+                                            onChange(nextTags);
+                                        }}
+                                    >
+                                        <button
+                                            type="button"
+                                            className="opacity-0 group-hover:opacity-100 hover:text-zinc-900 rounded-full cursor-pointer transition-opacity"
+                                            aria-label="Edit tag"
+                                        >
+                                            <MoreHorizontal className="h-3 w-3" />
+                                        </button>
+                                    </TagEditorPopover>
                                     {parsed.label}
                                     <button
                                         type="button"
                                         onClick={() => removeTag(index)}
-                                        className="hover:text-red-600 rounded-full p-0.5"
+                                        className="hover:text-red-600 rounded-full p-0.5 cursor-pointer"
                                         aria-label="Remove tag"
                                     >
                                         <X className="h-3 w-3" />
