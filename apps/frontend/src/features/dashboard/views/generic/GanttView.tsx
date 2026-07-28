@@ -5438,6 +5438,10 @@ export function GanttView({ spaceId, projectId, teamId, listId, folderId, viewId
                 onClose={() => setFieldsPanelOpen(false)}
                 onOpenManagerModal={() => setManagerModalOpen(true)}
                 workspaceId={resolvedWorkspaceId}
+                spaceId={spaceId}
+                projectId={projectId}
+                folderId={folderId}
+                teamId={teamId}
                 listId={listId}
                 listName={currentList?.name}
                 fieldConfig={FIELD_CONFIG}

@@ -105,11 +105,15 @@ export const customFieldsRouter = router({
 
         return prisma.customField.findMany({
           where: {
-            OR: accessConditions,
+            OR: [
+              ...accessConditions,
+              { locations: { some: { OR: accessConditions } } }
+            ],
             ...(input.applyTo ? { applyTo: { has: input.applyTo } } : {}),
           },
           orderBy: { position: "asc" },
           include: {
+            locations: true,
             creator: { select: { id: true, name: true, email: true, firstName: true, lastName: true } },
           },
         });
@@ -174,11 +178,15 @@ export const customFieldsRouter = router({
 
       return prisma.customField.findMany({
         where: {
-          OR: conditions,
+          OR: [
+            ...conditions,
+            { locations: { some: { OR: conditions } } }
+          ],
           ...(input.applyTo ? { applyTo: { has: input.applyTo } } : {}),
         },
         orderBy: { position: 'asc' },
         include: {
+          locations: true,
           creator: { select: { id: true, name: true, email: true, firstName: true, lastName: true } },
         },
       });
@@ -191,6 +199,7 @@ export const customFieldsRouter = router({
         where: { id: input.id },
         include: {
           values: true,
+          locations: true,
           creator: { select: { id: true, name: true, email: true, firstName: true, lastName: true } },
         },
       });
@@ -215,6 +224,15 @@ export const customFieldsRouter = router({
       isVisibleToGuests: z.boolean().optional(),
       visibility: z.enum(["PRIVATE", "ADMINS", "MEMBERS", "EVERYONE", "PUBLIC"]).optional(),
       applyTo: z.array(z.enum(["TASK", "PROJECT"])),
+      additionalLocations: z.array(z.object({
+        workspaceId: z.string().optional(),
+        spaceId: z.string().optional(),
+        projectId: z.string().optional(),
+        folderId: z.string().optional(),
+        listId: z.string().optional(),
+        teamId: z.string().optional(),
+        locationType: z.enum(["WORKSPACE", "SPACE", "PROJECT", "TEAM", "FOLDER", "LIST", "PERSONAL"])
+      })).optional(),
     }))
     .mutation(async ({ input, ctx }) => {
       const DB_TYPES = ["TEXT", "NUMBER", "DROPDOWN", "DATE", "CHECKBOX", "URL", "EMAIL", "PHONE", "MULTI_SELECT", "CURRENCY", "RATING", "USER", "LOCATION", "FORMULA"] as const;
@@ -273,6 +291,19 @@ export const customFieldsRouter = router({
           visibility: input.visibility ?? "ADMINS",
           applyTo: input.applyTo,
           position: (maxPosition?.position ?? 0) + 1,
+          ...(input.additionalLocations?.length ? {
+            locations: {
+              create: input.additionalLocations.map(loc => ({
+                workspaceId: loc.workspaceId,
+                spaceId: loc.spaceId,
+                projectId: loc.projectId,
+                folderId: loc.folderId,
+                listId: loc.listId,
+                teamId: loc.teamId,
+                locationType: loc.locationType
+              }))
+            }
+          } : {})
         }
       });
     }),
@@ -289,12 +320,37 @@ export const customFieldsRouter = router({
       isVisibleToGuests: z.boolean().optional(),
       visibility: z.enum(["PRIVATE", "ADMINS", "MEMBERS", "EVERYONE", "PUBLIC"]).optional(),
       position: z.number().optional(),
+      additionalLocations: z.array(z.object({
+        workspaceId: z.string().optional(),
+        spaceId: z.string().optional(),
+        projectId: z.string().optional(),
+        folderId: z.string().optional(),
+        listId: z.string().optional(),
+        teamId: z.string().optional(),
+        locationType: z.enum(["WORKSPACE", "SPACE", "PROJECT", "TEAM", "FOLDER", "LIST", "PERSONAL"])
+      })).optional(),
     }))
     .mutation(async ({ input }) => {
-      const { id, ...data } = input;
+      const { id, additionalLocations, ...data } = input;
       return prisma.customField.update({
         where: { id },
-        data,
+        data: {
+          ...data,
+          ...(additionalLocations !== undefined ? {
+            locations: {
+              deleteMany: {},
+              create: additionalLocations.map(loc => ({
+                workspaceId: loc.workspaceId,
+                spaceId: loc.spaceId,
+                projectId: loc.projectId,
+                folderId: loc.folderId,
+                listId: loc.listId,
+                teamId: loc.teamId,
+                locationType: loc.locationType
+              }))
+            }
+          } : {})
+        },
       });
     }),
 

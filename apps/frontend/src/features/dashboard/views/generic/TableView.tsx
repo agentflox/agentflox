@@ -4534,6 +4534,10 @@ export function TableView({ spaceId, projectId, teamId, listId, folderId, viewId
                     setCreateFieldModalOpen(true);
                 }}
                 workspaceId={resolvedWorkspaceId}
+                spaceId={spaceId}
+                projectId={projectId}
+                folderId={folderId}
+                teamId={teamId}
                 listId={listId}
                 listName={currentList?.name}
                 fieldConfig={FIELD_CONFIG}
@@ -5525,6 +5529,11 @@ export function TableView({ spaceId, projectId, teamId, listId, folderId, viewId
                                     value={bulkCustomFieldDraftValue}
                                     onChange={setBulkCustomFieldDraftValue}
                                     disabled={updateCustomField.isPending}
+                                    workspaceId={workspaceId}
+                                    spaceId={spaceId}
+                                    projectId={projectId}
+                                    teamId={teamId}
+                                    listId={listId}
                                 />
                             );
                         })()}

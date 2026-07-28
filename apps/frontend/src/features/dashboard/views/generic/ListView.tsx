@@ -130,7 +130,6 @@ import {
     verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { Textarea } from "@/components/ui/textarea";
-import { AI_FIELDS, ALL_FIELDS, FIELD_TYPE_DROPDOWN_OPTIONS, type FieldTypeOption } from "@/entities/task/constants/fieldTypes";
 import { CustomFieldsManagerModal } from "@/entities/customfields/components/CustomFieldsManagerModal";
 import { FieldsPanelSlideout } from "@/features/dashboard/components/shared/FieldsPanelSlideout";
 import { AssigneesPanelSlideout } from "@/features/dashboard/components/shared/AssigneesPanelSlideout";
@@ -319,7 +318,7 @@ function SortableFieldRow({ id, children }: { id: string; children: React.ReactN
     );
 }
 
-export default function ListView({ spaceId, projectId, teamId, listId, viewId, workspaceId, initialConfig, selectedTaskIdFromParent, onTaskSelect, scope, context }: ListViewProps) {
+export default function ListView({ spaceId, projectId, teamId, folderId, listId, viewId, workspaceId, initialConfig, selectedTaskIdFromParent, onTaskSelect, scope, context }: ListViewProps) {
     /** Whether this context shows tasks from many lists (workspace/space/project/team ↁEshow locations) */
     const isBroadContext = context === "workspace" || context === "space" || context === "project" || context === "team";
 
@@ -754,9 +753,7 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
     // Merge standard fields with custom fields (only those used by tasks)
     const FIELD_CONFIG = useMemo(() => {
         const standardFields = STANDARD_FIELD_CONFIG.map(f => ({ ...f, isCustom: false }));
-        // Only include custom fields that have values in the current task list
         const customFieldsConfig = (customFields as any[])
-            .filter((cf: any) => usedCustomFieldIds.has(cf.id))
             .map((cf: any) => {
                 const IconComponent = getCustomFieldIcon(cf.type);
                 return {
@@ -768,7 +765,7 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
                 };
             });
         return [...standardFields, ...customFieldsConfig];
-    }, [customFields, usedCustomFieldIds]);
+    }, [customFields]);
 
     const allAvailableStatuses = useMemo(() => {
         if (listId && currentList?.statuses) {
@@ -2670,10 +2667,27 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
                                 if (cfEntry) {
                                     const customField = (cfEntry as any).customField;
                                     const value = getCustomFieldValue(task, colId);
-                                    const formattedValue = formatCustomFieldValue(value, customField);
                                     return (
-                                        <TableCell key={colId} className="p-0.5 overflow-hidden" style={{ width: colWidths[colId] ?? 120, minWidth: 80 }}>
-                                            <button type="button" className="w-full h-full min-h-[38px] flex items-center justify-start px-2 py-1 outline-none rounded-sm ring-1 ring-inset ring-transparent hover:ring-zinc-200 focus-visible:ring-indigo-500 data-[state=open]:ring-indigo-500 transition-shadow cursor-pointer text-left text-xs text-zinc-700" onClick={(e) => { e.stopPropagation(); openTaskDetail(task.id); }} title={`Edit ${cfEntry.label}`}>{formattedValue}</button>
+                                        <TableCell key={colId} className="p-0.5 overflow-hidden align-middle" style={{ width: colWidths[colId] ?? 120, minWidth: 80 }}>
+                                            <div className="w-full h-full min-h-[38px] flex items-center px-1 outline-none rounded-sm ring-1 ring-inset ring-transparent hover:ring-zinc-200 focus-within:ring-indigo-500 transition-shadow" onClick={(e) => e.stopPropagation()}>
+                                                <CustomFieldRenderer
+                                                    field={customField}
+                                                    value={value}
+                                                    onChange={(newValue) => {
+                                                        updateCustomField.mutate({
+                                                            taskId: task.id,
+                                                            customFieldId: customField.id,
+                                                            value: newValue
+                                                        });
+                                                    }}
+                                                    hideLabel={true}
+                                                    workspaceId={workspaceId}
+                                                    spaceId={spaceId}
+                                                    projectId={projectId}
+                                                    teamId={teamId}
+                                                    listId={listId}
+                                                />
+                                            </div>
                                         </TableCell>
                                     );
                                 }
@@ -4616,6 +4630,10 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
                 onClose={() => setFieldsPanelOpen(false)}
                 onOpenManagerModal={() => setManagerModalOpen(true)}
                 workspaceId={workspaceId}
+                spaceId={spaceId}
+                projectId={projectId}
+                folderId={folderId}
+                teamId={teamId}
                 listId={listId}
                 listName={currentList?.name}
                 fieldConfig={FIELD_CONFIG}
@@ -5547,6 +5565,11 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
                                     value={bulkCustomFieldDraftValue}
                                     onChange={setBulkCustomFieldDraftValue}
                                     disabled={updateCustomField.isPending}
+                                    workspaceId={workspaceId}
+                                    spaceId={spaceId}
+                                    projectId={projectId}
+                                    teamId={teamId}
+                                    listId={listId}
                                 />
                             );
                         })()}
@@ -5740,6 +5763,13 @@ export default function ListView({ spaceId, projectId, teamId, listId, viewId, w
                 open={managerModalOpen}
                 onOpenChange={setManagerModalOpen}
                 workspaceId={workspaceId ?? ""}
+                initialLocation={
+                    listId ? `list:${listId}` :
+                        folderId ? `folder:${folderId}` :
+                            projectId ? `project:${projectId}` :
+                                spaceId ? `space:${spaceId}` :
+                                    "all" as any
+                }
             />
         </div>
     );

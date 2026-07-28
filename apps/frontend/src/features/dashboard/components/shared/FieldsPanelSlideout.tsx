@@ -27,6 +27,7 @@ import {
 import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
 import { cn } from "@/lib/utils";
+import { CustomFieldSettingsPopover } from '@/entities/task/components/CustomFieldSettingsPopover';
 import {
     DndContext,
     closestCenter,
@@ -39,7 +40,7 @@ import {
     verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { AI_FIELDS, ALL_FIELDS, FIELD_TYPE_DROPDOWN_OPTIONS } from "@/entities/task/constants/fieldTypes";
+import { ALL_FIELDS, FIELD_TYPE_DROPDOWN_OPTIONS } from "@/entities/task/constants/fieldTypes";
 import {
     Settings,
     X,
@@ -115,6 +116,10 @@ export function CreateFieldFormPanel({
     workspaceId,
     listId,
     listName,
+    spaceId,
+    projectId,
+    folderId,
+    teamId,
     initialType,
     onBack,
     onClose,
@@ -122,9 +127,13 @@ export function CreateFieldFormPanel({
     workspaceId?: string;
     listId?: string;
     listName?: string;
+    spaceId?: string;
+    projectId?: string;
+    folderId?: string;
+    teamId?: string;
     initialType: string;
     onBack: () => void;
-    onClose: () => void;
+    onClose: (fieldId?: string) => void;
 }) {
     const utils = trpc.useUtils();
     const [name, setName] = useState("");
@@ -171,10 +180,10 @@ export function CreateFieldFormPanel({
     }, [workspaceData, teamListData]);
 
     const createField = trpc.customFields.create.useMutation({
-        onSuccess: () => {
+        onSuccess: (newField) => {
             if (workspaceId) utils.customFields.list.invalidate({ workspaceId, applyTo: "TASK" });
             toast.success("Custom field added");
-            onClose();
+            onClose(newField.id); // Pass the newly created field ID back
         },
         onError: (err) => toast.error(err.message || "Failed to add field"),
     });
@@ -189,8 +198,22 @@ export function CreateFieldFormPanel({
         if (["DROPDOWN", "CUSTOM_DROPDOWN", "LABELS", "CATEGORIZE", "SENTIMENT", "TSHIRT_SIZE"].includes(type)) {
             config.options = config.options ?? [];
         }
+
+        let locationType: "WORKSPACE" | "SPACE" | "PROJECT" | "TEAM" | "FOLDER" | "LIST" | "PERSONAL" = "WORKSPACE";
+        if (listId) locationType = "LIST";
+        else if (folderId) locationType = "FOLDER";
+        else if (projectId) locationType = "PROJECT";
+        else if (spaceId) locationType = "SPACE";
+        else if (teamId) locationType = "TEAM";
+
         createField.mutate({
             workspaceId,
+            listId,
+            folderId,
+            projectId,
+            spaceId,
+            teamId,
+            locationType,
             name: name.trim(),
             type,
             applyTo: ["TASK"],
@@ -237,7 +260,7 @@ export function CreateFieldFormPanel({
                             </DropdownMenuContent>
                         </DropdownMenu>
                     </div>
-                    <button onClick={onClose} className="h-8 w-8 rounded-full flex items-center justify-center bg-zinc-100 hover:bg-zinc-200 text-zinc-500">
+                    <button onClick={() => onClose()} className="h-8 w-8 rounded-full flex items-center justify-center bg-zinc-100 hover:bg-zinc-200 text-zinc-500">
                         <X className="h-4 w-4" />
                     </button>
                 </div>
@@ -572,7 +595,7 @@ export function CreateFieldFormPanel({
             </ScrollArea>
 
             <div className="flex items-center justify-end gap-2.5 px-5 py-3.5 border-t border-zinc-100 bg-white shrink-0">
-                <Button type="button" variant="outline" onClick={onClose} className="h-9 px-4 border-zinc-200 text-zinc-700 hover:bg-zinc-50 hover:text-zinc-900 shadow-sm font-medium text-[13px] rounded-md">
+                <Button type="button" variant="outline" onClick={() => onClose()} className="h-9 px-4 border-zinc-200 text-zinc-700 hover:bg-zinc-50 hover:text-zinc-900 shadow-sm font-medium text-[13px] rounded-md">
                     Cancel
                 </Button>
                 <Button type="submit" form="add-field-sidebar-form" disabled={createField.isPending || !name.trim()} className="h-9 px-4 bg-indigo-500 text-white hover:bg-indigo-600 shadow-sm font-medium border border-transparent text-[13px] rounded-md">
@@ -590,6 +613,10 @@ export interface FieldsPanelSlideoutProps {
     onClose: () => void;
     onOpenManagerModal: () => void;
     workspaceId?: string;
+    spaceId?: string;
+    projectId?: string;
+    folderId?: string;
+    teamId?: string;
     listId?: string;
     listName?: string;
     /** Merged FIELD_CONFIG (standard + custom used by tasks) */
@@ -611,6 +638,10 @@ export function FieldsPanelSlideout({
     onClose,
     onOpenManagerModal,
     workspaceId,
+    spaceId,
+    projectId,
+    folderId,
+    teamId,
     listId,
     listName,
     fieldConfig,
@@ -675,7 +706,7 @@ export function FieldsPanelSlideout({
                         onClose={handleClose}
                     />
                 ) : (
-                    <>
+                    <div className="flex flex-col flex-1 min-h-0">
                         {/* Header */}
                         <div className="flex flex-col border-b border-zinc-100">
                             <div className="flex items-center justify-between p-4 pb-2">
@@ -709,7 +740,7 @@ export function FieldsPanelSlideout({
 
                         {/* Body */}
                         {tab === "existing" ? (
-                            <ScrollArea className="flex-1 p-3 pb-4 h-full">
+                            <ScrollArea className="flex-1 min-h-0 p-3 pb-4">
                                 {/* Shown */}
                                 <div className="flex items-center justify-between mb-1 mt-1 py-2 px-2 -mx-1 rounded-md hover:bg-zinc-100 cursor-pointer group" onClick={() => setShownExpanded(!shownExpanded)}>
                                     <p className="text-xs font-medium text-zinc-500 flex items-center gap-1.5 group-hover:text-zinc-700">
@@ -792,7 +823,7 @@ export function FieldsPanelSlideout({
                                     </div>
                                 )}
 
-                                {/* Custom Fields (used) */}
+                                {/* Custom Fields (used or specific) */}
                                 <div className="border-t border-zinc-100 my-4" />
                                 <TooltipProvider>
                                     <Tooltip delayDuration={300}>
@@ -801,79 +832,176 @@ export function FieldsPanelSlideout({
                                                 <p className="text-xs font-medium text-zinc-500 flex items-center gap-1.5 group-hover:text-zinc-700">
                                                     Custom Fields <svg width="8" height="8" viewBox="0 0 8 8" className={cn("fill-current transition-transform translate-y-[1px]", customFieldsExpanded ? "" : "-rotate-90")}><polygon points="0,0 8,0 4,6" /></svg>
                                                 </p>
-                                                <span className="text-xs text-zinc-500 font-medium">{fieldConfig.filter((f) => !visibleColumns.has(f.id) && f.isCustom).length}</span>
+                                                <span className="text-xs text-zinc-500 font-medium">
+                                                    {(() => {
+                                                        const isWorkspaceContext = !listId && !folderId && !projectId && !spaceId && !teamId;
+                                                        const used = fieldConfig.filter((f) => f.isCustom);
+                                                        let unused: any[] = [];
+                                                        if (isWorkspaceContext) {
+                                                            unused = (customFields as any[])?.filter((cf) => !usedCustomFieldIds.has(cf.id)) || [];
+                                                        } else {
+                                                            unused = (customFields as any[])?.filter((cf) => !usedCustomFieldIds.has(cf.id) && (
+                                                                (listId && cf.listId === listId) ||
+                                                                (folderId && cf.folderId === folderId) ||
+                                                                (projectId && cf.projectId === projectId) ||
+                                                                (spaceId && cf.spaceId === spaceId) ||
+                                                                (teamId && cf.teamId === teamId)
+                                                            )) || [];
+                                                        }
+                                                        let count = 0;
+                                                        used.forEach((f) => { if (!visibleColumns.has(f.id)) count++; });
+                                                        unused.forEach((cf) => { if (!visibleColumns.has(cf.id)) count++; });
+                                                        return count;
+                                                    })()}
+                                                </span>
                                             </div>
                                         </TooltipTrigger>
-                                        <TooltipContent side="bottom" align="center" className="bg-zinc-900 text-white border-zinc-800 text-xs py-1.5"><p>Custom Task Fields added to tasks on this List.</p></TooltipContent>
+                                        <TooltipContent side="bottom" align="center" className="bg-zinc-900 text-white border-zinc-800 text-xs py-1.5"><p>Custom Task Fields added to tasks on this location.</p></TooltipContent>
                                     </Tooltip>
                                 </TooltipProvider>
                                 {customFieldsExpanded && (
                                     <div className="space-y-1">
-                                        {fieldConfig.filter((f) => !visibleColumns.has(f.id) && f.isCustom && (!fieldsSearch.trim() || f.label.toLowerCase().includes(fieldsSearch.toLowerCase()))).map((f) => (
-                                            <div key={f.id} className="flex items-center justify-between py-2 px-2 rounded hover:bg-zinc-50">
-                                                <div className="flex items-center gap-2">{renderFieldIcon((f as any).icon)}<span className="text-sm text-zinc-800">{f.label}</span></div>
-                                                <Switch checked={false} onCheckedChange={() => toggleColumn(f.id)} className="data-[state=checked]:bg-indigo-500" />
-                                            </div>
-                                        ))}
+                                        {(() => {
+                                            const isWorkspaceContext = !listId && !folderId && !projectId && !spaceId && !teamId;
+                                            const used = fieldConfig.filter((f) => f.isCustom);
+                                            let unused: any[] = [];
+                                            if (isWorkspaceContext) {
+                                                unused = (customFields as any[])?.filter((cf) => !usedCustomFieldIds.has(cf.id)) || [];
+                                            } else {
+                                                unused = (customFields as any[])?.filter((cf) => !usedCustomFieldIds.has(cf.id) && (
+                                                    (listId && cf.listId === listId) ||
+                                                    (folderId && cf.folderId === folderId) ||
+                                                    (projectId && cf.projectId === projectId) ||
+                                                    (spaceId && cf.spaceId === spaceId) ||
+                                                    (teamId && cf.teamId === teamId)
+                                                )) || [];
+                                            }
+
+                                            // Deduplicate by id — a field can appear in both `used` and `unused`
+                                            // when it matches via both primary location and locations join table.
+                                            const seenIds = new Map<string, any>();
+                                            for (const f of used) seenIds.set(f.id, f);
+                                            for (const cf of unused) {
+                                                if (!seenIds.has(cf.id)) {
+                                                    seenIds.set(cf.id, {
+                                                        id: cf.id,
+                                                        label: cf.name,
+                                                        icon: getCustomFieldIcon(cf.type),
+                                                        isCustom: true,
+                                                        customField: cf,
+                                                    });
+                                                }
+                                            }
+                                            const allSpecific = Array.from(seenIds.values())
+                                                .filter((f) => !visibleColumns.has(f.id) && (!fieldsSearch.trim() || f.label.toLowerCase().includes(fieldsSearch.toLowerCase())));
+
+                                            return allSpecific.map((f) => (
+                                                <div key={f.id} className="group/cf flex items-center justify-between py-1.5 px-2 rounded hover:bg-zinc-50">
+                                                    <div className="flex items-center gap-2">{renderFieldIcon((f as any).icon)}<span className="text-sm text-zinc-800">{f.label}</span></div>
+                                                    <div className="flex items-center gap-2">
+                                                        <CustomFieldSettingsPopover 
+                                                            field={(f as any).customField} 
+                                                            workspaceId={workspaceId!}
+                                                            spaceId={spaceId}
+                                                            projectId={projectId}
+                                                            folderId={folderId}
+                                                            listId={listId}
+                                                        >
+                                                            <button
+                                                                type="button"
+                                                                className="opacity-0 group-hover/cf:opacity-100 h-6 w-6 rounded-md hover:bg-zinc-200 flex items-center justify-center transition-all cursor-pointer"
+                                                            >
+                                                                <TooltipProvider>
+                                                                    <Tooltip delayDuration={300}>
+                                                                        <TooltipTrigger asChild>
+                                                                            <div className="h-full w-full flex items-center justify-center">
+                                                                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-zinc-500"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
+                                                                            </div>
+                                                                        </TooltipTrigger>
+                                                                        <TooltipContent side="top" sideOffset={5} className="bg-zinc-900 text-white border-0 text-xs py-1.5 px-2 font-medium">Edit field</TooltipContent>
+                                                                    </Tooltip>
+                                                                </TooltipProvider>
+                                                            </button>
+                                                        </CustomFieldSettingsPopover>
+                                                        <Switch checked={false} onCheckedChange={() => toggleColumn(f.id)} className="data-[state=checked]:bg-indigo-500" />
+                                                    </div>
+                                                </div>
+                                            ));
+                                        })()}
                                     </div>
                                 )}
 
-                                {/* Custom Fields in Workspace (not yet used) */}
-                                <div className="border-t border-zinc-100 my-4" />
-                                <TooltipProvider>
-                                    <Tooltip delayDuration={300}>
-                                        <TooltipTrigger asChild>
-                                            <div className="flex items-center justify-between mb-1 py-2 px-2 -mx-1 rounded-md hover:bg-zinc-100 cursor-pointer group" onClick={() => setWorkspaceCustomFieldsExpanded(!workspaceCustomFieldsExpanded)}>
-                                                <p className="text-xs font-medium text-zinc-500 flex items-center gap-1.5 group-hover:text-zinc-700">
-                                                    Custom Fields in Workspace <svg width="8" height="8" viewBox="0 0 8 8" className={cn("fill-current transition-transform translate-y-[1px]", workspaceCustomFieldsExpanded ? "" : "-rotate-90")}><polygon points="0,0 8,0 4,6" /></svg>
-                                                </p>
-                                                <span className="text-xs text-zinc-500 font-medium">{(customFields as any[])?.filter((cf) => !usedCustomFieldIds.has(cf.id)).length || 0}</span>
-                                            </div>
-                                        </TooltipTrigger>
-                                        <TooltipContent side="bottom" align="center" className="bg-zinc-900 text-white border-zinc-800 text-xs py-1.5"><p>All other Custom Task Fields in your Workspace.</p></TooltipContent>
-                                    </Tooltip>
-                                </TooltipProvider>
-                                {workspaceCustomFieldsExpanded && (
-                                    <div className="space-y-1">
-                                        {(customFields as any[])?.filter((cf) => !usedCustomFieldIds.has(cf.id) && (!fieldsSearch.trim() || cf.name.toLowerCase().includes(fieldsSearch.toLowerCase()))).map((cf) => {
-                                            const IconComponent = getCustomFieldIcon(cf.type);
-                                            return (
-                                                <div key={cf.id} className="flex items-center justify-between py-2 px-2 rounded hover:bg-zinc-50">
-                                                    <div className="flex items-center gap-2">
-                                                        {IconComponent && <IconComponent className="h-4 w-4 text-zinc-400 shrink-0" />}
-                                                        <span className="text-sm text-zinc-800">{cf.name}</span>
+                                {/* Custom Fields from Workspace (only if not workspace context) */}
+                                {(!(!listId && !folderId && !projectId && !spaceId && !teamId)) && (
+                                    <>
+                                        <div className="border-t border-zinc-100 my-4" />
+                                        <TooltipProvider>
+                                            <Tooltip delayDuration={300}>
+                                                <TooltipTrigger asChild>
+                                                    <div className="flex items-center justify-between mb-1 py-2 px-2 -mx-1 rounded-md hover:bg-zinc-100 cursor-pointer group" onClick={() => setWorkspaceCustomFieldsExpanded(!workspaceCustomFieldsExpanded)}>
+                                                        <p className="text-xs font-medium text-zinc-500 flex items-center gap-1.5 group-hover:text-zinc-700">
+                                                            Workspace Custom Fields <svg width="8" height="8" viewBox="0 0 8 8" className={cn("fill-current transition-transform translate-y-[1px]", workspaceCustomFieldsExpanded ? "" : "-rotate-90")}><polygon points="0,0 8,0 4,6" /></svg>
+                                                        </p>
+                                                        <span className="text-xs text-zinc-500 font-medium">
+                                                            {((customFields as any[])?.filter((cf) => !usedCustomFieldIds.has(cf.id) && cf.locationType === "WORKSPACE" && !visibleColumns.has(cf.id)).length) || 0}
+                                                        </span>
                                                     </div>
-                                                    <Switch checked={false} onCheckedChange={() => toggleColumn(cf.id)} className="data-[state=checked]:bg-indigo-500" />
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
+                                                </TooltipTrigger>
+                                                <TooltipContent side="bottom" align="center" className="bg-zinc-900 text-white border-zinc-800 text-xs py-1.5"><p>Custom Task Fields created at the Workspace level.</p></TooltipContent>
+                                            </Tooltip>
+                                        </TooltipProvider>
+                                        {workspaceCustomFieldsExpanded && (
+                                            <div className="space-y-1">
+                                                {(customFields as any[])?.filter((cf) => !usedCustomFieldIds.has(cf.id) && cf.locationType === "WORKSPACE" && !visibleColumns.has(cf.id) && (!fieldsSearch.trim() || cf.name.toLowerCase().includes(fieldsSearch.toLowerCase()))).map((cf) => {
+                                                    const IconComponent = getCustomFieldIcon(cf.type);
+                                                    return (
+                                                        <div key={cf.id} className="group/cf flex items-center justify-between py-1.5 px-2 rounded hover:bg-zinc-50">
+                                                            <div className="flex items-center gap-2">
+                                                                {IconComponent && <IconComponent className="h-4 w-4 text-zinc-400 shrink-0" />}
+                                                                <span className="text-sm text-zinc-800">{cf.name}</span>
+                                                            </div>
+                                                            <div className="flex items-center gap-2">
+                                                                <CustomFieldSettingsPopover 
+                                                                    field={cf} 
+                                                                    workspaceId={workspaceId!}
+                                                                    spaceId={spaceId}
+                                                                    projectId={projectId}
+                                                                    folderId={folderId}
+                                                                    listId={listId}
+                                                                >
+                                                                    <button
+                                                                        type="button"
+                                                                        className="opacity-0 group-hover/cf:opacity-100 h-6 w-6 rounded-md hover:bg-zinc-200 flex items-center justify-center transition-all cursor-pointer"
+                                                                    >
+                                                                        <TooltipProvider>
+                                                                            <Tooltip delayDuration={300}>
+                                                                                <TooltipTrigger asChild>
+                                                                                    <div className="h-full w-full flex items-center justify-center">
+                                                                                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-zinc-500"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
+                                                                                    </div>
+                                                                                </TooltipTrigger>
+                                                                                <TooltipContent side="top" sideOffset={5} className="bg-zinc-900 text-white border-0 text-xs py-1.5 px-2 font-medium">Edit field</TooltipContent>
+                                                                            </Tooltip>
+                                                                        </TooltipProvider>
+                                                                    </button>
+                                                                </CustomFieldSettingsPopover>
+                                                                <Switch checked={false} onCheckedChange={() => toggleColumn(cf.id)} className="data-[state=checked]:bg-indigo-500" />
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        )}
+                                    </>
                                 )}
                             </ScrollArea>
                         ) : (
                             /* Create new tab */
-                            <ScrollArea className="flex-1 p-3 pb-4 h-full">
+                            <ScrollArea className="flex-1 min-h-0 p-3 pb-4">
                                 {(() => {
-                                    const filteredAi = AI_FIELDS.filter((f) => !createFieldSearch.trim() || f.label.toLowerCase().includes(createFieldSearch.toLowerCase()));
                                     const filteredAll = ALL_FIELDS.filter((f) => !createFieldSearch.trim() || f.label.toLowerCase().includes(createFieldSearch.toLowerCase()));
                                     return (
                                         <div className="space-y-0.5">
-                                            {filteredAi.length > 0 && (
-                                                <div className="mb-3">
-                                                    <p className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider px-2 py-1.5">AI Fields</p>
-                                                    <div className="space-y-0.5">
-                                                        {filteredAi.map((field) => {
-                                                            const Icon = field.icon;
-                                                            return (
-                                                                <button key={field.id} type="button" onClick={() => { setCreateFieldType(field.type); setCreateFieldStep("form"); }} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg border border-transparent hover:border-violet-200 hover:bg-violet-50/50 transition-all text-left group cursor-pointer">
-                                                                    <div className={cn("h-6 w-6 rounded-md flex items-center justify-center bg-purple-50 group-hover:scale-110 transition-transform", field.color)}><Icon className="h-3.5 w-3.5" /></div>
-                                                                    <span className="text-sm text-zinc-900 group-hover:text-violet-900 transition-colors">{field.label}</span>
-                                                                </button>
-                                                            );
-                                                        })}
-                                                    </div>
-                                                </div>
-                                            )}
                                             <div>
                                                 <p className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider px-2 py-1.5">All</p>
                                                 <div className="space-y-0.5">
@@ -888,13 +1016,13 @@ export function FieldsPanelSlideout({
                                                     })}
                                                 </div>
                                             </div>
-                                            {filteredAi.length === 0 && filteredAll.length === 0 && <p className="text-sm text-zinc-500 py-6 text-center">No matching field types</p>}
+                                            {filteredAll.length === 0 && <p className="text-sm text-zinc-500 py-6 text-center">No matching field types</p>}
                                         </div>
                                     );
                                 })()}
                             </ScrollArea>
                         )}
-                    </>
+                    </div>
                 )}
             </div>
         </>

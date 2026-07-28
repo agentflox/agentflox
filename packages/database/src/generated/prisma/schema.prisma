@@ -987,19 +987,20 @@ model CustomField {
   teamId            String?            @map("team_id")
 
   // Additional settings
-  inheritedFrom     String?            @map("inherited_from")
-  isPinned          Boolean            @default(false) @map("is_pinned")
-  isRequiredInTasks Boolean            @default(false) @map("is_required_in_tasks")
-  visibility        Visibility         @default(ADMINS)
-  isVisibleToGuests Boolean            @default(true) @map("is_visible_to_guests")
+  inheritedFrom     String?               @map("inherited_from")
+  isPinned          Boolean               @default(false) @map("is_pinned")
+  isRequiredInTasks Boolean               @default(false) @map("is_required_in_tasks")
+  visibility        Visibility            @default(ADMINS)
+  isVisibleToGuests Boolean               @default(true) @map("is_visible_to_guests")
   values            CustomFieldValue[]
-  creator           User?              @relation("CustomFieldCreator", fields: [createdBy], references: [id], onDelete: SetNull)
-  folder            Folder?            @relation(fields: [folderId], references: [id], onDelete: Cascade)
-  list              List?              @relation(fields: [listId], references: [id], onDelete: Cascade)
-  project           Project?           @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  space             Space?             @relation(fields: [spaceId], references: [id], onDelete: Cascade)
-  team              Team?              @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  workspace         Workspace?         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  locations         CustomFieldLocation[]
+  creator           User?                 @relation("CustomFieldCreator", fields: [createdBy], references: [id], onDelete: SetNull)
+  folder            Folder?               @relation(fields: [folderId], references: [id], onDelete: Cascade)
+  list              List?                 @relation(fields: [listId], references: [id], onDelete: Cascade)
+  project           Project?              @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  space             Space?                @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  team              Team?                 @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  workspace         Workspace?            @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
   @@index([workspaceId])
   @@index([spaceId])
@@ -1009,6 +1010,30 @@ model CustomField {
   @@index([listId])
   @@index([createdBy])
   @@map("custom_fields")
+}
+
+model CustomFieldLocation {
+  id            String @id @default(cuid())
+  customFieldId String @map("custom_field_id")
+
+  workspaceId  String?      @map("workspace_id")
+  spaceId      String?      @map("space_id")
+  projectId    String?      @map("project_id")
+  folderId     String?      @map("folder_id")
+  listId       String?      @map("list_id")
+  teamId       String?      @map("team_id")
+  locationType LocationType @map("location_type")
+
+  customField CustomField @relation(fields: [customFieldId], references: [id], onDelete: Cascade)
+
+  @@index([customFieldId])
+  @@index([workspaceId])
+  @@index([spaceId])
+  @@index([projectId])
+  @@index([folderId])
+  @@index([listId])
+  @@index([teamId])
+  @@map("custom_field_locations")
 }
 
 model CustomFieldValue {

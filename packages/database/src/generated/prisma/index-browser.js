@@ -571,6 +571,18 @@ exports.Prisma.CustomFieldScalarFieldEnum = {
   isVisibleToGuests: 'isVisibleToGuests'
 };
 
+exports.Prisma.CustomFieldLocationScalarFieldEnum = {
+  id: 'id',
+  customFieldId: 'customFieldId',
+  workspaceId: 'workspaceId',
+  spaceId: 'spaceId',
+  projectId: 'projectId',
+  folderId: 'folderId',
+  listId: 'listId',
+  teamId: 'teamId',
+  locationType: 'locationType'
+};
+
 exports.Prisma.CustomFieldValueScalarFieldEnum = {
   id: 'id',
   customFieldId: 'customFieldId',
@@ -4319,6 +4331,7 @@ exports.Prisma.ModelName = {
   ChecklistItem: 'ChecklistItem',
   TimeEntry: 'TimeEntry',
   CustomField: 'CustomField',
+  CustomFieldLocation: 'CustomFieldLocation',
   CustomFieldValue: 'CustomFieldValue',
   SpaceMember: 'SpaceMember',
   Folder: 'Folder',

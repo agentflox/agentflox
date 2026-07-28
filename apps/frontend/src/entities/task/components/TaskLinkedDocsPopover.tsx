@@ -49,7 +49,7 @@ export function TaskLinkedDocsPopover({ taskId, workspaceId, children }: TaskLin
         onSuccess: () => {
             toast.success("Document linked");
             utils.task.get.invalidate({ id: taskId });
-            utils.task.listTasks.invalidate();
+            utils.task.list.invalidate();
             setShowSearch(false);
         },
         onError: () => {
@@ -61,7 +61,7 @@ export function TaskLinkedDocsPopover({ taskId, workspaceId, children }: TaskLin
         onSuccess: () => {
             toast.success("Link removed");
             utils.task.get.invalidate({ id: taskId });
-            utils.task.listTasks.invalidate();
+            utils.task.list.invalidate();
         },
         onError: () => {
             toast.error("Failed to remove link");
@@ -202,7 +202,7 @@ export function LinkedDocsCell({ task, workspaceId }: { task: any, workspaceId: 
 
     if (!fullTask) {
         return (
-            <button type="button" className="w-full h-full min-h-[38px] flex items-center justify-start px-2 py-1 outline-none ring-1 ring-inset ring-transparent hover:ring-zinc-200 transition-shadow cursor-pointer">
+            <button type="button" className="w-full h-full min-h-[38px] flex items-center justify-start px-2 py-1 outline-none rounded-sm ring-1 ring-inset ring-transparent hover:ring-zinc-200 transition-shadow cursor-pointer">
                 <div className="text-xs text-zinc-400 font-medium">...</div>
             </button>
         );
@@ -210,7 +210,7 @@ export function LinkedDocsCell({ task, workspaceId }: { task: any, workspaceId: 
 
     return (
         <TaskLinkedDocsPopover taskId={task.id} workspaceId={workspaceId}>
-            <button type="button" className="w-full h-full min-h-[38px] flex items-center justify-start px-2 py-1 outline-none ring-1 ring-inset ring-transparent hover:ring-zinc-200 focus-visible:ring-indigo-500 data-[state=open]:ring-indigo-500 transition-shadow cursor-pointer gap-1 group" onClick={(e) => e.stopPropagation()}>
+            <button type="button" className="w-full h-full min-h-[38px] flex items-center justify-start px-2 py-1 outline-none rounded-sm ring-1 ring-inset ring-transparent hover:ring-zinc-200 focus-visible:ring-indigo-500 data-[state=open]:ring-indigo-500 transition-shadow cursor-pointer gap-1 group" onClick={(e) => e.stopPropagation()}>
                 {docs.length > 0 ? (
                     <div className="flex items-center gap-1">
                         <Badge variant="outline" className="h-5 px-1.5 text-xs font-normal border-zinc-200 bg-white group-hover:bg-zinc-50 truncate max-w-[80px] rounded-sm transition-colors">

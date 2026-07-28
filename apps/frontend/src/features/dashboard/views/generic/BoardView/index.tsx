@@ -4864,6 +4864,11 @@ export function BoardView({ spaceId, projectId, teamId, listId, folderId, viewId
                                     value={bulkCustomFieldDraftValue}
                                     onChange={setBulkCustomFieldDraftValue}
                                     disabled={updateTask.isPending}
+                                    workspaceId={resolvedWorkspaceId}
+                                    spaceId={spaceId}
+                                    projectId={projectId}
+                                    teamId={teamId}
+                                    listId={listId}
                                 />
                             );
                         })()}

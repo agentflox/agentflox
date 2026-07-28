@@ -3363,6 +3363,11 @@ function MindMapFreeformView(props: MindMapHeaderProps) {
                                     value={bulkCustomFieldDraftValue}
                                     onChange={setBulkCustomFieldDraftValue}
                                     disabled={updateTask.isPending}
+                                    workspaceId={resolvedWorkspaceId}
+                                    spaceId={spaceId}
+                                    projectId={projectId}
+                                    teamId={teamId}
+                                    listId={listId}
                                 />
                             );
                         })()}
@@ -6095,6 +6100,11 @@ function MindMapTasksView(props: MindMapHeaderProps) {
                                     value={bulkCustomFieldDraftValue}
                                     onChange={setBulkCustomFieldDraftValue}
                                     disabled={updateTask.isPending}
+                                    workspaceId={resolvedWorkspaceId}
+                                    spaceId={spaceId}
+                                    projectId={projectId}
+                                    teamId={teamId}
+                                    listId={listId}
                                 />
                             );
                         })()}

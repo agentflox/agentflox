@@ -14,7 +14,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { SingleDateCalendar } from "@/components/ui/date-picker";
 import { MultiDateCalendar } from "@/components/ui/multi-date-picker";
 import { CalendarIcon } from "lucide-react";
-import { AI_FIELDS, ALL_FIELDS, type FieldTypeOption } from "../../task/constants/fieldTypes";
+import { ALL_FIELDS, type FieldTypeOption } from "../../task/constants/fieldTypes";
 import { CustomFieldSidebarPanel } from "./CustomFieldSidebarPanel";
 import { DataTable } from "@/components/ui/data-table";
 import { DataTableColumnHeader } from "@/components/ui/data-table-column-header";
@@ -40,6 +40,7 @@ type LeftViewKey =
     | `project:${string}`
     | `folder:${string}`
     | `list:${string}`
+    | `team:${string}`
     | "standalone-projects"
     | "standalone-lists";
 
@@ -50,9 +51,12 @@ interface CustomFieldsManagerModalProps {
     onCreateNew?: () => void;
     onAddExisting?: () => void;
     initialFieldId?: string;
+    initialLocation?: LeftViewKey;
 }
 
 type LocationType = "WORKSPACE" | "SPACE" | "PROJECT" | "TEAM" | "FOLDER" | "LIST" | "PERSONAL";
+
+const EMPTY_ARRAY = [] as any[];
 
 export function CustomFieldsManagerModal({
     open,
@@ -61,10 +65,11 @@ export function CustomFieldsManagerModal({
     onCreateNew,
     onAddExisting,
     initialFieldId,
+    initialLocation,
 }: CustomFieldsManagerModalProps) {
     const utils = trpc.useUtils();
     const [query, setQuery] = React.useState("");
-    const [selectedView, setSelectedView] = React.useState<LeftViewKey>("all");
+    const [selectedView, setSelectedView] = React.useState<LeftViewKey>(initialLocation ?? "all");
     const [locationSearchQuery, setLocationSearchQuery] = React.useState("");
     const [showLocationSearch, setShowLocationSearch] = React.useState(false);
     const [groupBy, setGroupBy] = React.useState<"type" | "locationType" | null>(null);
@@ -96,6 +101,12 @@ export function CustomFieldsManagerModal({
     const [collapsedGroups, setCollapsedGroups] = React.useState<Record<string, boolean>>({});
     const [isAddExistingMode, setIsAddExistingMode] = React.useState(false);
     const [addExistingSelection, setAddExistingSelection] = React.useState<Record<string, boolean>>({});
+
+    React.useEffect(() => {
+        if (open && initialLocation) {
+            setSelectedView(initialLocation);
+        }
+    }, [open, initialLocation]);
 
     React.useEffect(() => {
         if (!showLocationSearch) return;
@@ -134,10 +145,6 @@ export function CustomFieldsManagerModal({
     }, []);
 
 
-
-
-
-
     const activeFilterCount = filters.filter(f => f.value && f.value.trim() !== "").length;
 
     const defaultFields = [
@@ -163,7 +170,7 @@ export function CustomFieldsManagerModal({
 
     const { data: workspace } = trpc.workspace.get.useQuery(
         { id: workspaceId },
-        { enabled: open && !!workspaceId }
+        { enabled: open && !!workspaceId, staleTime: 5 * 60 * 1000, refetchOnWindowFocus: false }
     );
 
     // For the manager modal, load across all workspaces the user owns or is a member of.
@@ -171,48 +178,50 @@ export function CustomFieldsManagerModal({
     // passed-in `workspaceId` prop.
     const { data: workspacesListData } = trpc.workspace.list.useQuery(
         { scope: "all", page: 1, pageSize: 50 },
-        { enabled: open }
+        { enabled: open, staleTime: 5 * 60 * 1000, refetchOnWindowFocus: false }
     );
 
     const { data: spacesData } = trpc.space.list.useQuery(
         { scope: "all", page: 1, pageSize: 50, includeCounts: false },
-        { enabled: open }
+        { enabled: open, staleTime: 5 * 60 * 1000, refetchOnWindowFocus: false }
     );
     const { data: projectsData } = trpc.project.list.useQuery(
         { scope: "all", page: 1, pageSize: 50 },
-        { enabled: open }
-    );
-    const { data: allProjectsData } = trpc.project.list.useQuery(
-        { scope: "all", page: 1, pageSize: 50 },
-        { enabled: open }
+        { enabled: open, staleTime: 5 * 60 * 1000, refetchOnWindowFocus: false }
     );
     const { data: foldersData } = trpc.folder.byContext.useQuery(
         { workspaceId, archived: false },
-        { enabled: open && !!workspaceId }
+        { enabled: open && !!workspaceId, staleTime: 5 * 60 * 1000, refetchOnWindowFocus: false }
     );
     const { data: listsData } = trpc.list.byContext.useQuery(
         { workspaceId, archived: false },
-        { enabled: open && !!workspaceId }
+        { enabled: open && !!workspaceId, staleTime: 5 * 60 * 1000, refetchOnWindowFocus: false }
     );
-    const { data: customFieldsRaw = [], isLoading: isLoadingCustomFields, isFetching: isFetchingCustomFields } = trpc.customFields.list.useQuery(
+    const { data: teamsData } = trpc.team.list.useQuery(
+        { workspaceId },
+        { enabled: open && !!workspaceId, staleTime: 5 * 60 * 1000, refetchOnWindowFocus: false }
+    );
+    const { data: customFieldsRaw = EMPTY_ARRAY, isLoading: isLoadingCustomFields, isFetching: isFetchingCustomFields } = trpc.customFields.list.useQuery(
         {},
-        { enabled: open }
+        { enabled: open, staleTime: 2 * 60 * 1000, refetchOnWindowFocus: false }
     );
     // Fetch all workspace fields for "Add Existing" view
-    const { data: allWorkspaceFieldsRaw = [] } = trpc.customFields.list.useQuery(
+    const { data: allWorkspaceFieldsRaw = EMPTY_ARRAY } = trpc.customFields.list.useQuery(
         { workspaceId },
-        { enabled: open && isAddExistingMode }
+        { enabled: open && isAddExistingMode, staleTime: 2 * 60 * 1000, refetchOnWindowFocus: false }
     );
 
-    const availableTaskTypes = [] as any[]; // Assuming availableTaskTypes was supposed to be here or loaded elsewhere
+    const availableTaskTypes = EMPTY_ARRAY; // Assuming availableTaskTypes was supposed to be here or loaded elsewhere
 
-    const workspaces = (workspacesListData?.items ?? []) as any[];
+    const workspaces = (workspacesListData?.items ?? EMPTY_ARRAY) as any[];
 
-    const spaces = (spacesData?.items ?? []) as any[];
-    const workspaceProjects = (projectsData?.items ?? []) as any[];
-    const allProjects = (allProjectsData?.items ?? []) as any[];
-    const folders = (foldersData?.items ?? []) as any[];
-    const lists = (listsData?.items ?? []) as any[];
+    const spaces = (spacesData?.items ?? EMPTY_ARRAY) as any[];
+    const workspaceProjects = (projectsData?.items ?? EMPTY_ARRAY) as any[];
+    // Reuse workspaceProjects for allProjects to avoid duplicate queries
+    const allProjects = workspaceProjects;
+    const folders = (foldersData?.items ?? EMPTY_ARRAY) as any[];
+    const lists = (listsData?.items ?? EMPTY_ARRAY) as any[];
+    const teams = (teamsData?.items ?? EMPTY_ARRAY) as any[];
     const customFields = customFieldsRaw as any[];
     const deleteCustomField = trpc.customFields.delete.useMutation({
         onSuccess: async () => {
@@ -234,6 +243,54 @@ export function CustomFieldsManagerModal({
     const workspaceMap = React.useMemo(() => new Map(workspaces.map((w) => [w.id, w])), [workspaces]);
     const folderMap = React.useMemo(() => new Map(folders.map((f) => [f.id, f])), [folders]);
     const listMap = React.useMemo(() => new Map(lists.map((l) => [l.id, l])), [lists]);
+
+    // Auto-expand sidebar tree for initial location
+    React.useEffect(() => {
+        if (!open || !initialLocation) return;
+
+        let shouldExpand = false;
+        const newExpanded: Record<string, boolean> = {};
+
+        if (initialLocation.startsWith("list:")) {
+            const listId = initialLocation.replace("list:", "");
+            const list = listMap.get(listId);
+            if (list) {
+                if (list.folderId) newExpanded[`folder:${list.folderId}`] = true;
+                if (list.projectId) newExpanded[`project:${list.projectId}`] = true;
+                if (list.spaceId) newExpanded[`space:${list.spaceId}`] = true;
+                if (list.workspaceId) newExpanded[`workspace:${list.workspaceId}`] = true;
+                shouldExpand = true;
+            }
+        } else if (initialLocation.startsWith("folder:")) {
+            const folderId = initialLocation.replace("folder:", "");
+            const folder = folderMap.get(folderId);
+            if (folder) {
+                if (folder.projectId) newExpanded[`project:${folder.projectId}`] = true;
+                if (folder.spaceId) newExpanded[`space:${folder.spaceId}`] = true;
+                if (folder.workspaceId) newExpanded[`workspace:${folder.workspaceId}`] = true;
+                shouldExpand = true;
+            }
+        } else if (initialLocation.startsWith("project:")) {
+            const projectId = initialLocation.replace("project:", "");
+            const project = projectMap.get(projectId);
+            if (project) {
+                if (project.spaceId) newExpanded[`space:${project.spaceId}`] = true;
+                if (project.workspaceId) newExpanded[`workspace:${project.workspaceId}`] = true;
+                shouldExpand = true;
+            }
+        } else if (initialLocation.startsWith("space:")) {
+            const spaceId = initialLocation.replace("space:", "");
+            const space = spaceMap.get(spaceId);
+            if (space) {
+                if (space.workspaceId) newExpanded[`workspace:${space.workspaceId}`] = true;
+                shouldExpand = true;
+            }
+        }
+
+        if (shouldExpand) {
+            setExpandedLocations(prev => ({ ...prev, ...newExpanded }));
+        }
+    }, [open, initialLocation, listMap, folderMap, projectMap, spaceMap]);
 
     const isPersonalField = React.useCallback((field: any) => {
         return field.locationType === "PERSONAL" || (
@@ -263,7 +320,6 @@ export function CustomFieldsManagerModal({
     const getFieldTypeLabel = React.useCallback((field: any) => {
         const displayType = field?.config?.fieldType ?? field?.type;
         return ALL_FIELDS.find((opt) => opt.type === displayType)?.label
-            ?? AI_FIELDS.find((opt) => opt.type === displayType)?.label
             ?? displayType
             ?? "Unknown";
     }, []);
@@ -493,7 +549,7 @@ export function CustomFieldsManagerModal({
                 let color = "bg-zinc-100 text-zinc-500";
 
                 if (groupBy === "type") {
-                    const opt = ALL_FIELDS.find(f => f.label === key) || AI_FIELDS.find(f => f.label === key);
+                    const opt = ALL_FIELDS.find(f => f.label === key);
                     if (opt) {
                         icon = opt.icon;
                         color = opt.color;
@@ -597,7 +653,7 @@ export function CustomFieldsManagerModal({
             header: ({ column }) => <DataTableColumnHeader column={column} title="Type" />,
             cell: ({ row }) => {
                 const type = row.original.type;
-                const fieldInfo = ALL_FIELDS.find(f => f.id === type) || AI_FIELDS.find(f => f.id === type);
+                const fieldInfo = ALL_FIELDS.find(f => f.id === type);
                 const Icon = fieldInfo?.icon || Settings2;
                 return (
                     <div className="flex items-center gap-2">
@@ -849,14 +905,14 @@ export function CustomFieldsManagerModal({
                 </div>
             ),
         },
-    ], [deleteCustomField, handleEditField, workspaceMap, spaceMap, projectMap]);
+    ], [handleEditField, workspaceMap, spaceMap, projectMap]);
 
     const leftItemClass = (isActive: boolean, indent = false) =>
         cn(
             "w-full flex items-center gap-2 px-3 py-2 rounded-lg text-[13px] text-left transition-all cursor-pointer group relative overflow-hidden",
             indent && "pl-9",
-            isActive 
-                ? "bg-indigo-50 text-indigo-700 font-semibold shadow-sm border-indigo-100/50 border" 
+            isActive
+                ? "bg-indigo-50 text-indigo-700 font-semibold shadow-sm border-indigo-100/50 border"
                 : "text-zinc-500 hover:bg-zinc-100/80 hover:text-zinc-900 font-medium"
         );
 
@@ -994,13 +1050,6 @@ export function CustomFieldsManagerModal({
                     </DialogDescription>
 
                     <div className="h-full w-full flex relative min-w-0 overflow-hidden">
-                        {(isLoadingCustomFields || (isFetchingCustomFields && (customFieldsRaw?.length ?? 0) === 0)) && (
-                            <div className="absolute inset-0 z-[200] bg-white/70 backdrop-blur-[2px] flex items-center justify-center p-6">
-                                <div className="w-full max-w-[980px]">
-                                    <DataTableSkeleton columnCount={7} rowCount={8} />
-                                </div>
-                            </div>
-                        )}
                         <aside className="w-[260px] border-r bg-zinc-50/50 flex flex-col pt-4">
                             <div className="px-5 pb-3">
                                 <h2 className="text-[15px] font-semibold text-zinc-800 tracking-tight">Custom Field Manager</h2>
@@ -1200,12 +1249,12 @@ export function CustomFieldsManagerModal({
                                     </div>
                                     <div className="flex items-center">
                                         {groupBy ? (
-                                            <div className="flex items-center h-8 rounded-md border border-indigo-200 bg-indigo-50/80 text-indigo-700 px-1 shadow-sm overflow-hidden">
+                                            <div className="flex items-center h-8 rounded-md border border-zinc-200 bg-zinc-50/80 hover:bg-cyan-50 text-zinc-700 px-1 shadow-sm">
                                                 <DropdownMenu>
                                                     <DropdownMenuTrigger asChild>
-                                                        <button className="flex items-center h-full px-2 hover:bg-indigo-100/50 rounded-l-md transition-colors cursor-pointer text-xs font-medium">
-                                                            <Layers className="h-3.5 w-3.5 mr-1.5 text-indigo-500" />
-                                                            <span className="text-indigo-500/80 font-normal mr-1">Group:</span>
+                                                        <button className="flex items-center h-full px-2 rounded-l-md transition-colors cursor-pointer text-xs font-medium">
+                                                            <Layers className="h-3.5 w-3.5 mr-1.5 text-zinc-500" />
+                                                            <span className="text-zinc-500 font-normal mr-1">Group:</span>
                                                             {groupBy === "type" ? "Field type" : "Location type"}
                                                         </button>
                                                     </DropdownMenuTrigger>
@@ -1220,7 +1269,7 @@ export function CustomFieldsManagerModal({
                                                 </DropdownMenu>
                                                 <button
                                                     type="button"
-                                                    className="mr-1 h-4 w-4 flex items-center justify-center rounded-sm hover:bg-indigo-200/60 text-indigo-400 hover:text-indigo-700 transition-colors cursor-pointer border-none"
+                                                    className="mr-1 h-4 w-4 flex items-center justify-center rounded-sm hover:bg-zinc-200/60 text-zinc-400 hover:text-zinc-700 transition-colors cursor-pointer border-none"
                                                     onClick={(e) => {
                                                         e.stopPropagation();
                                                         setGroupBy(null);
@@ -1235,7 +1284,7 @@ export function CustomFieldsManagerModal({
                                                     <Button
                                                         variant="outline"
                                                         size="sm"
-                                                        className="h-8 text-xs font-medium border-dashed text-zinc-500 hover:text-zinc-700 bg-white px-2.5 shadow-sm"
+                                                        className="h-8 text-xs font-medium border-dashed hover:bg-zinc-100/80 border-zinc-300 text-zinc-500 hover:text-zinc-700 bg-white px-2.5 shadow-sm"
                                                     >
                                                         <Layers className="h-3.5 w-3.5 mr-1.5 opacity-80" />
                                                         Group
@@ -1262,16 +1311,16 @@ export function CustomFieldsManagerModal({
                                                 className={cn(
                                                     "h-8 text-xs font-normal transition-colors shadow-sm group px-2.5",
                                                     activeFilterCount > 0
-                                                        ? "border-indigo-200 bg-indigo-50/80 text-indigo-700 hover:bg-indigo-100/80"
-                                                        : "border-dashed text-zinc-500 hover:text-zinc-700 bg-white"
+                                                        ? "border-zinc-200 bg-zinc-50/80 text-zinc-700"
+                                                        : "border-dashed border-zinc-300 text-zinc-500 hover:text-zinc-700 hover:bg-zinc-100/80 bg-white"
                                                 )}
                                             >
-                                                <Filter className={cn("h-3.5 w-3.5 mr-1.5", activeFilterCount > 0 ? "text-indigo-500" : "opacity-80")} />
+                                                <Filter className={cn("h-3.5 w-3.5 mr-1.5", activeFilterCount > 0 ? "text-zinc-500" : "opacity-80")} />
                                                 {activeFilterCount > 0 ? (
                                                     <div className="flex items-center">
                                                         Filter: {activeFilterCount}
                                                         <div
-                                                            className="ml-2 -mr-1 h-4 w-4 flex items-center justify-center rounded-sm hover:bg-indigo-200/60 text-indigo-400 hover:text-indigo-700 transition-colors cursor-pointer"
+                                                            className="ml-2 -mr-1 h-4 w-4 flex items-center justify-center rounded-sm hover:bg-zinc-200/60 text-zinc-400 hover:text-zinc-700 transition-colors cursor-pointer"
                                                             onClick={(e) => {
                                                                 e.preventDefault();
                                                                 e.stopPropagation();
@@ -1886,34 +1935,13 @@ export function CustomFieldsManagerModal({
                                                 </div>
                                             </div>
 
-                                            <div className="overflow-y-auto flex-1 scrollbar-thin scrollbar-thumb-zinc-200 scrollbar-track-transparent">
+                                            <div className="overflow-y-auto flex-1 scrollbar-thin scrollbar-thumb-zinc-200 scrollbar-track-transparent" onWheel={(e) => e.stopPropagation()}>
 
                                                 <div className="p-2">
                                                     {(() => {
-                                                        const filteredAi = AI_FIELDS.filter(f => !createSearch.trim() || f.label.toLowerCase().includes(createSearch.toLowerCase()));
                                                         const filteredAll = ALL_FIELDS.filter(f => !createSearch.trim() || f.label.toLowerCase().includes(createSearch.toLowerCase()));
                                                         return (
                                                             <>
-                                                                {filteredAi.length > 0 && (
-                                                                    <div className="mb-4">
-                                                                        <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest px-3 py-2">AI Fields</p>
-                                                                        <div className="space-y-0.5 px-0.5">
-                                                                            {filteredAi.map((field) => (
-                                                                                <button
-                                                                                    key={field.id}
-                                                                                    type="button"
-                                                                                    onClick={() => handleSelectType(field as any)}
-                                                                                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg border border-transparent hover:border-violet-200 hover:bg-violet-50/50 transition-all text-left group cursor-pointer"
-                                                                                >
-                                                                                    <div className={cn("h-8 w-8 rounded-md flex items-center justify-center bg-purple-50 group-hover:scale-110 transition-all", field.color)}><field.icon className="h-4 w-4" /></div>
-                                                                                    <span className="text-sm font-medium text-zinc-700 group-hover:text-violet-900 transition-colors">{field.label}</span>
-                                                                                </button>
-                                                                            ))}
-
-
-                                                                        </div>
-                                                                    </div>
-                                                                )}
                                                                 <div>
                                                                     <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest px-3 py-2">All Fields</p>
                                                                     <div className="space-y-0.5 px-0.5">
@@ -1924,12 +1952,10 @@ export function CustomFieldsManagerModal({
                                                                                 onClick={() => handleSelectType(field as any)}
                                                                                 className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg border border-transparent hover:border-violet-200 hover:bg-violet-50/50 transition-all text-left group cursor-pointer"
                                                                             >
-                                                                                <div className={cn("h-8 w-8 rounded-md flex items-center justify-center transition-all", field.isAi ? "bg-purple-50" : "bg-zinc-100 group-hover:bg-white group-hover:shadow-sm", field.color)}><field.icon className="h-4 w-4" /></div>
-                                                                                <span className="text-sm font-medium text-zinc-700 group-hover:text-violet-900 transition-colors flex-1">{field.label}</span>
+                                                                                <div className={cn("h-6 w-6 rounded-md flex items-center justify-center transition-all", field.isAi ? "bg-purple-50" : "bg-zinc-100 group-hover:bg-white group-hover:shadow-sm", field.color)}><field.icon className="h-3.5 w-3.5" /></div>
+                                                                                <span className="text-sm text-zinc-700 group-hover:text-violet-900 transition-colors flex-1">{field.label}</span>
                                                                             </button>
                                                                         ))}
-
-
                                                                     </div>
                                                                 </div>
                                                             </>
@@ -1945,7 +1971,7 @@ export function CustomFieldsManagerModal({
                             </div>
 
                             <div className="flex-1 px-6 py-4 overflow-hidden relative">
-                                {isLoadingCustomFields || (isFetchingCustomFields && (customFieldsRaw?.length ?? 0) === 0) ? (
+                                {isLoadingCustomFields && (customFieldsRaw?.length ?? 0) === 0 ? (
                                     <DataTableSkeleton columnCount={6} rowCount={8} />
                                 ) : filteredFields.length > 0 ? (
                                     isAddExistingMode ? (
@@ -2124,26 +2150,12 @@ export function CustomFieldsManagerModal({
                                                         />
                                                     </div>
                                                 </div>
-                                                <div className="overflow-y-auto flex-1 scrollbar-thin scrollbar-thumb-zinc-200 scrollbar-track-transparent">
+                                                <div className="overflow-y-auto flex-1 scrollbar-thin scrollbar-thumb-zinc-200 scrollbar-track-transparent" onWheel={(e) => e.stopPropagation()}>
                                                     <div className="p-2">
                                                         {(() => {
-                                                            const filteredAi = AI_FIELDS.filter(f => !createSearch.trim() || f.label.toLowerCase().includes(createSearch.toLowerCase()));
                                                             const filteredAll = ALL_FIELDS.filter(f => !createSearch.trim() || f.label.toLowerCase().includes(createSearch.toLowerCase()));
                                                             return (
                                                                 <>
-                                                                    {filteredAi.length > 0 && (
-                                                                        <div className="mb-4">
-                                                                            <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest px-3 py-2">AI Fields</p>
-                                                                            <div className="space-y-0.5 px-0.5">
-                                                                                {filteredAi.map((field) => (
-                                                                                    <button key={field.id} type="button" onClick={() => handleSelectType(field as any)} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-zinc-100 transition-colors text-left group cursor-pointer">
-                                                                                        <div className={cn("h-8 w-8 rounded-md flex items-center justify-center bg-purple-50 transition-colors", field.color)}><field.icon className="h-4 w-4" /></div>
-                                                                                        <span className="text-sm font-medium text-zinc-900">{field.label}</span>
-                                                                                    </button>
-                                                                                ))}
-                                                                            </div>
-                                                                        </div>
-                                                                    )}
                                                                     <div>
                                                                         <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest px-3 py-2">All Fields</p>
                                                                         <div className="space-y-0.5 px-0.5">
@@ -2154,8 +2166,8 @@ export function CustomFieldsManagerModal({
                                                                                     onClick={() => handleSelectType(field as any)}
                                                                                     className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg border border-transparent hover:border-violet-200 hover:bg-violet-50/50 transition-all text-left group cursor-pointer"
                                                                                 >
-                                                                                    <div className={cn("h-8 w-8 rounded-md flex items-center justify-center transition-all", field.isAi ? "bg-purple-50" : "bg-zinc-100 group-hover:bg-white group-hover:shadow-sm", field.color)}><field.icon className="h-4 w-4" /></div>
-                                                                                    <span className="text-sm font-medium text-zinc-700 group-hover:text-violet-900 transition-colors flex-1">{field.label}</span>
+                                                                                    <div className={cn("h-6 w-6 rounded-md flex items-center justify-center transition-all", field.isAi ? "bg-purple-50" : "bg-zinc-100 group-hover:bg-white group-hover:shadow-sm", field.color)}><field.icon className="h-3.5 w-3.5" /></div>
+                                                                                    <span className="text-sm text-zinc-700 group-hover:text-violet-900 transition-colors flex-1">{field.label}</span>
                                                                                 </button>
                                                                             ))}
                                                                         </div>
@@ -2184,11 +2196,13 @@ export function CustomFieldsManagerModal({
                             initialType={selectedTypeForCreation}
                             fieldToEdit={fieldToEdit}
                             locationLabel={fieldToEdit ? getLocationLabel(fieldToEdit) : null}
-                            workspaces={workspacesListData?.items ?? []}
+                            workspaces={workspaces}
                             spaces={spaces}
-                            projects={projectsData?.items ?? []}
+                            projects={workspaceProjects}
                             folders={folders}
                             lists={lists}
+                            teams={teams}
+                            createContext={createContext}
                         />
                     </div>
                 </DialogContent>

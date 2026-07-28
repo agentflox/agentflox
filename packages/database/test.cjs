@@ -1,0 +1,1 @@
+const { PrismaClient } = require('./src/generated/prisma'); const prisma = new PrismaClient(); prisma.customField.findMany({ where: { OR: [{ locationType: 'PERSONAL' }, { locations: { some: { OR: [{ locationType: 'PERSONAL' }] } } }] } }).then(res => console.log('SUCCESS', res.length)).catch(console.error).finally(() => prisma.$disconnect());

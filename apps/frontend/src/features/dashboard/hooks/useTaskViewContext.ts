@@ -23,10 +23,10 @@ export function useTaskViewContext({
 }: UseTaskViewContextOptions) {
   const shared = useDashboardEntityOptional();
 
-  const shouldFetchSpace = !!spaceId && !shared?.workspaceId && !workspaceIdProp;
+  const shouldFetchSpace = !!spaceId;
   const shouldFetchProject = !!projectId && !shared?.workspaceId && !workspaceIdProp;
 
-  const { data: space } = trpc.space.getSummary.useQuery(
+  const { data: space } = trpc.space.get.useQuery(
     { id: spaceId as string },
     { enabled: shouldFetchSpace, staleTime: 60_000 }
   );

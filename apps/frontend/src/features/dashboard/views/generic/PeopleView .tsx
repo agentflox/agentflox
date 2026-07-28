@@ -5216,6 +5216,11 @@ export function PeopleView({ spaceId, projectId, teamId, listId, folderId, viewI
                                 value={bulkCustomFieldDraftValue}
                                 onChange={setBulkCustomFieldDraftValue}
                                 disabled={updateCustomField.isPending}
+                                workspaceId={workspaceId}
+                                spaceId={spaceId}
+                                projectId={projectId}
+                                teamId={teamId}
+                                listId={listId}
                             />
                         );
                     })()}

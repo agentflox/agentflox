@@ -22,19 +22,18 @@ import {
     PopoverContent,
     PopoverTrigger,
 } from '@/components/ui/popover';
-import { Switch } from '@/components/ui/switch';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Search, ChevronDown, ChevronUp, Lock, Check, X, Info, MousePointer2, Eye, Pencil, ListChecks } from 'lucide-react';
+import { Search, ChevronDown, ChevronUp, Lock, Check, X, Info, MousePointer2, Eye, Pencil } from 'lucide-react';
 import { trpc } from '@/lib/trpc';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import {
-    AI_FIELDS,
     ALL_FIELDS,
     FIELD_TYPE_DROPDOWN_OPTIONS,
     type FieldTypeOption,
 } from '../constants/fieldTypes';
+import { CustomFieldConfigForm, useCustomFieldConfigState } from './SharedCustomFieldConfig';
 
 const PERMISSION_OPTIONS = [
     {
@@ -85,6 +84,11 @@ interface AddCustomFieldModalProps {
     onOpenChange: (open: boolean) => void;
     workspaceId: string;
     taskId: string;
+    spaceId?: string;
+    projectId?: string;
+    teamId?: string;
+    folderId?: string;
+    listId?: string;
 }
 
 export function AddCustomFieldModal({
@@ -92,6 +96,11 @@ export function AddCustomFieldModal({
     onOpenChange,
     workspaceId,
     taskId,
+    spaceId,
+    projectId,
+    teamId,
+    folderId,
+    listId,
 }: AddCustomFieldModalProps) {
     const [step, setStep] = React.useState<'picker' | 'form'>('picker');
     const [search, setSearch] = React.useState('');
@@ -99,6 +108,7 @@ export function AddCustomFieldModal({
     const [name, setName] = React.useState('');
     const [description, setDescription] = React.useState('');
     const [type, setType] = React.useState<string>('TEXT');
+    const configState = useCustomFieldConfigState();
 
     // More settings state
     const [showMore, setShowMore] = React.useState(false);
@@ -163,6 +173,7 @@ export function AddCustomFieldModal({
         setName('');
         setDescription('');
         setType('TEXT');
+        configState.resetConfig();
         setShowMore(false);
         setPermission('workspace');
         setIsRequired(false);
@@ -186,12 +197,9 @@ export function AddCustomFieldModal({
             toast.error('Field name is required');
             return;
         }
-        const config: Record<string, unknown> = {};
+        const config: Record<string, unknown> = configState.getConfig(type) || {};
         if (description.trim()) config.description = description.trim();
         if (permission !== 'workspace') config.permissionLevel = permission;
-        if (type === 'DROPDOWN' || type === 'CUSTOM_DROPDOWN' || type === 'LABELS' || type === 'CATEGORIZE' || type === 'SENTIMENT' || type === 'TSHIRT_SIZE') {
-            config.options = config.options ?? [];
-        }
         createField.mutate({
             workspaceId,
             name: name.trim(),
@@ -202,12 +210,14 @@ export function AddCustomFieldModal({
             isVisibleToGuests,
             visibility: permission === 'private' ? 'PRIVATE' : permission === 'anyone_view' ? 'EVERYONE' : permission === 'anyone_edit' ? 'MEMBERS' : 'ADMINS',
             config: Object.keys(config).length ? config : undefined,
+            spaceId: spaceId || undefined,
+            projectId: projectId || undefined,
+            teamId: teamId || undefined,
+            folderId: folderId || undefined,
+            listId: listId || undefined,
         });
     };
 
-    const filteredAi = AI_FIELDS.filter(
-        (f) => !search.trim() || f.label.toLowerCase().includes(search.toLowerCase())
-    );
     const filteredAll = ALL_FIELDS.filter(
         (f) => !search.trim() || f.label.toLowerCase().includes(search.toLowerCase())
     );
@@ -237,31 +247,6 @@ export function AddCustomFieldModal({
 
                     <ScrollArea className="max-h-[360px]">
                         <div className="p-2">
-                            {filteredAi.length > 0 && (
-                                <div className="mb-3">
-                                    <p className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider px-2 py-1.5">
-                                        AI Fields
-                                    </p>
-                                    <div className="space-y-0.5">
-                                        {filteredAi.map((field) => {
-                                            const Icon = field.icon;
-                                            return (
-                                                <button
-                                                    key={field.id}
-                                                    type="button"
-                                                    onClick={() => handleTypeSelect(field)}
-                                                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg border border-transparent hover:border-violet-200 hover:bg-violet-50/50 transition-all text-left group cursor-pointer"
-                                                >
-                                                    <div className={cn("h-6 w-6 rounded-md flex items-center justify-center bg-purple-50 group-hover:scale-110 transition-transform", field.color)}>
-                                                        <Icon className="h-3.5 w-3.5" />
-                                                    </div>
-                                                    <span className="text-sm text-zinc-900 group-hover:text-violet-900 transition-colors">{field.label}</span>
-                                                </button>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
-                            )}
                             <div>
                                 <p className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider px-2 py-1.5">
                                     All
@@ -285,7 +270,7 @@ export function AddCustomFieldModal({
                                     })}
                                 </div>
                             </div>
-                            {filteredAi.length === 0 && filteredAll.length === 0 && (
+                            {filteredAll.length === 0 && (
                                 <p className="text-sm text-zinc-500 py-6 text-center">No matching field types</p>
                             )}
                         </div>
@@ -330,30 +315,7 @@ export function AddCustomFieldModal({
                                     />
                                 </div>
 
-                                {/* Type */}
-                                <div className="space-y-2">
-                                    <Label className="block !text-xs !font-medium !text-zinc-600">Type</Label>
-                                    <Select value={type} onValueChange={setType}>
-                                        <SelectTrigger className="w-full h-9 bg-white border-zinc-200/80 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all text-[13px]">
-                                            <SelectValue placeholder="Select type" className="text-zinc-900 font-normal" />
-                                        </SelectTrigger>
-                                        <SelectContent className="rounded-xl border-zinc-200 shadow-lg">
-                                            {FIELD_TYPE_DROPDOWN_OPTIONS.map((opt) => {
-                                                const Icon = opt.icon;
-                                                return (
-                                                    <SelectItem key={opt.id} value={opt.type} className="py-2.5 px-3 cursor-pointer focus:bg-violet-50/50 border border-transparent focus:border-violet-200 transition-all rounded-lg group">
-                                                        <div className="flex items-center gap-3">
-                                                            <div className={cn("h-6 w-6 rounded-md flex items-center justify-center transition-all", opt.isAi ? "bg-purple-50" : "bg-zinc-100 group-focus:bg-white group-focus:shadow-sm")}>
-                                                                <Icon className={cn("h-3.5 w-3.5", opt.color, "group-focus:text-violet-900")} />
-                                                            </div>
-                                                            <span className="text-[13px] font-normal text-zinc-900 group-focus:text-violet-900 transition-colors">{opt.label}</span>
-                                                        </div>
-                                                    </SelectItem>
-                                                );
-                                            })}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
+                                <CustomFieldConfigForm type={type} state={configState} setType={setType} />
                             </div>
 
                             {/* More settings toggle */}

@@ -72,7 +72,7 @@ export function TaskDependenciesPopover({ taskId, workspaceId, children }: TaskD
         onSuccess: () => {
             toast.success('Dependency added');
             utils.task.get.invalidate({ id: taskId });
-            utils.task.listTasks.invalidate();
+            utils.task.list.invalidate();
         },
         onError: () => {
             toast.error('Failed to add dependency');
@@ -83,7 +83,7 @@ export function TaskDependenciesPopover({ taskId, workspaceId, children }: TaskD
         onSuccess: () => {
             toast.success('Dependency removed');
             utils.task.get.invalidate({ id: taskId });
-            utils.task.listTasks.invalidate();
+            utils.task.list.invalidate();
         },
         onError: () => {
             toast.error('Failed to remove dependency');
@@ -134,8 +134,8 @@ export function TaskDependenciesPopover({ taskId, workspaceId, children }: TaskD
             <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-sm border border-zinc-200 bg-white">
                 <div className={cn('flex items-center gap-1.5',
                     priorityStr === 'URGENT' ? 'text-red-500' :
-                    priorityStr === 'HIGH' ? 'text-orange-500' :
-                    priorityStr === 'NORMAL' ? 'text-blue-500' : 'text-zinc-400'
+                        priorityStr === 'HIGH' ? 'text-orange-500' :
+                            priorityStr === 'NORMAL' ? 'text-blue-500' : 'text-zinc-400'
                 )}>
                     <Flag className="h-3 w-3 fill-current" />
                 </div>

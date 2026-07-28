@@ -24,7 +24,7 @@ import {
 import { trpc } from '@/lib/trpc';
 import { CustomFieldRenderer } from './CustomFieldRenderer';
 import { AddCustomFieldModal } from './AddCustomFieldModal';
-import { CustomFieldSettingsModal } from './CustomFieldSettingsModal';
+import { CustomFieldSettingsPopover } from './CustomFieldSettingsPopover';
 import { CustomFieldsManagerModal } from '@/entities/customfields/components/CustomFieldsManagerModal';
 import { FIELD_TYPE_DROPDOWN_OPTIONS } from '../constants/fieldTypes';
 import { Type } from 'lucide-react';
@@ -42,7 +42,6 @@ export function CustomFieldsSection({ taskId, workspaceId }: CustomFieldsSection
     const [isSearchOpen, setIsSearchOpen] = React.useState(false);
     const [searchQuery, setSearchQuery] = React.useState('');
     const inputRef = React.useRef<HTMLInputElement>(null);
-    const [settingsField, setSettingsField] = React.useState<any | null>(null);
     const [deleteFieldId, setDeleteFieldId] = React.useState<string | null>(null);
     const utils = trpc.useUtils();
 
@@ -58,6 +57,15 @@ export function CustomFieldsSection({ taskId, workspaceId }: CustomFieldsSection
             utils.task.get.invalidate({ id: taskId });
         },
     });
+
+    const initialLocation = React.useMemo(() => {
+        if (!task) return "all";
+        if (task.listId) return `list:${task.listId}`;
+        if (task.folderId) return `folder:${task.folderId}`;
+        if (task.projectId) return `project:${task.projectId}`;
+        if (task.spaceId) return `space:${task.spaceId}`;
+        return "all";
+    }, [task]);
 
     const updateFieldDefinition = trpc.customFields.update.useMutation({
         onMutate: async (newFieldData) => {
@@ -286,27 +294,30 @@ export function CustomFieldsSection({ taskId, workspaceId }: CustomFieldsSection
                                                         <TooltipProvider delayDuration={300}>
                                                             <Tooltip>
                                                                 <TooltipTrigger asChild>
-                                                                    <Button
-                                                                        variant="ghost"
-                                                                        size="icon"
-                                                                        className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity rounded-md hover:bg-zinc-200/50 shrink-0"
-                                                                        onClick={(e) => {
-                                                                            e.stopPropagation();
-                                                                            setSettingsField({
-                                                                                id: field.id,
-                                                                                name: field.name,
-                                                                                type: field.type,
-                                                                                isRequired: field.isRequired ?? false,
-                                                                                isPinned: field.isPinned ?? false,
-                                                                                isVisibleToGuests: field.isVisibleToGuests ?? true,
-                                                                                config: (field.config && typeof field.config === 'object' && !Array.isArray(field.config))
-                                                                                    ? field.config as { description?: string }
-                                                                                    : undefined,
-                                                                            });
+                                                                    <CustomFieldSettingsPopover
+                                                                        field={{
+                                                                            id: field.id,
+                                                                            name: field.name,
+                                                                            type: field.type,
+                                                                            isRequired: field.isRequired ?? false,
+                                                                            isPinned: field.isPinned ?? false,
+                                                                            isVisibleToGuests: field.isVisibleToGuests ?? true,
+                                                                            config: (field.config && typeof field.config === 'object' && !Array.isArray(field.config))
+                                                                                ? field.config as any
+                                                                                : undefined,
                                                                         }}
+                                                                        workspaceId={workspaceId}
+                                                                        taskId={taskId}
                                                                     >
-                                                                        <Settings className="h-3.5 w-3.5 text-zinc-500" />
-                                                                    </Button>
+                                                                        <Button
+                                                                            variant="ghost"
+                                                                            size="icon"
+                                                                            className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity rounded-md hover:bg-zinc-200/50 shrink-0"
+                                                                            onClick={(e) => e.stopPropagation()}
+                                                                        >
+                                                                            <Settings className="h-3.5 w-3.5 text-zinc-500" />
+                                                                        </Button>
+                                                                    </CustomFieldSettingsPopover>
                                                                 </TooltipTrigger>
                                                                 <TooltipContent className="bg-zinc-900 text-white font-medium text-xs px-2.5 py-1.5 border-0 rounded-md" side="top" sideOffset={4}>
                                                                     Settings
@@ -316,13 +327,14 @@ export function CustomFieldsSection({ taskId, workspaceId }: CustomFieldsSection
                                                     </div>
                                                 </td>
                                                 <td className="py-2 px-3 align-top">
-                                                    <div className="min-w-[140px]">
+                                                    <div className="min-w-[140px] outline-none rounded-sm ring-1 ring-inset ring-transparent hover:ring-zinc-200 focus-within:ring-zinc-200 transition-shadow">
                                                         <CustomFieldRenderer
                                                             field={field}
                                                             value={getFieldValue(field.id)}
                                                             onChange={(value) => handleValueChange(field.id, value)}
                                                             disabled={updateCustomField.isPending}
                                                             hideLabel
+                                                            workspaceId={workspaceId}
                                                         />
                                                     </div>
                                                 </td>
@@ -371,6 +383,7 @@ export function CustomFieldsSection({ taskId, workspaceId }: CustomFieldsSection
                 open={isManagerModalOpen}
                 onOpenChange={setIsManagerModalOpen}
                 workspaceId={workspaceId}
+                initialLocation={initialLocation as any}
                 onCreateNew={() => {
                     // Logic to handle new field
                 }}
@@ -379,17 +392,6 @@ export function CustomFieldsSection({ taskId, workspaceId }: CustomFieldsSection
                 }}
             />
 
-            {
-                settingsField && (
-                    <CustomFieldSettingsModal
-                        open={!!settingsField}
-                        onOpenChange={(open) => !open && setSettingsField(null)}
-                        field={settingsField}
-                        workspaceId={workspaceId}
-                        taskId={taskId}
-                    />
-                )
-            }
 
             <AlertDialog open={!!deleteFieldId} onOpenChange={(open) => !open && setDeleteFieldId(null)}>
                 <AlertDialogContent>

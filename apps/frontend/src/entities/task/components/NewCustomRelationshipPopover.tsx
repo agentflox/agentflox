@@ -323,6 +323,30 @@ export function NewCustomRelationshipPopover({
                                     <RadioGroupItem value="any" id="any" className="h-4 w-4 text-indigo-500 border-zinc-300" />
                                     <Label htmlFor="any" className={cn("!text-xs !font-normal cursor-pointer", relatedTo === 'any' ? "text-zinc-900" : "text-zinc-500")}>any task in your Workspace</Label>
                                 </div>
+                                {spaceId && contextName && (
+                                    <div className="flex items-center space-x-3">
+                                        <RadioGroupItem value="space" id="space" className="h-4 w-4 text-indigo-500 border-zinc-300" />
+                                        <Label htmlFor="space" className={cn("!text-xs !font-normal cursor-pointer", relatedTo === 'space' ? "text-zinc-900" : "text-zinc-500")}>
+                                            any task from <span className="font-medium">{contextName}</span> (Space)
+                                        </Label>
+                                    </div>
+                                )}
+                                {projectId && contextName && (
+                                    <div className="flex items-center space-x-3">
+                                        <RadioGroupItem value="project" id="project" className="h-4 w-4 text-indigo-500 border-zinc-300" />
+                                        <Label htmlFor="project" className={cn("!text-xs !font-normal cursor-pointer", relatedTo === 'project' ? "text-zinc-900" : "text-zinc-500")}>
+                                            any task from <span className="font-medium">{contextName}</span> (Project)
+                                        </Label>
+                                    </div>
+                                )}
+                                {teamId && contextName && (
+                                    <div className="flex items-center space-x-3">
+                                        <RadioGroupItem value="team" id="team" className="h-4 w-4 text-indigo-500 border-zinc-300" />
+                                        <Label htmlFor="team" className={cn("!text-xs !font-normal cursor-pointer", relatedTo === 'team' ? "text-zinc-900" : "text-zinc-500")}>
+                                            any task from <span className="font-medium">{contextName}</span> (Team)
+                                        </Label>
+                                    </div>
+                                )}
                                 <div className="flex items-center space-x-3">
                                     <RadioGroupItem value="specific" id="specific" className="h-4 w-4 text-indigo-500 border-zinc-300" />
                                     <Label htmlFor="specific" className={cn("!text-xs !font-normal cursor-pointer", relatedTo === 'specific' ? "text-zinc-900" : "text-zinc-500")}>tasks from a specific List</Label>
@@ -936,11 +960,12 @@ export function NewCustomRelationshipPopover({
                                     customPermissions,
                                     isRequired,
                                     isVisibleToGuests,
+                                    // Save the context of the field itself
                                     spaceId: spaceId || undefined,
                                     projectId: projectId || undefined,
                                     teamId: teamId || undefined,
                                     folderId: folderId || undefined,
-                                    listId: listId || undefined
+                                    listId: listId || undefined,
                                 });
                             }}
                         >
