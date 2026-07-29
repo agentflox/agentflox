@@ -309,10 +309,10 @@ export const OperatorView: React.FC<OperatorViewProps> = ({
   return (
     <div className="flex h-full w-full">
       <ResizableSplitLayout
-        mainPanelDefaultSize="60%"
-        mainPanelMinSize="50%"
-        sidePanelDefaultSize="40%"
-        sidePanelMinSize="40%"
+        mainPanelDefaultSize={60}
+        mainPanelMinSize={50}
+        sidePanelDefaultSize={40}
+        sidePanelMinSize={40}
         MainContent={
           <div className="flex flex-col h-full bg-white">
             <div className="flex-1 overflow-hidden relative">

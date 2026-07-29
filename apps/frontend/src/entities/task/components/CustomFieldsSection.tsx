@@ -59,13 +59,14 @@ export function CustomFieldsSection({ taskId, workspaceId }: CustomFieldsSection
     });
 
     const initialLocation = React.useMemo(() => {
-        if (!task) return "all";
+        if (!task) return workspaceId ? `workspace:${workspaceId}` : "all";
         if (task.listId) return `list:${task.listId}`;
         if (task.folderId) return `folder:${task.folderId}`;
         if (task.projectId) return `project:${task.projectId}`;
         if (task.spaceId) return `space:${task.spaceId}`;
-        return "all";
-    }, [task]);
+        if (task.teamId) return `team:${task.teamId}`;
+        return workspaceId ? `workspace:${workspaceId}` : "all";
+    }, [task, workspaceId]);
 
     const updateFieldDefinition = trpc.customFields.update.useMutation({
         onMutate: async (newFieldData) => {
@@ -160,7 +161,7 @@ export function CustomFieldsSection({ taskId, workspaceId }: CustomFieldsSection
                                     className="cursor-pointer h-6 w-6 flex items-center justify-center rounded-md hover:bg-zinc-200 text-zinc-400 hover:text-zinc-600 transition-colors"
                                 >
                                     <svg viewBox="0 0 100 100" className={cn("h-2.5 w-2.5 fill-current transition-transform duration-200", !isCollapsed && "rotate-90")}>
-                                      <polygon points="20,10 80,50 20,90" />
+                                        <polygon points="20,10 80,50 20,90" />
                                     </svg>
                                 </button>
                             ) : (
@@ -308,6 +309,10 @@ export function CustomFieldsSection({ taskId, workspaceId }: CustomFieldsSection
                                                                         }}
                                                                         workspaceId={workspaceId}
                                                                         taskId={taskId}
+                                                                        listId={task?.listId ?? undefined}
+                                                                        folderId={task?.folderId ?? undefined}
+                                                                        spaceId={task?.spaceId ?? undefined}
+                                                                        projectId={task?.projectId ?? undefined}
                                                                     >
                                                                         <Button
                                                                             variant="ghost"

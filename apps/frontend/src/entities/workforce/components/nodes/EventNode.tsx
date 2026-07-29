@@ -1,6 +1,6 @@
 import React, { memo } from 'react';
 import { NodeProps } from '@xyflow/react';
-import { MessageSquare, Zap, Globe, Slack, Mail, Calendar, Hash, Clock, Plus } from 'lucide-react';
+import { MessageSquare, Zap, Globe, Mail, Calendar, Hash, Clock, Plus } from 'lucide-react';
 import { WorkforceNode } from '../../hooks/useWorkforceStore';
 import { NodeContextMenu } from './NodeContextMenu';
 import { AttachedStickyNote } from './AttachedStickyNote';
@@ -8,7 +8,7 @@ import { GlowHandle } from './AgentNode';
 import { cn } from '@/lib/utils';
 
 const TRIGGER_ICONS: Record<string, React.ElementType> = {
-    slack: Slack,
+    slack: MessageSquare,
     outlook: Mail,
     gmail: Mail,
     calendar: Calendar,

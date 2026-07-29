@@ -4577,7 +4577,9 @@ export function TableView({ spaceId, projectId, teamId, listId, folderId, viewId
                         folderId ? `folder:${folderId}` :
                             projectId ? `project:${projectId}` :
                                 spaceId ? `space:${spaceId}` :
-                                    "all" as any
+                                    teamId ? `team:${teamId}` :
+                                        workspaceId ? `workspace:${workspaceId}` :
+                                            "all" as any
                 }
             />
 

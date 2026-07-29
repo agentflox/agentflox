@@ -4049,6 +4049,15 @@ export function FormView({
                 }}
                 workspaceId={resolvedWorkspaceId || ""}
                 initialFieldId={selectedAdvancedFieldId}
+                initialLocation={
+                    listId ? `list:${listId}` :
+                        folderId ? `folder:${folderId}` :
+                            projectId ? `project:${projectId}` :
+                                spaceId ? `space:${spaceId}` :
+                                    teamId ? `team:${teamId}` :
+                                        resolvedWorkspaceId ? `workspace:${resolvedWorkspaceId}` :
+                                            "all" as any
+                }
             />
 
             {/* Field picker popover (for modal creation mode) */}

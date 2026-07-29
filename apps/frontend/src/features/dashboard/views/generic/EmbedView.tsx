@@ -28,7 +28,7 @@ export interface EmbedViewProps {
     initialConfig?: Record<string, any> | null;
     selectedTaskIdFromParent?: string | null;
     onTaskSelect?: (taskId: string | null) => void;
-    context?: "space" | "project" | "team" | "folder" | "list";
+    context?: "workspace" | "space" | "project" | "team" | "folder" | "list";
 }
 
 // Popular embed providers with optimized handling
@@ -284,7 +284,7 @@ export function EmbedView({
         if (folderId) utils.folder?.get?.setData({ id: folderId }, (old: any) => old ? { ...old, views: patchViews(old.views ?? []) } : old);
         if (listId) utils.list?.get?.setData({ id: listId }, (old: any) => old ? { ...old, views: patchViews(old.views ?? []) } : old);
 
-                // Use a generic approach to update list.byContext
+        // Use a generic approach to update list.byContext
         const updateListByContext = () => {
             try {
                 if (utils.list?.byContext?.setData) {

@@ -1,19 +1,15 @@
 import {
-    Figma,
-    Github,
     Mail,
     HardDrive,
     Code,
     Video,
     Users,
-    Slack,
     Calendar,
     MessageSquare,
     Cloud,
-    Youtube,
-    Facebook,
     Bot,
     Globe2,
+    Link,
 } from 'lucide-react';
 import { Integration } from '@agentflox/types';
 
@@ -143,19 +139,19 @@ export const AVAILABLE_INTEGRATIONS: Omit<Integration, 'id' | 'isConnected' | 'c
 ];
 
 export const INTEGRATION_ICONS: Record<string, any> = {
-    figma: Figma,
-    github: Github,
+    figma: Link,
+    github: Code,
     gmail: Mail,
     google_drive: HardDrive,
     codegen: Code,
     zoom: Video,
     microsoft_teams: Users,
-    slack: Slack,
+    slack: MessageSquare,
     google_calendar: Calendar,
     discord: MessageSquare,
     microsoft_online: Cloud,
-    youtube: Youtube,
-    facebook: Facebook,
+    youtube: Video,
+    facebook: Globe2,
     openai: Bot,
     anthropic: Bot,
     http_webhook: Globe2,

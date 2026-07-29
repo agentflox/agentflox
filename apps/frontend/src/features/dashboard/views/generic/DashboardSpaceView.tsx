@@ -319,6 +319,7 @@ export default function DashboardSpaceView({ listId, spaceId, projectId, teamId,
                 return (
                     <ListView
                         workspaceId={workspaceId}
+                        listId={listId || undefined}
                         projectId={projectId}
                         spaceId={spaceId}
                         teamId={teamId}
@@ -333,6 +334,7 @@ export default function DashboardSpaceView({ listId, spaceId, projectId, teamId,
                 return (
                     <BoardView
                         workspaceId={workspaceId}
+                        listId={listId || undefined}
                         projectId={projectId}
                         spaceId={spaceId}
                         teamId={teamId}

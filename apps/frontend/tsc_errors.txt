@@ -1,0 +1,94 @@
+﻿sentry.edge.config.ts(17,3): error TS2353: Object literal may only specify known properties, and 'dataCollection' does not exist in type 'CoreOptions<BaseTransportOptions> | BrowserOptions | NodeOptions | VercelEdgeOptions'.
+sentry.server.config.ts(16,3): error TS2353: Object literal may only specify known properties, and 'dataCollection' does not exist in type 'CoreOptions<BaseTransportOptions> | BrowserOptions | NodeOptions | VercelEdgeOptions'.
+src/app/(protected)/profiles/[id]/page.tsx(11,88): error TS2305: Module '"lucide-react"' has no exported member 'Linkedin'.
+src/app/(protected)/profiles/[id]/page.tsx(11,98): error TS2305: Module '"lucide-react"' has no exported member 'Twitter'.
+src/app/(protected)/profiles/[id]/page.tsx(11,107): error TS2305: Module '"lucide-react"' has no exported member 'Facebook'.
+src/app/(protected)/profiles/[id]/page.tsx(11,117): error TS2305: Module '"lucide-react"' has no exported member 'Instagram'.
+src/entities/agents/components/AgentChatBuilder.tsx(454,9): error TS2322: Type 'string' is not assignable to type 'number'.
+src/entities/agents/components/AgentChatBuilder.tsx(455,9): error TS2322: Type 'string' is not assignable to type 'number'.
+src/entities/agents/components/AgentChatBuilder.tsx(456,9): error TS2322: Type 'string' is not assignable to type 'number'.
+src/entities/agents/components/AgentChatBuilder.tsx(457,9): error TS2322: Type 'string' is not assignable to type 'number'.
+src/entities/agents/components/AgentChatBuilderSkeleton.tsx(8,17): error TS2322: Type 'string' is not assignable to type 'number'.
+src/entities/agents/components/AgentChatBuilderSkeleton.tsx(9,17): error TS2322: Type 'string' is not assignable to type 'number'.
+src/entities/agents/components/AgentChatBuilderSkeleton.tsx(10,17): error TS2322: Type 'string' is not assignable to type 'number'.
+src/entities/agents/components/AgentChatBuilderSkeleton.tsx(11,17): error TS2322: Type 'string' is not assignable to type 'number'.
+src/entities/agents/components/AgentChatSkeleton.tsx(8,17): error TS2322: Type 'string' is not assignable to type 'number'.
+src/entities/agents/components/AgentChatSkeleton.tsx(9,17): error TS2322: Type 'string' is not assignable to type 'number'.
+src/entities/agents/components/AgentChatSkeleton.tsx(10,17): error TS2322: Type 'string' is not assignable to type 'number'.
+src/entities/agents/components/AgentChatSkeleton.tsx(11,17): error TS2322: Type 'string' is not assignable to type 'number'.
+src/entities/spaces/components/SpaceMoveToModal.tsx(28,67): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(input: { query?: string | undefined; scope?: "member" | "all" | "owned" | "editable" | undefined; status?: "active" | "archived" | undefined; page?: number | undefined; pageSize?: number | undefined; includeCounts?: boolean | undefined; } | typeof skipToken, opts: DefinedUseTRPCQueryOptions<...>): DefinedUseTRPCQueryResult<...>', gave the following error.
+    Argument of type 'undefined' is not assignable to parameter of type '{ query?: string | undefined; scope?: "member" | "all" | "owned" | "editable" | undefined; status?: "active" | "archived" | undefined; page?: number | undefined; pageSize?: number | undefined; includeCounts?: boolean | undefined; } | unique symbol'.
+  Overload 2 of 2, '(input: { query?: string | undefined; scope?: "member" | "all" | "owned" | "editable" | undefined; status?: "active" | "archived" | undefined; page?: number | undefined; pageSize?: number | undefined; includeCounts?: boolean | undefined; } | typeof skipToken, opts?: UseTRPCQueryOptions<...> | undefined): UseTRPCQueryResult<...>', gave the following error.
+    Argument of type 'undefined' is not assignable to parameter of type '{ query?: string | undefined; scope?: "member" | "all" | "owned" | "editable" | undefined; status?: "active" | "archived" | undefined; page?: number | undefined; pageSize?: number | undefined; includeCounts?: boolean | undefined; } | unique symbol'.
+src/entities/spaces/components/SpaceMoveToModal.tsx(31,42): error TS2339: Property 'find' does not exist on type '{ items: any; total: any; page: number; pageSize: number; }'.
+src/entities/spaces/components/SpaceMoveToModal.tsx(97,49): error TS2339: Property 'filter' does not exist on type '{ items: any; total: any; page: number; pageSize: number; }'.
+src/entities/spaces/components/SpaceMoveToPopover.tsx(25,67): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(input: { query?: string | undefined; scope?: "member" | "all" | "owned" | "editable" | undefined; status?: "active" | "archived" | undefined; page?: number | undefined; pageSize?: number | undefined; includeCounts?: boolean | undefined; } | typeof skipToken, opts: DefinedUseTRPCQueryOptions<...>): DefinedUseTRPCQueryResult<...>', gave the following error.
+    Argument of type 'undefined' is not assignable to parameter of type '{ query?: string | undefined; scope?: "member" | "all" | "owned" | "editable" | undefined; status?: "active" | "archived" | undefined; page?: number | undefined; pageSize?: number | undefined; includeCounts?: boolean | undefined; } | unique symbol'.
+  Overload 2 of 2, '(input: { query?: string | undefined; scope?: "member" | "all" | "owned" | "editable" | undefined; status?: "active" | "archived" | undefined; page?: number | undefined; pageSize?: number | undefined; includeCounts?: boolean | undefined; } | typeof skipToken, opts?: UseTRPCQueryOptions<...> | undefined): UseTRPCQueryResult<...>', gave the following error.
+    Argument of type 'undefined' is not assignable to parameter of type '{ query?: string | undefined; scope?: "member" | "all" | "owned" | "editable" | undefined; status?: "active" | "archived" | undefined; page?: number | undefined; pageSize?: number | undefined; includeCounts?: boolean | undefined; } | unique symbol'.
+src/entities/spaces/components/SpaceMoveToPopover.tsx(91,33): error TS2339: Property 'filter' does not exist on type '{ items: any; total: any; page: number; pageSize: number; }'.
+src/entities/spaces/components/SpaceMoveToPopover.tsx(94,36): error TS2339: Property 'filter' does not exist on type '{ items: any; total: any; page: number; pageSize: number; }'.
+src/entities/task/components/AddCustomFieldModal.tsx(684,50): error TS2304: Cannot find name 'Switch'.
+src/entities/task/components/AddCustomFieldModal.tsx(688,50): error TS2304: Cannot find name 'Switch'.
+src/entities/task/components/AddCustomFieldModal.tsx(692,50): error TS2304: Cannot find name 'Switch'.
+src/entities/task/components/AddCustomFieldModal.tsx(706,50): error TS2304: Cannot find name 'ListChecks'.
+src/entities/task/components/EditCustomRelationshipPopover.tsx(855,80): error TS2339: Property 'avatar' does not exist on type '{ id: any; name: any; badge: boolean; }'.
+src/entities/task/components/EditCustomRelationshipPopover.tsx(855,101): error TS2339: Property 'avatar' does not exist on type '{ id: any; name: any; badge: boolean; }'.
+src/entities/task/components/NewCustomRelationshipPopover.tsx(838,80): error TS2339: Property 'avatar' does not exist on type '{ id: any; name: any; badge: boolean; }'.
+src/entities/task/components/NewCustomRelationshipPopover.tsx(838,101): error TS2339: Property 'avatar' does not exist on type '{ id: any; name: any; badge: boolean; }'.
+src/entities/task/components/NewCustomRelationshipPopover.tsx(877,78): error TS2345: Argument of type '(prev: { id: string; name: string; role: string; permission: string; avatar: string; }[]) => { id: string; name: string; avatar: string | undefined; role: string; permission: string; }[]' is not assignable to parameter of type 'SetStateAction<{ id: string; name: string; role: string; permission: string; avatar: string; }[]>'.
+  Type '(prev: { id: string; name: string; role: string; permission: string; avatar: string; }[]) => { id: string; name: string; avatar: string | undefined; role: string; permission: string; }[]' is not assignable to type '(prevState: { id: string; name: string; role: string; permission: string; avatar: string; }[]) => { id: string; name: string; role: string; permission: string; avatar: string; }[]'.
+    Type '{ id: string; name: string; avatar: string | undefined; role: string; permission: string; }[]' is not assignable to type '{ id: string; name: string; role: string; permission: string; avatar: string; }[]'.
+      Type '{ id: string; name: string; avatar: string | undefined; role: string; permission: string; }' is not assignable to type '{ id: string; name: string; role: string; permission: string; avatar: string; }'.
+        Types of property 'avatar' are incompatible.
+          Type 'string | undefined' is not assignable to type 'string'.
+            Type 'undefined' is not assignable to type 'string'.
+src/entities/task/components/OtherLinksPanelContent.tsx(76,39): error TS2551: Property 'setQueryData' does not exist on type 'DecorateQueryProcedure<{ ctx: { session: Session | null; }; meta: object; errorShape: DefaultErrorShape; transformer: true; }, QueryProcedure<{ input: { taskId: string; }; output: ({ creator: { name: string | null; id: string; image: string | null; }; } & { ...; })[]; meta: object; }>>'. Did you mean 'setQueriesData'?
+src/entities/task/components/OtherLinksPanelContent.tsx(80,54): error TS2551: Property 'setQueryData' does not exist on type 'DecorateQueryProcedure<{ ctx: { session: Session | null; }; meta: object; errorShape: DefaultErrorShape; transformer: true; }, QueryProcedure<{ input: { taskId: string; }; output: ({ creator: { name: string | null; id: string; image: string | null; }; } & { ...; })[]; meta: object; }>>'. Did you mean 'setQueriesData'?
+src/entities/task/components/OtherLinksPanelContent.tsx(99,39): error TS2551: Property 'setQueryData' does not exist on type 'DecorateQueryProcedure<{ ctx: { session: Session | null; }; meta: object; errorShape: DefaultErrorShape; transformer: true; }, QueryProcedure<{ input: { taskId: string; }; output: ({ creator: { name: string | null; id: string; image: string | null; }; } & { ...; })[]; meta: object; }>>'. Did you mean 'setQueriesData'?
+src/entities/task/components/OtherLinksPanelContent.tsx(107,54): error TS2551: Property 'setQueryData' does not exist on type 'DecorateQueryProcedure<{ ctx: { session: Session | null; }; meta: object; errorShape: DefaultErrorShape; transformer: true; }, QueryProcedure<{ input: { taskId: string; }; output: ({ creator: { name: string | null; id: string; image: string | null; }; } & { ...; })[]; meta: object; }>>'. Did you mean 'setQueriesData'?
+src/entities/tools/components/ToolChatSkeleton.tsx(8,17): error TS2322: Type 'string' is not assignable to type 'number'.
+src/entities/tools/components/ToolChatSkeleton.tsx(9,17): error TS2322: Type 'string' is not assignable to type 'number'.
+src/entities/tools/components/ToolChatSkeleton.tsx(10,17): error TS2322: Type 'string' is not assignable to type 'number'.
+src/entities/tools/components/ToolChatSkeleton.tsx(11,17): error TS2322: Type 'string' is not assignable to type 'number'.
+src/entities/workforce/components/nodes/EventNode.tsx(3,37): error TS2305: Module '"lucide-react"' has no exported member 'Slack'.
+src/features/auth/views/LoginView.tsx(4,28): error TS2305: Module '"lucide-react"' has no exported member 'Github'.
+src/features/dashboard/components/personal/ProfileView.tsx(16,5): error TS2305: Module '"lucide-react"' has no exported member 'Linkedin'.
+src/features/dashboard/components/personal/ProfileView.tsx(17,5): error TS2305: Module '"lucide-react"' has no exported member 'Twitter'.
+src/features/dashboard/components/personal/ProfileView.tsx(18,5): error TS2305: Module '"lucide-react"' has no exported member 'Facebook'.
+src/features/dashboard/components/personal/ProfileView.tsx(19,5): error TS2305: Module '"lucide-react"' has no exported member 'Instagram'.
+src/features/dashboard/views/agent/ChatView.tsx(318,9): error TS2322: Type 'string' is not assignable to type 'number'.
+src/features/dashboard/views/agent/ChatView.tsx(319,9): error TS2322: Type 'string' is not assignable to type 'number'.
+src/features/dashboard/views/agent/ChatView.tsx(320,9): error TS2322: Type 'string' is not assignable to type 'number'.
+src/features/dashboard/views/agent/ChatView.tsx(321,9): error TS2322: Type 'string' is not assignable to type 'number'.
+src/features/dashboard/views/agent/OperatorView.tsx(312,9): error TS2322: Type 'string' is not assignable to type 'number'.
+src/features/dashboard/views/agent/OperatorView.tsx(313,9): error TS2322: Type 'string' is not assignable to type 'number'.
+src/features/dashboard/views/agent/OperatorView.tsx(314,9): error TS2322: Type 'string' is not assignable to type 'number'.
+src/features/dashboard/views/agent/OperatorView.tsx(315,9): error TS2322: Type 'string' is not assignable to type 'number'.
+src/features/dashboard/views/generic/MindMapView.tsx(3370,45): error TS2552: Cannot find name 'listId'. Did you mean 'List'?
+src/features/dashboard/views/generic/PeopleView .tsx(5250,18): error TS2741: Property 'workspaceId' is missing in type '{ open: true; onOpenChange: (open: boolean) => void; task: Task; }' but required in type 'TaskDependenciesModalProps'.
+src/features/dashboard/views/tools/ToolAIBuilderView.tsx(741,11): error TS2322: Type 'string' is not assignable to type 'number'.
+src/features/dashboard/views/tools/ToolAIBuilderView.tsx(742,11): error TS2322: Type 'string' is not assignable to type 'number'.
+src/features/dashboard/views/tools/ToolAIBuilderView.tsx(743,11): error TS2322: Type 'string' is not assignable to type 'number'.
+src/features/dashboard/views/tools/ToolAIBuilderView.tsx(744,11): error TS2322: Type 'string' is not assignable to type 'number'.
+src/features/dashboard/views/workforce/workflow/WorkforceSidebar.tsx(8,5): error TS2305: Module '"lucide-react"' has no exported member 'Slack'.
+src/features/dashboard/views/workforce/workflow/WorkforceSidebar.tsx(10,48): error TS2305: Module '"lucide-react"' has no exported member 'Github'.
+src/features/integrations/components/GitHubConfigDialog.tsx(42,5): error TS2305: Module '"lucide-react"' has no exported member 'Github'.
+src/features/integrations/constants.ts(2,5): error TS2724: '"lucide-react"' has no exported member named 'Figma'. Did you mean 'Sigma'?
+src/features/integrations/constants.ts(3,5): error TS2305: Module '"lucide-react"' has no exported member 'Github'.
+src/features/integrations/constants.ts(9,5): error TS2305: Module '"lucide-react"' has no exported member 'Slack'.
+src/features/integrations/constants.ts(13,5): error TS2305: Module '"lucide-react"' has no exported member 'Youtube'.
+src/features/integrations/constants.ts(14,5): error TS2305: Module '"lucide-react"' has no exported member 'Facebook'.
+src/features/organization/views/OrganizationSettingsView.tsx(10,37): error TS2305: Module '"lucide-react"' has no exported member 'Twitter'.
+src/features/organization/views/OrganizationSettingsView.tsx(10,46): error TS2305: Module '"lucide-react"' has no exported member 'Linkedin'.
+src/features/organization/views/OrganizationSettingsView.tsx(10,56): error TS2305: Module '"lucide-react"' has no exported member 'Github'.
+src/features/personal/tabs/ProfileView.tsx(16,5): error TS2305: Module '"lucide-react"' has no exported member 'Linkedin'.
+src/features/personal/tabs/ProfileView.tsx(17,5): error TS2305: Module '"lucide-react"' has no exported member 'Twitter'.
+src/features/personal/tabs/ProfileView.tsx(18,5): error TS2305: Module '"lucide-react"' has no exported member 'Facebook'.
+src/features/personal/tabs/ProfileView.tsx(19,5): error TS2305: Module '"lucide-react"' has no exported member 'Instagram'.
+src/lib/resourceAccess.ts(52,39): error TS2345: Argument of type 'string | null' is not assignable to parameter of type 'string'.
+  Type 'null' is not assignable to type 'string'.
+src/trpc/routers/view.ts(379,5): error TS2322: Type 'string | null' is not assignable to type 'string | StringFilter<"Workspace"> | undefined'.
+  Type 'null' is not assignable to type 'string | StringFilter<"Workspace"> | undefined'.

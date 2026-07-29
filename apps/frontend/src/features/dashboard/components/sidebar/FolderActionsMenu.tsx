@@ -253,6 +253,7 @@ export function FolderActionsMenu({
                 open={customFieldsModalOpen}
                 onOpenChange={setCustomFieldsModalOpen}
                 workspaceId={workspaceId}
+                initialLocation={`folder:${folderId}`}
             />
 
             <DuplicateFolderModal

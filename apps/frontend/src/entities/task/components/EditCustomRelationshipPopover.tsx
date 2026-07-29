@@ -156,6 +156,7 @@ export function EditCustomRelationshipPopover({
         const tms = (teamListData?.items || []).map((t: any) => ({
             id: t.id,
             name: t.name,
+            avatar: undefined,
             badge: true
         }));
         return [...users, ...tms];

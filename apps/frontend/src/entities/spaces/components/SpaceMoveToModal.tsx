@@ -25,8 +25,8 @@ export function SpaceMoveToModal({ spaceId, spaceName, open, onOpenChange, onSuc
     const [destinationOpen, setDestinationOpen] = useState(false);
     const [destinationKey, setDestinationKey] = useState("");
 
-    const { data: workspacesData } = trpc.workspace.list.useQuery(undefined, { enabled: open });
-    const workspaces = workspacesData || [];
+    const { data: workspacesData } = trpc.workspace.list.useQuery({}, { enabled: open });
+    const workspaces = workspacesData?.items || [];
 
     const selectedWorkspace = workspaces.find(w => w.id === destinationKey);
     const updateSpace = trpc.space.update.useMutation();

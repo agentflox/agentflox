@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useCallback } from "react";
 import NextImage from "next/image";
-import { Mail, ArrowRight, Github, Eye, EyeOff } from "lucide-react";
+import { Mail, ArrowRight, Eye, EyeOff } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";

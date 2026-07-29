@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useCallback, useEffect } from "react";
+import { useMemo, useState, useCallback, useEffect, useRef } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { trpc } from "@/lib/trpc";
 import { DashboardEntityProvider } from "@/features/dashboard/context/DashboardEntityContext";
@@ -215,12 +215,27 @@ export default function WorkspaceDashboardView({ workspaceId }: WorkspaceViewPro
     console.log("[WorkspaceDashboard] Render tick - isLoading:", isLoading, "views:", (workspace as any)?.views?.length);
 
     // Mutations
+    // Refs for tracking multi-view creation so we redirect to the last created view
+    const pendingViewCreatesRef = useRef(0);
+    const lastCreatedViewIdRef = useRef<string | null>(null);
+
     const createViewMutation = trpc.view.create.useMutation({
-        onSuccess: () => {
+        onSuccess: (data) => {
             utils.workspace.get.invalidate({ id: workspaceId });
+            lastCreatedViewIdRef.current = (data as any)?.id ?? null;
+            pendingViewCreatesRef.current = Math.max(0, pendingViewCreatesRef.current - 1);
+            if (pendingViewCreatesRef.current === 0 && lastCreatedViewIdRef.current) {
+                const params = new URLSearchParams(window.location.search);
+                if (!params.get("tab")) params.set("tab", "overview");
+                params.set("v", lastCreatedViewIdRef.current);
+                router.push(`?${params.toString()}`, { scroll: false });
+            }
             toast.success("View added");
         },
-        onError: (err) => toast.error(`Failed to add view: ${err.message}`),
+        onError: (err) => {
+            pendingViewCreatesRef.current = Math.max(0, pendingViewCreatesRef.current - 1);
+            toast.error(`Failed to add view: ${err.message}`);
+        },
     });
 
     const deleteViewMutation = trpc.view.delete.useMutation({
@@ -244,8 +259,15 @@ export default function WorkspaceDashboardView({ workspaceId }: WorkspaceViewPro
     });
 
     const createFromTemplateMutation = trpc.view.createFromTemplate.useMutation({
-        onSuccess: () => {
+        onSuccess: (data) => {
             utils.workspace.get.invalidate({ id: workspaceId });
+            const newId = (data as any)?.id ?? null;
+            if (newId) {
+                const params = new URLSearchParams(window.location.search);
+                if (!params.get("tab")) params.set("tab", "overview");
+                params.set("v", newId);
+                router.push(`?${params.toString()}`, { scroll: false });
+            }
             toast.success("View created from template");
         },
         onError: (err) => toast.error(`Failed to create view: ${err.message}`),
@@ -315,6 +337,10 @@ export default function WorkspaceDashboardView({ workspaceId }: WorkspaceViewPro
     };
 
     const handleAddViews = (selectedTypes: ViewType[]) => {
+        if (selectedTypes.length === 0) return;
+        // Reset counters before firing; onSuccess decrements and navigates when hits 0
+        pendingViewCreatesRef.current = selectedTypes.length;
+        lastCreatedViewIdRef.current = null;
         selectedTypes.forEach((type) => {
             const config = viewConfig[type];
             createViewMutation.mutate({

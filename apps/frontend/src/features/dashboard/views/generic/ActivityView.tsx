@@ -73,7 +73,7 @@ interface ActivityViewProps {
     initialConfig?: any;
     selectedTaskIdFromParent?: string | null;
     onTaskSelect?: (taskId: string | null) => void;
-    context?: "space" | "project" | "team" | "folder" | "list";
+    context?: "workspace" | "space" | "project" | "team" | "folder" | "list";
 }
 
 const getPriorityColor = (p: string | null | undefined) => {

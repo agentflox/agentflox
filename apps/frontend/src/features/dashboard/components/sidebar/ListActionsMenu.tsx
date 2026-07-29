@@ -267,6 +267,7 @@ export function ListActionsMenu({ workspaceId, spaceId, projectId, teamId, listI
                 open={customFieldsModalOpen}
                 onOpenChange={setCustomFieldsModalOpen}
                 workspaceId={workspaceId}
+                initialLocation={`list:${listId}`}
             />
             <ListTransferModal
                 listId={listId}

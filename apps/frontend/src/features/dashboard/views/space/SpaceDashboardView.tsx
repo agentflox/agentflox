@@ -513,6 +513,9 @@ export default function SpaceDashboardView({ listId, spaceId, projectId, teamId,
                         context="space"
                         workspaceId={resolvedWorkspaceId}
                         spaceId={spaceId!}
+                        projectId={projectId}
+                        teamId={teamId}
+                        listId={listId}
                         viewId={view.id}
                         initialConfig={view.config}
                         selectedTaskIdFromParent={selectedTaskId ?? undefined}
@@ -525,6 +528,9 @@ export default function SpaceDashboardView({ listId, spaceId, projectId, teamId,
                         context="space"
                         workspaceId={resolvedWorkspaceId}
                         spaceId={spaceId!}
+                        projectId={projectId}
+                        teamId={teamId}
+                        listId={listId}
                         viewId={view.id}
                         initialConfig={view.config}
                         selectedTaskIdFromParent={selectedTaskId ?? undefined}
@@ -537,6 +543,9 @@ export default function SpaceDashboardView({ listId, spaceId, projectId, teamId,
                         context="space"
                         workspaceId={resolvedWorkspaceId}
                         spaceId={spaceId!}
+                        projectId={projectId}
+                        teamId={teamId}
+                        listId={listId}
                         viewId={view.id}
                         initialConfig={view.config}
                         selectedTaskIdFromParent={selectedTaskId ?? undefined}
@@ -549,6 +558,9 @@ export default function SpaceDashboardView({ listId, spaceId, projectId, teamId,
                         context="space"
                         workspaceId={resolvedWorkspaceId}
                         spaceId={spaceId!}
+                        projectId={projectId}
+                        teamId={teamId}
+                        listId={listId}
                         viewId={view.id}
                         initialConfig={view.config}
                         selectedTaskIdFromParent={selectedTaskId ?? undefined}
@@ -561,6 +573,9 @@ export default function SpaceDashboardView({ listId, spaceId, projectId, teamId,
                         context="space"
                         workspaceId={resolvedWorkspaceId}
                         spaceId={spaceId!}
+                        projectId={projectId}
+                        teamId={teamId}
+                        listId={listId}
                         viewId={view.id}
                         initialConfig={view.config}
                         selectedTaskIdFromParent={selectedTaskId ?? undefined}
@@ -573,6 +588,9 @@ export default function SpaceDashboardView({ listId, spaceId, projectId, teamId,
                         context="space"
                         workspaceId={resolvedWorkspaceId}
                         spaceId={spaceId!}
+                        projectId={projectId}
+                        teamId={teamId}
+                        listId={listId}
                         viewId={view.id}
                         initialConfig={view.config}
                         selectedTaskIdFromParent={selectedTaskId ?? undefined}

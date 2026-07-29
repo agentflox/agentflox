@@ -32,7 +32,7 @@ export const customFieldsRouter = router({
         const workspaceIds = accessibleWorkspaceIds.map((w) => w.id);
 
         const spaceOr: any[] = [
-          { createdBy: userId },
+          { ownerId: userId },
           { members: { some: { userId } } },
         ];
         if (workspaceIds.length > 0) {

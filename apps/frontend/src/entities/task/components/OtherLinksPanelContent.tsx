@@ -73,11 +73,11 @@ export function OtherLinksPanelContent({ taskId, openAddForm = false }: OtherLin
         onMutate: async ({ id }) => {
             await utils.task.taskLinks.list.cancel({ taskId });
             const prev = utils.task.taskLinks.list.getData({ taskId });
-            utils.task.taskLinks.list.setQueryData({ taskId }, (old: any) => old?.filter((a: any) => a.id !== id) ?? []);
+            utils.task.taskLinks.list.setData({ taskId }, (old: any) => old?.filter((a: any) => a.id !== id) ?? []);
             return { prev };
         },
         onError: (err: any, _vars: any, ctx: any) => {
-            if (ctx?.prev) utils.task.taskLinks.list.setQueryData({ taskId }, ctx.prev);
+            if (ctx?.prev) utils.task.taskLinks.list.setData({ taskId }, ctx.prev);
             toast.error(err.message || 'Failed to remove link');
         },
         onSettled: () => utils.task.taskLinks.list.invalidate({ taskId }),
@@ -96,7 +96,7 @@ export function OtherLinksPanelContent({ taskId, openAddForm = false }: OtherLin
                 creator: null,
                 taskId: vars.taskId,
             };
-            utils.task.taskLinks.list.setQueryData({ taskId }, (old: any) => [...(old ?? []), temp]);
+            utils.task.taskLinks.list.setData({ taskId }, (old: any) => [...(old ?? []), temp]);
             setUrlInput('');
             setTitleInput('');
             setDescInput('');
@@ -104,7 +104,7 @@ export function OtherLinksPanelContent({ taskId, openAddForm = false }: OtherLin
             return { prev };
         },
         onError: (err: any, _vars: any, ctx: any) => {
-            if (ctx?.prev) utils.task.taskLinks.list.setQueryData({ taskId }, ctx.prev);
+            if (ctx?.prev) utils.task.taskLinks.list.setData({ taskId }, ctx.prev);
             toast.error(err.message || 'Failed to add link');
         },
         onSettled: () => {

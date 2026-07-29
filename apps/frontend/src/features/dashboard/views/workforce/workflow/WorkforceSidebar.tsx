@@ -1,13 +1,14 @@
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
+import { FaGithub, FaSlack } from 'react-icons/fa';
 import dynamic from 'next/dynamic';
 import {
     X, Search, Bot, Plus, ChevronRight, Loader2,
     Wrench, Zap, GitBranch, ShoppingBag, ExternalLink,
-    Slack, Mail, Calendar, Hash, Globe, MessageSquareText, Wand2,
+    MessageSquareText, Calendar, Hash, Globe, Wand2, Mail,
     Clock, Trash2, ArrowRight, Settings, Filter, Files, ListTree, List, History,
-    MessageCircle, MoreVertical, Play, Pencil, Github, RefreshCw, Flag, Circle, FileText
+    MessageCircle, MoreVertical, Play, Pencil, RefreshCw, Flag, Circle, FileText, Code
 } from 'lucide-react';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -596,7 +597,7 @@ export default function WorkforceSidebar({ workspaceId }: { workspaceId?: string
     // ─── Static data ───────────────────────────────────────────────────────
     // tools list is now sourced from dbTools
     const triggers = [
-        { id: 'slack', name: 'Slack', icon: Slack },
+        { id: 'slack', name: 'Slack', icon: FaSlack },
         { id: 'outlook', name: 'Microsoft Outlook', icon: Mail },
         { id: 'gmail', name: 'Google Mail', icon: Mail },
         { id: 'calendar', name: 'Google Calendar', icon: Calendar },
@@ -1155,7 +1156,7 @@ export default function WorkforceSidebar({ workspaceId }: { workspaceId?: string
                                                 <div className="flex items-start justify-between gap-4">
                                                     <div className="flex items-center gap-3 min-w-0">
                                                         <div className="h-10 w-10 shrink-0 bg-white shadow-sm rounded-xl border border-zinc-200 flex items-center justify-center text-zinc-900">
-                                                            <Github size={20} />
+                                                            <FaGithub size={20} />
                                                         </div>
                                                         <div className="flex flex-col min-w-0 flex-1">
                                                             <div className="text-[15px] font-bold text-slate-900 leading-tight truncate pr-2">{activeTool.name}</div>

@@ -390,7 +390,7 @@ export function TaskDependenciesPopover({ taskId, workspaceId, children }: TaskD
                 workspaceId={workspaceId}
                 dependencyType="FINISH_TO_START"
                 onSelect={handleSelectTask}
-                anchorRef={addTaskBtnRef}
+                anchorRef={addTaskBtnRef as React.RefObject<HTMLElement>}
                 side="bottom"
                 align="start"
             />
@@ -401,7 +401,7 @@ export function TaskDependenciesPopover({ taskId, workspaceId, children }: TaskD
                 workspaceId={workspaceId}
                 dependencyType="FINISH_TO_START"
                 onSelect={handleSelectTask}
-                anchorRef={addTaskBtnRef}
+                anchorRef={addTaskBtnRef as React.RefObject<HTMLElement>}
                 side="bottom"
                 align="start"
             />

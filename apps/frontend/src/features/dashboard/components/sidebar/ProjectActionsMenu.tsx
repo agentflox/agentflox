@@ -303,6 +303,7 @@ export function ProjectActionsMenu({ workspaceId, projectId, trigger }: ProjectA
                 open={customFieldsModalOpen}
                 onOpenChange={setCustomFieldsModalOpen}
                 workspaceId={workspaceId}
+                initialLocation={`project:${projectId}`}
             />
 
             <ProjectTransferModal

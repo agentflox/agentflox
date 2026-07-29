@@ -362,29 +362,29 @@ export function CustomFieldsManagerModal({
 
         if (selectedView.startsWith("workspace:")) {
             const id = selectedView.split(":")[1];
-            fields = fields.filter((f) => f.workspaceId === id);
+            fields = fields.filter((f) => (f.workspaceId === id && (!f.locationType || f.locationType === "WORKSPACE")) || f.locations?.some((l: any) => l.workspaceId === id));
         } else if (selectedView === "workspace") {
-            fields = fields.filter((f) => f.locationType === "WORKSPACE" || Boolean(f.workspaceId));
+            fields = fields.filter((f) => f.locationType === "WORKSPACE" || (!f.locationType && Boolean(f.workspaceId)) || f.locations?.some((l: any) => l.locationType === "WORKSPACE"));
         } else if (selectedView === "personal") {
-            fields = fields.filter((f) => f.isPersonalResolved);
+            fields = fields.filter((f) => f.isPersonalResolved || f.locations?.some((l: any) => l.locationType === "PERSONAL"));
         } else if (selectedView.startsWith("space:")) {
             const id = selectedView.split(":")[1];
-            fields = fields.filter((f) => f.spaceId === id);
+            fields = fields.filter((f) => (f.spaceId === id && (!f.locationType || f.locationType === "SPACE")) || f.locations?.some((l: any) => l.spaceId === id));
         } else if (selectedView.startsWith("project:")) {
             const id = selectedView.split(":")[1];
-            fields = fields.filter((f) => f.projectId === id);
+            fields = fields.filter((f) => (f.projectId === id && (!f.locationType || f.locationType === "PROJECT")) || f.locations?.some((l: any) => l.projectId === id));
         } else if (selectedView.startsWith("folder:")) {
             const id = selectedView.split(":")[1];
-            fields = fields.filter((f) => f.folderId === id);
+            fields = fields.filter((f) => (f.folderId === id && (!f.locationType || f.locationType === "FOLDER")) || f.locations?.some((l: any) => l.folderId === id));
         } else if (selectedView.startsWith("list:")) {
             const id = selectedView.split(":")[1];
-            fields = fields.filter((f) => f.listId === id);
+            fields = fields.filter((f) => (f.listId === id && (!f.locationType || f.locationType === "LIST")) || f.locations?.some((l: any) => l.listId === id));
         } else if (selectedView === "standalone-projects") {
             const standaloneProjectIds = new Set(projectsOutsideWorkspace.map((p) => p.id));
-            fields = fields.filter((f) => f.projectId && standaloneProjectIds.has(f.projectId));
+            fields = fields.filter((f) => (f.projectId && standaloneProjectIds.has(f.projectId) && (!f.locationType || f.locationType === "PROJECT")) || f.locations?.some((l: any) => l.projectId && standaloneProjectIds.has(l.projectId)));
         } else if (selectedView === "standalone-lists") {
             const standaloneListIds = new Set(standaloneLists.map((l) => l.id));
-            fields = fields.filter((f) => f.listId && standaloneListIds.has(f.listId));
+            fields = fields.filter((f) => (f.listId && standaloneListIds.has(f.listId) && (!f.locationType || f.locationType === "LIST")) || f.locations?.some((l: any) => l.listId && standaloneListIds.has(l.listId)));
         }
 
         if (lowerQuery) {
@@ -486,7 +486,10 @@ export function CustomFieldsManagerModal({
     }, [filterOperator, filters, managerFields, projectsOutsideWorkspace, query, selectedView, standaloneLists]);
 
     const addExistingFields = React.useMemo(() => {
-        const currentFieldIds = new Set(customFieldsRaw.map((f: any) => f.id));
+        // Exclude only fields already belonging to the CURRENT selected location,
+        // not all fields globally. This way a field from Space A correctly shows up
+        // as "addable" when you are viewing List B.
+        const currentLocationFieldIds = new Set(filteredFields.map((f: any) => f.id));
         return (allWorkspaceFieldsRaw as any[])
             .map((field) => ({
                 ...field,
@@ -494,8 +497,8 @@ export function CustomFieldsManagerModal({
                 locationLabel: getLocationLabel(field),
                 typeLabel: getFieldTypeLabel(field),
             }))
-            .filter((f) => !currentFieldIds.has(f.id));
-    }, [allWorkspaceFieldsRaw, customFieldsRaw, getFieldTypeLabel, getLocationLabel]);
+            .filter((f) => !currentLocationFieldIds.has(f.id));
+    }, [allWorkspaceFieldsRaw, filteredFields, getFieldTypeLabel, getLocationLabel]);
 
     const handleAddExisting = () => {
         setIsAddExistingMode(true);
@@ -1973,12 +1976,13 @@ export function CustomFieldsManagerModal({
                             <div className="flex-1 px-6 py-4 overflow-hidden relative">
                                 {isLoadingCustomFields && (customFieldsRaw?.length ?? 0) === 0 ? (
                                     <DataTableSkeleton columnCount={6} rowCount={8} />
-                                ) : filteredFields.length > 0 ? (
-                                    isAddExistingMode ? (
-                                        <div className="flex flex-col h-full w-full min-w-0">
-
-                                            <div className="flex-1 w-full max-w-full overflow-y-auto">
-                                                <div className="pb-24 w-full max-w-full">
+                                ) : isAddExistingMode ? (
+                                    // "Add Existing" mode is rendered independently of whether the current
+                                    // location has fields. Even an empty location can import fields.
+                                    <div className="flex flex-col h-full w-full min-w-0">
+                                        <div className="flex-1 w-full max-w-full overflow-y-auto">
+                                            <div className="pb-24 w-full max-w-full">
+                                                {addExistingFields.length > 0 ? (
                                                     <DataTable
                                                         columns={columns}
                                                         data={addExistingFields}
@@ -1988,47 +1992,59 @@ export function CustomFieldsManagerModal({
                                                         onColumnVisibilityChange={setColumnVisibility}
                                                         onRowSelectionChange={handleRowSelectionChange}
                                                     />
-                                                </div>
-                                            </div>
-
-                                            {/* Bottom Sticky Action Bar */}
-                                            <div className="absolute bottom-0 left-0 right-0 p-4 bg-white border-t flex items-center justify-between z-10 shadow-[0_-4px_12px_-4px_rgba(0,0,0,0.05)]">
-                                                <div className="flex items-center gap-3">
-                                                    <span className="text-sm font-normal text-zinc-600">
-                                                        {Object.keys(addExistingSelection).length} items selected
-                                                    </span>
-                                                    {Object.keys(addExistingSelection).length > 0 && (
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="sm"
-                                                            onClick={() => setAddExistingSelection({})}
-                                                            className="text-xs h-7 text-zinc-400 hover:text-zinc-600"
-                                                        >
-                                                            Cancel selection
-                                                        </Button>
-                                                    )}
-                                                </div>
-                                                <div className="flex items-center gap-3">
-                                                    <Button
-                                                        variant="outline"
-                                                        size="sm"
-                                                        onClick={handleCancelAddExisting}
-                                                        className="h-9 px-4 text-sm font-semibold border-none text-zinc-600 shadow-none hover:bg-zinc-200/80"
-                                                    >
-                                                        Cancel
-                                                    </Button>
-                                                    <Button
-                                                        size="sm"
-                                                        onClick={onConfirmAddFields}
-                                                        disabled={Object.keys(addExistingSelection).length === 0}
-                                                        className="h-9 px-6 text-sm font-semibold shadow-sm shadow-violet-200"
-                                                    >
-                                                        Add fields
-                                                    </Button>
-                                                </div>
+                                                ) : (
+                                                    <div className="flex h-full min-h-[360px] flex-col items-center justify-center gap-4 rounded-md border border-zinc-200 bg-white">
+                                                        <div className="h-16 w-16 rounded-2xl bg-zinc-100 border border-zinc-200 flex items-center justify-center shadow-sm">
+                                                            <Settings2 className="h-7 w-7 text-zinc-400" />
+                                                        </div>
+                                                        <div className="text-center space-y-1">
+                                                            <p className="text-sm font-medium text-zinc-700">No fields available to add</p>
+                                                            <p className="text-xs text-zinc-400 max-w-[240px]">All existing fields are already in this location, or no other fields exist yet.</p>
+                                                        </div>
+                                                    </div>
+                                                )}
                                             </div>
                                         </div>
-                                    ) : groupBy ? (
+
+                                        {/* Bottom Sticky Action Bar */}
+                                        <div className="absolute bottom-0 left-0 right-0 p-4 bg-white border-t flex items-center justify-between z-10 shadow-[0_-4px_12px_-4px_rgba(0,0,0,0.05)]">
+                                            <div className="flex items-center gap-3">
+                                                <span className="text-sm font-normal text-zinc-600">
+                                                    {Object.keys(addExistingSelection).length} items selected
+                                                </span>
+                                                {Object.keys(addExistingSelection).length > 0 && (
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        onClick={() => setAddExistingSelection({})}
+                                                        className="text-xs h-7 text-zinc-400 hover:text-zinc-600"
+                                                    >
+                                                        Cancel selection
+                                                    </Button>
+                                                )}
+                                            </div>
+                                            <div className="flex items-center gap-3">
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={handleCancelAddExisting}
+                                                    className="h-9 px-4 text-sm font-semibold border-none text-zinc-600 shadow-none hover:bg-zinc-200/80"
+                                                >
+                                                    Cancel
+                                                </Button>
+                                                <Button
+                                                    size="sm"
+                                                    onClick={onConfirmAddFields}
+                                                    disabled={Object.keys(addExistingSelection).length === 0}
+                                                    className="h-9 px-6 text-sm font-semibold shadow-sm shadow-violet-200"
+                                                >
+                                                    Add fields
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ) : filteredFields.length > 0 ? (
+                                    groupBy ? (
                                         <div className="h-full w-full max-w-full overflow-y-auto toolbar-scroll-x">
                                             <div className="space-y-4 pb-20 w-full max-w-full">
                                                 <DataTable

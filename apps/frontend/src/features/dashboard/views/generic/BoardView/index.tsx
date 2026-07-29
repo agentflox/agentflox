@@ -3063,7 +3063,7 @@ export function BoardView({ spaceId, projectId, teamId, listId, folderId, viewId
         setInlineAddPriority(null);
         setInlineAddTags([]);
         setInlineAddTaskType(defaultTaskType?.id || null);
-    }, []);
+    }, [defaultTaskType]);
 
     const handleSaveInlineTask = useCallback(async () => {
         const effectiveListId = listId || (listsData?.items as any[])?.[0]?.id;
@@ -3078,7 +3078,7 @@ export function BoardView({ spaceId, projectId, teamId, listId, folderId, viewId
                 projectId: projectId || undefined,
                 teamId: teamId || undefined,
                 parentId: inlineAddTaskId || undefined,
-                statusId: (groupBy === "status" && inlineAddColumnId) ? inlineAddColumnId : (creationStatusId || undefined),
+                statusId: (groupBy === "status" && inlineAddColumnId && inlineAddColumnId !== "no-status") ? inlineAddColumnId : (creationStatusId || undefined),
                 assigneeIds: inlineAddAssigneeIds,
                 startDate: inlineAddStartDate || undefined,
                 dueDate: inlineAddDueDate || undefined,
@@ -3090,35 +3090,58 @@ export function BoardView({ spaceId, projectId, teamId, listId, folderId, viewId
         } catch (e) {
             console.error(e);
         }
-    }, [inlineAddTitle, listId, listsData, resolvedWorkspaceId, createTask, inlineAddTaskId, inlineAddColumnId, groupBy, creationStatusId, spaceId, projectId, teamId, inlineAddAssigneeIds, inlineAddStartDate, inlineAddDueDate, inlineAddPriority, inlineAddTags, inlineAddTaskType, handleCancelInlineAdd]);
+    }, [inlineAddTitle, listId, listsData, resolvedWorkspaceId, createTask, inlineAddTaskId, inlineAddColumnId, groupBy, creationStatusId, spaceId, projectId, teamId, inlineAddAssigneeIds, inlineAddStartDate, inlineAddDueDate, inlineAddPriority, inlineAddTags, inlineAddTaskType, handleCancelInlineAdd, defaultTaskType]);
 
     const handleAddTask = useCallback((columnId?: string, parentId?: string) => {
+        let initialAssignees: string[] = [];
+        let initialPriority: string | null = null;
+        let initialDueDate: Date | null = null;
+        let initialTags: string[] = [];
+        let initialTaskType = defaultTaskType?.id || null;
+
+        if (columnId && columnId !== "no-status") {
+            if (groupBy === "assignee" && columnId !== "unassigned") initialAssignees = [columnId];
+            if (groupBy === "priority" && columnId !== "NONE") initialPriority = columnId;
+            if (groupBy === "dueDate") {
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                if (columnId === "today") initialDueDate = today;
+                else if (columnId === "tomorrow") {
+                    const d = new Date(today);
+                    d.setDate(d.getDate() + 1);
+                    initialDueDate = d;
+                }
+            }
+            if (groupBy === "tags" && columnId !== "No Tags") initialTags = [columnId];
+            if (groupBy === "taskType" && columnId !== "no-type") initialTaskType = columnId;
+        }
+
         if (parentId) {
             setInlineAddTaskId(parentId);
             setInlineAddColumnId(columnId || null);
             setInlineAddTitle("");
-            setInlineAddAssigneeIds([]);
-            setInlineAddDueDate(null);
+            setInlineAddAssigneeIds(initialAssignees);
+            setInlineAddDueDate(initialDueDate);
             setInlineAddStartDate(null);
-            setInlineAddPriority(null);
-            setInlineAddTags([]);
-            setInlineAddTaskType(defaultTaskType?.id || null);
+            setInlineAddPriority(initialPriority);
+            setInlineAddTags(initialTags);
+            setInlineAddTaskType(initialTaskType);
         } else if (columnId) {
             setInlineAddColumnId(columnId);
             setInlineAddTaskId(null);
             setInlineAddTitle("");
-            setInlineAddAssigneeIds([]);
-            setInlineAddDueDate(null);
+            setInlineAddAssigneeIds(initialAssignees);
+            setInlineAddDueDate(initialDueDate);
             setInlineAddStartDate(null);
-            setInlineAddPriority(null);
-            setInlineAddTags([]);
-            setInlineAddTaskType(defaultTaskType?.id || null);
+            setInlineAddPriority(initialPriority);
+            setInlineAddTags(initialTags);
+            setInlineAddTaskType(initialTaskType);
         } else {
             setCreationStatusId(undefined);
             setCreationParentId(undefined);
             setAddTaskModalOpen(true);
         }
-    }, []);
+    }, [groupBy, defaultTaskType]);
 
     const activeTask = activeId ? tasks.find(t => t.id === activeId) : null;
 
@@ -3785,7 +3808,7 @@ export function BoardView({ spaceId, projectId, teamId, listId, folderId, viewId
 
                 <DragOverlay>
                     {activeTask ? (
-                        <TaskCard
+                        <BoardTaskCard
                             task={activeTask}
                             allTasks={tasks}
                             isOverlay

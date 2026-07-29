@@ -255,6 +255,8 @@ export function CustomFieldSettingsPopover({
                     folderId ? `folder:${folderId}` :
                     projectId ? `project:${projectId}` :
                     spaceId ? `space:${spaceId}` :
+                    teamId ? `team:${teamId}` :
+                    workspaceId ? `workspace:${workspaceId}` :
                     "all" as any
                 }
             />

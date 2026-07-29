@@ -320,6 +320,7 @@ export default function DashboardProjectView({ listId, spaceId, projectId, teamI
                 return (
                     <ListView
                         workspaceId={workspaceId}
+                        listId={listId || undefined}
                         projectId={projectId}
                         spaceId={spaceId}
                         teamId={teamId}
@@ -334,6 +335,7 @@ export default function DashboardProjectView({ listId, spaceId, projectId, teamI
                 return (
                     <BoardView
                         workspaceId={workspaceId}
+                        listId={listId || undefined}
                         projectId={projectId}
                         spaceId={spaceId}
                         teamId={teamId}

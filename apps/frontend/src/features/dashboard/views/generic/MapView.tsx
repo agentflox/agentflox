@@ -197,7 +197,7 @@ export interface MapViewProps {
     initialConfig?: Record<string, any> | null;
     selectedTaskIdFromParent?: string | null;
     onTaskSelect?: (taskId: string | null) => void;
-    context?: "space" | "project" | "team" | "folder" | "list";
+    context?: "workspace" | "space" | "project" | "team" | "folder" | "list";
 }
 
 type ViewMode = 'default' | 'satellite' | 'terrain';
@@ -877,7 +877,7 @@ export function MapView({ spaceId, projectId, teamId, listId, folderId, viewId, 
     const FIELD_CONFIG = useMemo(() => {
         const standardFields = STANDARD_FIELD_CONFIG.map(f => ({ ...f, isCustom: false }));
         const customFieldsConfig = (customFields as any[])
-            
+
             .map((cf: any) => {
                 const IconComponent = getCustomFieldIcon(cf.type);
                 return {
@@ -2744,467 +2744,467 @@ export function MapView({ spaceId, projectId, teamId, listId, folderId, viewId, 
                         onClose={() => setCustomizePanelOpen(false)}
                         className="absolute bottom-0 right-0 h-full w-[380px] max-w-[90vw] bg-white border-l border-zinc-200 shadow-xl z-50 flex flex-col"
                     >
-                            <div className="flex items-center justify-between p-4 border-b border-zinc-100">
-                                <h3 className="font-semibold text-zinc-900">Customize view</h3>
-                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setCustomizePanelOpen(false)}><X className="h-4 w-4" /></Button>
-                            </div>
-                            <ScrollArea className="flex-1 min-h-0">
-                                <div className="p-3 space-y-2 pb-24">
-                                    <div className="flex items-center gap-2 mb-4">
-                                        <div className="flex items-center justify-center h-10 w-10 rounded-lg border border-zinc-200 bg-zinc-50 shrink-0">
-                                            <LayoutList className="h-5 w-5 text-zinc-600" />
-                                        </div>
-                                        <Input
-                                            value={viewNameDraft}
-                                            onChange={(e) => setViewNameDraft(e.target.value)}
-                                            onBlur={() => updateViewName(viewNameDraft)}
-                                            onKeyDown={(e) => {
-                                                if (e.key === "Enter") {
-                                                    updateViewName(viewNameDraft);
-                                                    (e.target as HTMLInputElement).blur();
-                                                }
-                                            }}
-                                            className="h-10 text-sm font-medium border-zinc-200"
-                                            placeholder="View name"
-                                        />
+                        <div className="flex items-center justify-between p-4 border-b border-zinc-100">
+                            <h3 className="font-semibold text-zinc-900">Customize view</h3>
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setCustomizePanelOpen(false)}><X className="h-4 w-4" /></Button>
+                        </div>
+                        <ScrollArea className="flex-1 min-h-0">
+                            <div className="p-3 space-y-2 pb-24">
+                                <div className="flex items-center gap-2 mb-4">
+                                    <div className="flex items-center justify-center h-10 w-10 rounded-lg border border-zinc-200 bg-zinc-50 shrink-0">
+                                        <LayoutList className="h-5 w-5 text-zinc-600" />
                                     </div>
+                                    <Input
+                                        value={viewNameDraft}
+                                        onChange={(e) => setViewNameDraft(e.target.value)}
+                                        onBlur={() => updateViewName(viewNameDraft)}
+                                        onKeyDown={(e) => {
+                                            if (e.key === "Enter") {
+                                                updateViewName(viewNameDraft);
+                                                (e.target as HTMLInputElement).blur();
+                                            }
+                                        }}
+                                        className="h-10 text-sm font-medium border-zinc-200"
+                                        placeholder="View name"
+                                    />
+                                </div>
 
-                                    {/* Section 1: Map Specifics */}
-                                    <div className="space-y-1">
+                                {/* Section 1: Map Specifics */}
+                                <div className="space-y-1">
 
-                                        <Dialog open={createLocationFieldModalOpen} onOpenChange={setCreateLocationFieldModalOpen}>
-                                            <DialogTrigger asChild>
-                                                <button
-                                                    type="button"
-                                                    className="w-full flex items-center justify-between py-2.5 text-sm text-zinc-800 hover:bg-zinc-50 rounded-md px-2"
-                                                >
-                                                    <span className="text-sm text-zinc-800">Location field</span>
-                                                    <ChevronRight className="h-4 w-4 text-zinc-400" />
-                                                </button>
-                                            </DialogTrigger>
-                                            <DialogContent className="sm:max-w-[440px] p-0 gap-0 overflow-hidden z-[9999]">
-                                                {/* Reusing the same content logic as the main modal */}
-                                                {!hasLocationField ? (
-                                                    <div className="bg-white p-6 space-y-6">
-                                                        <div className="text-center space-y-2">
-                                                            <div className="mx-auto h-12 w-12 bg-zinc-50 rounded-full flex items-center justify-center mb-2">
-                                                                <MapPin className="h-6 w-6 text-zinc-400" />
-                                                            </div>
-                                                            <DialogTitle className="text-center text-lg font-bold text-zinc-900">
-                                                                See your tasks visualized on a map.
-                                                            </DialogTitle>
+                                    <Dialog open={createLocationFieldModalOpen} onOpenChange={setCreateLocationFieldModalOpen}>
+                                        <DialogTrigger asChild>
+                                            <button
+                                                type="button"
+                                                className="w-full flex items-center justify-between py-2.5 text-sm text-zinc-800 hover:bg-zinc-50 rounded-md px-2"
+                                            >
+                                                <span className="text-sm text-zinc-800">Location field</span>
+                                                <ChevronRight className="h-4 w-4 text-zinc-400" />
+                                            </button>
+                                        </DialogTrigger>
+                                        <DialogContent className="sm:max-w-[440px] p-0 gap-0 overflow-hidden z-[9999]">
+                                            {/* Reusing the same content logic as the main modal */}
+                                            {!hasLocationField ? (
+                                                <div className="bg-white p-6 space-y-6">
+                                                    <div className="text-center space-y-2">
+                                                        <div className="mx-auto h-12 w-12 bg-zinc-50 rounded-full flex items-center justify-center mb-2">
+                                                            <MapPin className="h-6 w-6 text-zinc-400" />
                                                         </div>
-                                                        <div className="space-y-4">
-                                                            <div className="space-y-1.5">
-                                                                <Label className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Field name <span className="text-red-500">*</span></Label>
-                                                                <div className="relative">
-                                                                    <div className="absolute left-3 top-1/2 -translate-y-1/2">
-                                                                        <Box className="h-4 w-4 text-zinc-400" />
-                                                                    </div>
-                                                                    <Input
-                                                                        value={createLocationName}
-                                                                        onChange={e => setCreateLocationName(e.target.value)}
-                                                                        onKeyDown={(e) => {
-                                                                            if (e.key === "Enter" && createLocationName.trim()) {
-                                                                                handleCreateLocationField(createLocationName);
-                                                                            }
-                                                                        }}
-                                                                        placeholder="Enter name..."
-                                                                        className="pl-9 h-10 border-zinc-200"
-                                                                    />
-                                                                </div>
-                                                            </div>
-                                                            <div className="flex items-center justify-between gap-3 p-3 bg-violet-50/50 border border-violet-100 rounded-lg text-sm text-zinc-600">
-                                                                <div className="p-2 bg-white rounded-md shadow-sm border border-violet-100 shrink-0">
-                                                                    <MapPin className="h-4 w-4 text-violet-500" />
-                                                                </div>
-                                                                <div className="flex-1 min-w-0">
-                                                                    <div className="font-medium text-zinc-900 mb-0.5">Location</div>
-                                                                    <div className="text-xs text-zinc-500">Field Type</div>
-                                                                </div>
-                                                                <ChevronDown className="h-4 w-4 text-zinc-400 opacity-50" />
-                                                            </div>
-
-                                                            {context !== "list" && (
-                                                                <div className="bg-yellow-50 border border-yellow-100 rounded-lg p-3 text-sm text-yellow-800 flex gap-2 items-start">
-                                                                    <Info className="h-4 w-4 shrink-0 mt-0.5 text-yellow-600" />
-                                                                    <span>
-                                                                        Custom Fields on the {context === "folder" ? "Folder" : context === "space" ? "Space" : context === "project" ? "Project" : context === "team" ? "Team" : "Workspace"} level will be added to all {context === "folder" ? "Lists" : "Folders & Lists"} below
-                                                                    </span>
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                        <div className="flex justify-end gap-2 pt-2">
-                                                            <Button variant="ghost" onClick={() => setCreateLocationFieldModalOpen(false)}>Cancel</Button>
-                                                            <Button
-                                                                className="min-w-[120px]"
-                                                                onClick={() => handleCreateLocationField(createLocationName || "Location")}
-                                                                disabled={isCreatingLocationField}
-                                                            >
-                                                                {isCreatingLocationField ? "Adding..." : "Add Location"}
-                                                            </Button>
-                                                        </div>
+                                                        <DialogTitle className="text-center text-lg font-bold text-zinc-900">
+                                                            See your tasks visualized on a map.
+                                                        </DialogTitle>
                                                     </div>
-                                                ) : (
-                                                    <div className="flex flex-col max-h-[500px]">
-                                                        <div className="p-3 border-b border-zinc-100">
+                                                    <div className="space-y-4">
+                                                        <div className="space-y-1.5">
+                                                            <Label className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Field name <span className="text-red-500">*</span></Label>
                                                             <div className="relative">
-                                                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
+                                                                <div className="absolute left-3 top-1/2 -translate-y-1/2">
+                                                                    <Box className="h-4 w-4 text-zinc-400" />
+                                                                </div>
                                                                 <Input
-                                                                    placeholder="Search or create..."
-                                                                    value={searchLocationField}
-                                                                    onChange={e => setSearchLocationField(e.target.value)}
-                                                                    className="pl-9 h-9 border-zinc-100 bg-zinc-50/50 focus-visible:bg-white transition-colors"
+                                                                    value={createLocationName}
+                                                                    onChange={e => setCreateLocationName(e.target.value)}
                                                                     onKeyDown={(e) => {
-                                                                        if (e.key === "Enter" && searchLocationField.trim()) {
-                                                                            const exists = locationFields.find((f: any) => f.name.toLowerCase() === searchLocationField.toLowerCase());
-                                                                            if (!exists) {
-                                                                                handleCreateLocationField(searchLocationField);
-                                                                            }
+                                                                        if (e.key === "Enter" && createLocationName.trim()) {
+                                                                            handleCreateLocationField(createLocationName);
                                                                         }
                                                                     }}
+                                                                    placeholder="Enter name..."
+                                                                    className="pl-9 h-10 border-zinc-200"
                                                                 />
                                                             </div>
                                                         </div>
-                                                        <div className="p-2">
-                                                            <p className="px-2 py-1.5 text-[10px] font-bold text-zinc-400 uppercase tracking-widest">
-                                                                Location Fields
-                                                            </p>
-                                                            <div className="space-y-0.5">
-                                                                {locationFields
-                                                                    .filter((f: any) => !searchLocationField || f.name.toLowerCase().includes(searchLocationField.toLowerCase()))
-                                                                    .map((field: any) => (
-                                                                        <button
-                                                                            key={field.id}
-                                                                            className={cn(
-                                                                                "w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-colors group",
-                                                                                selectedLocationFieldId === field.id ? "bg-violet-50 text-violet-900" : "hover:bg-zinc-100"
-                                                                            )}
-                                                                            onClick={() => {
-                                                                                setSelectedLocationFieldId(field.id);
-                                                                                updateViewProperty('config', {
-                                                                                    ...((viewData?.config ?? {}) as Record<string, any>),
-                                                                                    mapView: {
-                                                                                        ...currentViewConfig,
-                                                                                        selectedLocationFieldId: field.id
-                                                                                    }
-                                                                                });
-                                                                                setCreateLocationFieldModalOpen(false);
-                                                                                toast.success(`Selected ${field.name} `);
-                                                                            }}
-                                                                        >
-                                                                            <div className={cn(
-                                                                                "h-8 w-8 rounded-md flex items-center justify-center transition-all border",
-                                                                                selectedLocationFieldId === field.id ? "bg-violet-200 border-violet-300" : "bg-zinc-100 border-transparent group-hover:bg-white group-hover:border-zinc-200"
-                                                                            )}>
-                                                                                <MapPin className={cn("h-4 w-4", selectedLocationFieldId === field.id ? "text-violet-700" : "text-zinc-500")} />
-                                                                            </div>
-                                                                            <span className="text-sm font-medium">{field.name}</span>
-                                                                            {selectedLocationFieldId === field.id && (
-                                                                                <CheckCircle2 className="h-4 w-4 text-violet-600 ml-auto" />
-                                                                            )}
-                                                                        </button>
-                                                                    ))}
-                                                                {searchLocationField && !locationFields.some((f: any) => f.name.toLowerCase() === searchLocationField.toLowerCase()) && (
-                                                                    <button
-                                                                        className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-violet-50 text-left transition-colors group"
-                                                                        onClick={() => handleCreateLocationField(searchLocationField)}
-                                                                    >
-                                                                        <div className="h-8 w-8 rounded-md bg-violet-100 flex items-center justify-center group-hover:bg-violet-200 transition-colors">
-                                                                            <Plus className="h-4 w-4 text-violet-600" />
-                                                                        </div>
-                                                                        <div className="flex flex-col">
-                                                                            <span className="text-sm font-medium text-violet-700">Create "{searchLocationField}"</span>
-                                                                            <span className="text-xs text-violet-500">Add as new location field</span>
-                                                                        </div>
-                                                                    </button>
-                                                                )}
+                                                        <div className="flex items-center justify-between gap-3 p-3 bg-violet-50/50 border border-violet-100 rounded-lg text-sm text-zinc-600">
+                                                            <div className="p-2 bg-white rounded-md shadow-sm border border-violet-100 shrink-0">
+                                                                <MapPin className="h-4 w-4 text-violet-500" />
                                                             </div>
+                                                            <div className="flex-1 min-w-0">
+                                                                <div className="font-medium text-zinc-900 mb-0.5">Location</div>
+                                                                <div className="text-xs text-zinc-500">Field Type</div>
+                                                            </div>
+                                                            <ChevronDown className="h-4 w-4 text-zinc-400 opacity-50" />
                                                         </div>
+
+                                                        {context !== "list" && (
+                                                            <div className="bg-yellow-50 border border-yellow-100 rounded-lg p-3 text-sm text-yellow-800 flex gap-2 items-start">
+                                                                <Info className="h-4 w-4 shrink-0 mt-0.5 text-yellow-600" />
+                                                                <span>
+                                                                    Custom Fields on the {context === "folder" ? "Folder" : context === "space" ? "Space" : context === "project" ? "Project" : context === "team" ? "Team" : "Workspace"} level will be added to all {context === "folder" ? "Lists" : "Folders & Lists"} below
+                                                                </span>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                    <div className="flex justify-end gap-2 pt-2">
+                                                        <Button variant="ghost" onClick={() => setCreateLocationFieldModalOpen(false)}>Cancel</Button>
+                                                        <Button
+                                                            className="min-w-[120px]"
+                                                            onClick={() => handleCreateLocationField(createLocationName || "Location")}
+                                                            disabled={isCreatingLocationField}
+                                                        >
+                                                            {isCreatingLocationField ? "Adding..." : "Add Location"}
+                                                        </Button>
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <div className="flex flex-col max-h-[500px]">
+                                                    <div className="p-3 border-b border-zinc-100">
+                                                        <div className="relative">
+                                                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
+                                                            <Input
+                                                                placeholder="Search or create..."
+                                                                value={searchLocationField}
+                                                                onChange={e => setSearchLocationField(e.target.value)}
+                                                                className="pl-9 h-9 border-zinc-100 bg-zinc-50/50 focus-visible:bg-white transition-colors"
+                                                                onKeyDown={(e) => {
+                                                                    if (e.key === "Enter" && searchLocationField.trim()) {
+                                                                        const exists = locationFields.find((f: any) => f.name.toLowerCase() === searchLocationField.toLowerCase());
+                                                                        if (!exists) {
+                                                                            handleCreateLocationField(searchLocationField);
+                                                                        }
+                                                                    }
+                                                                }}
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                    <div className="p-2">
+                                                        <p className="px-2 py-1.5 text-[10px] font-bold text-zinc-400 uppercase tracking-widest">
+                                                            Location Fields
+                                                        </p>
+                                                        <div className="space-y-0.5">
+                                                            {locationFields
+                                                                .filter((f: any) => !searchLocationField || f.name.toLowerCase().includes(searchLocationField.toLowerCase()))
+                                                                .map((field: any) => (
+                                                                    <button
+                                                                        key={field.id}
+                                                                        className={cn(
+                                                                            "w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-colors group",
+                                                                            selectedLocationFieldId === field.id ? "bg-violet-50 text-violet-900" : "hover:bg-zinc-100"
+                                                                        )}
+                                                                        onClick={() => {
+                                                                            setSelectedLocationFieldId(field.id);
+                                                                            updateViewProperty('config', {
+                                                                                ...((viewData?.config ?? {}) as Record<string, any>),
+                                                                                mapView: {
+                                                                                    ...currentViewConfig,
+                                                                                    selectedLocationFieldId: field.id
+                                                                                }
+                                                                            });
+                                                                            setCreateLocationFieldModalOpen(false);
+                                                                            toast.success(`Selected ${field.name} `);
+                                                                        }}
+                                                                    >
+                                                                        <div className={cn(
+                                                                            "h-8 w-8 rounded-md flex items-center justify-center transition-all border",
+                                                                            selectedLocationFieldId === field.id ? "bg-violet-200 border-violet-300" : "bg-zinc-100 border-transparent group-hover:bg-white group-hover:border-zinc-200"
+                                                                        )}>
+                                                                            <MapPin className={cn("h-4 w-4", selectedLocationFieldId === field.id ? "text-violet-700" : "text-zinc-500")} />
+                                                                        </div>
+                                                                        <span className="text-sm font-medium">{field.name}</span>
+                                                                        {selectedLocationFieldId === field.id && (
+                                                                            <CheckCircle2 className="h-4 w-4 text-violet-600 ml-auto" />
+                                                                        )}
+                                                                    </button>
+                                                                ))}
+                                                            {searchLocationField && !locationFields.some((f: any) => f.name.toLowerCase() === searchLocationField.toLowerCase()) && (
+                                                                <button
+                                                                    className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-violet-50 text-left transition-colors group"
+                                                                    onClick={() => handleCreateLocationField(searchLocationField)}
+                                                                >
+                                                                    <div className="h-8 w-8 rounded-md bg-violet-100 flex items-center justify-center group-hover:bg-violet-200 transition-colors">
+                                                                        <Plus className="h-4 w-4 text-violet-600" />
+                                                                    </div>
+                                                                    <div className="flex flex-col">
+                                                                        <span className="text-sm font-medium text-violet-700">Create "{searchLocationField}"</span>
+                                                                        <span className="text-xs text-violet-500">Add as new location field</span>
+                                                                    </div>
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </DialogContent>
+                                    </Dialog>
+                                    <Popover open={customizeViewGroupOpen} onOpenChange={setCustomizeViewGroupOpen}>
+                                        <PopoverTrigger asChild>
+                                            <button
+                                                type="button"
+                                                className="w-full flex items-center justify-between py-2.5 text-sm text-zinc-800 hover:bg-zinc-50 rounded-md px-2"
+                                            >
+                                                <span className="flex items-center gap-2">
+                                                    <span className="text-sm text-zinc-800">Color tasks by</span>
+                                                    {colorBy === "default" && (
+                                                        <div className="h-4 w-4 rounded-full border border-zinc-200" style={{ backgroundColor: defaultColor }} />
+                                                    )}
+                                                </span>
+                                                <ChevronRight className="h-4 w-4 text-zinc-400" />
+                                            </button>
+                                        </PopoverTrigger>
+                                        <PopoverContent side="left" align="start" className="w-[280px] p-3 rounded-xl shadow-xl border-zinc-200/60" sideOffset={16}>
+                                            <div className="px-1 py-1 mb-2">
+                                                <span className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">Color tasks by</span>
+                                            </div>
+                                            <div className="space-y-1">
+                                                <div
+                                                    className={cn(
+                                                        "flex items-center justify-between gap-2 px-2 py-2 text-sm rounded-md cursor-pointer transition-colors",
+                                                        colorBy === "default" ? "bg-violet-50 text-violet-700" : "text-zinc-700 hover:bg-zinc-100"
+                                                    )}
+                                                    onClick={() => setColorBy("default")}
+                                                >
+                                                    <span className="font-medium">Default</span>
+                                                    {colorBy === "default" && <div className="h-1.5 w-1.5 rounded-full bg-violet-600" />}
+                                                </div>
+                                                {colorBy === "default" && (
+                                                    <div className="px-2 py-2 flex flex-wrap gap-2">
+                                                        {DEFAULT_COLORS.map((color) => (
+                                                            <button
+                                                                key={color}
+                                                                type="button"
+                                                                className={cn(
+                                                                    "h-7 w-7 rounded-full border-2 transition-all",
+                                                                    defaultColor === color ? "border-zinc-900 scale-110" : "border-transparent hover:scale-105"
+                                                                )}
+                                                                style={{ backgroundColor: color }}
+                                                                onClick={() => setDefaultColor(color)}
+                                                            />
+                                                        ))}
                                                     </div>
                                                 )}
-                                            </DialogContent>
-                                        </Dialog>
-                                        <Popover open={customizeViewGroupOpen} onOpenChange={setCustomizeViewGroupOpen}>
-                                            <PopoverTrigger asChild>
-                                                <button
-                                                    type="button"
-                                                    className="w-full flex items-center justify-between py-2.5 text-sm text-zinc-800 hover:bg-zinc-50 rounded-md px-2"
-                                                >
-                                                    <span className="flex items-center gap-2">
-                                                        <span className="text-sm text-zinc-800">Color tasks by</span>
-                                                        {colorBy === "default" && (
-                                                            <div className="h-4 w-4 rounded-full border border-zinc-200" style={{ backgroundColor: defaultColor }} />
-                                                        )}
-                                                    </span>
-                                                    <ChevronRight className="h-4 w-4 text-zinc-400" />
-                                                </button>
-                                            </PopoverTrigger>
-                                            <PopoverContent side="left" align="start" className="w-[280px] p-3 rounded-xl shadow-xl border-zinc-200/60" sideOffset={16}>
-                                                <div className="px-1 py-1 mb-2">
-                                                    <span className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">Color tasks by</span>
-                                                </div>
-                                                <div className="space-y-1">
-                                                    <div
-                                                        className={cn(
-                                                            "flex items-center justify-between gap-2 px-2 py-2 text-sm rounded-md cursor-pointer transition-colors",
-                                                            colorBy === "default" ? "bg-violet-50 text-violet-700" : "text-zinc-700 hover:bg-zinc-100"
-                                                        )}
-                                                        onClick={() => setColorBy("default")}
-                                                    >
-                                                        <span className="font-medium">Default</span>
-                                                        {colorBy === "default" && <div className="h-1.5 w-1.5 rounded-full bg-violet-600" />}
-                                                    </div>
-                                                    {colorBy === "default" && (
-                                                        <div className="px-2 py-2 flex flex-wrap gap-2">
-                                                            {DEFAULT_COLORS.map((color) => (
-                                                                <button
-                                                                    key={color}
-                                                                    type="button"
-                                                                    className={cn(
-                                                                        "h-7 w-7 rounded-full border-2 transition-all",
-                                                                        defaultColor === color ? "border-zinc-900 scale-110" : "border-transparent hover:scale-105"
-                                                                    )}
-                                                                    style={{ backgroundColor: color }}
-                                                                    onClick={() => setDefaultColor(color)}
-                                                                />
-                                                            ))}
-                                                        </div>
+                                                <div
+                                                    className={cn(
+                                                        "flex items-center justify-between gap-2 px-2 py-2 text-sm rounded-md cursor-pointer transition-colors",
+                                                        colorBy === "priority" ? "bg-violet-50 text-violet-700" : "text-zinc-700 hover:bg-zinc-100"
                                                     )}
-                                                    <div
-                                                        className={cn(
-                                                            "flex items-center justify-between gap-2 px-2 py-2 text-sm rounded-md cursor-pointer transition-colors",
-                                                            colorBy === "priority" ? "bg-violet-50 text-violet-700" : "text-zinc-700 hover:bg-zinc-100"
-                                                        )}
-                                                        onClick={() => setColorBy("priority")}
-                                                    >
-                                                        <span className="font-medium">Priority</span>
-                                                        {colorBy === "priority" && <div className="h-1.5 w-1.5 rounded-full bg-violet-600" />}
+                                                    onClick={() => setColorBy("priority")}
+                                                >
+                                                    <span className="font-medium">Priority</span>
+                                                    {colorBy === "priority" && <div className="h-1.5 w-1.5 rounded-full bg-violet-600" />}
+                                                </div>
+                                                <div
+                                                    className={cn(
+                                                        "flex items-center justify-between gap-2 px-2 py-2 text-sm rounded-md cursor-pointer transition-colors",
+                                                        colorBy === "status" ? "bg-violet-50 text-violet-700" : "text-zinc-700 hover:bg-zinc-100"
+                                                    )}
+                                                    onClick={() => setColorBy("status")}
+                                                >
+                                                    <span className="font-medium">Status</span>
+                                                    {colorBy === "status" && <div className="h-1.5 w-1.5 rounded-full bg-violet-600" />}
+                                                </div>
+                                            </div>
+                                        </PopoverContent>
+                                    </Popover>
+                                    <Popover open={zoomRangeOpen} onOpenChange={setZoomRangeOpen}>
+                                        <PopoverTrigger asChild>
+                                            <button
+                                                type="button"
+                                                className="w-full flex items-center justify-between py-2.5 text-sm text-zinc-800 hover:bg-zinc-50 rounded-md px-2"
+                                            >
+                                                <span className="text-sm text-zinc-800">Zoom range</span>
+                                                <ChevronRight className="h-4 w-4 text-zinc-400" />
+                                            </button>
+                                        </PopoverTrigger>
+                                        <PopoverContent side="left" align="start" className="w-[320px] p-4 rounded-xl shadow-xl border-zinc-200/60" sideOffset={16}>
+                                            <div className="space-y-4">
+                                                <div className="px-1">
+                                                    <span className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">Zoom Range</span>
+                                                </div>
+                                                <div className="px-2">
+                                                    <div className="flex items-center justify-between text-sm font-medium text-zinc-700 mb-3">
+                                                        <span>{zoomRange[0]}</span>
+                                                        <span className="text-xs text-zinc-400">-</span>
+                                                        <span>{zoomRange[1]}</span>
                                                     </div>
-                                                    <div
-                                                        className={cn(
-                                                            "flex items-center justify-between gap-2 px-2 py-2 text-sm rounded-md cursor-pointer transition-colors",
-                                                            colorBy === "status" ? "bg-violet-50 text-violet-700" : "text-zinc-700 hover:bg-zinc-100"
-                                                        )}
-                                                        onClick={() => setColorBy("status")}
-                                                    >
-                                                        <span className="font-medium">Status</span>
-                                                        {colorBy === "status" && <div className="h-1.5 w-1.5 rounded-full bg-violet-600" />}
+                                                    <Slider
+                                                        value={zoomRange}
+                                                        onValueChange={(val) => setZoomRange(val as [number, number])}
+                                                        min={0}
+                                                        max={22}
+                                                        step={1}
+                                                        className="w-full"
+                                                    />
+                                                    <div className="flex items-center justify-between text-xs text-zinc-400 mt-2">
+                                                        <span>Global</span>
+                                                        <span>Local</span>
                                                     </div>
                                                 </div>
-                                            </PopoverContent>
-                                        </Popover>
-                                        <Popover open={zoomRangeOpen} onOpenChange={setZoomRangeOpen}>
-                                            <PopoverTrigger asChild>
+                                            </div>
+                                        </PopoverContent>
+                                    </Popover>
+                                    <div className="flex items-center justify-between py-2.5 px-2 hover:bg-zinc-50 rounded-md transition-colors">
+                                        <span className="text-sm text-zinc-800">Show closed tasks</span>
+                                        <Switch checked={showCompleted} onCheckedChange={setShowCompleted} />
+                                    </div>
+                                    <button
+                                        type="button"
+                                        className="w-full flex items-center justify-between py-2.5 text-sm text-zinc-800 hover:bg-zinc-50 rounded-md px-2"
+                                        onClick={() => { setLayoutOptionsOpen(true); }}
+                                    >
+                                        <span className="text-sm text-zinc-800">More options</span>
+                                        <ChevronRight className="h-4 w-4 text-zinc-400" />
+                                    </button>
+                                </div>
+
+                                <div className="h-px bg-zinc-100 my-2" />
+
+                                {/* Section 2: Data/View */}
+                                <div className="space-y-1">
+                                    <Popover open={customizeViewFilterOpen} onOpenChange={setCustomizeViewFilterOpen}>
+                                        <PopoverTrigger asChild>
+                                            <button
+                                                type="button"
+                                                className="w-full flex items-center justify-between py-2.5 text-sm text-zinc-800 hover:bg-zinc-50 rounded-md px-2"
+                                                onClick={() => { if (filterGroups.conditions.length === 0) { addFilterGroup(); } }}
+                                            >
+                                                <span className="flex items-center gap-2"><Filter className="h-4 w-4 text-zinc-400" />Filter</span>
+                                                <span className="text-xs text-zinc-500">{appliedFilterCount > 0 ? `${appliedFilterCount} applied` : "None"} <ChevronRight className="inline h-3 w-3 ml-1" /></span>
+                                            </button>
+                                        </PopoverTrigger>
+                                        <PopoverContent side="left" align="start" className="w-[600px] max-w-[90vw] p-0 overflow-hidden shadow-2xl rounded-2xl border border-zinc-200/80" sideOffset={16}>
+                                            {renderFilterContent({ onClose: () => setCustomizeViewFilterOpen(false) })}
+                                        </PopoverContent>
+                                    </Popover>
+
+                                    <Popover open={customizeViewSubtasksOpen} onOpenChange={setCustomizeViewSubtasksOpen}>
+                                        <PopoverTrigger asChild>
+                                            <button
+                                                type="button"
+                                                className="w-full flex items-center justify-between py-2.5 text-sm text-zinc-800 hover:bg-zinc-50 rounded-md px-2"
+                                            >
+                                                <span className="flex items-center gap-2"><Link2 className="h-4 w-4 text-zinc-400" />Subtasks</span>
+                                                <span className="text-xs text-zinc-500">{expandedSubtaskMode === "collapsed" ? "Collapsed" : expandedSubtaskMode === "expanded" ? "Expanded" : "Separate"} <ChevronRight className="inline h-3 w-3 ml-1" /></span>
+                                            </button>
+                                        </PopoverTrigger>
+                                        <PopoverContent side="left" align="start" className="w-56" sideOffset={16}>
+                                            <div className="text-xs px-2 pb-2 font-semibold text-zinc-900">Show subtasks</div>
+                                            <div className="space-y-1">
                                                 <button
                                                     type="button"
-                                                    className="w-full flex items-center justify-between py-2.5 text-sm text-zinc-800 hover:bg-zinc-50 rounded-md px-2"
+                                                    className={cn(
+                                                        "w-full text-left text-xs px-2 py-1 rounded",
+                                                        expandedSubtaskMode === "collapsed" ? "bg-zinc-100 text-zinc-900" : "text-zinc-700 hover:bg-zinc-50"
+                                                    )}
+                                                    onClick={() => {
+                                                        setExpandedSubtaskMode("collapsed");
+                                                        setExpandedParents(new Set());
+                                                        setCustomizeViewSubtasksOpen(false);
+                                                    }}
                                                 >
-                                                    <span className="text-sm text-zinc-800">Zoom range</span>
-                                                    <ChevronRight className="h-4 w-4 text-zinc-400" />
+                                                    Collapsed (default)
                                                 </button>
-                                            </PopoverTrigger>
-                                            <PopoverContent side="left" align="start" className="w-[320px] p-4 rounded-xl shadow-xl border-zinc-200/60" sideOffset={16}>
-                                                <div className="space-y-4">
-                                                    <div className="px-1">
-                                                        <span className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">Zoom Range</span>
-                                                    </div>
-                                                    <div className="px-2">
-                                                        <div className="flex items-center justify-between text-sm font-medium text-zinc-700 mb-3">
-                                                            <span>{zoomRange[0]}</span>
-                                                            <span className="text-xs text-zinc-400">-</span>
-                                                            <span>{zoomRange[1]}</span>
-                                                        </div>
-                                                        <Slider
-                                                            value={zoomRange}
-                                                            onValueChange={(val) => setZoomRange(val as [number, number])}
-                                                            min={0}
-                                                            max={22}
-                                                            step={1}
-                                                            className="w-full"
-                                                        />
-                                                        <div className="flex items-center justify-between text-xs text-zinc-400 mt-2">
-                                                            <span>Global</span>
-                                                            <span>Local</span>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </PopoverContent>
-                                        </Popover>
-                                        <div className="flex items-center justify-between py-2.5 px-2 hover:bg-zinc-50 rounded-md transition-colors">
-                                            <span className="text-sm text-zinc-800">Show closed tasks</span>
-                                            <Switch checked={showCompleted} onCheckedChange={setShowCompleted} />
-                                        </div>
-                                        <button
-                                            type="button"
-                                            className="w-full flex items-center justify-between py-2.5 text-sm text-zinc-800 hover:bg-zinc-50 rounded-md px-2"
-                                            onClick={() => { setLayoutOptionsOpen(true); }}
-                                        >
-                                            <span className="text-sm text-zinc-800">More options</span>
-                                            <ChevronRight className="h-4 w-4 text-zinc-400" />
-                                        </button>
-                                    </div>
-
-                                    <div className="h-px bg-zinc-100 my-2" />
-
-                                    {/* Section 2: Data/View */}
-                                    <div className="space-y-1">
-                                        <Popover open={customizeViewFilterOpen} onOpenChange={setCustomizeViewFilterOpen}>
-                                            <PopoverTrigger asChild>
                                                 <button
                                                     type="button"
-                                                    className="w-full flex items-center justify-between py-2.5 text-sm text-zinc-800 hover:bg-zinc-50 rounded-md px-2"
-                                                    onClick={() => { if (filterGroups.conditions.length === 0) { addFilterGroup(); } }}
+                                                    className={cn(
+                                                        "w-full text-left text-xs px-2 py-1 rounded",
+                                                        expandedSubtaskMode === "expanded" ? "bg-zinc-100 text-zinc-900" : "text-zinc-700 hover:bg-zinc-50"
+                                                    )}
+                                                    onClick={() => {
+                                                        setExpandedSubtaskMode("expanded");
+                                                        const next = new Set<string>();
+                                                        filteredTasks.forEach((t: Task) => {
+                                                            if (hasSubtasks(t, filteredTasks as Task[])) next.add(t.id);
+                                                        });
+                                                        setExpandedParents(next);
+                                                        setCustomizeViewSubtasksOpen(false);
+                                                    }}
                                                 >
-                                                    <span className="flex items-center gap-2"><Filter className="h-4 w-4 text-zinc-400" />Filter</span>
-                                                    <span className="text-xs text-zinc-500">{appliedFilterCount > 0 ? `${appliedFilterCount} applied` : "None"} <ChevronRight className="inline h-3 w-3 ml-1" /></span>
+                                                    Expanded
                                                 </button>
-                                            </PopoverTrigger>
-                                            <PopoverContent side="left" align="start" className="w-[600px] max-w-[90vw] p-0 overflow-hidden shadow-2xl rounded-2xl border border-zinc-200/80" sideOffset={16}>
-                                                {renderFilterContent({ onClose: () => setCustomizeViewFilterOpen(false) })}
-                                            </PopoverContent>
-                                        </Popover>
-
-                                        <Popover open={customizeViewSubtasksOpen} onOpenChange={setCustomizeViewSubtasksOpen}>
-                                            <PopoverTrigger asChild>
                                                 <button
                                                     type="button"
-                                                    className="w-full flex items-center justify-between py-2.5 text-sm text-zinc-800 hover:bg-zinc-50 rounded-md px-2"
+                                                    className={cn(
+                                                        "w-full text-left text-xs px-2 py-1 rounded",
+                                                        expandedSubtaskMode === "separate" ? "bg-zinc-100 text-zinc-900" : "text-zinc-700 hover:bg-zinc-50"
+                                                    )}
+                                                    onClick={() => {
+                                                        setExpandedSubtaskMode("separate");
+                                                        setExpandedParents(new Set());
+                                                        setCustomizeViewSubtasksOpen(false);
+                                                    }}
                                                 >
-                                                    <span className="flex items-center gap-2"><Link2 className="h-4 w-4 text-zinc-400" />Subtasks</span>
-                                                    <span className="text-xs text-zinc-500">{expandedSubtaskMode === "collapsed" ? "Collapsed" : expandedSubtaskMode === "expanded" ? "Expanded" : "Separate"} <ChevronRight className="inline h-3 w-3 ml-1" /></span>
+                                                    As separate items
                                                 </button>
-                                            </PopoverTrigger>
-                                            <PopoverContent side="left" align="start" className="w-56" sideOffset={16}>
-                                                <div className="text-xs px-2 pb-2 font-semibold text-zinc-900">Show subtasks</div>
-                                                <div className="space-y-1">
-                                                    <button
-                                                        type="button"
-                                                        className={cn(
-                                                            "w-full text-left text-xs px-2 py-1 rounded",
-                                                            expandedSubtaskMode === "collapsed" ? "bg-zinc-100 text-zinc-900" : "text-zinc-700 hover:bg-zinc-50"
-                                                        )}
-                                                        onClick={() => {
-                                                            setExpandedSubtaskMode("collapsed");
-                                                            setExpandedParents(new Set());
-                                                            setCustomizeViewSubtasksOpen(false);
-                                                        }}
-                                                    >
-                                                        Collapsed (default)
-                                                    </button>
-                                                    <button
-                                                        type="button"
-                                                        className={cn(
-                                                            "w-full text-left text-xs px-2 py-1 rounded",
-                                                            expandedSubtaskMode === "expanded" ? "bg-zinc-100 text-zinc-900" : "text-zinc-700 hover:bg-zinc-50"
-                                                        )}
-                                                        onClick={() => {
-                                                            setExpandedSubtaskMode("expanded");
-                                                            const next = new Set<string>();
-                                                            filteredTasks.forEach((t: Task) => {
-                                                                if (hasSubtasks(t, filteredTasks as Task[])) next.add(t.id);
-                                                            });
-                                                            setExpandedParents(next);
-                                                            setCustomizeViewSubtasksOpen(false);
-                                                        }}
-                                                    >
-                                                        Expanded
-                                                    </button>
-                                                    <button
-                                                        type="button"
-                                                        className={cn(
-                                                            "w-full text-left text-xs px-2 py-1 rounded",
-                                                            expandedSubtaskMode === "separate" ? "bg-zinc-100 text-zinc-900" : "text-zinc-700 hover:bg-zinc-50"
-                                                        )}
-                                                        onClick={() => {
-                                                            setExpandedSubtaskMode("separate");
-                                                            setExpandedParents(new Set());
-                                                            setCustomizeViewSubtasksOpen(false);
-                                                        }}
-                                                    >
-                                                        As separate items
-                                                    </button>
-                                                </div>
-                                            </PopoverContent>
-                                        </Popover>
+                                            </div>
+                                        </PopoverContent>
+                                    </Popover>
+                                </div>
+
+                                <div className="h-px bg-zinc-100 my-2" />
+
+                                {/* Section 3: View Settings */}
+                                <div className="space-y-1">
+                                    <div className="flex items-center justify-between py-2.5 px-2 hover:bg-zinc-50 rounded-md transition-colors">
+                                        <div className="flex items-center gap-2">
+                                            <Save className="h-4 w-4 text-zinc-400" />
+                                            <span className="text-sm text-zinc-800">Autosave for me</span>
+                                        </div>
+                                        <Switch checked={viewAutosave} onCheckedChange={handleToggleAutosave} />
                                     </div>
-
-                                    <div className="h-px bg-zinc-100 my-2" />
-
-                                    {/* Section 3: View Settings */}
-                                    <div className="space-y-1">
-                                        <div className="flex items-center justify-between py-2.5 px-2 hover:bg-zinc-50 rounded-md transition-colors">
-                                            <div className="flex items-center gap-2">
-                                                <Save className="h-4 w-4 text-zinc-400" />
-                                                <span className="text-sm text-zinc-800">Autosave for me</span>
-                                            </div>
-                                            <Switch checked={viewAutosave} onCheckedChange={handleToggleAutosave} />
+                                    <div className="flex items-center justify-between py-2.5 px-2 hover:bg-zinc-50 rounded-md transition-colors">
+                                        <div className="flex items-center gap-2">
+                                            <Pin className="h-4 w-4 text-zinc-400" />
+                                            <span className="text-sm text-zinc-800">Pin view</span>
                                         </div>
-                                        <div className="flex items-center justify-between py-2.5 px-2 hover:bg-zinc-50 rounded-md transition-colors">
-                                            <div className="flex items-center gap-2">
-                                                <Pin className="h-4 w-4 text-zinc-400" />
-                                                <span className="text-sm text-zinc-800">Pin view</span>
-                                            </div>
-                                            <Switch checked={pinView} onCheckedChange={(val) => { setPinView(val); updateViewProperty('isPinned', val); }} />
-                                        </div>
-                                        <div className="flex items-center justify-between py-2.5 px-2 hover:bg-zinc-50 rounded-md transition-colors">
-                                            <div className="flex items-center gap-2">
-                                                <Lock className="h-4 w-4 text-zinc-400" />
-                                                <span className="text-sm text-zinc-800">Private view</span>
-                                            </div>
-                                            <Switch checked={privateView} onCheckedChange={(val) => { setPrivateView(val); updateViewProperty('isPrivate', val); }} />
-                                        </div>
-                                        <div className="flex items-center justify-between py-2.5 px-2 hover:bg-zinc-50 rounded-md transition-colors">
-                                            <div className="flex items-center gap-2">
-                                                <ShieldCheck className="h-4 w-4 text-zinc-400" />
-                                                <span className="text-sm text-zinc-800">Protect view</span>
-                                            </div>
-                                            <Switch checked={protectView} onCheckedChange={(val) => { setProtectView(val); updateViewProperty('isLocked', val); }} />
-                                        </div>
-                                        <div className="flex items-center justify-between py-2.5 px-2 hover:bg-zinc-50 rounded-md transition-colors">
-                                            <div className="flex items-center gap-2">
-                                                <Home className="h-4 w-4 text-zinc-400" />
-                                                <span className="text-sm text-zinc-800">Set as default view</span>
-                                            </div>
-                                            <Switch checked={defaultView} onCheckedChange={(val) => { setDefaultView(val); updateViewProperty('isDefault', val); }} />
-                                        </div>
+                                        <Switch checked={pinView} onCheckedChange={(val) => { setPinView(val); updateViewProperty('isPinned', val); }} />
                                     </div>
-
-                                    <div className="h-px bg-zinc-100 my-2" />
-
-                                    {/* Section 4: Actions */}
-                                    <div className="space-y-1">
-                                        <button type="button" className="w-full flex items-center justify-between py-2.5 text-sm text-zinc-800 hover:bg-zinc-50 rounded-md px-2" onClick={() => {
-                                            const url = `${window.location.origin}${window.location.pathname}?v = ${viewId} `;
-                                            navigator.clipboard?.writeText(url);
-                                            toast.success("Link copied to clipboard");
-                                        }}>
-                                            <span className="flex items-center gap-2"><Link className="h-4 w-4 text-zinc-400" />Copy link to view</span>
-                                        </button>
-                                        <button
-                                            type="button"
-                                            className="w-full flex items-center justify-between py-2.5 text-sm text-zinc-800 hover:bg-zinc-50 rounded-md px-2"
-                                        >
-                                            <span className="flex items-center gap-2"><Star className="h-4 w-4 text-zinc-400" />Favorite</span>
-                                            <ChevronRight className="h-4 w-4 text-zinc-400" />
-                                        </button>
-                                        <button
-                                            type="button"
-                                            className="w-full flex items-center justify-between py-2.5 text-sm text-zinc-800 hover:bg-zinc-50 rounded-md px-2"
-                                            onClick={() => setIsShareModalOpen(true)}
-                                        >
-                                            <span className="flex items-center gap-2"><Users className="h-4 w-4 text-zinc-400" />Sharing & Permissions</span>
-                                            <ChevronRight className="inline h-3 w-3 ml-1 text-zinc-400" />
-                                        </button>
-                                        <button
-                                            type="button"
-                                            className="w-full flex items-center justify-between py-2.5 text-sm text-zinc-800 hover:bg-zinc-50 rounded-md px-2"
-                                        >
-                                            <span className="flex items-center gap-2"><Trash2 className="h-4 w-4 text-zinc-400" />Delete view</span>
-                                        </button>
+                                    <div className="flex items-center justify-between py-2.5 px-2 hover:bg-zinc-50 rounded-md transition-colors">
+                                        <div className="flex items-center gap-2">
+                                            <Lock className="h-4 w-4 text-zinc-400" />
+                                            <span className="text-sm text-zinc-800">Private view</span>
+                                        </div>
+                                        <Switch checked={privateView} onCheckedChange={(val) => { setPrivateView(val); updateViewProperty('isPrivate', val); }} />
+                                    </div>
+                                    <div className="flex items-center justify-between py-2.5 px-2 hover:bg-zinc-50 rounded-md transition-colors">
+                                        <div className="flex items-center gap-2">
+                                            <ShieldCheck className="h-4 w-4 text-zinc-400" />
+                                            <span className="text-sm text-zinc-800">Protect view</span>
+                                        </div>
+                                        <Switch checked={protectView} onCheckedChange={(val) => { setProtectView(val); updateViewProperty('isLocked', val); }} />
+                                    </div>
+                                    <div className="flex items-center justify-between py-2.5 px-2 hover:bg-zinc-50 rounded-md transition-colors">
+                                        <div className="flex items-center gap-2">
+                                            <Home className="h-4 w-4 text-zinc-400" />
+                                            <span className="text-sm text-zinc-800">Set as default view</span>
+                                        </div>
+                                        <Switch checked={defaultView} onCheckedChange={(val) => { setDefaultView(val); updateViewProperty('isDefault', val); }} />
                                     </div>
                                 </div>
-                            </ScrollArea>
+
+                                <div className="h-px bg-zinc-100 my-2" />
+
+                                {/* Section 4: Actions */}
+                                <div className="space-y-1">
+                                    <button type="button" className="w-full flex items-center justify-between py-2.5 text-sm text-zinc-800 hover:bg-zinc-50 rounded-md px-2" onClick={() => {
+                                        const url = `${window.location.origin}${window.location.pathname}?v = ${viewId} `;
+                                        navigator.clipboard?.writeText(url);
+                                        toast.success("Link copied to clipboard");
+                                    }}>
+                                        <span className="flex items-center gap-2"><Link className="h-4 w-4 text-zinc-400" />Copy link to view</span>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className="w-full flex items-center justify-between py-2.5 text-sm text-zinc-800 hover:bg-zinc-50 rounded-md px-2"
+                                    >
+                                        <span className="flex items-center gap-2"><Star className="h-4 w-4 text-zinc-400" />Favorite</span>
+                                        <ChevronRight className="h-4 w-4 text-zinc-400" />
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className="w-full flex items-center justify-between py-2.5 text-sm text-zinc-800 hover:bg-zinc-50 rounded-md px-2"
+                                        onClick={() => setIsShareModalOpen(true)}
+                                    >
+                                        <span className="flex items-center gap-2"><Users className="h-4 w-4 text-zinc-400" />Sharing & Permissions</span>
+                                        <ChevronRight className="inline h-3 w-3 ml-1 text-zinc-400" />
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className="w-full flex items-center justify-between py-2.5 text-sm text-zinc-800 hover:bg-zinc-50 rounded-md px-2"
+                                    >
+                                        <span className="flex items-center gap-2"><Trash2 className="h-4 w-4 text-zinc-400" />Delete view</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </ScrollArea>
                     </SidePanel>
                 )
             }
@@ -3215,76 +3215,76 @@ export function MapView({ spaceId, projectId, teamId, listId, folderId, viewId, 
                         onClose={() => { setLayoutOptionsOpen(false); setCustomizePanelOpen(false); }}
                         className="absolute bottom-0 right-0 h-full w-[380px] max-w-[90vw] bg-white border-l border-zinc-200 shadow-xl z-50 flex flex-col"
                     >
-                            <div className="flex items-center justify-between p-4 border-b border-zinc-100">
-                                <Button variant="ghost" size="icon" className="h-8 w-8 -ml-1 cursor-pointer" onClick={() => { setLayoutOptionsOpen(false); setCustomizePanelOpen(true); }}>
-                                    <ArrowRight className="h-4 w-4 rotate-180" />
-                                </Button>
-                                <h3 className="font-semibold text-zinc-900">Layout options</h3>
-                                <Button variant="ghost" size="icon" className="h-8 w-8 cursor-pointer" onClick={() => { setLayoutOptionsOpen(false); setCustomizePanelOpen(false); }}><X className="h-4 w-4" /></Button>
-                            </div>
-                            <ScrollArea className="flex-1 min-h-0">
-                                <div className="p-3 space-y-4 pb-24">
-                                    <div className="space-y-0.5">
-                                        <p className="text-[11px] font-medium text-zinc-400 mb-1 px-2">Page & card layout</p>
-                                        <div className="flex items-center justify-between py-2 px-2 hover:bg-zinc-50 rounded cursor-pointer transition-colors"
-                                            onClick={() => { setCustomizeViewGroupOpen(true); setLayoutOptionsOpen(false); }}>
-                                            <span className="text-sm text-zinc-800">Color tasks by</span>
-                                            <ChevronRight className="h-4 w-4 text-zinc-400" />
-                                        </div>
-                                        <div className="flex items-center justify-between py-2 px-2 hover:bg-zinc-50 rounded cursor-pointer transition-colors"
-                                            onClick={() => { setZoomRangeOpen(true); setLayoutOptionsOpen(false); }}>
-                                            <span className="text-sm text-zinc-800">Zoom range</span>
-                                            <ChevronRight className="h-4 w-4 text-zinc-400" />
-                                        </div>
+                        <div className="flex items-center justify-between p-4 border-b border-zinc-100">
+                            <Button variant="ghost" size="icon" className="h-8 w-8 -ml-1 cursor-pointer" onClick={() => { setLayoutOptionsOpen(false); setCustomizePanelOpen(true); }}>
+                                <ArrowRight className="h-4 w-4 rotate-180" />
+                            </Button>
+                            <h3 className="font-semibold text-zinc-900">Layout options</h3>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 cursor-pointer" onClick={() => { setLayoutOptionsOpen(false); setCustomizePanelOpen(false); }}><X className="h-4 w-4" /></Button>
+                        </div>
+                        <ScrollArea className="flex-1 min-h-0">
+                            <div className="p-3 space-y-4 pb-24">
+                                <div className="space-y-0.5">
+                                    <p className="text-[11px] font-medium text-zinc-400 mb-1 px-2">Page & card layout</p>
+                                    <div className="flex items-center justify-between py-2 px-2 hover:bg-zinc-50 rounded cursor-pointer transition-colors"
+                                        onClick={() => { setCustomizeViewGroupOpen(true); setLayoutOptionsOpen(false); }}>
+                                        <span className="text-sm text-zinc-800">Color tasks by</span>
+                                        <ChevronRight className="h-4 w-4 text-zinc-400" />
                                     </div>
-
-                                    <div className="h-px bg-zinc-100" />
-
-                                    <div className="space-y-0.5">
-                                        <p className="text-[11px] font-medium text-zinc-400 mb-1 px-2">Task visibility</p>
-                                        <div className="flex items-center justify-between py-2 px-2 hover:bg-zinc-50 rounded transition-colors">
-                                            <span className="text-sm text-zinc-800">Show closed tasks</span>
-                                            <Switch checked={showCompleted} onCheckedChange={setShowCompleted} />
-                                        </div>
-                                        <div className="flex items-center justify-between py-2 px-2 hover:bg-zinc-50 rounded transition-colors">
-                                            <span className="text-sm text-zinc-800">Show tasks from other Lists</span>
-                                            <Switch checked={showTasksFromOtherLists} onCheckedChange={setShowTasksFromOtherLists} />
-                                        </div>
-                                        <div className="flex items-center justify-between py-2 px-2 hover:bg-zinc-50 rounded transition-colors">
-                                            <span className="text-sm text-zinc-800">Show subtasks from other Lists</span>
-                                            <Switch checked={showSubtasksFromOtherLists} onCheckedChange={setShowSubtasksFromOtherLists} />
-                                        </div>
-                                    </div>
-
-                                    <div className="h-px bg-zinc-100" />
-
-                                    <div className="space-y-0.5">
-                                        <p className="text-[11px] font-medium text-zinc-400 mb-1 px-2">View settings</p>
-                                        <div className="flex items-center justify-between py-2 px-2 hover:bg-zinc-50 rounded transition-colors">
-                                            <span className="text-sm flex items-center gap-2"><UserRound className="h-4 w-4 text-zinc-400" />Default to Me Mode</span>
-                                            <Switch checked={defaultToMeMode} onCheckedChange={setDefaultToMeMode} />
-                                        </div>
-                                        <div className="flex items-center justify-between py-2 px-2 hover:bg-zinc-50 rounded cursor-pointer transition-colors">
-                                            <span className="text-sm flex items-center gap-2"><ArrowRight className="h-4 w-4 text-zinc-400" />Move view</span>
-                                            <ChevronRight className="h-4 w-4 text-zinc-400" />
-                                        </div>
-                                        <div className="flex items-center justify-between py-2 px-2 hover:bg-zinc-50 rounded cursor-pointer transition-colors">
-                                            <span className="text-sm flex items-center gap-2"><Copy className="h-4 w-4 text-zinc-400" />Duplicate view</span>
-                                            <ChevronRight className="h-4 w-4 text-zinc-400" />
-                                        </div>
-                                    </div>
-
-                                    <div className="h-px bg-zinc-100" />
-
-                                    <div
-                                        className="flex items-center gap-2 py-2.5 px-2 hover:bg-zinc-50 rounded cursor-pointer transition-colors"
-                                        onClick={resetViewToDefaults}
-                                    >
-                                        <RefreshCcw className="h-4 w-4 text-zinc-400" />
-                                        <span className="text-sm text-zinc-800">Reset view to defaults</span>
+                                    <div className="flex items-center justify-between py-2 px-2 hover:bg-zinc-50 rounded cursor-pointer transition-colors"
+                                        onClick={() => { setZoomRangeOpen(true); setLayoutOptionsOpen(false); }}>
+                                        <span className="text-sm text-zinc-800">Zoom range</span>
+                                        <ChevronRight className="h-4 w-4 text-zinc-400" />
                                     </div>
                                 </div>
-                            </ScrollArea>
+
+                                <div className="h-px bg-zinc-100" />
+
+                                <div className="space-y-0.5">
+                                    <p className="text-[11px] font-medium text-zinc-400 mb-1 px-2">Task visibility</p>
+                                    <div className="flex items-center justify-between py-2 px-2 hover:bg-zinc-50 rounded transition-colors">
+                                        <span className="text-sm text-zinc-800">Show closed tasks</span>
+                                        <Switch checked={showCompleted} onCheckedChange={setShowCompleted} />
+                                    </div>
+                                    <div className="flex items-center justify-between py-2 px-2 hover:bg-zinc-50 rounded transition-colors">
+                                        <span className="text-sm text-zinc-800">Show tasks from other Lists</span>
+                                        <Switch checked={showTasksFromOtherLists} onCheckedChange={setShowTasksFromOtherLists} />
+                                    </div>
+                                    <div className="flex items-center justify-between py-2 px-2 hover:bg-zinc-50 rounded transition-colors">
+                                        <span className="text-sm text-zinc-800">Show subtasks from other Lists</span>
+                                        <Switch checked={showSubtasksFromOtherLists} onCheckedChange={setShowSubtasksFromOtherLists} />
+                                    </div>
+                                </div>
+
+                                <div className="h-px bg-zinc-100" />
+
+                                <div className="space-y-0.5">
+                                    <p className="text-[11px] font-medium text-zinc-400 mb-1 px-2">View settings</p>
+                                    <div className="flex items-center justify-between py-2 px-2 hover:bg-zinc-50 rounded transition-colors">
+                                        <span className="text-sm flex items-center gap-2"><UserRound className="h-4 w-4 text-zinc-400" />Default to Me Mode</span>
+                                        <Switch checked={defaultToMeMode} onCheckedChange={setDefaultToMeMode} />
+                                    </div>
+                                    <div className="flex items-center justify-between py-2 px-2 hover:bg-zinc-50 rounded cursor-pointer transition-colors">
+                                        <span className="text-sm flex items-center gap-2"><ArrowRight className="h-4 w-4 text-zinc-400" />Move view</span>
+                                        <ChevronRight className="h-4 w-4 text-zinc-400" />
+                                    </div>
+                                    <div className="flex items-center justify-between py-2 px-2 hover:bg-zinc-50 rounded cursor-pointer transition-colors">
+                                        <span className="text-sm flex items-center gap-2"><Copy className="h-4 w-4 text-zinc-400" />Duplicate view</span>
+                                        <ChevronRight className="h-4 w-4 text-zinc-400" />
+                                    </div>
+                                </div>
+
+                                <div className="h-px bg-zinc-100" />
+
+                                <div
+                                    className="flex items-center gap-2 py-2.5 px-2 hover:bg-zinc-50 rounded cursor-pointer transition-colors"
+                                    onClick={resetViewToDefaults}
+                                >
+                                    <RefreshCcw className="h-4 w-4 text-zinc-400" />
+                                    <span className="text-sm text-zinc-800">Reset view to defaults</span>
+                                </div>
+                            </div>
+                        </ScrollArea>
                     </SidePanel>
                 )
             }

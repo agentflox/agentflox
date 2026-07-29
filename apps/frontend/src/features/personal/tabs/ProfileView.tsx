@@ -13,13 +13,10 @@ import {
     Share2,
     ShieldCheck,
     Camera,
-    Linkedin,
-    Twitter,
-    Facebook,
-    Instagram,
     AtSign,
     Pencil
 } from 'lucide-react';
+import { FaLinkedin, FaTwitter, FaFacebook, FaInstagram } from 'react-icons/fa';
 import { DescriptionEditor } from '@/entities/shared/components/DescriptionEditor';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Switch } from '@/components/ui/switch';
@@ -450,7 +447,7 @@ export function ProfileView() {
                             <div className="space-y-2">
                                 <Label htmlFor="linkedin" className="text-sm font-medium text-zinc-700">LinkedIn</Label>
                                 <div className="relative flex items-center rounded-lg border-2 border-zinc-200 bg-zinc-50/50 transition-all focus-within:border-indigo-400 focus-within:bg-white">
-                                    <Linkedin className="absolute left-3.5 h-4 w-4 text-zinc-400 pointer-events-none" />
+                                    <FaLinkedin className="absolute left-3.5 h-4 w-4 text-zinc-400 pointer-events-none" />
                                     <Input
                                         id="linkedin"
                                         placeholder="https://linkedin.com/in/handle"
@@ -464,7 +461,7 @@ export function ProfileView() {
                             <div className="space-y-2">
                                 <Label htmlFor="twitter" className="text-sm font-medium text-zinc-700">Twitter/X</Label>
                                 <div className="relative flex items-center rounded-lg border-2 border-zinc-200 bg-zinc-50/50 transition-all focus-within:border-indigo-400 focus-within:bg-white">
-                                    <Twitter className="absolute left-3.5 h-4 w-4 text-zinc-400 pointer-events-none" />
+                                    <FaTwitter className="absolute left-3.5 h-4 w-4 text-zinc-400 pointer-events-none" />
                                     <Input
                                         id="twitter"
                                         placeholder="https://x.com/handle"
@@ -478,7 +475,7 @@ export function ProfileView() {
                             <div className="space-y-2">
                                 <Label htmlFor="facebook" className="text-sm font-medium text-zinc-700">Facebook</Label>
                                 <div className="relative flex items-center rounded-lg border-2 border-zinc-200 bg-zinc-50/50 transition-all focus-within:border-indigo-400 focus-within:bg-white">
-                                    <Facebook className="absolute left-3.5 h-4 w-4 text-zinc-400 pointer-events-none" />
+                                    <FaFacebook className="absolute left-3.5 h-4 w-4 text-zinc-400 pointer-events-none" />
                                     <Input
                                         id="facebook"
                                         placeholder="https://facebook.com/username"
@@ -492,7 +489,7 @@ export function ProfileView() {
                             <div className="space-y-2">
                                 <Label htmlFor="instagram" className="text-sm font-medium text-zinc-700">Instagram</Label>
                                 <div className="relative flex items-center rounded-lg border-2 border-zinc-200 bg-zinc-50/50 transition-all focus-within:border-indigo-400 focus-within:bg-white">
-                                    <Instagram className="absolute left-3.5 h-4 w-4 text-zinc-400 pointer-events-none" />
+                                    <FaInstagram className="absolute left-3.5 h-4 w-4 text-zinc-400 pointer-events-none" />
                                     <Input
                                         id="instagram"
                                         placeholder="https://instagram.com/username"

@@ -193,7 +193,10 @@ function LocationPickerContent({ onSelect, workspaces, spaces, projects, folders
                     />
                 </div>
             </div>
-            <div className="overflow-y-auto p-2 space-y-1">
+            <div
+                className="overflow-y-auto p-2 space-y-1"
+                onWheel={(e) => e.stopPropagation()}
+            >
                 {filteredWorkspaces.map((ws: any) => {
                     const wsTeams = teams?.filter((t: any) => t.workspaceId === ws.id) || [];
                     const wsSpaces = spaces.filter((s: any) => s.workspaceId === ws.id);
@@ -1167,7 +1170,7 @@ export function CustomFieldSidebarPanel({
                                         Field belongs to <span className="text-red-500 ml-0.5">*</span>
                                     </Label>
                                 </div>
-                                <p className="text-[13px] text-zinc-600 leading-relaxed">
+                                <p className="text-sm text-zinc-600 leading-relaxed">
                                     <span className="font-semibold text-zinc-900">{name || 'This field'}</span> will exist on all tasks at locations below, regardless of task type:
                                 </p>
 
@@ -1215,7 +1218,7 @@ export function CustomFieldSidebarPanel({
                                                                         </TooltipContent>
                                                                     </Tooltip>
                                                                 </TooltipProvider>
-                                                                <PopoverContent className="w-[300px] p-0 shadow-2xl border-zinc-200 z-[110] overflow-hidden" align="end">
+                                                                <PopoverContent onWheelCapture={(e) => e.stopPropagation()} className="w-[300px] p-0 shadow-2xl border-zinc-200 z-[110] overflow-hidden" align="end">
                                                                     <LocationPickerContent
                                                                         onSelect={(newLoc: any) => {
                                                                             setFieldLocations(prev => {
@@ -1284,7 +1287,7 @@ export function CustomFieldSidebarPanel({
                                                 Add field to location
                                             </button>
                                         </PopoverTrigger>
-                                        <PopoverContent className="w-[300px] p-0 shadow-2xl border-zinc-200 z-[110] overflow-hidden" align="start">
+                                        <PopoverContent onWheelCapture={(e) => e.stopPropagation()} className="w-[300px] p-0 shadow-2xl border-zinc-200 z-[110] overflow-hidden" align="start">
                                             <LocationPickerContent
                                                 onSelect={(loc: any) => {
                                                     setFieldLocations(prev => [...prev.filter(l => l.id !== loc.id), loc]);

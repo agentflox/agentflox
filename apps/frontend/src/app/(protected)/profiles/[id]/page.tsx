@@ -8,7 +8,8 @@ import { Badge } from "@/components/ui/badge";
 import { useAppDispatch } from "@/hooks/useReduxStore";
 import { openModalWithUser } from "@/stores/slices/messages.slice";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Link as LinkIcon, Share2, UserPlus, Globe, Shield, Pencil, LockKeyhole, Mail, Linkedin, Twitter, Facebook, Instagram } from "lucide-react";
+import { Link as LinkIcon, Share2, UserPlus, Globe, Shield, Pencil, LockKeyhole, Mail } from "lucide-react";
+import { FaLinkedin, FaTwitter, FaFacebook, FaInstagram } from 'react-icons/fa';
 import { useToast } from "@/hooks/useToast";
 import Link from "next/link";
 import { renderHtml } from "@/utils/renderHtml";
@@ -191,7 +192,7 @@ export default function ProfilePage() {
                                         rel="noreferrer"
                                         className="p-1.5 rounded-full text-zinc-400 hover:text-blue-600 hover:bg-blue-50 transition-all"
                                       >
-                                        <Linkedin className="h-5 w-5" />
+                                        <FaLinkedin className="h-5 w-5" />
                                       </a>
                                     </TooltipTrigger>
                                     <TooltipContent side="bottom" className="text-xs bg-zinc-900 text-white border-none">
@@ -208,7 +209,7 @@ export default function ProfilePage() {
                                         rel="noreferrer"
                                         className="p-1.5 rounded-full text-zinc-400 hover:text-sky-600 hover:bg-sky-50 transition-all"
                                       >
-                                        <Twitter className="h-5 w-5" />
+                                        <FaTwitter className="h-5 w-5" />
                                       </a>
                                     </TooltipTrigger>
                                     <TooltipContent side="bottom" className="text-xs bg-zinc-900 text-white border-none">
@@ -225,7 +226,7 @@ export default function ProfilePage() {
                                         rel="noreferrer"
                                         className="p-1.5 rounded-full text-zinc-400 hover:text-blue-600 hover:bg-blue-50 transition-all"
                                       >
-                                        <Facebook className="h-5 w-5" />
+                                        <FaFacebook className="h-5 w-5" />
                                       </a>
                                     </TooltipTrigger>
                                     <TooltipContent side="bottom" className="text-xs bg-zinc-900 text-white border-none">
@@ -242,7 +243,7 @@ export default function ProfilePage() {
                                         rel="noreferrer"
                                         className="p-1.5 rounded-full text-zinc-400 hover:text-pink-600 hover:bg-pink-50 transition-all"
                                       >
-                                        <Instagram className="h-5 w-5" />
+                                        <FaInstagram className="h-5 w-5" />
                                       </a>
                                     </TooltipTrigger>
                                     <TooltipContent side="bottom" className="text-xs bg-zinc-900 text-white border-none">

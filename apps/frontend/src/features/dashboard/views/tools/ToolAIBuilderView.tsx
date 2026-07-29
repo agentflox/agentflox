@@ -738,10 +738,10 @@ export const ToolAIBuilderView: React.FC<ToolAIBuilderViewProps> = ({
       {/* ── Main Layout ── */}
       <div className="flex-1 min-h-0">
         <ResizableSplitLayout
-          mainPanelDefaultSize="60%"
-          mainPanelMinSize="50%"
-          sidePanelDefaultSize="40%"
-          sidePanelMinSize="40%"
+          mainPanelDefaultSize={60}
+          mainPanelMinSize={50}
+          sidePanelDefaultSize={40}
+          sidePanelMinSize={40}
           MainContent={
             <div className="flex flex-col h-full min-h-0 bg-white overflow-hidden">
               <div className="flex-1 min-h-0 overflow-hidden relative">

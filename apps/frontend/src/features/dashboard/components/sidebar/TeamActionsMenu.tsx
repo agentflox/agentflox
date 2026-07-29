@@ -298,6 +298,7 @@ export function TeamActionsMenu({ workspaceId, teamId, trigger }: TeamActionsMen
                 open={customFieldsModalOpen}
                 onOpenChange={setCustomFieldsModalOpen}
                 workspaceId={workspaceId}
+                initialLocation={`team:${teamId}`}
             />
 
             <TeamTransferModal

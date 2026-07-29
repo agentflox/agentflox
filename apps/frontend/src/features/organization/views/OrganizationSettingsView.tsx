@@ -7,7 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2, Building2, Globe, Twitter, Linkedin, Github } from "lucide-react";
+import { Loader2, Building2, Globe } from "lucide-react";
+import { FaLinkedin, FaTwitter, FaGithub } from 'react-icons/fa';
 import Shell from "@/components/layout/Shell";
 import { PageHeader } from "@/entities/shared/components/PageHeader";
 
@@ -112,7 +113,7 @@ export default function OrganizationSettingsView() {
                             </h3>
                             <div className="grid gap-4 sm:grid-cols-2">
                                 <div className="space-y-2">
-                                    <Label className="flex items-center gap-2"><Twitter className="w-4 h-4" /> Twitter</Label>
+                                    <Label className="flex items-center gap-2"><FaTwitter className="w-4 h-4" /> Twitter</Label>
                                     <Input
                                         value={form.twitter}
                                         onChange={e => setForm(f => ({ ...f, twitter: e.target.value }))}
@@ -120,7 +121,7 @@ export default function OrganizationSettingsView() {
                                     />
                                 </div>
                                 <div className="space-y-2">
-                                    <Label className="flex items-center gap-2"><Linkedin className="w-4 h-4" /> LinkedIn</Label>
+                                    <Label className="flex items-center gap-2"><FaLinkedin className="w-4 h-4" /> LinkedIn</Label>
                                     <Input
                                         value={form.linkedin}
                                         onChange={e => setForm(f => ({ ...f, linkedin: e.target.value }))}
@@ -128,7 +129,7 @@ export default function OrganizationSettingsView() {
                                     />
                                 </div>
                                 <div className="space-y-2">
-                                    <Label className="flex items-center gap-2"><Github className="w-4 h-4" /> GitHub</Label>
+                                    <Label className="flex items-center gap-2"><FaGithub className="w-4 h-4" /> GitHub</Label>
                                     <Input
                                         value={form.github}
                                         onChange={e => setForm(f => ({ ...f, github: e.target.value }))}

@@ -27,6 +27,7 @@ import {
     PopoverContent,
     PopoverTrigger,
 } from "@/components/ui/popover";
+import { FaGithub } from 'react-icons/fa';
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import { SignInWithGithub } from '@/services/auth.service';
@@ -39,7 +40,6 @@ import {
     ChevronDown,
     CircleDot,
     GitBranch,
-    Github,
     Loader2,
     Plus,
     Settings,
@@ -174,7 +174,7 @@ const RepoSelector = ({
                     {selectedRepos.map((repo) => (
                         <div key={repo.id} className="px-3 py-2 flex items-center justify-between text-sm">
                             <div className="flex items-center gap-2">
-                                <Github className="w-4 h-4 text-zinc-400" />
+                                <FaGithub className="w-4 h-4 text-zinc-400" />
                                 <span className="text-zinc-700">{repo.full_name}</span>
                             </div>
                             <button
@@ -267,7 +267,7 @@ export const GitHubConfigDialog: React.FC<GitHubConfigDialogProps> = ({
             <DialogContent className="sm:max-w-[820px] max-w-[820px] max-h-[90vh] overflow-y-auto">
                 <div className="flex items-start gap-4">
                     <div className="w-14 h-14 rounded-xl border bg-white flex items-center justify-center">
-                        <Github className="w-7 h-7 text-zinc-900" />
+                        <FaGithub className="w-7 h-7 text-zinc-900" />
                     </div>
                     <div className="flex-1">
                         <DialogHeader className="space-y-1">
@@ -314,7 +314,7 @@ export const GitHubConfigDialog: React.FC<GitHubConfigDialogProps> = ({
                                     <div className="flex items-center justify-between">
                                         <div className="flex items-center gap-3">
                                             <div className="w-10 h-10 rounded-lg border bg-white flex items-center justify-center">
-                                                <Github className="w-5 h-5 text-zinc-900" />
+                                                <FaGithub className="w-5 h-5 text-zinc-900" />
                                             </div>
                                             <div className="space-y-0.5">
                                                 <div className="flex items-center gap-2">
@@ -419,7 +419,7 @@ export const GitHubConfigDialog: React.FC<GitHubConfigDialogProps> = ({
                                     <Card className="border-zinc-200">
                                         <CardContent className="p-4 flex items-start gap-3">
                                             <div className="w-9 h-9 rounded-lg bg-zinc-50 border flex items-center justify-center">
-                                                <Github className="w-4 h-4 text-zinc-700" />
+                                                <FaGithub className="w-4 h-4 text-zinc-700" />
                                             </div>
                                             <div className="space-y-0.5">
                                                 <div className="text-sm font-medium text-zinc-900">Preview GitHub links</div>
@@ -470,7 +470,7 @@ export const GitHubConfigDialog: React.FC<GitHubConfigDialogProps> = ({
                                         {isConnected ? (
                                             <div className="flex items-center gap-2">
                                                 <div className="w-8 h-8 bg-white rounded flex items-center justify-center text-zinc-900">
-                                                    <Github className="w-5 h-5" />
+                                                    <FaGithub className="w-5 h-5" />
                                                 </div>
                                                 <div>
                                                     <div className="text-sm font-medium text-emerald-900">Connected</div>

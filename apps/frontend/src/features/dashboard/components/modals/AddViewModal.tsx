@@ -196,7 +196,7 @@ export function AddViewModal({ open, onOpenChange, existingViews, onAddViews, on
 														onClick={() => toggleView(view.id)}
 														className={cn(
 															"relative flex items-center p-3 rounded-xl border bg-white transition-all duration-200 text-left hover:shadow-md hover:border-primary/20 hover:scale-[1.02] cursor-pointer",
-															isSelected ? "ring-1 ring-primary border-primary/50 shadow-sm" : "border-slate-200"
+															isSelected ? "ring-1 ring-violet-500 border-violet-500/50 shadow-sm" : "border-slate-200"
 														)}
 													>
 														<div className={cn("h-10 w-10 shrink-0 rounded-lg flex items-center justify-center mr-3", view.color || "bg-slate-100 text-slate-600")}>
@@ -207,7 +207,7 @@ export function AddViewModal({ open, onOpenChange, existingViews, onAddViews, on
 															<div className="text-xs text-slate-500 truncate">{view.description}</div>
 														</div>
 														{isSelected && (
-															<div className="absolute top-2 right-2 h-5 w-5 bg-primary text-primary-foreground rounded-full flex items-center justify-center shadow-sm">
+															<div className="absolute top-2 right-2 h-5 w-5 bg-violet-500 text-white rounded-full flex items-center justify-center shadow-sm">
 																<Check size={12} strokeWidth={3} />
 															</div>
 														)}
@@ -240,5 +240,3 @@ export function AddViewModal({ open, onOpenChange, existingViews, onAddViews, on
 		</Dialog>
 	);
 }
-
-

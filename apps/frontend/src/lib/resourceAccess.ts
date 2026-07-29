@@ -49,6 +49,7 @@ export async function assertSpaceAccess(userId: string, spaceId: string): Promis
     select: { workspaceId: true },
   });
   if (!space) forbidden('Space not found');
+  if (!space.workspaceId) forbidden('Space has no workspace');
   await assertWorkspaceAccess(userId, space.workspaceId);
 }
 

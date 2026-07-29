@@ -76,7 +76,7 @@ export function NewCustomRelationshipPopover({
     const inputRef = React.useRef<HTMLInputElement>(null);
     const [selectedMembers, setSelectedMembers] = React.useState<{ id: string, name: string, avatar?: string, badge?: boolean }[]>([]);
     const [permissionForAdd, setPermissionForAdd] = React.useState("VIEW");
-    const [customPermissions, setCustomPermissions] = React.useState([
+    const [customPermissions, setCustomPermissions] = React.useState<{ id: string, name: string, role: string, permission: string, avatar?: string }[]>([
         { id: "creator", name: "Dat nguyen", role: "creator", permission: "EDIT", avatar: "DN" }
     ]);
     const [isInputFocused, setIsInputFocused] = React.useState(false);
@@ -100,6 +100,7 @@ export function NewCustomRelationshipPopover({
         const tms = (teamListData?.items || []).map((t: any) => ({
             id: t.id,
             name: t.name,
+            avatar: undefined,
             badge: true
         }));
         return [...users, ...tms];

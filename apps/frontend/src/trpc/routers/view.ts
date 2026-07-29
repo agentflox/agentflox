@@ -373,6 +373,10 @@ export const viewRouter = router({
 		if (!space) {
 			return { view, space: null, workspace: null };
 		}
+		
+		if (!space.workspaceId) {
+			return { view, space, workspace: null };
+		}
 
 		const workspace = await prisma.workspace.findFirst({
 			where: {

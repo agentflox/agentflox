@@ -22,8 +22,8 @@ export function SpaceMoveToPopover({ spaceId, spaceName, onSuccess }: SpaceMoveT
     const [isMoving, setIsMoving] = useState(false);
     const [movingToId, setMovingToId] = useState<string | null>(null);
 
-    const { data: workspacesData } = trpc.workspace.list.useQuery(undefined, { enabled: open });
-    const workspaces = workspacesData || [];
+    const { data: workspacesData } = trpc.workspace.list.useQuery({}, { enabled: open });
+    const workspaces = workspacesData?.items || [];
 
     const updateSpace = trpc.space.update.useMutation();
 

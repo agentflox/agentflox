@@ -5768,7 +5768,9 @@ export default function ListView({ spaceId, projectId, teamId, folderId, listId,
                         folderId ? `folder:${folderId}` :
                             projectId ? `project:${projectId}` :
                                 spaceId ? `space:${spaceId}` :
-                                    "all" as any
+                                    teamId ? `team:${teamId}` :
+                                        workspaceId ? `workspace:${workspaceId}` :
+                                            "all" as any
                 }
             />
         </div>

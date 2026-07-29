@@ -284,15 +284,15 @@ export default function DashboardFolderView({ folderId, spaceId, projectId, team
             case "BOARD":
                 return <BoardView workspaceId={effectiveWorkspaceId} folderId={folderId} spaceId={spaceId} projectId={projectId} teamId={teamId} context={context} selectedTaskIdFromParent={selectedTaskIdFromParent} onTaskSelect={onTaskSelect} />;
             case "TABLE":
-                return <TableView context={context} workspaceId={effectiveWorkspaceId} folderId={folderId} spaceId={spaceId} viewId={view.id} initialConfig={view.config} />;
+                return <TableView context={context} workspaceId={effectiveWorkspaceId} folderId={folderId} spaceId={spaceId} projectId={projectId} teamId={teamId} viewId={view.id} initialConfig={view.config} selectedTaskIdFromParent={selectedTaskIdFromParent} onTaskSelect={onTaskSelect} />;
             case "CALENDAR":
-                return <CalendarView context={context} workspaceId={effectiveWorkspaceId} folderId={folderId} spaceId={spaceId} />;
+                return <CalendarView context={context} workspaceId={effectiveWorkspaceId} folderId={folderId} spaceId={spaceId} projectId={projectId} teamId={teamId} viewId={view.id} initialConfig={view.config} selectedTaskIdFromParent={selectedTaskIdFromParent} onTaskSelect={onTaskSelect} />;
             case "GANTT":
-                return <GanttView context={context} workspaceId={effectiveWorkspaceId} folderId={folderId} spaceId={spaceId} />;
+                return <GanttView context={context} workspaceId={effectiveWorkspaceId} folderId={folderId} spaceId={spaceId} projectId={projectId} teamId={teamId} viewId={view.id} initialConfig={view.config} selectedTaskIdFromParent={selectedTaskIdFromParent} onTaskSelect={onTaskSelect} />;
             case "TIMELINE":
-                return <TimelineView context={context} workspaceId={effectiveWorkspaceId} folderId={folderId} spaceId={spaceId} viewId={view.id} initialConfig={view.config} />;
+                return <TimelineView context={context} workspaceId={effectiveWorkspaceId} folderId={folderId} spaceId={spaceId} projectId={projectId} teamId={teamId} viewId={view.id} initialConfig={view.config} selectedTaskIdFromParent={selectedTaskIdFromParent} onTaskSelect={onTaskSelect} />;
             case "FORM":
-                return <FormView context={context} workspaceId={effectiveWorkspaceId} folderId={folderId} spaceId={spaceId} viewId={view.id} initialConfig={view.config} />;
+                return <FormView context={context} workspaceId={effectiveWorkspaceId} folderId={folderId} spaceId={spaceId} projectId={projectId} teamId={teamId} viewId={view.id} initialConfig={view.config} selectedTaskIdFromParent={selectedTaskIdFromParent} onTaskSelect={onTaskSelect} />;
             case "PEOPLE":
                 return <PeopleView context={context} workspaceId={effectiveWorkspaceId} folderId={folderId} spaceId={spaceId} viewId={view.id} initialConfig={view.config as any} selectedTaskIdFromParent={selectedTaskIdFromParent} onTaskSelect={onTaskSelect} />;
             case "ACTIVITY":

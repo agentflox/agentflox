@@ -358,7 +358,7 @@ interface MindMapViewProps {
     folderId?: string;
     listId?: string;
     entity?: any;
-    context?: "space" | "project" | "team" | "folder" | "list";
+    context?: "workspace" | "space" | "project" | "team" | "folder" | "list";
     selectedTaskIdFromParent?: string | null;
     onTaskSelect?: (taskId: string | null) => void;
 
@@ -3367,7 +3367,7 @@ function MindMapFreeformView(props: MindMapHeaderProps) {
                                     spaceId={spaceId}
                                     projectId={projectId}
                                     teamId={teamId}
-                                    listId={listId}
+                                    listId={undefined}
                                 />
                             );
                         })()}

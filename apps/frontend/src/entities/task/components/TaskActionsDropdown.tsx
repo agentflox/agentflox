@@ -417,6 +417,7 @@ export function TaskActionsDropdown({
                 open={dependenciesModalOpen}
                 onOpenChange={setDependenciesModalOpen}
                 task={task}
+                workspaceId={workspaceId}
             />
             <MoveTaskModal
                 open={moveModalOpen}

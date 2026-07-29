@@ -306,6 +306,7 @@ export function SpaceActionsMenu({ workspaceId, spaceId, trigger }: SpaceActions
                 open={customFieldsModalOpen}
                 onOpenChange={setCustomFieldsModalOpen}
                 workspaceId={workspaceId}
+                initialLocation={`space:${spaceId}`}
             />
 
             <SpaceTransferModal

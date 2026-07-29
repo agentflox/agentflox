@@ -24,7 +24,8 @@ import {
 } from '@/components/ui/popover';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Search, ChevronDown, ChevronUp, Lock, Check, X, Info, MousePointer2, Eye, Pencil } from 'lucide-react';
+import { Search, ChevronDown, ChevronUp, Lock, Check, X, Info, MousePointer2, Eye, Pencil, ListChecks } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
 import { trpc } from '@/lib/trpc';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';

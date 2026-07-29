@@ -102,7 +102,7 @@ interface GanttViewProps {
     selectedTaskIdFromParent?: string | null;
     onTaskSelect?: (taskId: string | null) => void;
     refetchViewData?: () => void;
-    context?: "space" | "project" | "team" | "folder" | "list";
+    context?: "workspace" | "space" | "project" | "team" | "folder" | "list";
 }
 
 // Task type is imported or defined once.
@@ -5496,6 +5496,15 @@ export function GanttView({ spaceId, projectId, teamId, listId, folderId, viewId
                 open={managerModalOpen}
                 onOpenChange={setManagerModalOpen}
                 workspaceId={resolvedWorkspaceId as string}
+                initialLocation={
+                    listId ? `list:${listId}` :
+                        folderId ? `folder:${folderId}` :
+                            projectId ? `project:${projectId}` :
+                                spaceId ? `space:${spaceId}` :
+                                    teamId ? `team:${teamId}` :
+                                        resolvedWorkspaceId ? `workspace:${resolvedWorkspaceId}` :
+                                            "all" as any
+                }
             />
 
             {/* Task detail modal when used standalone (no onTaskSelect from parent) */}

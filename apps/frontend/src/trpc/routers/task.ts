@@ -632,9 +632,20 @@ export const taskRouter = router({
       // Strip system: virtual status IDs — they are UI-only fallbacks with no DB record
       if (input.statusId !== undefined) {
         data.statusId = input.statusId?.startsWith('system:') ? undefined : input.statusId;
+      } else {
+        // Default to the TODO status for the list (or workspace/space/project scope)
+        const todoStatus = await prisma.taskStatus.findFirst({
+          where: {
+            ...(input.listId ? { lists: { some: { id: input.listId } } } : {}),
+            ...(input.workspaceId && !input.listId ? { workspaceId: input.workspaceId } : {}),
+            name: { equals: 'TODO', mode: 'insensitive' },
+          },
+        });
+        if (todoStatus) data.statusId = todoStatus.id;
       }
       if (input.description !== undefined) data.description = input.description;
-      if (input.priority !== undefined) data.priority = input.priority;
+      // Default priority to LOW when not provided
+      data.priority = input.priority ?? 'LOW';
       if (input.dueDate !== undefined) data.dueDate = input.dueDate ?? undefined;
       if (input.startDate !== undefined) data.startDate = input.startDate ?? undefined;
       if (input.noStartTime !== undefined) data.noStartTime = input.noStartTime;
@@ -662,11 +673,17 @@ export const taskRouter = router({
           if (defaultType) data.taskTypeId = defaultType.id;
         }
       } else {
+        // Try isDefault first, then fall back to a type named "Task"
         const defaultType = await prisma.taskType.findFirst({
           where: {
             workspaceId: input.workspaceId,
-            isDefault: true
-          }
+            isDefault: true,
+          },
+        }) ?? await prisma.taskType.findFirst({
+          where: {
+            workspaceId: input.workspaceId,
+            name: { equals: 'Task', mode: 'insensitive' },
+          },
         });
         if (defaultType) data.taskTypeId = defaultType.id;
       }
