@@ -4,6 +4,7 @@ import { useGenericTaskViewData } from "@/features/dashboard/hooks/useGenericTas
 import { TaskListLoadMore } from "@/features/dashboard/components/shared/TaskListLoadMore";
 import { VirtualizedDivRows } from "@/features/dashboard/components/shared/VirtualizedListRows";
 import React, { useMemo, useState, useEffect, useCallback, useRef } from "react";
+import { useSensors, useSensor, MouseSensor, TouchSensor } from "@dnd-kit/core";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -88,7 +89,7 @@ import { LinkedDocsCell } from "@/entities/task/components/TaskLinkedDocsPopover
 import { TaskListPopover } from "@/entities/task/components/TaskListPopover";
 import { TagsPopover } from "@/entities/task/components/TagsPopover";
 import { TagEditorPopover } from "@/entities/task/components/TagEditorPopover";
-
+import { CustomFieldRenderer } from "@/entities/task/components/CustomFieldRenderer";
 interface GanttViewProps {
     spaceId?: string;
     projectId?: string;
@@ -770,6 +771,10 @@ export function GanttView({ spaceId, projectId, teamId, listId, folderId, viewId
     const [pinDescription, setPinDescription] = useState(false);
     const [visibleColumns, setVisibleColumns] = useState<Set<string>>(new Set(["name", "assignee", "dueDate", "priority", "tags"]));
     const [columnOrder, setColumnOrder] = useState<string[]>(["assignee", "dueDate", "priority", "tags"]);
+    const fieldPanelSensors = useSensors(
+        useSensor(MouseSensor, { activationConstraint: { distance: 8 } }),
+        useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 5 } })
+    );
     const taskListSpaceId = spaceId && !projectId && !listId ? spaceId : undefined;
     const taskListProjectId = projectId && !listId ? projectId : undefined;
 
@@ -838,7 +843,8 @@ export function GanttView({ spaceId, projectId, teamId, listId, folderId, viewId
             label: f.name,
             icon: Tag, // Default icon for custom fields
             isCustom: true,
-            type: f.type
+            type: f.type,
+            customField: f,
         }));
         return [...GANTT_FIELD_CONFIG, ...custom];
     }, [customFields]);
@@ -914,6 +920,19 @@ export function GanttView({ spaceId, projectId, teamId, listId, folderId, viewId
             return next;
         });
     };
+
+    // Auto-resize left panel when columns are toggled
+    useEffect(() => {
+        const nameWidth = Math.max(colWidths.name ?? 300, 200);
+        const otherColsWidth = columnOrder
+            .filter(c => visibleColumns.has(c) && c !== "name")
+            .reduce((sum, colId) => sum + Math.max(colWidths[colId] ?? 184, 100), 0);
+        const addBtnWidth = 52;
+        const desired = nameWidth + otherColsWidth + addBtnWidth;
+        const clamped = Math.min(Math.max(desired, LEFT_PANEL_MIN_WIDTH), LEFT_PANEL_MAX_WIDTH);
+        setLeftPanelWidth(clamped);
+    }, [visibleColumns, columnOrder]);
+
     const updateCustomField = trpc.task.customFields.update.useMutation({
         onSuccess: () => { void utils.task.list.invalidate(); },
     });
@@ -3495,18 +3514,18 @@ export function GanttView({ spaceId, projectId, teamId, listId, folderId, viewId
                                 <ScrollArea ref={leftScrollAreaRef} orientation="both" className="flex-1 min-h-0 [&_[data-radix-scroll-area-scrollbar][data-orientation='vertical']]:hidden">
                                     <div className="w-max min-w-full flex flex-col min-h-full">
                                         {/* Sticky header row — inside ScrollArea so it shares the same scroll context */}
-                                        <div className="h-16 shrink-0 bg-white flex relative text-[13px] font-normal text-zinc-500 sticky top-0 z-30">
+                                        <div className="h-16 shrink-0 bg-white flex relative text-[13px] font-normal text-zinc-500 sticky top-0 z-30 group/header">
                                             <div className="absolute top-0 left-0 right-0 h-8 border-b border-zinc-200/70 pointer-events-none z-40" />
-                                            <div className="h-full px-4 relative flex flex-col shrink-0 sticky left-0 z-30 bg-white" style={{ width: Math.max(colWidths.name ?? 300, 200), minWidth: Math.max(colWidths.name ?? 300, 200) }}>
-                                                <div className="h-8 flex items-center">Name</div>
+                                            <div className="h-full px-4 relative flex flex-col shrink-0 sticky left-0 z-30 bg-white cursor-pointer group/name-col" style={{ width: Math.max(colWidths.name ?? 300, 200), minWidth: Math.max(colWidths.name ?? 300, 200) }}>
+                                                <div className="h-8 flex items-center group-hover/name-col:bg-zinc-50 transition-colors">Name</div>
                                                 <div className="h-8" />
                                                 <div className="absolute right-0 top-0 h-8 w-1 cursor-col-resize hover:bg-zinc-300 z-10" onMouseDown={(e) => startResize(e, "name")} onClick={(e) => e.stopPropagation()} />
                                             </div>
                                             {columnOrder.filter(c => visibleColumns.has(c) && c !== "name").map(colId => {
                                                 const field = GANTT_FIELD_CONFIG.find(f => f.id === colId) || FIELD_CONFIG.find(f => f.id === colId);
                                                 return (
-                                                    <div key={colId} className="h-full px-4 relative flex flex-col shrink-0" style={{ width: Math.max(colWidths[colId] ?? 184, 100), minWidth: Math.max(colWidths[colId] ?? 184, 100) }}>
-                                                        <div className="h-8 flex items-center">
+                                                    <div key={colId} className="h-full px-4 relative flex flex-col shrink-0 cursor-pointer group/col" style={{ width: Math.max(colWidths[colId] ?? 184, 100), minWidth: Math.max(colWidths[colId] ?? 184, 100) }}>
+                                                        <div className="h-8 flex items-center group-hover/col:bg-zinc-50 transition-colors">
                                                             <span>{field?.label || colId}</span>
                                                         </div>
                                                         <div className="h-8" />
@@ -3514,11 +3533,11 @@ export function GanttView({ spaceId, projectId, teamId, listId, folderId, viewId
                                                     </div>
                                                 );
                                             })}
-                                            <div className="h-full w-[52px] sticky right-0 bg-white z-20 flex flex-col shrink-0">
-                                                <div className="h-8 flex items-center justify-center">
-                                                    <Button variant="ghost" size="icon" className="h-5 w-5 text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 rounded-full border border-dashed border-zinc-300 flex-shrink-0" onClick={() => setFieldsPanelOpen(true)}>
+                                            <div className="h-full w-[52px] sticky right-0 bg-white z-20 flex flex-col shrink-0 cursor-pointer group/add-col" onClick={() => setFieldsPanelOpen(true)}>
+                                                <div className="h-8 flex items-center justify-center group-hover/add-col:bg-zinc-50 transition-colors">
+                                                    <div className="h-5 w-5 flex items-center justify-center text-zinc-300 group-hover/add-col:text-zinc-500 transition-colors rounded-full border border-dashed border-zinc-300 group-hover/add-col:border-zinc-400 flex-shrink-0">
                                                         <Plus className="h-3 w-3" />
-                                                    </Button>
+                                                    </div>
                                                 </div>
                                                 <div className="h-8" />
                                             </div>
@@ -4590,7 +4609,25 @@ export function GanttView({ spaceId, projectId, teamId, listId, folderId, viewId
                                                                         const formattedValue = formatCustomFieldValue(value, customField);
                                                                         return (
                                                                             <div key={colId} className="px-4 flex items-center shrink-0 w-full h-full min-h-[38px] p-0.5 rounded-sm overflow-hidden" style={{ width: Math.max(w, 100), minWidth: Math.max(w, 100) }}>
-                                                                                <button type="button" className="w-full h-full min-h-[38px] flex items-center justify-start px-2 py-1 outline-none rounded-sm transition-shadow cursor-pointer hover:bg-zinc-100 text-left text-xs text-zinc-700" onClick={(e) => { e.stopPropagation(); openTaskDetail(task.id); }} title={`Edit ${cfEntry.label}`}>{formattedValue}</button>
+                                                                                <div className="w-full h-full min-h-[38px] flex items-center px-1 outline-none rounded-sm ring-1 ring-inset ring-transparent hover:ring-zinc-200 focus-within:ring-indigo-500 transition-shadow" onClick={(e) => e.stopPropagation()}>
+                                                                                    <CustomFieldRenderer
+                                                                                        field={customField}
+                                                                                        value={value}
+                                                                                        onChange={(newValue) => {
+                                                                                            updateCustomField.mutate({
+                                                                                                taskId: task.id,
+                                                                                                customFieldId: customField.id,
+                                                                                                value: newValue
+                                                                                            });
+                                                                                        }}
+                                                                                        hideLabel={true}
+                                                                                        workspaceId={workspaceId}
+                                                                                        spaceId={spaceId}
+                                                                                        projectId={projectId}
+                                                                                        teamId={teamId}
+                                                                                        listId={listId}
+                                                                                    />
+                                                                                </div>
                                                                             </div>
                                                                         );
                                                                     }
@@ -5449,7 +5486,7 @@ export function GanttView({ spaceId, projectId, teamId, listId, folderId, viewId
                 columnOrder={columnOrder}
                 onColumnOrderChange={setColumnOrder}
                 toggleColumn={toggleColumn}
-                sensors={undefined}
+                sensors={fieldPanelSensors}
                 customFields={customFields as any[]}
                 usedCustomFieldIds={usedCustomFieldIds}
                 getCustomFieldIcon={getCustomFieldIcon}

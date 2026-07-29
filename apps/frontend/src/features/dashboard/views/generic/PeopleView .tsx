@@ -1732,7 +1732,7 @@ export function PeopleView({ spaceId, projectId, teamId, listId, folderId, viewI
         const standardFields = STANDARD_FIELD_CONFIG.map(f => ({ ...f, isCustom: false }));
         // Only include custom fields that have values in the current task list
         const customFieldsConfig = (customFields as any[])
-            .filter((cf: any) => usedCustomFieldIds.has(cf.id))
+            
             .map((cf: any) => {
                 const IconComponent = getCustomFieldIcon(cf.type);
                 return {

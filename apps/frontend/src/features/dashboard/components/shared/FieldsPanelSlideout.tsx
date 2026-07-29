@@ -788,7 +788,7 @@ export function FieldsPanelSlideout({
                                                                 <div className="group-hover:hidden flex items-center justify-center">{renderFieldIcon((f as any).icon)}</div>
                                                             </div>
                                                             <span className="text-sm flex-1 text-zinc-800">{f.label}</span>
-                                                            <Switch checked onCheckedChange={() => toggleColumn(colId)} className="data-[state=checked]:bg-indigo-500" />
+                                                            <Switch checked={visibleColumns.has(colId)} onCheckedChange={() => toggleColumn(colId)} className="data-[state=checked]:bg-indigo-500" />
                                                         </SortableFieldRow>
                                                     );
                                                 })}

@@ -613,7 +613,7 @@ export function CalendarView({ spaceId, projectId, teamId, folderId, listId, vie
     const FIELD_CONFIG = useMemo(() => {
         const standardFields = STANDARD_FIELD_CONFIG.map(f => ({ ...f, isCustom: false }));
         const customFieldsConfig = (customFields as any[])
-            .filter((cf: any) => usedCustomFieldIds.has(cf.id))
+            
             .map((cf: any) => ({
                 id: cf.id,
                 label: cf.name,

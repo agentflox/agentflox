@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { CustomFieldRenderer } from "@/entities/task/components/CustomFieldRenderer";
 import { ArrowLeftRight, Search, ChevronDown, ChevronRight, Plus, ExternalLink, X, Maximize2, Minimize2, CircleSlash, Flag, ArrowUpRight, CheckCircle2, CircleDashed, FileText, CircleDot, PlusCircle, Columns, Calendar, CalendarCheck, CalendarClock, CalendarDays, Timer, Clock, Hourglass, Hash, MoreHorizontal, FoldVertical, UnfoldVertical, Settings2, MinusCircle, AlertTriangle, PenOff, Copy, Play } from 'lucide-react';
 import { TaskStatusPopover } from './TaskStatusPopover';
 import { TaskTypeIcon } from './TaskTypeIcon';
@@ -110,6 +111,9 @@ export function RelatedPanelContent({ taskId, workspaceId, task }: RelatedPanelC
     const hasAnyItems = linkedTasks.length > 0 || docLinks.length > 0 || customRelTasksCount > 0 || blockedByItems.length > 0 || blocksItems.length > 0;
 
     const utils = trpc.useUtils();
+    const updateCustomField = trpc.task.customFields.update.useMutation({
+        onSuccess: () => { void utils.task.list.invalidate(); },
+    });
 
     const { data: statuses = [] } = trpc.taskStatus.list.useQuery(
         { workspaceId: workspaceId || '' },
@@ -383,13 +387,37 @@ export function RelatedPanelContent({ taskId, workspaceId, task }: RelatedPanelC
         }
 
         // Custom fields fallback
-        const cfValue = getCustomFieldValue(t, colId);
-        if (cfValue !== undefined) {
-            const formattedValue = formatCustomFieldValue(cfValue, null);
+        const cfv = (t.customFieldValues || []).find((v: any) => v.customFieldId === colId);
+        const cfValue = cfv ? cfv.value : getCustomFieldValue(t, colId);
+        const customField = cfv?.customField;
+        if (cfValue !== undefined || customField) {
+            const formattedValue = formatCustomFieldValue(cfValue, customField);
             return (
-                <button type="button" className="w-full h-full min-h-[32px] flex items-center justify-start px-2 py-1 outline-none rounded-sm ring-1 ring-inset ring-transparent hover:ring-zinc-200 focus-visible:ring-indigo-500 data-[state=open]:ring-indigo-500 transition-shadow cursor-pointer text-left text-xs text-zinc-700" onClick={(e) => e.stopPropagation()}>
-                    {formattedValue}
-                </button>
+                <div className="w-full h-full min-h-[38px] flex items-center px-1 outline-none rounded-sm ring-1 ring-inset ring-transparent hover:ring-zinc-200 focus-within:ring-indigo-500 transition-shadow" onClick={(e) => e.stopPropagation()}>
+                    {customField && updateCustomField ? (
+                        <CustomFieldRenderer
+                            field={customField}
+                            value={cfValue}
+                            onChange={(newValue) => {
+                                updateCustomField.mutate({
+                                    taskId: t.id,
+                                    customFieldId: colId,
+                                    value: newValue
+                                });
+                            }}
+                            hideLabel={true}
+                            workspaceId={workspaceId}
+                            spaceId={t.spaceId}
+                            projectId={t.projectId}
+                            teamId={t.teamId}
+                            listId={t.listId}
+                        />
+                    ) : (
+                        <button type="button" className="w-full h-full flex items-center justify-start px-1 py-1 outline-none cursor-pointer text-left text-xs text-zinc-700" title={formattedValue}>
+                            {formattedValue}
+                        </button>
+                    )}
+                </div>
             );
         }
 

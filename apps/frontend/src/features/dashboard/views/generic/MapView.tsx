@@ -877,7 +877,7 @@ export function MapView({ spaceId, projectId, teamId, listId, folderId, viewId, 
     const FIELD_CONFIG = useMemo(() => {
         const standardFields = STANDARD_FIELD_CONFIG.map(f => ({ ...f, isCustom: false }));
         const customFieldsConfig = (customFields as any[])
-            .filter((cf: any) => usedCustomFieldIds.has(cf.id))
+            
             .map((cf: any) => {
                 const IconComponent = getCustomFieldIcon(cf.type);
                 return {

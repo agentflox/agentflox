@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useMemo, useEffect, useCallback, useRef } from "react";
+import { CustomFieldRenderer } from "@/entities/task/components/CustomFieldRenderer";
 import {
     Plus, MoreHorizontal, GripVertical, ChevronRight, ChevronDown, X as XIcon, Target,
     Flag, Clock, User as UserIcon, Calendar as CalendarIcon, Calendar, Tag as TagIcon, Pencil,
@@ -489,6 +490,10 @@ export function SubtasksTable({
             utils.task.get.invalidate({ id: task.id });
             utils.task.list.invalidate();
         },
+    });
+
+    const updateCustomField = trpc.task.customFields.update.useMutation({
+        onSettled: () => { void utils.task.get.invalidate({ id: task.id }); },
     });
 
     const { data: availableTaskTypes = [] } = trpc.task.listTaskTypes.useQuery(
@@ -1844,8 +1849,32 @@ export function SubtasksTable({
                                         const value = getCustomFieldValue(subtask as any, colId);
                                         const formattedValue = formatCustomFieldValue(value, customField);
                                         return (
-                                            <TableCell key={colId} className="p-0.5 overflow-hidden" style={{ width: colWidths[colId] ?? 120, minWidth: 80 }}>
-                                                <button type="button" className="w-full h-full min-h-[38px] flex items-center justify-start px-2 py-1 outline-none rounded-sm ring-1 ring-inset ring-transparent hover:ring-zinc-200 focus-visible:ring-indigo-500 data-[state=open]:ring-indigo-500 transition-shadow cursor-pointer text-left text-xs text-zinc-700" onClick={(e) => { e.stopPropagation(); }} title={`Edit ${(cfEntry as any).label}`}>{formattedValue}</button>
+                                            <TableCell key={colId} className="p-0.5 overflow-hidden align-middle" style={{ width: colWidths[colId] ?? 120, minWidth: 80 }}>
+                                                <div className="w-full h-full min-h-[38px] flex items-center px-1 outline-none rounded-sm ring-1 ring-inset ring-transparent hover:ring-zinc-200 focus-within:ring-indigo-500 transition-shadow" onClick={(e) => e.stopPropagation()}>
+                                                    {customField && updateCustomField ? (
+                                                        <CustomFieldRenderer
+                                                            field={customField}
+                                                            value={value}
+                                                            onChange={(newValue) => {
+                                                                updateCustomField.mutate({
+                                                                    taskId: subtask.id,
+                                                                    customFieldId: customField.id,
+                                                                    value: newValue
+                                                                });
+                                                            }}
+                                                            hideLabel={true}
+                                                            workspaceId={workspaceId}
+                                                            spaceId={(subtask as any).spaceId}
+                                                            projectId={(subtask as any).projectId}
+                                                            teamId={(subtask as any).teamId}
+                                                            listId={(subtask as any).listId}
+                                                        />
+                                                    ) : (
+                                                        <button type="button" className="w-full h-full flex items-center justify-start px-1 py-1 outline-none cursor-pointer text-left text-xs text-zinc-700" title={formattedValue}>
+                                                            {formattedValue}
+                                                        </button>
+                                                    )}
+                                                </div>
                                             </TableCell>
                                         );
                                     }

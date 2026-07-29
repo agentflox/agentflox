@@ -122,6 +122,7 @@ import {
 import { LazyDescriptionEditor } from "@/entities/shared/components/LazyDescriptionEditor";
 import { CSS } from "@dnd-kit/utilities";
 import { Textarea } from "@/components/ui/textarea";
+import { CustomFieldsManagerModal } from "@/entities/customfields/components/CustomFieldsManagerModal";
 import { FieldsPanelSlideout } from "@/features/dashboard/components/shared/FieldsPanelSlideout";
 import { AssigneesPanelSlideout } from "@/features/dashboard/components/shared/AssigneesPanelSlideout";
 import { TaskCommentPopover } from "@/entities/task/components/TaskCommentPopover";
@@ -381,6 +382,7 @@ export function TableView({ spaceId, projectId, teamId, listId, folderId, viewId
     const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
     const [expandedSubtaskMode, setExpandedSubtaskMode] = useState<"collapsed" | "expanded" | "separate">("separate");
     const [fieldsPanelOpen, setFieldsPanelOpen] = useState(false);
+    const [managerModalOpen, setManagerModalOpen] = useState(false);
     const [filtersPanelOpen, setFiltersPanelOpen] = useState(false);
     const [filterGroups, setFilterGroups] = useState<FilterGroup>(() => ({
         id: "root",
@@ -782,12 +784,10 @@ export function TableView({ spaceId, projectId, teamId, listId, folderId, viewId
         return fieldIds;
     }, [tasks]);
 
-    // Merge standard fields with custom fields (only those used by tasks)
     const FIELD_CONFIG = useMemo(() => {
         const standardFields = STANDARD_FIELD_CONFIG.map(f => ({ ...f, isCustom: false }));
         // Only include custom fields that have values in the current task list
         const customFieldsConfig = (customFields as any[])
-            .filter((cf: any) => usedCustomFieldIds.has(cf.id))
             .map((cf: any) => {
                 const IconComponent = getCustomFieldIcon(cf.type);
                 return {
@@ -799,7 +799,7 @@ export function TableView({ spaceId, projectId, teamId, listId, folderId, viewId
                 };
             });
         return [...standardFields, ...customFieldsConfig];
-    }, [customFields, usedCustomFieldIds]);
+    }, [customFields]);
 
     const allAvailableStatuses = useMemo(() => {
         if (listId && currentList?.statuses) {
@@ -2328,8 +2328,26 @@ export function TableView({ spaceId, projectId, teamId, listId, folderId, viewId
                                     const value = getCustomFieldValue(task, colId);
                                     const formattedValue = formatCustomFieldValue(value, customField);
                                     return (
-                                        <TableCell key={colId} className="p-0.5 overflow-hidden" style={{ width: colWidths[colId] ?? 120, minWidth: 80 }}>
-                                            <button type="button" className="w-full h-full min-h-[38px] flex items-center justify-start px-2 py-1 outline-none rounded-sm ring-1 ring-inset ring-transparent hover:ring-zinc-200 focus-visible:ring-indigo-500 data-[state=open]:ring-indigo-500 transition-shadow cursor-pointer text-left text-xs text-zinc-700" onClick={(e) => { e.stopPropagation(); openTaskDetail(task.id); }} title={`Edit ${cfEntry.label}`}>{formattedValue}</button>
+                                        <TableCell key={colId} className="p-0.5 overflow-hidden align-middle" style={{ width: colWidths[colId] ?? 120, minWidth: 80 }}>
+                                            <div className="w-full h-full min-h-[38px] flex items-center px-1 outline-none rounded-sm ring-1 ring-inset ring-transparent hover:ring-zinc-200 focus-within:ring-indigo-500 transition-shadow" onClick={(e) => e.stopPropagation()}>
+                                                <CustomFieldRenderer
+                                                    field={customField}
+                                                    value={value}
+                                                    onChange={(newValue) => {
+                                                        updateCustomField.mutate({
+                                                            taskId: task.id,
+                                                            customFieldId: customField.id,
+                                                            value: newValue
+                                                        });
+                                                    }}
+                                                    hideLabel={true}
+                                                    workspaceId={workspaceId}
+                                                    spaceId={spaceId}
+                                                    projectId={projectId}
+                                                    teamId={teamId}
+                                                    listId={listId}
+                                                />
+                                            </div>
                                         </TableCell>
                                     );
                                 }
@@ -4529,10 +4547,7 @@ export function TableView({ spaceId, projectId, teamId, listId, folderId, viewId
             <FieldsPanelSlideout
                 open={fieldsPanelOpen && !createFieldModalOpen}
                 onClose={() => setFieldsPanelOpen(false)}
-                onOpenManagerModal={() => {
-                    setFieldsPanelOpen(false);
-                    setCreateFieldModalOpen(true);
-                }}
+                onOpenManagerModal={() => setManagerModalOpen(true)}
                 workspaceId={resolvedWorkspaceId}
                 spaceId={spaceId}
                 projectId={projectId}
@@ -4552,6 +4567,18 @@ export function TableView({ spaceId, projectId, teamId, listId, folderId, viewId
                 customFields={customFields as any[]}
                 usedCustomFieldIds={usedCustomFieldIds}
                 getCustomFieldIcon={getCustomFieldIcon}
+            />
+            <CustomFieldsManagerModal
+                open={managerModalOpen}
+                onOpenChange={setManagerModalOpen}
+                workspaceId={workspaceId ?? ""}
+                initialLocation={
+                    listId ? `list:${listId}` :
+                        folderId ? `folder:${folderId}` :
+                            projectId ? `project:${projectId}` :
+                                spaceId ? `space:${spaceId}` :
+                                    "all" as any
+                }
             />
 
             {/* Customize view panel (ClickUp-style) */}
