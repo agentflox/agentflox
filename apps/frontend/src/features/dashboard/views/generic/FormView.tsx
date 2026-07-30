@@ -29,6 +29,7 @@ import { MediaUpload, type MediaFile } from "@/components/ui/media-upload";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { LazyDescriptionEditor } from "@/entities/shared/components/LazyDescriptionEditor";
 import { CustomFieldsManagerModal } from "@/entities/customfields/components/CustomFieldsManagerModal";
+import { CustomFieldRenderer } from "@/entities/task/components/CustomFieldRenderer";
 import { SingleDateCalendar } from "@/components/ui/date-picker";
 import { AssigneeSelector } from "@/entities/task/components/AssigneeSelector";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -1688,8 +1689,6 @@ export function FormView({
         })
     );
 
-
-
     const taskFieldPresets: Array<{
         key: string;
         label: string;
@@ -3062,6 +3061,11 @@ export function FormView({
                                                             agents,
                                                             listStatuses,
                                                             customField: field.customFieldId ? customFieldsById.get(field.customFieldId) : undefined,
+                                                            workspaceId: workspaceId || resolvedWorkspaceId,
+                                                            spaceId,
+                                                            projectId,
+                                                            listId,
+                                                            teamId,
                                                         })}
                                                     </div>
                                                 ))}
@@ -4218,12 +4222,38 @@ function renderPreviewField(
         agents?: Array<{ id: string; name: string; image?: string | null; type?: string }>;
         listStatuses?: Array<{ id: string; name: string; color?: string }>;
         customField?: any;
+        workspaceId?: string;
+        spaceId?: string;
+        projectId?: string;
+        listId?: string;
+        teamId?: string;
     }
 ) {
     const previewMode = ctx?.previewMode ?? true;
     const previewValue = ctx?.previewValues?.[field.id];
     const setPreviewValue = (value: any) => ctx?.onPreviewValueChange?.(field.id, value);
     const baseClasses = "bg-white border-zinc-200";
+
+    if (ctx?.customField) {
+        return (
+            <div className="w-full">
+                <CustomFieldRenderer
+                    field={{ ...ctx.customField, type: ctx.customField.type || ctx.customField.config?.fieldType }}
+                    value={previewValue}
+                    onChange={(val) => {
+                        if (previewMode) setPreviewValue(val);
+                    }}
+                    disabled={!previewMode}
+                    hideLabel={true}
+                    workspaceId={ctx.workspaceId}
+                    spaceId={ctx.spaceId}
+                    projectId={ctx.projectId}
+                    listId={ctx.listId}
+                    teamId={ctx.teamId}
+                />
+            </div>
+        );
+    }
 
     if (field.taskFieldKey === "assignee") {
         return (

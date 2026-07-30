@@ -305,6 +305,8 @@ const QuickAddCard = ({
             data-quick-add-card="true"
             className="bg-white border border-zinc-200 shadow-[0_2px_10px_rgba(0,0,0,0.05)] rounded-xl p-3.5 mb-3"
             onClick={(e) => e.stopPropagation()}
+            onMouseDown={(e) => e.stopPropagation()}
+            onPointerDown={(e) => e.stopPropagation()}
         >
             <div className="flex items-center gap-2 mb-3">
                 <Input
@@ -340,45 +342,65 @@ const QuickAddCard = ({
             </div>
 
             <div className="flex flex-col gap-2.5 ml-0.5">
-                <AssigneeSelector
-                    users={users}
-                    agents={agents}
-                    value={assigneeIds}
-                    onChange={onAssigneeChange}
-                    trigger={
-                        <div className={cn("flex items-center gap-2.5 group cursor-pointer transition-colors", assigneeIds.length > 0 ? "text-zinc-700" : "text-zinc-400 hover:text-zinc-600")}>
-                            <UserCircle className="h-5 w-5 opacity-80" />
-                            <span className="text-[13px] font-medium tracking-tight">
-                                {assigneeIds.length > 0 ? (
-                                    <div className="flex -space-x-1.5">
-                                        {assigneeIds.map(id => {
-                                            const { type, actualId } = id.includes(":") ? { type: id.split(":")[0], actualId: id.split(":")[1] } : { type: 'user', actualId: id };
-                                            const u = type === 'agent' ? agents.find(a => a.id === actualId) : users.find(user => user.id === actualId);
-                                            return (
-                                                <Avatar key={id} className="h-5 w-5 border border-white ring-1 ring-zinc-100">
-                                                    <AvatarImage src={u?.image || undefined} />
-                                                    <AvatarFallback className="text-[8px] bg-purple-100 text-purple-700">
-                                                        {type === 'agent' ? <Bot className="h-2.5 w-2.5" /> : u?.name?.[0]}
-                                                    </AvatarFallback>
-                                                </Avatar>
-                                            );
-                                        })}
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                        <span className="inline-flex">
+                            <AssigneeSelector
+                                users={users}
+                                agents={agents}
+                                value={assigneeIds}
+                                onChange={onAssigneeChange}
+                                trigger={
+                                    <div
+                                        className={cn("flex items-center gap-2.5 group cursor-pointer transition-colors", assigneeIds.length > 0 ? "text-zinc-700" : "text-zinc-400 hover:text-zinc-600")}
+                                        onMouseDown={(e) => e.stopPropagation()}
+                                        onPointerDown={(e) => e.stopPropagation()}
+                                    >
+                                        <UserCircle className="h-5 w-5 opacity-80" />
+                                        <span className="text-[13px] font-medium tracking-tight">
+                                            {assigneeIds.length > 0 ? (
+                                                <div className="flex -space-x-1.5">
+                                                    {assigneeIds.map(id => {
+                                                        const { type, actualId } = id.includes(":") ? { type: id.split(":")[0], actualId: id.split(":")[1] } : { type: 'user', actualId: id };
+                                                        const u = type === 'agent' ? agents.find(a => a.id === actualId) : users.find(user => user.id === actualId);
+                                                        return (
+                                                            <Avatar key={id} className="h-5 w-5 border border-white ring-1 ring-zinc-100">
+                                                                <AvatarImage src={u?.image || undefined} />
+                                                                <AvatarFallback className="text-[8px] bg-purple-100 text-purple-700">
+                                                                    {type === 'agent' ? <Bot className="h-2.5 w-2.5" /> : u?.name?.[0]}
+                                                                </AvatarFallback>
+                                                            </Avatar>
+                                                        );
+                                                    })}
+                                                </div>
+                                            ) : "Add assignee"}
+                                        </span>
                                     </div>
-                                ) : "Add assignee"}
-                            </span>
-                        </div>
-                    }
-                />
+                                }
+                            />
+                        </span>
+                    </TooltipTrigger>
+                    <TooltipContent>Assignee</TooltipContent>
+                </Tooltip>
 
                 <Popover>
-                    <PopoverTrigger asChild>
-                        <div className={cn("flex items-center gap-2.5 group cursor-pointer transition-colors", dueDate ? "text-zinc-700" : "text-zinc-400 hover:text-zinc-600")}>
-                            <Calendar className="h-5 w-5 opacity-80" />
-                            <span className="text-[13px] font-medium tracking-tight">
-                                {dueDate ? dueDate.toLocaleDateString() : "Add dates"}
-                            </span>
-                        </div>
-                    </PopoverTrigger>
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <PopoverTrigger asChild>
+                                <div
+                                    className={cn("flex items-center gap-2.5 group cursor-pointer transition-colors", dueDate ? "text-zinc-700" : "text-zinc-400 hover:text-zinc-600")}
+                                    onMouseDown={(e) => e.stopPropagation()}
+                                    onPointerDown={(e) => e.stopPropagation()}
+                                >
+                                    <Calendar className="h-5 w-5 opacity-80" />
+                                    <span className="text-[13px] font-medium tracking-tight">
+                                        {dueDate ? dueDate.toLocaleDateString() : "Add dates"}
+                                    </span>
+                                </div>
+                            </PopoverTrigger>
+                        </TooltipTrigger>
+                        <TooltipContent>Due date</TooltipContent>
+                    </Tooltip>
                     <PopoverContent className="w-auto p-0" align="start">
                         <TaskCalendar
                             startDate={startDate ?? undefined}
@@ -390,14 +412,23 @@ const QuickAddCard = ({
                 </Popover>
 
                 <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                        <div className={cn("flex items-center gap-2.5 group cursor-pointer transition-colors", priority ? "text-zinc-700" : "text-zinc-400 hover:text-zinc-600")}>
-                            <Flag className={cn("h-5 w-5 opacity-80 fill-current", priority === "URGENT" && "text-red-500 opacity-100", priority === "HIGH" && "text-orange-500 opacity-100", priority === "NORMAL" && "text-blue-500 opacity-100", priority === "LOW" && "text-zinc-400")} />
-                            <span className="text-[13px] font-medium tracking-tight capitalize">
-                                {priority ? priority.toLowerCase() : "Add priority"}
-                            </span>
-                        </div>
-                    </DropdownMenuTrigger>
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <DropdownMenuTrigger asChild>
+                                <div
+                                    className={cn("flex items-center gap-2.5 group cursor-pointer transition-colors", priority ? "text-zinc-700" : "text-zinc-400 hover:text-zinc-600")}
+                                    onMouseDown={(e) => e.stopPropagation()}
+                                    onPointerDown={(e) => e.stopPropagation()}
+                                >
+                                    <Flag className={cn("h-5 w-5 opacity-80 fill-current", priority === "URGENT" && "text-red-500 opacity-100", priority === "HIGH" && "text-orange-500 opacity-100", priority === "NORMAL" && "text-blue-500 opacity-100", priority === "LOW" && "text-zinc-400")} />
+                                    <span className="text-[13px] font-medium tracking-tight capitalize">
+                                        {priority ? priority.toLowerCase() : "Add priority"}
+                                    </span>
+                                </div>
+                            </DropdownMenuTrigger>
+                        </TooltipTrigger>
+                        <TooltipContent>Priority</TooltipContent>
+                    </Tooltip>
                     <DropdownMenuContent align="start" className="w-48">
                         <DropdownMenuLabel className="text-xs">Priority</DropdownMenuLabel>
                         <DropdownMenuItem onClick={() => onPriorityChange("URGENT")}>
@@ -419,44 +450,66 @@ const QuickAddCard = ({
                     </DropdownMenuContent>
                 </DropdownMenu>
 
-                <TagsModal
-                    tags={tags}
-                    onChange={onTagsChange}
-                    allAvailableTags={allAvailableTags}
-                    trigger={
-                        <div className={cn("flex items-center gap-2.5 group cursor-pointer transition-colors", tags && tags.length > 0 ? "text-zinc-700" : "text-zinc-400 hover:text-zinc-600")}>
-                            <Tag className="h-5 w-5 opacity-80" />
-                            <span className="text-[13px] font-medium tracking-tight">
-                                {tags && tags.length > 0 ? `${tags.length} Tag${tags.length !== 1 ? 's' : ''}` : "Add tag"}
-                            </span>
-                        </div>
-                    }
-                />
-
-                <TaskStatusPopover
-                    task={{
-                        id: "quick-add",
-                        taskType: availableTaskTypes?.find(t => t.id === taskType) || defaultQuickAddTaskType
-                    }}
-                    availableStatuses={[]}
-                    availableTaskTypes={availableTaskTypes || []}
-                    onUpdateTask={(_id, data) => {
-                        if (data.taskTypeId) {
-                            onTaskTypeChange?.(data.taskTypeId);
-                        }
-                    }}
-                    hideStatusTab={true}
-                >
-                    <div className={cn("flex items-center gap-2.5 group cursor-pointer transition-colors", taskType ? "text-zinc-700" : "text-zinc-400 hover:text-zinc-600")}>
-                        {(() => {
-                            const selected = availableTaskTypes?.find(t => t.id === taskType);
-                            return <TaskTypeIcon type={selected} className="h-4 w-4" />;
-                        })()}
-                        <span className="text-[13px] font-medium tracking-tight">
-                            {availableTaskTypes?.find(t => t.id === taskType)?.name || defaultQuickAddTaskType?.name || "Task"}
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                        <span className="inline-flex">
+                            <TagsModal
+                                tags={tags}
+                                onChange={onTagsChange}
+                                allAvailableTags={allAvailableTags}
+                                trigger={
+                                    <div
+                                        className={cn("flex items-center gap-2.5 group cursor-pointer transition-colors", tags && tags.length > 0 ? "text-zinc-700" : "text-zinc-400 hover:text-zinc-600")}
+                                        onMouseDown={(e) => e.stopPropagation()}
+                                        onPointerDown={(e) => e.stopPropagation()}
+                                    >
+                                        <Tag className="h-5 w-5 opacity-80" />
+                                        <span className="text-[13px] font-medium tracking-tight">
+                                            {tags && tags.length > 0 ? `${tags.length} Tag${tags.length !== 1 ? 's' : ''}` : "Add tag"}
+                                        </span>
+                                    </div>
+                                }
+                            />
                         </span>
-                    </div>
-                </TaskStatusPopover>
+                    </TooltipTrigger>
+                    <TooltipContent>Tags</TooltipContent>
+                </Tooltip>
+
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                        <span className="inline-flex">
+                            <TaskStatusPopover
+                                task={{
+                                    id: "quick-add",
+                                    taskType: availableTaskTypes?.find(t => t.id === taskType) || defaultQuickAddTaskType
+                                }}
+                                availableStatuses={[]}
+                                availableTaskTypes={availableTaskTypes || []}
+                                onUpdateTask={(_id, data) => {
+                                    if (data.taskTypeId) {
+                                        onTaskTypeChange?.(data.taskTypeId);
+                                    }
+                                }}
+                                hideStatusTab={true}
+                            >
+                                <div
+                                    className={cn("flex items-center gap-2.5 group cursor-pointer transition-colors", taskType ? "text-zinc-700" : "text-zinc-400 hover:text-zinc-600")}
+                                    onMouseDown={(e) => e.stopPropagation()}
+                                    onPointerDown={(e) => e.stopPropagation()}
+                                >
+                                    {(() => {
+                                        const selected = availableTaskTypes?.find(t => t.id === taskType);
+                                        return <TaskTypeIcon type={selected} className="h-4 w-4" />;
+                                    })()}
+                                    <span className="text-[13px] font-medium tracking-tight">
+                                        {availableTaskTypes?.find(t => t.id === taskType)?.name || defaultQuickAddTaskType?.name || "Task"}
+                                    </span>
+                                </div>
+                            </TaskStatusPopover>
+                        </span>
+                    </TooltipTrigger>
+                    <TooltipContent>Task type</TooltipContent>
+                </Tooltip>
             </div>
         </div>
     );
@@ -967,6 +1020,22 @@ export const BoardColumn = React.memo(BoardColumnInner, (prev, next) => {
     if (prev.isDragActive !== next.isDragActive) return false;
     if (prev.inlineAddColumnId !== next.inlineAddColumnId) return false;
     if (prev.inlineAddTaskId !== next.inlineAddTaskId) return false;
+
+    // While quick-add is open on this column (or any subtask add), re-render on field edits
+    const inlineActiveOnThisColumn =
+        next.inlineAddColumnId === next.column.id ||
+        prev.inlineAddColumnId === prev.column.id ||
+        !!next.inlineAddTaskId ||
+        !!prev.inlineAddTaskId;
+    if (inlineActiveOnThisColumn) {
+        if (prev.inlineAddTitle !== next.inlineAddTitle) return false;
+        if (prev.inlineAddAssigneeIds !== next.inlineAddAssigneeIds) return false;
+        if (prev.inlineAddDueDate !== next.inlineAddDueDate) return false;
+        if (prev.inlineAddStartDate !== next.inlineAddStartDate) return false;
+        if (prev.inlineAddPriority !== next.inlineAddPriority) return false;
+        if (prev.inlineAddTags !== next.inlineAddTags) return false;
+        if (prev.inlineAddTaskType !== next.inlineAddTaskType) return false;
+    }
 
     // Check items length
     if (prev.column.items.length !== next.column.items.length) return false;

@@ -1701,68 +1701,73 @@ export default function ListView({ spaceId, projectId, teamId, folderId, listId,
                             }}
                             autoFocus
                         />
-                        <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                                <Button variant="outline" size="sm" className="h-7 px-2 text-xs text-zinc-700 border-zinc-200 hover:bg-zinc-100 hover:text-zinc-900 rounded-md">
-                                    {(() => {
-                                        const typeId = inlineAddTaskType;
-                                        const tt = availableTaskTypes?.find((t: any) => t.id === typeId || t.name === typeId);
-                                        return (
-                                            <div className="flex items-center gap-1.5">
-                                                <TaskTypeIcon type={tt || typeId} className="h-3.5 w-3.5" />
-                                                <span>{tt?.name || (typeof typeId === 'string' ? typeId : 'Task')}</span>
-                                            </div>
-                                        );
-                                    })()}
-                                </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="start" className="w-56">
-                                <DropdownMenuLabel className="text-xs">Create</DropdownMenuLabel>
-                                <DropdownMenuRadioGroup value={inlineAddTaskType ?? undefined} onValueChange={(v) => setInlineAddTaskType(v)}>
-                                    {availableTaskTypes?.length > 0 ? (
-                                        availableTaskTypes.map((tt: any) => (
-                                            <DropdownMenuRadioItem key={tt.id} value={tt.id} className="gap-2">
-                                                <TaskTypeIcon type={tt} className="h-3.5 w-3.5" />
-                                                {tt.name}
-                                            </DropdownMenuRadioItem>
-                                        ))
-                                    ) : (
-                                        [
-                                            { id: 'TASK', name: 'Task' },
-                                            { id: 'MILESTONE', name: 'Milestone' },
-                                            { id: 'FORM_RESPONSE', name: 'Form Response' },
-                                            { id: 'MEETING_NOTE', name: 'Meeting Note' },
-                                        ].map((t) => (
-                                            <DropdownMenuRadioItem key={t.id} value={t.id} className="gap-2">
-                                                <TaskTypeIcon type={t} className="h-3.5 w-3.5" />
-                                                {t.name}
-                                            </DropdownMenuRadioItem>
-                                        ))
-                                    )}
-                                </DropdownMenuRadioGroup>
-                            </DropdownMenuContent>
-                        </DropdownMenu>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <span className="inline-flex">
+                                    <TaskStatusPopover
+                                        task={{
+                                            id: "quick-add",
+                                            taskType: availableTaskTypes?.find((t: any) => t.id === inlineAddTaskType || t.name === inlineAddTaskType) || defaultTaskType
+                                        }}
+                                        availableStatuses={[]}
+                                        availableTaskTypes={availableTaskTypes || []}
+                                        onUpdateTask={(_id, data) => {
+                                            if (data.taskTypeId) {
+                                                setInlineAddTaskType(data.taskTypeId);
+                                            }
+                                        }}
+                                        hideStatusTab={true}
+                                    >
+                                        <Button variant="outline" size="sm" className="h-7 px-2 text-xs text-zinc-700 border-zinc-200 hover:bg-zinc-100 hover:text-zinc-900 rounded-md">
+                                            {(() => {
+                                                const typeId = inlineAddTaskType;
+                                                const tt = availableTaskTypes?.find((t: any) => t.id === typeId || t.name === typeId);
+                                                return (
+                                                    <div className="flex items-center gap-1.5">
+                                                        <TaskTypeIcon type={tt || typeId} className="h-3.5 w-3.5" />
+                                                        <span>{tt?.name || (typeof typeId === 'string' ? typeId : 'Task')}</span>
+                                                    </div>
+                                                );
+                                            })()}
+                                        </Button>
+                                    </TaskStatusPopover>
+                                </span>
+                            </TooltipTrigger>
+                            <TooltipContent>Task type</TooltipContent>
+                        </Tooltip>
 
-                        <AssigneeSelector
-                            users={users as any}
-                            agents={agents}
-                            workspaceId={resolvedWorkspaceId}
-                            variant="compact"
-                            value={inlineAddAssigneeIds}
-                            onChange={setInlineAddAssigneeIds}
-                            trigger={
-                                <Button variant="outline" size="icon" className="h-7 w-7 text-zinc-600 border-zinc-200 hover:bg-zinc-100 hover:text-zinc-900 rounded-md">
-                                    <Users className="h-3.5 w-3.5" />
-                                </Button>
-                            }
-                        />
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <span className="inline-flex">
+                                    <AssigneeSelector
+                                        users={users as any}
+                                        agents={agents}
+                                        workspaceId={resolvedWorkspaceId}
+                                        variant="compact"
+                                        value={inlineAddAssigneeIds}
+                                        onChange={setInlineAddAssigneeIds}
+                                        trigger={
+                                            <Button variant="outline" size="icon" className="h-7 w-7 text-zinc-600 border-zinc-200 hover:bg-zinc-100 hover:text-zinc-900 rounded-md">
+                                                <Users className="h-3.5 w-3.5" />
+                                            </Button>
+                                        }
+                                    />
+                                </span>
+                            </TooltipTrigger>
+                            <TooltipContent>Assignee</TooltipContent>
+                        </Tooltip>
 
                         <Popover>
-                            <PopoverTrigger asChild>
-                                <Button variant="outline" size="icon" className="h-7 w-7 text-zinc-600 border-zinc-200 hover:bg-zinc-100 hover:text-zinc-900 rounded-md">
-                                    <Calendar className="h-3.5 w-3.5" />
-                                </Button>
-                            </PopoverTrigger>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <PopoverTrigger asChild>
+                                        <Button variant="outline" size="icon" className="h-7 w-7 text-zinc-600 border-zinc-200 hover:bg-zinc-100 hover:text-zinc-900 rounded-md">
+                                            <Calendar className="h-3.5 w-3.5" />
+                                        </Button>
+                                    </PopoverTrigger>
+                                </TooltipTrigger>
+                                <TooltipContent>Due date</TooltipContent>
+                            </Tooltip>
                             <PopoverContent className="w-auto p-0" align="end" sideOffset={8} collisionPadding={10}>
                                 <TaskCalendar
                                     startDate={inlineAddStartDate ?? undefined}
@@ -1774,25 +1779,30 @@ export default function ListView({ spaceId, projectId, teamId, folderId, listId,
                         </Popover>
 
                         <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="sm"
-                                    className="h-7 w-auto border-zinc-200 hover:bg-zinc-50 focus:ring-0 px-2.5 rounded-md text-xs font-medium transition-all text-zinc-700"
-                                >
-                                    <div className="flex items-center gap-1.5 w-full">
-                                        <div className={cn("flex items-center gap-1.5",
-                                            inlineAddPriority === 'URGENT' ? "text-red-500" :
-                                                inlineAddPriority === 'HIGH' ? "text-orange-500" :
-                                                    inlineAddPriority === 'NORMAL' ? "text-blue-500" :
-                                                        inlineAddPriority === 'LOW' ? "text-zinc-400" : "text-zinc-400"
-                                        )}>
-                                            <Flag className="h-3 w-3 fill-current" />
-                                        </div>
-                                    </div>
-                                </Button>
-                            </DropdownMenuTrigger>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <DropdownMenuTrigger asChild>
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            className="h-7 w-auto border-zinc-200 hover:bg-zinc-50 focus:ring-0 px-2.5 rounded-md text-xs font-medium transition-all text-zinc-700"
+                                        >
+                                            <div className="flex items-center gap-1.5 w-full">
+                                                <div className={cn("flex items-center gap-1.5",
+                                                    inlineAddPriority === 'URGENT' ? "text-red-500" :
+                                                        inlineAddPriority === 'HIGH' ? "text-orange-500" :
+                                                            inlineAddPriority === 'NORMAL' ? "text-blue-500" :
+                                                                inlineAddPriority === 'LOW' ? "text-zinc-400" : "text-zinc-400"
+                                                )}>
+                                                    <Flag className="h-3 w-3 fill-current" />
+                                                </div>
+                                            </div>
+                                        </Button>
+                                    </DropdownMenuTrigger>
+                                </TooltipTrigger>
+                                <TooltipContent>Priority</TooltipContent>
+                            </Tooltip>
                             <DropdownMenuContent align="start" className="w-48 z-[200]">
                                 <DropdownMenuLabel className="text-xs">Priority</DropdownMenuLabel>
                                 <DropdownMenuItem onClick={() => setInlineAddPriority("URGENT")}>
@@ -2182,59 +2192,90 @@ export default function ListView({ spaceId, projectId, teamId, folderId, listId,
                                                                         style={{ backgroundColor: bg }}
                                                                         className="absolute inset-0 flex items-center text-bold justify-between text-zinc-400 px-1 rounded-md text-[10px] opacity-0 group-hover/tag:opacity-100 transition-opacity pointer-events-none"
                                                                     >
-                                                                        <TagEditorPopover
-                                                                            tag={encoded}
-                                                                            tags={task.tags ?? []}
-                                                                            onChange={(nextTags) => {
-                                                                                void updateTask.mutateAsync({ id: task.id, tags: nextTags } as any);
-                                                                            }}
-                                                                        >
-                                                                            <button
-                                                                                type="button"
-                                                                                className="px-0.5 pointer-events-auto cursor-pointer hover:text-zinc-700"
-                                                                                onClick={(e) => {
-                                                                                    e.stopPropagation();
-                                                                                }}
-                                                                                title="Tag settings"
-                                                                            >
-                                                                                <MoreHorizontal className="h-3 w-3" />
-                                                                            </button>
-                                                                        </TagEditorPopover>
-                                                                        <button
-                                                                            type="button"
-                                                                            className="px-0.5 pointer-events-auto cursor-pointer hover:text-red-500"
-                                                                            onClick={(e) => {
-                                                                                e.stopPropagation();
-                                                                                const nextTags = (task.tags ?? []).filter((t) => t !== encoded);
-                                                                                void updateTask.mutateAsync({ id: task.id, tags: nextTags } as any);
-                                                                            }}
-                                                                            title="Remove tag"
-                                                                        >
-                                                                            <X className="h-3 w-3" />
-                                                                        </button>
+                                                                        <Tooltip>
+                                                                            <TooltipTrigger asChild>
+                                                                                <span className="inline-flex pointer-events-auto">
+                                                                                    <TagEditorPopover
+                                                                                        tag={encoded}
+                                                                                        tags={task.tags ?? []}
+                                                                                        onChange={(nextTags) => {
+                                                                                            void updateTask.mutateAsync({ id: task.id, tags: nextTags } as any);
+                                                                                        }}
+                                                                                    >
+                                                                                        <button
+                                                                                            type="button"
+                                                                                            className="px-0.5 cursor-pointer hover:text-zinc-700"
+                                                                                            onClick={(e) => {
+                                                                                                e.stopPropagation();
+                                                                                            }}
+                                                                                        >
+                                                                                            <MoreHorizontal className="h-3 w-3" />
+                                                                                        </button>
+                                                                                    </TagEditorPopover>
+                                                                                </span>
+                                                                            </TooltipTrigger>
+                                                                            <TooltipContent side="top" sideOffset={4} className="bg-zinc-900 text-white font-medium text-xs px-2.5 py-1.5 border-0 rounded-md">
+                                                                                Tag settings
+                                                                            </TooltipContent>
+                                                                        </Tooltip>
+                                                                        <Tooltip>
+                                                                            <TooltipTrigger asChild>
+                                                                                <button
+                                                                                    type="button"
+                                                                                    className="px-0.5 pointer-events-auto cursor-pointer hover:text-red-500"
+                                                                                    onClick={(e) => {
+                                                                                        e.stopPropagation();
+                                                                                        const nextTags = (task.tags ?? []).filter((t) => t !== encoded);
+                                                                                        void updateTask.mutateAsync({ id: task.id, tags: nextTags } as any);
+                                                                                    }}
+                                                                                >
+                                                                                    <X className="h-3 w-3" />
+                                                                                </button>
+                                                                            </TooltipTrigger>
+                                                                            <TooltipContent side="top" sideOffset={4} className="bg-zinc-900 text-white font-medium text-xs px-2.5 py-1.5 border-0 rounded-md">
+                                                                                Remove tag
+                                                                            </TooltipContent>
+                                                                        </Tooltip>
                                                                     </div>
                                                                 </div>
                                                             );
                                                         })}
-                                                        {task.tags!.length > 2 && (
+                                                        {(task.tags?.length ?? 0) > 0 && (task.tags?.length ?? 0) <= 2 && (
                                                             <TagsPopover
                                                                 tags={task.tags ?? []}
                                                                 onChange={(nextTags) => {
-                                                                    // Preserve existing encoded values; new ones are plain labels
                                                                     void updateTask.mutateAsync({ id: task.id, tags: nextTags } as any);
                                                                 }}
-                                                                trigger={
-                                                                    <button
-                                                                        type="button"
-                                                                        className="px-1.5 py-0.5 rounded-full bg-zinc-100 text-zinc-500 text-[10px] font-medium cursor-pointer"
-                                                                        onClick={(e) => {
-                                                                            e.stopPropagation();
-                                                                        }}
-                                                                    >
-                                                                        +{task.tags!.length - 2}
-                                                                    </button>
-                                                                }
                                                             />
+                                                        )}
+                                                        {task.tags!.length > 2 && (
+                                                            <Tooltip>
+                                                                <TooltipTrigger asChild>
+                                                                    <span className="inline-flex">
+                                                                        <TagsPopover
+                                                                            tags={task.tags ?? []}
+                                                                            onChange={(nextTags) => {
+                                                                                // Preserve existing encoded values; new ones are plain labels
+                                                                                void updateTask.mutateAsync({ id: task.id, tags: nextTags } as any);
+                                                                            }}
+                                                                            trigger={
+                                                                                <button
+                                                                                    type="button"
+                                                                                    className="px-1.5 py-0.5 rounded-full bg-zinc-100 text-zinc-500 text-[10px] font-medium cursor-pointer"
+                                                                                    onClick={(e) => {
+                                                                                        e.stopPropagation();
+                                                                                    }}
+                                                                                >
+                                                                                    +{task.tags!.length - 2}
+                                                                                </button>
+                                                                            }
+                                                                        />
+                                                                    </span>
+                                                                </TooltipTrigger>
+                                                                <TooltipContent side="top" sideOffset={4} className="bg-zinc-900 text-white font-medium text-xs px-2.5 py-1.5 border-0 rounded-md">
+                                                                    View tags
+                                                                </TooltipContent>
+                                                            </Tooltip>
                                                         )}
                                                     </div>
                                                 )}
@@ -2283,7 +2324,7 @@ export default function ListView({ spaceId, projectId, teamId, folderId, listId,
                                                         Rename task
                                                     </TooltipContent>
                                                 </Tooltip>
-                                                {(task.tags?.length ?? 0) <= 2 && (
+                                                {(task.tags?.length ?? 0) === 0 && (
                                                     <TagsPopover
                                                         tags={task.tags ?? []}
                                                         onChange={(nextTags) => {
@@ -2401,70 +2442,102 @@ export default function ListView({ spaceId, projectId, teamId, folderId, listId,
                                                                     style={{ backgroundColor: bg }}
                                                                     className="absolute inset-0 flex items-center text-bold justify-between text-zinc-400 px-1 rounded-md text-xs opacity-0 group-hover/tag:opacity-100 transition-opacity pointer-events-none"
                                                                 >
-                                                                    <TagEditorPopover
-                                                                        tag={encoded}
-                                                                        tags={task.tags ?? []}
-                                                                        onChange={(nextTags) => {
-                                                                            void updateTask.mutateAsync({ id: task.id, tags: nextTags } as any);
-                                                                        }}
-                                                                    >
-                                                                        <button
-                                                                            type="button"
-                                                                            className="px-0.5 pointer-events-auto cursor-pointer hover:text-zinc-700"
-                                                                            onClick={(e) => e.stopPropagation()}
-                                                                            title="Tag settings"
-                                                                        >
-                                                                            <MoreHorizontal className="h-3 w-3" />
-                                                                        </button>
-                                                                    </TagEditorPopover>
-                                                                    <button
-                                                                        type="button"
-                                                                        className="px-0.5 pointer-events-auto cursor-pointer hover:text-red-500 cursor-pointer"
-                                                                        onClick={(e) => {
-                                                                            e.stopPropagation();
-                                                                            const nextTags = (task.tags ?? []).filter((t) => t !== encoded);
-                                                                            void updateTask.mutateAsync({ id: task.id, tags: nextTags } as any);
-                                                                        }}
-                                                                        title="Remove tag"
-                                                                    >
-                                                                        <X className="h-3 w-3" />
-                                                                    </button>
+                                                                    <Tooltip>
+                                                                        <TooltipTrigger asChild>
+                                                                            <span className="inline-flex pointer-events-auto">
+                                                                                <TagEditorPopover
+                                                                                    tag={encoded}
+                                                                                    tags={task.tags ?? []}
+                                                                                    onChange={(nextTags) => {
+                                                                                        void updateTask.mutateAsync({ id: task.id, tags: nextTags } as any);
+                                                                                    }}
+                                                                                >
+                                                                                    <button
+                                                                                        type="button"
+                                                                                        className="px-0.5 cursor-pointer hover:text-zinc-700"
+                                                                                        onClick={(e) => e.stopPropagation()}
+                                                                                    >
+                                                                                        <MoreHorizontal className="h-3 w-3" />
+                                                                                    </button>
+                                                                                </TagEditorPopover>
+                                                                            </span>
+                                                                        </TooltipTrigger>
+                                                                        <TooltipContent side="top" sideOffset={4} className="bg-zinc-900 text-white font-medium text-xs px-2.5 py-1.5 border-0 rounded-md">
+                                                                            Tag settings
+                                                                        </TooltipContent>
+                                                                    </Tooltip>
+                                                                    <Tooltip>
+                                                                        <TooltipTrigger asChild>
+                                                                            <button
+                                                                                type="button"
+                                                                                className="px-0.5 pointer-events-auto cursor-pointer hover:text-red-500"
+                                                                                onClick={(e) => {
+                                                                                    e.stopPropagation();
+                                                                                    const nextTags = (task.tags ?? []).filter((t) => t !== encoded);
+                                                                                    void updateTask.mutateAsync({ id: task.id, tags: nextTags } as any);
+                                                                                }}
+                                                                            >
+                                                                                <X className="h-3 w-3" />
+                                                                            </button>
+                                                                        </TooltipTrigger>
+                                                                        <TooltipContent side="top" sideOffset={4} className="bg-zinc-900 text-white font-medium text-xs px-2.5 py-1.5 border-0 rounded-md">
+                                                                            Remove tag
+                                                                        </TooltipContent>
+                                                                    </Tooltip>
                                                                 </div>
                                                             </div>
                                                         );
                                                     })}
                                                     {task.tags.length > 1 ? (
-                                                        <TagsPopover
-                                                            tags={task.tags ?? []}
-                                                            onChange={(nextTags) => {
-                                                                void updateTask.mutateAsync({ id: task.id, tags: nextTags } as any);
-                                                            }}
-                                                            trigger={
-                                                                <button
-                                                                    type="button"
-                                                                    className="px-1.5 py-0.5 rounded-full bg-zinc-100 text-zinc-500 text-xs font-medium cursor-pointer hover:bg-zinc-200"
-                                                                    onClick={(e) => e.stopPropagation()}
-                                                                >
-                                                                    +{task.tags.length - 1}
-                                                                </button>
-                                                            }
-                                                        />
+                                                        <Tooltip>
+                                                            <TooltipTrigger asChild>
+                                                                <span className="inline-flex">
+                                                                    <TagsPopover
+                                                                        tags={task.tags ?? []}
+                                                                        onChange={(nextTags) => {
+                                                                            void updateTask.mutateAsync({ id: task.id, tags: nextTags } as any);
+                                                                        }}
+                                                                        trigger={
+                                                                            <button
+                                                                                type="button"
+                                                                                className="px-1.5 py-0.5 rounded-full bg-zinc-100 text-zinc-500 text-xs font-medium cursor-pointer hover:bg-zinc-200"
+                                                                                onClick={(e) => e.stopPropagation()}
+                                                                            >
+                                                                                +{task.tags.length - 1}
+                                                                            </button>
+                                                                        }
+                                                                    />
+                                                                </span>
+                                                            </TooltipTrigger>
+                                                            <TooltipContent side="top" sideOffset={4} className="bg-zinc-900 text-white font-medium text-xs px-2.5 py-1.5 border-0 rounded-md">
+                                                                View tags
+                                                            </TooltipContent>
+                                                        </Tooltip>
                                                     ) : (
-                                                        <TagsPopover
-                                                            tags={task.tags ?? []}
-                                                            onChange={(nextTags) => {
-                                                                void updateTask.mutateAsync({ id: task.id, tags: nextTags } as any);
-                                                            }}
-                                                            trigger={
-                                                                <button
-                                                                    type="button"
-                                                                    className="flex items-center justify-center h-5 w-5 rounded-md hover:bg-zinc-100 text-zinc-400 hover:text-zinc-600 transition-opacity opacity-0 group-hover/tagcell:opacity-100 cursor-pointer"
-                                                                    onClick={(e) => e.stopPropagation()}
-                                                                >
-                                                                    <Plus className="h-3 w-3" />
-                                                                </button>
-                                                            }
-                                                        />
+                                                        <Tooltip>
+                                                            <TooltipTrigger asChild>
+                                                                <span className="inline-flex">
+                                                                    <TagsPopover
+                                                                        tags={task.tags ?? []}
+                                                                        onChange={(nextTags) => {
+                                                                            void updateTask.mutateAsync({ id: task.id, tags: nextTags } as any);
+                                                                        }}
+                                                                        trigger={
+                                                                            <button
+                                                                                type="button"
+                                                                                className="flex items-center justify-center h-5 w-5 rounded-md hover:bg-zinc-100 text-zinc-400 hover:text-zinc-600 transition-opacity opacity-0 group-hover/tagcell:opacity-100 cursor-pointer"
+                                                                                onClick={(e) => e.stopPropagation()}
+                                                                            >
+                                                                                <Plus className="h-3 w-3" />
+                                                                            </button>
+                                                                        }
+                                                                    />
+                                                                </span>
+                                                            </TooltipTrigger>
+                                                            <TooltipContent side="top" sideOffset={4} className="bg-zinc-900 text-white font-medium text-xs px-2.5 py-1.5 border-0 rounded-md">
+                                                                Add tag
+                                                            </TooltipContent>
+                                                        </Tooltip>
                                                     )}
                                                 </>
                                             ) : (
@@ -2686,6 +2759,7 @@ export default function ListView({ spaceId, projectId, teamId, folderId, listId,
                                                     projectId={projectId}
                                                     teamId={teamId}
                                                     listId={listId}
+                                                    taskId={task.id}
                                                 />
                                             </div>
                                         </TableCell>
@@ -4372,56 +4446,75 @@ export default function ListView({ spaceId, projectId, teamId, folderId, listId,
                                                         />
 
                                                         {/* Inline toolbar (ClickUp-like) */}
-                                                        <DropdownMenu>
-                                                            <DropdownMenuTrigger asChild>
-                                                                <Button variant="outline" size="sm" className="h-7 px-2 text-xs text-zinc-700 border-zinc-200 hover:bg-zinc-100 hover:text-zinc-900 rounded-md">
-                                                                    {(() => {
-                                                                        const tt = availableTaskTypes?.find((t: any) => t.id === inlineAddTaskType || t.name === inlineAddTaskType);
-                                                                        if (!tt) {
-                                                                            if (defaultTaskType && (inlineAddTaskType === "TASK" || inlineAddTaskType === defaultTaskType.id)) return defaultTaskType.name;
-                                                                            return inlineAddTaskType || "No Type";
-                                                                        }
-                                                                        return tt.name;
-                                                                    })()}
-                                                                </Button>
-                                                            </DropdownMenuTrigger>
-                                                            <DropdownMenuContent align="start" className="w-56">
-                                                                <DropdownMenuLabel className="text-xs">Create</DropdownMenuLabel>
-                                                                <DropdownMenuRadioGroup value={inlineAddTaskType ?? undefined} onValueChange={(v) => setInlineAddTaskType(v as any)}>
-                                                                    {availableTaskTypes?.map((t: any) => (
-                                                                        <DropdownMenuRadioItem key={t.id} value={t.id} className="text-xs">
-                                                                            <div className="flex items-center gap-2">
-                                                                                <TaskTypeIcon type={t} className="h-3.5 w-3.5" />
-                                                                                <span>{t.name}</span>
-                                                                            </div>
-                                                                        </DropdownMenuRadioItem>
-                                                                    ))}
-                                                                </DropdownMenuRadioGroup>
-                                                            </DropdownMenuContent>
-                                                        </DropdownMenu>
+                                                        <Tooltip>
+                                                            <TooltipTrigger asChild>
+                                                                <span className="inline-flex">
+                                                                    <TaskStatusPopover
+                                                                        task={{
+                                                                            id: "quick-add",
+                                                                            taskType: availableTaskTypes?.find((t: any) => t.id === inlineAddTaskType || t.name === inlineAddTaskType) || defaultTaskType
+                                                                        }}
+                                                                        availableStatuses={[]}
+                                                                        availableTaskTypes={availableTaskTypes || []}
+                                                                        onUpdateTask={(_id, data) => {
+                                                                            if (data.taskTypeId) {
+                                                                                setInlineAddTaskType(data.taskTypeId);
+                                                                            }
+                                                                        }}
+                                                                        hideStatusTab={true}
+                                                                    >
+                                                                        <Button variant="outline" size="sm" className="h-7 px-2 text-xs text-zinc-700 border-zinc-200 hover:bg-zinc-100 hover:text-zinc-900 rounded-md">
+                                                                            {(() => {
+                                                                                const typeId = inlineAddTaskType;
+                                                                                const tt = availableTaskTypes?.find((t: any) => t.id === typeId || t.name === typeId);
+                                                                                return (
+                                                                                    <div className="flex items-center gap-1.5">
+                                                                                        <TaskTypeIcon type={tt || typeId} className="h-3.5 w-3.5" />
+                                                                                        <span>{tt?.name || (typeof typeId === 'string' ? typeId : 'Task')}</span>
+                                                                                    </div>
+                                                                                );
+                                                                            })()}
+                                                                        </Button>
+                                                                    </TaskStatusPopover>
+                                                                </span>
+                                                            </TooltipTrigger>
+                                                            <TooltipContent>Task type</TooltipContent>
+                                                        </Tooltip>
 
                                                         {/* Assignee picker */}
-                                                        <AssigneeSelector
-                                                            users={users as any}
-                                                            agents={agents}
-                                                            workspaceId={resolvedWorkspaceId}
-                                                            variant="compact"
-                                                            value={inlineAddAssigneeIds}
-                                                            onChange={setInlineAddAssigneeIds}
-                                                            trigger={
-                                                                <Button variant="outline" size="icon" className="h-7 w-7 text-zinc-600 border-zinc-200 hover:bg-zinc-100 hover:text-zinc-900 rounded-md">
-                                                                    <Users className="h-3.5 w-3.5" />
-                                                                </Button>
-                                                            }
-                                                        />
+                                                        <Tooltip>
+                                                            <TooltipTrigger asChild>
+                                                                <span className="inline-flex">
+                                                                    <AssigneeSelector
+                                                                        users={users as any}
+                                                                        agents={agents}
+                                                                        workspaceId={resolvedWorkspaceId}
+                                                                        variant="compact"
+                                                                        value={inlineAddAssigneeIds}
+                                                                        onChange={setInlineAddAssigneeIds}
+                                                                        trigger={
+                                                                            <Button variant="outline" size="icon" className="h-7 w-7 text-zinc-600 border-zinc-200 hover:bg-zinc-100 hover:text-zinc-900 rounded-md">
+                                                                                <Users className="h-3.5 w-3.5" />
+                                                                            </Button>
+                                                                        }
+                                                                    />
+                                                                </span>
+                                                            </TooltipTrigger>
+                                                            <TooltipContent>Assignee</TooltipContent>
+                                                        </Tooltip>
 
                                                         {/* Due date picker */}
                                                         <Popover>
-                                                            <PopoverTrigger asChild>
-                                                                <Button variant="outline" size="icon" className="h-7 w-7 text-zinc-600 border-zinc-200 hover:bg-zinc-100 hover:text-zinc-900 rounded-md">
-                                                                    <Calendar className="h-3.5 w-3.5" />
-                                                                </Button>
-                                                            </PopoverTrigger>
+                                                            <Tooltip>
+                                                                <TooltipTrigger asChild>
+                                                                    <PopoverTrigger asChild>
+                                                                        <Button variant="outline" size="icon" className="h-7 w-7 text-zinc-600 border-zinc-200 hover:bg-zinc-100 hover:text-zinc-900 rounded-md">
+                                                                            <Calendar className="h-3.5 w-3.5" />
+                                                                        </Button>
+                                                                    </PopoverTrigger>
+                                                                </TooltipTrigger>
+                                                                <TooltipContent>Due date</TooltipContent>
+                                                            </Tooltip>
                                                             <PopoverContent className="w-auto p-0" align="end" sideOffset={8} collisionPadding={10}>
                                                                 <TaskCalendar
                                                                     startDate={inlineAddStartDate ?? undefined}
@@ -4434,28 +4527,32 @@ export default function ListView({ spaceId, projectId, teamId, folderId, listId,
 
                                                         {/* Priority picker */}
                                                         <DropdownMenu>
-                                                            <DropdownMenuTrigger asChild>
-                                                                <Button
-                                                                    type="button"
-                                                                    variant="outline"
-                                                                    size="sm"
-                                                                    className="h-7 w-auto min-w-[90px] border-zinc-200 bg-white hover:bg-zinc-50 focus:ring-0 px-2.5 rounded-md text-xs font-medium transition-all text-zinc-700"
-                                                                >
-                                                                    <div className="flex items-center gap-1.5 w-full">
-                                                                        <div className={cn("flex items-center gap-1.5",
-                                                                            inlineAddPriority === 'URGENT' ? "text-red-500" :
-                                                                                inlineAddPriority === 'HIGH' ? "text-orange-500" :
-                                                                                    inlineAddPriority === 'NORMAL' ? "text-blue-500" :
-                                                                                        inlineAddPriority === 'LOW' ? "text-zinc-400" : "text-zinc-400"
-                                                                        )}>
-                                                                            <Flag className="h-3 w-3 fill-current" />
-                                                                        </div>
-                                                                        <span>{inlineAddPriority ? inlineAddPriority.charAt(0) + inlineAddPriority.slice(1).toLowerCase() : "Priority"}</span>
-                                                                    </div>
-                                                                </Button>
-                                                            </DropdownMenuTrigger>
-                                                            <DropdownMenuContent align="end" className="w-48 z-[200]">
-                                                                <DropdownMenuLabel className="text-xs">Task Priority</DropdownMenuLabel>
+                                                            <Tooltip>
+                                                                <TooltipTrigger asChild>
+                                                                    <DropdownMenuTrigger asChild>
+                                                                        <Button
+                                                                            type="button"
+                                                                            variant="outline"
+                                                                            size="sm"
+                                                                            className="h-7 w-auto border-zinc-200 hover:bg-zinc-50 focus:ring-0 px-2.5 rounded-md text-xs font-medium transition-all text-zinc-700"
+                                                                        >
+                                                                            <div className="flex items-center gap-1.5 w-full">
+                                                                                <div className={cn("flex items-center gap-1.5",
+                                                                                    inlineAddPriority === 'URGENT' ? "text-red-500" :
+                                                                                        inlineAddPriority === 'HIGH' ? "text-orange-500" :
+                                                                                            inlineAddPriority === 'NORMAL' ? "text-blue-500" :
+                                                                                                inlineAddPriority === 'LOW' ? "text-zinc-400" : "text-zinc-400"
+                                                                                )}>
+                                                                                    <Flag className="h-3 w-3 fill-current" />
+                                                                                </div>
+                                                                            </div>
+                                                                        </Button>
+                                                                    </DropdownMenuTrigger>
+                                                                </TooltipTrigger>
+                                                                <TooltipContent>Priority</TooltipContent>
+                                                            </Tooltip>
+                                                            <DropdownMenuContent align="start" className="w-48 z-[200]">
+                                                                <DropdownMenuLabel className="text-xs">Priority</DropdownMenuLabel>
                                                                 <DropdownMenuItem onClick={() => setInlineAddPriority("URGENT")}>
                                                                     <Flag className="h-3 w-3 mr-2 text-red-600 fill-current" /> Urgent
                                                                 </DropdownMenuItem>

@@ -381,6 +381,7 @@ export function TaskRelationshipsSection({ taskId, workspaceId, task }: TaskRela
                             projectId={t.projectId}
                             teamId={t.teamId}
                             listId={t.listId}
+                            taskId={t.id}
                         />
                     ) : (
                         <button type="button" className="w-full h-full flex items-center justify-start px-1 py-1 outline-none cursor-pointer text-left text-xs text-zinc-700" title={formattedValue}>

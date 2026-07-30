@@ -44,6 +44,7 @@ interface CustomFieldRendererProps {
     folderId?: string;
     teamId?: string;
     listId?: string;
+    taskId?: string;
 }
 
 function SignatureField({ value, onChange, disabled }: { value: any; onChange: (v: any) => void; disabled?: boolean }) {
@@ -186,6 +187,7 @@ export function CustomFieldRenderer({
     folderId,
     teamId,
     listId,
+    taskId,
 }: CustomFieldRendererProps) {
     const router = useRouter();
     const params = useParams();
@@ -485,7 +487,7 @@ export function CustomFieldRenderer({
                     <div className={cn("space-y-2", disabled && "pointer-events-none opacity-50")}>
                         <MultiFileUpload
                             bucket="tasks"
-                            pathPrefix={`task_fields/${field?.id || 'unknown'}`}
+                            pathPrefix={taskId ? `tasks/${taskId}/fields/${field?.id || 'unknown'}` : `task_fields/${field?.id || 'unknown'}`}
                             initialFiles={Array.isArray(value) ? value : []}
                             onFilesChange={onChange}
                         />

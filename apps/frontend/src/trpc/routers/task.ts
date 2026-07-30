@@ -131,8 +131,7 @@ async function duplicateTaskInternal(
       customFieldValues: {
         create: sourceTask.customFieldValues.map(cf => ({
           customFieldId: cf.customFieldId,
-          value: cf.value ?? {},
-          projectId: cf.projectId
+          value: cf.value ?? {}
         }))
       },
       attachments: params.options?.includeAttachments ? {
@@ -592,6 +591,7 @@ export const taskRouter = router({
       startDate: z.date().optional().nullable(),
       noStartTime: z.boolean().optional(),
       noEndTime: z.boolean().optional(),
+      tags: z.array(z.string()).optional(),
       visibility: z.enum(["PRIVATE", "ADMINS", "MEMBERS", "EVERYONE", "PUBLIC"]).default("PRIVATE"),
       isPublic: z.boolean().default(false),
       position: z.string().optional(),
@@ -650,6 +650,7 @@ export const taskRouter = router({
       if (input.startDate !== undefined) data.startDate = input.startDate ?? undefined;
       if (input.noStartTime !== undefined) data.noStartTime = input.noStartTime;
       if (input.noEndTime !== undefined) data.noEndTime = input.noEndTime;
+      if (input.tags !== undefined) data.tags = input.tags;
 
       // Handle TaskType (Prioritize taskTypeId, fallback to looking up taskType enum name)
       if (input.taskTypeId) {

@@ -340,6 +340,7 @@ export function CustomFieldsSection({ taskId, workspaceId }: CustomFieldsSection
                                                             disabled={updateCustomField.isPending}
                                                             hideLabel
                                                             workspaceId={workspaceId}
+                                                            taskId={taskId}
                                                         />
                                                     </div>
                                                 </td>

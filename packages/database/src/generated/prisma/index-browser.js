@@ -587,7 +587,6 @@ exports.Prisma.CustomFieldValueScalarFieldEnum = {
   id: 'id',
   customFieldId: 'customFieldId',
   taskId: 'taskId',
-  projectId: 'projectId',
   value: 'value',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'

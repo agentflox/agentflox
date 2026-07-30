@@ -95,6 +95,7 @@ import { DuplicateTaskModal } from "@/entities/task/components/DuplicateTaskModa
 import { DestinationPicker } from "@/entities/task/components/DestinationPicker";
 import { TaskCalendar } from "@/entities/task/components/TaskCalendar";
 import { TaskTypeIcon } from "@/entities/task/components/TaskTypeIcon";
+import { TaskStatusPopover } from "@/entities/task/components/TaskStatusPopover";
 import { SingleDateCalendar } from "@/components/ui/date-picker";
 import { ViewToolbarSaveDropdown } from "@/features/dashboard/components/shared/ViewToolbarSaveDropdown";
 import { ViewToolbarClosedPopover } from "@/features/dashboard/components/shared/ViewToolbarClosedPopover";
@@ -306,6 +307,8 @@ const QuickAddCard = ({
             data-quick-add-card="true"
             className="bg-white border border-zinc-200 shadow-[0_2px_10px_rgba(0,0,0,0.05)] rounded-xl p-3.5 mb-3"
             onClick={(e) => e.stopPropagation()}
+            onMouseDown={(e) => e.stopPropagation()}
+            onPointerDown={(e) => e.stopPropagation()}
         >
             <div className="flex items-center gap-2 mb-3">
                 <Input
@@ -341,45 +344,65 @@ const QuickAddCard = ({
             </div>
 
             <div className="flex flex-col gap-2.5 ml-0.5">
-                <AssigneeSelector
-                    users={users}
-                    agents={agents}
-                    value={assigneeIds}
-                    onChange={onAssigneeChange}
-                    trigger={
-                        <div className={cn("flex items-center gap-2.5 group cursor-pointer transition-colors", assigneeIds.length > 0 ? "text-zinc-700" : "text-zinc-400 hover:text-zinc-600")}>
-                            <UserCircle className="h-5 w-5 opacity-80" />
-                            <span className="text-[13px] font-medium tracking-tight">
-                                {assigneeIds.length > 0 ? (
-                                    <div className="flex -space-x-1.5">
-                                        {assigneeIds.map(id => {
-                                            const { type, actualId } = id.includes(":") ? { type: id.split(":")[0], actualId: id.split(":")[1] } : { type: 'user', actualId: id };
-                                            const u = type === 'agent' ? agents.find(a => a.id === actualId) : users.find(user => user.id === actualId);
-                                            return (
-                                                <Avatar key={id} className="h-5 w-5 border border-white ring-1 ring-zinc-100">
-                                                    <AvatarImage src={u?.image || undefined} />
-                                                    <AvatarFallback className="text-[8px] bg-purple-100 text-purple-700">
-                                                        {type === 'agent' ? <Bot className="h-2.5 w-2.5" /> : u?.name?.[0]}
-                                                    </AvatarFallback>
-                                                </Avatar>
-                                            );
-                                        })}
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                        <span className="inline-flex">
+                            <AssigneeSelector
+                                users={users}
+                                agents={agents}
+                                value={assigneeIds}
+                                onChange={onAssigneeChange}
+                                trigger={
+                                    <div
+                                        className={cn("flex items-center gap-2.5 group cursor-pointer transition-colors", assigneeIds.length > 0 ? "text-zinc-700" : "text-zinc-400 hover:text-zinc-600")}
+                                        onMouseDown={(e) => e.stopPropagation()}
+                                        onPointerDown={(e) => e.stopPropagation()}
+                                    >
+                                        <UserCircle className="h-5 w-5 opacity-80" />
+                                        <span className="text-[13px] font-medium tracking-tight">
+                                            {assigneeIds.length > 0 ? (
+                                                <div className="flex -space-x-1.5">
+                                                    {assigneeIds.map(id => {
+                                                        const { type, actualId } = id.includes(":") ? { type: id.split(":")[0], actualId: id.split(":")[1] } : { type: 'user', actualId: id };
+                                                        const u = type === 'agent' ? agents.find(a => a.id === actualId) : users.find(user => user.id === actualId);
+                                                        return (
+                                                            <Avatar key={id} className="h-5 w-5 border border-white ring-1 ring-zinc-100">
+                                                                <AvatarImage src={u?.image || undefined} />
+                                                                <AvatarFallback className="text-[8px] bg-purple-100 text-purple-700">
+                                                                    {type === 'agent' ? <Bot className="h-2.5 w-2.5" /> : u?.name?.[0]}
+                                                                </AvatarFallback>
+                                                            </Avatar>
+                                                        );
+                                                    })}
+                                                </div>
+                                            ) : "Add assignee"}
+                                        </span>
                                     </div>
-                                ) : "Add assignee"}
-                            </span>
-                        </div>
-                    }
-                />
+                                }
+                            />
+                        </span>
+                    </TooltipTrigger>
+                    <TooltipContent>Assignee</TooltipContent>
+                </Tooltip>
 
                 <Popover>
-                    <PopoverTrigger asChild>
-                        <div className={cn("flex items-center gap-2.5 group cursor-pointer transition-colors", dueDate ? "text-zinc-700" : "text-zinc-400 hover:text-zinc-600")}>
-                            <Calendar className="h-5 w-5 opacity-80" />
-                            <span className="text-[13px] font-medium tracking-tight">
-                                {dueDate ? dueDate.toLocaleDateString() : "Add dates"}
-                            </span>
-                        </div>
-                    </PopoverTrigger>
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <PopoverTrigger asChild>
+                                <div
+                                    className={cn("flex items-center gap-2.5 group cursor-pointer transition-colors", dueDate ? "text-zinc-700" : "text-zinc-400 hover:text-zinc-600")}
+                                    onMouseDown={(e) => e.stopPropagation()}
+                                    onPointerDown={(e) => e.stopPropagation()}
+                                >
+                                    <Calendar className="h-5 w-5 opacity-80" />
+                                    <span className="text-[13px] font-medium tracking-tight">
+                                        {dueDate ? dueDate.toLocaleDateString() : "Add dates"}
+                                    </span>
+                                </div>
+                            </PopoverTrigger>
+                        </TooltipTrigger>
+                        <TooltipContent>Due date</TooltipContent>
+                    </Tooltip>
                     <PopoverContent className="w-auto p-0" align="start">
                         <TaskCalendar
                             startDate={startDate ?? undefined}
@@ -391,14 +414,23 @@ const QuickAddCard = ({
                 </Popover>
 
                 <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                        <div className={cn("flex items-center gap-2.5 group cursor-pointer transition-colors", priority ? "text-zinc-700" : "text-zinc-400 hover:text-zinc-600")}>
-                            <Flag className={cn("h-5 w-5 opacity-80", priority === "URGENT" && "text-red-500 opacity-100", priority === "HIGH" && "text-orange-500 opacity-100", priority === "NORMAL" && "text-blue-500 opacity-100", priority === "LOW" && "text-zinc-400")} />
-                            <span className="text-[13px] font-medium tracking-tight capitalize">
-                                {priority ? priority.toLowerCase() : "Add priority"}
-                            </span>
-                        </div>
-                    </DropdownMenuTrigger>
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <DropdownMenuTrigger asChild>
+                                <div
+                                    className={cn("flex items-center gap-2.5 group cursor-pointer transition-colors", priority ? "text-zinc-700" : "text-zinc-400 hover:text-zinc-600")}
+                                    onMouseDown={(e) => e.stopPropagation()}
+                                    onPointerDown={(e) => e.stopPropagation()}
+                                >
+                                    <Flag className={cn("h-5 w-5 opacity-80", priority === "URGENT" && "text-red-500 opacity-100", priority === "HIGH" && "text-orange-500 opacity-100", priority === "NORMAL" && "text-blue-500 opacity-100", priority === "LOW" && "text-zinc-400")} />
+                                    <span className="text-[13px] font-medium tracking-tight capitalize">
+                                        {priority ? priority.toLowerCase() : "Add priority"}
+                                    </span>
+                                </div>
+                            </DropdownMenuTrigger>
+                        </TooltipTrigger>
+                        <TooltipContent>Priority</TooltipContent>
+                    </Tooltip>
                     <DropdownMenuContent align="start" className="w-48">
                         <DropdownMenuLabel className="text-xs">Priority</DropdownMenuLabel>
                         <DropdownMenuItem onClick={() => onPriorityChange("URGENT")}>
@@ -418,50 +450,70 @@ const QuickAddCard = ({
                     </DropdownMenuContent>
                 </DropdownMenu>
 
-                <TagsModal
-                    tags={tags}
-                    onChange={onTagsChange}
-                    allAvailableTags={allAvailableTags}
-                    trigger={
-                        <div className={cn("flex items-center gap-2.5 group cursor-pointer transition-colors", tags && tags.length > 0 ? "text-zinc-700" : "text-zinc-400 hover:text-zinc-600")}>
-                            <Tag className="h-5 w-5 opacity-80" />
-                            <span className="text-[13px] font-medium tracking-tight">
-                                {tags && tags.length > 0 ? `${tags.length} Tag${tags.length !== 1 ? 's' : ''}` : "Add tag"}
-                            </span>
-                        </div>
-                    }
-                />
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                        <span className="inline-flex">
+                            <TagsModal
+                                tags={tags}
+                                onChange={onTagsChange}
+                                allAvailableTags={allAvailableTags}
+                                trigger={
+                                    <div
+                                        className={cn("flex items-center gap-2.5 group cursor-pointer transition-colors", tags && tags.length > 0 ? "text-zinc-700" : "text-zinc-400 hover:text-zinc-600")}
+                                        onMouseDown={(e) => e.stopPropagation()}
+                                        onPointerDown={(e) => e.stopPropagation()}
+                                    >
+                                        <Tag className="h-5 w-5 opacity-80" />
+                                        <span className="text-[13px] font-medium tracking-tight">
+                                            {tags && tags.length > 0 ? `${tags.length} Tag${tags.length !== 1 ? 's' : ''}` : "Add tag"}
+                                        </span>
+                                    </div>
+                                }
+                            />
+                        </span>
+                    </TooltipTrigger>
+                    <TooltipContent>Tags</TooltipContent>
+                </Tooltip>
 
-                <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                        <div className={cn("flex items-center gap-2.5 group cursor-pointer transition-colors", taskType ? "text-zinc-700" : "text-zinc-400 hover:text-zinc-600")}>
-                            {(() => {
-                                const selected = availableTaskTypes?.find(t => t.id === taskType);
-                                return <TaskTypeIcon type={selected} className="h-5 w-5" />;
-                            })()}
-                            <span className="text-[13px] font-medium tracking-tight">
-                                {availableTaskTypes?.find(t => t.id === taskType)?.name || defaultQuickAddTaskType?.name || "Task"}
-                            </span>
-                        </div>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="start" className="w-48">
-                        <DropdownMenuLabel className="text-xs">Task Type</DropdownMenuLabel>
-                        {availableTaskTypes?.map(t => (
-                            <DropdownMenuItem key={t.id} onClick={() => onTaskTypeChange?.(t.id)}>
-                                <div className="flex items-center gap-2 text-xs">
-                                    <TaskTypeIcon type={t} className="h-3.5 w-3.5" />
-                                    <span>{t.name}</span>
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                        <span className="inline-flex">
+                            <TaskStatusPopover
+                                task={{
+                                    id: "quick-add",
+                                    taskType: availableTaskTypes?.find(t => t.id === taskType) || defaultQuickAddTaskType
+                                }}
+                                availableStatuses={[]}
+                                availableTaskTypes={availableTaskTypes || []}
+                                onUpdateTask={(_id, data) => {
+                                    if (data.taskTypeId) {
+                                        onTaskTypeChange?.(data.taskTypeId);
+                                    }
+                                }}
+                                hideStatusTab={true}
+                            >
+                                <div
+                                    className={cn("flex items-center gap-2.5 group cursor-pointer transition-colors", taskType ? "text-zinc-700" : "text-zinc-400 hover:text-zinc-600")}
+                                    onMouseDown={(e) => e.stopPropagation()}
+                                    onPointerDown={(e) => e.stopPropagation()}
+                                >
+                                    {(() => {
+                                        const selected = availableTaskTypes?.find(t => t.id === taskType);
+                                        return <TaskTypeIcon type={selected} className="h-4 w-4" />;
+                                    })()}
+                                    <span className="text-[13px] font-medium tracking-tight">
+                                        {availableTaskTypes?.find(t => t.id === taskType)?.name || defaultQuickAddTaskType?.name || "Task"}
+                                    </span>
                                 </div>
-                            </DropdownMenuItem>
-                        ))}
-                    </DropdownMenuContent>
-                </DropdownMenu>
+                            </TaskStatusPopover>
+                        </span>
+                    </TooltipTrigger>
+                    <TooltipContent>Task type</TooltipContent>
+                </Tooltip>
             </div>
         </div>
     );
 };
-
-
 
 const isFieldVisible = (fields: string[] | undefined, fieldId: string) => {
     if (!fields || fields.length === 0) return true; // Default to true if not specified? Or false?
@@ -820,6 +872,8 @@ export function BoardView({ spaceId, projectId, teamId, listId, folderId, viewId
         isTasksLoading: isLoading,
         isFetchingNextPage,
         loadMoreRef,
+        taskListInput,
+        updateTaskInList,
     } = useGenericTaskViewData({
         spaceId,
         projectId,
@@ -1126,8 +1180,34 @@ export function BoardView({ spaceId, projectId, teamId, listId, folderId, viewId
 
     // Mutations
     const updateTask = trpc.task.update.useMutation({
+        onMutate: async (variables) => {
+            updateTaskInList(variables.id, (task: any) => {
+                let updated = { ...task, ...variables };
+                if ((variables as any).statusId !== undefined) {
+                    const statusObj = statuses.find(s => s.id === (variables as any).statusId);
+                    updated.status = statusObj ?? ((variables as any).statusId ? task.status : null);
+                    updated.statusId = (variables as any).statusId;
+                }
+                if ((variables as any).assigneeIds !== undefined) {
+                    const ids = (variables as any).assigneeIds as string[];
+                    updated.assignees = ids.map((id: string) => {
+                        const cleanId = id.startsWith("user:") ? id.replace("user:", "") : id;
+                        return { userId: cleanId, user: workspaceUserById.get(cleanId) };
+                    });
+                    updated.assigneeId = ids[0]
+                        ? (ids[0].startsWith("user:") ? ids[0].replace("user:", "") : ids[0])
+                        : null;
+                }
+                if ((variables as any).taskTypeId !== undefined) {
+                    const typeObj = availableTaskTypes.find((t: any) => t.id === (variables as any).taskTypeId);
+                    if (typeObj) updated.taskType = typeObj;
+                    updated.taskTypeId = (variables as any).taskTypeId;
+                }
+                return updated;
+            });
+        },
         onSettled: (_data, error) => {
-            if (error) void utils.task.list.invalidate();
+            if (error) void utils.task.list.invalidate(taskListInput);
         },
     });
     const deleteTask = trpc.task.delete.useMutation({
@@ -2559,14 +2639,8 @@ export function BoardView({ spaceId, projectId, teamId, listId, folderId, viewId
         useSensor(KeyboardSensor)
     );
 
-    // Drag and Drop handlers with optimistic updates
-    const [optimisticTasks, setOptimisticTasks] = useState<Task[]>([]);
-    const [isDragging, setIsDragging] = useState(false);
-
-    // Use optimistic tasks when dragging, otherwise use server data
-    const displayTasks = useMemo(() => {
-        return isDragging && optimisticTasks.length > 0 ? optimisticTasks : tasks;
-    }, [isDragging, optimisticTasks, tasks]);
+    // Drag and Drop — optimistic updates go through updateTaskInList so UI moves immediately
+    const displayTasks = tasks;
 
     // Helper function to group tasks into columns (must be defined before usage)
     // Helper function to group tasks into columns (must be defined before usage)
@@ -2787,16 +2861,14 @@ export function BoardView({ spaceId, projectId, teamId, listId, folderId, viewId
 
     // Recalculate columns with display tasks
     const displayColumns = useMemo(() => {
-        // Use filteredTasks to respect search/filter, unless dragging (fallback to displayTasks for optimistic updates)
-        // Ideally we should filter optimisticTasks too, but for now filtering takes precedence for view correctness
-        const tasksToGroup = isDragging ? displayTasks : filteredTasks;
+        const tasksToGroup = filteredTasks;
 
         if (!showCompleted) {
             const filtered = tasksToGroup.filter(t => !t.isCompleted);
             return groupTasksIntoColumns(filtered);
         }
         return groupTasksIntoColumns(tasksToGroup);
-    }, [displayTasks, filteredTasks, isDragging, showCompleted, groupBy, sort, statuses, groupDirection, settings.showEmptyColumns, settings.collapseEmptyColumns, expandedSubtaskMode, collapsedColumns, availableTaskTypes]);
+    }, [filteredTasks, showCompleted, groupBy, sort, statuses, groupDirection, settings.showEmptyColumns, settings.collapseEmptyColumns, expandedSubtaskMode, collapsedColumns, availableTaskTypes]);
 
     const [draggingIds, setDraggingIds] = useState<string[]>([]);
     const [dropPosition, setDropPosition] = useState<'before' | 'after' | null>(null);
@@ -2804,7 +2876,6 @@ export function BoardView({ spaceId, projectId, teamId, listId, folderId, viewId
     const handleDragStart = (event: DragStartEvent) => {
         const id = event.active.id as string;
         setActiveId(id);
-        setIsDragging(true);
         setDraggingIds([id]); // Multi-select not fully implemented in BoardView yet
         setDropPosition(null);
     };
@@ -2824,32 +2895,24 @@ export function BoardView({ spaceId, projectId, teamId, listId, folderId, viewId
         }
     };
 
-    const handleDragEnd = useCallback(async (event: DragEndEvent) => {
+    const handleDragEnd = useCallback((event: DragEndEvent) => {
         const { active, over, delta } = event;
 
-        // ✁ECapture state values BEFORE clearing them
-        const capturedDraggingIds = [...draggingIds];
+        // Capture state values BEFORE clearing them
         const capturedDropPosition = dropPosition;
 
         setActiveId(null);
-        setIsDragging(false);
         setDraggingIds([]);
         setDropPosition(null);
 
-        if (!over) {
-            setOptimisticTasks([]);
-            return;
-        }
+        if (!over) return;
 
         const activeId = active.id as string;
         const overId = over.id as string;
 
         // Find the task being dragged
         const draggedTask = tasks.find(t => t.id === activeId);
-        if (!draggedTask) {
-            setOptimisticTasks([]);
-            return;
-        }
+        if (!draggedTask) return;
 
         // Determine if we dropped on a column, a task, or an "after:taskId" slot
         const isOverColumn = displayColumns.some(c => c.id === overId);
@@ -2885,7 +2948,6 @@ export function BoardView({ spaceId, projectId, teamId, listId, folderId, viewId
                     }
                 }
             } else {
-                setOptimisticTasks([]);
                 return;
             }
         }
@@ -2893,9 +2955,9 @@ export function BoardView({ spaceId, projectId, teamId, listId, folderId, viewId
         const overTask = !isOverColumn ? tasks.find(t => t.id === rawOverId) : null;
         const newParentId = isChildDrop && overTask ? overTask.id : (overTask ? normalizeParentId(overTask.parentId) : null);
 
-        // ✁EValidate: Prevent circular dependencies
+        // Validate: Prevent circular dependencies
         if (newParentId && wouldCreateCircularDependency(activeId, newParentId, tasks)) {
-            console.warn('🔄 Circular dependency detected, aborting');
+            console.warn('Circular dependency detected, aborting');
             toast.error("Circular dependency detected");
             return;
         }
@@ -2918,8 +2980,6 @@ export function BoardView({ spaceId, projectId, teamId, listId, folderId, viewId
         if (!targetCol) return;
 
         const currentBucket = [...targetCol.items];
-        const sourceColId = getGroupKey(draggedTask);
-        const isSameColumnMove = sourceColId === targetColumnId;
 
         // Compute new order for the column
         let newOrderForColumn: string[] = [];
@@ -2938,11 +2998,11 @@ export function BoardView({ spaceId, projectId, teamId, listId, folderId, viewId
             newOrderForColumn = [...otherColumnTasks, activeId];
         }
 
-        // 🔥 REGENERATIVE FIX: Recalculate all positions in bucket if move is within same column
+        // Recalculate positions in the target column to match visual order
         const updates: any[] = [];
         let prevPos: string | null = null;
 
-        newOrderForColumn.forEach((tid, index) => {
+        newOrderForColumn.forEach((tid) => {
             const taskInCol = tasks.find(t => t.id === tid);
             if (!taskInCol) return;
 
@@ -2960,7 +3020,15 @@ export function BoardView({ spaceId, projectId, teamId, listId, folderId, viewId
 
             if (isDraggedOne) {
                 Object.entries(baseUpdate).forEach(([k, v]) => {
-                    if ((taskInCol as any)[k] !== v) {
+                    if (k === "assigneeIds") {
+                        const currentIds = ((taskInCol as any).assignees as any[] | undefined)?.map((a: any) => a.userId).filter(Boolean)
+                            ?? ((taskInCol as any).assigneeId ? [(taskInCol as any).assigneeId] : []);
+                        const nextIds = (v as string[]) ?? [];
+                        if (currentIds.join(",") !== nextIds.join(",")) {
+                            payload[k] = v;
+                            changed = true;
+                        }
+                    } else if ((taskInCol as any)[k] !== v) {
                         payload[k] = v;
                         changed = true;
                     }
@@ -2977,15 +3045,54 @@ export function BoardView({ spaceId, projectId, teamId, listId, folderId, viewId
 
         if (updates.length === 0) return;
 
-        try {
-            await Promise.all(updates.map(u => updateTask.mutateAsync(u as any)));
-            setOptimisticTasks([]);
-            void utils.task.list.invalidate();
-        } catch (e) {
-            toast.error("Failed to reorder tasks");
-            void utils.task.list.invalidate();
-        }
-    }, [tasks, groupBy, updateTask, displayColumns, statuses, utils, draggingIds, dropPosition, getGroupKey]);
+        // Apply optimistic updates immediately so the board doesn't wait on the network
+        const previousById = new Map<string, Task>();
+        updates.forEach((payload) => {
+            const existing = tasks.find(t => t.id === payload.id);
+            if (existing) previousById.set(payload.id, existing);
+
+            updateTaskInList(payload.id, (task: any) => {
+                const next: any = { ...task, ...payload };
+
+                if (payload.statusId !== undefined) {
+                    next.status = payload.statusId
+                        ? (statuses.find(s => s.id === payload.statusId) ?? task.status)
+                        : null;
+                }
+                if (payload.assigneeIds !== undefined) {
+                    const ids = payload.assigneeIds as string[];
+                    next.assignees = ids.map((id: string) => {
+                        const cleanId = id.startsWith("user:") ? id.replace("user:", "") : id;
+                        return { userId: cleanId, user: workspaceUserById.get(cleanId) };
+                    });
+                    next.assigneeId = ids[0]
+                        ? (ids[0].startsWith("user:") ? ids[0].replace("user:", "") : ids[0])
+                        : null;
+                }
+                if (payload.taskTypeId !== undefined) {
+                    const typeObj = availableTaskTypes.find((t: any) => t.id === payload.taskTypeId);
+                    if (typeObj) next.taskType = typeObj;
+                }
+                return next;
+            });
+        });
+
+        // Prevent an in-flight refetch from overwriting the optimistic order
+        void utils.task.list.cancel();
+
+        // Sync to backend in the background; roll back only if the request fails
+        void Promise.all(updates.map(u => updateTask.mutateAsync(u as any)))
+            .then(() => {
+                void utils.task.list.invalidate();
+            })
+            .catch(() => {
+                previousById.forEach((prev, id) => {
+                    updateTaskInList(id, () => prev);
+                });
+                toast.error("Failed to reorder tasks");
+                void utils.task.list.invalidate();
+            });
+    }, [tasks, groupBy, updateTask, displayColumns, statuses, utils, dropPosition, defaultTaskType, updateTaskInList, workspaceUserById, availableTaskTypes]);
 
 
     const handleArchiveTasks = useCallback(async () => {
@@ -3962,469 +4069,469 @@ export function BoardView({ spaceId, projectId, teamId, listId, folderId, viewId
                         onClose={() => setCustomizePanelOpen(false)}
                         className="absolute bottom-0 right-0 h-full w-[300px] max-w-[90vw] bg-white border-l border-zinc-200 shadow-xl z-50 flex flex-col text-[13px] text-zinc-900"
                     >
-                            <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-100">
-                                <h3 className="font-semibold">Customize view</h3>
-                                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setCustomizePanelOpen(false)}><X className="h-4 w-4" /></Button>
-                            </div>
-                            <ScrollArea className="flex-1 min-h-0">
-                                <div className="p-2 space-y-1">
-                                    <div className="flex items-center gap-2 px-2 py-1 mb-2">
-                                        <div className="flex items-center justify-center h-6 w-6 rounded bg-zinc-100 shrink-0">
-                                            <LayoutList className="h-3.5 w-3.5 text-zinc-500" />
+                        <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-100">
+                            <h3 className="font-semibold">Customize view</h3>
+                            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setCustomizePanelOpen(false)}><X className="h-4 w-4" /></Button>
+                        </div>
+                        <ScrollArea className="flex-1 min-h-0">
+                            <div className="p-2 space-y-1">
+                                <div className="flex items-center gap-2 px-2 py-1 mb-2">
+                                    <div className="flex items-center justify-center h-6 w-6 rounded bg-zinc-100 shrink-0">
+                                        <LayoutList className="h-3.5 w-3.5 text-zinc-500" />
+                                    </div>
+                                    <Input
+                                        value={viewNameDraft}
+                                        onChange={(e) => setViewNameDraft(e.target.value)}
+                                        onBlur={() => updateViewName(viewNameDraft)}
+                                        onKeyDown={(e) => {
+                                            if (e.key === "Enter") {
+                                                updateViewName(viewNameDraft);
+                                                (e.target as HTMLInputElement).blur();
+                                            }
+                                        }}
+                                        className="h-7 text-sm font-medium border-none shadow-none focus-visible:ring-0 px-0"
+                                        placeholder="Board"
+                                    />
+                                </div>
+
+                                {/* Card Size Dropdown */}
+                                <Popover>
+                                    <PopoverTrigger asChild>
+                                        <div className="flex items-center justify-between py-1.5 px-2 hover:bg-zinc-50 rounded cursor-pointer group">
+                                            <span>Card size</span>
+                                            <div className="flex items-center gap-1 text-zinc-500">
+                                                <span className="text-xs">{settings.cardSize === "compact" ? "Small" : settings.cardSize === "comfortable" ? "Large" : "Medium"}</span>
+                                                <ChevronRight className="h-3 w-3 opacity-0 group-hover:opacity-100" />
+                                            </div>
                                         </div>
-                                        <Input
-                                            value={viewNameDraft}
-                                            onChange={(e) => setViewNameDraft(e.target.value)}
-                                            onBlur={() => updateViewName(viewNameDraft)}
-                                            onKeyDown={(e) => {
-                                                if (e.key === "Enter") {
-                                                    updateViewName(viewNameDraft);
-                                                    (e.target as HTMLInputElement).blur();
-                                                }
-                                            }}
-                                            className="h-7 text-sm font-medium border-none shadow-none focus-visible:ring-0 px-0"
-                                            placeholder="Board"
-                                        />
-                                    </div>
-
-                                    {/* Card Size Dropdown */}
-                                    <Popover>
-                                        <PopoverTrigger asChild>
-                                            <div className="flex items-center justify-between py-1.5 px-2 hover:bg-zinc-50 rounded cursor-pointer group">
-                                                <span>Card size</span>
-                                                <div className="flex items-center gap-1 text-zinc-500">
-                                                    <span className="text-xs">{settings.cardSize === "compact" ? "Small" : settings.cardSize === "comfortable" ? "Large" : "Medium"}</span>
-                                                    <ChevronRight className="h-3 w-3 opacity-0 group-hover:opacity-100" />
-                                                </div>
-                                            </div>
-                                        </PopoverTrigger>
-                                        <PopoverContent side="left" align="start" className="w-48 p-1" sideOffset={10}>
-                                            <div className="space-y-0.5">
-                                                <div
-                                                    className="flex items-center justify-between px-2 py-1.5 hover:bg-zinc-50 rounded cursor-pointer text-sm"
-                                                    onClick={() => { setSettings(s => ({ ...s, cardSize: "compact" })); }}
-                                                >
-                                                    <span>Small</span>
-                                                    {settings.cardSize === "compact" && <Check className="h-3.5 w-3.5" />}
-                                                </div>
-                                                <div
-                                                    className="flex items-center justify-between px-2 py-1.5 hover:bg-zinc-50 rounded cursor-pointer text-sm"
-                                                    onClick={() => { setSettings(s => ({ ...s, cardSize: "default" })); }}
-                                                >
-                                                    <span>Medium (default)</span>
-                                                    {settings.cardSize === "default" && <Check className="h-3.5 w-3.5" />}
-                                                </div>
-                                                <div
-                                                    className="flex items-center justify-between px-2 py-1.5 hover:bg-zinc-50 rounded cursor-pointer text-sm"
-                                                    onClick={() => { setSettings(s => ({ ...s, cardSize: "comfortable" })); }}
-                                                >
-                                                    <span>Large</span>
-                                                    {settings.cardSize === "comfortable" && <Check className="h-3.5 w-3.5" />}
-                                                </div>
-                                            </div>
-                                        </PopoverContent>
-                                    </Popover>
-
-                                    {/* Card Cover Dropdown */}
-                                    <Popover>
-                                        <PopoverTrigger asChild>
-                                            <div className="flex items-center justify-between py-1.5 px-2 hover:bg-zinc-50 rounded cursor-pointer group">
-                                                <span>Card cover</span>
-                                                <div className="flex items-center gap-1 text-zinc-500">
-                                                    <span className="text-xs">{settings.showCover ? "Image" : "None"}</span>
-                                                    <ChevronRight className="h-3 w-3 opacity-0 group-hover:opacity-100" />
-                                                </div>
-                                            </div>
-                                        </PopoverTrigger>
-                                        <PopoverContent side="left" align="start" className="w-48 p-1" sideOffset={10}>
-                                            <div className="space-y-0.5">
-                                                <div
-                                                    className="flex items-center justify-between px-2 py-1.5 hover:bg-zinc-50 rounded cursor-pointer text-sm"
-                                                    onClick={() => { setSettings(s => ({ ...s, cardCover: "none" })); }}
-                                                >
-                                                    <span>None (default)</span>
-                                                    {settings.cardCover === "none" && <Check className="h-3.5 w-3.5" />}
-                                                </div>
-                                                <div
-                                                    className="flex items-center justify-between px-2 py-1.5 hover:bg-zinc-50 rounded cursor-pointer text-sm"
-                                                    onClick={() => { setSettings(s => ({ ...s, cardCover: "image" })); }}
-                                                >
-                                                    <span>Image</span>
-                                                    {settings.cardCover === "image" && <Check className="h-3.5 w-3.5" />}
-                                                </div>
-                                                <div
-                                                    className="flex items-center justify-between px-2 py-1.5 hover:bg-zinc-50 rounded cursor-pointer text-sm"
-                                                    onClick={() => { setSettings(s => ({ ...s, cardCover: "description" })); }}
-                                                >
-                                                    <span>Task description</span>
-                                                    {settings.cardCover === "description" && <Check className="h-3.5 w-3.5" />}
-                                                </div>
-                                            </div>
-                                        </PopoverContent>
-                                    </Popover>
-
-                                    <div className="flex items-center justify-between py-1.5 px-2 hover:bg-zinc-50 rounded">
-                                        <span>Stack fields</span>
-                                        <Switch className="h-4 w-7" checked={settings.stackFields} onCheckedChange={(v) => setSettings({ ...settings, stackFields: v })} />
-                                    </div>
-                                    <div className="flex items-center justify-between py-1.5 px-2 hover:bg-zinc-50 rounded">
-                                        <span>Show empty fields</span>
-                                        <Switch className="h-4 w-7" checked={settings.showCustomFields} onCheckedChange={(v) => setSettings({ ...settings, showCustomFields: v })} />
-                                    </div>
-                                    <div className="flex items-center justify-between py-1.5 px-2 hover:bg-zinc-50 rounded">
-                                        <span>Collapse empty columns</span>
-                                        <Switch className="h-4 w-7" checked={!settings.showEmptyColumns} onCheckedChange={(v) => setSettings({ ...settings, showEmptyColumns: !v })} />
-                                    </div>
-
-                                    <button
-                                        type="button"
-                                        className="w-full flex items-center justify-between py-1.5 px-2 hover:bg-zinc-50 rounded cursor-pointer text-inherit"
-                                        onClick={() => { setLayoutOptionsOpen(true); setCustomizePanelOpen(false); }}
-                                    >
-                                        <span>More options</span>
-                                        <ChevronRight className="h-3 w-3 text-zinc-400" />
-                                    </button>
-
-                                    <div className="h-px bg-zinc-100 my-2" />
-
-                                    {/* Fields */}
-                                    <div
-                                        className="flex items-center justify-between py-1.5 px-2 hover:bg-zinc-50 rounded cursor-pointer group"
-                                        onClick={() => { setFieldsPanelOpen(true); setCustomizePanelOpen(false); }}
-                                    >
-                                        <div className="flex items-center gap-2">
-                                            <SlidersHorizontal className="h-3.5 w-3.5 text-zinc-500" />
-                                            <span>Fields</span>
-                                        </div>
-                                        <div className="flex items-center gap-1 text-zinc-500">
-                                            <span className="text-xs">{settings.visibleFields.length} shown</span>
-                                            <ChevronRight className="h-3 w-3 opacity-0 group-hover:opacity-100" />
-                                        </div>
-                                    </div>
-
-                                    {/* Filter */}
-                                    <Popover open={filtersPanelOpen} onOpenChange={setFiltersPanelOpen}>
-                                        <PopoverTrigger asChild>
-                                            <button
-                                                type="button"
-                                                className="w-full flex items-center justify-between py-2.5 text-sm text-zinc-800 hover:bg-zinc-50 rounded-md px-2"
-                                                onClick={() => { if (filterGroups.conditions.length === 0) { addFilterGroup(); } }}
-                                            >
-                                                <span className="flex items-center gap-2"><Filter className="h-4 w-4 text-zinc-400" />Filter</span>
-                                                <span className="text-xs text-zinc-500">{appliedFilterCount > 0 ? `${appliedFilterCount} applied` : "None"} <ChevronRight className="inline h-3 w-3 ml-1" /></span>
-                                            </button>
-                                        </PopoverTrigger>
-                                        <PopoverContent side="left" align="start" className="w-[600px] max-w-[90vw] p-0 overflow-hidden shadow-2xl rounded-2xl border border-zinc-200/80" sideOffset={16}>
-                                            {renderFilterContent({ onClose: () => setFiltersPanelOpen(false) })}
-                                        </PopoverContent>
-                                    </Popover>
-
-                                    {/* Group */}
-                                    <Popover>
-                                        <PopoverTrigger asChild>
+                                    </PopoverTrigger>
+                                    <PopoverContent side="left" align="start" className="w-48 p-1" sideOffset={10}>
+                                        <div className="space-y-0.5">
                                             <div
-                                                className="flex items-center justify-between py-1.5 px-2 hover:bg-zinc-50 rounded cursor-pointer group"
+                                                className="flex items-center justify-between px-2 py-1.5 hover:bg-zinc-50 rounded cursor-pointer text-sm"
+                                                onClick={() => { setSettings(s => ({ ...s, cardSize: "compact" })); }}
                                             >
-                                                <div className="flex items-center gap-2">
-                                                    <LayoutList className="h-3.5 w-3.5 text-zinc-500" />
-                                                    <span>Group</span>
-                                                </div>
-                                                <div className="flex items-center gap-1 text-zinc-500">
-                                                    <span className="text-xs">{
-                                                        groupBy === "status" ? "Status" :
-                                                            groupBy === "assignee" ? "Assignee" :
-                                                                groupBy === "priority" ? "Priority" :
-                                                                    groupBy === "dueDate" ? "Due Date" :
-                                                                        groupBy === "tags" ? "Tags" :
-                                                                            groupBy === "taskType" ? "Task Type" : "None"
-                                                    }</span>
-                                                    <ChevronRight className="h-3 w-3 opacity-0 group-hover:opacity-100" />
-                                                </div>
+                                                <span>Small</span>
+                                                {settings.cardSize === "compact" && <Check className="h-3.5 w-3.5" />}
                                             </div>
-                                        </PopoverTrigger>
-                                        <PopoverContent side="left" align="start" className="w-[240px] p-1.5 rounded-xl shadow-xl border-zinc-200/60" sideOffset={10}>
-                                            <div className="px-2 py-1.5 mb-1">
-                                                <span className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">Group by</span>
-                                            </div>
-                                            <div className="space-y-0.5">
-                                                {[
-                                                    { id: "status", label: "Status", icon: Circle },
-                                                    { id: "assignee", label: "Assignee", icon: Users },
-                                                    { id: "priority", label: "Priority", icon: Flag },
-                                                    { id: "tags", label: "Tags", icon: Tag },
-                                                    { id: "dueDate", label: "Due date", icon: Calendar },
-                                                    { id: "taskType", label: "Task type", icon: Box },
-                                                ].map((opt) => (
-                                                    <DropdownMenuItem
-                                                        key={opt.id}
-                                                        className={cn(
-                                                            "flex items-center gap-2.5 px-2 py-1.5 text-sm rounded-md cursor-pointer transition-colors",
-                                                            groupBy === opt.id ? "bg-violet-50 text-violet-700" : "text-zinc-600 hover:bg-zinc-100"
-                                                        )}
-                                                        onClick={() => setGroupBy(opt.id as any)}
-                                                    >
-                                                        <opt.icon className={cn("h-4 w-4", groupBy === opt.id ? "text-violet-500" : "text-zinc-400")} />
-                                                        <span className="flex-1">{opt.label}</span>
-                                                        {groupBy === opt.id && <div className="h-1.5 w-1.5 rounded-full bg-violet-600" />}
-                                                    </DropdownMenuItem>
-                                                ))}
-
-                                                {groupBy !== "none" && (
-                                                    <>
-                                                        <div className="h-px bg-zinc-100 my-1.5" />
-                                                        <div className="flex items-center gap-1 p-1">
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="sm"
-                                                                className={cn("flex-1 h-7 text-[10px] uppercase tracking-wider font-bold", groupDirection === "asc" ? "bg-white shadow-sm border border-zinc-200 text-zinc-900" : "text-zinc-500")}
-                                                                onClick={() => setGroupDirection("asc")}
-                                                            >
-                                                                Ascending
-                                                            </Button>
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="sm"
-                                                                className={cn("flex-1 h-7 text-[10px] uppercase tracking-wider font-bold", groupDirection === "desc" ? "bg-white shadow-sm border border-zinc-200 text-zinc-900" : "text-zinc-500")}
-                                                                onClick={() => setGroupDirection("desc")}
-                                                            >
-                                                                Descending
-                                                            </Button>
-                                                        </div>
-                                                    </>
-                                                )}
-                                            </div>
-                                        </PopoverContent>
-                                    </Popover>
-
-                                    {/* Sort By */}
-                                    <Popover>
-                                        <PopoverTrigger asChild>
                                             <div
-                                                className="flex items-center justify-between py-1.5 px-2 hover:bg-zinc-50 rounded cursor-pointer group"
+                                                className="flex items-center justify-between px-2 py-1.5 hover:bg-zinc-50 rounded cursor-pointer text-sm"
+                                                onClick={() => { setSettings(s => ({ ...s, cardSize: "default" })); }}
                                             >
-                                                <div className="flex items-center gap-2">
-                                                    <ArrowUpDown className="h-3.5 w-3.5 text-zinc-500" />
-                                                    <span>Sort</span>
-                                                </div>
-                                                <div className="flex items-center gap-1 text-zinc-500">
-                                                    {
-                                                        sort.length === 0 ? "None" :
-                                                            sort.map(s => {
-                                                                const label = [
-                                                                    { id: "assignee", label: "Assignees" },
-                                                                    { id: "createdAt", label: "Date created" },
-                                                                    { id: "updatedAt", label: "Date updated" },
-                                                                    { id: "dateDone", label: "Date done" },
-                                                                    { id: "dateClosed", label: "Date closed" },
-                                                                    { id: "dueDate", label: "Due date" },
-                                                                    { id: "id", label: "Task ID" },
-                                                                    { id: "name", label: "Task Name" },
-                                                                    { id: "priority", label: "Priority" },
-                                                                    { id: "startDate", label: "Start date" },
-                                                                    { id: "status", label: "Status" },
-                                                                ].find(opt => opt.id === s.id)?.label || s.id;
-                                                                return label;
-                                                            }).join(" / ")
-                                                    }
-                                                    <ChevronRight className="h-3 w-3 opacity-0 group-hover:opacity-100" />
-                                                </div>
+                                                <span>Medium (default)</span>
+                                                {settings.cardSize === "default" && <Check className="h-3.5 w-3.5" />}
                                             </div>
-                                        </PopoverTrigger>
-                                        <PopoverContent side="left" align="start" className="w-[240px] p-1.5 rounded-xl shadow-xl border-zinc-200/60" sideOffset={10}>
-                                            <div className="px-2 py-1.5">
-                                                <span className="text-xs font-medium text-zinc-400 tracking-widest">Sort By</span>
-                                            </div>
-                                            <div className="px-1 mb-2.5">
-                                                <div className="relative border border-zinc-300 rounded-md overflow-hidden focus-within:ring-1 focus-within:ring-violet-500 focus-within:border-violet-500">
-                                                    <input
-                                                        type="text"
-                                                        placeholder="Search..."
-                                                        value={sortSearchQuery}
-                                                        onChange={(e) => setSortSearchQuery(e.target.value)}
-                                                        className="w-full text-sm pl-2 pr-2 py-1.5 outline-none placeholder:text-zinc-400"
-                                                    />
-                                                </div>
-                                            </div>
-                                            <div className="h-px bg-zinc-100" />
-                                            <ScrollArea className="h-[280px] py-3">
-                                                <div className="space-y-0.5 px-1">
-                                                    {[
-                                                        { id: "assignee", label: "Assignees" },
-                                                        { id: "createdAt", label: "Date created" },
-                                                        { id: "updatedAt", label: "Date updated" },
-                                                        { id: "dateDone", label: "Date done" },
-                                                        { id: "dateClosed", label: "Date closed" },
-                                                        { id: "dueDate", label: "Due date" },
-                                                        { id: "id", label: "Task ID" },
-                                                        { id: "name", label: "Task Name" },
-                                                        { id: "priority", label: "Priority" },
-                                                        { id: "startDate", label: "Start date" },
-                                                        { id: "status", label: "Status" },
-                                                    ]
-                                                        .filter(opt => opt.label.toLowerCase().includes(sortSearchQuery.toLowerCase()))
-                                                        .map((opt) => {
-                                                            const currentSortIndex = sort.findIndex(s => s.id === opt.id);
-                                                            const isSelected = currentSortIndex >= 0;
-                                                            const currentSort = isSelected ? sort[currentSortIndex] : null;
-
-                                                            return (
-                                                                <div
-                                                                    key={opt.id}
-                                                                    className="flex items-center justify-between px-2 py-1.5 text-sm rounded-md cursor-pointer transition-colors group/item text-zinc-700 bg-white hover:bg-zinc-100"
-                                                                    onClick={() => {
-                                                                        if (isSelected) {
-                                                                            setSort([]);
-                                                                        } else {
-                                                                            setSort([{ id: opt.id, desc: false }]);
-                                                                        }
-                                                                    }}
-                                                                >
-                                                                    <div className="flex items-center gap-2">
-                                                                        {isSelected && currentSort && (
-                                                                            <div
-                                                                                className="flex flex-col items-center justify-center h-[18px] w-[18px] bg-zinc-100 rounded hover:bg-zinc-200 transition-colors"
-                                                                                onClick={(e) => {
-                                                                                    e.stopPropagation();
-                                                                                    setSort([{ id: opt.id, desc: !currentSort.desc }]);
-                                                                                }}
-                                                                            >
-                                                                                <div className="flex flex-col items-center -space-y-1">
-                                                                                    <ChevronUp
-                                                                                        className={`h-[14px] w-[14px] ${currentSort.desc
-                                                                                            ? 'text-violet-300'
-                                                                                            : 'text-violet-500'
-                                                                                            }`}
-                                                                                    />
-                                                                                    <ChevronDown
-                                                                                        className={`h-[14px] w-[14px] ${currentSort.desc
-                                                                                            ? 'text-violet-500'
-                                                                                            : 'text-violet-300'
-                                                                                            }`}
-                                                                                    />
-                                                                                </div>
-                                                                            </div>
-                                                                        )}
-                                                                        <span>{opt.label}</span>
-                                                                    </div>
-                                                                    {isSelected && <Check className="h-4 w-4 text-violet-600" />}
-                                                                </div>
-                                                            );
-                                                        })}
-                                                </div>
-                                            </ScrollArea>
-                                        </PopoverContent>
-                                    </Popover>
-                                    <Popover>
-                                        <PopoverTrigger asChild>
-                                            <button
-                                                type="button"
-                                                className="w-full flex items-center justify-between py-2.5 text-sm text-zinc-800 hover:bg-zinc-50 rounded-md px-2"
+                                            <div
+                                                className="flex items-center justify-between px-2 py-1.5 hover:bg-zinc-50 rounded cursor-pointer text-sm"
+                                                onClick={() => { setSettings(s => ({ ...s, cardSize: "comfortable" })); }}
                                             >
-                                                <span className="flex items-center gap-2"><Link2 className="h-4 w-4 text-zinc-400" />Subtasks</span>
-                                                <span className="text-xs text-zinc-500">{expandedSubtaskMode === "collapsed" ? "Collapsed" : expandedSubtaskMode === "expanded" ? "Expanded" : "Separate"} <ChevronRight className="inline h-3 w-3 ml-1" /></span>
-                                            </button>
-                                        </PopoverTrigger>
-                                        <PopoverContent side="left" align="start" className="w-56" sideOffset={16}>
-                                            <div className="text-xs px-2 pb-2 font-semibold text-zinc-900">Show subtasks</div>
-                                            <div className="space-y-1">
-                                                <button
-                                                    type="button"
-                                                    className={cn(
-                                                        "w-full text-left text-xs px-2 py-1 rounded",
-                                                        expandedSubtaskMode === "collapsed" ? "bg-zinc-100 text-zinc-900" : "text-zinc-700 hover:bg-zinc-50"
-                                                    )}
-                                                    onClick={() => {
-                                                        setExpandedSubtaskMode("collapsed");
-                                                        setExpandedParents(new Set());
-                                                    }}
-                                                >
-                                                    Collapsed (default)
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    className={cn(
-                                                        "w-full text-left text-xs px-2 py-1 rounded",
-                                                        expandedSubtaskMode === "expanded" ? "bg-zinc-100 text-zinc-900" : "text-zinc-700 hover:bg-zinc-50"
-                                                    )}
-                                                    onClick={() => {
-                                                        setExpandedSubtaskMode("expanded");
-                                                        const next = new Set<string>();
-                                                        displayTasks.forEach((t: Task) => {
-                                                            if (hasSubtasks(t, displayTasks as Task[])) next.add(t.id);
-                                                        });
-                                                        setExpandedParents(next);
-                                                    }}
-                                                >
-                                                    Expanded
-                                                </button>
+                                                <span>Large</span>
+                                                {settings.cardSize === "comfortable" && <Check className="h-3.5 w-3.5" />}
                                             </div>
-                                        </PopoverContent>
-                                    </Popover>
-                                    <div className="h-px bg-zinc-100 my-2" />
+                                        </div>
+                                    </PopoverContent>
+                                </Popover>
 
-                                    <div className="space-y-1">
-                                        <div className="flex items-center justify-between py-1.5 px-2 hover:bg-zinc-50 rounded">
-                                            <div className="flex items-center gap-2">
-                                                <Save className="h-3.5 w-3.5 text-zinc-400" />
-                                                <span>Autosave for me</span>
+                                {/* Card Cover Dropdown */}
+                                <Popover>
+                                    <PopoverTrigger asChild>
+                                        <div className="flex items-center justify-between py-1.5 px-2 hover:bg-zinc-50 rounded cursor-pointer group">
+                                            <span>Card cover</span>
+                                            <div className="flex items-center gap-1 text-zinc-500">
+                                                <span className="text-xs">{settings.showCover ? "Image" : "None"}</span>
+                                                <ChevronRight className="h-3 w-3 opacity-0 group-hover:opacity-100" />
                                             </div>
-                                            <Switch className="h-4 w-7" checked={viewAutosave} onCheckedChange={handleToggleAutosave} />
                                         </div>
-                                        <div className="flex items-center justify-between py-1.5 px-2 hover:bg-zinc-50 rounded">
-                                            <div className="flex items-center gap-2">
-                                                <Pin className="h-3.5 w-3.5 text-zinc-400" />
-                                                <span>Pin view</span>
+                                    </PopoverTrigger>
+                                    <PopoverContent side="left" align="start" className="w-48 p-1" sideOffset={10}>
+                                        <div className="space-y-0.5">
+                                            <div
+                                                className="flex items-center justify-between px-2 py-1.5 hover:bg-zinc-50 rounded cursor-pointer text-sm"
+                                                onClick={() => { setSettings(s => ({ ...s, cardCover: "none" })); }}
+                                            >
+                                                <span>None (default)</span>
+                                                {settings.cardCover === "none" && <Check className="h-3.5 w-3.5" />}
                                             </div>
-                                            <Switch className="h-4 w-7" checked={pinView} onCheckedChange={(val) => { setPinView(val); updateViewProperty("isPinned", val); }} />
-                                        </div>
-                                        <div className="flex items-center justify-between py-1.5 px-2 hover:bg-zinc-50 rounded">
-                                            <div className="flex items-center gap-2">
-                                                <Lock className="h-3.5 w-3.5 text-zinc-400" />
-                                                <span>Private view</span>
+                                            <div
+                                                className="flex items-center justify-between px-2 py-1.5 hover:bg-zinc-50 rounded cursor-pointer text-sm"
+                                                onClick={() => { setSettings(s => ({ ...s, cardCover: "image" })); }}
+                                            >
+                                                <span>Image</span>
+                                                {settings.cardCover === "image" && <Check className="h-3.5 w-3.5" />}
                                             </div>
-                                            <Switch className="h-4 w-7" checked={privateView} onCheckedChange={(val) => { setPrivateView(val); updateViewProperty('isPrivate', val); }} />
-                                        </div>
-                                        <div className="flex items-center justify-between py-1.5 px-2 hover:bg-zinc-50 rounded">
-                                            <div className="flex items-center gap-2">
-                                                <ShieldCheck className="h-3.5 w-3.5 text-zinc-400" />
-                                                <span>Protect view</span>
+                                            <div
+                                                className="flex items-center justify-between px-2 py-1.5 hover:bg-zinc-50 rounded cursor-pointer text-sm"
+                                                onClick={() => { setSettings(s => ({ ...s, cardCover: "description" })); }}
+                                            >
+                                                <span>Task description</span>
+                                                {settings.cardCover === "description" && <Check className="h-3.5 w-3.5" />}
                                             </div>
-                                            <Switch className="h-4 w-7" checked={protectView} onCheckedChange={(val) => { setProtectView(val); updateViewProperty('isLocked', val); }} />
                                         </div>
-                                        <div className="flex items-center justify-between py-1.5 px-2 hover:bg-zinc-50 rounded">
-                                            <div className="flex items-center gap-2">
-                                                <Home className="h-3.5 w-3.5 text-zinc-400" />
-                                                <span>Set as default view</span>
-                                            </div>
-                                            <Switch className="h-4 w-7" checked={defaultView} onCheckedChange={(val) => { setDefaultView(val); updateViewProperty('isDefault', val); }} />
-                                        </div>
+                                    </PopoverContent>
+                                </Popover>
+
+                                <div className="flex items-center justify-between py-1.5 px-2 hover:bg-zinc-50 rounded">
+                                    <span>Stack fields</span>
+                                    <Switch className="h-4 w-7" checked={settings.stackFields} onCheckedChange={(v) => setSettings({ ...settings, stackFields: v })} />
+                                </div>
+                                <div className="flex items-center justify-between py-1.5 px-2 hover:bg-zinc-50 rounded">
+                                    <span>Show empty fields</span>
+                                    <Switch className="h-4 w-7" checked={settings.showCustomFields} onCheckedChange={(v) => setSettings({ ...settings, showCustomFields: v })} />
+                                </div>
+                                <div className="flex items-center justify-between py-1.5 px-2 hover:bg-zinc-50 rounded">
+                                    <span>Collapse empty columns</span>
+                                    <Switch className="h-4 w-7" checked={!settings.showEmptyColumns} onCheckedChange={(v) => setSettings({ ...settings, showEmptyColumns: !v })} />
+                                </div>
+
+                                <button
+                                    type="button"
+                                    className="w-full flex items-center justify-between py-1.5 px-2 hover:bg-zinc-50 rounded cursor-pointer text-inherit"
+                                    onClick={() => { setLayoutOptionsOpen(true); setCustomizePanelOpen(false); }}
+                                >
+                                    <span>More options</span>
+                                    <ChevronRight className="h-3 w-3 text-zinc-400" />
+                                </button>
+
+                                <div className="h-px bg-zinc-100 my-2" />
+
+                                {/* Fields */}
+                                <div
+                                    className="flex items-center justify-between py-1.5 px-2 hover:bg-zinc-50 rounded cursor-pointer group"
+                                    onClick={() => { setFieldsPanelOpen(true); setCustomizePanelOpen(false); }}
+                                >
+                                    <div className="flex items-center gap-2">
+                                        <SlidersHorizontal className="h-3.5 w-3.5 text-zinc-500" />
+                                        <span>Fields</span>
                                     </div>
-
-                                    <div className="h-px bg-zinc-100 my-2" />
-
-                                    <div className="space-y-1">
-                                        <button type="button" className="w-full flex items-center gap-2 py-1.5 px-2 text-zinc-800 hover:bg-zinc-50 rounded text-inherit" onClick={() => {
-                                            const url = `${window.location.origin}${window.location.pathname}?v=${viewId}`;
-                                            navigator.clipboard?.writeText(url);
-                                            toast.success("Link copied to clipboard");
-                                        }}>
-                                            <Link className="h-3.5 w-3.5 text-zinc-400" />
-                                            <span>Copy link to view</span>
-                                        </button>
-                                        <button
-                                            type="button"
-                                            className="w-full flex items-center justify-between py-1.5 px-2 text-zinc-800 hover:bg-zinc-50 rounded text-inherit"
-                                            onClick={() => setIsShareModalOpen(true)}
-                                        >
-                                            <div className="flex items-center gap-2">
-                                                <Users className="h-3.5 w-3.5 text-zinc-400" />
-                                                <span>Sharing & Permissions</span>
-                                            </div>
-                                            <ChevronRight className="h-3 w-3 text-zinc-400" />
-                                        </button>
+                                    <div className="flex items-center gap-1 text-zinc-500">
+                                        <span className="text-xs">{settings.visibleFields.length} shown</span>
+                                        <ChevronRight className="h-3 w-3 opacity-0 group-hover:opacity-100" />
                                     </div>
                                 </div>
-                            </ScrollArea>
+
+                                {/* Filter */}
+                                <Popover open={filtersPanelOpen} onOpenChange={setFiltersPanelOpen}>
+                                    <PopoverTrigger asChild>
+                                        <button
+                                            type="button"
+                                            className="w-full flex items-center justify-between py-2.5 text-sm text-zinc-800 hover:bg-zinc-50 rounded-md px-2"
+                                            onClick={() => { if (filterGroups.conditions.length === 0) { addFilterGroup(); } }}
+                                        >
+                                            <span className="flex items-center gap-2"><Filter className="h-4 w-4 text-zinc-400" />Filter</span>
+                                            <span className="text-xs text-zinc-500">{appliedFilterCount > 0 ? `${appliedFilterCount} applied` : "None"} <ChevronRight className="inline h-3 w-3 ml-1" /></span>
+                                        </button>
+                                    </PopoverTrigger>
+                                    <PopoverContent side="left" align="start" className="w-[600px] max-w-[90vw] p-0 overflow-hidden shadow-2xl rounded-2xl border border-zinc-200/80" sideOffset={16}>
+                                        {renderFilterContent({ onClose: () => setFiltersPanelOpen(false) })}
+                                    </PopoverContent>
+                                </Popover>
+
+                                {/* Group */}
+                                <Popover>
+                                    <PopoverTrigger asChild>
+                                        <div
+                                            className="flex items-center justify-between py-1.5 px-2 hover:bg-zinc-50 rounded cursor-pointer group"
+                                        >
+                                            <div className="flex items-center gap-2">
+                                                <LayoutList className="h-3.5 w-3.5 text-zinc-500" />
+                                                <span>Group</span>
+                                            </div>
+                                            <div className="flex items-center gap-1 text-zinc-500">
+                                                <span className="text-xs">{
+                                                    groupBy === "status" ? "Status" :
+                                                        groupBy === "assignee" ? "Assignee" :
+                                                            groupBy === "priority" ? "Priority" :
+                                                                groupBy === "dueDate" ? "Due Date" :
+                                                                    groupBy === "tags" ? "Tags" :
+                                                                        groupBy === "taskType" ? "Task Type" : "None"
+                                                }</span>
+                                                <ChevronRight className="h-3 w-3 opacity-0 group-hover:opacity-100" />
+                                            </div>
+                                        </div>
+                                    </PopoverTrigger>
+                                    <PopoverContent side="left" align="start" className="w-[240px] p-1.5 rounded-xl shadow-xl border-zinc-200/60" sideOffset={10}>
+                                        <div className="px-2 py-1.5 mb-1">
+                                            <span className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">Group by</span>
+                                        </div>
+                                        <div className="space-y-0.5">
+                                            {[
+                                                { id: "status", label: "Status", icon: Circle },
+                                                { id: "assignee", label: "Assignee", icon: Users },
+                                                { id: "priority", label: "Priority", icon: Flag },
+                                                { id: "tags", label: "Tags", icon: Tag },
+                                                { id: "dueDate", label: "Due date", icon: Calendar },
+                                                { id: "taskType", label: "Task type", icon: Box },
+                                            ].map((opt) => (
+                                                <DropdownMenuItem
+                                                    key={opt.id}
+                                                    className={cn(
+                                                        "flex items-center gap-2.5 px-2 py-1.5 text-sm rounded-md cursor-pointer transition-colors",
+                                                        groupBy === opt.id ? "bg-violet-50 text-violet-700" : "text-zinc-600 hover:bg-zinc-100"
+                                                    )}
+                                                    onClick={() => setGroupBy(opt.id as any)}
+                                                >
+                                                    <opt.icon className={cn("h-4 w-4", groupBy === opt.id ? "text-violet-500" : "text-zinc-400")} />
+                                                    <span className="flex-1">{opt.label}</span>
+                                                    {groupBy === opt.id && <div className="h-1.5 w-1.5 rounded-full bg-violet-600" />}
+                                                </DropdownMenuItem>
+                                            ))}
+
+                                            {groupBy !== "none" && (
+                                                <>
+                                                    <div className="h-px bg-zinc-100 my-1.5" />
+                                                    <div className="flex items-center gap-1 p-1">
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            className={cn("flex-1 h-7 text-[10px] uppercase tracking-wider font-bold", groupDirection === "asc" ? "bg-white shadow-sm border border-zinc-200 text-zinc-900" : "text-zinc-500")}
+                                                            onClick={() => setGroupDirection("asc")}
+                                                        >
+                                                            Ascending
+                                                        </Button>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            className={cn("flex-1 h-7 text-[10px] uppercase tracking-wider font-bold", groupDirection === "desc" ? "bg-white shadow-sm border border-zinc-200 text-zinc-900" : "text-zinc-500")}
+                                                            onClick={() => setGroupDirection("desc")}
+                                                        >
+                                                            Descending
+                                                        </Button>
+                                                    </div>
+                                                </>
+                                            )}
+                                        </div>
+                                    </PopoverContent>
+                                </Popover>
+
+                                {/* Sort By */}
+                                <Popover>
+                                    <PopoverTrigger asChild>
+                                        <div
+                                            className="flex items-center justify-between py-1.5 px-2 hover:bg-zinc-50 rounded cursor-pointer group"
+                                        >
+                                            <div className="flex items-center gap-2">
+                                                <ArrowUpDown className="h-3.5 w-3.5 text-zinc-500" />
+                                                <span>Sort</span>
+                                            </div>
+                                            <div className="flex items-center gap-1 text-zinc-500">
+                                                {
+                                                    sort.length === 0 ? "None" :
+                                                        sort.map(s => {
+                                                            const label = [
+                                                                { id: "assignee", label: "Assignees" },
+                                                                { id: "createdAt", label: "Date created" },
+                                                                { id: "updatedAt", label: "Date updated" },
+                                                                { id: "dateDone", label: "Date done" },
+                                                                { id: "dateClosed", label: "Date closed" },
+                                                                { id: "dueDate", label: "Due date" },
+                                                                { id: "id", label: "Task ID" },
+                                                                { id: "name", label: "Task Name" },
+                                                                { id: "priority", label: "Priority" },
+                                                                { id: "startDate", label: "Start date" },
+                                                                { id: "status", label: "Status" },
+                                                            ].find(opt => opt.id === s.id)?.label || s.id;
+                                                            return label;
+                                                        }).join(" / ")
+                                                }
+                                                <ChevronRight className="h-3 w-3 opacity-0 group-hover:opacity-100" />
+                                            </div>
+                                        </div>
+                                    </PopoverTrigger>
+                                    <PopoverContent side="left" align="start" className="w-[240px] p-1.5 rounded-xl shadow-xl border-zinc-200/60" sideOffset={10}>
+                                        <div className="px-2 py-1.5">
+                                            <span className="text-xs font-medium text-zinc-400 tracking-widest">Sort By</span>
+                                        </div>
+                                        <div className="px-1 mb-2.5">
+                                            <div className="relative border border-zinc-300 rounded-md overflow-hidden focus-within:ring-1 focus-within:ring-violet-500 focus-within:border-violet-500">
+                                                <input
+                                                    type="text"
+                                                    placeholder="Search..."
+                                                    value={sortSearchQuery}
+                                                    onChange={(e) => setSortSearchQuery(e.target.value)}
+                                                    className="w-full text-sm pl-2 pr-2 py-1.5 outline-none placeholder:text-zinc-400"
+                                                />
+                                            </div>
+                                        </div>
+                                        <div className="h-px bg-zinc-100" />
+                                        <ScrollArea className="h-[280px] py-3">
+                                            <div className="space-y-0.5 px-1">
+                                                {[
+                                                    { id: "assignee", label: "Assignees" },
+                                                    { id: "createdAt", label: "Date created" },
+                                                    { id: "updatedAt", label: "Date updated" },
+                                                    { id: "dateDone", label: "Date done" },
+                                                    { id: "dateClosed", label: "Date closed" },
+                                                    { id: "dueDate", label: "Due date" },
+                                                    { id: "id", label: "Task ID" },
+                                                    { id: "name", label: "Task Name" },
+                                                    { id: "priority", label: "Priority" },
+                                                    { id: "startDate", label: "Start date" },
+                                                    { id: "status", label: "Status" },
+                                                ]
+                                                    .filter(opt => opt.label.toLowerCase().includes(sortSearchQuery.toLowerCase()))
+                                                    .map((opt) => {
+                                                        const currentSortIndex = sort.findIndex(s => s.id === opt.id);
+                                                        const isSelected = currentSortIndex >= 0;
+                                                        const currentSort = isSelected ? sort[currentSortIndex] : null;
+
+                                                        return (
+                                                            <div
+                                                                key={opt.id}
+                                                                className="flex items-center justify-between px-2 py-1.5 text-sm rounded-md cursor-pointer transition-colors group/item text-zinc-700 bg-white hover:bg-zinc-100"
+                                                                onClick={() => {
+                                                                    if (isSelected) {
+                                                                        setSort([]);
+                                                                    } else {
+                                                                        setSort([{ id: opt.id, desc: false }]);
+                                                                    }
+                                                                }}
+                                                            >
+                                                                <div className="flex items-center gap-2">
+                                                                    {isSelected && currentSort && (
+                                                                        <div
+                                                                            className="flex flex-col items-center justify-center h-[18px] w-[18px] bg-zinc-100 rounded hover:bg-zinc-200 transition-colors"
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                setSort([{ id: opt.id, desc: !currentSort.desc }]);
+                                                                            }}
+                                                                        >
+                                                                            <div className="flex flex-col items-center -space-y-1">
+                                                                                <ChevronUp
+                                                                                    className={`h-[14px] w-[14px] ${currentSort.desc
+                                                                                        ? 'text-violet-300'
+                                                                                        : 'text-violet-500'
+                                                                                        }`}
+                                                                                />
+                                                                                <ChevronDown
+                                                                                    className={`h-[14px] w-[14px] ${currentSort.desc
+                                                                                        ? 'text-violet-500'
+                                                                                        : 'text-violet-300'
+                                                                                        }`}
+                                                                                />
+                                                                            </div>
+                                                                        </div>
+                                                                    )}
+                                                                    <span>{opt.label}</span>
+                                                                </div>
+                                                                {isSelected && <Check className="h-4 w-4 text-violet-600" />}
+                                                            </div>
+                                                        );
+                                                    })}
+                                            </div>
+                                        </ScrollArea>
+                                    </PopoverContent>
+                                </Popover>
+                                <Popover>
+                                    <PopoverTrigger asChild>
+                                        <button
+                                            type="button"
+                                            className="w-full flex items-center justify-between py-2.5 text-sm text-zinc-800 hover:bg-zinc-50 rounded-md px-2"
+                                        >
+                                            <span className="flex items-center gap-2"><Link2 className="h-4 w-4 text-zinc-400" />Subtasks</span>
+                                            <span className="text-xs text-zinc-500">{expandedSubtaskMode === "collapsed" ? "Collapsed" : expandedSubtaskMode === "expanded" ? "Expanded" : "Separate"} <ChevronRight className="inline h-3 w-3 ml-1" /></span>
+                                        </button>
+                                    </PopoverTrigger>
+                                    <PopoverContent side="left" align="start" className="w-56" sideOffset={16}>
+                                        <div className="text-xs px-2 pb-2 font-semibold text-zinc-900">Show subtasks</div>
+                                        <div className="space-y-1">
+                                            <button
+                                                type="button"
+                                                className={cn(
+                                                    "w-full text-left text-xs px-2 py-1 rounded",
+                                                    expandedSubtaskMode === "collapsed" ? "bg-zinc-100 text-zinc-900" : "text-zinc-700 hover:bg-zinc-50"
+                                                )}
+                                                onClick={() => {
+                                                    setExpandedSubtaskMode("collapsed");
+                                                    setExpandedParents(new Set());
+                                                }}
+                                            >
+                                                Collapsed (default)
+                                            </button>
+                                            <button
+                                                type="button"
+                                                className={cn(
+                                                    "w-full text-left text-xs px-2 py-1 rounded",
+                                                    expandedSubtaskMode === "expanded" ? "bg-zinc-100 text-zinc-900" : "text-zinc-700 hover:bg-zinc-50"
+                                                )}
+                                                onClick={() => {
+                                                    setExpandedSubtaskMode("expanded");
+                                                    const next = new Set<string>();
+                                                    displayTasks.forEach((t: Task) => {
+                                                        if (hasSubtasks(t, displayTasks as Task[])) next.add(t.id);
+                                                    });
+                                                    setExpandedParents(next);
+                                                }}
+                                            >
+                                                Expanded
+                                            </button>
+                                        </div>
+                                    </PopoverContent>
+                                </Popover>
+                                <div className="h-px bg-zinc-100 my-2" />
+
+                                <div className="space-y-1">
+                                    <div className="flex items-center justify-between py-1.5 px-2 hover:bg-zinc-50 rounded">
+                                        <div className="flex items-center gap-2">
+                                            <Save className="h-3.5 w-3.5 text-zinc-400" />
+                                            <span>Autosave for me</span>
+                                        </div>
+                                        <Switch className="h-4 w-7" checked={viewAutosave} onCheckedChange={handleToggleAutosave} />
+                                    </div>
+                                    <div className="flex items-center justify-between py-1.5 px-2 hover:bg-zinc-50 rounded">
+                                        <div className="flex items-center gap-2">
+                                            <Pin className="h-3.5 w-3.5 text-zinc-400" />
+                                            <span>Pin view</span>
+                                        </div>
+                                        <Switch className="h-4 w-7" checked={pinView} onCheckedChange={(val) => { setPinView(val); updateViewProperty("isPinned", val); }} />
+                                    </div>
+                                    <div className="flex items-center justify-between py-1.5 px-2 hover:bg-zinc-50 rounded">
+                                        <div className="flex items-center gap-2">
+                                            <Lock className="h-3.5 w-3.5 text-zinc-400" />
+                                            <span>Private view</span>
+                                        </div>
+                                        <Switch className="h-4 w-7" checked={privateView} onCheckedChange={(val) => { setPrivateView(val); updateViewProperty('isPrivate', val); }} />
+                                    </div>
+                                    <div className="flex items-center justify-between py-1.5 px-2 hover:bg-zinc-50 rounded">
+                                        <div className="flex items-center gap-2">
+                                            <ShieldCheck className="h-3.5 w-3.5 text-zinc-400" />
+                                            <span>Protect view</span>
+                                        </div>
+                                        <Switch className="h-4 w-7" checked={protectView} onCheckedChange={(val) => { setProtectView(val); updateViewProperty('isLocked', val); }} />
+                                    </div>
+                                    <div className="flex items-center justify-between py-1.5 px-2 hover:bg-zinc-50 rounded">
+                                        <div className="flex items-center gap-2">
+                                            <Home className="h-3.5 w-3.5 text-zinc-400" />
+                                            <span>Set as default view</span>
+                                        </div>
+                                        <Switch className="h-4 w-7" checked={defaultView} onCheckedChange={(val) => { setDefaultView(val); updateViewProperty('isDefault', val); }} />
+                                    </div>
+                                </div>
+
+                                <div className="h-px bg-zinc-100 my-2" />
+
+                                <div className="space-y-1">
+                                    <button type="button" className="w-full flex items-center gap-2 py-1.5 px-2 text-zinc-800 hover:bg-zinc-50 rounded text-inherit" onClick={() => {
+                                        const url = `${window.location.origin}${window.location.pathname}?v=${viewId}`;
+                                        navigator.clipboard?.writeText(url);
+                                        toast.success("Link copied to clipboard");
+                                    }}>
+                                        <Link className="h-3.5 w-3.5 text-zinc-400" />
+                                        <span>Copy link to view</span>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className="w-full flex items-center justify-between py-1.5 px-2 text-zinc-800 hover:bg-zinc-50 rounded text-inherit"
+                                        onClick={() => setIsShareModalOpen(true)}
+                                    >
+                                        <div className="flex items-center gap-2">
+                                            <Users className="h-3.5 w-3.5 text-zinc-400" />
+                                            <span>Sharing & Permissions</span>
+                                        </div>
+                                        <ChevronRight className="h-3 w-3 text-zinc-400" />
+                                    </button>
+                                </div>
+                            </div>
+                        </ScrollArea>
                     </SidePanel>
                 )
             }
@@ -4437,172 +4544,172 @@ export function BoardView({ spaceId, projectId, teamId, listId, folderId, viewId
                         onClose={() => { setLayoutOptionsOpen(false); setCustomizePanelOpen(false); }}
                         className="absolute bottom-0 right-0 h-full w-[380px] max-w-[90vw] bg-white border-l border-zinc-200 shadow-xl z-50 flex flex-col"
                     >
-                            <div className="flex items-center justify-between p-4 border-b border-zinc-100">
-                                <Button variant="ghost" size="icon" className="h-8 w-8 -ml-1 cursor-pointer" onClick={() => { setLayoutOptionsOpen(false); setCustomizePanelOpen(true); }}>
-                                    <ArrowRight className="h-4 w-4 rotate-180" />
-                                </Button>
-                                <h3 className="font-semibold text-zinc-900">Layout options</h3>
-                                <Button variant="ghost" size="icon" className="h-8 w-8 cursor-pointer" onClick={() => { setLayoutOptionsOpen(false); setCustomizePanelOpen(false); }}><X className="h-4 w-4" /></Button>
-                            </div>
-                            <ScrollArea className="flex-1 min-h-0">
-                                <div className="p-3 space-y-4 pb-24">
-                                    {/* Page & card layout section */}
-                                    <div className="space-y-2">
-                                        <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-2">Page & card layout</p>
+                        <div className="flex items-center justify-between p-4 border-b border-zinc-100">
+                            <Button variant="ghost" size="icon" className="h-8 w-8 -ml-1 cursor-pointer" onClick={() => { setLayoutOptionsOpen(false); setCustomizePanelOpen(true); }}>
+                                <ArrowRight className="h-4 w-4 rotate-180" />
+                            </Button>
+                            <h3 className="font-semibold text-zinc-900">Layout options</h3>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 cursor-pointer" onClick={() => { setLayoutOptionsOpen(false); setCustomizePanelOpen(false); }}><X className="h-4 w-4" /></Button>
+                        </div>
+                        <ScrollArea className="flex-1 min-h-0">
+                            <div className="p-3 space-y-4 pb-24">
+                                {/* Page & card layout section */}
+                                <div className="space-y-2">
+                                    <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-2">Page & card layout</p>
 
-                                        {/* Card Size */}
-                                        <Popover>
-                                            <PopoverTrigger asChild>
-                                                <div className="flex items-center justify-between py-1 px-2 hover:bg-zinc-50 rounded cursor-pointer group">
-                                                    <span className="text-sm text-zinc-800">Card size</span>
-                                                    <div className="flex items-center gap-1.5 text-zinc-500">
-                                                        <span className="text-xs">{settings.cardSize === "compact" ? "Small" : settings.cardSize === "comfortable" ? "Large" : "Medium"}</span>
-                                                        <ChevronRight className="h-3.5 w-3.5 opacity-0 group-hover:opacity-100 transition-opacity" />
-                                                    </div>
+                                    {/* Card Size */}
+                                    <Popover>
+                                        <PopoverTrigger asChild>
+                                            <div className="flex items-center justify-between py-1 px-2 hover:bg-zinc-50 rounded cursor-pointer group">
+                                                <span className="text-sm text-zinc-800">Card size</span>
+                                                <div className="flex items-center gap-1.5 text-zinc-500">
+                                                    <span className="text-xs">{settings.cardSize === "compact" ? "Small" : settings.cardSize === "comfortable" ? "Large" : "Medium"}</span>
+                                                    <ChevronRight className="h-3.5 w-3.5 opacity-0 group-hover:opacity-100 transition-opacity" />
                                                 </div>
-                                            </PopoverTrigger>
-                                            <PopoverContent side="left" align="start" className="w-52 p-1.5" sideOffset={12}>
-                                                <div className="space-y-0.5">
-                                                    <div
-                                                        className="flex items-center justify-between px-2.5 py-2 hover:bg-zinc-50 rounded cursor-pointer text-sm"
-                                                        onClick={() => { setSettings(s => ({ ...s, cardSize: "compact" })); }}
-                                                    >
-                                                        <span>Small</span>
-                                                        {settings.cardSize === "compact" && <Check className="h-4 w-4 text-violet-600" />}
-                                                    </div>
-                                                    <div
-                                                        className="flex items-center justify-between px-2.5 py-2 hover:bg-zinc-50 rounded cursor-pointer text-sm"
-                                                        onClick={() => { setSettings(s => ({ ...s, cardSize: "default" })); }}
-                                                    >
-                                                        <span>Medium (default)</span>
-                                                        {settings.cardSize === "default" && <Check className="h-4 w-4 text-violet-600" />}
-                                                    </div>
-                                                    <div
-                                                        className="flex items-center justify-between px-2.5 py-2 hover:bg-zinc-50 rounded cursor-pointer text-sm"
-                                                        onClick={() => { setSettings(s => ({ ...s, cardSize: "comfortable" })); }}
-                                                    >
-                                                        <span>Large</span>
-                                                        {settings.cardSize === "comfortable" && <Check className="h-4 w-4 text-violet-600" />}
-                                                    </div>
+                                            </div>
+                                        </PopoverTrigger>
+                                        <PopoverContent side="left" align="start" className="w-52 p-1.5" sideOffset={12}>
+                                            <div className="space-y-0.5">
+                                                <div
+                                                    className="flex items-center justify-between px-2.5 py-2 hover:bg-zinc-50 rounded cursor-pointer text-sm"
+                                                    onClick={() => { setSettings(s => ({ ...s, cardSize: "compact" })); }}
+                                                >
+                                                    <span>Small</span>
+                                                    {settings.cardSize === "compact" && <Check className="h-4 w-4 text-violet-600" />}
                                                 </div>
-                                            </PopoverContent>
-                                        </Popover>
+                                                <div
+                                                    className="flex items-center justify-between px-2.5 py-2 hover:bg-zinc-50 rounded cursor-pointer text-sm"
+                                                    onClick={() => { setSettings(s => ({ ...s, cardSize: "default" })); }}
+                                                >
+                                                    <span>Medium (default)</span>
+                                                    {settings.cardSize === "default" && <Check className="h-4 w-4 text-violet-600" />}
+                                                </div>
+                                                <div
+                                                    className="flex items-center justify-between px-2.5 py-2 hover:bg-zinc-50 rounded cursor-pointer text-sm"
+                                                    onClick={() => { setSettings(s => ({ ...s, cardSize: "comfortable" })); }}
+                                                >
+                                                    <span>Large</span>
+                                                    {settings.cardSize === "comfortable" && <Check className="h-4 w-4 text-violet-600" />}
+                                                </div>
+                                            </div>
+                                        </PopoverContent>
+                                    </Popover>
 
-                                        {/* Card Cover */}
-                                        <Popover>
-                                            <PopoverTrigger asChild>
-                                                <div className="flex items-center justify-between py-1 px-2 hover:bg-zinc-50 rounded cursor-pointer group">
-                                                    <span className="text-sm text-zinc-800">Card cover</span>
-                                                    <div className="flex items-center gap-1.5 text-zinc-500">
-                                                        <span className="text-xs">{settings.showCover ? "Image" : "None"}</span>
-                                                        <ChevronRight className="h-3.5 w-3.5 opacity-0 group-hover:opacity-100 transition-opacity" />
-                                                    </div>
+                                    {/* Card Cover */}
+                                    <Popover>
+                                        <PopoverTrigger asChild>
+                                            <div className="flex items-center justify-between py-1 px-2 hover:bg-zinc-50 rounded cursor-pointer group">
+                                                <span className="text-sm text-zinc-800">Card cover</span>
+                                                <div className="flex items-center gap-1.5 text-zinc-500">
+                                                    <span className="text-xs">{settings.showCover ? "Image" : "None"}</span>
+                                                    <ChevronRight className="h-3.5 w-3.5 opacity-0 group-hover:opacity-100 transition-opacity" />
                                                 </div>
-                                            </PopoverTrigger>
-                                            <PopoverContent side="left" align="start" className="w-52 p-1.5" sideOffset={12}>
-                                                <div className="space-y-0.5">
-                                                    <div
-                                                        className="flex items-center justify-between px-2.5 py-2 hover:bg-zinc-50 rounded cursor-pointer text-sm"
-                                                        onClick={() => { setSettings(s => ({ ...s, showCover: true })); }}
-                                                    >
-                                                        <span>Image</span>
-                                                        {settings.showCover && <Check className="h-4 w-4 text-violet-600" />}
-                                                    </div>
-                                                    <div
-                                                        className="flex items-center justify-between px-2.5 py-2 hover:bg-zinc-50 rounded cursor-pointer text-sm"
-                                                        onClick={() => { setSettings(s => ({ ...s, showCover: false })); }}
-                                                    >
-                                                        <span>None</span>
-                                                        {!settings.showCover && <Check className="h-4 w-4 text-violet-600" />}
-                                                    </div>
+                                            </div>
+                                        </PopoverTrigger>
+                                        <PopoverContent side="left" align="start" className="w-52 p-1.5" sideOffset={12}>
+                                            <div className="space-y-0.5">
+                                                <div
+                                                    className="flex items-center justify-between px-2.5 py-2 hover:bg-zinc-50 rounded cursor-pointer text-sm"
+                                                    onClick={() => { setSettings(s => ({ ...s, showCover: true })); }}
+                                                >
+                                                    <span>Image</span>
+                                                    {settings.showCover && <Check className="h-4 w-4 text-violet-600" />}
                                                 </div>
-                                            </PopoverContent>
-                                        </Popover>
+                                                <div
+                                                    className="flex items-center justify-between px-2.5 py-2 hover:bg-zinc-50 rounded cursor-pointer text-sm"
+                                                    onClick={() => { setSettings(s => ({ ...s, showCover: false })); }}
+                                                >
+                                                    <span>None</span>
+                                                    {!settings.showCover && <Check className="h-4 w-4 text-violet-600" />}
+                                                </div>
+                                            </div>
+                                        </PopoverContent>
+                                    </Popover>
 
-                                        <div className="flex items-center justify-between py-1 px-2">
-                                            <span className="text-sm text-zinc-800">Stack fields</span>
-                                            <Switch checked={settings.stackFields} onCheckedChange={(v) => setSettings({ ...settings, stackFields: v })} />
-                                        </div>
-                                        <div className="flex items-center justify-between py-1 px-2">
-                                            <span className="text-sm text-zinc-800">Show task properties</span>
-                                            <Switch checked={settings.showTaskProperties} onCheckedChange={(v) => setSettings({ ...settings, showTaskProperties: v })} />
-                                        </div>
-                                        <div className="flex items-center justify-between py-1 px-2">
-                                            <span className="text-sm text-zinc-800">Show empty fields</span>
-                                            <Switch checked={settings.showCustomFields} onCheckedChange={(v) => setSettings({ ...settings, showCustomFields: v })} />
-                                        </div>
-                                        <div className="flex items-center justify-between py-1 px-2">
-                                            <span className="text-sm text-zinc-800">Show task locations</span>
-                                            <Switch checked={settings.showTaskLocations} onCheckedChange={(v) => setSettings({ ...settings, showTaskLocations: v })} />
-                                        </div>
-                                        <div className="flex items-center justify-between py-1 px-2">
-                                            <span className="text-sm text-zinc-800">Show subtask parent names</span>
-                                            <Switch checked={settings.showSubtaskParentNames} onCheckedChange={(v) => setSettings({ ...settings, showSubtaskParentNames: v })} />
-                                        </div>
-                                        <div className="flex items-center justify-between py-1 px-2">
-                                            <span className="text-sm text-zinc-800">Collapse empty columns</span>
-                                            <Switch checked={!settings.showEmptyColumns} onCheckedChange={(v) => setSettings({ ...settings, showEmptyColumns: !v })} />
-                                        </div>
-                                        <div className="flex items-center justify-between py-1 px-2">
-                                            <span className="text-sm text-zinc-800">Show column colors</span>
-                                            <Switch checked={settings.showColumnColors} onCheckedChange={(v) => setSettings({ ...settings, showColumnColors: v })} />
-                                        </div>
+                                    <div className="flex items-center justify-between py-1 px-2">
+                                        <span className="text-sm text-zinc-800">Stack fields</span>
+                                        <Switch checked={settings.stackFields} onCheckedChange={(v) => setSettings({ ...settings, stackFields: v })} />
                                     </div>
-
-                                    <div className="h-px bg-zinc-100" />
-
-                                    {/* Task visibility section */}
-                                    <div className="space-y-2">
-                                        <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-2">Task visibility</p>
-                                        <div className="flex items-center justify-between py-1 px-2">
-                                            <span className="text-sm text-zinc-800">Show closed tasks</span>
-                                            <Switch checked={showCompleted} onCheckedChange={setShowCompleted} />
-                                        </div>
-                                        <div className="flex items-center justify-between py-1 px-2">
-                                            <span className="text-sm text-zinc-800">Show closed subtasks</span>
-                                            <Switch checked={showCompletedSubtasks} onCheckedChange={setShowCompletedSubtasks} />
-                                        </div>
-                                        <div className="flex items-center justify-between py-1 px-2">
-                                            <span className="text-sm text-zinc-800">Show tasks from other Lists</span>
-                                            <Switch checked={showTasksFromOtherLists} onCheckedChange={setShowTasksFromOtherLists} />
-                                        </div>
-                                        <div className="flex items-center justify-between py-1 px-2">
-                                            <span className="text-sm text-zinc-800">Show subtasks from other Lists</span>
-                                            <Switch checked={showSubtasksFromOtherLists} onCheckedChange={setShowSubtasksFromOtherLists} />
-                                        </div>
+                                    <div className="flex items-center justify-between py-1 px-2">
+                                        <span className="text-sm text-zinc-800">Show task properties</span>
+                                        <Switch checked={settings.showTaskProperties} onCheckedChange={(v) => setSettings({ ...settings, showTaskProperties: v })} />
                                     </div>
-
-                                    <div className="h-px bg-zinc-100" />
-
-                                    {/* View settings section */}
-                                    <div className="space-y-2">
-                                        <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-2">View settings</p>
-                                        <div className="flex items-center justify-between py-1 px-2">
-                                            <span className="text-sm flex items-center gap-2"><UserRound className="h-4 w-4 text-zinc-400" />Default to Me Mode</span>
-                                            <Switch checked={defaultToMeMode} onCheckedChange={setDefaultToMeMode} />
-                                        </div>
-                                        <div className="flex items-center justify-between py-1 px-2 hover:bg-zinc-50 rounded cursor-pointer group">
-                                            <span className="text-sm flex items-center gap-2"><Copy className="h-4 w-4 text-zinc-400" />Duplicate view</span>
-                                            <ChevronRight className="h-3.5 w-3.5 text-zinc-400 opacity-0 group-hover:opacity-100 transition-opacity" />
-                                        </div>
-                                        <div
-                                            className="flex items-center justify-between py-1 px-2 hover:bg-zinc-50 rounded cursor-pointer"
-                                            onClick={resetViewToDefaults}
-                                        >
-                                            <span className="text-sm flex items-center gap-2"><RefreshCcw className="h-4 w-4 text-zinc-400" />Reset view to defaults</span>
-                                        </div>
-                                        <div
-                                            className="flex items-center justify-between py-1 px-2 hover:bg-zinc-50 rounded cursor-pointer"
-                                            onClick={() => {
-                                                setDefaultViewSettingsDraft(spaceDefaultViewConfig);
-                                                setIsDefaultViewSettingsModalOpen(true);
-                                            }}
-                                        >
-                                            <span className="text-sm flex items-center gap-2"><Settings className="h-4 w-4 text-zinc-400" />Default view settings</span>
-                                        </div>
+                                    <div className="flex items-center justify-between py-1 px-2">
+                                        <span className="text-sm text-zinc-800">Show empty fields</span>
+                                        <Switch checked={settings.showCustomFields} onCheckedChange={(v) => setSettings({ ...settings, showCustomFields: v })} />
+                                    </div>
+                                    <div className="flex items-center justify-between py-1 px-2">
+                                        <span className="text-sm text-zinc-800">Show task locations</span>
+                                        <Switch checked={settings.showTaskLocations} onCheckedChange={(v) => setSettings({ ...settings, showTaskLocations: v })} />
+                                    </div>
+                                    <div className="flex items-center justify-between py-1 px-2">
+                                        <span className="text-sm text-zinc-800">Show subtask parent names</span>
+                                        <Switch checked={settings.showSubtaskParentNames} onCheckedChange={(v) => setSettings({ ...settings, showSubtaskParentNames: v })} />
+                                    </div>
+                                    <div className="flex items-center justify-between py-1 px-2">
+                                        <span className="text-sm text-zinc-800">Collapse empty columns</span>
+                                        <Switch checked={!settings.showEmptyColumns} onCheckedChange={(v) => setSettings({ ...settings, showEmptyColumns: !v })} />
+                                    </div>
+                                    <div className="flex items-center justify-between py-1 px-2">
+                                        <span className="text-sm text-zinc-800">Show column colors</span>
+                                        <Switch checked={settings.showColumnColors} onCheckedChange={(v) => setSettings({ ...settings, showColumnColors: v })} />
                                     </div>
                                 </div>
-                            </ScrollArea>
+
+                                <div className="h-px bg-zinc-100" />
+
+                                {/* Task visibility section */}
+                                <div className="space-y-2">
+                                    <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-2">Task visibility</p>
+                                    <div className="flex items-center justify-between py-1 px-2">
+                                        <span className="text-sm text-zinc-800">Show closed tasks</span>
+                                        <Switch checked={showCompleted} onCheckedChange={setShowCompleted} />
+                                    </div>
+                                    <div className="flex items-center justify-between py-1 px-2">
+                                        <span className="text-sm text-zinc-800">Show closed subtasks</span>
+                                        <Switch checked={showCompletedSubtasks} onCheckedChange={setShowCompletedSubtasks} />
+                                    </div>
+                                    <div className="flex items-center justify-between py-1 px-2">
+                                        <span className="text-sm text-zinc-800">Show tasks from other Lists</span>
+                                        <Switch checked={showTasksFromOtherLists} onCheckedChange={setShowTasksFromOtherLists} />
+                                    </div>
+                                    <div className="flex items-center justify-between py-1 px-2">
+                                        <span className="text-sm text-zinc-800">Show subtasks from other Lists</span>
+                                        <Switch checked={showSubtasksFromOtherLists} onCheckedChange={setShowSubtasksFromOtherLists} />
+                                    </div>
+                                </div>
+
+                                <div className="h-px bg-zinc-100" />
+
+                                {/* View settings section */}
+                                <div className="space-y-2">
+                                    <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-2">View settings</p>
+                                    <div className="flex items-center justify-between py-1 px-2">
+                                        <span className="text-sm flex items-center gap-2"><UserRound className="h-4 w-4 text-zinc-400" />Default to Me Mode</span>
+                                        <Switch checked={defaultToMeMode} onCheckedChange={setDefaultToMeMode} />
+                                    </div>
+                                    <div className="flex items-center justify-between py-1 px-2 hover:bg-zinc-50 rounded cursor-pointer group">
+                                        <span className="text-sm flex items-center gap-2"><Copy className="h-4 w-4 text-zinc-400" />Duplicate view</span>
+                                        <ChevronRight className="h-3.5 w-3.5 text-zinc-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                    </div>
+                                    <div
+                                        className="flex items-center justify-between py-1 px-2 hover:bg-zinc-50 rounded cursor-pointer"
+                                        onClick={resetViewToDefaults}
+                                    >
+                                        <span className="text-sm flex items-center gap-2"><RefreshCcw className="h-4 w-4 text-zinc-400" />Reset view to defaults</span>
+                                    </div>
+                                    <div
+                                        className="flex items-center justify-between py-1 px-2 hover:bg-zinc-50 rounded cursor-pointer"
+                                        onClick={() => {
+                                            setDefaultViewSettingsDraft(spaceDefaultViewConfig);
+                                            setIsDefaultViewSettingsModalOpen(true);
+                                        }}
+                                    >
+                                        <span className="text-sm flex items-center gap-2"><Settings className="h-4 w-4 text-zinc-400" />Default view settings</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </ScrollArea>
                     </SidePanel>
                 )
             }

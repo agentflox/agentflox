@@ -1040,7 +1040,6 @@ model CustomFieldValue {
   id            String      @id @default(cuid())
   customFieldId String      @map("custom_field_id")
   taskId        String?     @map("task_id")
-  projectId     String?     @map("project_id")
   value         Json
   createdAt     DateTime    @default(now()) @map("created_at")
   updatedAt     DateTime    @updatedAt @map("updated_at")
@@ -1049,7 +1048,6 @@ model CustomFieldValue {
 
   @@index([customFieldId])
   @@index([taskId])
-  @@index([projectId])
   @@map("custom_field_values")
 }
 

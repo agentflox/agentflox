@@ -88,6 +88,7 @@ import { CustomFieldRenderer } from "@/entities/task/components/CustomFieldRende
 import { TaskCreationModal } from "@/entities/task/components/TaskCreationModal";
 import { LazyTaskDetailModal as TaskDetailModal } from "@/entities/task/components/LazyTaskDetailModal";
 import { TagsPopover } from "@/entities/task/components/TagsPopover";
+import { TagEditorPopover } from "@/entities/task/components/TagEditorPopover";
 import { TagsModal } from "@/entities/task/components/TagsModal";
 import { TaskDependenciesModal } from "@/entities/task/components/TaskDependenciesModal";
 import { parseEncodedTag } from "@/entities/task/utils/tags";
@@ -305,6 +306,8 @@ const QuickAddCard = ({
             data-quick-add-card="true"
             className="bg-white border border-zinc-200 shadow-[0_2px_10px_rgba(0,0,0,0.05)] rounded-xl p-3.5 mb-3"
             onClick={(e) => e.stopPropagation()}
+            onMouseDown={(e) => e.stopPropagation()}
+            onPointerDown={(e) => e.stopPropagation()}
         >
             <div className="flex items-center gap-2 mb-3">
                 <Input
@@ -340,45 +343,65 @@ const QuickAddCard = ({
             </div>
 
             <div className="flex flex-col gap-2.5 ml-0.5">
-                <AssigneeSelector
-                    users={users}
-                    agents={agents}
-                    value={assigneeIds}
-                    onChange={onAssigneeChange}
-                    trigger={
-                        <div className={cn("flex items-center gap-2.5 group cursor-pointer transition-colors", assigneeIds.length > 0 ? "text-zinc-700" : "text-zinc-400 hover:text-zinc-600")}>
-                            <UserCircle className="h-4 w-4 opacity-80" />
-                            <span className="text-[13px] font-medium tracking-tight">
-                                {assigneeIds.length > 0 ? (
-                                    <div className="flex -space-x-1.5">
-                                        {assigneeIds.map(id => {
-                                            const { type, actualId } = id.includes(":") ? { type: id.split(":")[0], actualId: id.split(":")[1] } : { type: 'user', actualId: id };
-                                            const u = type === 'agent' ? agents.find(a => a.id === actualId) : users.find(user => user.id === actualId);
-                                            return (
-                                                <Avatar key={id} className="h-5 w-5 border border-white ring-1 ring-zinc-100">
-                                                    <AvatarImage src={u?.image || undefined} />
-                                                    <AvatarFallback className="text-[8px] bg-purple-100 text-purple-700">
-                                                        {type === 'agent' ? <Bot className="h-2.5 w-2.5" /> : u?.name?.[0]}
-                                                    </AvatarFallback>
-                                                </Avatar>
-                                            );
-                                        })}
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                        <span className="inline-flex">
+                            <AssigneeSelector
+                                users={users}
+                                agents={agents}
+                                value={assigneeIds}
+                                onChange={onAssigneeChange}
+                                trigger={
+                                    <div
+                                        className={cn("flex items-center gap-2.5 group cursor-pointer transition-colors", assigneeIds.length > 0 ? "text-zinc-700" : "text-zinc-400 hover:text-zinc-600")}
+                                        onMouseDown={(e) => e.stopPropagation()}
+                                        onPointerDown={(e) => e.stopPropagation()}
+                                    >
+                                        <UserCircle className="h-4 w-4 opacity-80" />
+                                        <span className="text-[13px] font-medium tracking-tight">
+                                            {assigneeIds.length > 0 ? (
+                                                <div className="flex -space-x-1.5">
+                                                    {assigneeIds.map(id => {
+                                                        const { type, actualId } = id.includes(":") ? { type: id.split(":")[0], actualId: id.split(":")[1] } : { type: 'user', actualId: id };
+                                                        const u = type === 'agent' ? agents.find(a => a.id === actualId) : users.find(user => user.id === actualId);
+                                                        return (
+                                                            <Avatar key={id} className="h-5 w-5 border border-white ring-1 ring-zinc-100">
+                                                                <AvatarImage src={u?.image || undefined} />
+                                                                <AvatarFallback className="text-[8px] bg-purple-100 text-purple-700">
+                                                                    {type === 'agent' ? <Bot className="h-2.5 w-2.5" /> : u?.name?.[0]}
+                                                                </AvatarFallback>
+                                                            </Avatar>
+                                                        );
+                                                    })}
+                                                </div>
+                                            ) : "Add assignee"}
+                                        </span>
                                     </div>
-                                ) : "Add assignee"}
-                            </span>
-                        </div>
-                    }
-                />
+                                }
+                            />
+                        </span>
+                    </TooltipTrigger>
+                    <TooltipContent>Assignee</TooltipContent>
+                </Tooltip>
 
                 <Popover>
-                    <PopoverTrigger asChild>
-                        <div className={cn("flex items-center gap-2.5 group cursor-pointer transition-colors", dueDate ? "text-zinc-700" : "text-zinc-400 hover:text-zinc-600")}>
-                            <Calendar className="h-4 w-4 opacity-80" />
-                            <span className="text-[13px] font-medium tracking-tight">
-                                {dueDate ? dueDate.toLocaleDateString() : "Add dates"}
-                            </span>
-                        </div>
-                    </PopoverTrigger>
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <PopoverTrigger asChild>
+                                <div
+                                    className={cn("flex items-center gap-2.5 group cursor-pointer transition-colors", dueDate ? "text-zinc-700" : "text-zinc-400 hover:text-zinc-600")}
+                                    onMouseDown={(e) => e.stopPropagation()}
+                                    onPointerDown={(e) => e.stopPropagation()}
+                                >
+                                    <Calendar className="h-4 w-4 opacity-80" />
+                                    <span className="text-[13px] font-medium tracking-tight">
+                                        {dueDate ? dueDate.toLocaleDateString() : "Add dates"}
+                                    </span>
+                                </div>
+                            </PopoverTrigger>
+                        </TooltipTrigger>
+                        <TooltipContent>Due date</TooltipContent>
+                    </Tooltip>
                     <PopoverContent className="w-auto p-0" align="start">
                         <TaskCalendar
                             startDate={startDate ?? undefined}
@@ -390,14 +413,23 @@ const QuickAddCard = ({
                 </Popover>
 
                 <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                        <div className={cn("flex items-center gap-2.5 group cursor-pointer transition-colors", priority ? "text-zinc-700" : "text-zinc-400 hover:text-zinc-600")}>
-                            <Flag className={cn("h-4 w-4 opacity-80", priority === "URGENT" && "text-red-500 opacity-100", priority === "HIGH" && "text-orange-500 opacity-100", priority === "NORMAL" && "text-blue-500 opacity-100", priority === "LOW" && "text-zinc-400")} />
-                            <span className="text-[13px] font-medium tracking-tight capitalize">
-                                {priority ? priority.toLowerCase() : "Add priority"}
-                            </span>
-                        </div>
-                    </DropdownMenuTrigger>
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <DropdownMenuTrigger asChild>
+                                <div
+                                    className={cn("flex items-center gap-2.5 group cursor-pointer transition-colors", priority ? "text-zinc-700" : "text-zinc-400 hover:text-zinc-600")}
+                                    onMouseDown={(e) => e.stopPropagation()}
+                                    onPointerDown={(e) => e.stopPropagation()}
+                                >
+                                    <Flag className={cn("h-4 w-4 opacity-80", priority === "URGENT" && "text-red-500 opacity-100", priority === "HIGH" && "text-orange-500 opacity-100", priority === "NORMAL" && "text-blue-500 opacity-100", priority === "LOW" && "text-zinc-400")} />
+                                    <span className="text-[13px] font-medium tracking-tight capitalize">
+                                        {priority ? priority.toLowerCase() : "Add priority"}
+                                    </span>
+                                </div>
+                            </DropdownMenuTrigger>
+                        </TooltipTrigger>
+                        <TooltipContent>Priority</TooltipContent>
+                    </Tooltip>
                     <DropdownMenuContent align="start" className="w-48">
                         <DropdownMenuLabel className="text-xs">Priority</DropdownMenuLabel>
                         <DropdownMenuItem onClick={() => onPriorityChange("URGENT")}>
@@ -419,44 +451,66 @@ const QuickAddCard = ({
                     </DropdownMenuContent>
                 </DropdownMenu>
 
-                <TagsModal
-                    tags={tags}
-                    onChange={onTagsChange}
-                    allAvailableTags={allAvailableTags}
-                    trigger={
-                        <div className={cn("flex items-center gap-2.5 group cursor-pointer transition-colors", tags && tags.length > 0 ? "text-zinc-700" : "text-zinc-400 hover:text-zinc-600")}>
-                            <Tag className="h-4 w-4 opacity-80" />
-                            <span className="text-[13px] font-medium tracking-tight">
-                                {tags && tags.length > 0 ? `${tags.length} Tag${tags.length !== 1 ? 's' : ''}` : "Add tag"}
-                            </span>
-                        </div>
-                    }
-                />
-
-                <TaskStatusPopover
-                    task={{
-                        id: "quick-add",
-                        taskType: availableTaskTypes?.find(t => t.id === taskType) || defaultQuickAddTaskType
-                    }}
-                    availableStatuses={[]}
-                    availableTaskTypes={availableTaskTypes || []}
-                    onUpdateTask={(_id, data) => {
-                        if (data.taskTypeId) {
-                            onTaskTypeChange?.(data.taskTypeId);
-                        }
-                    }}
-                    hideStatusTab={true}
-                >
-                    <div className={cn("flex items-center gap-2.5 group cursor-pointer transition-colors", taskType ? "text-zinc-700" : "text-zinc-400 hover:text-zinc-600")}>
-                        {(() => {
-                            const selected = availableTaskTypes?.find(t => t.id === taskType);
-                            return <TaskTypeIcon type={selected} className="h-4 w-4" />;
-                        })()}
-                        <span className="text-[13px] font-medium tracking-tight">
-                            {availableTaskTypes?.find(t => t.id === taskType)?.name || defaultQuickAddTaskType?.name || "Task"}
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                        <span className="inline-flex">
+                            <TagsModal
+                                tags={tags}
+                                onChange={onTagsChange}
+                                allAvailableTags={allAvailableTags}
+                                trigger={
+                                    <div
+                                        className={cn("flex items-center gap-2.5 group cursor-pointer transition-colors", tags && tags.length > 0 ? "text-zinc-700" : "text-zinc-400 hover:text-zinc-600")}
+                                        onMouseDown={(e) => e.stopPropagation()}
+                                        onPointerDown={(e) => e.stopPropagation()}
+                                    >
+                                        <Tag className="h-4 w-4 opacity-80" />
+                                        <span className="text-[13px] font-medium tracking-tight">
+                                            {tags && tags.length > 0 ? `${tags.length} Tag${tags.length !== 1 ? 's' : ''}` : "Add tag"}
+                                        </span>
+                                    </div>
+                                }
+                            />
                         </span>
-                    </div>
-                </TaskStatusPopover>
+                    </TooltipTrigger>
+                    <TooltipContent>Tags</TooltipContent>
+                </Tooltip>
+
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                        <span className="inline-flex">
+                            <TaskStatusPopover
+                                task={{
+                                    id: "quick-add",
+                                    taskType: availableTaskTypes?.find(t => t.id === taskType) || defaultQuickAddTaskType
+                                }}
+                                availableStatuses={[]}
+                                availableTaskTypes={availableTaskTypes || []}
+                                onUpdateTask={(_id, data) => {
+                                    if (data.taskTypeId) {
+                                        onTaskTypeChange?.(data.taskTypeId);
+                                    }
+                                }}
+                                hideStatusTab={true}
+                            >
+                                <div
+                                    className={cn("flex items-center gap-2.5 group cursor-pointer transition-colors", taskType ? "text-zinc-700" : "text-zinc-400 hover:text-zinc-600")}
+                                    onMouseDown={(e) => e.stopPropagation()}
+                                    onPointerDown={(e) => e.stopPropagation()}
+                                >
+                                    {(() => {
+                                        const selected = availableTaskTypes?.find(t => t.id === taskType);
+                                        return <TaskTypeIcon type={selected} className="h-4 w-4" />;
+                                    })()}
+                                    <span className="text-[13px] font-medium tracking-tight">
+                                        {availableTaskTypes?.find(t => t.id === taskType)?.name || defaultQuickAddTaskType?.name || "Task"}
+                                    </span>
+                                </div>
+                            </TaskStatusPopover>
+                        </span>
+                    </TooltipTrigger>
+                    <TooltipContent>Task type</TooltipContent>
+                </Tooltip>
             </div>
         </div>
     );
@@ -1227,60 +1281,72 @@ function TaskCardInner({
                         )}>
                             {/* Assignee */}
                             {isFieldVisible(visibleFields, "assignee") && (
-                                <AssigneeSelector
-                                    users={users}
-                                    agents={agents}
-                                    workspaceId={workspaceId}
-                                    variant="compact"
-                                    value={formatAssigneeIdsForSelector(task.assignees ?? [])}
-                                    onChange={(newIds) => onTaskUpdate?.({ assigneeIds: newIds })}
-                                    trigger={(() => {
-                                        const assignees = task.assignees?.length ? task.assignees : (task.assignee ? [{ user: task.assignee }] : []);
-                                        return (
-                                            <div className="flex items-center -space-x-1.5 rounded px-1 py-0.5 cursor-pointer" onClick={(e) => e.stopPropagation()}>
-                                                {assignees.length > 0 ? (
-                                                    assignees.slice(0, 4).map((a: any, i: number) => (
-                                                        <Avatar key={a.user?.id || a.aiAgent?.id || a.agent?.id || i} className="h-6 w-6 border-2 border-white ring-1 ring-zinc-100 hover:scale-110 hover:z-10 transition-transform relative">
-                                                            <AvatarImage src={a.user?.image || a.aiAgent?.avatar || a.aiAgent?.image || a.agent?.avatar || undefined} />
-                                                            <AvatarFallback className="text-[9px] bg-indigo-50 text-indigo-600">
-                                                                {a.user?.name?.slice(0, 2)?.toUpperCase() || a.aiAgent?.name?.slice(0, 2)?.toUpperCase() || a.agent?.name?.slice(0, 2)?.toUpperCase() || "??"}
-                                                            </AvatarFallback>
-                                                        </Avatar>
-                                                    ))
-                                                ) : (
-                                                    <div className="h-6 w-6 rounded-full border border-dashed border-zinc-300 flex items-center justify-center">
-                                                        <Users className="h-3 w-3 text-zinc-400" />
-                                                    </div>
-                                                )}
-                                            </div>
-                                        );
-                                    })()}
-                                />
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <span className="inline-flex">
+                                            <AssigneeSelector
+                                                users={users}
+                                                agents={agents}
+                                                workspaceId={workspaceId}
+                                                variant="compact"
+                                                value={formatAssigneeIdsForSelector(task.assignees ?? [])}
+                                                onChange={(newIds) => onTaskUpdate?.({ assigneeIds: newIds })}
+                                                trigger={(() => {
+                                                    const assignees = task.assignees?.length ? task.assignees : (task.assignee ? [{ user: task.assignee }] : []);
+                                                    return (
+                                                        <div className="flex items-center -space-x-1.5 rounded px-1 py-0.5 cursor-pointer" onClick={(e) => e.stopPropagation()}>
+                                                            {assignees.length > 0 ? (
+                                                                assignees.slice(0, 4).map((a: any, i: number) => (
+                                                                    <Avatar key={a.user?.id || a.aiAgent?.id || a.agent?.id || i} className="h-6 w-6 border-2 border-white ring-1 ring-zinc-100 hover:scale-110 hover:z-10 transition-transform relative">
+                                                                        <AvatarImage src={a.user?.image || a.aiAgent?.avatar || a.aiAgent?.image || a.agent?.avatar || undefined} />
+                                                                        <AvatarFallback className="text-[9px] bg-indigo-50 text-indigo-600">
+                                                                            {a.user?.name?.slice(0, 2)?.toUpperCase() || a.aiAgent?.name?.slice(0, 2)?.toUpperCase() || a.agent?.name?.slice(0, 2)?.toUpperCase() || "??"}
+                                                                        </AvatarFallback>
+                                                                    </Avatar>
+                                                                ))
+                                                            ) : (
+                                                                <div className="h-6 w-6 rounded-full border border-dashed border-zinc-300 flex items-center justify-center">
+                                                                    <Users className="h-3 w-3 text-zinc-400" />
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    );
+                                                })()}
+                                            />
+                                        </span>
+                                    </TooltipTrigger>
+                                    <TooltipContent>Assignee</TooltipContent>
+                                </Tooltip>
                             )}
 
                             {/* Due Date */}
                             {isFieldVisible(visibleFields, "dueDate") && (
                                 <Popover>
-                                    <PopoverTrigger asChild>
-                                        <div
-                                            className={cn(
-                                                "flex items-center gap-1 px-1.5 py-0.5 rounded border text-[10px] font-medium select-none cursor-pointer transition-colors",
-                                                task.dueDate
-                                                    ? (new Date(task.dueDate) < new Date() ? "bg-red-50 border-red-200 text-red-600 hover:bg-red-100" : "bg-white border-zinc-200 text-zinc-500 hover:bg-zinc-50")
-                                                    : "bg-white border-dashed border-zinc-200 text-zinc-400 hover:bg-zinc-50"
-                                            )}
-                                            onClick={(e) => e.stopPropagation()}
-                                        >
-                                            <Calendar className="h-3 w-3" />
-                                            <span>{task.dueDate ? new Date(task.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : "Set date"}</span>
-                                        </div>
-                                    </PopoverTrigger>
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <PopoverTrigger asChild>
+                                                <div
+                                                    className={cn(
+                                                        "flex items-center gap-1 px-1.5 py-0.5 rounded border text-[10px] font-medium select-none cursor-pointer transition-colors",
+                                                        task.dueDate
+                                                            ? (new Date(task.dueDate) < new Date() ? "bg-red-50 border-red-200 text-red-600 hover:bg-red-100" : "bg-white border-zinc-200 text-zinc-500 hover:bg-zinc-50")
+                                                            : "bg-white border-dashed border-zinc-200 text-zinc-400 hover:bg-zinc-50"
+                                                    )}
+                                                    onClick={(e) => e.stopPropagation()}
+                                                >
+                                                    <Calendar className="h-3 w-3" />
+                                                    <span>{task.dueDate ? new Date(task.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : "Set date"}</span>
+                                                </div>
+                                            </PopoverTrigger>
+                                        </TooltipTrigger>
+                                        <TooltipContent>Due date</TooltipContent>
+                                    </Tooltip>
                                     <PopoverContent className="w-auto p-0" align="start">
                                         <TaskCalendar
                                             startDate={task.startDate ? new Date(task.startDate) : undefined}
                                             endDate={task.dueDate ? new Date(task.dueDate) : undefined}
-                                            onStartDateChange={(d) => onTaskUpdate?.({ startDate: d })}
-                                            onEndDateChange={(d) => onTaskUpdate?.({ dueDate: d })}
+                                            onStartDateChange={(d) => onTaskUpdate?.({ startDate: d ? d.toISOString() : null })}
+                                            onEndDateChange={(d) => onTaskUpdate?.({ dueDate: d ? d.toISOString() : null })}
                                         />
                                     </PopoverContent>
                                 </Popover>
@@ -1289,18 +1355,23 @@ function TaskCardInner({
                             {/* Priority */}
                             {isFieldVisible(visibleFields, "priority") && (
                                 <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                        <div
-                                            className={cn(
-                                                "flex items-center gap-1 px-1.5 py-0.5 rounded border text-[10px] font-medium select-none cursor-pointer transition-colors",
-                                                task.priority ? "bg-white border-zinc-200 hover:bg-zinc-50" : "bg-white border-dashed border-zinc-200 text-zinc-400 hover:bg-zinc-50"
-                                            )}
-                                            onClick={(e) => e.stopPropagation()}
-                                        >
-                                            <Flag className={cn("h-3 w-3", task.priority ? "fill-current" : "", task.priority ? priorityConfig?.iconColor : "text-zinc-300")} />
-                                            <span className={cn(task.priority ? priorityConfig?.color : "text-zinc-400")}>{task.priority ? priorityConfig?.label : "Priority"}</span>
-                                        </div>
-                                    </DropdownMenuTrigger>
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <DropdownMenuTrigger asChild>
+                                                <div
+                                                    className={cn(
+                                                        "flex items-center gap-1 px-1.5 py-0.5 rounded border text-[10px] font-medium select-none cursor-pointer transition-colors",
+                                                        task.priority ? "bg-white border-zinc-200 hover:bg-zinc-50" : "bg-white border-dashed border-zinc-200 text-zinc-400 hover:bg-zinc-50"
+                                                    )}
+                                                    onClick={(e) => e.stopPropagation()}
+                                                >
+                                                    <Flag className={cn("h-3 w-3", task.priority ? "fill-current" : "", task.priority ? priorityConfig?.iconColor : "text-zinc-300")} />
+                                                    <span className={cn(task.priority ? priorityConfig?.color : "text-zinc-400")}>{task.priority ? priorityConfig?.label : "Priority"}</span>
+                                                </div>
+                                            </DropdownMenuTrigger>
+                                        </TooltipTrigger>
+                                        <TooltipContent>Priority</TooltipContent>
+                                    </Tooltip>
                                     <DropdownMenuContent align="start" className="w-44" onClick={(e) => e.stopPropagation()}>
                                         <DropdownMenuLabel className="text-xs">Task Priority</DropdownMenuLabel>
                                         <DropdownMenuItem className="text-xs" onClick={() => onTaskUpdate?.({ priority: "URGENT" })}>
@@ -1328,45 +1399,84 @@ function TaskCardInner({
                             )}
 
                             {/* Tags */}
-                            {isFieldVisible(visibleFields, "tags") && task.tags && task.tags.length > 0 && (
-                                <TagsPopover
-                                    tags={task.tags ?? []}
-                                    onChange={(nextTags) => {
-                                        void updateTask.mutateAsync({ id: task.id, tags: nextTags } as any);
-                                    }}
-                                    trigger={
-                                        <div className="flex items-center gap-1 ml-1 px-1 py-0.5 rounded-md transition-colors hover:bg-zinc-100 cursor-pointer" onClick={(e) => e.stopPropagation()}>
-                                            <Tag className="h-3.5 w-3.5 text-zinc-400" />
-                                            {task.tags!.slice(0, 2).map((encoded) => {
-                                                const parsed = parseEncodedTag(encoded);
-                                                const bg = parsed.color ?? "#ede9fe";
-                                                return (
-                                                    <div
-                                                        key={encoded}
-                                                        className="relative inline-flex items-center group/tag"
-                                                    >
-                                                        <span
-                                                            className="px-1.5 py-1 rounded-md text-[10px] font-medium cursor-pointer select-none"
-                                                            style={{
-                                                                backgroundColor: bg,
-                                                                color: "#3730a3",
-                                                            }}
-                                                        >
-                                                            {parsed.label}
-                                                        </span>
-                                                    </div>
-                                                );
-                                            })}
-                                            {task.tags!.length > 2 && (
+                            {isFieldVisible(visibleFields, "tags") && (task.tags?.length ?? 0) > 0 && (
+                                <div className="flex items-center gap-1 ml-1" onClick={(e) => e.stopPropagation()}>
+                                    <Tag className="h-3.5 w-3.5 text-zinc-400 shrink-0" />
+                                    {task.tags!.slice(0, 2).map((encoded) => {
+                                        const parsed = parseEncodedTag(encoded);
+                                        const bg = parsed.color ?? "#ede9fe";
+                                        return (
+                                            <div
+                                                key={encoded}
+                                                className="relative inline-flex items-center group/tag min-w-[40px]"
+                                            >
                                                 <span
+                                                    className="px-1.5 py-1 rounded-md text-[10px] font-medium cursor-pointer w-full text-center"
+                                                    style={{
+                                                        backgroundColor: bg,
+                                                        color: "#3730a3",
+                                                    }}
+                                                >
+                                                    {parsed.label}
+                                                </span>
+                                                <div
+                                                    style={{ backgroundColor: bg }}
+                                                    className="absolute inset-0 flex items-center text-bold justify-between text-zinc-400 px-1 rounded-md text-[10px] opacity-0 group-hover/tag:opacity-100 transition-opacity pointer-events-none"
+                                                >
+                                                    <TagEditorPopover
+                                                        tag={encoded}
+                                                        tags={task.tags ?? []}
+                                                        onChange={(nextTags) => {
+                                                            void updateTask.mutateAsync({ id: task.id, tags: nextTags } as any);
+                                                        }}
+                                                    >
+                                                        <button
+                                                            type="button"
+                                                            className="px-0.5 pointer-events-auto cursor-pointer hover:text-zinc-700"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                            }}
+                                                            title="Tag settings"
+                                                        >
+                                                            <MoreHorizontal className="h-3 w-3" />
+                                                        </button>
+                                                    </TagEditorPopover>
+                                                    <button
+                                                        type="button"
+                                                        className="px-0.5 pointer-events-auto cursor-pointer hover:text-red-500"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            const nextTags = (task.tags ?? []).filter((t) => t !== encoded);
+                                                            void updateTask.mutateAsync({ id: task.id, tags: nextTags } as any);
+                                                        }}
+                                                        title="Remove tag"
+                                                    >
+                                                        <X className="h-3 w-3" />
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                    {task.tags!.length > 2 && (
+                                        <TagsPopover
+                                            tags={task.tags ?? []}
+                                            onChange={(nextTags) => {
+                                                void updateTask.mutateAsync({ id: task.id, tags: nextTags } as any);
+                                            }}
+                                            trigger={
+                                                <button
+                                                    type="button"
                                                     className="px-1.5 py-0.5 rounded-full bg-zinc-100 text-zinc-500 text-[10px] font-medium cursor-pointer"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                    }}
                                                 >
                                                     +{task.tags!.length - 2}
-                                                </span>
-                                            )}
-                                        </div>
-                                    }
-                                />
+                                                </button>
+                                            }
+                                        />
+                                    )}
+                                </div>
                             )}
                         </div>
                     </div>
@@ -1502,6 +1612,23 @@ export const BoardTaskCard = React.memo(TaskCardInner, (prev, next) => {
     if (prev.showSubtasks !== next.showSubtasks) return false;
     if (prev.showCustomFields !== next.showCustomFields) return false;
     if (prev.inlineAddTaskId !== next.inlineAddTaskId) return false;
+
+    // While quick-add is open on this card (or a descendant), re-render on field edits
+    const inlineActiveOnThisCard =
+        next.inlineAddTaskId === next.task.id ||
+        prev.inlineAddTaskId === prev.task.id ||
+        (!!next.inlineAddTaskId && next.expandedParents?.has?.(next.task.id)) ||
+        (!!prev.inlineAddTaskId && prev.expandedParents?.has?.(prev.task.id));
+    if (inlineActiveOnThisCard) {
+        if (prev.inlineAddTitle !== next.inlineAddTitle) return false;
+        if (prev.inlineAddAssigneeIds !== next.inlineAddAssigneeIds) return false;
+        if (prev.inlineAddDueDate !== next.inlineAddDueDate) return false;
+        if (prev.inlineAddStartDate !== next.inlineAddStartDate) return false;
+        if (prev.inlineAddPriority !== next.inlineAddPriority) return false;
+        if (prev.inlineAddTags !== next.inlineAddTags) return false;
+        if (prev.taskType !== next.taskType) return false;
+    }
+
     // Check task data shallowly – title, status, priority, dueDate, assignees cover 95% of changes
     const pt = prev.task; const nt = next.task;
     if (pt.title !== nt.title) return false;

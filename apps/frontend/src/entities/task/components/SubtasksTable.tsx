@@ -562,6 +562,52 @@ export function SubtasksTable({
         } catch { /* noop */ }
     }, [inlineAddTitle, workspaceId, task.listId, task.id, inlineAddParentId, inlineAddAssigneeIds, inlineAddStartDate, inlineAddDueDate, inlineAddPriority, createTask]);
 
+    const resetFooterAddFields = useCallback(() => {
+        setInlineAddAssigneeIds([]);
+        setInlineAddTaskType(defaultTaskType?.id || null);
+        setInlineAddDueDate(null);
+        setInlineAddStartDate(null);
+        setInlineAddPriority(null);
+    }, [defaultTaskType?.id]);
+
+    const handleFooterCancel = useCallback(() => {
+        setSubtaskTitle('');
+        setIsAddingSubtask(false);
+        resetFooterAddFields();
+    }, [setSubtaskTitle, setIsAddingSubtask, resetFooterAddFields]);
+
+    const handleFooterSave = useCallback(async () => {
+        if (!subtaskTitle.trim() || !workspaceId) return;
+        try {
+            await createTask.mutateAsync({
+                title: subtaskTitle.trim(),
+                listId: task.listId,
+                statusId: undefined,
+                workspaceId: workspaceId,
+                projectId: task.projectId ?? undefined,
+                teamId: task.teamId ?? undefined,
+                spaceId: task.spaceId ?? undefined,
+                channelId: task.channelId ?? undefined,
+                parentId: task.id,
+                assigneeIds: inlineAddAssigneeIds,
+                assigneeId: inlineAddAssigneeIds[0] || undefined,
+                startDate: inlineAddStartDate || undefined,
+                dueDate: inlineAddDueDate || undefined,
+                priority: inlineAddPriority || undefined,
+                taskTypeId: inlineAddTaskType || defaultTaskType?.id,
+            } as any);
+            setSubtaskTitle('');
+            setIsAddingSubtask(false);
+            resetFooterAddFields();
+        } catch { /* noop */ }
+    }, [subtaskTitle, workspaceId, task, inlineAddAssigneeIds, inlineAddStartDate, inlineAddDueDate, inlineAddPriority, inlineAddTaskType, defaultTaskType?.id, createTask, setSubtaskTitle, setIsAddingSubtask, resetFooterAddFields]);
+
+    useEffect(() => {
+        if (isAddingSubtask) {
+            resetFooterAddFields();
+        }
+    }, [isAddingSubtask]); // eslint-disable-line react-hooks/exhaustive-deps
+
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
             if (inlineAddGroupKey && inlineRowRef.current && !inlineRowRef.current.contains(event.target as Node)) {
@@ -733,10 +779,12 @@ export function SubtasksTable({
                         />
                         <Input
                             variant="ghost"
-                            className="w-[240px] h-7 text-sm border-0 outline-none focus:outline-none ml-[20px] px-0 cursor-text"
+                            className="flex-1 w-[240px] h-7 text-sm border-0 outline-none focus:outline-none cursor-text"
                             placeholder="Task Name"
                             value={inlineAddTitle}
                             onChange={e => setInlineAddTitle(e.target.value)}
+                            onMouseDown={(e) => e.stopPropagation()}
+                            onPointerDown={(e) => e.stopPropagation()}
                             onKeyDown={async (e) => {
                                 if (e.key === 'Enter') {
                                     e.preventDefault();
@@ -747,63 +795,72 @@ export function SubtasksTable({
                             }}
                             autoFocus
                         />
-                        <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                                <Button variant="outline" size="sm" className="h-7 px-2 text-xs text-zinc-700 border-zinc-200 hover:bg-zinc-100 hover:text-zinc-900 rounded-md">
-                                    <Circle className="h-3.5 w-3.5 mr-1 text-zinc-500" />
-                                    {(() => {
-                                        const tt = availableTaskTypes?.find((t: any) => t.id === inlineAddTaskType || t.name === inlineAddTaskType);
-                                        if (!tt) {
-                                            if (inlineAddTaskType === "TASK") return "Task";
-                                            if (inlineAddTaskType === "MILESTONE") return "Milestone";
-                                            if (inlineAddTaskType === "FORM_RESPONSE") return "Form Response";
-                                            if (inlineAddTaskType === "MEETING_NOTE") return "Meeting Note";
-                                            return inlineAddTaskType || "Task";
-                                        }
-                                        return tt.name;
-                                    })()}
-                                </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="start" className="w-56">
-                                <DropdownMenuLabel className="text-xs">Create</DropdownMenuLabel>
-                                <DropdownMenuRadioGroup value={inlineAddTaskType || undefined} onValueChange={(v) => setInlineAddTaskType(v)}>
-                                    {availableTaskTypes?.length > 0 ? (
-                                        availableTaskTypes.map((tt: any) => (
-                                            <DropdownMenuRadioItem key={tt.id} value={tt.id}>
-                                                {tt.name}
-                                            </DropdownMenuRadioItem>
-                                        ))
-                                    ) : (
-                                        <>
-                                            <DropdownMenuRadioItem value="TASK">Task</DropdownMenuRadioItem>
-                                            <DropdownMenuRadioItem value="MILESTONE">Milestone</DropdownMenuRadioItem>
-                                            <DropdownMenuRadioItem value="FORM_RESPONSE">Form Response</DropdownMenuRadioItem>
-                                            <DropdownMenuRadioItem value="MEETING_NOTE">Meeting Note</DropdownMenuRadioItem>
-                                        </>
-                                    )}
-                                </DropdownMenuRadioGroup>
-                            </DropdownMenuContent>
-                        </DropdownMenu>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <span className="inline-flex">
+                                    <TaskStatusPopover
+                                        task={{
+                                            id: "quick-add",
+                                            taskType: availableTaskTypes?.find((t: any) => t.id === inlineAddTaskType || t.name === inlineAddTaskType) || defaultTaskType
+                                        }}
+                                        availableStatuses={[]}
+                                        availableTaskTypes={availableTaskTypes || []}
+                                        onUpdateTask={(_id, data) => {
+                                            if (data.taskTypeId) {
+                                                setInlineAddTaskType(data.taskTypeId);
+                                            }
+                                        }}
+                                        hideStatusTab={true}
+                                    >
+                                        <Button variant="outline" size="sm" className="h-7 px-2 text-xs text-zinc-700 border-zinc-200 hover:bg-zinc-100 hover:text-zinc-900 rounded-md">
+                                            {(() => {
+                                                const typeId = inlineAddTaskType;
+                                                const tt = availableTaskTypes?.find((t: any) => t.id === typeId || t.name === typeId);
+                                                return (
+                                                    <div className="flex items-center gap-1.5">
+                                                        <TaskTypeIcon type={tt || typeId} className="h-3.5 w-3.5" />
+                                                        <span>{tt?.name || (typeof typeId === 'string' ? typeId : 'Task')}</span>
+                                                    </div>
+                                                );
+                                            })()}
+                                        </Button>
+                                    </TaskStatusPopover>
+                                </span>
+                            </TooltipTrigger>
+                            <TooltipContent>Task type</TooltipContent>
+                        </Tooltip>
 
-                        <AssigneeSelector
-                            users={workspaceMembers}
-                            workspaceId={workspaceId ?? ""}
-                            variant="compact"
-                            value={inlineAddAssigneeIds}
-                            onChange={setInlineAddAssigneeIds}
-                            trigger={
-                                <Button variant="outline" size="icon" className="h-7 w-7 text-zinc-600 border-zinc-200 hover:bg-zinc-100 hover:text-zinc-900 rounded-md">
-                                    <Users className="h-3.5 w-3.5" />
-                                </Button>
-                            }
-                        />
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <span className="inline-flex">
+                                    <AssigneeSelector
+                                        users={workspaceMembers}
+                                        workspaceId={workspaceId ?? ""}
+                                        variant="compact"
+                                        value={inlineAddAssigneeIds}
+                                        onChange={setInlineAddAssigneeIds}
+                                        trigger={
+                                            <Button variant="outline" size="icon" className="h-7 w-7 text-zinc-600 border-zinc-200 hover:bg-zinc-100 hover:text-zinc-900 rounded-md">
+                                                <Users className="h-3.5 w-3.5" />
+                                            </Button>
+                                        }
+                                    />
+                                </span>
+                            </TooltipTrigger>
+                            <TooltipContent>Assignee</TooltipContent>
+                        </Tooltip>
 
                         <Popover>
-                            <PopoverTrigger asChild>
-                                <Button variant="outline" size="icon" className="h-7 w-7 text-zinc-600 border-zinc-200 hover:bg-zinc-100 hover:text-zinc-900 rounded-md">
-                                    <CalendarIcon className="h-3.5 w-3.5" />
-                                </Button>
-                            </PopoverTrigger>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <PopoverTrigger asChild>
+                                        <Button variant="outline" size="icon" className="h-7 w-7 text-zinc-600 border-zinc-200 hover:bg-zinc-100 hover:text-zinc-900 rounded-md">
+                                            <Calendar className="h-3.5 w-3.5" />
+                                        </Button>
+                                    </PopoverTrigger>
+                                </TooltipTrigger>
+                                <TooltipContent>Due date</TooltipContent>
+                            </Tooltip>
                             <PopoverContent className="w-auto p-0" align="end" sideOffset={8} collisionPadding={10}>
                                 <TaskCalendar
                                     startDate={inlineAddStartDate ?? undefined}
@@ -815,25 +872,30 @@ export function SubtasksTable({
                         </Popover>
 
                         <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="sm"
-                                    className="h-7 w-auto border-zinc-200 hover:bg-zinc-50 focus:ring-0 px-2.5 rounded-md text-xs font-medium transition-all text-zinc-700"
-                                >
-                                    <div className="flex items-center gap-1.5 w-full">
-                                        <div className={cn("flex items-center gap-1.5",
-                                            inlineAddPriority === 'URGENT' ? "text-red-500" :
-                                                inlineAddPriority === 'HIGH' ? "text-orange-500" :
-                                                    inlineAddPriority === 'NORMAL' ? "text-blue-500" :
-                                                        inlineAddPriority === 'LOW' ? "text-zinc-400" : "text-zinc-400"
-                                        )}>
-                                            <Flag className="h-3 w-3 fill-current" />
-                                        </div>
-                                    </div>
-                                </Button>
-                            </DropdownMenuTrigger>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <DropdownMenuTrigger asChild>
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            className="h-7 w-auto border-zinc-200 hover:bg-zinc-50 focus:ring-0 px-2.5 rounded-md text-xs font-medium transition-all text-zinc-700"
+                                        >
+                                            <div className="flex items-center gap-1.5 w-full">
+                                                <div className={cn("flex items-center gap-1.5",
+                                                    inlineAddPriority === 'URGENT' ? "text-red-500" :
+                                                        inlineAddPriority === 'HIGH' ? "text-orange-500" :
+                                                            inlineAddPriority === 'NORMAL' ? "text-blue-500" :
+                                                                inlineAddPriority === 'LOW' ? "text-zinc-400" : "text-zinc-400"
+                                                )}>
+                                                    <Flag className="h-3 w-3 fill-current" />
+                                                </div>
+                                            </div>
+                                        </Button>
+                                    </DropdownMenuTrigger>
+                                </TooltipTrigger>
+                                <TooltipContent>Priority</TooltipContent>
+                            </Tooltip>
                             <DropdownMenuContent align="start" className="w-48 z-[200]">
                                 <DropdownMenuLabel className="text-xs">Priority</DropdownMenuLabel>
                                 <DropdownMenuItem onClick={() => setInlineAddPriority("URGENT")}>
@@ -1472,58 +1534,81 @@ export function SubtasksTable({
                                                                     style={{ backgroundColor: bg }}
                                                                     className="absolute inset-0 flex items-center text-bold justify-between text-zinc-400 px-1 rounded-md text-[10px] opacity-0 group-hover/tag:opacity-100 transition-opacity pointer-events-none"
                                                                 >
-                                                                    <TagEditorPopover
-                                                                        tag={encoded}
-                                                                        tags={subtask.tags ?? []}
-                                                                        onChange={(nextTags) => {
-                                                                            updateTask({ id: subtask.id, tags: nextTags });
-                                                                        }}
-                                                                    >
-                                                                        <button
-                                                                            type="button"
-                                                                            className="px-0.5 pointer-events-auto cursor-pointer hover:text-zinc-700"
-                                                                            onClick={(e) => {
-                                                                                e.stopPropagation();
-                                                                            }}
-                                                                            title="Tag settings"
-                                                                        >
-                                                                            <MoreHorizontal className="h-3 w-3" />
-                                                                        </button>
-                                                                    </TagEditorPopover>
-                                                                    <button
-                                                                        type="button"
-                                                                        className="px-0.5 pointer-events-auto cursor-pointer hover:text-red-500"
-                                                                        onClick={(e) => {
-                                                                            e.stopPropagation();
-                                                                            const nextTags = (subtask.tags ?? []).filter((t: string) => t !== encoded);
-                                                                            updateTask({ id: subtask.id, tags: nextTags });
-                                                                        }}
-                                                                        title="Remove tag"
-                                                                    >
-                                                                        <XIcon className="h-3 w-3" />
-                                                                    </button>
+                                                                    <Tooltip>
+                                                                        <TooltipTrigger asChild>
+                                                                            <span className="inline-flex pointer-events-auto">
+                                                                                <TagEditorPopover
+                                                                                    tag={encoded}
+                                                                                    tags={subtask.tags ?? []}
+                                                                                    onChange={(nextTags) => {
+                                                                                        updateTask({ id: subtask.id, tags: nextTags });
+                                                                                    }}
+                                                                                >
+                                                                                    <button
+                                                                                        type="button"
+                                                                                        className="px-0.5 cursor-pointer hover:text-zinc-700"
+                                                                                        onClick={(e) => {
+                                                                                            e.stopPropagation();
+                                                                                        }}
+                                                                                    >
+                                                                                        <MoreHorizontal className="h-3 w-3" />
+                                                                                    </button>
+                                                                                </TagEditorPopover>
+                                                                            </span>
+                                                                        </TooltipTrigger>
+                                                                        <TooltipContent side="top" sideOffset={4} className="bg-zinc-900 text-white font-medium text-xs px-2.5 py-1.5 border-0 rounded-md">
+                                                                            Tag settings
+                                                                        </TooltipContent>
+                                                                    </Tooltip>
+                                                                    <Tooltip>
+                                                                        <TooltipTrigger asChild>
+                                                                            <button
+                                                                                type="button"
+                                                                                className="px-0.5 pointer-events-auto cursor-pointer hover:text-red-500"
+                                                                                onClick={(e) => {
+                                                                                    e.stopPropagation();
+                                                                                    const nextTags = (subtask.tags ?? []).filter((t: string) => t !== encoded);
+                                                                                    updateTask({ id: subtask.id, tags: nextTags });
+                                                                                }}
+                                                                            >
+                                                                                <XIcon className="h-3 w-3" />
+                                                                            </button>
+                                                                        </TooltipTrigger>
+                                                                        <TooltipContent side="top" sideOffset={4} className="bg-zinc-900 text-white font-medium text-xs px-2.5 py-1.5 border-0 rounded-md">
+                                                                            Remove tag
+                                                                        </TooltipContent>
+                                                                    </Tooltip>
                                                                 </div>
                                                             </div>
                                                         );
                                                     })}
                                                     {subtask.tags!.length > 2 && (
-                                                        <TagsPopover
-                                                            tags={subtask.tags ?? []}
-                                                            onChange={(nextTags) => {
-                                                                updateTask({ id: subtask.id, tags: nextTags });
-                                                            }}
-                                                            trigger={
-                                                                <button
-                                                                    type="button"
-                                                                    className="px-1.5 py-0.5 rounded-full bg-zinc-100 text-zinc-500 text-[10px] font-medium cursor-pointer"
-                                                                    onClick={(e) => {
-                                                                        e.stopPropagation();
-                                                                    }}
-                                                                >
-                                                                    +{subtask.tags!.length - 2}
-                                                                </button>
-                                                            }
-                                                        />
+                                                        <Tooltip>
+                                                            <TooltipTrigger asChild>
+                                                                <span className="inline-flex">
+                                                                    <TagsPopover
+                                                                        tags={subtask.tags ?? []}
+                                                                        onChange={(nextTags) => {
+                                                                            updateTask({ id: subtask.id, tags: nextTags });
+                                                                        }}
+                                                                        trigger={
+                                                                            <button
+                                                                                type="button"
+                                                                                className="px-1.5 py-0.5 rounded-full bg-zinc-100 text-zinc-500 text-[10px] font-medium cursor-pointer"
+                                                                                onClick={(e) => {
+                                                                                    e.stopPropagation();
+                                                                                }}
+                                                                            >
+                                                                                +{subtask.tags!.length - 2}
+                                                                            </button>
+                                                                        }
+                                                                    />
+                                                                </span>
+                                                            </TooltipTrigger>
+                                                            <TooltipContent side="top" sideOffset={4} className="bg-zinc-900 text-white font-medium text-xs px-2.5 py-1.5 border-0 rounded-md">
+                                                                View tags
+                                                            </TooltipContent>
+                                                        </Tooltip>
                                                     )}
                                                 </div>
                                             )}
@@ -1723,18 +1808,44 @@ export function SubtasksTable({
                                                                 <div key={encoded} className="relative inline-flex items-center group/tag min-w-[40px]">
                                                                     <span className="px-1.5 py-1 rounded-md text-xs font-medium cursor-pointer w-full text-center truncate max-w-[100px]" style={{ backgroundColor: bg, color: '#3730a3' }}>{parsed.label}</span>
                                                                     <div style={{ backgroundColor: bg }} className="absolute inset-0 flex items-center text-bold justify-between text-zinc-400 px-1 rounded-md text-xs opacity-0 group-hover/tag:opacity-100 transition-opacity pointer-events-none">
-                                                                        <TagEditorPopover tag={encoded} tags={subtask.tags ?? []} onChange={(nextTags) => { updateTask({ id: subtask.id, tags: nextTags }); }}>
-                                                                            <button type="button" className="px-0.5 pointer-events-auto cursor-pointer hover:text-zinc-700" onClick={(e) => e.stopPropagation()} title="Tag settings"><MoreHorizontal className="h-3 w-3" /></button>
-                                                                        </TagEditorPopover>
-                                                                        <button type="button" className="px-0.5 pointer-events-auto cursor-pointer hover:text-red-500" onClick={(e) => { e.stopPropagation(); const nextTags = (subtask.tags ?? []).filter((t: string) => t !== encoded); updateTask({ id: subtask.id, tags: nextTags }); }} title="Remove tag"><X className="h-3 w-3" /></button>
+                                                                        <Tooltip>
+                                                                            <TooltipTrigger asChild>
+                                                                                <span className="inline-flex pointer-events-auto">
+                                                                                    <TagEditorPopover tag={encoded} tags={subtask.tags ?? []} onChange={(nextTags) => { updateTask({ id: subtask.id, tags: nextTags }); }}>
+                                                                                        <button type="button" className="px-0.5 cursor-pointer hover:text-zinc-700" onClick={(e) => e.stopPropagation()}><MoreHorizontal className="h-3 w-3" /></button>
+                                                                                    </TagEditorPopover>
+                                                                                </span>
+                                                                            </TooltipTrigger>
+                                                                            <TooltipContent side="top" sideOffset={4} className="bg-zinc-900 text-white font-medium text-xs px-2.5 py-1.5 border-0 rounded-md">Tag settings</TooltipContent>
+                                                                        </Tooltip>
+                                                                        <Tooltip>
+                                                                            <TooltipTrigger asChild>
+                                                                                <button type="button" className="px-0.5 pointer-events-auto cursor-pointer hover:text-red-500" onClick={(e) => { e.stopPropagation(); const nextTags = (subtask.tags ?? []).filter((t: string) => t !== encoded); updateTask({ id: subtask.id, tags: nextTags }); }}><X className="h-3 w-3" /></button>
+                                                                            </TooltipTrigger>
+                                                                            <TooltipContent side="top" sideOffset={4} className="bg-zinc-900 text-white font-medium text-xs px-2.5 py-1.5 border-0 rounded-md">Remove tag</TooltipContent>
+                                                                        </Tooltip>
                                                                     </div>
                                                                 </div>
                                                             );
                                                         })}
                                                         {subtask.tags.length > 1 ? (
-                                                            <TagsPopover tags={subtask.tags ?? []} onChange={(nextTags) => { updateTask({ id: subtask.id, tags: nextTags }); }} trigger={<button type="button" className="px-1.5 py-0.5 rounded-full bg-zinc-100 text-zinc-500 text-xs font-medium cursor-pointer hover:bg-zinc-200" onClick={(e) => e.stopPropagation()}>+{subtask.tags.length - 1}</button>} />
+                                                            <Tooltip>
+                                                                <TooltipTrigger asChild>
+                                                                    <span className="inline-flex">
+                                                                        <TagsPopover tags={subtask.tags ?? []} onChange={(nextTags) => { updateTask({ id: subtask.id, tags: nextTags }); }} trigger={<button type="button" className="px-1.5 py-0.5 rounded-full bg-zinc-100 text-zinc-500 text-xs font-medium cursor-pointer hover:bg-zinc-200" onClick={(e) => e.stopPropagation()}>+{subtask.tags.length - 1}</button>} />
+                                                                    </span>
+                                                                </TooltipTrigger>
+                                                                <TooltipContent side="top" sideOffset={4} className="bg-zinc-900 text-white font-medium text-xs px-2.5 py-1.5 border-0 rounded-md">View tags</TooltipContent>
+                                                            </Tooltip>
                                                         ) : (
-                                                            <TagsPopover tags={subtask.tags ?? []} onChange={(nextTags) => { updateTask({ id: subtask.id, tags: nextTags }); }} trigger={<button type="button" className="flex items-center justify-center h-5 w-5 rounded-md hover:bg-zinc-100 text-zinc-400 hover:text-zinc-600 transition-opacity opacity-0 group-hover/tagcell:opacity-100 cursor-pointer" onClick={(e) => e.stopPropagation()}><Plus className="h-3 w-3" /></button>} />
+                                                            <Tooltip>
+                                                                <TooltipTrigger asChild>
+                                                                    <span className="inline-flex">
+                                                                        <TagsPopover tags={subtask.tags ?? []} onChange={(nextTags) => { updateTask({ id: subtask.id, tags: nextTags }); }} trigger={<button type="button" className="flex items-center justify-center h-5 w-5 rounded-md hover:bg-zinc-100 text-zinc-400 hover:text-zinc-600 transition-opacity opacity-0 group-hover/tagcell:opacity-100 cursor-pointer" onClick={(e) => e.stopPropagation()}><Plus className="h-3 w-3" /></button>} />
+                                                                    </span>
+                                                                </TooltipTrigger>
+                                                                <TooltipContent side="top" sideOffset={4} className="bg-zinc-900 text-white font-medium text-xs px-2.5 py-1.5 border-0 rounded-md">Add tag</TooltipContent>
+                                                            </Tooltip>
                                                         )}
                                                     </>
                                                 ) : (
@@ -1868,6 +1979,7 @@ export function SubtasksTable({
                                                             projectId={(subtask as any).projectId}
                                                             teamId={(subtask as any).teamId}
                                                             listId={(subtask as any).listId}
+                                                            taskId={subtask.id}
                                                         />
                                                     ) : (
                                                         <button type="button" className="w-full h-full flex items-center justify-start px-1 py-1 outline-none cursor-pointer text-left text-xs text-zinc-700" title={formattedValue}>
@@ -2141,78 +2253,163 @@ export function SubtasksTable({
                                 })}
                                 {isAddingSubtask && (
                                     <div className="flex items-center gap-2 px-3 py-2.5 border-t border-zinc-100 bg-white">
-                                        {/* Spinner/circle status indicator */}
                                         <div className="shrink-0 h-4 w-4 rounded-full border-2 border-zinc-300 flex items-center justify-center text-zinc-300" />
                                         <Input
                                             value={subtaskTitle}
                                             onChange={(e) => setSubtaskTitle(e.target.value)}
-                                            placeholder="Task Name or type '/' for commands"
-                                            className="flex-1 h-7 border-0 shadow-none focus-visible:ring-0 text-[13px] text-zinc-700 placeholder:text-zinc-400 bg-transparent px-0"
+                                            placeholder="Task Name"
+                                            className="flex-1 min-w-[160px] h-7 border-0 shadow-none focus-visible:ring-0 text-[13px] text-zinc-700 placeholder:text-zinc-400 bg-transparent px-0"
                                             autoFocus
+                                            onMouseDown={(e) => e.stopPropagation()}
+                                            onPointerDown={(e) => e.stopPropagation()}
                                             onKeyDown={(e) => {
-                                                if (e.key === 'Enter') handleCreateSubtask();
-                                                if (e.key === 'Escape') setIsAddingSubtask(false);
+                                                if (e.key === 'Enter') {
+                                                    e.preventDefault();
+                                                    void handleFooterSave();
+                                                }
+                                                if (e.key === 'Escape') handleFooterCancel();
                                             }}
                                         />
-                                        {/* Action icon buttons */}
-                                        <div className="flex items-center gap-0.5 shrink-0">
-                                            <TooltipProvider delayDuration={300}>
-                                                <Tooltip>
-                                                    <TooltipTrigger asChild>
-                                                        <Button variant="ghost" size="icon" className="h-7 w-7 text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 rounded"><Circle className="h-3.5 w-3.5" /></Button>
-                                                    </TooltipTrigger>
-                                                    <TooltipContent side="top" className="bg-zinc-900 text-white text-xs px-2 py-1 border-0">Task type</TooltipContent>
-                                                </Tooltip>
-                                                <Tooltip>
-                                                    <TooltipTrigger asChild>
-                                                        <Button variant="ghost" size="icon" className="h-7 w-7 text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 rounded"><Tag className="h-3.5 w-3.5" /></Button>
-                                                    </TooltipTrigger>
-                                                    <TooltipContent side="top" className="bg-zinc-900 text-white text-xs px-2 py-1 border-0">Tags</TooltipContent>
-                                                </Tooltip>
-                                                <Tooltip>
-                                                    <TooltipTrigger asChild>
-                                                        <Button variant="ghost" size="icon" className="h-7 w-7 text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 rounded"><Users className="h-3.5 w-3.5" /></Button>
-                                                    </TooltipTrigger>
-                                                    <TooltipContent side="top" className="bg-zinc-900 text-white text-xs px-2 py-1 border-0">Assignee</TooltipContent>
-                                                </Tooltip>
-                                                <Tooltip>
-                                                    <TooltipTrigger asChild>
-                                                        <Button variant="ghost" size="icon" className="h-7 w-7 text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 rounded"><CalendarIcon className="h-3.5 w-3.5" /></Button>
-                                                    </TooltipTrigger>
-                                                    <TooltipContent side="top" className="bg-zinc-900 text-white text-xs px-2 py-1 border-0">Due date</TooltipContent>
-                                                </Tooltip>
-                                                <Tooltip>
-                                                    <TooltipTrigger asChild>
-                                                        <Button variant="ghost" size="icon" className="h-7 w-7 text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 rounded"><Flag className="h-3.5 w-3.5" /></Button>
-                                                    </TooltipTrigger>
-                                                    <TooltipContent side="top" className="bg-zinc-900 text-white text-xs px-2 py-1 border-0">Priority</TooltipContent>
-                                                </Tooltip>
-                                                <Tooltip>
-                                                    <TooltipTrigger asChild>
-                                                        <Button variant="ghost" size="icon" className="h-7 w-7 text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 rounded"><Link2 className="h-3.5 w-3.5" /></Button>
-                                                    </TooltipTrigger>
-                                                    <TooltipContent side="top" className="bg-zinc-900 text-white text-xs px-2 py-1 border-0">Link</TooltipContent>
-                                                </Tooltip>
-                                            </TooltipProvider>
+                                        <Tooltip>
+                                            <TooltipTrigger asChild>
+                                                <span className="inline-flex">
+                                                    <TaskStatusPopover
+                                                        task={{
+                                                            id: "quick-add",
+                                                            taskType: availableTaskTypes?.find((t: any) => t.id === inlineAddTaskType || t.name === inlineAddTaskType) || defaultTaskType
+                                                        }}
+                                                        availableStatuses={[]}
+                                                        availableTaskTypes={availableTaskTypes || []}
+                                                        onUpdateTask={(_id, data) => {
+                                                            if (data.taskTypeId) {
+                                                                setInlineAddTaskType(data.taskTypeId);
+                                                            }
+                                                        }}
+                                                        hideStatusTab={true}
+                                                    >
+                                                        <Button variant="outline" size="sm" className="h-7 px-2 text-xs text-zinc-700 border-zinc-200 hover:bg-zinc-100 hover:text-zinc-900 rounded-md">
+                                                            {(() => {
+                                                                const typeId = inlineAddTaskType;
+                                                                const tt = availableTaskTypes?.find((t: any) => t.id === typeId || t.name === typeId);
+                                                                return (
+                                                                    <div className="flex items-center gap-1.5">
+                                                                        <TaskTypeIcon type={tt || typeId} className="h-3.5 w-3.5" />
+                                                                        <span>{tt?.name || (typeof typeId === 'string' ? typeId : 'Task')}</span>
+                                                                    </div>
+                                                                );
+                                                            })()}
+                                                        </Button>
+                                                    </TaskStatusPopover>
+                                                </span>
+                                            </TooltipTrigger>
+                                            <TooltipContent>Task type</TooltipContent>
+                                        </Tooltip>
+
+                                        <Tooltip>
+                                            <TooltipTrigger asChild>
+                                                <span className="inline-flex">
+                                                    <AssigneeSelector
+                                                        users={workspaceMembers}
+                                                        workspaceId={workspaceId ?? ""}
+                                                        variant="compact"
+                                                        value={inlineAddAssigneeIds}
+                                                        onChange={setInlineAddAssigneeIds}
+                                                        trigger={
+                                                            <Button variant="outline" size="icon" className="h-7 w-7 text-zinc-600 border-zinc-200 hover:bg-zinc-100 hover:text-zinc-900 rounded-md">
+                                                                <Users className="h-3.5 w-3.5" />
+                                                            </Button>
+                                                        }
+                                                    />
+                                                </span>
+                                            </TooltipTrigger>
+                                            <TooltipContent>Assignee</TooltipContent>
+                                        </Tooltip>
+
+                                        <Popover>
+                                            <Tooltip>
+                                                <TooltipTrigger asChild>
+                                                    <PopoverTrigger asChild>
+                                                        <Button variant="outline" size="icon" className="h-7 w-7 text-zinc-600 border-zinc-200 hover:bg-zinc-100 hover:text-zinc-900 rounded-md">
+                                                            <Calendar className="h-3.5 w-3.5" />
+                                                        </Button>
+                                                    </PopoverTrigger>
+                                                </TooltipTrigger>
+                                                <TooltipContent>Due date</TooltipContent>
+                                            </Tooltip>
+                                            <PopoverContent className="w-auto p-0" align="end" sideOffset={8} collisionPadding={10}>
+                                                <TaskCalendar
+                                                    startDate={inlineAddStartDate ?? undefined}
+                                                    endDate={inlineAddDueDate ?? undefined}
+                                                    onStartDateChange={(d) => setInlineAddStartDate(d ?? null)}
+                                                    onEndDateChange={(d) => setInlineAddDueDate(d ?? null)}
+                                                />
+                                            </PopoverContent>
+                                        </Popover>
+
+                                        <DropdownMenu>
+                                            <Tooltip>
+                                                <TooltipTrigger asChild>
+                                                    <DropdownMenuTrigger asChild>
+                                                        <Button
+                                                            type="button"
+                                                            variant="outline"
+                                                            size="sm"
+                                                            className="h-7 w-auto border-zinc-200 hover:bg-zinc-50 focus:ring-0 px-2.5 rounded-md text-xs font-medium transition-all text-zinc-700"
+                                                        >
+                                                            <div className="flex items-center gap-1.5 w-full">
+                                                                <div className={cn("flex items-center gap-1.5",
+                                                                    inlineAddPriority === 'URGENT' ? "text-red-500" :
+                                                                        inlineAddPriority === 'HIGH' ? "text-orange-500" :
+                                                                            inlineAddPriority === 'NORMAL' ? "text-blue-500" :
+                                                                                inlineAddPriority === 'LOW' ? "text-zinc-400" : "text-zinc-400"
+                                                                )}>
+                                                                    <Flag className="h-3 w-3 fill-current" />
+                                                                </div>
+                                                            </div>
+                                                        </Button>
+                                                    </DropdownMenuTrigger>
+                                                </TooltipTrigger>
+                                                <TooltipContent>Priority</TooltipContent>
+                                            </Tooltip>
+                                            <DropdownMenuContent align="start" className="w-48 z-[200]">
+                                                <DropdownMenuLabel className="text-xs">Priority</DropdownMenuLabel>
+                                                <DropdownMenuItem onClick={() => setInlineAddPriority("URGENT")}>
+                                                    <Flag className="h-3 w-3 mr-2 text-red-600 fill-current" /> Urgent
+                                                </DropdownMenuItem>
+                                                <DropdownMenuItem onClick={() => setInlineAddPriority("HIGH")}>
+                                                    <Flag className="h-3 w-3 mr-2 text-orange-600 fill-current" /> High
+                                                </DropdownMenuItem>
+                                                <DropdownMenuItem onClick={() => setInlineAddPriority("NORMAL")}>
+                                                    <Flag className="h-3 w-3 mr-2 text-blue-600 fill-current" /> Normal
+                                                </DropdownMenuItem>
+                                                <DropdownMenuItem onClick={() => setInlineAddPriority("LOW")}>
+                                                    <Flag className="h-3 w-3 mr-2 text-slate-600 fill-current" /> Low
+                                                </DropdownMenuItem>
+                                                <DropdownMenuSeparator />
+                                                <DropdownMenuItem onClick={() => setInlineAddPriority(null)}>
+                                                    <CircleSlash className="h-3 w-3 mr-2 text-slate-500" />Clear
+                                                </DropdownMenuItem>
+                                            </DropdownMenuContent>
+                                        </DropdownMenu>
+
+                                        <div className="flex items-center gap-1 ml-1">
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                className="h-7 text-xs text-zinc-600 rounded-md hover:bg-zinc-100 px-3 border border-zinc-200"
+                                                onClick={handleFooterCancel}
+                                            >
+                                                Cancel
+                                            </Button>
+                                            <Button
+                                                size="sm"
+                                                className="h-7 text-xs bg-zinc-900 hover:bg-zinc-800 text-white rounded-md px-4"
+                                                onClick={() => void handleFooterSave()}
+                                                disabled={!subtaskTitle.trim() || !workspaceId || createTask.isPending}
+                                            >
+                                                Save
+                                            </Button>
                                         </div>
-                                        <div className="w-px h-4 bg-zinc-200 mx-1 shrink-0" />
-                                        {/* Cancel + Save buttons */}
-                                        <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            className="h-7 px-2.5 text-[12px] text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100 font-medium rounded shrink-0"
-                                            onClick={() => setIsAddingSubtask(false)}
-                                        >
-                                            Cancel
-                                        </Button>
-                                        <Button
-                                            size="sm"
-                                            className="h-7 px-2.5 text-[12px] bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded shrink-0 gap-1"
-                                            onClick={handleCreateSubtask}
-                                            disabled={!subtaskTitle.trim()}
-                                        >
-                                            Save <span className="opacity-70 text-[11px]">↵</span>
-                                        </Button>
                                     </div>
                                 )}
                             </div>
