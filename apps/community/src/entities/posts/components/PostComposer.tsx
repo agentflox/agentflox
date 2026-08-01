@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useMemo, useRef, useState, lazy, Suspense } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Card } from '@/components/ui/card';
@@ -13,12 +13,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { FaHashtag, FaSmile as FaSmileIcon } from 'react-icons/fa';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import EmojiPicker, { Theme } from 'emoji-picker-react';
 import { PostType } from '@agentflox/database/src/generated/prisma/client';
 import { v4 as uuidv4 } from 'uuid';
 import { useSession } from 'next-auth/react';
 import Link from 'next/link';
-
-const EmojiPicker = lazy(() => import('emoji-picker-react'));
 import { useEffect } from 'react';
 
 interface PostComposerProps {
@@ -382,18 +381,14 @@ export function PostComposer({
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0 border-0" align="start" sideOffset={5}>
-                {showEmojiPicker && (
-                  <Suspense fallback={<div className="h-[400px] w-[350px] animate-pulse bg-zinc-50" />}>
-                    <EmojiPicker
-                      onEmojiClick={handleEmojiClick}
-                      theme={"light" as any}
-                      searchPlaceHolder="Search emoji..."
-                      width={350}
-                      height={400}
-                      previewConfig={{ showPreview: false }}
-                    />
-                  </Suspense>
-                )}
+                <EmojiPicker
+                  onEmojiClick={handleEmojiClick}
+                  theme={Theme.LIGHT}
+                  searchPlaceHolder="Search emoji..."
+                  width={350}
+                  height={400}
+                  previewConfig={{ showPreview: false }}
+                />
               </PopoverContent>
             </Popover>
 

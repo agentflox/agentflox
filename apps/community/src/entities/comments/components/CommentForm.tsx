@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useCallback, lazy, Suspense } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { FaSmile } from 'react-icons/fa';
@@ -9,9 +9,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
-import type { EmojiClickData } from 'emoji-picker-react';
-
-const EmojiPicker = lazy(() => import('emoji-picker-react'));
+import EmojiPicker, { EmojiClickData, Theme } from 'emoji-picker-react';
 
 interface CommentFormProps {
   postId: string;
@@ -106,18 +104,14 @@ export function CommentForm({
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-auto p-0 border-0 shadow-2xl" align="start">
-              {showEmojiPicker && (
-                <Suspense fallback={<div className="h-[400px] w-[320px] animate-pulse bg-zinc-50" />}>
-                  <EmojiPicker
-                    onEmojiClick={handleEmojiClick}
-                    theme={"auto" as any}
-                    searchPlaceHolder="Search emoji..."
-                    width={320}
-                    height={400}
-                    previewConfig={{ showPreview: false }}
-                  />
-                </Suspense>
-              )}
+              <EmojiPicker
+                onEmojiClick={handleEmojiClick}
+                theme={Theme.AUTO}
+                searchPlaceHolder="Search emoji..."
+                width={320}
+                height={400}
+                previewConfig={{ showPreview: false }}
+              />
             </PopoverContent>
           </Popover>
         </div>

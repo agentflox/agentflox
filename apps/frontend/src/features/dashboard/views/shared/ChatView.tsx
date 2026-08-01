@@ -1,9 +1,18 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Hash, Plus, Search, ChevronsLeft, ChevronsRight, X } from "lucide-react";
+import { useSession } from "next-auth/react";
+import { UserPlus, Hash, Plus, MoreHorizontal, Search, ChevronsLeft, ChevronsRight, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+    DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { trpc } from "@/lib/trpc";
 import { VerticalToolRail } from "@/features/dashboard/components/shared/VerticalToolRail";
@@ -15,7 +24,7 @@ import ChannelMessageList from "@/entities/channels/components/ChannelMessageLis
 import ChannelMembersSidebar from "@/entities/channels/components/ChannelMembersSidebar";
 import ChannelSettingsSidebar from "@/entities/channels/components/ChannelSettingsSidebar";
 import { Skeleton } from "@/components/ui/skeleton";
-import { LoadingContainer } from "@/components/ui/loading";
+import { LoadingContainer, LoadingPage } from "@/components/ui/loading";
 
 interface ChatViewProps {
     workspaceId?: string;
@@ -37,6 +46,13 @@ interface SelectedMember {
     sourceName?: string;
 }
 
+interface GroupOption {
+    id: string;
+    name: string;
+    type: "project" | "team" | "space";
+    members: SelectedMember[];
+}
+
 function dedupeMembers(list: SelectedMember[]): SelectedMember[] {
     const map = new Map<string, SelectedMember>();
     list.forEach((member) => {
@@ -48,7 +64,9 @@ function dedupeMembers(list: SelectedMember[]): SelectedMember[] {
 function ChatViewSkeleton() {
     return (
         <div className="flex h-full min-h-0 bg-slate-50">
+            {/* Left sidebar skeleton */}
             <aside className="hidden lg:flex shrink-0 w-[256px] bg-white border-r border-slate-200 flex-col h-full overflow-hidden">
+                {/* Header */}
                 <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200/60 bg-slate-50/30">
                     <div className="space-y-1.5">
                         <Skeleton className="h-4 w-20 rounded-md" />
@@ -60,6 +78,8 @@ function ChatViewSkeleton() {
                         <Skeleton className="h-7 w-7 rounded-md" />
                     </div>
                 </div>
+
+                {/* Channel list */}
                 <div className="flex-1 overflow-hidden p-2 space-y-1">
                     {[...Array(8)].map((_, i) => (
                         <div key={i} className="flex items-center gap-2.5 px-3 py-2 rounded-lg">
@@ -69,8 +89,11 @@ function ChatViewSkeleton() {
                     ))}
                 </div>
             </aside>
+
+            {/* Main chat area */}
             <div className="relative flex flex-1 flex-col min-h-0 overflow-hidden">
                 <div className="flex-1 flex flex-col min-h-0 bg-white border-x border-slate-200/60">
+                    {/* Channel header */}
                     <div className="shrink-0 border-b border-slate-200/60 bg-white/80 px-6 py-4 flex flex-col gap-1.5">
                         <div className="flex items-center gap-2">
                             <Skeleton className="h-5 w-5 rounded-md" />
@@ -78,9 +101,19 @@ function ChatViewSkeleton() {
                         </div>
                         <Skeleton className="h-3 w-48 rounded-md ml-7" />
                     </div>
+
+                    {/* Messages */}
                     <div className="flex-1 min-h-0 overflow-hidden px-6 py-4 bg-[#f8fafc] space-y-6">
                         {[...Array(5)].map((_, groupIdx) => (
                             <div key={groupIdx} className="space-y-3">
+                                {/* Date divider */}
+                                {groupIdx === 2 && (
+                                    <div className="flex items-center gap-3 py-1">
+                                        <div className="flex-1 h-px bg-slate-200/80" />
+                                        <Skeleton className="h-3 w-16 rounded-full" />
+                                        <div className="flex-1 h-px bg-slate-200/80" />
+                                    </div>
+                                )}
                                 {[...Array(groupIdx % 2 === 0 ? 2 : 3)].map((_, msgIdx) => (
                                     <div key={msgIdx} className="flex items-start gap-3">
                                         <Skeleton className="h-8 w-8 rounded-full shrink-0 mt-0.5" />
@@ -90,23 +123,35 @@ function ChatViewSkeleton() {
                                                 <Skeleton className="h-3 w-12 rounded-md opacity-60" />
                                             </div>
                                             <Skeleton className={cn("h-3.5 rounded-md", msgIdx % 2 === 0 ? "w-[85%]" : "w-[60%]")} />
+                                            {msgIdx % 3 === 0 && <Skeleton className="h-3.5 w-[45%] rounded-md" />}
                                         </div>
                                     </div>
                                 ))}
                             </div>
                         ))}
                     </div>
+
+                    {/* Composer */}
                     <div className="shrink-0 border-t border-slate-200/60 bg-white px-4 py-3">
                         <div className="rounded-xl border border-slate-200 bg-slate-50/50 overflow-hidden">
+                            {/* Text area row */}
                             <div className="px-4 pt-3 pb-2">
                                 <Skeleton className="h-4 w-48 rounded-md" />
                             </div>
+                            {/* Toolbar row */}
                             <div className="flex items-center justify-between px-3 pb-2.5">
                                 <div className="flex items-center gap-1.5">
                                     <Skeleton className="h-6 w-6 rounded-md shrink-0" />
                                     <Skeleton className="h-6 w-24 rounded-md" />
+                                    <Skeleton className="h-4 w-px rounded-full mx-0.5" />
+                                    {[...Array(7)].map((_, i) => (
+                                        <Skeleton key={i} className="h-6 w-6 rounded-md shrink-0" />
+                                    ))}
                                 </div>
-                                <Skeleton className="h-7 w-14 rounded-md" />
+                                <div className="flex items-center gap-1">
+                                    <Skeleton className="h-7 w-8 rounded-l-md" />
+                                    <Skeleton className="h-7 w-5 rounded-r-md" />
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -131,62 +176,42 @@ export default function ChatView({ workspaceId, spaceId, projectId, teamId, sele
     const [activeChannelId, setActiveChannelId] = useState<string | null>(selectedChatId || null);
     const [membersSidebarOpen, setMembersSidebarOpen] = useState(false);
     const [settingsSidebarOpen, setSettingsSidebarOpen] = useState(false);
+    const [searchQuery, setSearchQuery] = useState("");
+    const [stagedMembers, setStagedMembers] = useState<SelectedMember[]>([]);
     const [chatMembers, setChatMembers] = useState<SelectedMember[]>([]);
     const [chatTitle, setChatTitle] = useState<string>("");
     const [chatTopic, setChatTopic] = useState<string>("");
     const [chatDescription, setChatDescription] = useState<string>("");
     const [chatModalOpen, setChatModalOpen] = useState(false);
     const [isCreatingConversation, setIsCreatingConversation] = useState(false);
+
+    // Sidebar State
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
     const [isSearchNavOpen, setIsSearchNavOpen] = useState(false);
     const [sidebarSearchQuery, setSidebarSearchQuery] = useState("");
     const [debouncedSidebarQuery, setDebouncedSidebarQuery] = useState("");
 
+    // Debounce sidebar search query
     useEffect(() => {
-        const timer = setTimeout(() => setDebouncedSidebarQuery(sidebarSearchQuery), 300);
+        const timer = setTimeout(() => {
+            setDebouncedSidebarQuery(sidebarSearchQuery);
+        }, 300);
         return () => clearTimeout(timer);
     }, [sidebarSearchQuery]);
 
+    // Filter channels
     const channels = channelsQuery.data ?? [];
     const filteredChannels = useMemo(() => {
         if (!debouncedSidebarQuery) return channels;
         const q = debouncedSidebarQuery.toLowerCase();
-        return channels.filter((c) => (c.name?.toLowerCase() ?? "").includes(q));
+        return channels.filter(c => (c.name?.toLowerCase() ?? "").includes(q));
     }, [channels, debouncedSidebarQuery]);
 
     const {
         messages,
         isLoading: isLoadingMessages,
-        toggleReaction,
-        editMessage,
+        sendMessage,
     } = useChannels({ channelId: activeChannelId ?? undefined });
-
-    // Shared mention catalog for message rendering (composer fetches picker data separately; RQ cache shared)
-    const { data: mentionMembers = [] } = trpc.workspace.getMembers.useQuery(
-        { id: workspaceId! },
-        { enabled: !!workspaceId, staleTime: 60_000, gcTime: 5 * 60_000 }
-    );
-    const { data: mentionTasks } = trpc.task.list.useQuery(
-        { workspaceId: workspaceId!, pageSize: 20, scope: "all", includeRelations: false },
-        { enabled: !!workspaceId, staleTime: 60_000, gcTime: 5 * 60_000 }
-    );
-    const { data: mentionDocs } = trpc.document.list.useQuery(
-        { workspaceId: workspaceId!, pageSize: 20 },
-        { enabled: !!workspaceId, staleTime: 60_000, gcTime: 5 * 60_000 }
-    );
-    const mentionItems = useMemo(() => {
-        const items: { title: string; type: string; status?: string }[] = [];
-        mentionMembers.forEach((m) => {
-            if (m.user.name || m.user.email) items.push({ title: m.user.name || m.user.email || "", type: "user" });
-        });
-        (mentionTasks?.items || []).forEach((t) => {
-            if (t.title) items.push({ title: t.title, type: "task" });
-        });
-        (mentionDocs?.items || []).forEach((d) => {
-            if (d.title) items.push({ title: d.title, type: "doc" });
-        });
-        return items.sort((a, b) => b.title.length - a.title.length);
-    }, [mentionMembers, mentionTasks, mentionDocs]);
 
     const handleCreateChat = useCallback(async (title: string, topic?: string, description?: string) => {
         setIsCreatingConversation(true);
@@ -213,7 +238,7 @@ export default function ChatView({ workspaceId, spaceId, projectId, teamId, sele
     useEffect(() => {
         if (selectedChatId) {
             setActiveChannelId(selectedChatId);
-            const selectedChannel = channelsQuery.data?.find((c) => c.id === selectedChatId);
+            const selectedChannel = channelsQuery.data?.find(c => c.id === selectedChatId);
             if (selectedChannel) {
                 setChatTitle(selectedChannel.name ?? "Channel");
             }
@@ -223,6 +248,7 @@ export default function ChatView({ workspaceId, spaceId, projectId, teamId, sele
         }
     }, [activeChannelId, channelsQuery.data, selectedChatId]);
 
+    // Notify parent component when active channel changes
     useEffect(() => {
         if (activeChannelId && onChatSelect) {
             onChatSelect(activeChannelId);
@@ -247,19 +273,153 @@ export default function ChatView({ workspaceId, spaceId, projectId, teamId, sele
         }
     }, [workspace, chatMembers.length]);
 
+    const workspaceMembers = useMemo<SelectedMember[]>(() => {
+        const members = (workspace?.members ?? [])
+            .map((member: any) =>
+                member?.user
+                    ? {
+                        id: member.user.id,
+                        name: member.user.name || "Unknown",
+                        email: member.user.email || undefined,
+                        image: member.user.image || undefined,
+                        source: "workspace" as MemberSource,
+                        sourceName: workspace?.name,
+                    }
+                    : null
+            )
+            .filter(Boolean) as SelectedMember[];
+        return dedupeMembers(members);
+    }, [workspace]);
+
+    const ownedProjects = trpc.project.list.useQuery({ scope: "owned", page: 1, pageSize: 50 }, { staleTime: 60_000, gcTime: 5 * 60_000 });
+    const ownedTeams = trpc.team.list.useQuery({ scope: "owned", page: 1, pageSize: 50 }, { staleTime: 60_000, gcTime: 5 * 60_000 });
+    const ownedSpaces = trpc.space.list.useQuery({ scope: "owned", page: 1, pageSize: 50 }, { staleTime: 60_000, gcTime: 5 * 60_000 });
+
+    const projectGroups = useMemo(() => {
+        return (ownedProjects.data?.items ?? []).map((p: any) => ({ id: p.id, name: p.name, type: "project" as const, members: [] as SelectedMember[] }));
+    }, [ownedProjects.data?.items]);
+
+    const teamGroups = useMemo(() => {
+        return (ownedTeams.data?.items ?? []).map((t: any) => ({ id: t.id, name: t.name, type: "team" as const, members: [] as SelectedMember[] }));
+    }, [ownedTeams.data?.items]);
+
+    const spaceGroups = useMemo(() => {
+        return (ownedSpaces.data?.items ?? []).map((s: any) => ({ id: s.id, name: s.name, type: "space" as const, members: [] as SelectedMember[] }));
+    }, [ownedSpaces.data?.items]);
+
+    const allIndividuals = useMemo(() => dedupeMembers([...workspaceMembers]), [workspaceMembers]);
+
+    const filteredIndividuals = useMemo(() => {
+        if (!searchQuery.trim()) return allIndividuals;
+        const q = searchQuery.toLowerCase();
+        return allIndividuals.filter(
+            (m) =>
+                m.name.toLowerCase().includes(q) ||
+                m.email?.toLowerCase().includes(q) ||
+                m.sourceName?.toLowerCase().includes(q)
+        );
+    }, [allIndividuals, searchQuery]);
+
+    const alreadyInChat = useCallback(
+        (id: string) => chatMembers.some((m) => m.id === id) || stagedMembers.some((m) => m.id === id),
+        [chatMembers, stagedMembers]
+    );
+
+    const groupOptions = useMemo(() => {
+        const base = [...projectGroups, ...teamGroups, ...spaceGroups];
+        return base.map((group) => ({
+            ...group,
+            members: group.members.filter((m) => !alreadyInChat(m.id)),
+        }));
+    }, [projectGroups, teamGroups, spaceGroups, alreadyInChat]);
+
+    const handleStageMember = (member: SelectedMember) => {
+        if (alreadyInChat(member.id)) return;
+        setStagedMembers((prev) => dedupeMembers([...prev, member]));
+    };
+
+    const handleStageGroup = (members: SelectedMember[]) => {
+        if (!members.length) return;
+        setStagedMembers((prev) => dedupeMembers([...prev, ...members.filter((m) => !alreadyInChat(m.id))]));
+    };
+
+    const onIncludeGroup = useCallback(async (group: { id: string; name: string; type: "project" | "team" | "space" }) => {
+        if (group.type === "project") {
+            const res = await utils.project.getParticipants.fetch({ projectId: group.id });
+            const members: SelectedMember[] = (res.users ?? []).map((u: any) => ({
+                id: u.id,
+                name: u.name || "Unknown",
+                email: u.email || undefined,
+                source: "project",
+                sourceName: group.name,
+            }));
+            handleStageGroup(members);
+        } else if (group.type === "team") {
+            const res = await utils.team.getParticipants.fetch({ teamId: group.id });
+            const members: SelectedMember[] = (res.users ?? []).map((u: any) => ({
+                id: u.id,
+                name: u.name || "Unknown",
+                email: u.email || undefined,
+                source: "team",
+                sourceName: group.name,
+            }));
+            handleStageGroup(members);
+        } else {
+            const space = await utils.space.get.fetch({ id: group.id });
+            if (!space) return;
+            const members: SelectedMember[] = (space.members ?? [])
+                .map((m: any) => m.user ? ({
+                    id: m.user.id,
+                    name: m.user.name || "Unknown",
+                    email: m.user.email || undefined,
+                    image: m.user.image || undefined,
+                    source: "space" as const,
+                    sourceName: space.name,
+                }) : null)
+                .filter(Boolean) as SelectedMember[];
+            handleStageGroup(members);
+        }
+    }, [utils]);
+
+    const commitMembers = () => {
+        if (!stagedMembers.length) return;
+        setChatMembers((prev) => dedupeMembers([...prev, ...stagedMembers]));
+        setStagedMembers([]);
+    };
+
     const removeChatMember = (id: string) => {
         setChatMembers((prev) => prev.filter((m) => m.id !== id));
     };
+
+    const removeStagedMember = (id: string) => {
+        setStagedMembers((prev) => prev.filter((m) => m.id !== id));
+    };
+
+    const handleSendChannelMessage = useCallback(
+        async (message: string, options?: { attachments?: any[]; contexts?: any[]; mentions?: any[] }) => {
+            if (!activeChannelId) return;
+            await sendMessage({
+                channelId: activeChannelId,
+                content: message,
+                attachments: options?.attachments,
+                contexts: options?.contexts,
+                mentions: options?.mentions,
+            });
+        },
+        [activeChannelId, sendMessage]
+    );
 
     if (isLoading) return <ChatViewSkeleton />;
 
     return (
         <div className="flex h-full min-h-0 bg-slate-50">
+            {/* Left chat list */}
             <aside className={cn(
                 "hidden lg:flex shrink-0 bg-white transition-all duration-300 ease-in-out flex-col h-full overflow-hidden border-r border-slate-200",
                 isSidebarCollapsed ? "w-0 border-none" : "w-[256px]"
             )}>
                 <div className="flex h-full flex-col overflow-hidden">
+                    {/* Header */}
                     {!isSidebarCollapsed && (
                         <div className="flex flex-col border-b border-slate-200/60 bg-slate-50/30">
                             {isSearchNavOpen ? (
@@ -300,6 +460,7 @@ export default function ChatView({ workspaceId, spaceId, projectId, teamId, sele
                                         >
                                             <Search className="h-4 w-4" />
                                         </Button>
+
                                         <Button
                                             variant="ghost"
                                             size="icon"
@@ -309,6 +470,7 @@ export default function ChatView({ workspaceId, spaceId, projectId, teamId, sele
                                         >
                                             <ChevronsLeft className="h-4 w-4" />
                                         </Button>
+
                                         <Button
                                             variant="ghost"
                                             size="icon"
@@ -324,10 +486,15 @@ export default function ChatView({ workspaceId, spaceId, projectId, teamId, sele
                         </div>
                     )}
 
+                    {/* Channels List */}
                     {!isSidebarCollapsed && (
                         <div className="flex-1 overflow-y-auto px-0 py-0">
                             {channelsQuery.isLoading ? (
-                                <LoadingContainer label="Loading chats..." spinnerSize="md" padding="md" />
+                                <LoadingContainer
+                                    label="Loading chats..."
+                                    spinnerSize="md"
+                                    padding="md"
+                                />
                             ) : (
                                 <div className="p-2">
                                     <ChannelList
@@ -355,6 +522,7 @@ export default function ChatView({ workspaceId, spaceId, projectId, teamId, sele
                 </div>
             </aside>
 
+            {/* Main chat area */}
             <div id="channel-post-modal-root" className="relative flex flex-1 flex-col min-h-0 overflow-hidden">
                 {isSidebarCollapsed && (
                     <div className="absolute left-0 top-3 z-30 hidden lg:block">
@@ -370,6 +538,7 @@ export default function ChatView({ workspaceId, spaceId, projectId, teamId, sele
                     </div>
                 )}
                 <div className="flex-1 flex flex-col min-h-0 bg-white border-x border-slate-200/60 shadow-[0_0_15px_rgba(0,0,0,0.02)] relative z-0">
+
                     <div className="flex-1 min-h-0 overflow-y-auto px-6 py-4 bg-[#f8fafc]">
                         {isLoadingMessages ? (
                             <div className="space-y-6">
@@ -382,22 +551,17 @@ export default function ChatView({ workspaceId, spaceId, projectId, teamId, sele
                                                 <Skeleton className="h-3 w-10 rounded-md opacity-50" />
                                             </div>
                                             <Skeleton className={cn("h-3.5 rounded-md", groupIdx % 3 === 0 ? "w-[75%]" : groupIdx % 3 === 1 ? "w-[55%]" : "w-[85%]")} />
+                                            {groupIdx % 2 === 0 && <Skeleton className={cn("h-3.5 rounded-md", groupIdx % 3 === 0 ? "w-[50%]" : "w-[40%]")} />}
+                                            {groupIdx === 2 && <Skeleton className="h-24 w-[320px] rounded-xl mt-1" />}
                                         </div>
                                     </div>
                                 ))}
                             </div>
                         ) : (
-                            <ChannelMessageList
-                                channelId={activeChannelId ?? ""}
-                                messages={messages as any}
-                                toggleReaction={toggleReaction}
-                                editMessage={editMessage}
-                                mentionItems={mentionItems}
-                                onAddMembers={() => {
-                                    setMembersSidebarOpen(false);
-                                    setSettingsSidebarOpen(false);
-                                }}
-                            />
+                            <ChannelMessageList channelId={activeChannelId ?? ''} messages={messages as any} onAddMembers={() => {
+                                setMembersSidebarOpen(false);
+                                setSettingsSidebarOpen(false);
+                            }} />
                         )}
                     </div>
                     {activeChannelId && (
@@ -409,8 +573,17 @@ export default function ChatView({ workspaceId, spaceId, projectId, teamId, sele
                                             <Skeleton className="h-4 w-48 rounded-md" />
                                         </div>
                                         <div className="flex items-center justify-between px-3 pb-2.5">
-                                            <Skeleton className="h-6 w-20 rounded-md" />
-                                            <Skeleton className="h-8 w-14 rounded-md" />
+                                            <div className="flex items-center gap-1.5">
+                                                <Skeleton className="h-6 w-20 rounded-md" />
+                                                <Skeleton className="h-4 w-px rounded-full mx-0.5" />
+                                                <Skeleton className="h-6 w-6 rounded-md shrink-0" />
+                                                <Skeleton className="h-6 w-6 rounded-md shrink-0" />
+                                                <Skeleton className="h-6 w-6 rounded-md shrink-0" />
+                                            </div>
+                                            <div className="flex items-center gap-0">
+                                                <Skeleton className="h-8 w-9 rounded-l-md" />
+                                                <Skeleton className="h-8 w-5 rounded-r-md" />
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -467,3 +640,4 @@ export default function ChatView({ workspaceId, spaceId, projectId, teamId, sele
         </div>
     );
 }
+

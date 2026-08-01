@@ -57,7 +57,7 @@ export function GroupFeedView({ groupId }: GroupFeedViewProps) {
   const [postTitle, setPostTitle] = useState("");
   const [postBody, setPostBody] = useState("");
   const feedKey = "community-feed";
-  const { posts, isLoading, createPost, likePost, unlikePost, bookmarkPost, followPost, reportPost } = usePosts("global", feedKey);
+  const { posts, isLoading, createPost } = usePosts("global", feedKey);
 
   const groupInfo = useMemo(() => {
     return posts
@@ -185,17 +185,7 @@ export function GroupFeedView({ groupId }: GroupFeedViewProps) {
           </Card>
         ) : (
           groupDiscussions.map((post) => (
-            <PostCard
-              key={post.id}
-              post={post as any}
-              feedType="global"
-              feedId={feedKey}
-              likePost={likePost}
-              unlikePost={unlikePost}
-              bookmarkPost={bookmarkPost}
-              followPost={followPost}
-              reportPost={reportPost}
-            />
+            <PostCard key={post.id} post={post as any} feedType="global" feedId={feedKey} />
           ))
         )}
       </div>

@@ -241,14 +241,8 @@ export function ApplicationsView() {
   const [selectedApp, setSelectedApp] = useState<ApplicationItem | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [processingId] = useState<string | null>(null);
-  const inboxQuery = trpc.marketplace.myReceivedApplications.useQuery(undefined, {
-    enabled: tab === "inbox",
-    staleTime: 60_000,
-  });
-  const sentQuery = trpc.marketplace.myApplications.useQuery(undefined, {
-    enabled: tab === "sent",
-    staleTime: 60_000,
-  });
+  const inboxQuery = trpc.marketplace.myReceivedApplications.useQuery();
+  const sentQuery = trpc.marketplace.myApplications.useQuery();
 
   const handleOpenDetail = (app: ApplicationItem) => {
     setSelectedApp(app);

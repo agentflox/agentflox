@@ -3,79 +3,65 @@
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import ChannelMessageItem from "./ChannelMessageItem";
+import { MessageSquarePlus, Users } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { useMemo } from "react";
-import type { ChannelMessage } from "../hooks/useChannels";
 
 interface ChannelMessageListProps {
   channelId: string;
-  messages: ChannelMessage[];
+  messages: Array<{
+    id: string;
+    channelId: string;
+    content: string;
+    type?: string;
+    title?: string | null;
+    createdAt: string | Date;
+    userId: string;
+    attachments?: any[];
+    reactions?: Array<{ userId: string; emoji: string }> | any[];
+    parentId?: string | null;
+    parent?: { id: string; content: string; userId: string; user?: { id: string; name: string | null; image: string | null } } | null;
+    user?: { id: string; name: string | null; image: string | null } | null;
+    isPending?: boolean;
+  }>;
   onAddMembers?: () => void;
-  toggleReaction: (messageId: string, emoji: string) => void | Promise<unknown>;
-  editMessage: (messageId: string, content: string, title?: string) => void | Promise<void>;
-  mentionItems?: { title: string; type: string; status?: string }[];
 }
 
-export default function ChannelMessageList({
-  channelId,
-  messages,
-  onAddMembers,
-  toggleReaction,
-  editMessage,
-  mentionItems: externalMentionItems,
-}: ChannelMessageListProps) {
-  const { data: channel } = trpc.channel.get.useQuery(
-    { id: channelId },
-    { enabled: !!channelId, staleTime: 60_000, gcTime: 5 * 60_000 }
-  );
-  const workspaceId = channel?.workspaceId || "";
-  const fetchMentions = !externalMentionItems && !!workspaceId;
-
+export default function ChannelMessageList({ channelId, messages, onAddMembers }: ChannelMessageListProps) {
+  // Fetch members ONCE at list level, pass down — avoids N queries per message
+  const { data: channel } = trpc.channel.get.useQuery({ id: channelId }, { staleTime: 60_000 });
+  const workspaceId = channel?.workspaceId || '';
   const { data: members = [] } = trpc.workspace.getMembers.useQuery(
     { id: workspaceId },
-    { enabled: fetchMentions, staleTime: 60_000, gcTime: 5 * 60_000 }
+    { enabled: !!workspaceId, staleTime: 60_000 }
   );
+
   const { data: tasksData } = trpc.task.list.useQuery(
-    { workspaceId, pageSize: 20, scope: "all", includeRelations: false },
-    { enabled: fetchMentions, staleTime: 60_000, gcTime: 5 * 60_000 }
+    { workspaceId, pageSize: 20, scope: "all", includeRelations: true },
+    { enabled: !!workspaceId }
   );
   const { data: docsData } = trpc.document.list.useQuery(
     { workspaceId, pageSize: 20 },
-    { enabled: fetchMentions, staleTime: 60_000, gcTime: 5 * 60_000 }
+    { enabled: !!workspaceId }
   );
 
   const mentionItems = useMemo(() => {
-    if (externalMentionItems) return externalMentionItems;
-    const items: { title: string; type: string; status?: string }[] = [];
-    members.forEach((m) => {
-      if (m.user.name || m.user.email) items.push({ title: m.user.name || m.user.email || "", type: "user" });
+    const items: { title: string, type: string, status?: string }[] = [];
+    members.forEach(m => {
+      if (m.user.name || m.user.email) items.push({ title: m.user.name || m.user.email || '', type: "user" });
     });
-    (tasksData?.items || []).forEach((t) => {
+    const scopedTasks = tasksData?.items || [];
+    scopedTasks.forEach(t => {
       if (t.title) items.push({ title: t.title, type: "task", status: t.status?.name });
     });
-    (docsData?.items || []).forEach((d) => {
+    const scopedDocs = docsData?.items || [];
+    scopedDocs.forEach(d => {
       if (d.title) items.push({ title: d.title, type: "doc" });
     });
     return items.sort((a, b) => b.title.length - a.title.length);
-  }, [externalMentionItems, members, tasksData, docsData]);
+  }, [members, tasksData, docsData]);
 
-  const repliesByParent = useMemo(() => {
-    const map = new Map<string, ChannelMessage[]>();
-    for (const m of messages) {
-      if (!m.parentId) continue;
-      const list = map.get(m.parentId);
-      if (list) list.push(m);
-      else map.set(m.parentId, [m]);
-    }
-    return map;
-  }, [messages]);
-
-  const rootMessages = useMemo(
-    () => messages.filter((m) => !m.parentId || m.type === "THREAD_BROADCAST"),
-    [messages]
-  );
-
-  const hasMessages = rootMessages.length > 0;
+  const hasMessages = messages && messages.length > 0;
 
   if (!hasMessages) {
     return (
@@ -106,16 +92,8 @@ export default function ChannelMessageList({
   return (
     <ScrollArea className="h-full">
       <div className="flex flex-col gap-3">
-        {rootMessages.map((m) => (
-          <ChannelMessageItem
-            key={m.id}
-            message={m as any}
-            mentionItems={mentionItems}
-            channelName={channel?.name || "General"}
-            replies={repliesByParent.get(m.id) ?? []}
-            toggleReaction={toggleReaction}
-            editMessage={editMessage}
-          />
+        {messages.filter(m => !m.parentId || m.type === 'THREAD_BROADCAST').map((m) => (
+          <ChannelMessageItem key={m.id} message={m as any} mentionItems={mentionItems} channelName={channel?.name || "General"} />
         ))}
       </div>
     </ScrollArea>

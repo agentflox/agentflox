@@ -10,16 +10,7 @@ interface PostListProps {
 }
 
 export function PostList({ feedType, feedId }: PostListProps) {
-  const {
-    posts,
-    isLoading,
-    likePost,
-    unlikePost,
-    bookmarkPost,
-    followPost,
-    reportPost,
-  } = usePosts(feedType, feedId);
-
+  const { posts, isLoading } = usePosts(feedType, feedId);
   if (isLoading) {
     return (
       <div className="flex justify-center py-12">
@@ -42,17 +33,7 @@ export function PostList({ feedType, feedId }: PostListProps) {
   return (
     <div className="space-y-4">
       {posts.map((post) => (
-        <PostCard
-          key={post.id}
-          post={post}
-          feedType={feedType}
-          feedId={feedId}
-          likePost={likePost}
-          unlikePost={unlikePost}
-          bookmarkPost={bookmarkPost}
-          followPost={followPost}
-          reportPost={reportPost}
-        />
+        <PostCard key={post.id} post={post} feedType={feedType} feedId={feedId} />
       ))}
     </div>
   );

@@ -88,8 +88,7 @@ const MessageItem = memo(function MessageItem({
   label,
   onFollowupClick,
   onActionClick,
-  onToggleFeedback,
-  feedbackPending,
+  onFeedbackChange,
 }: {
   message: RenderedMessage
   isUser: boolean
@@ -97,12 +96,19 @@ const MessageItem = memo(function MessageItem({
   label?: string
   onFollowupClick?: (messageId: string, followup: MessageFollowup) => void
   onActionClick?: (messageId: string, action: MessageAction) => void
-  onToggleFeedback?: (messageId: string, isHelpful: boolean) => void
-  feedbackPending?: boolean
+  onFeedbackChange?: (messageId: string, isHelpful: boolean | null) => void
 }) {
   const parts = message.parts ?? [{ type: 'text', text: message.content } satisfies MessagePart]
   const { toast } = useToast()
   const [copied, setCopied] = useState(false)
+  const utils = trpc.useUtils()
+
+  const feedbackMutation = trpc.chat.toggleMessageFeedback.useMutation({
+    onSuccess: (data) => {
+      onFeedbackChange?.(message.id, data.isHelpful)
+      utils.chat.getMessages.invalidate()
+    },
+  })
 
   const showFollowups = !isUser && message.followups && message.followups.length > 0
   const showActions = !isUser && message.actions && message.actions.length > 0
@@ -112,17 +118,17 @@ const MessageItem = memo(function MessageItem({
   const isLiked = currentFeedback === true
   const isDisliked = currentFeedback === false
 
-  const handleLike = () => {
+  const handleLike = async () => {
     try {
-      onToggleFeedback?.(message.id, true)
+      await feedbackMutation.mutateAsync({ messageId: message.id, isHelpful: true })
     } catch {
       toast({ title: 'Error', description: 'Failed to update feedback', variant: 'destructive' })
     }
   }
 
-  const handleDislike = () => {
+  const handleDislike = async () => {
     try {
-      onToggleFeedback?.(message.id, false)
+      await feedbackMutation.mutateAsync({ messageId: message.id, isHelpful: false })
     } catch {
       toast({ title: 'Error', description: 'Failed to update feedback', variant: 'destructive' })
     }
@@ -217,7 +223,7 @@ const MessageItem = memo(function MessageItem({
           <button
             type="button"
             onClick={handleLike}
-            disabled={feedbackPending}
+            disabled={feedbackMutation.isPending}
             className={cn(
               'inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-medium transition-all hover:bg-slate-100 disabled:opacity-50 cursor-pointer',
               isLiked ? 'text-blue-600 bg-blue-50 hover:bg-blue-100' : 'text-slate-500'
@@ -228,7 +234,7 @@ const MessageItem = memo(function MessageItem({
           <button
             type="button"
             onClick={handleDislike}
-            disabled={feedbackPending}
+            disabled={feedbackMutation.isPending}
             className={cn(
               'inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-medium transition-all hover:bg-slate-100 disabled:opacity-50 cursor-pointer',
               isDisliked ? 'text-red-600 bg-red-50 hover:bg-red-100' : 'text-slate-500'
@@ -273,26 +279,6 @@ export const ChatMessageList = memo(function ChatMessageList({
   const scrollAreaRef = useRef<HTMLDivElement | null>(null)
   const prevMessagesLengthRef = useRef(messages.length)
   const bottomRef = useRef<HTMLDivElement | null>(null)
-  const utils = trpc.useUtils()
-  const { toast } = useToast()
-
-  const feedbackMutation = trpc.chat.toggleMessageFeedback.useMutation({
-    onSuccess: (data, variables) => {
-      onFeedbackChange?.(variables.messageId, data.isHelpful)
-      utils.chat.getMessages.invalidate()
-    },
-  })
-
-  const handleToggleFeedback = (messageId: string, isHelpful: boolean) => {
-    feedbackMutation.mutate(
-      { messageId, isHelpful },
-      {
-        onError: () => {
-          toast({ title: 'Error', description: 'Failed to update feedback', variant: 'destructive' })
-        },
-      }
-    )
-  }
 
   const isPendingReactNode =
     pendingAssistantMessage !== null &&
@@ -358,8 +344,7 @@ export const ChatMessageList = memo(function ChatMessageList({
               label={label}
               onFollowupClick={onFollowupClick}
               onActionClick={onActionClick}
-              onToggleFeedback={handleToggleFeedback}
-              feedbackPending={feedbackMutation.isPending}
+              onFeedbackChange={onFeedbackChange}
             />
           )
         })}

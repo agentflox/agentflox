@@ -19,10 +19,7 @@ interface ChannelThreadModalProps {
 
 export default function ChannelThreadModal({ isOpen, onClose, message, mentionItems, channelName }: ChannelThreadModalProps) {
   const [alsoSend, setAlsoSend] = useState(false);
-  const { messages: threadMessages, toggleReaction, editMessage } = useChannels({
-    channelId: isOpen ? message.channelId : undefined,
-    subscribe: false, // ChatView already owns the socket subscription
-  });
+  const { messages: threadMessages } = useChannels({ channelId: message.channelId });
   const replies = (threadMessages || []).filter(m => m.parentId === message.id);
 
   const displayLabel = message.user?.name || message.user?.email || "Member";
@@ -72,14 +69,7 @@ export default function ChannelThreadModal({ isOpen, onClose, message, mentionIt
         {/* List of Replies */}
         <div className="flex flex-col gap-4 mb-6">
           {replies.map((reply: any) => (
-            <ChannelMessageItem
-              key={reply.id}
-              message={reply}
-              mentionItems={mentionItems}
-              channelName={channelName}
-              toggleReaction={toggleReaction}
-              editMessage={editMessage}
-            />
+            <ChannelMessageItem key={reply.id} message={reply} mentionItems={mentionItems} channelName={channelName} />
           ))}
         </div>
 

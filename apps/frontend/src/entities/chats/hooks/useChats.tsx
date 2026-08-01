@@ -38,9 +38,9 @@ export function useChats({ contextType, entityId, activeConversationId }: UseCha
       refetchOnWindowFocus: false,
       refetchOnMount: false,
       // Use stale time to prevent unnecessary refetches
-      // Soft poll — invalidations on send cover most updates; avoid 3s hammering
-      refetchInterval: 15_000,
-      staleTime: 5_000,
+      staleTime: 1000,
+      // Light polling to keep chat feeling realtime for multi-user scenarios
+      refetchInterval: 3000,
       placeholderData: keepPreviousData
     }
   )

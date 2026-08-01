@@ -1,14 +1,14 @@
 "use client";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { useMemo, useRef, useState, useCallback, lazy, Suspense } from "react";
+import { useMemo, useEffect, useRef, useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { MessageReplyTo } from "./MessageReplyTo";
 import { MessageContent } from "./MessageContent";
-import type { ChannelMessage } from "../hooks/useChannels";
+import { useChannels } from "../hooks/useChannels";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import type { EmojiClickData } from "emoji-picker-react";
+import EmojiPicker, { Theme, EmojiClickData } from "emoji-picker-react";
 import { Copy, Reply, MoreVertical, Smile, Megaphone, Lightbulb, Bell, MessageCircle, Pencil, BookMarked, Link2, AlarmClock, GitBranch, BellRing, Trash2, ChevronRight, X, Share, ThumbsUp, SmilePlus } from "lucide-react";
 import { renderCommentText } from "@/utils/textRendering";
 import { ChannelMessageComposer } from "./ChannelMessageComposer";
@@ -17,8 +17,6 @@ import ChannelPostModal from "./ChannelPostModal";
 import { PostEditModal } from "./PostEditModal";
 import ChannelThreadModal from "./ChannelThreadModal";
 import { toast } from "sonner";
-
-const EmojiPicker = lazy(() => import("emoji-picker-react"));
 
 export interface ChannelMessageItemProps {
   message: {
@@ -42,21 +40,12 @@ export interface ChannelMessageItemProps {
   };
   mentionItems?: { title: string; type: string; status?: string }[];
   channelName?: string;
-  replies?: ChannelMessage[];
-  toggleReaction: (messageId: string, emoji: string) => void | Promise<unknown>;
-  editMessage: (messageId: string, content: string, title?: string) => void | Promise<void>;
 }
 
-export function ChannelMessageItem({
-  message,
-  mentionItems = [],
-  channelName = "General",
-  replies = [],
-  toggleReaction,
-  editMessage,
-}: ChannelMessageItemProps) {
+export function ChannelMessageItem({ message, mentionItems = [], channelName = "General" }: ChannelMessageItemProps) {
   const { data: session } = useSession();
   const currentUserId = session?.user?.id;
+  const { messages, toggleReaction, editMessage } = useChannels({ channelId: message.channelId });
   const itemRef = useRef<HTMLDivElement>(null);
   const [showActions, setShowActions] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
@@ -201,6 +190,7 @@ export function ChannelMessageItem({
 
   let displayContent = message.content;
 
+  const replies = (messages || []).filter((m: any) => m.parentId === message.id);
   const lastReply = replies.length > 0 ? replies[replies.length - 1] : null;
   const lastReplyInitials = lastReply ? (lastReply.user?.name || lastReply.user?.email || "?").slice(0, 2).toUpperCase() : "";
 
@@ -293,11 +283,7 @@ export function ChannelMessageItem({
                   </Tooltip>
                   <PopoverContent className="w-auto p-0 border-0 shadow-2xl" align="end" sideOffset={4}>
                     <div className="max-w-[320px]">
-                      {showEmojiPicker && (
-                        <Suspense fallback={<div className="h-[350px] w-[320px] animate-pulse bg-slate-50" />}>
-                          <EmojiPicker onEmojiClick={handleEmojiClick} theme={"light" as any} previewConfig={{ showPreview: false }} />
-                        </Suspense>
-                      )}
+                      <EmojiPicker onEmojiClick={handleEmojiClick} theme={Theme.LIGHT} previewConfig={{ showPreview: false }} />
                       {userReactions.length > 0 && (
                         <div className="p-3 pt-2 border-t bg-gray-50 dark:bg-gray-800">
                           <div className="text-xs text-muted-foreground mb-2 font-medium">Your reactions</div>
@@ -516,11 +502,7 @@ export function ChannelMessageItem({
                       <TooltipContent className="bg-slate-900 text-white text-xs border-0">Add reaction</TooltipContent>
                     </Tooltip>
                     <PopoverContent className="w-auto p-0 border-0 shadow-2xl" align="end" sideOffset={4}>
-                      {showEmojiPicker && (
-                        <Suspense fallback={<div className="h-[350px] w-[320px] animate-pulse bg-slate-50" />}>
-                          <EmojiPicker onEmojiClick={handleEmojiClick} theme={"light" as any} previewConfig={{ showPreview: false }} />
-                        </Suspense>
-                      )}
+                      <EmojiPicker onEmojiClick={handleEmojiClick} theme={Theme.LIGHT} previewConfig={{ showPreview: false }} />
                     </PopoverContent>
                   </Popover>
 
@@ -768,17 +750,13 @@ export function ChannelMessageItem({
                     </PopoverTrigger>
                     <PopoverContent align="start" side="top" className="p-0 w-auto border-none shadow-none z-50">
                       <div onClick={(e) => e.stopPropagation()}>
-                        {showEmojiPicker && (
-                          <Suspense fallback={<div className="h-[350px] w-[320px] animate-pulse bg-slate-50" />}>
-                            <EmojiPicker
-                              theme={"light" as any}
-                              onEmojiClick={(emojiData) => {
-                                void toggleReaction(message.id, emojiData.emoji);
-                                setShowEmojiPicker(false);
-                              }}
-                            />
-                          </Suspense>
-                        )}
+                        <EmojiPicker
+                          theme={Theme.LIGHT}
+                          onEmojiClick={(emojiData) => {
+                            void toggleReaction(message.id, emojiData.emoji);
+                            setShowEmojiPicker(false);
+                          }}
+                        />
                       </div>
                     </PopoverContent>
                   </Popover>

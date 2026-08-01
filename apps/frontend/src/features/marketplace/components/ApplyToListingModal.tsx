@@ -19,8 +19,7 @@ export function ApplyToListingModal({ listing, open, onOpenChange }: ApplyToList
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-3xl p-0 overflow-hidden border-none shadow-2xl">
         <div className="p-6">
-          {/* Mount form only when open — avoids unused application query observers */}
-          {open && <ApplyToListingForm listing={listing} onCancel={() => handleClose(false)} />}
+          <ApplyToListingForm listing={listing} onCancel={() => handleClose(false)} />
         </div>
       </DialogContent>
     </Dialog>

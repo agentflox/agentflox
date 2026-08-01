@@ -21,8 +21,8 @@ export function useCommentMutations(postId: string, entityType: CommentEntityTyp
 
   const queryKey =
     entityType === 'post'
-      ? (['comments.list', { postId, page: 1, pageSize: 50 }] as const)
-      : (['marketplace.listComments', { listingId: postId, page: 1, pageSize: 50 }] as const);
+      ? (['comments.list', { postId, page: 1, pageSize: 100 }] as const)
+      : (['marketplace.listComments', { listingId: postId, page: 1, pageSize: 100 }] as const);
 
   const normalizeComment = useCallback((src: any) => {
     if (!src) return src;
@@ -44,7 +44,7 @@ export function useCommentMutations(postId: string, entityType: CommentEntityTyp
     (updater: (items: any[]) => any[]) => {
       if (entityType === 'listing') {
         utils.marketplace.listComments.setData(
-          { listingId: postId as string, page: 1, pageSize: 50 },
+          { listingId: postId as string, page: 1, pageSize: 100 },
           (old) => {
             if (!old) return old;
             const items = (old as any).items ?? [];
@@ -56,7 +56,7 @@ export function useCommentMutations(postId: string, entityType: CommentEntityTyp
       }
 
       utils.comments.list.setData(
-        { postId: postId as string, page: 1, pageSize: 50 },
+        { postId: postId as string, page: 1, pageSize: 100 },
         (old) => {
           if (!old) return old;
           const items = (old as any).items ?? [];

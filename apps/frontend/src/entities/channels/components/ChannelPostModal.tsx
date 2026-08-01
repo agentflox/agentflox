@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, lazy, Suspense } from "react";
+import { useState, useMemo } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -12,11 +12,10 @@ import { ChannelMessageComposer } from "./ChannelMessageComposer";
 import { ForwardMessageModal } from "./ForwardMessageModal";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { createPortal } from "react-dom";
+import EmojiPicker, { Theme } from "emoji-picker-react";
 import { useSession } from "next-auth/react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-
-const EmojiPicker = lazy(() => import("emoji-picker-react"));
 
 interface ChannelPostModalProps {
   isOpen: boolean;
@@ -34,10 +33,7 @@ export default function ChannelPostModal({ isOpen, onClose, message, mentionItem
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showMoreMenu, setShowMoreMenu] = useState(false);
 
-  const { messages: threadMessages, toggleReaction, editMessage } = useChannels({
-    channelId: isOpen ? message.channelId : undefined,
-    subscribe: false, // ChatView already owns the socket subscription
-  });
+  const { messages: threadMessages, toggleReaction } = useChannels({ channelId: message.channelId });
   const replies = (threadMessages || []).filter(m => m.parentId === message.id);
   const currentMessage = threadMessages?.find(m => m.id === message.id) || message;
 
@@ -246,17 +242,13 @@ export default function ChannelPostModal({ isOpen, onClose, message, mentionItem
                     </button>
                   </PopoverTrigger>
                   <PopoverContent align="start" side="top" className="p-0 w-auto border-none shadow-none z-50">
-                    {showEmojiPicker && (
-                      <Suspense fallback={<div className="h-[350px] w-[320px] animate-pulse bg-slate-50" />}>
-                        <EmojiPicker
-                          theme={"light" as any}
-                          onEmojiClick={(emojiData) => {
-                            void toggleReaction(currentMessage.id, emojiData.emoji);
-                            setShowEmojiPicker(false);
-                          }}
-                        />
-                      </Suspense>
-                    )}
+                    <EmojiPicker
+                      theme={Theme.LIGHT}
+                      onEmojiClick={(emojiData) => {
+                        void toggleReaction(currentMessage.id, emojiData.emoji);
+                        setShowEmojiPicker(false);
+                      }}
+                    />
                   </PopoverContent>
                 </Popover>
               </div>
@@ -278,13 +270,7 @@ export default function ChannelPostModal({ isOpen, onClose, message, mentionItem
               {/* List of Replies */}
               <div className="flex flex-col gap-4">
                 {replies.map((reply: any) => (
-                  <ChannelMessageItem
-                    key={reply.id}
-                    message={reply}
-                    mentionItems={mentionItems}
-                    toggleReaction={toggleReaction}
-                    editMessage={editMessage}
-                  />
+                  <ChannelMessageItem key={reply.id} message={reply} mentionItems={mentionItems} />
                 ))}
               </div>
 

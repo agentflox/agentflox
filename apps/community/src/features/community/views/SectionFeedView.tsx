@@ -91,7 +91,7 @@ export function SectionFeedView({
   const searchParams = useSearchParams();
   const activeSpace = searchParams.get("space") || searchParams.get("section") || sectionKey;
   const feedKey = `community-section-${activeSpace}`;
-  const { posts, isLoading, createPost, likePost, unlikePost, bookmarkPost, followPost, reportPost } = usePosts("global", feedKey);
+  const { posts, isLoading, createPost } = usePosts("global", feedKey);
 
   const sectionPosts = useMemo(() => {
     const filtered = posts.filter((post) => {
@@ -489,17 +489,7 @@ export function SectionFeedView({
           <Card className="p-8 text-center text-sm text-slate-600">No posts yet in this section.</Card>
         )}
         {sectionPosts.map((post) => (
-          <PostCard
-            key={post.id}
-            post={post as any}
-            feedType="global"
-            feedId={feedKey}
-            likePost={likePost}
-            unlikePost={unlikePost}
-            bookmarkPost={bookmarkPost}
-            followPost={followPost}
-            reportPost={reportPost}
-          />
+          <PostCard key={post.id} post={post as any} feedType="global" feedId={feedKey} />
         ))}
       </div>
 

@@ -8,7 +8,7 @@ import { Search, Hash, Copy } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
-import { useChannelActions } from "../hooks/useChannels";
+import { useChannels } from "../hooks/useChannels";
 
 interface ForwardMessageModalProps {
   isOpen: boolean;
@@ -38,7 +38,7 @@ export function ForwardMessageModal({ isOpen, onClose, message }: ForwardMessage
     { enabled: !!workspaceId && isOpen, staleTime: 60_000 }
   );
 
-  const { sendMessage } = useChannelActions();
+  const { sendMessage } = useChannels({});
 
   const searchResults = useMemo(() => {
     if (!search.trim()) return [];
