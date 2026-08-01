@@ -335,6 +335,7 @@ export function acquireMessageEventListeners(
 export type ChannelSocketHandlers = {
   onReceived: (data: unknown) => void;
   onReaction: (data: unknown) => void;
+  onEdited: (data: unknown) => void;
 };
 
 const channelRoomCounts = new Map<string, number>();
@@ -371,12 +372,25 @@ const globalChannelSocketHandlers = {
       }
     }
   },
+  onEdited: (data: any) => {
+    const channelId = data?.channelId;
+    if (channelId) {
+      dispatchChannelEvent(channelId, (h) => h.onEdited(data));
+      return;
+    }
+    for (const handlers of channelEventHandlerSets.values()) {
+      for (const handler of handlers) {
+        handler.onEdited(data);
+      }
+    }
+  },
 };
 
 function detachGlobalChannelListeners(socket: Socket) {
   socket.off('channel:message:received', globalChannelSocketHandlers.onReceived);
   socket.off('channel:message:sent', globalChannelSocketHandlers.onReceived);
   socket.off('channel:message:reaction', globalChannelSocketHandlers.onReaction);
+  socket.off('channel:message:edited', globalChannelSocketHandlers.onEdited);
   if (attachedChannelSocket === socket) {
     attachedChannelSocket = null;
   }
@@ -395,6 +409,7 @@ function ensureGlobalChannelListeners(socket: Socket) {
   socket.on('channel:message:received', globalChannelSocketHandlers.onReceived);
   socket.on('channel:message:sent', globalChannelSocketHandlers.onReceived);
   socket.on('channel:message:reaction', globalChannelSocketHandlers.onReaction);
+  socket.on('channel:message:edited', globalChannelSocketHandlers.onEdited);
 }
 
 /** Ref-counted channel:join / channel:leave */

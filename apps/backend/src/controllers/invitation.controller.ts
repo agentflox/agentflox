@@ -233,10 +233,23 @@ export class InvitationController {
 
         // 1. Verify Inviter has FULL access to the target item
         // Enterprise Grade: Using the unified PermissionResolver to check granular permissions
+        let checkType = body.targetType;
+        let checkId = body.targetId;
+
+        if (body.targetType === 'channel') {
+            const channel = await prisma.channel.findUnique({ where: { id: body.targetId } });
+            if (!channel) throw new Error('Channel not found');
+            if (channel.projectId) { checkType = 'project'; checkId = channel.projectId; }
+            else if (channel.spaceId) { checkType = 'space'; checkId = channel.spaceId; }
+            else if (channel.teamId) { checkType = 'team'; checkId = channel.teamId; }
+            else if (channel.workspaceId) { checkType = 'workspace'; checkId = channel.workspaceId; }
+            else throw new Error('Channel parent not found');
+        }
+
         const userPermission = await permissionResolver.resolvePermission(
             userId,
-            body.targetType as any,
-            body.targetId
+            checkType as any,
+            checkId
         );
 
         if (userPermission !== PermissionLevel.FULL) {
@@ -353,6 +366,9 @@ export class InvitationController {
                 } else if (body.targetType === 'task') {
                     const task = await prisma.task.findUnique({ where: { id: body.targetId }, select: { title: true } });
                     itemName = task?.title || body.targetType;
+                } else if (body.targetType === 'channel') {
+                    const channel = await prisma.channel.findUnique({ where: { id: body.targetId }, select: { name: true } });
+                    itemName = channel?.name || body.targetType;
                 }
             } catch (e) {
                 // If fetching fails, use targetType as fallback
@@ -539,24 +555,47 @@ export class InvitationController {
                 const targetId = invitation.targetId!;
                 const permission = invitation.permission!;
 
-                // Grant access via unified LocationPermission (locationType covers 'task' too)
-                await tx.locationPermission.upsert({
-                    where: {
-                        locationType_locationId_userId: {
+                if (targetType === 'channel') {
+                    // Add to ChannelMember
+                    const existingChannelMember = await tx.channelMember.findFirst({ where: { channelId: targetId, userId } });
+                    if (!existingChannelMember) {
+                        await tx.channelMember.create({ data: { channelId: targetId, userId } });
+                    }
+                    
+                    // Add to parent scope explicitly
+                    const channel = await tx.channel.findUnique({ where: { id: targetId } });
+                    if (channel) {
+                        if (channel.projectId) {
+                            const exists = await tx.projectMember.findFirst({ where: { projectId: channel.projectId, userId }});
+                            if (!exists) await tx.projectMember.create({ data: { projectId: channel.projectId, userId, role: 'MEMBER' } });
+                        } else if (channel.spaceId) {
+                            const exists = await tx.spaceMember.findFirst({ where: { spaceId: channel.spaceId, userId }});
+                            if (!exists) await tx.spaceMember.create({ data: { spaceId: channel.spaceId, userId, role: 'MEMBER' } });
+                        } else if (channel.teamId) {
+                            const exists = await tx.teamMember.findFirst({ where: { teamId: channel.teamId, userId }});
+                            if (!exists) await tx.teamMember.create({ data: { teamId: channel.teamId, userId, role: 'MEMBER' } });
+                        }
+                    }
+                } else {
+                    // Grant access via unified LocationPermission (locationType covers 'task' too)
+                    await tx.locationPermission.upsert({
+                        where: {
+                            locationType_locationId_userId: {
+                                locationType: targetType!,
+                                locationId: targetId,
+                                userId
+                            }
+                        },
+                        create: {
                             locationType: targetType!,
                             locationId: targetId,
-                            userId
-                        }
-                    },
-                    create: {
-                        locationType: targetType!,
-                        locationId: targetId,
-                        userId,
-                        permission: permission,
-                        grantedById: invitation.invitedById,
-                    },
-                    update: { permission: permission }
-                });
+                            userId,
+                            permission: permission,
+                            grantedById: invitation.invitedById,
+                        },
+                        update: { permission: permission }
+                    });
+                }
 
                 // Ensure they are marked as a guest in the workspace (if workspace context exists)
                 if (invitation.workspaceId) {

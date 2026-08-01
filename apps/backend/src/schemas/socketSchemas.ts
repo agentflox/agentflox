@@ -39,6 +39,8 @@ export const ChannelMessageCreateSchema = z.object({
     id: AppIdSchema,
     channelId: AppIdSchema,
     content: z.string().max(10000).optional(),
+    type: z.string().optional(),
+    title: z.string().optional(),
     attachments: z.array(z.any()).max(10).optional(),
     replyTo: z.object({
         id: AppIdSchema,

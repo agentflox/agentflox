@@ -243,6 +243,10 @@ model User {
   documentCommentsResolved DocumentComment[]         @relation("DocumentCommentResolver")
   documentCommentReactions DocumentCommentReaction[] @relation("DocCommentReactions")
 
+  channelMessagesAssigned ChannelMessage[]         @relation("ChannelMessageAssignee")
+  channelMessagesResolved ChannelMessage[]         @relation("ChannelMessageResolver")
+  channelMessageReactions ChannelMessageReaction[] @relation("ChannelMessageReactions")
+
   reportedBugs           BugReport[]              @relation("ReportedBugs")
   assignedBugs           BugReport[]              @relation("AssignedBugs")
   bugReportAttachments   BugReportAttachment[]
@@ -496,6 +500,7 @@ model Space {
   settings           Json?
   aiAgents           AiAgent[]
   aiConversations    AiConversation[]         @relation("SpaceConversations")
+  channels           Channel[]
   automations        Automation[]
   compositeTools     CompositeTool[]
   customFields       CustomField[]
@@ -1679,7 +1684,7 @@ model DocumentCollaborator {
 
 model Channel {
   id              String           @id @default(cuid())
-  workspaceId     String           @map("workspace_id")
+  workspaceId     String?          @map("workspace_id")
   name            String
   description     String?
   createdAt       DateTime         @default(now()) @map("created_at")
@@ -1692,11 +1697,17 @@ model Channel {
   isDefault       Boolean          @default(false) @map("is_default")
   topic           String?
   type            ChannelType      @default(PUBLIC)
+  spaceId         String?          @map("space_id")
+  projectId       String?          @map("project_id")
+  teamId          String?          @map("team_id")
   aiConversations AiConversation[] @relation("ChannelConversations")
   members         ChannelMember[]
   messages        ChannelMessage[]
   creator         User             @relation(fields: [createdBy], references: [id], onDelete: Cascade)
-  workspace       Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workspace       Workspace?       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  space           Space?           @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  project         Project?         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  team            Team?            @relation(fields: [teamId], references: [id], onDelete: Cascade)
   tasks           Task[]
 
   // --- soft delete fields ---
@@ -1727,29 +1738,66 @@ model ChannelMember {
 }
 
 model ChannelMessage {
-  id          String           @id @default(cuid())
-  channelId   String           @map("channel_id")
-  userId      String           @map("user_id")
-  parentId    String?          @map("parent_id")
-  content     String
-  mentions    String[]
-  attachments Json[]
-  isEdited    Boolean          @default(false) @map("is_edited")
-  isPinned    Boolean          @default(false) @map("is_pinned")
-  reactions   Json             @default("[]")
-  createdAt   DateTime         @default(now()) @map("created_at")
-  updatedAt   DateTime         @updatedAt @map("updated_at")
-  editedAt    DateTime?        @map("edited_at")
-  channel     Channel          @relation(fields: [channelId], references: [id], onDelete: Cascade)
-  parent      ChannelMessage?  @relation("MessageThreads", fields: [parentId], references: [id])
-  replies     ChannelMessage[] @relation("MessageThreads")
-  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id           String           @id @default(cuid())
+  channelId    String           @map("channel_id")
+  userId       String           @map("user_id")
+  parentId     String?          @map("parent_id")
+  content      String
+  type         String           @default("MESSAGE")
+  title        String?
+  mentions     String[]
+  isEdited     Boolean          @default(false) @map("is_edited")
+  isPinned     Boolean          @default(false) @map("is_pinned")
+  isResolved   Boolean          @default(false) @map("is_resolved")
+  resolvedById String?          @map("resolved_by_id")
+  resolvedAt   DateTime?        @map("resolved_at")
+  assigneeId   String?          @map("assignee_id")
+  createdAt    DateTime         @default(now()) @map("created_at")
+  updatedAt    DateTime         @updatedAt @map("updated_at")
+  editedAt     DateTime?        @map("edited_at")
+  channel      Channel          @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  parent       ChannelMessage?  @relation("MessageThreads", fields: [parentId], references: [id])
+  replies      ChannelMessage[] @relation("MessageThreads")
+  user         User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  assignee     User?            @relation("ChannelMessageAssignee", fields: [assigneeId], references: [id])
+  resolvedBy   User?            @relation("ChannelMessageResolver", fields: [resolvedById], references: [id])
+
+  attachments ChannelMessageAttachment[]
+  reactions   ChannelMessageReaction[]
 
   @@index([channelId])
   @@index([userId])
   @@index([parentId])
   @@index([createdAt])
   @@map("channel_messages")
+}
+
+model ChannelMessageAttachment {
+  id        String         @id @default(cuid())
+  messageId String         @map("message_id")
+  filename  String
+  url       String
+  mimeType  String         @map("mime_type")
+  size      BigInt
+  createdAt DateTime       @default(now()) @map("created_at")
+  message   ChannelMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@index([messageId])
+  @@map("channel_message_attachments")
+}
+
+model ChannelMessageReaction {
+  id        String         @id @default(cuid())
+  messageId String         @map("message_id")
+  userId    String         @map("user_id")
+  emoji     String
+  createdAt DateTime       @default(now()) @map("created_at")
+  message   ChannelMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user      User           @relation("ChannelMessageReactions", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, userId, emoji])
+  @@index([messageId])
+  @@map("channel_message_reactions")
 }
 
 model WorkspaceActivity {
@@ -2321,6 +2369,7 @@ model Project {
   activityLogs       ActivityLog[]
   aiAgents           AiAgent[]
   aiConversations    AiConversation[]
+  channels           Channel[]
   workforces         Workforce[]
   attachments        Attachment[]               @relation("ProjectAttachments")
   automations        Automation[]
@@ -2785,6 +2834,7 @@ model Team {
   activityLogs        ActivityLog[]
   aiAgents            AiAgent[]
   aiConversations     AiConversation[]
+  channels            Channel[]
   workforces          Workforce[]
   attachments         Attachment[]           @relation("TeamAttachments")
   automations         Automation[]

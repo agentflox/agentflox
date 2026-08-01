@@ -939,6 +939,7 @@ export default function SpaceDashboardView({ listId, spaceId, projectId, teamId,
                                             ) : currentTab === "chats" ? (
                                                 <ChatView
                                                     workspaceId={workspaceId!}
+                                                    spaceId={spaceId!}
                                                     selectedChatId={selectedChannelId || undefined}
                                                     onChatSelect={handleChatSelect}
                                                 />

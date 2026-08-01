@@ -53,7 +53,7 @@ export function ChannelSettingsSidebar({
 
         {/* Title */}
         <div className="space-y-1.5">
-          <Label className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest">Title</Label>
+          <Label className="text-sm font-medium text-slate-700">Title</Label>
           <Input
             value={chatTitle}
             onChange={(e) => onChatTitle(e.target.value)}
@@ -63,7 +63,7 @@ export function ChannelSettingsSidebar({
 
         {/* Topic */}
         <div className="space-y-1.5">
-          <Label className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest">Topic</Label>
+          <Label className="text-sm font-medium text-slate-700">Topic</Label>
           <Input
             value={chatTopic}
             onChange={(e) => onChatTopic(e.target.value)}
@@ -74,7 +74,7 @@ export function ChannelSettingsSidebar({
 
         {/* Description */}
         <div className="space-y-1.5">
-          <Label className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest">Description</Label>
+          <Label className="text-sm font-medium text-slate-700">Description</Label>
           <Textarea
             value={chatDescription}
             onChange={(e) => onChatDescription(e.target.value)}

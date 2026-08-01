@@ -4,12 +4,17 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import ChannelMessageItem from "./ChannelMessageItem";
 import { MessageSquarePlus, Users } from "lucide-react";
+import { trpc } from "@/lib/trpc";
+import { useMemo } from "react";
 
 interface ChannelMessageListProps {
+  channelId: string;
   messages: Array<{
     id: string;
     channelId: string;
     content: string;
+    type?: string;
+    title?: string | null;
     createdAt: string | Date;
     userId: string;
     attachments?: any[];
@@ -22,30 +27,64 @@ interface ChannelMessageListProps {
   onAddMembers?: () => void;
 }
 
-export default function ChannelMessageList({ messages, onAddMembers }: ChannelMessageListProps) {
+export default function ChannelMessageList({ channelId, messages, onAddMembers }: ChannelMessageListProps) {
+  // Fetch members ONCE at list level, pass down — avoids N queries per message
+  const { data: channel } = trpc.channel.get.useQuery({ id: channelId }, { staleTime: 60_000 });
+  const workspaceId = channel?.workspaceId || '';
+  const { data: members = [] } = trpc.workspace.getMembers.useQuery(
+    { id: workspaceId },
+    { enabled: !!workspaceId, staleTime: 60_000 }
+  );
+
+  const { data: tasksData } = trpc.task.list.useQuery(
+    { workspaceId, pageSize: 20, scope: "all", includeRelations: true },
+    { enabled: !!workspaceId }
+  );
+  const { data: docsData } = trpc.document.list.useQuery(
+    { workspaceId, pageSize: 20 },
+    { enabled: !!workspaceId }
+  );
+
+  const mentionItems = useMemo(() => {
+    const items: { title: string, type: string, status?: string }[] = [];
+    members.forEach(m => {
+      if (m.user.name || m.user.email) items.push({ title: m.user.name || m.user.email || '', type: "user" });
+    });
+    const scopedTasks = tasksData?.items || [];
+    scopedTasks.forEach(t => {
+      if (t.title) items.push({ title: t.title, type: "task", status: t.status?.name });
+    });
+    const scopedDocs = docsData?.items || [];
+    scopedDocs.forEach(d => {
+      if (d.title) items.push({ title: d.title, type: "doc" });
+    });
+    return items.sort((a, b) => b.title.length - a.title.length);
+  }, [members, tasksData, docsData]);
+
   const hasMessages = messages && messages.length > 0;
 
   if (!hasMessages) {
     return (
-      <div className="flex h-full flex-col items-center justify-center text-center px-4 animate-in fade-in zoom-in-95 duration-500">
-        <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-tr from-indigo-50 to-blue-50 shadow-sm border border-indigo-100/50 mb-5">
-          <MessageSquarePlus className="h-8 w-8 text-indigo-600" strokeWidth={1.5} />
-        </div>
-        <div className="space-y-2 max-w-[320px] mb-6">
-          <h3 className="text-lg font-semibold tracking-tight text-slate-900">Start the conversation</h3>
-          <p className="text-sm text-slate-500 leading-relaxed">
-            This is the beginning of this channel's history. Invite your team members to kick off the discussion.
+      <div className="flex h-full flex-col items-center justify-center p-4 sm:p-6 mb-2 text-center">
+        <div className="space-y-2.5 max-w-lg">
+          <h1 className="text-xl font-semibold tracking-tight text-slate-900">
+            Chat in #{channel?.name || "channel"}
+          </h1>
+          <p className="text-base text-slate-500 leading-relaxed">
+            Collaborate seamlessly across tasks and conversations. Start chatting with your team or connect tasks to stay on top of your work.
           </p>
+          {onAddMembers && (
+            <div className="pt-2">
+              <Button
+                variant="outline"
+                className="rounded-lg h-9 px-10 border-slate-200/80 text-slate-800 hover:bg-slate-50 font-medium shadow-sm"
+                onClick={onAddMembers}
+              >
+                + Add People
+              </Button>
+            </div>
+          )}
         </div>
-        {onAddMembers && (
-          <Button
-            className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm hover:shadow transition-all gap-2"
-            onClick={onAddMembers}
-          >
-            <Users className="h-4 w-4" />
-            Invite Members
-          </Button>
-        )}
       </div>
     );
   }
@@ -53,11 +92,10 @@ export default function ChannelMessageList({ messages, onAddMembers }: ChannelMe
   return (
     <ScrollArea className="h-full">
       <div className="flex flex-col gap-3">
-        {messages.map((m) => (
-          <ChannelMessageItem key={m.id} message={m as any} />
+        {messages.filter(m => !m.parentId || m.type === 'THREAD_BROADCAST').map((m) => (
+          <ChannelMessageItem key={m.id} message={m as any} mentionItems={mentionItems} channelName={channel?.name || "General"} />
         ))}
       </div>
     </ScrollArea>
   );
 }
-

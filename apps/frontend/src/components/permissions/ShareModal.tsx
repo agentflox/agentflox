@@ -35,7 +35,7 @@ import { useSocket } from '@/components/providers/SocketProvider';
 interface ShareModalProps {
     isOpen: boolean;
     onClose: () => void;
-    itemType: 'space' | 'project' | 'team' | 'folder' | 'list' | 'task' | 'view' | 'workspace' | 'doc';
+    itemType: 'space' | 'project' | 'team' | 'folder' | 'list' | 'task' | 'view' | 'workspace' | 'doc' | 'channel';
     itemId?: string;
     itemName: string;
     workspaceId: string;
@@ -238,13 +238,6 @@ export function ShareModal({
                         permission: invite.permission
                     });
                 } else if ((invite.type === 'user' || invite.type === 'email') && invite.email) {
-                    const body = invite.role === 'GUEST'
-                        ? { workspaceId, email: invite.email, targetType: itemType, targetId: itemId, permission: invite.permission }
-                        : { workspaceId, email: invite.email, role: invite.role };
-
-                    // We can use permissionsService for invitations too if refactored fully, 
-                    // but sticking to existing logic pattern for consistency or refactoring if desired.
-                    // Let's use the Service which we imported.
                     if (invite.role === 'GUEST' && itemId) {
                         await permissionsService.invitations.inviteGuest({
                             itemType,
@@ -253,17 +246,10 @@ export function ShareModal({
                             permission: invite.permission
                         });
                     } else {
-                        // For member invites, we usually just add them to the space/project if they are already workspace members
-                        // If they are strictly emails (not users), we invite.
-                        // But for "Member" role in a Space/Project, it's often permissionsService.invitations.inviteMember
-                        // Wait, inviteMember takes workspaceId, spaceId?
-                        // The original code used /api/invitations/member.
-                        // Let's stick to the service.
                         await permissionsService.invitations.inviteMember({
                             workspaceId,
                             email: invite.email,
                             role: invite.role,
-                            // spaceId? - inviteMember signature in service has spaceId optional
                             spaceId: itemType === 'space' ? itemId : undefined
                         });
                     }

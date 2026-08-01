@@ -931,6 +931,9 @@ exports.Prisma.ChannelScalarFieldEnum = {
   isDefault: 'isDefault',
   topic: 'topic',
   type: 'type',
+  spaceId: 'spaceId',
+  projectId: 'projectId',
+  teamId: 'teamId',
   deletedAt: 'deletedAt',
   deletedById: 'deletedById'
 };
@@ -951,14 +954,36 @@ exports.Prisma.ChannelMessageScalarFieldEnum = {
   userId: 'userId',
   parentId: 'parentId',
   content: 'content',
+  type: 'type',
+  title: 'title',
   mentions: 'mentions',
-  attachments: 'attachments',
   isEdited: 'isEdited',
   isPinned: 'isPinned',
-  reactions: 'reactions',
+  isResolved: 'isResolved',
+  resolvedById: 'resolvedById',
+  resolvedAt: 'resolvedAt',
+  assigneeId: 'assigneeId',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt',
   editedAt: 'editedAt'
+};
+
+exports.Prisma.ChannelMessageAttachmentScalarFieldEnum = {
+  id: 'id',
+  messageId: 'messageId',
+  filename: 'filename',
+  url: 'url',
+  mimeType: 'mimeType',
+  size: 'size',
+  createdAt: 'createdAt'
+};
+
+exports.Prisma.ChannelMessageReactionScalarFieldEnum = {
+  id: 'id',
+  messageId: 'messageId',
+  userId: 'userId',
+  emoji: 'emoji',
+  createdAt: 'createdAt'
 };
 
 exports.Prisma.WorkspaceActivityScalarFieldEnum = {
@@ -4355,6 +4380,8 @@ exports.Prisma.ModelName = {
   Channel: 'Channel',
   ChannelMember: 'ChannelMember',
   ChannelMessage: 'ChannelMessage',
+  ChannelMessageAttachment: 'ChannelMessageAttachment',
+  ChannelMessageReaction: 'ChannelMessageReaction',
   WorkspaceActivity: 'WorkspaceActivity',
   TaskActivity: 'TaskActivity',
   WorkspaceAnalytics: 'WorkspaceAnalytics',

@@ -81,12 +81,22 @@ export function registerChannelHandlers(io: any, socket: Socket) {
           channelId: payload.channelId,
           userId,
           content: payload.content || '',
-          attachments: payload.attachments ?? [],
+          type: payload.type || 'MESSAGE',
+          title: payload.title || null,
+          attachments: payload.attachments?.length ? {
+            create: payload.attachments.map((a: any) => ({
+              filename: a.filename || a.name || "attachment",
+              url: a.url || (typeof a === 'string' ? a : ''),
+              mimeType: a.mimeType || a.type || "application/octet-stream",
+              size: a.size || 0,
+            }))
+          } : undefined,
           parentId: payload.replyTo?.id ?? null,
-          reactions: [],
         },
         include: {
           user: { select: { id: true, name: true, image: true } },
+          attachments: true,
+          reactions: true,
         },
       });
 
@@ -95,6 +105,8 @@ export function registerChannelHandlers(io: any, socket: Socket) {
         channelId: message.channelId,
         userId: message.userId,
         content: message.content,
+        type: message.type,
+        title: message.title,
         attachments: message.attachments,
         parentId: message.parentId,
         reactions: message.reactions,
@@ -116,6 +128,60 @@ export function registerChannelHandlers(io: any, socket: Socket) {
     }
   });
 
+  // Edit message
+  socket.on('channel:message:edit', async (
+    data: { messageId: string; content: string; title?: string },
+    ack?: (err: any, resp?: any) => void
+  ) => {
+    try {
+      if (!data?.messageId || !data?.content?.trim()) throw new Error('Invalid edit payload');
+
+      const existing = await prisma.channelMessage.findUnique({
+        where: { id: data.messageId },
+        select: { id: true, channelId: true, userId: true },
+      });
+      if (!existing) throw new Error('Message not found');
+      if (existing.userId !== userId) throw new Error('You can only edit your own messages');
+
+      const updateData: any = {
+        content: data.content.trim(),
+        isEdited: true,
+        editedAt: new Date(),
+      };
+
+      if (data.title !== undefined) {
+        updateData.title = data.title.trim();
+      }
+
+      const updated = await prisma.channelMessage.update({
+        where: { id: data.messageId },
+        data: updateData,
+        include: {
+          user: { select: { id: true, name: true, image: true } },
+          attachments: true,
+          reactions: true,
+        },
+      });
+
+      const broadcastPayload = {
+        id: updated.id,
+        channelId: updated.channelId,
+        content: updated.content,
+        title: updated.title,
+        isEdited: (updated as any).isEdited,
+        editedAt: (updated as any).editedAt,
+        userId: updated.userId,
+        user: updated.user,
+      };
+
+      io.to(`channel:${existing.channelId}`).emit('channel:message:edited', broadcastPayload);
+      ack?.(null, broadcastPayload);
+    } catch (err: any) {
+      console.error('channel:message:edit error', err);
+      ack?.({ message: err?.message || 'Failed to edit message' });
+    }
+  });
+
   // Reactions toggle
   socket.on(
     'channel:message:react',
@@ -125,19 +191,33 @@ export function registerChannelHandlers(io: any, socket: Socket) {
 
         const message = await prisma.channelMessage.findUnique({
           where: { id: data.messageId },
-          select: { id: true, channelId: true, reactions: true },
+          select: { id: true, channelId: true },
         });
         if (!message) throw new Error('Message not found');
         await ensureMember(message.channelId);
 
-        const reactions = Array.isArray(message.reactions) ? [...(message.reactions as any[])] : [];
-        const idx = reactions.findIndex((r: any) => r.userId === userId && r.emoji === data.emoji);
-        if (idx >= 0) reactions.splice(idx, 1);
-        else reactions.push({ userId, emoji: data.emoji });
+        const existing = await prisma.channelMessageReaction.findFirst({
+          where: {
+            messageId: data.messageId,
+            userId,
+            emoji: data.emoji,
+          }
+        });
 
-        await prisma.channelMessage.update({
-          where: { id: data.messageId },
-          data: { reactions },
+        if (existing) {
+          await prisma.channelMessageReaction.delete({ where: { id: existing.id } });
+        } else {
+          await prisma.channelMessageReaction.create({
+            data: {
+              messageId: data.messageId,
+              userId,
+              emoji: data.emoji,
+            }
+          });
+        }
+
+        const reactions = await prisma.channelMessageReaction.findMany({
+          where: { messageId: data.messageId }
         });
 
         io.to(`channel:${message.channelId}`).emit('channel:message:reaction', {

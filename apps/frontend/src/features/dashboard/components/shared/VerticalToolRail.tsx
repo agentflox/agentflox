@@ -3,14 +3,13 @@ import { Plus, Settings, Users } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface VerticalToolRailProps {
-  onAddClick: () => void;
   onMembersClick?: () => void;
   onSettingsClick: () => void;
-  activeItem?: "add" | "members" | "settings";
+  activeItem?: "members" | "settings";
   className?: string;
 }
 
-export function VerticalToolRail({ onAddClick, onMembersClick, onSettingsClick, activeItem, className = "" }: VerticalToolRailProps) {
+export function VerticalToolRail({ onMembersClick, onSettingsClick, activeItem, className = "" }: VerticalToolRailProps) {
   const baseBtn = "flex h-7 w-7 items-center justify-center rounded-lg transition-colors cursor-pointer";
   const activeBtn = "bg-slate-900 text-white";
   const inactiveBtn = "text-slate-600 hover:bg-slate-100";
@@ -18,21 +17,6 @@ export function VerticalToolRail({ onAddClick, onMembersClick, onSettingsClick, 
   return (
     <div className={`absolute right-2 top-20 z-[70] hidden lg:flex flex-col items-center gap-1 py-2 px-0.5 bg-white/90 backdrop-blur-md rounded-md border border-slate-200/60 shadow-sm ${className}`}>
       <TooltipProvider delayDuration={300}>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button
-              className={`${baseBtn} ${activeItem === "add" ? activeBtn : inactiveBtn}`}
-              onClick={onAddClick}
-              aria-label="Add new item"
-            >
-              <Plus className="h-4 w-4" />
-            </button>
-          </TooltipTrigger>
-          <TooltipContent side="left" className="z-[80]">
-            <p>Add new item</p>
-          </TooltipContent>
-        </Tooltip>
-
         {onMembersClick && (
           <Tooltip>
             <TooltipTrigger asChild>

@@ -1060,7 +1060,7 @@ export default function ProjectDashboardView({ listId, spaceId, projectId, teamI
                                                 onTeamSelect={handleTeamSelect}
                                             />
                                         ) : currentTab === "chats" ? (
-                                            <ChatView workspaceId={resolvedWorkspaceId!} />
+                                            <ChatView workspaceId={resolvedWorkspaceId!} projectId={projectId!} />
                                         ) : currentTab === "ai-chat" ? (
                                             <SharedAIChatView
                                                 contextType="PROJECT"

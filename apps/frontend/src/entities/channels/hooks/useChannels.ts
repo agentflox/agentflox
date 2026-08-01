@@ -7,12 +7,15 @@ import { useSession } from "next-auth/react";
 import { v4 as uuidv4 } from "uuid";
 import type { JsonValue } from "@prisma/client/runtime/library";
 import { acquireChannelRoom, acquireChannelEventListeners } from "@/lib/socketRefCount";
+import { toast } from "sonner";
 
 export interface ChannelMessage {
   id: string;
   channelId: string;
   userId: string;
   content: string;
+  type?: string;
+  title?: string | null;
   createdAt: string | Date;
   attachments?: any[];
   reactions?: any[];
@@ -123,9 +126,24 @@ export function useChannels(params: { channelId?: string }) {
       }) as any);
     };
 
+    const handleEdited = (data: any) => {
+      if (!data?.id) return;
+      utils.channelMessage.list.setData({ channelId: data.channelId ?? channelId, take: 100 }, ((old) => {
+        const base = (old as { items: ChannelMessage[]; nextCursor: string | null } | undefined) ?? {
+          items: [] as ChannelMessage[],
+          nextCursor: null as string | null,
+        };
+        const items = base.items.map((m) =>
+          m.id === data.id ? { ...m, content: data.content, isEdited: true } : m
+        );
+        return { ...base, items } as typeof old;
+      }) as any);
+    };
+
     const releaseListeners = acquireChannelEventListeners(socket, channelId, {
       onReceived: (data) => handleReceived(data as ChannelMessage),
       onReaction: (data) => handleReaction(data as { messageId: string; reactions: JsonValue[] }),
+      onEdited: (data) => handleEdited(data),
     });
 
     return () => {
@@ -135,7 +153,7 @@ export function useChannels(params: { channelId?: string }) {
   }, [socket, isConnected, utils.channelMessage.list, channelId]);
 
   const sendMessage = useCallback(
-    async (input: { channelId: string; content: string; attachments?: any[]; contexts?: any[]; mentions?: any[]; parentId?: string }) => {
+    async (input: { channelId: string; content: string; type?: string; title?: string; attachments?: any[]; contexts?: any[]; mentions?: any[]; parentId?: string }) => {
       if (!currentUserId) throw new Error("Not authenticated");
       const id = uuidv4();
       const temp: ChannelMessage = {
@@ -143,6 +161,8 @@ export function useChannels(params: { channelId?: string }) {
         channelId: input.channelId,
         userId: currentUserId,
         content: input.content,
+        type: input.type,
+        title: input.title,
         attachments: input.attachments ?? [],
         contexts: input.contexts,
         mentions: input.mentions,
@@ -171,6 +191,8 @@ export function useChannels(params: { channelId?: string }) {
             id,
             channelId: input.channelId,
             content: input.content,
+            type: input.type,
+            title: input.title,
             attachments: input.attachments ?? [],
             contexts: input.contexts,
             mentions: input.mentions,
@@ -179,7 +201,9 @@ export function useChannels(params: { channelId?: string }) {
           (err: any, resp?: any) => {
             clearTimeout(timeout);
             if (err) {
-              reject(new Error(err?.message || "Failed to send"));
+              const msg = err?.message || "Failed to send";
+              toast.error(msg);
+              reject(new Error(msg));
               return;
             }
             const cached = utils.channelMessage.list.getData({ channelId: input.channelId, take: 100 }) as
@@ -220,10 +244,32 @@ export function useChannels(params: { channelId?: string }) {
     [waitForConnection]
   );
 
+  const editMessage = useCallback(
+    async (messageId: string, content: string, title?: string) => {
+      const s = await waitForConnection();
+      if (!s) throw new Error("Socket not connected");
+      return await new Promise<void>((resolve, reject) => {
+        const timeout = setTimeout(() => reject(new Error("Request timeout")), 10000);
+        s.emit("channel:message:edit", { messageId, content, title }, (err: any, resp?: any) => {
+          clearTimeout(timeout);
+          if (err) {
+            const msg = err?.message || "Failed to edit message";
+            toast.error(msg);
+            reject(new Error(msg));
+            return;
+          }
+          resolve(resp);
+        });
+      });
+    },
+    [waitForConnection]
+  );
+
   return {
     messages: messages.data?.items ?? [],
     isLoading: messages.isLoading,
     sendMessage,
     toggleReaction,
+    editMessage,
   };
 }

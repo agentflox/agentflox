@@ -625,6 +625,7 @@ export function ProjectOverviewTab({ project }: { project: any }) {
             workspaceId: project.workspaceId,
             name: title,
             description: description ?? undefined,
+            projectId: project.id,
           });
         }}
       />

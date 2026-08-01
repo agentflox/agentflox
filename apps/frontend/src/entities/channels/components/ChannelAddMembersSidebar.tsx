@@ -139,7 +139,7 @@ export function ChannelAddMembersSidebar({
             placeholder="Search individuals"
             value={searchQuery}
             onChange={(e) => onSearchQuery(e.target.value)}
-            className="h-full border-0 bg-transparent pl-2 pr-0 focus:outline-none focus-visible:ring-0 shadow-none"
+            className="w-full h-full border-0 bg-transparent pl-2 pr-0 focus:outline-none focus-visible:ring-0 shadow-none"
           />
         </div>
 

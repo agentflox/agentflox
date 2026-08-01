@@ -687,6 +687,7 @@ export function SpaceOverviewTab({ space }: SpaceOverviewTabProps) {
                         workspaceId: space.workspaceId,
                         name: title,
                         description: description ?? undefined,
+                        spaceId: space.id,
                     });
                 }}
             />

@@ -1011,7 +1011,7 @@ export default function TeamDashboardView({ listId, spaceId, projectId, teamId, 
                     ) : currentTab === "docs" ? (
                       <TeamDocsView teamId={teamId!} workspaceId={resolvedWorkspaceId!} />
                     ) : currentTab === "chats" ? (
-                      <ChatView workspaceId={activeWorkspaceId} />
+                      <ChatView workspaceId={activeWorkspaceId} teamId={teamId!} />
                     ) : currentTab === "ai-chat" ? (
                       <SharedAIChatView
                         contextType="TEAM"

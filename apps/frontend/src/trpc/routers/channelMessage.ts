@@ -22,6 +22,8 @@ export const channelMessageRouter = router({
         cursor,
         include: {
           user: { select: { id: true, name: true, email: true, image: true } },
+          attachments: true,
+          reactions: true,
           parent: {
             select: {
               id: true,
@@ -44,6 +46,8 @@ export const channelMessageRouter = router({
         id: z.string(),
         channelId: z.string(),
         content: z.string().min(1),
+        type: z.string().optional(),
+        title: z.string().optional(),
         attachments: z.array(z.any()).optional(),
         parentId: z.string().optional(),
       })
@@ -62,9 +66,17 @@ export const channelMessageRouter = router({
           channelId: input.channelId,
           userId: ctx.session.user.id,
           content: input.content,
-          attachments: input.attachments ?? [],
+          type: input.type || "MESSAGE",
+          title: input.title || null,
+          attachments: input.attachments?.length ? {
+            create: input.attachments.map(a => ({
+              filename: a.filename || a.name || "attachment",
+              url: a.url || (typeof a === 'string' ? a : ''),
+              mimeType: a.mimeType || a.type || "application/octet-stream",
+              size: a.size || 0,
+            }))
+          } : undefined,
           parentId: input.parentId ?? null,
-          reactions: [],
         },
         include: {
           user: { select: { id: true, name: true, email: true, image: true } },
@@ -91,7 +103,7 @@ export const channelMessageRouter = router({
     .mutation(async ({ ctx, input }) => {
       const message = await prisma.channelMessage.findUnique({
         where: { id: input.messageId },
-        select: { channelId: true, reactions: true },
+        select: { channelId: true },
       });
       if (!message) throw new Error("Message not found");
       const member = await prisma.channelMember.findFirst({
@@ -100,14 +112,28 @@ export const channelMessageRouter = router({
       });
       if (!member) throw new Error("Not a channel member");
 
-      const reactions = Array.isArray(message.reactions) ? [...(message.reactions as any[])] : [];
-      const idx = reactions.findIndex((r: any) => r.userId === ctx.session.user.id && r.emoji === input.emoji);
-      if (idx >= 0) reactions.splice(idx, 1);
-      else reactions.push({ userId: ctx.session.user.id, emoji: input.emoji });
+      const existing = await prisma.channelMessageReaction.findFirst({
+        where: {
+          messageId: input.messageId,
+          userId: ctx.session.user.id,
+          emoji: input.emoji,
+        }
+      });
 
-      await prisma.channelMessage.update({
-        where: { id: input.messageId },
-        data: { reactions },
+      if (existing) {
+        await prisma.channelMessageReaction.delete({ where: { id: existing.id } });
+      } else {
+        await prisma.channelMessageReaction.create({
+          data: {
+            messageId: input.messageId,
+            userId: ctx.session.user.id,
+            emoji: input.emoji,
+          }
+        });
+      }
+
+      const reactions = await prisma.channelMessageReaction.findMany({
+        where: { messageId: input.messageId }
       });
 
       return { messageId: input.messageId, reactions };

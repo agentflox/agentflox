@@ -686,6 +686,7 @@ export function TeamOverviewTab({ team }: { team: any }) {
                         workspaceId: team.workspaceId,
                         name: title,
                         description: description ?? undefined,
+                        teamId: team.id,
                     });
                 }}
             />
