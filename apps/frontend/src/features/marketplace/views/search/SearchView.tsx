@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Search, ChevronLeft, ChevronDown, ListFilter } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import ListingCard from "@/features/marketplace/components/ListingCard";
+import { useAppliedListingIds } from "@/features/marketplace/hooks/useAppliedListingIds";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -137,6 +138,7 @@ export default function SearchView() {
     isFree: pricingArg,
     limit: 50
   });
+  const appliedListingIds = useAppliedListingIds();
 
   // Dynamic Button Labels
   const getTypeLabel = () => {
@@ -396,7 +398,10 @@ export default function SearchView() {
                     transition={{ duration: 0.3, delay: idx * 0.05, ease: "easeOut" }}
                     className="h-full"
                   >
-                    <ListingCard listing={listing as any} />
+                    <ListingCard
+                      listing={listing as any}
+                      hasApplied={appliedListingIds.has(listing.id)}
+                    />
                   </motion.div>
                 ))}
               </AnimatePresence>

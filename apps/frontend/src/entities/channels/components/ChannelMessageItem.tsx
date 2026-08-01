@@ -1,14 +1,14 @@
 "use client";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { useMemo, useEffect, useRef, useState, useCallback } from "react";
+import { useMemo, useRef, useState, useCallback, lazy, Suspense } from "react";
 import { useSession } from "next-auth/react";
 import { MessageReplyTo } from "./MessageReplyTo";
 import { MessageContent } from "./MessageContent";
-import { useChannels } from "../hooks/useChannels";
+import type { ChannelMessage } from "../hooks/useChannels";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import EmojiPicker, { Theme, EmojiClickData } from "emoji-picker-react";
+import type { EmojiClickData } from "emoji-picker-react";
 import { Copy, Reply, MoreVertical, Smile, Megaphone, Lightbulb, Bell, MessageCircle, Pencil, BookMarked, Link2, AlarmClock, GitBranch, BellRing, Trash2, ChevronRight, X, Share, ThumbsUp, SmilePlus } from "lucide-react";
 import { renderCommentText } from "@/utils/textRendering";
 import { ChannelMessageComposer } from "./ChannelMessageComposer";
@@ -17,6 +17,8 @@ import ChannelPostModal from "./ChannelPostModal";
 import { PostEditModal } from "./PostEditModal";
 import ChannelThreadModal from "./ChannelThreadModal";
 import { toast } from "sonner";
+
+const EmojiPicker = lazy(() => import("emoji-picker-react"));
 
 export interface ChannelMessageItemProps {
   message: {
@@ -40,12 +42,21 @@ export interface ChannelMessageItemProps {
   };
   mentionItems?: { title: string; type: string; status?: string }[];
   channelName?: string;
+  replies?: ChannelMessage[];
+  toggleReaction: (messageId: string, emoji: string) => void | Promise<unknown>;
+  editMessage: (messageId: string, content: string, title?: string) => void | Promise<void>;
 }
 
-export function ChannelMessageItem({ message, mentionItems = [], channelName = "General" }: ChannelMessageItemProps) {
+export function ChannelMessageItem({
+  message,
+  mentionItems = [],
+  channelName = "General",
+  replies = [],
+  toggleReaction,
+  editMessage,
+}: ChannelMessageItemProps) {
   const { data: session } = useSession();
   const currentUserId = session?.user?.id;
-  const { messages, toggleReaction, editMessage } = useChannels({ channelId: message.channelId });
   const itemRef = useRef<HTMLDivElement>(null);
   const [showActions, setShowActions] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
@@ -165,7 +176,17 @@ export function ChannelMessageItem({ message, mentionItems = [], channelName = "
   const isDiscussion = t === 'discussion';
   const isIdea = t === 'idea';
   const isUpdate = t === 'update';
+  const isForward = t === 'forward';
   const isPost = isAnnouncement || isDiscussion || isIdea || isUpdate;
+
+  let forwardData: any = null;
+  if (isForward) {
+    try {
+      forwardData = JSON.parse(message.content);
+    } catch (e) {
+      // ignore parsing errors
+    }
+  }
 
   const handleReply = useCallback((e?: React.MouseEvent) => {
     e?.stopPropagation();
@@ -180,7 +201,6 @@ export function ChannelMessageItem({ message, mentionItems = [], channelName = "
 
   let displayContent = message.content;
 
-  const replies = (messages || []).filter((m: any) => m.parentId === message.id);
   const lastReply = replies.length > 0 ? replies[replies.length - 1] : null;
   const lastReplyInitials = lastReply ? (lastReply.user?.name || lastReply.user?.email || "?").slice(0, 2).toUpperCase() : "";
 
@@ -273,7 +293,11 @@ export function ChannelMessageItem({ message, mentionItems = [], channelName = "
                   </Tooltip>
                   <PopoverContent className="w-auto p-0 border-0 shadow-2xl" align="end" sideOffset={4}>
                     <div className="max-w-[320px]">
-                      <EmojiPicker onEmojiClick={handleEmojiClick} theme={Theme.LIGHT} previewConfig={{ showPreview: false }} />
+                      {showEmojiPicker && (
+                        <Suspense fallback={<div className="h-[350px] w-[320px] animate-pulse bg-slate-50" />}>
+                          <EmojiPicker onEmojiClick={handleEmojiClick} theme={"light" as any} previewConfig={{ showPreview: false }} />
+                        </Suspense>
+                      )}
                       {userReactions.length > 0 && (
                         <div className="p-3 pt-2 border-t bg-gray-50 dark:bg-gray-800">
                           <div className="text-xs text-muted-foreground mb-2 font-medium">Your reactions</div>
@@ -492,7 +516,11 @@ export function ChannelMessageItem({ message, mentionItems = [], channelName = "
                       <TooltipContent className="bg-slate-900 text-white text-xs border-0">Add reaction</TooltipContent>
                     </Tooltip>
                     <PopoverContent className="w-auto p-0 border-0 shadow-2xl" align="end" sideOffset={4}>
-                      <EmojiPicker onEmojiClick={handleEmojiClick} theme={Theme.LIGHT} previewConfig={{ showPreview: false }} />
+                      {showEmojiPicker && (
+                        <Suspense fallback={<div className="h-[350px] w-[320px] animate-pulse bg-slate-50" />}>
+                          <EmojiPicker onEmojiClick={handleEmojiClick} theme={"light" as any} previewConfig={{ showPreview: false }} />
+                        </Suspense>
+                      )}
                     </PopoverContent>
                   </Popover>
 
@@ -658,7 +686,38 @@ export function ChannelMessageItem({ message, mentionItems = [], channelName = "
                 )}
 
                 <div className="text-[15px] text-slate-800 whitespace-pre-wrap leading-relaxed">
-                  {renderCommentText(displayContent, mentionItems, true)}
+                  {isForward && forwardData ? (
+                    <div className="flex flex-col gap-3 mt-1">
+                      {forwardData.optionalMessage && (
+                        <div className="text-[15px]">
+                          {renderCommentText(forwardData.optionalMessage, mentionItems, true)}
+                        </div>
+                      )}
+                      <div className="pl-3 border-l-[3px] border-slate-300/80">
+                        <div className="flex items-center gap-2 mb-1.5">
+                          <Avatar className="h-5 w-5 shrink-0">
+                            <AvatarImage src={forwardData.originalUser?.image || undefined} />
+                            <AvatarFallback className="bg-slate-800 text-white text-[10px]">
+                              {(forwardData.originalUser?.name || "?").slice(0, 2).toUpperCase()}
+                            </AvatarFallback>
+                          </Avatar>
+                          <span className="font-semibold text-slate-900 text-[13px]">{forwardData.originalUser?.name || "Unknown"}</span>
+                          <span className="text-xs text-slate-400">
+                            {new Date(forwardData.originalCreatedAt || message.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                          </span>
+                        </div>
+                        <div className="text-[15px] text-slate-700">
+                          {renderCommentText(forwardData.originalContent || "", mentionItems, true)}
+                        </div>
+                        <div className="mt-2.5 text-xs text-slate-500 flex items-center gap-1">
+                          Forwarded from #{forwardData.originalChannelName} <span className="mx-0.5">&middot;</span>
+                          <span className="text-blue-600 hover:underline cursor-pointer font-medium">View message</span>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    renderCommentText(displayContent, mentionItems, true)
+                  )}
                 </div>
 
                 {message.attachments && message.attachments.length > 0 && (
@@ -709,13 +768,17 @@ export function ChannelMessageItem({ message, mentionItems = [], channelName = "
                     </PopoverTrigger>
                     <PopoverContent align="start" side="top" className="p-0 w-auto border-none shadow-none z-50">
                       <div onClick={(e) => e.stopPropagation()}>
-                        <EmojiPicker
-                          theme={Theme.LIGHT}
-                          onEmojiClick={(emojiData) => {
-                            void toggleReaction(message.id, emojiData.emoji);
-                            setShowEmojiPicker(false);
-                          }}
-                        />
+                        {showEmojiPicker && (
+                          <Suspense fallback={<div className="h-[350px] w-[320px] animate-pulse bg-slate-50" />}>
+                            <EmojiPicker
+                              theme={"light" as any}
+                              onEmojiClick={(emojiData) => {
+                                void toggleReaction(message.id, emojiData.emoji);
+                                setShowEmojiPicker(false);
+                              }}
+                            />
+                          </Suspense>
+                        )}
                       </div>
                     </PopoverContent>
                   </Popover>

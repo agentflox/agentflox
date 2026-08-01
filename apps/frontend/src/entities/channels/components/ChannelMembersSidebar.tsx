@@ -145,7 +145,7 @@ export function ChannelMembersSidebar({ open, onClose, chatMembers, onAddMember,
                     <Plus className="h-4 w-4" /> Add People
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-full p-2 z-[70]" align="center" side="bottom">
+                <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-2 z-[70]" align="center" side="bottom">
                   {!contextMembersOpen ? (
                     <div className="flex flex-col gap-1">
                       <button

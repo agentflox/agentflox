@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, lazy, Suspense } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -23,7 +23,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
 import { usePostMutations } from '../hooks/usePostMutations';
-import { CommentSection } from '../../comments/components/CommentSection';
 import { useFormattedTime } from '@/hooks/useFormattedTime';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -31,6 +30,10 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/useToast";
 import type { Post } from '@agentflox/database/src/generated/prisma/client';
+
+const CommentSection = lazy(() =>
+  import('../../comments/components/CommentSection').then((m) => ({ default: m.CommentSection }))
+);
 
 // --- Define type that matches your actual attachment shape ---
 type MediaAttachment = {
@@ -47,13 +50,57 @@ type PostWithUser = Post & {
   attachments?: string[];
 };
 
+type PostMutations = ReturnType<typeof usePostMutations>;
+
 interface PostCardProps {
   post: PostWithUser;
   feedType: 'global' | 'user' | 'project' | 'team';
   feedId?: string;
+  likePost?: PostMutations['likePost'];
+  unlikePost?: PostMutations['unlikePost'];
+  bookmarkPost?: PostMutations['bookmarkPost'];
+  followPost?: PostMutations['followPost'];
+  reportPost?: PostMutations['reportPost'];
 }
 
-export function PostCard({ post, feedType, feedId }: PostCardProps) {
+/** Prefer passing mutations from usePosts/PostList; local hook only when used standalone. */
+export function PostCard(props: PostCardProps) {
+  if (props.likePost && props.unlikePost && props.bookmarkPost && props.followPost && props.reportPost) {
+    return <PostCardView {...props} likePost={props.likePost} unlikePost={props.unlikePost} bookmarkPost={props.bookmarkPost} followPost={props.followPost} reportPost={props.reportPost} />;
+  }
+  return <PostCardWithLocalMutations {...props} />;
+}
+
+function PostCardWithLocalMutations(props: PostCardProps) {
+  const mutations = usePostMutations(props.feedType, props.feedId);
+  return (
+    <PostCardView
+      {...props}
+      likePost={mutations.likePost}
+      unlikePost={mutations.unlikePost}
+      bookmarkPost={mutations.bookmarkPost}
+      followPost={mutations.followPost}
+      reportPost={mutations.reportPost}
+    />
+  );
+}
+
+function PostCardView({
+  post,
+  feedType,
+  feedId,
+  likePost,
+  unlikePost,
+  bookmarkPost,
+  followPost,
+  reportPost,
+}: PostCardProps & {
+  likePost: PostMutations['likePost'];
+  unlikePost: PostMutations['unlikePost'];
+  bookmarkPost: PostMutations['bookmarkPost'];
+  followPost: PostMutations['followPost'];
+  reportPost: PostMutations['reportPost'];
+}) {
   const formattedTime = useFormattedTime(post.createdAt);
   const { toast } = useToast();
   const [showComments, setShowComments] = useState(false);
@@ -62,6 +109,7 @@ export function PostCard({ post, feedType, feedId }: PostCardProps) {
   const [reportReason, setReportReason] = useState("");
   const [reportExplanation, setReportExplanation] = useState("");
   const { data: session } = useSession();
+  const [isLiked, setIsLiked] = useState(false); // TODO: Get from user's likes
 
   const requireAuth = (actionName: string) => {
     if (!session) {
@@ -75,15 +123,6 @@ export function PostCard({ post, feedType, feedId }: PostCardProps) {
     }
     return true;
   };
-
-  const { 
-    likePost, 
-    unlikePost, 
-    bookmarkPost, 
-    followPost, 
-    reportPost 
-  } = usePostMutations(feedType, feedId);
-  const [isLiked, setIsLiked] = useState(false); // TODO: Get from user's likes
 
   const handleLike = async () => {
     if (!requireAuth('like posts')) return;
@@ -365,7 +404,9 @@ export function PostCard({ post, feedType, feedId }: PostCardProps) {
         {/* Comments Section */}
         {showComments && (
           <div className="mt-4 pt-4 border-t">
-            <CommentSection postId={post.id} feedId={feedId} feedType={feedType} />
+            <Suspense fallback={<div className="h-24 animate-pulse rounded-lg bg-muted/40" />}>
+              <CommentSection postId={post.id} feedId={feedId} feedType={feedType} />
+            </Suspense>
           </div>
         )}
       </Card>

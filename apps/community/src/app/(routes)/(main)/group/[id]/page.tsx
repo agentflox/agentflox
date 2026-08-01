@@ -14,6 +14,7 @@ import { ArrowLeft, Plus, Users, Filter } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { useToast } from "@/hooks/useToast";
 import { PostCard } from "@/entities/posts/components/PostCard";
+import { usePostMutations } from "@/entities/posts/hooks/usePostMutations";
 
 const Editor = dynamic(
   () => import("@/entities/shared/components/Editor").then((mod) => mod.Editor),
@@ -66,6 +67,10 @@ export default function CommunityGroupPage() {
       enabled: !!groupId && !!group?.isMember,
       retry: false,
     }
+  );
+  const { likePost, unlikePost, bookmarkPost, followPost, reportPost } = usePostMutations(
+    "global",
+    "community-feed"
   );
 
   const joinMutation = trpc.communityGroup.join.useMutation({
@@ -324,7 +329,17 @@ export default function CommunityGroupPage() {
           <Card className="p-8 text-center text-sm text-slate-600">No posts yet. Create the first post.</Card>
         ) : (
           posts.map((post: any) => (
-            <PostCard key={post.id} post={post} feedType="global" feedId="community-feed" />
+            <PostCard
+              key={post.id}
+              post={post}
+              feedType="global"
+              feedId="community-feed"
+              likePost={likePost}
+              unlikePost={unlikePost}
+              bookmarkPost={bookmarkPost}
+              followPost={followPost}
+              reportPost={reportPost}
+            />
           ))
         )}
       </div>

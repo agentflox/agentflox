@@ -94,10 +94,22 @@ export function RequestsView() {
   const [activeTab, setActiveTab] = useState<Scope>("received");
   const [processingId, setProcessingId] = useState<string | null>(null);
 
-  const receivedQuery = trpc.request.list.useQuery({ scope: "received", page: 1, pageSize: 50 });
-  const sentQuery = trpc.request.list.useQuery({ scope: "sent", page: 1, pageSize: 50 });
-  const connReceivedQuery = trpc.connections.list.useQuery({ scope: "received", page: 1, pageSize: 50 });
-  const connSentQuery = trpc.connections.list.useQuery({ scope: "sent", page: 1, pageSize: 50 });
+  const receivedQuery = trpc.request.list.useQuery(
+    { scope: "received", page: 1, pageSize: 50 },
+    { enabled: activeTab === "received", staleTime: 60_000 }
+  );
+  const sentQuery = trpc.request.list.useQuery(
+    { scope: "sent", page: 1, pageSize: 50 },
+    { enabled: activeTab === "sent", staleTime: 60_000 }
+  );
+  const connReceivedQuery = trpc.connections.list.useQuery(
+    { scope: "received", page: 1, pageSize: 50 },
+    { enabled: activeTab === "received", staleTime: 60_000 }
+  );
+  const connSentQuery = trpc.connections.list.useQuery(
+    { scope: "sent", page: 1, pageSize: 50 },
+    { enabled: activeTab === "sent", staleTime: 60_000 }
+  );
   const acceptMutation = trpc.request.accept.useMutation();
   const rejectMutation = trpc.request.reject.useMutation();
   const respondConnMutation = trpc.connections.respond.useMutation();

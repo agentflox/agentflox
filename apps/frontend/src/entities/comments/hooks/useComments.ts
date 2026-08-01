@@ -32,8 +32,8 @@ export function useComments(
   }, [postId]);
 
   const queryKey = entityType === 'post'
-    ? (['comments.list', { postId, page: 1, pageSize: 100 }] as const)
-    : (['marketplace.listComments', { listingId: postId, page: 1, pageSize: 100 }] as const);
+    ? (['comments.list', { postId, page: 1, pageSize: 50 }] as const)
+    : (['marketplace.listComments', { listingId: postId, page: 1, pageSize: 50 }] as const);
 
   const normalizeComment = useCallback((src: any) => {
     if (!src) return src;
@@ -52,7 +52,7 @@ export function useComments(
   }, []);
   // ✅ Fetch with optimized settings
   const postCommentsQuery = trpc.comments.list.useQuery(
-    { postId, page: 1, pageSize: 100 },
+    { postId, page: 1, pageSize: 50 },
     {
       enabled: enabled && !!postId && entityType === 'post',
       staleTime: Infinity,
@@ -65,7 +65,7 @@ export function useComments(
     }
   );
   const listingCommentsQuery = trpc.marketplace.listComments.useQuery(
-    { listingId: postId, page: 1, pageSize: 100 },
+    { listingId: postId, page: 1, pageSize: 50 },
     {
       enabled: enabled && !!postId && entityType === 'listing',
       staleTime: Infinity,
@@ -98,7 +98,7 @@ export function useComments(
     (updater: (items: any[]) => any[]) => {
       if (entityType === 'listing') {
         utils.marketplace.listComments.setData(
-          { listingId: postId as string, page: 1, pageSize: 100 },
+          { listingId: postId as string, page: 1, pageSize: 50 },
           (old) => {
             if (!old) return old;
             const items = (old as any).items ?? [];
@@ -110,7 +110,7 @@ export function useComments(
       }
 
       utils.comments.list.setData(
-        { postId: postId as string, page: 1, pageSize: 100 },
+        { postId: postId as string, page: 1, pageSize: 50 },
         (old) => {
           if (!old) return old;
           const items = (old as any).items ?? [];

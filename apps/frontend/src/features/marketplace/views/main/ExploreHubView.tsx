@@ -7,10 +7,12 @@ import { Search, Sparkles, Box, LayoutTemplate, Briefcase, Zap, Star, Users, Use
 import { Button } from "@/components/ui/button";
 import { trpc } from "@/lib/trpc";
 import ListingCard from "@/features/marketplace/components/ListingCard";
+import { useAppliedListingIds } from "@/features/marketplace/hooks/useAppliedListingIds";
 
 export default function ExploreHubView() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
+  const appliedListingIds = useAppliedListingIds();
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -142,7 +144,7 @@ export default function ExploreHubView() {
                 <ChevronRight className="ml-1 w-4 h-4 opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all" />
               </Button>
             </div>
-            <FeedSection type="agent" limit={4} />
+            <FeedSection type="agent" limit={4} appliedListingIds={appliedListingIds} />
           </div>
 
           <div className="w-full lg:w-[400px] shrink-0 bg-gradient-to-b from-blue-600 to-indigo-800 rounded-3xl p-8 text-white shadow-2xl relative overflow-hidden flex flex-col justify-between">
@@ -178,7 +180,7 @@ export default function ExploreHubView() {
               <ChevronRight className="ml-1 w-4 h-4 opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all" />
             </Button>
           </div>
-          <FeedSection type="tool" limit={4} />
+          <FeedSection type="tool" limit={4} appliedListingIds={appliedListingIds} />
         </section>
 
         <section>
@@ -192,7 +194,7 @@ export default function ExploreHubView() {
               <ChevronRight className="ml-1 w-4 h-4 opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all" />
             </Button>
           </div>
-          <FeedSection type="workforce" limit={4} />
+          <FeedSection type="workforce" limit={4} appliedListingIds={appliedListingIds} />
         </section>
 
         <section className="flex flex-col xl:flex-row gap-8">
@@ -207,7 +209,7 @@ export default function ExploreHubView() {
                 <ChevronRight className="ml-1 w-4 h-4 opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all" />
               </Button>
             </div>
-            <FeedSection type="template" limit={4} />
+            <FeedSection type="template" limit={4} appliedListingIds={appliedListingIds} />
           </div>
         </section>
 
@@ -223,7 +225,7 @@ export default function ExploreHubView() {
                 <ChevronRight className="ml-1 w-4 h-4 opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all" />
               </Button>
             </div>
-            <FeedSection type="talent" limit={4} />
+            <FeedSection type="talent" limit={4} appliedListingIds={appliedListingIds} />
           </div>
         </section>
 
@@ -238,7 +240,7 @@ export default function ExploreHubView() {
               <ChevronRight className="ml-1 w-4 h-4 opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all" />
             </Button>
           </div>
-          <FeedSection type="team" limit={4} />
+          <FeedSection type="team" limit={4} appliedListingIds={appliedListingIds} />
         </section>
 
       </div>
@@ -246,7 +248,15 @@ export default function ExploreHubView() {
   );
 }
 
-function FeedSection({ type, limit }: { type: string; limit: number }) {
+function FeedSection({
+  type,
+  limit,
+  appliedListingIds,
+}: {
+  type: string;
+  limit: number;
+  appliedListingIds: Set<string>;
+}) {
   const { data: listings, isLoading } = trpc.marketplace.searchListings.useQuery({
     type,
     sortBy: "popular",
@@ -274,7 +284,11 @@ function FeedSection({ type, limit }: { type: string; limit: number }) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
       {listings.map(listing => (
-        <ListingCard key={listing.id} listing={listing as any} />
+        <ListingCard
+          key={listing.id}
+          listing={listing as any}
+          hasApplied={appliedListingIds.has(listing.id)}
+        />
       ))}
     </div>
   );

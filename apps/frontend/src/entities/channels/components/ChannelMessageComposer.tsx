@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useCallback, useMemo, useEffect } from 'react';
+import { useState, useRef, useCallback, useMemo, useEffect, lazy, Suspense } from 'react';
 import Button from '@/components/ui/button';
 import {
   Loader2, Paperclip, Smile, Send, AtSign,
@@ -11,14 +11,16 @@ import {
   DropdownMenu, DropdownMenuContent,
   DropdownMenuItem, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import EmojiPicker, { Theme, EmojiClickData } from 'emoji-picker-react';
+import type { EmojiClickData } from 'emoji-picker-react';
 import { type MediaFile } from '@/components/ui/media-upload';
 import { storageUtils } from '@/utils/storage/storageUtils';
-import { useChannels } from '../hooks/useChannels';
+import { useChannelActions } from '../hooks/useChannels';
 import { trpc } from '@/lib/trpc';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
 import { renderCommentText } from '@/utils/textRendering';
+
+const EmojiPicker = lazy(() => import('emoji-picker-react'));
 
 type MessageType = 'message' | 'announcement' | 'discussion' | 'idea' | 'update';
 
@@ -77,7 +79,7 @@ export function ChannelMessageComposer({ channelId, mentionItems: externalMentio
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const { sendMessage } = useChannels({ channelId });
+  const { sendMessage } = useChannelActions();
   const [sending, setSending] = useState(false);
 
   // Auto-resize textarea; resets height when content is cleared after send
@@ -90,21 +92,24 @@ export function ChannelMessageComposer({ channelId, mentionItems: externalMentio
     }
   }, [content]);
 
-  // Fetch workspace members for mention popover
-  const { data: channel } = trpc.channel.get.useQuery({ id: channelId }, { staleTime: 60_000 });
+  // Always fetch for mention picker UI (avatars/status). Message rendering uses externalMentionItems when provided.
+  const { data: channel } = trpc.channel.get.useQuery(
+    { id: channelId },
+    { enabled: !!channelId, staleTime: 60_000, gcTime: 5 * 60_000 }
+  );
   const workspaceId = channel?.workspaceId || '';
   const { data: members = [] } = trpc.workspace.getMembers.useQuery(
     { id: workspaceId },
-    { enabled: !!workspaceId, staleTime: 60_000 }
+    { enabled: !!workspaceId, staleTime: 60_000, gcTime: 5 * 60_000 }
   );
 
   const { data: tasksData } = trpc.task.list.useQuery(
-    { workspaceId, pageSize: 20, scope: "all", includeRelations: true },
-    { enabled: !!workspaceId }
+    { workspaceId, pageSize: 20, scope: "all", includeRelations: false },
+    { enabled: !!workspaceId, staleTime: 60_000, gcTime: 5 * 60_000 }
   );
   const { data: docsData } = trpc.document.list.useQuery(
     { workspaceId, pageSize: 20 },
-    { enabled: !!workspaceId }
+    { enabled: !!workspaceId, staleTime: 60_000, gcTime: 5 * 60_000 }
   );
 
   const scopedTasks = tasksData?.items || [];
@@ -508,7 +513,11 @@ export function ChannelMessageComposer({ channelId, mentionItems: externalMentio
                   </button>
                 </PopoverTrigger>
                 <PopoverContent side="top" align="start" className="w-auto p-0 border-0 shadow-2xl">
-                  <EmojiPicker onEmojiClick={handleEmojiClick} theme={Theme.LIGHT} previewConfig={{ showPreview: false }} />
+                  {showEmojiPicker && (
+                    <Suspense fallback={<div className="h-[350px] w-[320px] animate-pulse bg-slate-50" />}>
+                      <EmojiPicker onEmojiClick={handleEmojiClick} theme={"light" as any} previewConfig={{ showPreview: false }} />
+                    </Suspense>
+                  )}
                 </PopoverContent>
               </Popover>
 

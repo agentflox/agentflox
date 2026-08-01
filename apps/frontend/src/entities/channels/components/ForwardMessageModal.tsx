@@ -8,7 +8,7 @@ import { Search, Hash, Copy } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
-import { useChannels } from "../hooks/useChannels";
+import { useChannelActions } from "../hooks/useChannels";
 
 interface ForwardMessageModalProps {
   isOpen: boolean;
@@ -38,7 +38,7 @@ export function ForwardMessageModal({ isOpen, onClose, message }: ForwardMessage
     { enabled: !!workspaceId && isOpen, staleTime: 60_000 }
   );
 
-  const { sendMessage } = useChannels({});
+  const { sendMessage } = useChannelActions();
 
   const searchResults = useMemo(() => {
     if (!search.trim()) return [];
@@ -78,15 +78,23 @@ export function ForwardMessageModal({ isOpen, onClose, message }: ForwardMessage
         return;
       }
 
-      // Format the forwarded message
-      const fwdContent = optionalMessage.trim() 
-        ? `${optionalMessage}\n\n> **${displayLabel}**:\n> ${message.content.split('\n').join('\n> ')}`
-        : `> **${displayLabel}**:\n> ${message.content.split('\n').join('\n> ')}`;
+      // Format the forwarded message as JSON
+      const fwdContent = JSON.stringify({
+        optionalMessage: optionalMessage.trim() || null,
+        originalMessageId: message.id,
+        originalContent: message.content,
+        originalUser: {
+          name: displayLabel,
+          image: message.user?.image || null
+        },
+        originalCreatedAt: message.createdAt,
+        originalChannelName: channel?.name || "General"
+      });
 
       await sendMessage({
         channelId: destChannelId,
         content: fwdContent,
-        type: "MESSAGE",
+        type: "FORWARD",
       });
 
       toast.success("Message forwarded");

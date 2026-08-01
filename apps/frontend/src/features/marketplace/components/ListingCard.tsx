@@ -3,34 +3,27 @@
 import { useState } from "react";
 import { useSession } from "next-auth/react";
 import { MarketplaceListing } from "../types/marketplace.types";
-import { trpc } from "@/lib/trpc";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { MessageSquare, Download, CheckCircle2, Star, Zap, HardDriveDownload, GitFork, Lock, Unlock, Clock, ImageIcon, Tag } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { ApplyToListingModal } from "./ApplyToListingModal";
 
 interface ListingCardProps {
   listing: MarketplaceListing;
+  /** From parent useAppliedListingIds() — do not fetch applications inside the card */
+  hasApplied?: boolean;
 }
 
-export default function ListingCard({ listing }: ListingCardProps) {
+export default function ListingCard({ listing, hasApplied = false }: ListingCardProps) {
   const { data: session } = useSession();
   const isOwnListing = session?.user?.id === listing.author.id;
-  const { data: existingApplication } = trpc.marketplace.myApplicationForListing.useQuery(
-    { listingId: listing.id },
-    { enabled: !!session?.user?.id && !isOwnListing && !['agent', 'tool', 'template', 'workforce'].includes(listing.type), staleTime: 30_000 }
-  );
-
+  const isAsset = ['agent', 'tool', 'template', 'workforce'].includes(listing.type);
+  const isOpportunity = ['task', 'team', 'project', 'talent'].includes(listing.type);
 
   const [downloadState, setDownloadState] = useState<'idle' | 'downloading' | 'installed'>('idle');
   const [progress, setProgress] = useState(0);
-  const [applyOpen, setApplyOpen] = useState(false);
-
-  const isAsset = ['agent', 'tool', 'template', 'workforce'].includes(listing.type);
-  const isOpportunity = ['task', 'team', 'project', 'talent'].includes(listing.type);
 
   const handleDownload = () => {
     if (downloadState !== 'idle') return;
@@ -56,7 +49,6 @@ export default function ListingCard({ listing }: ListingCardProps) {
   };
 
   return (
-    <>
       <div
         className="group relative flex flex-col bg-card rounded-2xl border border-border/60 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-500 overflow-hidden h-full"
         style={{ viewTransitionName: `listing-${listing.id}` } as React.CSSProperties}
@@ -243,7 +235,7 @@ export default function ListingCard({ listing }: ListingCardProps) {
                   )}
                 </Button>
               </>
-            ) : existingApplication ? (
+            ) : hasApplied ? (
               <Button size="sm" className="h-9 rounded-full px-5 font-bold shadow-sm" variant="secondary" disabled>
                 Applied
               </Button>
@@ -262,7 +254,5 @@ export default function ListingCard({ listing }: ListingCardProps) {
           </div>
         </div>
       </div>
-      <ApplyToListingModal listing={listing} open={applyOpen} onOpenChange={setApplyOpen} />
-    </>
   );
 }

@@ -31,7 +31,7 @@ export function ApplyToListingForm({
   const { data: existingApplication, isLoading: checkingExisting } =
     trpc.marketplace.myApplicationForListing.useQuery(
       { listingId: listing.id },
-      { staleTime: 30_000 }
+      { enabled: !!listing.id, staleTime: 60_000, gcTime: 5 * 60_000 }
     );
 
   const isConnect = ["talent", "team"].includes(listing.type);
