@@ -182,6 +182,33 @@ export function registerChannelHandlers(io: any, socket: Socket) {
     }
   });
 
+  // Delete message
+  socket.on('channel:message:delete', async (
+    data: { messageId: string },
+    ack?: (err: any, resp?: any) => void
+  ) => {
+    try {
+      if (!data?.messageId) throw new Error('Invalid delete payload');
+
+      const existing = await prisma.channelMessage.findUnique({
+        where: { id: data.messageId },
+        select: { id: true, channelId: true, userId: true },
+      });
+      if (!existing) throw new Error('Message not found');
+      if (existing.userId !== userId) throw new Error('You can only delete your own messages');
+
+      await prisma.channelMessage.delete({
+        where: { id: data.messageId },
+      });
+
+      io.to(`channel:${existing.channelId}`).emit('channel:message:deleted', { id: data.messageId, channelId: existing.channelId });
+      ack?.(null, { id: data.messageId });
+    } catch (err: any) {
+      console.error('channel:message:delete error', err);
+      ack?.({ message: err?.message || 'Failed to delete message' });
+    }
+  });
+
   // Reactions toggle
   socket.on(
     'channel:message:react',

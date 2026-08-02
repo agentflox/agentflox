@@ -5,7 +5,7 @@ import { useMemo, useEffect, useRef, useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { MessageReplyTo } from "./MessageReplyTo";
 import { MessageContent } from "./MessageContent";
-import { useChannels } from "../hooks/useChannels";
+import { useChannelActions } from "../hooks/useChannels";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import EmojiPicker, { Theme, EmojiClickData } from "emoji-picker-react";
@@ -40,15 +40,19 @@ export interface ChannelMessageItemProps {
   };
   mentionItems?: { title: string; type: string; status?: string }[];
   channelName?: string;
+  replyCount?: number;
+  lastReply?: any;
+  allMessages?: any[];
 }
 
-export function ChannelMessageItem({ message, mentionItems = [], channelName = "General" }: ChannelMessageItemProps) {
+export function ChannelMessageItem({ message, mentionItems = [], channelName = "General", replyCount, lastReply, allMessages }: ChannelMessageItemProps) {
   const { data: session } = useSession();
   const currentUserId = session?.user?.id;
-  const { messages, toggleReaction, editMessage } = useChannels({ channelId: message.channelId });
+  const { toggleReaction, editMessage, deleteMessage } = useChannelActions();
   const itemRef = useRef<HTMLDivElement>(null);
   const [showActions, setShowActions] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [showBottomEmojiPicker, setShowBottomEmojiPicker] = useState(false);
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isThreadOpen, setIsThreadOpen] = useState(false);
@@ -140,8 +144,13 @@ export function ChannelMessageItem({ message, mentionItems = [], channelName = "
     setShowActions(false);
   };
 
-  const handleDelete = () => {
-    toast.error('Delete not yet implemented');
+  const handleDelete = async () => {
+    try {
+      await deleteMessage(message.id);
+      toast.success('Message deleted');
+    } catch {
+      // error handled in useChannels
+    }
     setShowMoreMenu(false);
     setShowActions(false);
   };
@@ -190,9 +199,15 @@ export function ChannelMessageItem({ message, mentionItems = [], channelName = "
 
   let displayContent = message.content;
 
-  const replies = (messages || []).filter((m: any) => m.parentId === message.id);
-  const lastReply = replies.length > 0 ? replies[replies.length - 1] : null;
-  const lastReplyInitials = lastReply ? (lastReply.user?.name || lastReply.user?.email || "?").slice(0, 2).toUpperCase() : "";
+  const derivedReplies = useMemo(() => {
+    if (replyCount !== undefined) return [];
+    if (!allMessages) return [];
+    return allMessages.filter((m: any) => m.parentId === message.id);
+  }, [replyCount, allMessages, message.id]);
+
+  const effectiveReplyCount = replyCount !== undefined ? replyCount : derivedReplies.length;
+  const effectiveLastReply = lastReply !== undefined ? lastReply : (derivedReplies.length > 0 ? derivedReplies[derivedReplies.length - 1] : null);
+  const lastReplyInitials = effectiveLastReply ? (effectiveLastReply.user?.name || effectiveLastReply.user?.email || "?").slice(0, 2).toUpperCase() : "";
 
   return (
     <div
@@ -387,35 +402,6 @@ export function ChannelMessageItem({ message, mentionItems = [], channelName = "
 
                       <div className="my-1 h-px bg-gray-100" />
 
-                      <button
-                        className="flex items-center justify-between gap-3 px-3 py-2 text-sm hover:bg-gray-100 rounded-md transition-colors text-left cursor-pointer"
-                      >
-                        <span className="flex items-center gap-3">
-                          <AlarmClock className="h-3.5 w-3.5 text-gray-500" />
-                          <span className="font-normal text-gray-700">Remind me in Inbox</span>
-                        </span>
-                        <ChevronRight className="h-3.5 w-3.5 text-gray-400" />
-                      </button>
-
-                      <button
-                        className="flex items-center justify-between gap-3 px-3 py-2 text-sm hover:bg-gray-100 rounded-md transition-colors text-left cursor-pointer"
-                      >
-                        <span className="flex items-center gap-3">
-                          <GitBranch className="h-3.5 w-3.5 text-gray-500" />
-                          <span className="font-normal text-gray-700">Add relationship</span>
-                        </span>
-                        <ChevronRight className="h-3.5 w-3.5 text-gray-400" />
-                      </button>
-
-                      <div className="my-1 h-px bg-gray-100" />
-
-                      <button
-                        className="flex items-center gap-3 px-3 py-2 text-sm hover:bg-gray-100 rounded-md transition-colors text-left cursor-pointer"
-                      >
-                        <BellRing className="h-3.5 w-3.5 text-gray-500" />
-                        <span className="font-normal text-gray-700">Get notified about new replies</span>
-                      </button>
-
                       {/* Delete — own messages only */}
                       {isOwnMessage && (
                         <>
@@ -582,18 +568,6 @@ export function ChannelMessageItem({ message, mentionItems = [], channelName = "
                           <span className="text-[11px] text-gray-400">C</span>
                         </button>
                         <div className="my-1 h-px bg-gray-100" />
-                        <button className="flex items-center justify-between gap-3 px-3 py-2 text-sm hover:bg-gray-100 rounded-md transition-colors text-left cursor-pointer">
-                          <span className="flex items-center gap-3">
-                            <AlarmClock className="h-3.5 w-3.5 text-gray-500" />
-                            <span className="font-normal text-gray-700">Remind me in Inbox</span>
-                          </span>
-                          <ChevronRight className="h-3.5 w-3.5 text-gray-400" />
-                        </button>
-                        <div className="my-1 h-px bg-gray-100" />
-                        <button className="flex items-center gap-3 px-3 py-2 text-sm hover:bg-gray-100 rounded-md transition-colors text-left cursor-pointer">
-                          <BellRing className="h-3.5 w-3.5 text-gray-500" />
-                          <span className="font-normal text-gray-700">Get notified about new replies</span>
-                        </button>
                         {isOwnMessage && (
                           <>
                             <div className="my-1 h-px bg-gray-100" />
@@ -739,10 +713,10 @@ export function ChannelMessageItem({ message, mentionItems = [], channelName = "
                     </button>
                   )}
 
-                  <Popover open={showEmojiPicker} onOpenChange={setShowEmojiPicker}>
+                  <Popover open={showBottomEmojiPicker} onOpenChange={setShowBottomEmojiPicker}>
                     <PopoverTrigger asChild>
                       <button
-                        onClick={(e) => { e.stopPropagation(); setShowEmojiPicker(true); }}
+                        onClick={(e) => { e.stopPropagation(); }}
                         className="w-8 h-8 rounded-full flex items-center justify-center bg-slate-50 border border-slate-200 text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition-colors"
                       >
                         <SmilePlus className="w-4 h-4" />
@@ -754,7 +728,7 @@ export function ChannelMessageItem({ message, mentionItems = [], channelName = "
                           theme={Theme.LIGHT}
                           onEmojiClick={(emojiData) => {
                             void toggleReaction(message.id, emojiData.emoji);
-                            setShowEmojiPicker(false);
+                            setShowBottomEmojiPicker(false);
                           }}
                         />
                       </div>
@@ -766,14 +740,14 @@ export function ChannelMessageItem({ message, mentionItems = [], channelName = "
                   className="flex items-center gap-2 cursor-pointer group/reply"
                   onClick={(e) => { e.stopPropagation(); setIsModalOpen(true); }}
                 >
-                  {replies.length > 0 ? (
+                  {effectiveReplyCount > 0 ? (
                     <>
                       <Avatar className="w-6 h-6 shrink-0">
-                        <AvatarImage src={lastReply?.user?.image || undefined} />
+                        <AvatarImage src={effectiveLastReply?.user?.image || undefined} />
                         <AvatarFallback className="bg-slate-800 text-white text-[10px]">{lastReplyInitials}</AvatarFallback>
                       </Avatar>
                       <span className="text-sm font-medium text-slate-600 group-hover/reply:text-slate-900 group-hover/reply:underline transition-colors">
-                        {replies.length} {replies.length === 1 ? 'reply' : 'replies'}
+                        {effectiveReplyCount} {effectiveReplyCount === 1 ? 'reply' : 'replies'}
                       </span>
                     </>
                   ) : (
@@ -811,17 +785,17 @@ export function ChannelMessageItem({ message, mentionItems = [], channelName = "
         </div>
       </div>
 
-      {replies.length > 0 && lastReply && (
+      {effectiveReplyCount > 0 && effectiveLastReply && (
         <div className="flex items-center mt-1 ml-[17px]" onClick={handleReply}>
           <div className="w-8 h-6 border-l-2 border-b-2 border-slate-300/70 rounded-bl-xl shrink-0 -mt-6 mr-2"></div>
           <div className="flex items-center gap-1.5 z-10 pt-1">
             <Avatar className="w-5 h-5 shrink-0">
-              <AvatarImage src={lastReply.user?.image || undefined} />
+              <AvatarImage src={effectiveLastReply.user?.image || undefined} />
               <AvatarFallback className="bg-slate-800 text-white text-[10px]">{lastReplyInitials}</AvatarFallback>
             </Avatar>
-            <span className="text-sm font-semibold text-slate-700 hover:underline">{replies.length} {replies.length === 1 ? 'reply' : 'replies'}</span>
+            <span className="text-sm font-semibold text-slate-700 hover:underline">{effectiveReplyCount} {effectiveReplyCount === 1 ? 'reply' : 'replies'}</span>
             <span className="text-xs text-slate-400">
-              {new Date(lastReply.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              {new Date(effectiveLastReply.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
             </span>
           </div>
         </div>
@@ -834,6 +808,7 @@ export function ChannelMessageItem({ message, mentionItems = [], channelName = "
           message={message}
           mentionItems={mentionItems}
           channelName={channelName}
+          allMessages={allMessages}
         />
       )}
 
@@ -844,6 +819,7 @@ export function ChannelMessageItem({ message, mentionItems = [], channelName = "
           message={message}
           mentionItems={mentionItems}
           channelName={channelName}
+          allMessages={allMessages}
         />
       )}
 

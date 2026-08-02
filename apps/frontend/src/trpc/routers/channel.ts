@@ -29,12 +29,18 @@ export const channelRouter = router({
   list: protectedProcedure
     .input(z.object({
       workspaceId: z.string().optional(),
+      spaceId: z.string().optional(),
+      projectId: z.string().optional(),
+      teamId: z.string().optional(),
       query: z.string().optional(),
       withCounts: z.boolean().optional(),
     }))
     .query(async ({ input }) => {
       const where: any = {};
       if (input.workspaceId) where.workspaceId = input.workspaceId;
+      if (input.spaceId) where.spaceId = input.spaceId;
+      if (input.projectId) where.projectId = input.projectId;
+      if (input.teamId) where.teamId = input.teamId;
       if (input.query) {
         where.OR = [
           { name: { contains: input.query, mode: "insensitive" } },
@@ -54,48 +60,20 @@ export const channelRouter = router({
         where: { id: input.id },
         include: {
           members: {
-            include: { user: true }
+            include: { user: { select: { id: true, name: true, email: true, image: true } } }
           },
           workspace: {
             select: { id: true, name: true, ownerId: true },
-          },
-          tasks: {
-            orderBy: { updatedAt: "desc" },
-            select: {
-              id: true,
-              title: true,
-              status: true,
-              description: true,
-              assigneeId: true,
-              projectId: true,
-              teamId: true,
-              updatedAt: true,
-            },
           },
           _count: { select: { tasks: true } },
         },
       });
       if (!channel) return null;
 
-      const [projects, teams] = channel.workspaceId
-        ? await Promise.all([
-            prisma.project.findMany({
-              where: { workspaceId: channel.workspaceId },
-              select: { id: true, name: true, status: true },
-              orderBy: { updatedAt: "desc" },
-            }),
-            prisma.team.findMany({
-              where: { workspaceId: channel.workspaceId },
-              select: { id: true, name: true },
-              orderBy: { updatedAt: "desc" },
-            }),
-          ])
-        : [[], []];
-
       return {
         ...channel,
-        projects,
-        teams,
+        projects: [],
+        teams: [],
         // expose context fields explicitly for consumers
         spaceId: channel.spaceId ?? null,
         projectId: channel.projectId ?? null,

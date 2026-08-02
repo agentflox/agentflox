@@ -38,11 +38,11 @@ export default function ChannelMessageList({ channelId, messages, onAddMembers }
 
   const { data: tasksData } = trpc.task.list.useQuery(
     { workspaceId, pageSize: 20, scope: "all", includeRelations: true },
-    { enabled: !!workspaceId }
+    { enabled: !!workspaceId, staleTime: 60_000, gcTime: 5 * 60_000 }
   );
   const { data: docsData } = trpc.document.list.useQuery(
     { workspaceId, pageSize: 20 },
-    { enabled: !!workspaceId }
+    { enabled: !!workspaceId, staleTime: 60_000, gcTime: 5 * 60_000 }
   );
 
   const mentionItems = useMemo(() => {
@@ -60,6 +60,23 @@ export default function ChannelMessageList({ channelId, messages, onAddMembers }
     });
     return items.sort((a, b) => b.title.length - a.title.length);
   }, [members, tasksData, docsData]);
+
+  const replyMap = useMemo(() => {
+    const map = new Map<string, { count: number; lastReply: (typeof messages)[number] | null }>();
+    if (!messages) return map;
+    for (const m of messages) {
+      if (m.parentId) {
+        const existing = map.get(m.parentId);
+        if (existing) {
+          existing.count += 1;
+          existing.lastReply = m;
+        } else {
+          map.set(m.parentId, { count: 1, lastReply: m });
+        }
+      }
+    }
+    return map;
+  }, [messages]);
 
   const hasMessages = messages && messages.length > 0;
 
@@ -92,9 +109,20 @@ export default function ChannelMessageList({ channelId, messages, onAddMembers }
   return (
     <ScrollArea className="h-full">
       <div className="flex flex-col gap-3">
-        {messages.filter(m => !m.parentId || m.type === 'THREAD_BROADCAST').map((m) => (
-          <ChannelMessageItem key={m.id} message={m as any} mentionItems={mentionItems} channelName={channel?.name || "General"} />
-        ))}
+        {messages.filter(m => !m.parentId || m.type === 'THREAD_BROADCAST').map((m) => {
+          const replyInfo = replyMap.get(m.id);
+          return (
+            <ChannelMessageItem
+              key={m.id}
+              message={m as any}
+              mentionItems={mentionItems}
+              channelName={channel?.name || "General"}
+              replyCount={replyInfo?.count ?? 0}
+              lastReply={replyInfo?.lastReply ?? null}
+              allMessages={messages}
+            />
+          );
+        })}
       </div>
     </ScrollArea>
   );

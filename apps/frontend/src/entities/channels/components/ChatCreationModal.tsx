@@ -33,7 +33,7 @@ export function ChatCreationModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-xl gap-6">
+      <DialogContent className="sm:max-w-lg gap-6">
         <div className="pb-2">
           <div className="flex items-start gap-5">
             <div className={cn(

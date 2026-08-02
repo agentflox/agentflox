@@ -16,6 +16,7 @@ interface Message {
   isRead?: boolean;
   isPending?: boolean;
   clientId?: string;
+  type?: string;
   attachments?: string[];
   replyTo?: {
     id: string;
@@ -491,6 +492,7 @@ export function useMessages(params?: {
       id: string;
       toUserId: string;
       content: string;
+      type?: string;
       attachments?: string[];
       replyTo?: { id: string; content: string; senderId: string };
       marketplaceListingId?: string;
@@ -508,6 +510,7 @@ export function useMessages(params?: {
         id: variables.id,
         clientId: variables.id,
         content: variables.content,
+        type: variables.type || 'MESSAGE',
         senderId: currentUserId,
         receiverId: normalizedToUserId,
         createdAt: new Date().toISOString(),
@@ -551,6 +554,7 @@ export function useMessages(params?: {
           id: response?.id ?? variables.id,
           clientId: variables.id,
           content: variables.content,
+          type: response?.type ?? variables.type ?? 'MESSAGE',
           senderId: currentUserId,
           receiverId: normalizedToUserId,
           createdAt: response?.createdAt ?? tempMessage.createdAt,

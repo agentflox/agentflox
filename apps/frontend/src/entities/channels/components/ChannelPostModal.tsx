@@ -10,6 +10,7 @@ import { useChannels } from "../hooks/useChannels";
 import { ChannelMessageItem } from "./ChannelMessageItem";
 import { ChannelMessageComposer } from "./ChannelMessageComposer";
 import { ForwardMessageModal } from "./ForwardMessageModal";
+import { PostEditModal } from "./PostEditModal";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { createPortal } from "react-dom";
 import EmojiPicker, { Theme } from "emoji-picker-react";
@@ -23,19 +24,22 @@ interface ChannelPostModalProps {
   message: any;
   mentionItems: any[];
   channelName: string;
+  allMessages?: any[];
 }
 
-export default function ChannelPostModal({ isOpen, onClose, message, mentionItems, channelName }: ChannelPostModalProps) {
+export default function ChannelPostModal({ isOpen, onClose, message, mentionItems, channelName, allMessages }: ChannelPostModalProps) {
   const { data: session } = useSession();
   const currentUserId = session?.user?.id;
   const [alsoSend, setAlsoSend] = useState(false);
   const [isForwardModalOpen, setIsForwardModalOpen] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showMoreMenu, setShowMoreMenu] = useState(false);
+  const [isPostEditModalOpen, setIsPostEditModalOpen] = useState(false);
 
-  const { messages: threadMessages, toggleReaction } = useChannels({ channelId: message.channelId });
-  const replies = (threadMessages || []).filter(m => m.parentId === message.id);
-  const currentMessage = threadMessages?.find(m => m.id === message.id) || message;
+  const { messages: threadMessages, toggleReaction, editMessage, deleteMessage } = useChannels({ channelId: message.channelId, skipSubscription: !isOpen || Boolean(allMessages) });
+  const messageSource = allMessages ?? threadMessages;
+  const replies = (messageSource || []).filter(m => m.parentId === message.id);
+  const currentMessage = messageSource?.find(m => m.id === message.id) || message;
 
   const reactionCounts = useMemo(() => {
     const raw = Array.isArray(currentMessage.reactions) ? (currentMessage.reactions as Array<{ userId: string; emoji: string }>) : [];
@@ -58,6 +62,31 @@ export default function ChannelPostModal({ isOpen, onClose, message, mentionItem
   const isDiscussion = t === 'discussion';
   const isIdea = t === 'idea';
   const isUpdate = t === 'update';
+
+  const handlePostEditSave = async (title: string, content: string) => {
+    const trimmedTitle = title.trim();
+    const trimmedContent = content.trim();
+    if (!trimmedContent && !trimmedTitle) return;
+
+    try {
+      await editMessage(message.id, trimmedContent, trimmedTitle);
+      toast.success('Post updated');
+      setIsPostEditModalOpen(false);
+    } catch {
+      // Error handled
+    }
+  };
+
+  const handleDelete = async () => {
+    try {
+      await deleteMessage(message.id);
+      toast.success('Post deleted');
+      onClose();
+    } catch {
+      // Error handled
+    }
+    setShowMoreMenu(false);
+  };
 
   if (!isOpen) return null;
 
@@ -102,7 +131,7 @@ export default function ChannelPostModal({ isOpen, onClose, message, mentionItem
                   <div className="flex flex-col">
                     {currentMessage.userId === currentUserId && (
                       <button
-                        onClick={() => { toast.info('Edit clicked'); setShowMoreMenu(false); }}
+                        onClick={() => { setIsPostEditModalOpen(true); setShowMoreMenu(false); }}
                         className="flex items-center justify-between gap-3 px-3 py-2 text-sm hover:bg-gray-100 rounded-md transition-colors text-left cursor-pointer"
                       >
                         <span className="flex items-center gap-3">
@@ -137,28 +166,11 @@ export default function ChannelPostModal({ isOpen, onClose, message, mentionItem
 
                     <div className="my-1 h-px bg-gray-100" />
 
-                    <button
-                      className="flex items-center justify-between gap-3 px-3 py-2 text-sm hover:bg-gray-100 rounded-md transition-colors text-left cursor-pointer"
-                    >
-                      <span className="flex items-center gap-3">
-                        <AlarmClock className="h-3.5 w-3.5 text-gray-500" />
-                        <span className="font-normal text-gray-700">Remind me in Inbox</span>
-                      </span>
-                      <ChevronRight className="h-3.5 w-3.5 text-gray-400" />
-                    </button>
-
-                    <button
-                      className="flex items-center gap-3 px-3 py-2 text-sm hover:bg-gray-100 rounded-md transition-colors text-left cursor-pointer"
-                    >
-                      <BellRing className="h-3.5 w-3.5 text-gray-500" />
-                      <span className="font-normal text-gray-700">Turn off notifications for replies</span>
-                    </button>
-
                     {currentMessage.userId === currentUserId && (
                       <>
                         <div className="my-1 h-px bg-gray-100" />
                         <button
-                          onClick={() => { toast.error('Delete clicked'); setShowMoreMenu(false); }}
+                          onClick={handleDelete}
                           className="flex items-center justify-between gap-3 px-3 py-2 text-sm hover:bg-red-50 rounded-md transition-colors text-left cursor-pointer group/del"
                         >
                           <span className="flex items-center gap-3">
@@ -299,6 +311,15 @@ export default function ChannelPostModal({ isOpen, onClose, message, mentionItem
           isOpen={isForwardModalOpen}
           onClose={() => setIsForwardModalOpen(false)}
           message={currentMessage}
+        />
+      )}
+
+      {isPostEditModalOpen && (
+        <PostEditModal
+          isOpen={isPostEditModalOpen}
+          onClose={() => setIsPostEditModalOpen(false)}
+          message={currentMessage}
+          onSave={handlePostEditSave}
         />
       )}
     </>

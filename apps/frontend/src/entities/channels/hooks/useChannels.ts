@@ -32,17 +32,18 @@ function toCacheMessage(msg: ChannelMessage) {
   return { ...rest, parent: msg.parent ?? null };
 }
 
-export function useChannels(params: { channelId?: string }) {
-  const { channelId } = params;
+export function useChannels(params: { channelId?: string; skipSubscription?: boolean } = {}) {
+  const { channelId, skipSubscription = false } = params;
   const { socket, isConnected, waitForConnection } = useSocket();
   const { data: session } = useSession();
   const currentUserId = session?.user?.id;
   const utils = trpc.useUtils();
   const processed = useRef(new Set<string>());
+  const processedTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
 
   const messages = trpc.channelMessage.list.useQuery(
     { channelId: channelId ?? "", take: 100 },
-    { enabled: Boolean(channelId) }
+    { enabled: Boolean(channelId) && !skipSubscription, staleTime: 60_000 }
   );
 
   // Helpers to update cache
@@ -77,7 +78,7 @@ export function useChannels(params: { channelId?: string }) {
 
   // Socket listeners + channel room (ref-counted)
   useEffect(() => {
-    if (!socket || !isConnected || !channelId) return;
+    if (skipSubscription || !socket || !isConnected || !channelId) return;
 
     const releaseRoom = acquireChannelRoom(socket, channelId);
 
@@ -85,7 +86,11 @@ export function useChannels(params: { channelId?: string }) {
       if (!data?.id || data.channelId !== channelId) return;
       if (processed.current.has(data.id)) return;
       processed.current.add(data.id);
-      setTimeout(() => processed.current.delete(data.id), 5000);
+      const t = setTimeout(() => {
+        processed.current.delete(data.id);
+        processedTimers.current.delete(data.id);
+      }, 5000);
+      processedTimers.current.set(data.id, t);
       const cached = utils.channelMessage.list.getData({ channelId: data.channelId, take: 100 }) as
         | { items?: ChannelMessage[] }
         | undefined;
@@ -140,17 +145,33 @@ export function useChannels(params: { channelId?: string }) {
       }) as any);
     };
 
+    const handleDeleted = (data: any) => {
+      if (!data?.id) return;
+      utils.channelMessage.list.setData({ channelId: data.channelId ?? channelId, take: 100 }, ((old) => {
+        const base = (old as { items: ChannelMessage[]; nextCursor: string | null } | undefined) ?? {
+          items: [] as ChannelMessage[],
+          nextCursor: null as string | null,
+        };
+        const items = base.items.filter((m) => m.id !== data.id);
+        return { ...base, items } as typeof old;
+      }) as any);
+    };
+
     const releaseListeners = acquireChannelEventListeners(socket, channelId, {
       onReceived: (data) => handleReceived(data as ChannelMessage),
       onReaction: (data) => handleReaction(data as { messageId: string; reactions: JsonValue[] }),
       onEdited: (data) => handleEdited(data),
+      onDeleted: (data) => handleDeleted(data),
     });
 
     return () => {
       releaseListeners();
       releaseRoom();
+      processedTimers.current.forEach(clearTimeout);
+      processedTimers.current.clear();
+      processed.current.clear();
     };
-  }, [socket, isConnected, utils.channelMessage.list, channelId]);
+  }, [socket, isConnected, utils.channelMessage.list, channelId, skipSubscription]);
 
   const sendMessage = useCallback(
     async (input: { channelId: string; content: string; type?: string; title?: string; attachments?: any[]; contexts?: any[]; mentions?: any[]; parentId?: string }) => {
@@ -225,7 +246,7 @@ export function useChannels(params: { channelId?: string }) {
         );
       });
     },
-    [currentUserId, addMessageToCache, replaceTemp, waitForConnection]
+    [currentUserId, addMessageToCache, replaceTemp, waitForConnection, session]
   );
 
   const toggleReaction = useCallback(
@@ -265,11 +286,37 @@ export function useChannels(params: { channelId?: string }) {
     [waitForConnection]
   );
 
+  const deleteMessage = useCallback(
+    async (messageId: string) => {
+      const s = await waitForConnection();
+      if (!s) throw new Error("Socket not connected");
+      return await new Promise<void>((resolve, reject) => {
+        const timeout = setTimeout(() => reject(new Error("Request timeout")), 10000);
+        s.emit("channel:message:delete", { messageId }, (err: any, resp?: any) => {
+          clearTimeout(timeout);
+          if (err) {
+            const msg = err?.message || "Failed to delete message";
+            toast.error(msg);
+            reject(new Error(msg));
+            return;
+          }
+          resolve(resp);
+        });
+      });
+    },
+    [waitForConnection]
+  );
+
   return {
     messages: messages.data?.items ?? [],
     isLoading: messages.isLoading,
     sendMessage,
     toggleReaction,
     editMessage,
+    deleteMessage,
   };
+}
+
+export function useChannelActions() {
+  return useChannels({ skipSubscription: true });
 }

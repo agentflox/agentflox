@@ -14,7 +14,7 @@ import {
 import EmojiPicker, { Theme, EmojiClickData } from 'emoji-picker-react';
 import { type MediaFile } from '@/components/ui/media-upload';
 import { storageUtils } from '@/utils/storage/storageUtils';
-import { useChannels } from '../hooks/useChannels';
+import { useChannelActions } from '../hooks/useChannels';
 import { trpc } from '@/lib/trpc';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
@@ -77,7 +77,7 @@ export function ChannelMessageComposer({ channelId, mentionItems: externalMentio
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const { sendMessage } = useChannels({ channelId });
+  const { sendMessage } = useChannelActions();
   const [sending, setSending] = useState(false);
 
   // Auto-resize textarea; resets height when content is cleared after send
@@ -91,20 +91,20 @@ export function ChannelMessageComposer({ channelId, mentionItems: externalMentio
   }, [content]);
 
   // Fetch workspace members for mention popover
-  const { data: channel } = trpc.channel.get.useQuery({ id: channelId }, { staleTime: 60_000 });
+  const { data: channel } = trpc.channel.get.useQuery({ id: channelId }, { enabled: Boolean(channelId) && showMentionModal, staleTime: 60_000 });
   const workspaceId = channel?.workspaceId || '';
   const { data: members = [] } = trpc.workspace.getMembers.useQuery(
     { id: workspaceId },
-    { enabled: !!workspaceId, staleTime: 60_000 }
+    { enabled: !!workspaceId && showMentionModal, staleTime: 60_000 }
   );
 
   const { data: tasksData } = trpc.task.list.useQuery(
     { workspaceId, pageSize: 20, scope: "all", includeRelations: true },
-    { enabled: !!workspaceId }
+    { enabled: !!workspaceId && showMentionModal, staleTime: 60_000, gcTime: 5 * 60_000 }
   );
   const { data: docsData } = trpc.document.list.useQuery(
     { workspaceId, pageSize: 20 },
-    { enabled: !!workspaceId }
+    { enabled: !!workspaceId && showMentionModal, staleTime: 60_000, gcTime: 5 * 60_000 }
   );
 
   const scopedTasks = tasksData?.items || [];

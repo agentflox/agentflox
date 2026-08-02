@@ -15,12 +15,14 @@ interface ChannelThreadModalProps {
   message: any;
   mentionItems: any[];
   channelName: string;
+  allMessages?: any[];
 }
 
-export default function ChannelThreadModal({ isOpen, onClose, message, mentionItems, channelName }: ChannelThreadModalProps) {
+export default function ChannelThreadModal({ isOpen, onClose, message, mentionItems, channelName, allMessages }: ChannelThreadModalProps) {
   const [alsoSend, setAlsoSend] = useState(false);
-  const { messages: threadMessages } = useChannels({ channelId: message.channelId });
-  const replies = (threadMessages || []).filter(m => m.parentId === message.id);
+  const { messages: threadMessages } = useChannels({ channelId: message.channelId, skipSubscription: !isOpen || Boolean(allMessages) });
+  const messageSource = allMessages ?? threadMessages;
+  const replies = (messageSource || []).filter(m => m.parentId === message.id);
 
   const displayLabel = message.user?.name || message.user?.email || "Member";
   const initials = displayLabel.slice(0, 2).toUpperCase();

@@ -1,11 +1,13 @@
 'use client';
 
-import { Download, File, Image, Video, FileText, Music, Archive, X } from 'lucide-react';
+import { Download, File, Image, Video, FileText, Music, Archive, X, Forward } from 'lucide-react';
 import { useState } from 'react';
 import Link from 'next/link';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 interface MessageContentProps {
   content: string;
+  type?: string;
   attachments?: string[];
   isOwnMessage?: boolean;
 }
@@ -16,7 +18,7 @@ interface AttachmentInfo {
   type: string;
 }
 
-export function MessageContent({ content, attachments = [], isOwnMessage = false }: MessageContentProps) {
+export function MessageContent({ content, type, attachments = [], isOwnMessage = false }: MessageContentProps) {
   const [selectedMedia, setSelectedMedia] = useState<{ url: string; type: string } | null>(null);
   const submission = (() => {
     const prefix = '__AF_MARKETPLACE_SUBMISSION__';
@@ -35,10 +37,10 @@ export function MessageContent({ content, attachments = [], isOwnMessage = false
     const urlParts = url.split('/');
     const filename = urlParts[urlParts.length - 1].split('?')[0];
     const name = decodeURIComponent(filename);
-    
+
     const extension = name.split('.').pop()?.toLowerCase() || '';
     let type = 'application/octet-stream';
-    
+
     if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'].includes(extension)) {
       type = 'image/' + (extension === 'jpg' ? 'jpeg' : extension);
     } else if (['mp4', 'webm', 'mov', 'avi'].includes(extension)) {
@@ -50,7 +52,7 @@ export function MessageContent({ content, attachments = [], isOwnMessage = false
     } else if (['zip', 'rar', '7z'].includes(extension)) {
       type = 'application/zip';
     }
-    
+
     return { url, name, type };
   };
 
@@ -82,6 +84,27 @@ export function MessageContent({ content, attachments = [], isOwnMessage = false
 
   const attachmentsInfo = attachments.map(parseAttachment);
 
+  // Detect forwarded message JSON
+  const forwardData = (() => {
+    if (type !== 'FORWARD' || !content) return null;
+    try {
+      const parsed = JSON.parse(content);
+      if (parsed && typeof parsed === 'object') {
+        return parsed as {
+          optionalMessage?: string | null;
+          originalMessageId: string;
+          originalContent: string;
+          originalUser: { name?: string; image?: string | null };
+          originalCreatedAt: string;
+          originalChannelName?: string;
+        };
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  })();
+
   return (
     <>
       {submission ? (
@@ -103,19 +126,68 @@ export function MessageContent({ content, attachments = [], isOwnMessage = false
             </div>
           )}
         </div>
+      ) : forwardData ? (
+        <div className="flex flex-col gap-3">
+          {/* Forward badge */}
+          <div className={`flex items-center gap-1.5 text-xs font-semibold ${isOwnMessage ? 'text-blue-100/90' : 'text-zinc-500 dark:text-zinc-400'}`}>
+            <Forward className="h-3.5 w-3.5" />
+            Forwarded message
+          </div>
+
+          {/* Optional note from forwarder */}
+          {forwardData.optionalMessage && (
+            <div className="break-words whitespace-pre-wrap text-[15px] leading-relaxed">
+              {forwardData.optionalMessage}
+            </div>
+          )}
+
+          {/* Quoted original */}
+          <div className={`pl-3.5 border-l-[3px] flex flex-col gap-2 ${isOwnMessage ? 'border-white/25' : 'border-zinc-300 dark:border-zinc-700'
+            }`}>
+            <div className="flex items-center gap-2 mb-0.5">
+              <Avatar className="h-5 w-5 shrink-0 shadow-sm">
+                <AvatarImage src={forwardData.originalUser?.image || undefined} />
+                <AvatarFallback className={`text-[10px] font-bold ${isOwnMessage ? 'bg-white/20 text-white' : 'bg-zinc-800 text-white'
+                  }`}>
+                  {(forwardData.originalUser?.name || '?').slice(0, 2).toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+              <span className={`text-[13.5px] font-semibold tracking-tight ${isOwnMessage ? 'text-white' : 'text-zinc-900 dark:text-zinc-100'
+                }`}>
+                {forwardData.originalUser?.name || 'Unknown'}
+              </span>
+              <span className={`text-[11px] ${isOwnMessage ? 'text-blue-100/80' : 'text-zinc-500 dark:text-zinc-400'
+                }`}>
+                {new Date(forwardData.originalCreatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </span>
+            </div>
+
+            <div className={`text-[14.5px] leading-relaxed break-words whitespace-pre-wrap line-clamp-5 ${isOwnMessage ? 'text-blue-50/95' : 'text-zinc-700 dark:text-zinc-300'
+              }`}>
+              {forwardData.originalContent}
+            </div>
+
+            {forwardData.originalChannelName && (
+              <div className={`text-[11.5px] flex items-center gap-1 mt-1 font-medium ${isOwnMessage ? 'text-blue-200/80' : 'text-zinc-500 dark:text-zinc-400'
+                }`}>
+                <span>Forwarded from #{forwardData.originalChannelName}</span>
+              </div>
+            )}
+          </div>
+        </div>
       ) : (
         content && (
           <div className="break-words whitespace-pre-wrap text-[15px] leading-relaxed">{content}</div>
         )
       )}
-      
+
       {attachmentsInfo.length > 0 && (
         <div className={`${content ? 'mt-3' : ''} space-y-2.5`}>
           <div className={`${attachmentsInfo.length > 1 ? 'grid grid-cols-2 gap-2.5' : ''}`}>
             {attachmentsInfo.map((attachment, index) => {
               const isImage = attachment.type.startsWith('image/');
               const isVideo = attachment.type.startsWith('video/');
-              
+
               return (
                 <div key={index} className="relative group/media">
                   {isImage ? (
@@ -164,41 +236,36 @@ export function MessageContent({ content, attachments = [], isOwnMessage = false
                       </div>
                     </div>
                   ) : (
-                    <div 
+                    <div
                       onClick={() => handleDownload(attachment.url, attachment.name)}
-                      className={`group/file flex w-full max-w-[320px] items-center gap-3.5 p-3 rounded-[20px] border cursor-pointer transition-all duration-300 hover:shadow-md hover:-translate-y-0.5 ${
-                        isOwnMessage 
-                          ? 'bg-white/10 backdrop-blur-md border-white/20 hover:bg-white/20' 
-                          : 'bg-white dark:bg-zinc-900/80 border-zinc-200/80 dark:border-zinc-800/80 hover:border-indigo-300/50 dark:hover:border-indigo-500/50 shadow-sm'
-                      }`}
+                      className={`group/file flex w-full max-w-[320px] items-center gap-3.5 p-3 rounded-[20px] border cursor-pointer transition-all duration-300 hover:shadow-md hover:-translate-y-0.5 ${isOwnMessage
+                        ? 'bg-white/10 backdrop-blur-md border-white/20 hover:bg-white/20'
+                        : 'bg-white dark:bg-zinc-900/80 border-zinc-200/80 dark:border-zinc-800/80 hover:border-indigo-300/50 dark:hover:border-indigo-500/50 shadow-sm'
+                        }`}
                     >
-                      <div className={`flex-shrink-0 h-10 w-10 flex items-center justify-center rounded-[14px] transition-transform duration-300 group-hover/file:scale-105 ${
-                        isOwnMessage 
-                          ? 'bg-white/20 text-white' 
-                          : 'bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400'
-                      }`}>
+                      <div className={`flex-shrink-0 h-10 w-10 flex items-center justify-center rounded-[14px] transition-transform duration-300 group-hover/file:scale-105 ${isOwnMessage
+                        ? 'bg-white/20 text-white'
+                        : 'bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400'
+                        }`}>
                         {getFileIcon(attachment.type)}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className={`text-[13px] font-bold leading-tight truncate ${
-                          isOwnMessage ? 'text-white' : 'text-zinc-800 dark:text-zinc-200'
-                        }`} title={attachment.name}>
+                        <p className={`text-[13px] font-bold leading-tight truncate ${isOwnMessage ? 'text-white' : 'text-zinc-800 dark:text-zinc-200'
+                          }`} title={attachment.name}>
                           {attachment.name}
                         </p>
-                        <div className={`flex items-center gap-1.5 mt-1 text-[10px] font-bold tracking-wider uppercase ${
-                          isOwnMessage ? 'text-blue-100/70' : 'text-zinc-500 dark:text-zinc-500'
-                        }`}>
+                        <div className={`flex items-center gap-1.5 mt-1 text-[10px] font-bold tracking-wider uppercase ${isOwnMessage ? 'text-blue-100/70' : 'text-zinc-500 dark:text-zinc-500'
+                          }`}>
                           <span>{attachment.type.split('/')[1] || 'FILE'}</span>
                           <span className="w-1 h-1 rounded-full bg-current opacity-50"></span>
                           <span>ATTACHMENT</span>
                         </div>
                       </div>
                       <div
-                        className={`flex-shrink-0 h-8 w-8 flex items-center justify-center rounded-full transition-all duration-300 ${
-                          isOwnMessage 
-                            ? 'bg-white/10 text-white group-hover/file:bg-white/20' 
-                            : 'bg-zinc-100 dark:bg-zinc-800/80 text-zinc-500 dark:text-zinc-400 group-hover/file:bg-indigo-100 dark:group-hover/file:bg-indigo-500/20 group-hover/file:text-indigo-600 dark:group-hover/file:text-indigo-400'
-                        }`}
+                        className={`flex-shrink-0 h-8 w-8 flex items-center justify-center rounded-full transition-all duration-300 ${isOwnMessage
+                          ? 'bg-white/10 text-white group-hover/file:bg-white/20'
+                          : 'bg-zinc-100 dark:bg-zinc-800/80 text-zinc-500 dark:text-zinc-400 group-hover/file:bg-indigo-100 dark:group-hover/file:bg-indigo-500/20 group-hover/file:text-indigo-600 dark:group-hover/file:text-indigo-400'
+                          }`}
                       >
                         <Download className="h-4 w-4" />
                       </div>

@@ -3116,6 +3116,7 @@ model Message {
   senderId       String    @map("sender_id")
   receiverId     String    @map("receiver_id")
   content        String
+  type           String    @default("MESSAGE") @map("type")
   isRead         Boolean   @default(false) @map("is_read")
   readAt         DateTime? @map("read_at")
   attachments    String[]

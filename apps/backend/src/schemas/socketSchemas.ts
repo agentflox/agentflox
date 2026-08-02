@@ -20,6 +20,7 @@ export const MessageCreateSchema = z.object({
         content: z.string().optional(),
         senderId: AppIdSchema.optional(),
     }).optional(),
+    type: z.string().optional(),
     marketplaceListingId: z.string().optional(),
 }).refine(
     (data) => data.content?.trim() || data.attachments?.length,

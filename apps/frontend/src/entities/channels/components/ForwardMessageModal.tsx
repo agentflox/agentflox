@@ -8,7 +8,9 @@ import { Search, Hash, Copy } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
-import { useChannels } from "../hooks/useChannels";
+import { useChannelActions } from "../hooks/useChannels";
+import { useMessages } from "@/entities/messages/hooks/useMessages";
+import { v4 as uuidv4 } from "uuid";
 
 interface ForwardMessageModalProps {
   isOpen: boolean;
@@ -38,19 +40,20 @@ export function ForwardMessageModal({ isOpen, onClose, message }: ForwardMessage
     { enabled: !!workspaceId && isOpen, staleTime: 60_000 }
   );
 
-  const { sendMessage } = useChannels({});
+  const { sendMessage: sendChannelMessage } = useChannelActions();
+  const { sendMessage: { mutateAsync: sendDirectMessage } } = useMessages();
 
   const searchResults = useMemo(() => {
     if (!search.trim()) return [];
     const q = search.toLowerCase();
-    
+
     const matchedChannels = channels
       .filter((c) => c.name.toLowerCase().includes(q))
       .map((c) => ({ ...c, destType: "channel" }));
-      
+
     const matchedMembers = members
-      .filter((m) => 
-        m.user.name?.toLowerCase().includes(q) || 
+      .filter((m) =>
+        m.user.name?.toLowerCase().includes(q) ||
         m.user.email?.toLowerCase().includes(q)
       )
       .map((m) => ({ ...m, destType: "user" }));
@@ -71,13 +74,6 @@ export function ForwardMessageModal({ isOpen, onClose, message }: ForwardMessage
     if (!selectedDestination) return;
 
     try {
-      let destChannelId = selectedDestination.id;
-
-      if (selectedDestination.destType === "user") {
-        toast.error("Forwarding to direct messages is not yet fully supported.");
-        return;
-      }
-
       // Format the forwarded message as JSON
       const fwdContent = JSON.stringify({
         optionalMessage: optionalMessage.trim() || null,
@@ -91,11 +87,20 @@ export function ForwardMessageModal({ isOpen, onClose, message }: ForwardMessage
         originalChannelName: channel?.name || "General"
       });
 
-      await sendMessage({
-        channelId: destChannelId,
-        content: fwdContent,
-        type: "FORWARD",
-      });
+      if (selectedDestination.destType === "user") {
+        await sendDirectMessage({
+          id: uuidv4(),
+          toUserId: selectedDestination.user?.id || selectedDestination.userId,
+          content: fwdContent,
+          type: "FORWARD",
+        });
+      } else {
+        await sendChannelMessage({
+          channelId: selectedDestination.id,
+          content: fwdContent,
+          type: "FORWARD",
+        });
+      }
 
       toast.success("Message forwarded");
       onClose();
@@ -177,7 +182,7 @@ export function ForwardMessageModal({ isOpen, onClose, message }: ForwardMessage
                 <span className="text-sm font-medium text-slate-800">
                   {selectedDestination.destType === "channel" ? selectedDestination.name : (selectedDestination.user?.name || selectedDestination.user?.email)}
                 </span>
-                <button 
+                <button
                   onClick={() => setSelectedDestination(null)}
                   className="ml-1 text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
                 >
@@ -223,9 +228,9 @@ export function ForwardMessageModal({ isOpen, onClose, message }: ForwardMessage
             <Copy className="h-4 w-4 mr-1.5" />
             Copy link
           </Button>
-          <Button 
-            size="sm" 
-            onClick={handleForward} 
+          <Button
+            size="sm"
+            onClick={handleForward}
             disabled={!selectedDestination}
             className="bg-slate-900 hover:bg-slate-800 text-white shadow-none cursor-pointer"
           >

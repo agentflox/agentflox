@@ -13,8 +13,10 @@ import { useSession } from 'next-auth/react';
 import { MessageContent } from './MessageContent';
 import { MessageReplyTo } from './MessageReplyTo';
 import { useMessageActions } from '../hooks/useMessageActions';
+import { useMessages } from '../hooks/useMessages';
 import { useToast } from '@/hooks/useToast';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { v4 as uuidv4 } from 'uuid';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -58,28 +60,18 @@ export function MessageItem({ message, currentUserId, onReply }: MessageItemProp
   const { toast } = useToast();
   const { data: session } = useSession();
   const { markAsRead, toggleReaction } = useMessageActions();
+  const { sendMessage: { mutateAsync: sendDirectMessage } } = useMessages();
 
   const [isForwardOpen, setIsForwardOpen] = useState(false);
   const [forwardQuery, setForwardQuery] = useState('');
+  const [isForwarding, setIsForwarding] = useState(false);
 
   const { data: convData, isLoading: isForwardLoading } = trpc.messages.listConversations.useQuery(
     { page: 1, pageSize: 50 },
     { enabled: isForwardOpen, staleTime: 30000 }
   );
 
-  const forwardMutation = trpc.messages.send.useMutation({
-    onSuccess: () => {
-      toast({ title: 'Message forwarded successfully!' });
-      setIsForwardOpen(false);
-      setForwardQuery('');
-      utils.messages.listConversations.invalidate();
-      utils.messages.listWithUser.invalidate();
-      utils.messages.listByConversationId.invalidate();
-    },
-    onError: (err) => {
-      toast({ title: 'Failed to forward', description: err.message, variant: 'destructive' });
-    }
-  });
+
 
   const forwardList = useMemo(() => {
     if (!convData?.items) return [];
@@ -94,6 +86,36 @@ export function MessageItem({ message, currentUserId, onReply }: MessageItemProp
     return items;
   }, [convData, forwardQuery]);
 
+  const handleForwardToUser = async (conv: any) => {
+    setIsForwarding(true);
+    try {
+      const fwdContent = JSON.stringify({
+        optionalMessage: null,
+        originalMessageId: message.id,
+        originalContent: message.content,
+        originalUser: {
+          name: message.sender?.name || 'Unknown',
+          image: message.sender?.avatar || null,
+        },
+        originalCreatedAt: message.createdAt,
+        originalChannelName: null,
+      });
+      await sendDirectMessage({
+        id: uuidv4(),
+        toUserId: conv.user_id,
+        content: fwdContent,
+        type: 'FORWARD',
+        marketplaceListingId: conv.marketplace_listing_id ?? undefined,
+      });
+      toast({ title: 'Message forwarded successfully!' });
+      setIsForwardOpen(false);
+      setForwardQuery('');
+    } catch (err: any) {
+      toast({ title: 'Failed to forward', description: err.message, variant: 'destructive' });
+    } finally {
+      setIsForwarding(false);
+    }
+  };
 
   const utils = trpc.useUtils();
   const deleteMessage = trpc.messages.delete.useMutation({
@@ -264,6 +286,7 @@ export function MessageItem({ message, currentUserId, onReply }: MessageItemProp
             >
               <MessageContent
                 content={message.content}
+                type={message.type}
                 attachments={message.attachments}
                 isOwnMessage={isOwnMessage}
               />
@@ -527,15 +550,8 @@ export function MessageItem({ message, currentUserId, onReply }: MessageItemProp
               forwardList.map((c: any) => (
                 <button
                   key={c.id}
-                  disabled={forwardMutation.isPending}
-                  onClick={() => {
-                    forwardMutation.mutate({
-                      toUserId: c.user_id,
-                      content: message.content,
-                      marketplaceListingId: c.marketplace_listing_id,
-                      attachments: message.attachments || [],
-                    });
-                  }}
+                  disabled={isForwarding}
+                  onClick={() => handleForwardToUser(c)}
                   className="w-full flex items-center gap-3 px-4 py-2 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors text-left cursor-pointer group/forward"
                 >
                   <Avatar className="h-8 w-8 border border-black/5 dark:border-white/10 shrink-0">
@@ -549,7 +565,7 @@ export function MessageItem({ message, currentUserId, onReply }: MessageItemProp
                       {c.marketplace_listing_title || c.name || c.username}
                     </div>
                   </div>
-                  {forwardMutation.isPending ? (
+                  {isForwarding ? (
                     <div className="h-4 w-4 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin shrink-0" />
                   ) : (
                     <div className="h-7 w-7 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center opacity-0 group-hover/forward:opacity-100 transition-all scale-90 group-hover/forward:scale-100">

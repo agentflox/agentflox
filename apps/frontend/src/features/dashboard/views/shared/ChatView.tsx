@@ -291,9 +291,9 @@ export default function ChatView({ workspaceId, spaceId, projectId, teamId, sele
         return dedupeMembers(members);
     }, [workspace]);
 
-    const ownedProjects = trpc.project.list.useQuery({ scope: "owned", page: 1, pageSize: 50 }, { staleTime: 60_000, gcTime: 5 * 60_000 });
-    const ownedTeams = trpc.team.list.useQuery({ scope: "owned", page: 1, pageSize: 50 }, { staleTime: 60_000, gcTime: 5 * 60_000 });
-    const ownedSpaces = trpc.space.list.useQuery({ scope: "owned", page: 1, pageSize: 50 }, { staleTime: 60_000, gcTime: 5 * 60_000 });
+    const ownedProjects = trpc.project.list.useQuery({ scope: "owned", page: 1, pageSize: 50 }, { enabled: membersSidebarOpen || chatModalOpen, staleTime: 60_000, gcTime: 5 * 60_000 });
+    const ownedTeams = trpc.team.list.useQuery({ scope: "owned", page: 1, pageSize: 50 }, { enabled: membersSidebarOpen || chatModalOpen, staleTime: 60_000, gcTime: 5 * 60_000 });
+    const ownedSpaces = trpc.space.list.useQuery({ scope: "owned", page: 1, pageSize: 50 }, { enabled: membersSidebarOpen || chatModalOpen, staleTime: 60_000, gcTime: 5 * 60_000 });
 
     const projectGroups = useMemo(() => {
         return (ownedProjects.data?.items ?? []).map((p: any) => ({ id: p.id, name: p.name, type: "project" as const, members: [] as SelectedMember[] }));
@@ -539,7 +539,7 @@ export default function ChatView({ workspaceId, spaceId, projectId, teamId, sele
                 )}
                 <div className="flex-1 flex flex-col min-h-0 bg-white border-x border-slate-200/60 shadow-[0_0_15px_rgba(0,0,0,0.02)] relative z-0">
 
-                    <div className="flex-1 min-h-0 overflow-y-auto px-6 py-4 bg-[#f8fafc]">
+                    <div className="flex-1 min-h-0 px-6 py-4 bg-[#f8fafc] flex flex-col">
                         {isLoadingMessages ? (
                             <div className="space-y-6">
                                 {[...Array(5)].map((_, groupIdx) => (
