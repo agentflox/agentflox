@@ -19,6 +19,7 @@ import type { ChatContextType } from '@/entities/chats/utils/context'
 import { Skeleton } from "@/components/ui/skeleton";
 import { LoadingContainer, LoadingPage } from "@/components/ui/loading";
 import { trpc } from '@/lib/trpc'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 type UpperContext = 'PROJECT' | 'PROFILE' | 'PROPOSAL' | 'TEAM' | 'WORKSPACE' | 'SPACE' | 'CHANNEL' | 'TASK' | 'LIST' | 'FOLDER'
 
@@ -286,35 +287,49 @@ export function ChatView({ contextType = 'PROJECT', contextId, contextName, cont
                     <p className="text-xs text-muted-foreground truncate max-w-[120px]">{selectedContext.name}</p>
                   </div>
                   <div className="flex items-center gap-1">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7 text-muted-foreground hover:text-foreground"
-                      onClick={() => setIsSearchOpen(true)}
-                      title="Search"
-                    >
-                      <Search className="h-4 w-4" />
-                    </Button>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                            onClick={() => setIsSearchOpen(true)}
+                          >
+                            <Search className="h-4 w-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Search</TooltipContent>
+                      </Tooltip>
 
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7 text-muted-foreground hover:text-foreground"
-                      onClick={() => setIsSidebarCollapsed(true)}
-                      title="Collapse Sidebar"
-                    >
-                      <ChevronsLeft className="h-4 w-4" />
-                    </Button>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                            onClick={() => setIsSidebarCollapsed(true)}
+                          >
+                            <ChevronsLeft className="h-4 w-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Collapse Sidebar</TooltipContent>
+                      </Tooltip>
 
-                    <Button
-                      onClick={handleCreateConversation}
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7 text-muted-foreground hover:text-foreground"
-                      title="New Chat"
-                    >
-                      <Plus className="h-4 w-4" />
-                    </Button>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            onClick={handleCreateConversation}
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                          >
+                            <Plus className="h-4 w-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>New Chat</TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
                   </div>
                 </div>
               )}
