@@ -118,6 +118,32 @@ export function registerChannelHandlers(io: any, socket: Socket) {
       // Remove duplicate individual sends - users in channel room will receive it
       io.to(`channel:${message.channelId}`).emit('channel:message:received', broadcastPayload);
 
+      // 6. Notify followers who are not the sender
+      const followers = await prisma.channelMember.findMany({
+        where: { channelId: payload.channelId, isFollowed: true, userId: { not: userId } },
+        select: { userId: true },
+      });
+
+      if (followers.length > 0) {
+        const notifications = followers.map((f) => ({
+          userId: f.userId,
+          type: "MESSAGE_RECEIVED" as const,
+          title: `New message in channel`,
+          message: `${message.user?.name || "Someone"}: ${message.content.substring(0, 50)}${message.content.length > 50 ? '...' : ''}`,
+          entityId: message.channelId,
+          entityType: "CHANNEL",
+          metadata: { messageId: message.id },
+          aggregateKey: `channel_${message.channelId}_msg`,
+        }));
+        
+        await prisma.notification.createMany({ data: notifications });
+        
+        followers.forEach((f) => {
+          // Tell each follower's connected socket to refresh their notifications
+          io.to(`user:${f.userId}`).emit('notification:new');
+        });
+      }
+
       // Echo back to sender
       socket.emit('channel:message:sent', broadcastPayload);
 

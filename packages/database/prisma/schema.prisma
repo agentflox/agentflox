@@ -1727,6 +1727,8 @@ model ChannelMember {
   userId     String      @map("user_id")
   role       ChannelRole @default(MEMBER)
   isMuted    Boolean     @default(false) @map("is_muted")
+  isFavorite Boolean     @default(false) @map("is_favorite")
+  isFollowed Boolean     @default(true) @map("is_followed")
   lastReadAt DateTime?   @map("last_read_at")
   joinedAt   DateTime    @default(now()) @map("joined_at")
   channel    Channel     @relation(fields: [channelId], references: [id], onDelete: Cascade)

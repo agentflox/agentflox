@@ -56,6 +56,8 @@ export function ChannelMembersSidebar({ open, onClose, chatMembers, onAddMember,
 
   const addMemberMutation = trpc.channel.addMember.useMutation();
   const removeMemberMutation = trpc.channel.removeMember.useMutation();
+  const followMutation = trpc.channel.follow.useMutation();
+  const unfollowMutation = trpc.channel.unfollow.useMutation();
 
   const { data: workspaceMembersData } = trpc.workspace.getMembers.useQuery(
     { id: workspaceId! },
@@ -224,6 +226,28 @@ export function ChannelMembersSidebar({ open, onClose, chatMembers, onAddMember,
                   </div>
                   <div className="flex items-center gap-2">
                     <Badge variant="outline" className="text-xs capitalize text-slate-500 border-slate-200">{member.source}</Badge>
+                    {member.id === currentUserId && channelId && (
+                      <button
+                        onClick={async () => {
+                          const channelMember = channelData?.members.find((m: any) => m.userId === member.id);
+                          const isFollowed = channelMember?.isFollowed ?? true;
+                          if (isFollowed) {
+                            await unfollowMutation.mutateAsync({ channelId });
+                          } else {
+                            await followMutation.mutateAsync({ channelId });
+                          }
+                          refetchChannel();
+                        }}
+                        className={cn(
+                          "flex h-7 px-2 items-center justify-center rounded-lg text-xs font-medium border transition-all cursor-pointer opacity-0 group-hover:opacity-100",
+                          (channelData?.members.find((m: any) => m.userId === member.id)?.isFollowed ?? true)
+                            ? "border-slate-200 text-slate-600 hover:bg-slate-100"
+                            : "border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100"
+                        )}
+                      >
+                        {(channelData?.members.find((m: any) => m.userId === member.id)?.isFollowed ?? true) ? 'Unfollow' : 'Follow'}
+                      </button>
+                    )}
                     {isCreator && (
                       <button
                         onClick={async () => {

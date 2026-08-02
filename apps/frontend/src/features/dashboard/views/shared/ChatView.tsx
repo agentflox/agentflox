@@ -25,6 +25,8 @@ import ChannelMembersSidebar from "@/entities/channels/components/ChannelMembers
 import ChannelSettingsSidebar from "@/entities/channels/components/ChannelSettingsSidebar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { LoadingContainer, LoadingPage } from "@/components/ui/loading";
+import { toast } from "sonner";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface ChatViewProps {
     workspaceId?: string;
@@ -173,6 +175,10 @@ export default function ChatView({ workspaceId, spaceId, projectId, teamId, sele
     const utils = trpc.useUtils();
     const createChannel = trpc.channel.create.useMutation();
     const updateChannel = trpc.channel.update.useMutation();
+    const deleteChannel = trpc.channel.delete.useMutation();
+    const favoriteChannel = trpc.channel.favorite.useMutation();
+    const unfollowChannel = trpc.channel.unfollow.useMutation();
+    const followChannel = trpc.channel.follow.useMutation();
     const [activeChannelId, setActiveChannelId] = useState<string | null>(selectedChatId || null);
     const [membersSidebarOpen, setMembersSidebarOpen] = useState(false);
     const [settingsSidebarOpen, setSettingsSidebarOpen] = useState(false);
@@ -235,6 +241,40 @@ export default function ChatView({ workspaceId, spaceId, projectId, teamId, sele
         setSettingsSidebarOpen(false);
     }, [activeChannelId, updateChannel, chatDescription, utils.channel.list, workspaceId, spaceId, projectId, teamId]);
 
+    const handleDeleteChannel = useCallback(async (id: string) => {
+        if (!confirm("Are you sure you want to delete this channel?")) return;
+        await deleteChannel.mutateAsync({ id });
+        await utils.channel.list.invalidate({ workspaceId, spaceId, projectId, teamId, withCounts: false } as any);
+        if (activeChannelId === id) {
+            setActiveChannelId(null);
+            setChatTitle("");
+        }
+    }, [deleteChannel, utils.channel.list, activeChannelId, workspaceId, spaceId, projectId, teamId]);
+
+    const handleFavoriteChannel = useCallback(async (id: string) => {
+        await favoriteChannel.mutateAsync({ channelId: id, isFavorite: true });
+        toast.success("Channel favorited");
+    }, [favoriteChannel]);
+
+    const handleUnfollowChannel = useCallback(async (id: string) => {
+        await unfollowChannel.mutateAsync({ channelId: id });
+        toast.success("Unfollowed channel");
+        await utils.channel.list.invalidate({ workspaceId, spaceId, projectId, teamId, withCounts: false } as any);
+    }, [unfollowChannel, utils.channel.list, workspaceId, spaceId, projectId, teamId]);
+
+    const handleFollowChannel = useCallback(async (id: string) => {
+        await followChannel.mutateAsync({ channelId: id });
+        toast.success("Followed channel");
+        await utils.channel.list.invalidate({ workspaceId, spaceId, projectId, teamId, withCounts: false } as any);
+    }, [followChannel, utils.channel.list, workspaceId, spaceId, projectId, teamId]);
+
+    const handleOpenRename = useCallback(async (id: string, newName: string) => {
+        await updateChannel.mutateAsync({ id, name: newName });
+        if (activeChannelId === id) setChatTitle(newName);
+        await utils.channel.list.invalidate({ workspaceId, spaceId, projectId, teamId, withCounts: false } as any);
+        toast.success("Channel renamed");
+    }, [updateChannel, activeChannelId, utils.channel.list, workspaceId, spaceId, projectId, teamId]);
+
     useEffect(() => {
         if (selectedChatId) {
             setActiveChannelId(selectedChatId);
@@ -246,7 +286,8 @@ export default function ChatView({ workspaceId, spaceId, projectId, teamId, sele
             setActiveChannelId(channelsQuery.data[0].id);
             setChatTitle(channelsQuery.data[0].name ?? "Channel");
         }
-    }, [activeChannelId, channelsQuery.data, selectedChatId]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [channelsQuery.data, selectedChatId]);
 
     // Notify parent component when active channel changes
     useEffect(() => {
@@ -451,35 +492,49 @@ export default function ChatView({ workspaceId, spaceId, projectId, teamId, sele
                                         <p className="text-xs font-medium text-slate-500 truncate max-w-[120px]">{workspace?.name}</p>
                                     </div>
                                     <div className="flex items-center gap-1">
-                                        <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            className="h-7 w-7 text-muted-foreground hover:text-foreground"
-                                            onClick={() => setIsSearchNavOpen(true)}
-                                            title="Search"
-                                        >
-                                            <Search className="h-4 w-4" />
-                                        </Button>
+                                        <TooltipProvider>
+                                            <Tooltip>
+                                                <TooltipTrigger asChild>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                                                        onClick={() => setIsSearchNavOpen(true)}
+                                                    >
+                                                        <Search className="h-4 w-4" />
+                                                    </Button>
+                                                </TooltipTrigger>
+                                                <TooltipContent>Search</TooltipContent>
+                                            </Tooltip>
 
-                                        <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            className="h-7 w-7 text-muted-foreground hover:text-foreground"
-                                            onClick={() => setIsSidebarCollapsed(true)}
-                                            title="Collapse Sidebar"
-                                        >
-                                            <ChevronsLeft className="h-4 w-4" />
-                                        </Button>
+                                            <Tooltip>
+                                                <TooltipTrigger asChild>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                                                        onClick={() => setIsSidebarCollapsed(true)}
+                                                    >
+                                                        <ChevronsLeft className="h-4 w-4" />
+                                                    </Button>
+                                                </TooltipTrigger>
+                                                <TooltipContent>Collapse Sidebar</TooltipContent>
+                                            </Tooltip>
 
-                                        <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            className="h-7 w-7 text-muted-foreground hover:text-foreground"
-                                            onClick={() => setChatModalOpen(true)}
-                                            title="Create Channel"
-                                        >
-                                            <Plus className="h-4 w-4" />
-                                        </Button>
+                                            <Tooltip>
+                                                <TooltipTrigger asChild>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                                                        onClick={() => setChatModalOpen(true)}
+                                                    >
+                                                        <Plus className="h-4 w-4" />
+                                                    </Button>
+                                                </TooltipTrigger>
+                                                <TooltipContent>Create Channel</TooltipContent>
+                                            </Tooltip>
+                                        </TooltipProvider>
                                     </div>
                                 </div>
                             )}
@@ -498,13 +553,24 @@ export default function ChatView({ workspaceId, spaceId, projectId, teamId, sele
                             ) : (
                                 <div className="p-2">
                                     <ChannelList
-                                        channels={filteredChannels.map((c) => ({ id: c.id, name: c.name, description: c.description }))}
+                                        channels={filteredChannels.map((c: any) => ({
+                                            id: c.id,
+                                            name: c.name,
+                                            description: c.description,
+                                            isMember: c.members && c.members.length > 0,
+                                            isFollowed: c.members && c.members.length > 0 ? c.members[0].isFollowed : false,
+                                        }))}
                                         activeId={activeChannelId}
                                         onSelect={(id) => {
                                             const c = (channelsQuery.data ?? []).find((x) => x.id === id);
                                             setActiveChannelId(id);
                                             setChatTitle(c?.name ?? "Channel");
                                         }}
+                                        onRename={handleOpenRename}
+                                        onDelete={handleDeleteChannel}
+                                        onFavorite={handleFavoriteChannel}
+                                        onUnfollow={handleUnfollowChannel}
+                                        onFollow={handleFollowChannel}
                                     />
                                     {filteredChannels.length === 0 && (
                                         <div className="flex flex-col items-center justify-center py-12 px-4 text-center animate-in fade-in duration-300">

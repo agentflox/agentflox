@@ -944,6 +944,8 @@ exports.Prisma.ChannelMemberScalarFieldEnum = {
   userId: 'userId',
   role: 'role',
   isMuted: 'isMuted',
+  isFavorite: 'isFavorite',
+  isFollowed: 'isFollowed',
   lastReadAt: 'lastReadAt',
   joinedAt: 'joinedAt'
 };

@@ -368,10 +368,6 @@ export function CalendarView({ spaceId, projectId, teamId, folderId, listId, vie
     const [defaultView, setDefaultView] = useState(false);
     const [defaultToMeMode, setDefaultToMeMode] = useState(false);
     const [isShareModalOpen, setIsShareModalOpen] = useState(false);
-    const [isDefaultViewSettingsModalOpen, setIsDefaultViewSettingsModalOpen] = useState(false);
-    const [defaultViewSettingsApplyTo, setDefaultViewSettingsApplyTo] = useState<"NEW" | "REQUIRED" | "ALL">("NEW");
-    /** @type {Partial<any>} */
-    const [defaultViewSettingsDraft, setDefaultViewSettingsDraft] = useState({});
 
     useEffect(() => {
         if (!isToolbarSearchOpen) return;
@@ -3151,75 +3147,6 @@ export function CalendarView({ spaceId, projectId, teamId, folderId, listId, vie
                 trigger={<span className="sr-only" />}
             />
 
-            {/* View Settings Modals */}
-            {/* View Settings Popover has been removed, as the large customize sidebar houses all of its options */}
-
-            {/* Default View Settings Modal */}
-            <Dialog open={isDefaultViewSettingsModalOpen} onOpenChange={setIsDefaultViewSettingsModalOpen}>
-                <DialogContent className="max-w-md p-0 overflow-hidden rounded-2xl gap-0 border-zinc-200">
-                    <DialogHeader className="p-5 border-b border-zinc-100 pb-4">
-                        <DialogTitle className="text-lg font-bold text-zinc-900">Default View Settings</DialogTitle>
-                        <DialogDescription className="text-zinc-500 mt-1.5 text-sm leading-relaxed">
-                            Set this view as the default for everyone or just for yourself.
-                        </DialogDescription>
-                    </DialogHeader>
-
-                    <div className="p-5 space-y-5">
-                        <div className="flex items-start gap-3">
-                            <div className="mt-0.5">
-                                <Checkbox
-                                    checked={defaultView}
-                                    onCheckedChange={(checked) => {
-                                        updateViewProperty('isDefault', !!checked);
-                                    }}
-                                />
-                            </div>
-                            <div>
-                                <Label className="text-sm font-semibold text-zinc-900 cursor-pointer mb-1 block">Default View for Everyone</Label>
-                                <p className="text-xs text-zinc-500 leading-relaxed">
-                                    When people navigate to this location, this view will open by default. Only Workspace admins can set default views for everyone.
-                                </p>
-                            </div>
-                        </div>
-
-                        <div className="h-px bg-zinc-100" />
-
-                        <div className="space-y-3">
-                            <Label className="text-sm font-semibold text-zinc-900 mb-2 block">Apply to New Views</Label>
-
-                            <label className="flex items-start gap-3 p-3 rounded-xl border border-zinc-200 cursor-pointer hover:bg-zinc-50 transition-colors">
-                                <span className="mt-0.5 flex items-center justify-center h-4 w-4 rounded-full border border-zinc-300">
-                                    {defaultViewSettingsApplyTo === "NEW" && <div className="h-2 w-2 rounded-full bg-violet-600" />}
-                                </span>
-                                <div>
-                                    <span className="text-sm font-medium text-zinc-900 block mb-0.5">New Calendar Views</span>
-                                    <span className="text-xs text-zinc-500 block">Apply these settings as the default starting point for new Calendar views.</span>
-                                </div>
-                            </label>
-
-                            <label className="flex items-start gap-3 p-3 rounded-xl border border-zinc-200 cursor-pointer hover:bg-zinc-50 transition-colors opacity-50">
-                                <span className="mt-0.5 flex items-center justify-center h-4 w-4 rounded-full border border-zinc-300">
-                                    {defaultViewSettingsApplyTo === "ALL" && <div className="h-2 w-2 rounded-full bg-violet-600" />}
-                                </span>
-                                <div>
-                                    <span className="text-sm font-medium text-zinc-900 block mb-0.5">All Calendar Views</span>
-                                    <span className="text-xs text-zinc-500 block">Force all future and current Calendar views to adopt these settings.</span>
-                                </div>
-                            </label>
-                        </div>
-                    </div>
-
-                    <div className="p-4 bg-zinc-50 border-t border-zinc-100 flex justify-end gap-2">
-                        <Button variant="ghost" className="h-9 px-4 text-sm font-medium text-zinc-600" onClick={() => setIsDefaultViewSettingsModalOpen(false)}>
-                            Cancel
-                        </Button>
-                        <Button className="h-9 px-4 text-sm font-medium bg-zinc-900 hover:bg-zinc-800" onClick={() => setIsDefaultViewSettingsModalOpen(false)}>
-                            Save Settings
-                        </Button>
-                    </div>
-                </DialogContent>
-            </Dialog>
-
             {/* Share and Permissions Modal */}
             <Dialog open={isShareModalOpen} onOpenChange={setIsShareModalOpen}>
                 <DialogContent className="max-w-lg p-0 overflow-hidden rounded-2xl gap-0 border-zinc-200">
@@ -3377,9 +3304,6 @@ export function CalendarView({ spaceId, projectId, teamId, folderId, listId, vie
                                     </div>
                                     <div className="flex items-center justify-between py-1 px-2 hover:bg-zinc-50 rounded cursor-pointer">
                                         <span className="text-sm flex items-center gap-2"><RefreshCw className="h-4 w-4 text-zinc-400" />Reset view to defaults</span>
-                                    </div>
-                                    <div className="flex items-center justify-between py-1 px-2 hover:bg-zinc-50 rounded cursor-pointer" onClick={() => setIsDefaultViewSettingsModalOpen(true)}>
-                                        <span className="text-sm flex items-center gap-2"><Settings className="h-4 w-4 text-zinc-400" />Default view settings</span>
                                     </div>
                                 </div>
 

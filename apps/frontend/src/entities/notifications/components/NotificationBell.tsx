@@ -207,7 +207,7 @@ export default function NotificationBell() {
                           {notification.title}
                         </p>
                         <p className="mt-0.5 text-xs text-zinc-500 line-clamp-2">
-                          {notification.content}
+                          {notification.message}
                         </p>
                         <p className="mt-1 text-[10px] text-zinc-400">
                           {new Date(notification.createdAt).toLocaleDateString()}

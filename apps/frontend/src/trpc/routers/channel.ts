@@ -35,7 +35,7 @@ export const channelRouter = router({
       query: z.string().optional(),
       withCounts: z.boolean().optional(),
     }))
-    .query(async ({ input }) => {
+    .query(async ({ input, ctx }) => {
       const where: any = {};
       if (input.workspaceId) where.workspaceId = input.workspaceId;
       if (input.spaceId) where.spaceId = input.spaceId;
@@ -50,7 +50,13 @@ export const channelRouter = router({
       return prisma.channel.findMany({
         where,
         orderBy: { createdAt: "desc" },
-        include: input.withCounts ? { _count: { select: { tasks: true } } } : undefined,
+        include: {
+          ...(input.withCounts ? { _count: { select: { tasks: true } } } : {}),
+          members: {
+            where: { userId: ctx.session!.user!.id },
+            select: { isFollowed: true, isFavorite: true }
+          }
+        }
       });
     }),
   get: protectedProcedure
@@ -105,7 +111,7 @@ export const channelRouter = router({
         where: { channelId: input.channelId, userId: input.userId }
       });
       if (existing) return existing;
-      
+
       return prisma.channelMember.create({
         data: { channelId: input.channelId, userId: input.userId }
       });
@@ -122,6 +128,39 @@ export const channelRouter = router({
     .mutation(async ({ input }) => {
       await prisma.task.updateMany({ where: { channelId: input.id }, data: { channelId: null } });
       return prisma.channel.delete({ where: { id: input.id } });
+    }),
+  favorite: protectedProcedure
+    .input(z.object({ channelId: z.string(), isFavorite: z.boolean() }))
+    .mutation(async ({ ctx, input }) => {
+      const userId = ctx.session!.user!.id;
+      return prisma.channelMember.update({
+        where: { channelId_userId: { channelId: input.channelId, userId } },
+        data: { isFavorite: input.isFavorite },
+      });
+    }),
+  unfollow: protectedProcedure
+    .input(z.object({ channelId: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const userId = ctx.session!.user!.id;
+      return prisma.channelMember.update({
+        where: { channelId_userId: { channelId: input.channelId, userId } },
+        data: { isFollowed: false },
+      });
+    }),
+  follow: protectedProcedure
+    .input(z.object({ channelId: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const userId = ctx.session!.user!.id;
+      // Use upsert to allow joining/following
+      return prisma.channelMember.upsert({
+        where: { channelId_userId: { channelId: input.channelId, userId } },
+        update: { isFollowed: true },
+        create: {
+          channelId: input.channelId,
+          userId,
+          isFollowed: true,
+        }
+      });
     }),
 });
 

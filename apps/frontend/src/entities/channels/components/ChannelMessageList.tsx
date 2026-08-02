@@ -82,19 +82,19 @@ export default function ChannelMessageList({ channelId, messages, onAddMembers }
 
   if (!hasMessages) {
     return (
-      <div className="flex h-full flex-col items-center justify-center p-4 sm:p-6 mb-2 text-center">
+      <div className="flex h-full flex-col items-center justify-center p-4 sm:p-6">
         <div className="space-y-2.5 max-w-lg">
-          <h1 className="text-xl font-semibold tracking-tight text-slate-900">
+          <h1 className="text-sm font-semibold tracking-tight text-slate-900">
             Chat in #{channel?.name || "channel"}
           </h1>
-          <p className="text-base text-slate-500 leading-relaxed">
+          <p className="text-sm text-slate-500 leading-relaxed text-justify">
             Collaborate seamlessly across tasks and conversations. Start chatting with your team or connect tasks to stay on top of your work.
           </p>
           {onAddMembers && (
             <div className="pt-2">
               <Button
                 variant="outline"
-                className="rounded-lg h-9 px-10 border-slate-200/80 text-slate-800 hover:bg-slate-50 font-medium shadow-sm"
+                className="w-full rounded-lg h-9 px-10 border-slate-200/80 bg-white text-slate-800 hover:bg-slate-100 font-medium shadow-sm cursor-pointer"
                 onClick={onAddMembers}
               >
                 + Add People

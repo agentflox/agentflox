@@ -411,18 +411,6 @@ export function TableView({ spaceId, projectId, teamId, listId, folderId, viewId
     const { data: viewData } = trpc.view.get.useQuery({ id: viewId as string }, { staleTime: 60_000, gcTime: 5 * 60_000, enabled: !!viewId });
     const [viewNameDraft, setViewNameDraft] = useState("");
 
-    // Default view settings
-    const [isDefaultViewSettingsModalOpen, setIsDefaultViewSettingsModalOpen] = useState(false);
-    const [defaultViewSettingsApplyTo, setDefaultViewSettingsApplyTo] = useState<"NEW" | "REQUIRED" | "ALL">("NEW");
-    /** @type {Partial<ListViewSavedConfig>} */
-    const [defaultViewSettingsDraft, setDefaultViewSettingsDraft] = useState({});
-
-    const updateSpaceMutation = trpc.space.update.useMutation({
-        onSuccess: () => {
-            void utils.space.get.invalidate({ id: spaceId as string });
-        }
-    });
-
     const updateManyViewsMutation = trpc.view.updateMany.useMutation({
         onSuccess: () => {
             void utils.view.list.invalidate();
@@ -2840,56 +2828,6 @@ export function TableView({ spaceId, projectId, teamId, listId, folderId, viewId
         toast.success("View reset to defaults");
     }, [spaceDefaultViewConfig, listId]);
 
-    const saveDefaultViewSettings = async () => {
-        if (!spaceId) return;
-
-        const nextSpaceSettings = {
-            ...(space?.settings as any || {}),
-            defaultViewConfig: defaultViewSettingsDraft
-        };
-
-        try {
-            // 1. Update Space defaults
-            await updateSpaceMutation.mutateAsync({
-                id: spaceId,
-                settings: nextSpaceSettings
-            });
-
-            // 2. Adjust for existing views if needed
-            if (defaultViewSettingsApplyTo === "REQUIRED" || defaultViewSettingsApplyTo === "ALL") {
-                // For "REQUIRED", update current view
-                if (viewId) {
-                    const raw = (initialConfig ?? {}) as any;
-                    const listView = raw?.listView ?? {};
-                    const nextConfig = { ...raw, listView: { ...listView, ...defaultViewSettingsDraft } };
-                    await updateViewMutation.mutateAsync({ id: viewId, config: nextConfig });
-                }
-
-                // For "ALL", merge default listView into each view's config (do not replace entire config)
-                if (defaultViewSettingsApplyTo === "ALL") {
-                    const views = await utils.view.list.fetch({ spaceId });
-                    await Promise.all(views.map((v: { id: string; config: any }) =>
-                        updateViewMutation.mutateAsync({
-                            id: v.id,
-                            config: {
-                                ...(v.config ?? {}),
-                                listView: {
-                                    ...((v.config as any)?.listView ?? {}),
-                                    ...defaultViewSettingsDraft
-                                }
-                            }
-                        })
-                    ));
-                }
-            }
-
-            toast.success("Default view settings saved");
-            setIsDefaultViewSettingsModalOpen(false);
-        } catch (error: any) {
-            toast.error(`Failed to save defaults: ${error.message}`);
-        }
-    };
-
     const revertViewChanges = useCallback(() => {
         const cfg = viewConfigFromDb;
 
@@ -5081,15 +5019,6 @@ export function TableView({ spaceId, projectId, teamId, listId, folderId, viewId
                                 >
                                     <span className="text-sm flex items-center gap-2"><RefreshCcw className="h-4 w-4 text-zinc-400" />Reset view to defaults</span>
                                 </div>
-                                <div
-                                    className="flex items-center justify-between py-1 px-2 hover:bg-zinc-50 rounded cursor-pointer"
-                                    onClick={() => {
-                                        setDefaultViewSettingsDraft(spaceDefaultViewConfig);
-                                        setIsDefaultViewSettingsModalOpen(true);
-                                    }}
-                                >
-                                    <span className="text-sm flex items-center gap-2"><Settings className="h-4 w-4 text-zinc-400" />Default view settings</span>
-                                </div>
                             </div>
                         </div>
                     </ScrollArea>
@@ -5803,99 +5732,6 @@ export function TableView({ spaceId, projectId, teamId, listId, folderId, viewId
                             }}
                             disabled={updateList.isPending}
                         >
-                            Save
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
-
-            {/* Default View Settings Modal */}
-            <Dialog open={isDefaultViewSettingsModalOpen} onOpenChange={setIsDefaultViewSettingsModalOpen}>
-                <DialogContent className="sm:max-w-[450px] p-0 overflow-hidden bg-white">
-                    <DialogHeader className="p-6 pb-2">
-                        <DialogTitle className="text-xl font-bold text-zinc-900">Default view settings</DialogTitle>
-                        <p className="text-sm text-zinc-500 mt-1">
-                            You can set default settings for views in this Space. When new views are created, they'll also inherit these default settings.
-                        </p>
-                    </DialogHeader>
-
-                    <div className="px-6 py-2 space-y-6 max-h-[70vh] overflow-y-auto">
-                        <div className="space-y-4">
-                            <h4 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider flex items-center justify-between">
-                                Page layout
-                                <ChevronDown className="h-4 w-4" />
-                            </h4>
-                            <div className="space-y-3">
-                                {[
-                                    { label: 'Show empty statuses', key: 'showEmptyStatuses' },
-                                    { label: 'Pin description', key: 'pinDescription' },
-                                    { label: 'Auto wrap text', key: 'wrapText' },
-                                    { label: 'Show task locations', key: 'showTaskLocations' },
-                                    { label: 'Show task properties', key: 'showTaskProperties' },
-                                    { label: 'Show subtask parent names', key: 'showSubtaskParentNames' },
-                                ].map((item) => (
-                                    <div key={item.key} className="flex items-center justify-between">
-                                        <span className="text-sm text-zinc-700">{item.label}</span>
-                                        <Switch
-                                            checked={!!(defaultViewSettingsDraft as any)[item.key]}
-                                            onCheckedChange={(val) => setDefaultViewSettingsDraft({ ...defaultViewSettingsDraft, [item.key]: val })}
-                                        />
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-
-                        <div className="space-y-4">
-                            <h4 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider flex items-center justify-between">
-                                Task visibility
-                                <ChevronDown className="h-4 w-4" />
-                            </h4>
-                            <div className="space-y-3">
-                                {[
-                                    { label: 'Show closed tasks', key: 'showCompleted' },
-                                    { label: 'Show closed subtasks', key: 'showCompletedSubtasks' },
-                                    { label: 'Show tasks from other Lists', key: 'showTasksFromOtherLists' },
-                                    { label: 'Show subtasks from other Lists', key: 'showSubtasksFromOtherLists' },
-                                ].map((item) => (
-                                    <div key={item.key} className="flex items-center justify-between">
-                                        <span className="text-sm text-zinc-700">{item.label}</span>
-                                        <Switch
-                                            checked={!!(defaultViewSettingsDraft as any)[item.key]}
-                                            onCheckedChange={(val) => setDefaultViewSettingsDraft({ ...defaultViewSettingsDraft, [item.key]: val })}
-                                        />
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-
-                        <div className="pt-2 border-t border-zinc-100 flex items-center justify-between">
-                            <span className="text-sm text-zinc-600">Adjust settings for:</span>
-                            <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                    <Button variant="outline" size="sm" className="h-8 border-zinc-200 text-xs font-normal gap-2 pr-2">
-                                        {defaultViewSettingsApplyTo === "NEW" ? "New views only" :
-                                            defaultViewSettingsApplyTo === "REQUIRED" ? "Required views (and new views created)" :
-                                                "All existing views (and new views created)"}
-                                        <ChevronDown className="h-3 w-3 text-zinc-400" />
-                                    </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end" className="w-80">
-                                    <DropdownMenuItem className="text-sm py-2 px-3" onClick={() => setDefaultViewSettingsApplyTo("NEW")}>
-                                        New views only {defaultViewSettingsApplyTo === "NEW" && <CheckCheck className="ml-auto h-4 w-4 text-emerald-500" />}
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem className="text-sm py-2 px-3" onClick={() => setDefaultViewSettingsApplyTo("REQUIRED")}>
-                                        Required views (and new views created) {defaultViewSettingsApplyTo === "REQUIRED" && <CheckCheck className="ml-auto h-4 w-4 text-emerald-500" />}
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem className="text-sm py-2 px-3" onClick={() => setDefaultViewSettingsApplyTo("ALL")}>
-                                        All existing views (and new views created) {defaultViewSettingsApplyTo === "ALL" && <CheckCheck className="ml-auto h-4 w-4 text-emerald-500" />}
-                                    </DropdownMenuItem>
-                                </DropdownMenuContent>
-                            </DropdownMenu>
-                        </div>
-                    </div>
-
-                    <DialogFooter className="p-6 pt-2">
-                        <Button className="w-full bg-zinc-900 hover:bg-zinc-800 text-white font-bold h-11 rounded-md" onClick={saveDefaultViewSettings}>
                             Save
                         </Button>
                     </DialogFooter>
