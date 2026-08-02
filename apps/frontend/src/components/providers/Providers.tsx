@@ -8,7 +8,7 @@ import { GoogleAnalyticsProvider } from './GoogleAnalyticsProvider';
 import { SocketProvider } from './SocketProvider';
 import { CollaborationProvider } from './CollaborationProvider';
 import { type Session } from "next-auth";
-import '@/lib/i18n'; // Initialize i18next
+import '@/lib/i18n';
 
 
 export default function Providers({
@@ -48,7 +48,6 @@ export default function Providers({
     </>
   );
 }
-
 
 
 
