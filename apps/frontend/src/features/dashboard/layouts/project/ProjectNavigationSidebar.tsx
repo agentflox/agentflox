@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 export type ProjectView =
     | "overview"
@@ -102,56 +103,66 @@ export default function ProjectNavigationSidebar({
             </div>
 
             {/* Navigation */}
-            <ScrollArea className="flex-1 px-1.5 py-4">
-                <div className="space-y-1">
-                    {navigationItems.map((item) => {
-                        const Icon = item.icon;
-                        const isActive = activeView === item.id;
+            <TooltipProvider delayDuration={0}>
+                <ScrollArea className="flex-1 px-1.5 py-4">
+                    <div className="space-y-1">
+                        {navigationItems.map((item) => {
+                            const Icon = item.icon;
+                            const isActive = activeView === item.id;
 
-                        const commonClassName = cn(
-                            "group flex w-full items-center gap-3 rounded-md px-2 py-2 text-sm font-medium transition-all duration-200 outline-none cursor-pointer",
-                            isActive
-                                ? "bg-primary/10 text-primary"
-                                : "text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900",
-                            collapsed && "flex-col justify-center gap-1.5 px-1 py-2.5 text-[10px] leading-tight"
-                        );
+                            const commonClassName = cn(
+                                "group flex w-full items-center gap-3 rounded-md px-2 py-2 text-sm font-medium transition-all duration-200 outline-none cursor-pointer",
+                                isActive
+                                    ? "bg-primary/10 text-primary"
+                                    : "text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900",
+                                collapsed && "flex-col justify-center gap-1.5 px-1 py-2.5 text-[10px] leading-tight"
+                            );
 
-                        if (item.href) {
-                            return (
-                                <Link
-                                    key={item.id}
-                                    href={item.href}
-                                    className={commonClassName}
-                                    title={collapsed ? item.label : undefined}
-                                >
+                            const content = (
+                                <>
                                     <Icon size={18} className={cn("shrink-0", isActive ? "text-primary" : "text-zinc-400 group-hover:text-zinc-900")} />
                                     {collapsed ? (
                                         <span className="text-center max-w-[52px] truncate">{item.label}</span>
                                     ) : (
                                         <span>{item.label}</span>
                                     )}
-                                </Link>
+                                </>
                             );
-                        }
 
-                        return (
-                            <button
-                                key={item.id}
-                                onClick={() => onViewChange(item.id as ProjectView)}
-                                className={commonClassName}
-                                title={collapsed ? item.label : undefined}
-                            >
-                                <Icon size={18} className={cn("shrink-0", isActive ? "text-primary" : "text-zinc-400 group-hover:text-zinc-900")} />
-                                {collapsed ? (
-                                    <span className="text-center max-w-[52px] truncate">{item.label}</span>
-                                ) : (
-                                    <span>{item.label}</span>
-                                )}
-                            </button>
-                        );
-                    })}
-                </div>
-            </ScrollArea>
+                            const ItemWrapper = item.href ? (
+                                <Link
+                                    href={item.href}
+                                    className={commonClassName}
+                                >
+                                    {content}
+                                </Link>
+                            ) : (
+                                <button
+                                    onClick={() => onViewChange(item.id as ProjectView)}
+                                    className={commonClassName}
+                                >
+                                    {content}
+                                </button>
+                            );
+
+                            if (collapsed) {
+                                return (
+                                    <Tooltip key={item.id}>
+                                        <TooltipTrigger asChild>
+                                            {ItemWrapper}
+                                        </TooltipTrigger>
+                                        <TooltipContent side="right">
+                                            {item.label}
+                                        </TooltipContent>
+                                    </Tooltip>
+                                );
+                            }
+
+                            return <div key={item.id}>{ItemWrapper}</div>;
+                        })}
+                    </div>
+                </ScrollArea>
+            </TooltipProvider>
         </aside>
     );
 }

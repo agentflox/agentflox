@@ -65,7 +65,7 @@ export default function TeamListView({ teamId, workspaceId, selectedListId, onLi
         const params = new URLSearchParams(searchParams.toString());
         params.set("folder", folderId);
         params.delete("list");
-        params.delete("lv");
+        params.delete("nv");
         params.delete("fv");
         router.push(`?${params.toString()}`, { scroll: false });
     };
@@ -177,7 +177,7 @@ export default function TeamListView({ teamId, workspaceId, selectedListId, onLi
 
     const activeFolderId = searchParams.get("folder");
     const activeListId = searchParams.get("list");
-    const activeViewId = searchParams.get("lv") || undefined;
+    const activeViewId = searchParams.get("nv") || undefined;
     const activeFolderViewId = searchParams.get("fv") || undefined;
 
     const isLoading = isLoadingList || isLoadingFolders;
@@ -200,6 +200,13 @@ export default function TeamListView({ teamId, workspaceId, selectedListId, onLi
         params.delete("docView");
         router.push(`?${params.toString()}`, { scroll: false });
     };
+
+    // Auto-select first list if nothing is selected
+    useEffect(() => {
+        if (!activeListId && !activeFolderId && !searchParams.get("docView") && listsRaw.length > 0) {
+            handleListClick(listsRaw[0].id);
+        }
+    }, [listsRaw, activeListId, activeFolderId, searchParams]);
 
     const handleDocViewClick = (docViewId: string) => {
         const params = new URLSearchParams(searchParams.toString());

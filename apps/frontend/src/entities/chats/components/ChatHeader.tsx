@@ -4,6 +4,8 @@ import { useState } from 'react'
 import { Edit2, Share2, MoreVertical, Archive, Trash2, Flag, Check, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { ConfirmArchiveConversationModal } from './ConfirmArchiveConversationModal'
+import { ConfirmDeleteConversationModal } from './ConfirmDeleteConversationModal'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -24,7 +26,9 @@ interface ChatHeaderProps {
 export function ChatHeader({ title, onRename, onDelete, onArchive, onShare }: ChatHeaderProps) {
   const [isEditing, setIsEditing] = useState(false)
   const [editValue, setEditValue] = useState(title)
-  const [isSaving, setIsSaving] = useState(false)
+  const [isArchiveModalOpen, setIsArchiveModalOpen] = useState(false)
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
+  const [isActionLoading, setIsActionLoading] = useState(false)
 
   const handleStartEdit = () => {
     setEditValue(title)
@@ -33,20 +37,46 @@ export function ChatHeader({ title, onRename, onDelete, onArchive, onShare }: Ch
 
   const handleSave = async () => {
     if (!onRename || !editValue.trim()) return
-    setIsSaving(true)
+    setIsActionLoading(true)
     try {
       await onRename(editValue.trim())
       setIsEditing(false)
     } catch (error) {
       console.error('Failed to rename conversation:', error)
     } finally {
-      setIsSaving(false)
+      setIsActionLoading(false)
     }
   }
 
   const handleCancel = () => {
     setEditValue(title)
     setIsEditing(false)
+  }
+
+  const handleArchive = async () => {
+    if (!onArchive) return
+    setIsActionLoading(true)
+    try {
+      await onArchive()
+      setIsArchiveModalOpen(false)
+    } catch (error) {
+      console.error('Failed to archive conversation:', error)
+    } finally {
+      setIsActionLoading(false)
+    }
+  }
+
+  const handleDelete = async () => {
+    if (!onDelete) return
+    setIsActionLoading(true)
+    try {
+      await onDelete()
+      setIsDeleteModalOpen(false)
+    } catch (error) {
+      console.error('Failed to delete conversation:', error)
+    } finally {
+      setIsActionLoading(false)
+    }
   }
 
   return (
@@ -67,12 +97,12 @@ export function ChatHeader({ title, onRename, onDelete, onArchive, onShare }: Ch
                 }}
                 className="h-8 flex-1 text-sm sm:text-base"
                 autoFocus
-                disabled={isSaving}
+                disabled={isActionLoading}
               />
               <Button
                 variant="ghost"
                 onClick={handleSave}
-                disabled={isSaving || !editValue.trim()}
+                disabled={isActionLoading || !editValue.trim()}
                 className="h-7 w-7 shrink-0 p-0 sm:h-8 sm:w-8"
               >
                 <Check className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
@@ -80,7 +110,7 @@ export function ChatHeader({ title, onRename, onDelete, onArchive, onShare }: Ch
               <Button
                 variant="ghost"
                 onClick={handleCancel}
-                disabled={isSaving}
+                disabled={isActionLoading}
                 className="h-7 w-7 shrink-0 p-0 sm:h-8 sm:w-8"
               >
                 <X className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
@@ -136,25 +166,17 @@ export function ChatHeader({ title, onRename, onDelete, onArchive, onShare }: Ch
                 </>
               )}
               {onArchive && (
-                <DropdownMenuItem onClick={onArchive}>
+                <DropdownMenuItem onClick={() => setIsArchiveModalOpen(true)}>
                   <Archive className="mr-2 h-4 w-4" />
                   Archive
                 </DropdownMenuItem>
               )}
               {onDelete && (
-                <>
-                  {onArchive && <DropdownMenuSeparator />}
-                  <DropdownMenuItem onClick={onDelete} variant="destructive">
-                    <Trash2 className="mr-2 h-4 w-4" />
-                    Delete
-                  </DropdownMenuItem>
-                </>
+                <DropdownMenuItem onClick={() => setIsDeleteModalOpen(true)} variant="destructive">
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Delete
+                </DropdownMenuItem>
               )}
-              <DropdownMenuSeparator />
-              <DropdownMenuItem>
-                <Flag className="mr-2 h-4 w-4" />
-                Report
-              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -162,6 +184,26 @@ export function ChatHeader({ title, onRename, onDelete, onArchive, onShare }: Ch
       <p className="mt-1 hidden text-sm text-slate-500 sm:block">
         Ask questions, ideate, and plan with an AI teammate.
       </p>
+
+      {/* Modals */}
+      {onArchive && (
+        <ConfirmArchiveConversationModal
+          open={isArchiveModalOpen}
+          onOpenChange={(open) => !open && !isActionLoading && setIsArchiveModalOpen(false)}
+          title={title}
+          onConfirm={handleArchive}
+          isLoading={isActionLoading}
+        />
+      )}
+      {onDelete && (
+        <ConfirmDeleteConversationModal
+          open={isDeleteModalOpen}
+          onOpenChange={(open) => !open && !isActionLoading && setIsDeleteModalOpen(false)}
+          title={title}
+          onConfirm={handleDelete}
+          isLoading={isActionLoading}
+        />
+      )}
     </header>
   )
 }

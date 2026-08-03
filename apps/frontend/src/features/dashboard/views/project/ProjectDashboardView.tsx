@@ -53,9 +53,8 @@ import { ResizableSplitLayout, SidePanelContainer } from "@/components/layout/Re
 import type { TaskLayoutMode } from "@/entities/task/components/TaskDetailModal";
 import { TaskDetailModal, TaskDetailContent } from "@/entities/task/components/TaskDetailModal";
 const ChatView = dynamic(() => import("@/features/dashboard/views/shared/ChatView"));
-const AIChatView = dynamic(() => import("@/features/dashboard/views/shared/AIChatView"));
+const AIChatView = dynamic(() => import("@/features/dashboard/views/shared/AIChatView").then(mod => mod.AIChatView));
 const ProjectTeamView = dynamic(() => import("@/features/dashboard/views/project/ProjectTeamView"));
-const SharedAIChatView = dynamic(() => import("@/features/dashboard/views/shared/SharedAIChatView").then(mod => mod.ChatView));
 const ProjectPersonalView = dynamic(() => import("@/features/dashboard/views/project/ProjectPersonalView"));
 const ProjectDocsView = dynamic(() => import("@/features/dashboard/views/project/ProjectDocsView"));
 import { ProjectActionsMenu } from "@/features/dashboard/components/sidebar/ProjectActionsMenu";
@@ -119,11 +118,7 @@ import { toast } from "sonner";
 type LayoutMode = "sidebar" | "top";
 
 interface ProjectDashboardViewProps {
-    listId?: string;
-    spaceId?: string;
     projectId?: string;
-    teamId?: string;
-    workspaceId?: string;
     selectedTaskIdFromParent?: string | null;
     onTaskSelect?: (taskId: string | null) => void;
 }
@@ -180,14 +175,17 @@ const viewConfig: Partial<Record<
     VIEWS: { label: "Views", icon: LayoutDashboard, description: "Views" },
 };
 
-export default function ProjectDashboardView({ listId, spaceId, projectId, teamId, workspaceId, selectedTaskIdFromParent, onTaskSelect }: ProjectDashboardViewProps) {
+export default function ProjectDashboardView({ projectId, selectedTaskIdFromParent, onTaskSelect }: ProjectDashboardViewProps) {
     const searchParams = useSearchParams();
     const router = useRouter();
     const utils = trpc.useUtils();
 
     const selectedTaskId = searchParams.get("task");
     const selectedListId = searchParams.get("list");
+    const selectedFolderId = searchParams.get("folder");
     const selectedTeamId = searchParams.get("team") || undefined;
+    const selectedAIChatId = searchParams.get("aid") || undefined;
+    const selectedChatId = searchParams.get("ch") || undefined;
 
     const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
     const [layoutMode, setLayoutMode] = useState<LayoutMode>("sidebar");
@@ -217,7 +215,15 @@ export default function ProjectDashboardView({ listId, spaceId, projectId, teamI
     );
 
     const isLoading = isProjectLoading;
-    const resolvedWorkspaceId: string | undefined = (project?.workspaceId || workspaceId) ?? undefined;
+    const resolvedWorkspaceId: string | undefined = project?.workspaceId ?? undefined;
+
+    // Derive the most specific AI chat context from active selections
+    const aiChatContext = useMemo(() => {
+        if (selectedFolderId) return { contextType: "FOLDER" as const, contextId: selectedFolderId, contextName: "Folder" };
+        if (selectedListId) return { contextType: "LIST" as const, contextId: selectedListId, contextName: "List" };
+        if (selectedTeamId) return { contextType: "TEAM" as const, contextId: selectedTeamId, contextName: "Team" };
+        return { contextType: "PROJECT" as const, contextId: projectId!, contextName: project?.name || "Project" };
+    }, [selectedFolderId, selectedListId, selectedTeamId, projectId, project?.name]);
 
     // Refs for tracking multi-view creation so we redirect to the last created view
     const pendingViewCreatesRef = useRef(0);
@@ -417,11 +423,8 @@ export default function ProjectDashboardView({ listId, spaceId, projectId, teamI
                 return (
                     <ListView
                         context="project"
-                        listId={listId || undefined}
                         workspaceId={resolvedWorkspaceId}
-                        spaceId={spaceId}
                         projectId={projectId}
-                        teamId={teamId}
                         viewId={view.id}
                         initialConfig={view.config as any}
                         selectedTaskIdFromParent={selectedTaskIdFromParent}
@@ -432,11 +435,8 @@ export default function ProjectDashboardView({ listId, spaceId, projectId, teamI
                 return (
                     <BoardView
                         context="project"
-                        listId={listId || undefined}
                         workspaceId={resolvedWorkspaceId}
-                        spaceId={spaceId}
                         projectId={projectId}
-                        teamId={teamId}
                         viewId={view.id}
                         initialConfig={view.config as any}
                         selectedTaskIdFromParent={selectedTaskIdFromParent}
@@ -447,11 +447,8 @@ export default function ProjectDashboardView({ listId, spaceId, projectId, teamI
                 return (
                     <TableView
                         context="project"
-                        listId={listId || undefined}
                         workspaceId={resolvedWorkspaceId}
-                        spaceId={spaceId}
                         projectId={projectId}
-                        teamId={teamId}
                         viewId={view.id}
                         initialConfig={view.config as any}
                         selectedTaskIdFromParent={selectedTaskIdFromParent}
@@ -462,11 +459,8 @@ export default function ProjectDashboardView({ listId, spaceId, projectId, teamI
                 return (
                     <CalendarView
                         context="project"
-                        listId={listId || undefined}
                         workspaceId={resolvedWorkspaceId}
-                        spaceId={spaceId}
                         projectId={projectId}
-                        teamId={teamId}
                         viewId={view.id}
                         initialConfig={view.config as any}
                         selectedTaskIdFromParent={selectedTaskIdFromParent}
@@ -477,11 +471,8 @@ export default function ProjectDashboardView({ listId, spaceId, projectId, teamI
                 return (
                     <GanttView
                         context="project"
-                        listId={listId || undefined}
                         workspaceId={resolvedWorkspaceId}
-                        spaceId={spaceId}
                         projectId={projectId}
-                        teamId={teamId}
                         viewId={view.id}
                         initialConfig={view.config as any}
                         selectedTaskIdFromParent={selectedTaskIdFromParent}
@@ -492,11 +483,8 @@ export default function ProjectDashboardView({ listId, spaceId, projectId, teamI
                 return (
                     <TimelineView
                         context="project"
-                        listId={listId || undefined}
                         workspaceId={resolvedWorkspaceId}
-                        spaceId={spaceId}
                         projectId={projectId}
-                        teamId={teamId}
                         viewId={view.id}
                         initialConfig={view.config as any}
                         selectedTaskIdFromParent={selectedTaskIdFromParent}
@@ -508,10 +496,7 @@ export default function ProjectDashboardView({ listId, spaceId, projectId, teamI
                     <FormView
                         context="project"
                         workspaceId={resolvedWorkspaceId}
-                        listId={listId || undefined}
-                        spaceId={spaceId}
                         projectId={projectId}
-                        teamId={teamId}
                         viewId={view.id}
                         initialConfig={view.config as any}
                         selectedTaskIdFromParent={selectedTaskIdFromParent}
@@ -522,11 +507,8 @@ export default function ProjectDashboardView({ listId, spaceId, projectId, teamI
                 return (
                     <PeopleView
                         context="project"
-                        listId={listId || undefined}
                         workspaceId={resolvedWorkspaceId}
-                        spaceId={spaceId}
                         projectId={projectId}
-                        teamId={teamId}
                         viewId={view.id}
                         initialConfig={view.config as any}
                         selectedTaskIdFromParent={selectedTaskIdFromParent}
@@ -537,11 +519,8 @@ export default function ProjectDashboardView({ listId, spaceId, projectId, teamI
                 return (
                     <ActivityView
                         context="project"
-                        listId={listId || undefined}
                         workspaceId={resolvedWorkspaceId}
-                        spaceId={spaceId}
                         projectId={projectId}
-                        teamId={teamId}
                         viewId={view.id}
                         initialConfig={view.config as any}
                         selectedTaskIdFromParent={selectedTaskIdFromParent}
@@ -552,11 +531,8 @@ export default function ProjectDashboardView({ listId, spaceId, projectId, teamI
                 return (
                     <MindMapView
                         context="project"
-                        listId={listId || undefined}
                         workspaceId={resolvedWorkspaceId}
-                        spaceId={spaceId}
                         projectId={projectId}
-                        teamId={teamId}
                         viewId={view.id}
                         initialConfig={view.config as any}
                         selectedTaskIdFromParent={selectedTaskIdFromParent}
@@ -567,11 +543,8 @@ export default function ProjectDashboardView({ listId, spaceId, projectId, teamI
                 return (
                     <WorkloadView
                         context="project"
-                        listId={listId || undefined}
                         workspaceId={resolvedWorkspaceId}
-                        spaceId={spaceId}
                         projectId={projectId}
-                        teamId={teamId}
                         viewId={view.id}
                         initialConfig={view.config as any}
                         selectedTaskIdFromParent={selectedTaskIdFromParent}
@@ -582,11 +555,8 @@ export default function ProjectDashboardView({ listId, spaceId, projectId, teamI
                 return (
                     <WhiteboardView
                         context="project"
-                        listId={listId || undefined}
                         workspaceId={resolvedWorkspaceId}
-                        spaceId={spaceId}
                         projectId={projectId}
-                        teamId={teamId}
                         viewId={view.id}
                         initialConfig={view.config as any}
                         selectedTaskIdFromParent={selectedTaskIdFromParent}
@@ -597,11 +567,8 @@ export default function ProjectDashboardView({ listId, spaceId, projectId, teamI
                 return (
                     <MapView
                         context="project"
-                        listId={listId || undefined}
                         workspaceId={resolvedWorkspaceId}
-                        spaceId={spaceId}
                         projectId={projectId}
-                        teamId={teamId}
                         viewId={view.id}
                         initialConfig={view.config as any}
                         selectedTaskIdFromParent={selectedTaskIdFromParent}
@@ -612,11 +579,8 @@ export default function ProjectDashboardView({ listId, spaceId, projectId, teamI
                 return (
                     <GenericDashboardView
                         context="project"
-                        listId={listId || undefined}
                         workspaceId={resolvedWorkspaceId}
-                        spaceId={spaceId}
                         projectId={projectId}
-                        teamId={teamId}
                         viewId={view.id}
                         initialConfig={view.config as any}
                         selectedTaskIdFromParent={selectedTaskIdFromParent}
@@ -628,11 +592,8 @@ export default function ProjectDashboardView({ listId, spaceId, projectId, teamI
                 return (
                     <DocView
                         context="project"
-                        listId={listId || undefined}
                         workspaceId={resolvedWorkspaceId}
-                        spaceId={spaceId}
                         projectId={projectId}
-                        teamId={teamId}
                         viewId={view.id}
                         initialConfig={view.config as any}
                         selectedTaskIdFromParent={selectedTaskIdFromParent}
@@ -655,11 +616,8 @@ export default function ProjectDashboardView({ listId, spaceId, projectId, teamI
                 return (
                     <EmbedView
                         context="project"
-                        listId={listId || undefined}
                         workspaceId={resolvedWorkspaceId}
-                        spaceId={spaceId}
                         projectId={projectId}
-                        teamId={teamId}
                         viewId={view.id}
                         initialConfig={view.config as any}
                         selectedTaskIdFromParent={selectedTaskIdFromParent}
@@ -697,9 +655,7 @@ export default function ProjectDashboardView({ listId, spaceId, projectId, teamI
     return (
         <DashboardEntityProvider
             workspaceId={resolvedWorkspaceId}
-            spaceId={spaceId}
             projectId={projectId}
-            teamId={teamId}
         >
             <div className="flex h-full flex-col">
                 <div className="flex h-full gap-1 flex-1 overflow-hidden">
@@ -709,6 +665,9 @@ export default function ProjectDashboardView({ listId, spaceId, projectId, teamI
                             activeView={(currentTab as any) || (activeView?.type?.toLowerCase() || 'overview') as any}
                             onViewChange={(viewId) => {
                                 const params = new URLSearchParams(searchParams.toString());
+                                params.delete("docView");
+                                params.delete("nv");
+                                params.delete("aid");
 
                                 if (viewId === "lists") {
                                     params.set("tab", "lists");
@@ -739,6 +698,7 @@ export default function ProjectDashboardView({ listId, spaceId, projectId, teamI
                             entityIcon={<FolderKanban className="h-4 w-4" />}
                             shareUrl={`${window.location.origin}${window.location.pathname}?projectId=${projectId}`}
                             showSettings={false}
+                            askAIDisabled={currentTab === "ai-chat"}
                             onAskAIClick={() => setIsAskAIOpen(!isAskAIOpen)}
                             onShareClick={() => setIsShareModalOpen(true)}
                             showExit={true}
@@ -1049,7 +1009,7 @@ export default function ProjectDashboardView({ listId, spaceId, projectId, teamI
                                                 </Tabs>
                                             </div>
                                         ) : currentTab === "docs" ? (
-                                            <ProjectDocsView projectId={projectId!} workspaceId={resolvedWorkspaceId!} />
+                                            <ProjectDocsView projectId={projectId!} />
                                         ) : currentTab === "personal" ? (
                                             <ProjectPersonalView projectId={projectId!} workspaceId={resolvedWorkspaceId!} />
                                         ) : currentTab === "teams" ? (
@@ -1060,12 +1020,29 @@ export default function ProjectDashboardView({ listId, spaceId, projectId, teamI
                                                 onTeamSelect={handleTeamSelect}
                                             />
                                         ) : currentTab === "chats" ? (
-                                            <ChatView workspaceId={resolvedWorkspaceId!} projectId={projectId!} />
+                                            <ChatView
+                                                workspaceId={resolvedWorkspaceId!}
+                                                projectId={projectId!}
+                                                selectedChatId={selectedChatId}
+                                                onChatSelect={(id) => {
+                                                    const params = new URLSearchParams(searchParams.toString());
+                                                    if (id) params.set("ch", id);
+                                                    else params.delete("ch");
+                                                    router.push(`?${params.toString()}`, { scroll: false });
+                                                }}
+                                            />
                                         ) : currentTab === "ai-chat" ? (
-                                            <SharedAIChatView
-                                                contextType="PROJECT"
-                                                contextId={projectId!}
-                                                contextName={project?.name || "Project"}
+                                            <AIChatView
+                                                contextType={aiChatContext.contextType}
+                                                contextId={aiChatContext.contextId}
+                                                contextName={aiChatContext.contextName}
+                                                chatId={selectedAIChatId}
+                                                onChatIdChange={(id) => {
+                                                    const params = new URLSearchParams(searchParams.toString());
+                                                    if (id) params.set("aid", id);
+                                                    else params.delete("aid");
+                                                    router.push(`?${params.toString()}`, { scroll: false });
+                                                }}
                                             />
                                         ) : (
                                             <div className="flex-1 overflow-y-auto p-4">
@@ -1083,7 +1060,17 @@ export default function ProjectDashboardView({ listId, spaceId, projectId, teamI
                                                 icon={<div className="h-2 w-2 rounded-full bg-indigo-500 animate-pulse" />}
                                             >
                                                 <AIChatView
-                                                    workspaceId={resolvedWorkspaceId!}
+                                                    contextType={aiChatContext.contextType}
+                                                    contextId={aiChatContext.contextId}
+                                                    contextName={aiChatContext.contextName}
+                                                    chatId={selectedAIChatId}
+                                                    onChatIdChange={(id) => {
+                                                        const params = new URLSearchParams(searchParams.toString());
+                                                        if (id) params.set("aid", id);
+                                                        else params.delete("aid");
+                                                        router.push(`?${params.toString()}`, { scroll: false });
+                                                    }}
+                                                    hideSidebar
                                                 />
                                             </SidePanelContainer>
                                         )}

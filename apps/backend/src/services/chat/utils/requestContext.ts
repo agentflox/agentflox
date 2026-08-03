@@ -47,6 +47,9 @@ function sanitizeEntityData(data: any): Record<string, any> {
             sanitized[key] = value
         } else if (typeof value === 'object' && !(value instanceof Date)) {
             sanitized[key] = sanitizeEntityData(value)
+        } else if (typeof value === 'bigint') {
+            // BigInt cannot be JSON serialized — convert to Number (safe for storage sizes)
+            sanitized[key] = Number(value)
         } else {
             sanitized[key] = value
         }
@@ -197,9 +200,6 @@ export async function ensureChatContext(
                     tools: {
                         select: { id: true, name: true, category: true },
                     },
-                    materials: {
-                        select: { id: true, title: true, category: true },
-                    },
                 },
             })
             entityName = entityData?.name
@@ -213,7 +213,6 @@ export async function ensureChatContext(
                     folders: true,
                     lists: true,
                     tools: true,
-                    materials: true,
                     tasks: true,
                 },
             })

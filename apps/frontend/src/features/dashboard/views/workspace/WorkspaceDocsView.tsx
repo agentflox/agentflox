@@ -18,7 +18,7 @@ import { Input } from "@/components/ui/input";
 import { LoadingContainer } from "@/components/ui/loading";
 import { cn } from "@/lib/utils";
 import { DocView } from "@/features/dashboard/views/generic/DocView";
-import DocumentCreationModal from "@/entities/documents/components/DocumentCreationModal";
+import { CreateDocViewModal } from "@/features/dashboard/components/modals/CreateDocViewModal";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -258,7 +258,7 @@ export default function WorkspaceDocsView({ workspaceId }: WorkspaceDocsViewProp
             </div>
 
             {/* Document Creation Modal */}
-            <DocumentCreationModal
+            <CreateDocViewModal
                 open={isCreateModalOpen}
                 onOpenChange={setIsCreateModalOpen}
                 workspaceId={workspaceId}

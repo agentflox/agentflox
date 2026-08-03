@@ -152,8 +152,8 @@ export const teamRouter = router({
                 },
                 include: {
                     views: { orderBy: { position: "asc" }, take: 100 },
-                    owner: { select: { id: true, name: true, email: true } },
-                    members: { take: 200, select: { user: { select: { id: true, name: true, email: true } } } },
+                    owner: { select: { id: true, name: true, email: true, image: true } },
+                    members: { take: 200, select: { user: { select: { id: true, name: true, email: true, image: true } } } },
                 }
             });
         }),

@@ -10,8 +10,7 @@ import dynamic from "next/dynamic";
 const WorkspaceOverviewView = dynamic(() => import("@/features/dashboard/views/workspace/WorkspaceOverviewView"));
 const WorkspaceSpaceView = dynamic(() => import("@/features/dashboard/views/workspace/WorkspaceSpaceView"));
 const ChatView = dynamic(() => import("@/features/dashboard/views/shared/ChatView"));
-const AIChatView = dynamic(() => import("@/features/dashboard/views/shared/AIChatView"));
-const SharedAIChatView = dynamic(() => import("@/features/dashboard/views/shared/SharedAIChatView").then(mod => mod.ChatView));
+const AIChatView = dynamic(() => import("@/features/dashboard/views/shared/AIChatView").then(mod => mod.AIChatView));
 const WorkspaceProjectView = dynamic(() => import("@/features/dashboard/views/workspace/WorkspaceProjectView"));
 const WorkspaceTeamView = dynamic(() => import("@/features/dashboard/views/workspace/WorkspaceTeamView"));
 const WorkspacePersonalView = dynamic(() => import("@/features/dashboard/views/workspace/WorkspacePersonalView"));
@@ -202,15 +201,24 @@ export default function WorkspaceDashboardView({ workspaceId }: WorkspaceViewPro
     const selectedProjectId = searchParams.get("pj") || undefined;
     const selectedTeamId = searchParams.get("tm") || undefined;
     const selectedChatId = searchParams.get("ch") || undefined;
-    const selectedAIChatId = searchParams.get("ai") || undefined;
+    const selectedAIChatId = searchParams.get("aid") || undefined;
     const selectedTaskId = searchParams.get("task");
     const currentTab = searchParams.get("tab") || "overview";
+
 
     // Fetch Data
     const { data: workspace, isLoading } = trpc.workspace.get.useQuery(
         { id: workspaceId },
         { enabled: !!workspaceId, staleTime: 60_000, gcTime: 5 * 60_000 }
     );
+
+    // Derive the most specific AI chat context from active URL params
+    const aiChatContext = useMemo(() => {
+        if (selectedTeamId) return { contextType: "TEAM" as const, contextId: selectedTeamId, contextName: "Team" };
+        if (selectedProjectId) return { contextType: "PROJECT" as const, contextId: selectedProjectId, contextName: "Project" };
+        if (selectedSpaceId) return { contextType: "SPACE" as const, contextId: selectedSpaceId, contextName: "Space" };
+        return { contextType: "WORKSPACE" as const, contextId: workspaceId, contextName: (workspace as any)?.name || "Workspace" };
+    }, [selectedTeamId, selectedProjectId, selectedSpaceId, workspaceId, workspace]);
 
     console.log("[WorkspaceDashboard] Render tick - isLoading:", isLoading, "views:", (workspace as any)?.views?.length);
 
@@ -310,6 +318,9 @@ export default function WorkspaceDashboardView({ workspaceId }: WorkspaceViewPro
         params.delete("tm");
         params.delete("ch");
         params.delete("ai");
+        params.delete("aid");
+        params.delete("nv");
+        params.delete("docView");
         if (view === "overview") {
             params.set("tab", "overview");
             if (views.length > 0) params.set("v", views[0].id);
@@ -667,10 +678,17 @@ export default function WorkspaceDashboardView({ workspaceId }: WorkspaceViewPro
                                 }}
                             />
                         ) : currentTab === "ai-chat" ? (
-                            <SharedAIChatView
-                                contextType="WORKSPACE"
+                            <AIChatView
                                 contextId={workspaceId}
+                                contextType="WORKSPACE"
                                 contextName={workspace?.name || "Workspace"}
+                                chatId={selectedAIChatId}
+                                onChatIdChange={(id) => {
+                                    const params = new URLSearchParams(searchParams.toString());
+                                    if (id) params.set("aid", id);
+                                    else params.delete("aid");
+                                    router.push(`?${params.toString()}`, { scroll: false });
+                                }}
                             />
                         ) : (
                             <Tabs value={activeTab || undefined} onValueChange={handleTabChange} className="h-full flex flex-col gap-0">
@@ -900,7 +918,19 @@ export default function WorkspaceDashboardView({ workspaceId }: WorkspaceViewPro
                                 title={<span className="text-xs font-semibold text-zinc-600 uppercase tracking-wider">AI Assistant</span>}
                                 icon={<div className="h-2 w-2 rounded-full bg-indigo-500 animate-pulse" />}
                             >
-                                <AIChatView workspaceId={workspaceId} />
+                                <AIChatView
+                                    contextId={aiChatContext.contextId}
+                                    contextType={aiChatContext.contextType}
+                                    contextName={aiChatContext.contextName}
+                                    chatId={selectedAIChatId}
+                                    onChatIdChange={(id) => {
+                                        const params = new URLSearchParams(searchParams.toString());
+                                        if (id) params.set("aid", id);
+                                        else params.delete("aid");
+                                        router.push(`?${params.toString()}`, { scroll: false });
+                                    }}
+                                    hideSidebar
+                                />
                             </SidePanelContainer>
                         )}
                         {selectedTaskId && !isAskAIOpen && taskViewMode === "sidebar" && (
@@ -953,6 +983,7 @@ export default function WorkspaceDashboardView({ workspaceId }: WorkspaceViewPro
                             entityIcon={<Briefcase className="h-4 w-4" />}
                             shareUrl={`${window.location.origin}${window.location.pathname}`}
                             showSettings={false}
+                            askAIDisabled={currentTab === "ai-chat"}
                             onAskAIClick={() => setIsAskAIOpen(!isAskAIOpen)}
                             onShareClick={() => setIsShareModalOpen(true)}
                             agentPopoverContent={

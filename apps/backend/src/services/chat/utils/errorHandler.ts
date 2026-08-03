@@ -7,6 +7,9 @@ export class OpenAIErrorHandler {
             const message = (error as any).message ?? 'OpenAI request failed'
             return { error: message, status }
         }
+        if (error instanceof Error) {
+            return { error: error.message, status: (error as any).status || 500 }
+        }
 
         return { error: 'Unexpected error while processing chat completion.', status: 500 }
     }

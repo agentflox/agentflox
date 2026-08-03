@@ -28,6 +28,7 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface SpaceProjectViewProps {
     spaceId: string;
@@ -89,6 +90,13 @@ export default function SpaceProjectView({
         router.push(`?${params.toString()}`, { scroll: false });
         if (onProjectSelect) onProjectSelect(projectId);
     }, [searchParams, router, onProjectSelect]);
+
+    // Auto-select first project when no selection exists
+    useEffect(() => {
+        if (!activeProjectId && !isManageView && projectsRaw.length > 0) {
+            handleProjectClick(projectsRaw[0].id);
+        }
+    }, [projectsRaw, activeProjectId, isManageView]);
 
     // Render main content
     const renderMainContent = () => {
@@ -188,15 +196,32 @@ export default function SpaceProjectView({
                                                 </DropdownMenuItem>
                                             </DropdownMenuContent>
                                         </DropdownMenu>
-                                        <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-foreground" onClick={() => setIsSearchOpen(true)} title="Search">
-                                            <Search className="h-4 w-4" />
-                                        </Button>
-                                        <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-foreground" onClick={() => setIsSidebarCollapsed(true)} title="Collapse Sidebar">
-                                            <ChevronsLeft className="h-4 w-4" />
-                                        </Button>
-                                        <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-foreground" onClick={() => setIsProjectModalOpen(true)} title="Create Project">
-                                            <Plus className="h-4 w-4" />
-                                        </Button>
+                                        <TooltipProvider>
+                                          <Tooltip>
+                                            <TooltipTrigger asChild>
+                                              <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-foreground" onClick={() => setIsSearchOpen(true)}>
+                                                  <Search className="h-4 w-4" />
+                                              </Button>
+                                            </TooltipTrigger>
+                                            <TooltipContent>Search</TooltipContent>
+                                          </Tooltip>
+                                          <Tooltip>
+                                            <TooltipTrigger asChild>
+                                              <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-foreground" onClick={() => setIsSidebarCollapsed(true)}>
+                                                  <ChevronsLeft className="h-4 w-4" />
+                                              </Button>
+                                            </TooltipTrigger>
+                                            <TooltipContent>Collapse Sidebar</TooltipContent>
+                                          </Tooltip>
+                                          <Tooltip>
+                                            <TooltipTrigger asChild>
+                                              <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-foreground" onClick={() => setIsProjectModalOpen(true)}>
+                                                  <Plus className="h-4 w-4" />
+                                              </Button>
+                                            </TooltipTrigger>
+                                            <TooltipContent>Create Project</TooltipContent>
+                                          </Tooltip>
+                                        </TooltipProvider>
                                     </div>
                                 </div>
                             )}

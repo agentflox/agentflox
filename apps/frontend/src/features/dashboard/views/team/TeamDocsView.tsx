@@ -18,7 +18,7 @@ import { Input } from "@/components/ui/input";
 import { LoadingContainer } from "@/components/ui/loading";
 import { cn } from "@/lib/utils";
 import { DocView } from "@/features/dashboard/views/generic/DocView";
-import DocumentCreationModal from "@/entities/documents/components/DocumentCreationModal";
+import { CreateDocViewModal } from "@/features/dashboard/components/modals/CreateDocViewModal";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -28,10 +28,9 @@ import {
 
 interface TeamDocsViewProps {
     teamId: string;
-    workspaceId?: string;
 }
 
-export default function TeamDocsView({ teamId, workspaceId }: TeamDocsViewProps) {
+export default function TeamDocsView({ teamId }: TeamDocsViewProps) {
     const router = useRouter();
     const searchParams = useSearchParams();
 
@@ -257,10 +256,10 @@ export default function TeamDocsView({ teamId, workspaceId }: TeamDocsViewProps)
             </div>
 
             {/* Document Creation Modal */}
-            <DocumentCreationModal
+            <CreateDocViewModal
                 open={isCreateModalOpen}
                 onOpenChange={setIsCreateModalOpen}
-                workspaceId={workspaceId || ""}
+                teamId={teamId}
                 onSuccess={handleCreated}
             />
         </div>

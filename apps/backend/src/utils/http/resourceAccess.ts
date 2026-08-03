@@ -107,7 +107,7 @@ export async function assertSpaceAccess(spaceId: string, userId: string): Promis
         where: { id: spaceId },
         select: { workspaceId: true },
     });
-    if (!space) {
+    if (!space?.workspaceId) {
         throw new Error('Space not found');
     }
     await assertWorkspaceAccessForUser(space.workspaceId, userId);
@@ -116,12 +116,32 @@ export async function assertSpaceAccess(spaceId: string, userId: string): Promis
 export async function assertTaskAccess(taskId: string, userId: string): Promise<void> {
     const task = await prisma.task.findUnique({
         where: { id: taskId },
-        select: { projectId: true },
+        select: { projectId: true, listId: true, spaceId: true, teamId: true, workspaceId: true },
     });
-    if (!task?.projectId) {
+    if (!task) {
         throw new Error('Task not found');
     }
-    await assertProjectAccessForUser(userId, task.projectId);
+    if (task.projectId) {
+        await assertProjectAccessForUser(userId, task.projectId);
+        return;
+    }
+    if (task.listId) {
+        await assertListAccess(task.listId, userId);
+        return;
+    }
+    if (task.spaceId) {
+        await assertSpaceAccess(task.spaceId, userId);
+        return;
+    }
+    if (task.teamId) {
+        await assertTeamAccessForUser(task.teamId, userId);
+        return;
+    }
+    if (task.workspaceId) {
+        await assertWorkspaceAccessForUser(task.workspaceId, userId);
+        return;
+    }
+    throw new Error('Task has no valid context or access denied');
 }
 
 export async function assertTeamAccessForUser(teamId: string, userId: string): Promise<void> {

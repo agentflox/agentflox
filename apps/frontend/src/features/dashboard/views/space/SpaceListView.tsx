@@ -65,7 +65,7 @@ export default function SpaceListView({ spaceId, workspaceId, selectedListId, on
         const params = new URLSearchParams(searchParams.toString());
         params.set("folder", folderId);
         params.delete("list");
-        params.delete("lv");
+        params.delete("nv");
         params.delete("fv");
         router.push(`?${params.toString()}`, { scroll: false });
     };
@@ -186,7 +186,7 @@ export default function SpaceListView({ spaceId, workspaceId, selectedListId, on
     const handleBackToList = () => {
         const params = new URLSearchParams(searchParams.toString());
         params.delete("list");
-        params.delete("lv");
+        params.delete("nv");
         router.push(`?${params.toString()}`, { scroll: false });
     };
 
@@ -194,7 +194,7 @@ export default function SpaceListView({ spaceId, workspaceId, selectedListId, on
         refetchList();
         const params = new URLSearchParams(searchParams.toString());
         params.set("list", list.id);
-        params.delete("lv");
+        params.delete("nv");
         params.delete("docView");
         router.push(`?${params.toString()}`, { scroll: false });
     };
@@ -207,6 +207,13 @@ export default function SpaceListView({ spaceId, workspaceId, selectedListId, on
         params.delete("docView");
         router.push(`?${params.toString()}`, { scroll: false });
     };
+
+    // Auto-select first list if nothing is selected
+    useEffect(() => {
+        if (!activeListId && !activeFolderId && !searchParams.get("docView") && listsRaw.length > 0) {
+            handleListClick(listsRaw[0].id);
+        }
+    }, [listsRaw, activeListId, activeFolderId, searchParams]);
 
     const handleDocViewClick = (docViewId: string) => {
         const params = new URLSearchParams(searchParams.toString());

@@ -89,19 +89,39 @@ export function CommentsPanel({ documentId, onClose, scope = "workspace", worksp
     let members: any[] = [];
     let teams: any[] = [];
 
+    const usersMap = new Map();
+
     if (scope === "workspace" && workspace) {
-        members = workspace.members.map((m: any) => ({ id: m.user.id, name: m.user.name, image: m.user.image }));
-        teams = workspace.teams.map((t: any) => ({ id: t.id, name: t.name, _count: t._count }));
+        if (workspace.owner) {
+            usersMap.set(workspace.owner.id, { id: workspace.owner.id, name: workspace.owner.name, image: (workspace.owner as any).image || null });
+        }
+        workspace.members?.forEach((m: any) => {
+            if (m.user) usersMap.set(m.user.id, { id: m.user.id, name: m.user.name, image: m.user.image });
+        });
+        teams = workspace.teams?.map((t: any) => ({ id: t.id, name: t.name, _count: t._count })) || [];
     } else if (scope === "space" && space) {
-        members = space.members?.map((m: any) => ({ id: m.user.id, name: m.user.name, image: m.user.image })) || [];
-        teams = space.teams?.map((t: any) => ({ id: t.id, name: t.name, _count: t._count }));
+        space.members?.forEach((m: any) => {
+            if (m.user) usersMap.set(m.user.id, { id: m.user.id, name: m.user.name, image: m.user.image });
+        });
+        teams = space.teams?.map((t: any) => ({ id: t.id, name: t.name, _count: t._count })) || [];
     } else if (scope === "project" && project) {
-        members = project.members.map((m: any) => ({ id: m.user.id, name: m.user.name, image: m.user.image }));
-        teams = project.teams.map((t: any) => ({ id: t.team.id, name: t.team.name, _count: { members: 0 } }));
+        if (project.owner) {
+            usersMap.set(project.owner.id, { id: project.owner.id, name: project.owner.name, image: project.owner.image });
+        }
+        project.members?.forEach((m: any) => {
+            if (m.user) usersMap.set(m.user.id, { id: m.user.id, name: m.user.name, image: m.user.image });
+        });
+        teams = project.teams?.map((t: any) => ({ id: t.team.id, name: t.team.name, _count: { members: 0 } })) || [];
     } else if (scope === "team" && team) {
-        members = team.members.map((m: any) => ({ id: m.user.id, name: m.user.name, image: m.user.image || null }));
+        if (team.owner) {
+            usersMap.set(team.owner.id, { id: team.owner.id, name: team.owner.name, image: (team.owner as any).image });
+        }
+        team.members?.forEach((m: any) => {
+            if (m.user) usersMap.set(m.user.id, { id: m.user.id, name: m.user.name, image: m.user.image });
+        });
         teams = [];
     }
+    members = Array.from(usersMap.values());
 
     const { data: tasksData } = trpc.task.list.useQuery(
         { workspaceId, spaceId, projectId, teamId, pageSize: 20, scope: "all", includeRelations: true },
@@ -1544,56 +1564,56 @@ function FollowersPopover({ documentId, members, teams, currentUserId }: {
 
 function FileTypeIcon({ filename, className = "h-8 w-8" }: { filename: string, className?: string }) {
     const ext = filename.split('.').pop()?.toLowerCase() || '';
-    
+
     if (ext === 'pdf') {
         return (
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className={className}>
-                <path d="M7 2h8l5 5v13a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z" fill="#fee2e2" stroke="#ef4444" strokeWidth="1.5" strokeLinejoin="round"/>
-                <path d="M15 2v5h5" fill="none" stroke="#ef4444" strokeWidth="1.5" strokeLinejoin="round"/>
+                <path d="M7 2h8l5 5v13a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z" fill="#fee2e2" stroke="#ef4444" strokeWidth="1.5" strokeLinejoin="round" />
+                <path d="M15 2v5h5" fill="none" stroke="#ef4444" strokeWidth="1.5" strokeLinejoin="round" />
                 <rect x="4" y="12" width="16" height="7" rx="1.5" fill="#ef4444" />
                 <text x="12" y="16.5" fill="white" fontSize="4.5" fontWeight="bold" fontFamily="sans-serif" textAnchor="middle" dominantBaseline="middle">PDF</text>
             </svg>
         );
     }
-    
+
     if (['doc', 'docx'].includes(ext)) {
         return (
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className={className}>
-                <path d="M7 2h8l5 5v13a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z" fill="#dbeafe" stroke="#3b82f6" strokeWidth="1.5" strokeLinejoin="round"/>
-                <path d="M15 2v5h5" fill="none" stroke="#3b82f6" strokeWidth="1.5" strokeLinejoin="round"/>
+                <path d="M7 2h8l5 5v13a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z" fill="#dbeafe" stroke="#3b82f6" strokeWidth="1.5" strokeLinejoin="round" />
+                <path d="M15 2v5h5" fill="none" stroke="#3b82f6" strokeWidth="1.5" strokeLinejoin="round" />
                 <rect x="4" y="12" width="16" height="7" rx="1.5" fill="#3b82f6" />
                 <text x="12" y="16.5" fill="white" fontSize="4.5" fontWeight="bold" fontFamily="sans-serif" textAnchor="middle" dominantBaseline="middle">DOC</text>
             </svg>
         );
     }
-    
+
     if (['xls', 'xlsx', 'csv'].includes(ext)) {
         return (
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className={className}>
-                <path d="M7 2h8l5 5v13a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z" fill="#dcfce7" stroke="#22c55e" strokeWidth="1.5" strokeLinejoin="round"/>
-                <path d="M15 2v5h5" fill="none" stroke="#22c55e" strokeWidth="1.5" strokeLinejoin="round"/>
+                <path d="M7 2h8l5 5v13a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z" fill="#dcfce7" stroke="#22c55e" strokeWidth="1.5" strokeLinejoin="round" />
+                <path d="M15 2v5h5" fill="none" stroke="#22c55e" strokeWidth="1.5" strokeLinejoin="round" />
                 <rect x="4" y="12" width="16" height="7" rx="1.5" fill="#22c55e" />
                 <text x="12" y="16.5" fill="white" fontSize="4.5" fontWeight="bold" fontFamily="sans-serif" textAnchor="middle" dominantBaseline="middle">XLS</text>
             </svg>
         );
     }
-    
+
     if (['zip', 'rar', '7z'].includes(ext)) {
         return (
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className={className}>
-                <path d="M7 2h8l5 5v13a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z" fill="#fef9c3" stroke="#eab308" strokeWidth="1.5" strokeLinejoin="round"/>
-                <path d="M15 2v5h5" fill="none" stroke="#eab308" strokeWidth="1.5" strokeLinejoin="round"/>
+                <path d="M7 2h8l5 5v13a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z" fill="#fef9c3" stroke="#eab308" strokeWidth="1.5" strokeLinejoin="round" />
+                <path d="M15 2v5h5" fill="none" stroke="#eab308" strokeWidth="1.5" strokeLinejoin="round" />
                 <rect x="4" y="12" width="16" height="7" rx="1.5" fill="#eab308" />
                 <text x="12" y="16.5" fill="white" fontSize="4.5" fontWeight="bold" fontFamily="sans-serif" textAnchor="middle" dominantBaseline="middle">ZIP</text>
             </svg>
         );
     }
-    
+
     if (['txt', 'md', 'json'].includes(ext)) {
         return (
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className={className}>
-                <path d="M7 2h8l5 5v13a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z" fill="#f4f4f5" stroke="#71717a" strokeWidth="1.5" strokeLinejoin="round"/>
-                <path d="M15 2v5h5" fill="none" stroke="#71717a" strokeWidth="1.5" strokeLinejoin="round"/>
+                <path d="M7 2h8l5 5v13a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z" fill="#f4f4f5" stroke="#71717a" strokeWidth="1.5" strokeLinejoin="round" />
+                <path d="M15 2v5h5" fill="none" stroke="#71717a" strokeWidth="1.5" strokeLinejoin="round" />
                 <rect x="4" y="12" width="16" height="7" rx="1.5" fill="#71717a" />
                 <text x="12" y="16.5" fill="white" fontSize="4.5" fontWeight="bold" fontFamily="sans-serif" textAnchor="middle" dominantBaseline="middle">TXT</text>
             </svg>
@@ -1603,8 +1623,8 @@ function FileTypeIcon({ filename, className = "h-8 w-8" }: { filename: string, c
     const typeText = ext.toUpperCase().substring(0, 3) || 'FILE';
     return (
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className={className}>
-            <path d="M7 2h8l5 5v13a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z" fill="#e0e7ff" stroke="#6366f1" strokeWidth="1.5" strokeLinejoin="round"/>
-            <path d="M15 2v5h5" fill="none" stroke="#6366f1" strokeWidth="1.5" strokeLinejoin="round"/>
+            <path d="M7 2h8l5 5v13a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z" fill="#e0e7ff" stroke="#6366f1" strokeWidth="1.5" strokeLinejoin="round" />
+            <path d="M15 2v5h5" fill="none" stroke="#6366f1" strokeWidth="1.5" strokeLinejoin="round" />
             <rect x="4" y="12" width="16" height="7" rx="1.5" fill="#6366f1" />
             <text x="12" y="16.5" fill="white" fontSize="4.5" fontWeight="bold" fontFamily="sans-serif" textAnchor="middle" dominantBaseline="middle">{typeText}</text>
         </svg>

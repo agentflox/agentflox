@@ -1,6 +1,6 @@
 'use client'
 
-import { Plus, MoreVertical, Edit2, Archive, Trash2, Share2, MessageSquare } from 'lucide-react'
+import { Plus, MoreHorizontal, Edit2, Archive, Trash2, Share2, MessageSquare } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -12,7 +12,11 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
-import { memo } from 'react'
+import { memo, useState } from 'react'
+import { RenameConversationModal } from './RenameConversationModal'
+import { ConfirmArchiveConversationModal } from './ConfirmArchiveConversationModal'
+import { ConfirmDeleteConversationModal } from './ConfirmDeleteConversationModal'
+import { ChatCreationModal } from './ChatCreationModal'
 
 export interface ConversationListItem {
   id: string
@@ -25,7 +29,7 @@ interface ConversationListProps {
   conversations: ConversationListItem[]
   activeConversationId?: string | null
   onSelect: (conversationId: string) => void
-  onCreate: () => Promise<void> | void
+  onCreate: (title?: string, description?: string) => Promise<void> | void
   isCreating?: boolean
   onRename?: (conversationId: string, title: string) => Promise<void>
   onDelete?: (conversationId: string) => Promise<void>
@@ -50,9 +54,9 @@ const ConversationItem = memo(function ConversationItem({
   conversation: ConversationListItem
   isActive: boolean
   onSelect: (id: string) => void
-  onRename?: (id: string, title: string) => Promise<void>
-  onDelete?: (id: string) => Promise<void>
-  onArchive?: (id: string) => Promise<void>
+  onRename?: (id: string, title: string) => void
+  onDelete?: (id: string, title: string) => void
+  onArchive?: (id: string, title: string) => void
   onShare?: (id: string) => void
   variant?: 'default' | 'clean'
 }) {
@@ -61,8 +65,17 @@ const ConversationItem = memo(function ConversationItem({
 
   return (
     <div
+      role="button"
+      tabIndex={0}
+      onClick={() => onSelect(conversation.id)}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          onSelect(conversation.id)
+        }
+      }}
       className={cn(
-        'group relative flex w-full items-start gap-2 rounded-xl px-3 py-2.5 transition-all sm:gap-3 sm:px-4 sm:py-3',
+        'group relative flex w-full items-center gap-2 cursor-pointer rounded-xl px-3 py-2 transition-all',
         isClean
           ? 'hover:bg-slate-100/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40'
           : 'hover:bg-slate-800/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40',
@@ -72,36 +85,31 @@ const ConversationItem = memo(function ConversationItem({
       )}
     >
       <div className={cn(
-        'mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-colors sm:mt-1 sm:h-8 sm:w-8',
+        'flex h-6 w-6 shrink-0 items-center justify-center rounded-md transition-colors',
         isActive
           ? (isClean ? 'bg-primary/10 text-primary' : 'bg-primary text-white')
           : (isClean ? 'bg-slate-100 text-slate-500' : 'bg-slate-800 text-slate-400')
       )}>
-        <MessageSquare className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+        <MessageSquare className="h-3.5 w-3.5" />
       </div>
-
-      <button
-        onClick={() => onSelect(conversation.id)}
-        className="flex min-w-0 flex-1 flex-col text-left"
-      >
-        <span className={cn(
-          "truncate text-sm font-semibold",
-          isClean ? "text-slate-900" : "text-white"
-        )}>{title}</span>
-        <span className={cn(
-          "mt-0.5 text-xs sm:mt-1",
-          isClean ? "text-slate-500" : "text-slate-400"
-        )}>
-          {conversation.messageCount} {conversation.messageCount === 1 ? 'message' : 'messages'}
+      <div className="flex flex-1 overflow-hidden text-left">
+        <span
+          className={cn(
+            'truncate text-[13px] font-medium transition-colors',
+            isActive
+              ? (isClean ? 'text-slate-900' : 'text-white')
+              : (isClean ? 'text-slate-700 group-hover:text-slate-900' : 'text-slate-300 group-hover:text-white')
+          )}
+        >
+          {title}
         </span>
-      </button>
-
+      </div>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button
             variant="ghost"
             className={cn(
-              'h-7 w-7 shrink-0 p-0 opacity-0 transition-all group-hover:opacity-100 sm:h-8 sm:w-8',
+              'h-7 w-7 shrink-0 p-0 opacity-0 transition-all group-hover:opacity-100 sm:h-8 sm:w-8 cursor-pointer',
               isClean
                 ? 'hover:bg-slate-200 text-slate-400 hover:text-slate-900'
                 : 'hover:bg-slate-700 text-slate-300 hover:text-white',
@@ -109,7 +117,7 @@ const ConversationItem = memo(function ConversationItem({
             )}
             onClick={(e) => e.stopPropagation()}
           >
-            <MoreVertical className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+            <MoreHorizontal className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-48">
@@ -117,10 +125,7 @@ const ConversationItem = memo(function ConversationItem({
             <DropdownMenuItem
               onClick={(e) => {
                 e.stopPropagation()
-                const newTitle = prompt('Enter new title:', title)
-                if (newTitle && newTitle.trim()) {
-                  onRename(conversation.id, newTitle.trim())
-                }
+                onRename(conversation.id, title)
               }}
             >
               <Edit2 className="mr-2 h-4 w-4" />
@@ -139,18 +144,15 @@ const ConversationItem = memo(function ConversationItem({
             </DropdownMenuItem>
           )}
           {onArchive && (
-            <>
-              {(onRename || onShare) && <DropdownMenuSeparator />}
-              <DropdownMenuItem
-                onClick={(e) => {
-                  e.stopPropagation()
-                  onArchive(conversation.id)
-                }}
-              >
-                <Archive className="mr-2 h-4 w-4" />
-                Archive
-              </DropdownMenuItem>
-            </>
+            <DropdownMenuItem
+              onClick={(e) => {
+                e.stopPropagation()
+                onArchive(conversation.id, title)
+              }}
+            >
+              <Archive className="mr-2 h-4 w-4" />
+              Archive
+            </DropdownMenuItem>
           )}
           {onDelete && (
             <>
@@ -158,9 +160,7 @@ const ConversationItem = memo(function ConversationItem({
               <DropdownMenuItem
                 onClick={(e) => {
                   e.stopPropagation()
-                  if (confirm('Are you sure you want to delete this conversation?')) {
-                    onDelete(conversation.id)
-                  }
+                  onDelete(conversation.id, title)
                 }}
                 variant="destructive"
               >
@@ -190,6 +190,45 @@ export const ConversationList = memo(function ConversationList({
 }: ConversationListProps) {
   const isClean = variant === 'clean'
 
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
+  const [renameTarget, setRenameTarget] = useState<{ id: string; title: string } | null>(null)
+  const [archiveTarget, setArchiveTarget] = useState<{ id: string; title: string } | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; title: string } | null>(null)
+  const [isActionLoading, setIsActionLoading] = useState(false)
+
+  const handleRename = async (newTitle: string) => {
+    if (!renameTarget || !onRename) return
+    setIsActionLoading(true)
+    try {
+      await onRename(renameTarget.id, newTitle)
+    } finally {
+      setIsActionLoading(false)
+      setRenameTarget(null)
+    }
+  }
+
+  const handleArchive = async () => {
+    if (!archiveTarget || !onArchive) return
+    setIsActionLoading(true)
+    try {
+      await onArchive(archiveTarget.id)
+    } finally {
+      setIsActionLoading(false)
+      setArchiveTarget(null)
+    }
+  }
+
+  const handleDelete = async () => {
+    if (!deleteTarget || !onDelete) return
+    setIsActionLoading(true)
+    try {
+      await onDelete(deleteTarget.id)
+    } finally {
+      setIsActionLoading(false)
+      setDeleteTarget(null)
+    }
+  }
+
   const content = (
     <>
       {!hideHeader && (
@@ -203,7 +242,7 @@ export const ConversationList = memo(function ConversationList({
           )}>Conversations</h2>
           <Button
             variant={isClean ? "outline" : "primary"}
-            onClick={() => onCreate()}
+            onClick={() => setIsCreateModalOpen(true)}
             disabled={isCreating}
             className="h-8 gap-1.5 px-2.5 text-xs sm:h-9 sm:gap-2 sm:px-3 sm:text-sm"
           >
@@ -224,9 +263,9 @@ export const ConversationList = memo(function ConversationList({
                 conversation={conversation}
                 isActive={isActive}
                 onSelect={onSelect}
-                onRename={onRename}
-                onDelete={onDelete}
-                onArchive={onArchive}
+                onRename={onRename ? (id, title) => setRenameTarget({ id, title }) : undefined}
+                onDelete={onDelete ? (id, title) => setDeleteTarget({ id, title }) : undefined}
+                onArchive={onArchive ? (id, title) => setArchiveTarget({ id, title }) : undefined}
                 onShare={onShare}
                 variant={variant}
               />
@@ -253,12 +292,49 @@ export const ConversationList = memo(function ConversationList({
           )}
         </div>
       </ScrollArea>
+
+      {/* Modals */}
+      <ChatCreationModal
+        open={isCreateModalOpen}
+        onOpenChange={setIsCreateModalOpen}
+        onCreate={async (title, description) => {
+          await onCreate(title, description)
+        }}
+        isCreating={isCreating}
+      />
+      {renameTarget && (
+        <RenameConversationModal
+          open={!!renameTarget}
+          onOpenChange={(open) => !open && !isActionLoading && setRenameTarget(null)}
+          currentTitle={renameTarget.title}
+          onConfirm={handleRename}
+          isLoading={isActionLoading}
+        />
+      )}
+      {archiveTarget && (
+        <ConfirmArchiveConversationModal
+          open={!!archiveTarget}
+          onOpenChange={(open) => !open && !isActionLoading && setArchiveTarget(null)}
+          title={archiveTarget.title}
+          onConfirm={handleArchive}
+          isLoading={isActionLoading}
+        />
+      )}
+      {deleteTarget && (
+        <ConfirmDeleteConversationModal
+          open={!!deleteTarget}
+          onOpenChange={(open) => !open && !isActionLoading && setDeleteTarget(null)}
+          title={deleteTarget.title}
+          onConfirm={handleDelete}
+          isLoading={isActionLoading}
+        />
+      )}
     </>
   )
 
   if (isClean) {
     return (
-      <div className="flex h-full flex-col overflow-hidden bg-white">
+      <div className="flex h-full min-h-0 flex-col overflow-hidden bg-white">
         {content}
       </div>
     )

@@ -28,6 +28,7 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface WorkspaceSpaceViewProps {
     workspaceId: string;
@@ -87,6 +88,13 @@ export default function WorkspaceSpaceView({
         router.push(`?${params.toString()}`, { scroll: false });
         if (onSpaceSelect) onSpaceSelect(spaceId);
     }, [searchParams, router, onSpaceSelect]);
+
+    // Auto-select first space when no selection exists
+    useEffect(() => {
+        if (!activeSpaceId && !isManageView && spacesRaw.length > 0) {
+            handleSpaceClick(spacesRaw[0].id);
+        }
+    }, [spacesRaw, activeSpaceId, isManageView]);
 
     // Render main content
     const renderMainContent = () => {
@@ -196,35 +204,49 @@ export default function WorkspaceSpaceView({
                                             </DropdownMenuContent>
                                         </DropdownMenu>
 
-                                        <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            className="h-7 w-7 text-muted-foreground hover:text-foreground"
-                                            onClick={() => setIsSearchOpen(true)}
-                                            title="Search"
-                                        >
-                                            <Search className="h-4 w-4" />
-                                        </Button>
+                                        <TooltipProvider>
+                                          <Tooltip>
+                                            <TooltipTrigger asChild>
+                                              <Button
+                                                  variant="ghost"
+                                                  size="icon"
+                                                  className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                                                  onClick={() => setIsSearchOpen(true)}
+                                              >
+                                                  <Search className="h-4 w-4" />
+                                              </Button>
+                                            </TooltipTrigger>
+                                            <TooltipContent>Search</TooltipContent>
+                                          </Tooltip>
 
-                                        <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            className="h-7 w-7 text-muted-foreground hover:text-foreground"
-                                            onClick={() => setIsSidebarCollapsed(true)}
-                                            title="Collapse Sidebar"
-                                        >
-                                            <ChevronsLeft className="h-4 w-4" />
-                                        </Button>
+                                          <Tooltip>
+                                            <TooltipTrigger asChild>
+                                              <Button
+                                                  variant="ghost"
+                                                  size="icon"
+                                                  className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                                                  onClick={() => setIsSidebarCollapsed(true)}
+                                              >
+                                                  <ChevronsLeft className="h-4 w-4" />
+                                              </Button>
+                                            </TooltipTrigger>
+                                            <TooltipContent>Collapse Sidebar</TooltipContent>
+                                          </Tooltip>
 
-                                        <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            className="h-7 w-7 text-muted-foreground hover:text-foreground"
-                                            onClick={() => setIsSpaceModalOpen(true)}
-                                            title="Create Space"
-                                        >
-                                            <Plus className="h-4 w-4" />
-                                        </Button>
+                                          <Tooltip>
+                                            <TooltipTrigger asChild>
+                                              <Button
+                                                  variant="ghost"
+                                                  size="icon"
+                                                  className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                                                  onClick={() => setIsSpaceModalOpen(true)}
+                                              >
+                                                  <Plus className="h-4 w-4" />
+                                              </Button>
+                                            </TooltipTrigger>
+                                            <TooltipContent>Create Space</TooltipContent>
+                                          </Tooltip>
+                                        </TooltipProvider>
                                     </div>
                                 </div>
                             )}

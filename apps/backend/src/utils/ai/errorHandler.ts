@@ -14,6 +14,12 @@ export class OpenAIErrorHandler {
         headers: { 'Content-Type': 'application/json' },
       });
     }
+    if (error instanceof Error) {
+      return new Response(JSON.stringify({ error: error.message }), {
+        status: (error as any).status || 500,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
 
     return new Response(JSON.stringify({ error: 'Unexpected error while processing chat completion.' }), {
       status: 500,

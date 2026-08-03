@@ -113,6 +113,7 @@ export interface DashboardHeaderProps {
     showSettings?: boolean;
     showAgent?: boolean;
     showAskAI?: boolean;
+    askAIDisabled?: boolean;
     showShare?: boolean;
     showExit?: boolean;
 
@@ -178,6 +179,7 @@ export function DashboardHeader({
     showSettings = true,
     showAgent = true,
     showAskAI = true,
+    askAIDisabled = false,
     showShare = true,
     showExit = false,
     agentPopoverContent,
@@ -421,7 +423,7 @@ export function DashboardHeader({
                 {rightActions.map(renderAction)}
 
                 {/* Agent */}
-                {showAgent && (
+                {/* {showAgent && (
                     agentPopoverContent ? (
                         <Popover open={agentOpen} onOpenChange={onAgentOpenChange}>
                             <PopoverTrigger asChild>
@@ -465,24 +467,66 @@ export function DashboardHeader({
                             </TooltipProvider>
                         )
                     )
-                )}
+                )} */}
+                <TooltipProvider>
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <span tabIndex={0} className="cursor-not-allowed">
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    disabled
+                                    className="h-8 relative group transition-all opacity-50 duration-200 ease-in-out w-8 hover:w-auto px-0 hover:px-3 justify-center hover:justify-start pointer-events-none"
+                                >
+                                    <div className="flex items-center justify-center w-8 h-8 shrink-0">
+                                        <Bot className="h-4 w-4" />
+                                    </div>
+                                    <span className="hidden group-hover:inline overflow-hidden whitespace-nowrap">Agent</span>
+                                </Button>
+                            </span>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                            <p>This feature is under development</p>
+                        </TooltipContent>
+                    </Tooltip>
+                </TooltipProvider>
 
                 {/* Ask AI */}
                 {showAskAI && (
                     askAIPopoverContent ? (
                         <Popover open={askAIOpen} onOpenChange={onAskAIOpenChange}>
                             <PopoverTrigger asChild>
-                                <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={onAskAIClick}
-                                    className="h-8 relative group transition-all duration-200 ease-in-out w-8 hover:w-auto px-0 hover:px-3 justify-center hover:justify-start"
-                                >
-                                    <div className="flex items-center justify-center w-8 h-8 shrink-0">
-                                        <Sparkles className="h-4 w-4" />
-                                    </div>
-                                    <span className="hidden group-hover:inline overflow-hidden whitespace-nowrap">Ask AI</span>
-                                </Button>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <span
+                                      className={cn(
+                                        "inline-block",
+                                        askAIDisabled && "cursor-not-allowed"
+                                      )}
+                                    >
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={onAskAIClick}
+                                        disabled={askAIDisabled}
+                                        className={cn(
+                                          "h-8 relative group transition-all duration-200 ease-in-out w-8 hover:w-auto px-0 hover:px-3 justify-center hover:justify-start",
+                                          askAIDisabled && "opacity-50 cursor-not-allowed pointer-events-none"
+                                        )}
+                                      >
+                                        <div className="flex items-center justify-center w-8 h-8 shrink-0">
+                                          <Sparkles className="h-4 w-4" />
+                                        </div>
+                                        <span className="hidden group-hover:inline overflow-hidden whitespace-nowrap">
+                                          Ask AI
+                                        </span>
+                                      </Button>
+                                    </span>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p>{`Ask AI about this ${entityType}`}</p>
+                                  </TooltipContent>
+                                </Tooltip>
                             </PopoverTrigger>
                             <PopoverContent align="end" className="p-0 w-auto">
                                 {askAIPopoverContent}
@@ -490,26 +534,37 @@ export function DashboardHeader({
                         </Popover>
                     ) : (
                         onAskAIClick && (
-                            <TooltipProvider>
-                                <Tooltip>
-                                    <TooltipTrigger asChild>
-                                        <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            onClick={onAskAIClick}
-                                            className="h-8 relative group transition-all duration-200 ease-in-out w-8 hover:w-auto px-0 hover:px-3 justify-center hover:justify-start"
-                                        >
-                                            <div className="flex items-center justify-center w-8 h-8 shrink-0">
-                                                <Sparkles className="h-4 w-4" />
-                                            </div>
-                                            <span className="hidden group-hover:inline overflow-hidden whitespace-nowrap">Ask AI</span>
-                                        </Button>
-                                    </TooltipTrigger>
-                                    <TooltipContent>
-                                        <p>Ask AI about this {entityType}</p>
-                                    </TooltipContent>
-                                </Tooltip>
-                            </TooltipProvider>
+                           <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span
+                                  className={cn(
+                                    "inline-block",
+                                    askAIDisabled && "cursor-not-allowed"
+                                  )}
+                                >
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={onAskAIClick}
+                                    disabled={askAIDisabled}
+                                    className={cn(
+                                      "h-8 relative group transition-all duration-200 ease-in-out w-8 hover:w-auto px-0 hover:px-3 justify-center hover:justify-start",
+                                      askAIDisabled && "opacity-50 cursor-not-allowed pointer-events-none"
+                                    )}
+                                  >
+                                    <div className="flex items-center justify-center w-8 h-8 shrink-0">
+                                      <Sparkles className="h-4 w-4" />
+                                    </div>
+                                    <span className="hidden group-hover:inline overflow-hidden whitespace-nowrap">
+                                      Ask AI
+                                    </span>
+                                  </Button>
+                                </span>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>{`Ask AI about this ${entityType}`}</p>
+                              </TooltipContent>
+                            </Tooltip>
                         )
                     )
                 )}

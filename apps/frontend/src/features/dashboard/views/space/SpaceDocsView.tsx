@@ -18,7 +18,7 @@ import { Input } from "@/components/ui/input";
 import { LoadingContainer } from "@/components/ui/loading";
 import { cn } from "@/lib/utils";
 import { DocView } from "@/features/dashboard/views/generic/DocView";
-import DocumentCreationModal from "@/entities/documents/components/DocumentCreationModal";
+import { CreateDocViewModal } from "@/features/dashboard/components/modals/CreateDocViewModal";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -28,10 +28,9 @@ import {
 
 interface SpaceDocsViewProps {
     spaceId: string;
-    workspaceId?: string;
 }
 
-export default function SpaceDocsView({ spaceId, workspaceId }: SpaceDocsViewProps) {
+export default function SpaceDocsView({ spaceId }: SpaceDocsViewProps) {
     const router = useRouter();
     const searchParams = useSearchParams();
 
@@ -257,10 +256,10 @@ export default function SpaceDocsView({ spaceId, workspaceId }: SpaceDocsViewPro
             </div>
 
             {/* Document Creation Modal */}
-            <DocumentCreationModal
+            <CreateDocViewModal
                 open={isCreateModalOpen}
                 onOpenChange={setIsCreateModalOpen}
-                workspaceId={workspaceId || ""}
+                spaceId={spaceId}
                 onSuccess={handleCreated}
             />
         </div>

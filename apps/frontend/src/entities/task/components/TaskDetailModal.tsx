@@ -68,7 +68,7 @@ import { useDebounce } from '@/hooks/useDebounce';
 import { TaskActivityPanel } from './TaskActivityPanel';
 import { RelatedPanelContent } from './RelatedPanelContent';
 import { CustomFieldsSection } from './CustomFieldsSection';
-import { ChatView } from '@/features/dashboard/views/shared/SharedAIChatView';
+import { AIChatView } from '@/features/dashboard/views/shared/AIChatView';
 import { TaskCalendar } from './TaskCalendar';
 import { TaskTypeIcon } from './TaskTypeIcon';
 import { toast } from 'sonner';
@@ -459,11 +459,12 @@ const TaskAIChatPanel = ({
             icon={<Bot className="h-5 w-5 text-purple-600" />}
         >
             <div className="flex flex-col h-full bg-white overflow-hidden">
-                <ChatView
+                <AIChatView
                     contextType="TASK"
                     contextId={task.id}
                     contextName={task.title ?? 'Task'}
-                    hideSidebar={true}
+                    hideSidebar
+                    hideMentions
                 />
             </div>
         </SidePanelContainer>

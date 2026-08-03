@@ -39,6 +39,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 export default function MainSidebar({ mode = "inline", onClose }: { mode?: "inline" | "overlay"; onClose?: () => void }) {
   const { data: session } = useSession();
@@ -154,23 +155,18 @@ export default function MainSidebar({ mode = "inline", onClose }: { mode?: "inli
           isMainCollapsed && "flex-col justify-center gap-1.5 px-1 py-2.5 text-[10px] leading-tight"
         );
 
-        if (item.href) {
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              prefetch={true}
-              onClick={handleItemClick}
-              className={className}
-              title={isMainCollapsed ? item.label : undefined}
-              {...(item.isExternal ? { target: "_blank", rel: "noopener noreferrer" } : {})}
-            >
-              {content}
-            </Link>
-          );
-        }
-
-        return (
+        const ItemWrapper = item.href ? (
+          <Link
+            key={item.href}
+            href={item.href}
+            prefetch={true}
+            onClick={handleItemClick}
+            className={className}
+            {...(item.isExternal ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+          >
+            {content}
+          </Link>
+        ) : (
           <button
             key={item.label}
             onClick={() => {
@@ -178,11 +174,21 @@ export default function MainSidebar({ mode = "inline", onClose }: { mode?: "inli
               handleItemClick();
             }}
             className={className}
-            title={isMainCollapsed ? item.label : undefined}
           >
             {content}
           </button>
         );
+
+        if (isMainCollapsed) {
+          return (
+            <Tooltip key={item.href || item.label} delayDuration={0}>
+              <TooltipTrigger asChild>{ItemWrapper}</TooltipTrigger>
+              <TooltipContent side="right">{item.label}</TooltipContent>
+            </Tooltip>
+          );
+        }
+
+        return <React.Fragment key={item.href || item.label}>{ItemWrapper}</React.Fragment>;
       })}
     </div>
   );
@@ -208,7 +214,7 @@ export default function MainSidebar({ mode = "inline", onClose }: { mode?: "inli
           {visibleSecondary.map((item) => {
             const Icon = item.icon;
             const isActive = pathname === item.href;
-            return (
+            const ItemWrapper = (
               <Link
                 key={item.href}
                 href={item.href}
@@ -221,7 +227,6 @@ export default function MainSidebar({ mode = "inline", onClose }: { mode?: "inli
                     : "text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900",
                   isMainCollapsed && "flex-col justify-center gap-1.5 px-1 py-2.5 text-[10px] leading-tight"
                 )}
-                title={isMainCollapsed ? item.label : undefined}
               >
                 <Icon size={18} className={cn("shrink-0", isActive ? "text-primary" : "text-zinc-400 group-hover:text-zinc-900")} />
                 {isMainCollapsed ? (
@@ -230,29 +235,57 @@ export default function MainSidebar({ mode = "inline", onClose }: { mode?: "inli
                   <span>{item.label}</span>
                 )}
               </Link>
-            )
+            );
+
+            if (isMainCollapsed) {
+              return (
+                <Tooltip key={item.href} delayDuration={0}>
+                  <TooltipTrigger asChild>{ItemWrapper}</TooltipTrigger>
+                  <TooltipContent side="right">{item.label}</TooltipContent>
+                </Tooltip>
+              );
+            }
+            return <React.Fragment key={item.href}>{ItemWrapper}</React.Fragment>;
           })}
 
           {/* More Button */}
           <Popover open={isMoreOpen} onOpenChange={setIsMoreOpen}>
-            <PopoverTrigger asChild>
-              <button
-                className={cn(
-                  "group flex w-full items-center gap-3 rounded-md px-2 py-2 text-sm font-medium transition-all duration-200 outline-none mt-2 cursor-pointer",
-                  "text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900",
-                  isMoreOpen && "bg-zinc-100 text-zinc-900",
-                  isMainCollapsed && "flex-col justify-center gap-1.5 px-1 py-2.5 text-[10px] leading-tight"
-                )}
-                title={t("sidebar.more")}
-              >
-                <Grid3x3 size={18} className="shrink-0 text-zinc-400 group-hover:text-zinc-900" />
-                {isMainCollapsed ? (
-                  <span className="text-center max-w-[68px] break-words leading-tight">{t("sidebar.more")}</span>
-                ) : (
-                  <span>{t("sidebar.more")}</span>
-                )}
-              </button>
-            </PopoverTrigger>
+            {(() => {
+              const triggerButton = (
+                <button
+                  className={cn(
+                    "group flex w-full items-center gap-3 rounded-md px-2 py-2 text-sm font-medium transition-all duration-200 outline-none mt-2 cursor-pointer",
+                    "text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900",
+                    isMoreOpen && "bg-zinc-100 text-zinc-900",
+                    isMainCollapsed && "flex-col justify-center gap-1.5 px-1 py-2.5 text-[10px] leading-tight"
+                  )}
+                >
+                  <Grid3x3 size={18} className="shrink-0 text-zinc-400 group-hover:text-zinc-900" />
+                  {isMainCollapsed ? (
+                    <span className="text-center max-w-[68px] break-words leading-tight">{t("sidebar.more")}</span>
+                  ) : (
+                    <span>{t("sidebar.more")}</span>
+                  )}
+                </button>
+              );
+
+              const WrappedTrigger = isMainCollapsed ? (
+                <Tooltip delayDuration={0}>
+                  <TooltipTrigger asChild>
+                    <PopoverTrigger asChild>
+                      {triggerButton}
+                    </PopoverTrigger>
+                  </TooltipTrigger>
+                  <TooltipContent side="right">{t("sidebar.more")}</TooltipContent>
+                </Tooltip>
+              ) : (
+                <PopoverTrigger asChild>
+                  {triggerButton}
+                </PopoverTrigger>
+              );
+
+              return WrappedTrigger;
+            })()}
             <PopoverContent
               side="right"
               align="start"
@@ -295,21 +328,34 @@ export default function MainSidebar({ mode = "inline", onClose }: { mode?: "inli
 
         {/* Logout Button */}
         <div className="mt-8">
-          <button
-            onClick={() => signOut()}
-            className={cn(
-              "group flex w-full items-center gap-3 rounded-md px-2 py-2 text-sm font-medium transition-all duration-200 outline-none cursor-pointer text-red-600 hover:bg-red-50 hover:text-red-700",
-              isMainCollapsed && "flex-col justify-center gap-1.5 px-1 py-2.5 text-[10px] leading-tight"
-            )}
-            title={isMainCollapsed ? t("header.logout") : undefined}
-          >
-            <LogOut size={18} className="shrink-0 text-red-500 group-hover:text-red-600" />
-            {isMainCollapsed ? (
-              <span className="text-center max-w-[68px] break-words leading-tight">{t("header.logout")}</span>
-            ) : (
-              <span>{t("header.logout")}</span>
-            )}
-          </button>
+          {(() => {
+            const logoutBtn = (
+              <button
+                onClick={() => signOut()}
+                className={cn(
+                  "group flex w-full items-center gap-3 rounded-md px-2 py-2 text-sm font-medium transition-all duration-200 outline-none cursor-pointer text-red-600 hover:bg-red-50 hover:text-red-700",
+                  isMainCollapsed && "flex-col justify-center gap-1.5 px-1 py-2.5 text-[10px] leading-tight"
+                )}
+              >
+                <LogOut size={18} className="shrink-0 text-red-500 group-hover:text-red-600" />
+                {isMainCollapsed ? (
+                  <span className="text-center max-w-[68px] break-words leading-tight">{t("header.logout")}</span>
+                ) : (
+                  <span>{t("header.logout")}</span>
+                )}
+              </button>
+            );
+
+            if (isMainCollapsed) {
+              return (
+                <Tooltip delayDuration={0}>
+                  <TooltipTrigger asChild>{logoutBtn}</TooltipTrigger>
+                  <TooltipContent side="right">{t("header.logout")}</TooltipContent>
+                </Tooltip>
+              );
+            }
+            return logoutBtn;
+          })()}
         </div>
       </div>
     </AppSidebar>

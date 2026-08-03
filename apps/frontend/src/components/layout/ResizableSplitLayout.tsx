@@ -64,7 +64,7 @@ export function ResizableSplitLayout({
 
     if (!isPanelOpen) {
         // When no side panel, just render the main content directly
-        return <div className="h-full w-full">{MainContent}</div>;
+        return <div className="flex flex-col h-full w-full min-h-0">{MainContent}</div>;
     }
 
     return (
@@ -81,7 +81,7 @@ export function ResizableSplitLayout({
             <Panel
                 id="main-content-panel"
                 minSize={`${mainPanelMinSize}%`}
-                className="select-text"
+                className="select-text flex flex-col min-h-0 h-full w-full"
                 onMouseDown={(e) => e.stopPropagation()}
             >
                 {MainContent}
@@ -100,7 +100,7 @@ export function ResizableSplitLayout({
             <Panel
                 id="side-content-panel"
                 minSize={`${sidePanelMinSize}%`}
-                className="select-text"
+                className="select-text flex flex-col min-h-0 h-full w-full"
                 onMouseDown={(e) => e.stopPropagation()}
                 onResize={(panelSize) => onResize?.(panelSize.asPercentage)}
             >

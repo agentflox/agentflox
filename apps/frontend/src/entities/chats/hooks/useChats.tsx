@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 import { keepPreviousData } from '@tanstack/react-query'
 import { trpc } from '@/lib/trpc'
 import { sendChatMessage as sendChatMessageService } from '@/services/chat.service'
@@ -51,6 +51,7 @@ export function useChats({ contextType, entityId, activeConversationId }: UseCha
   const { data: config } = trpc.chat.getModelConfig.useQuery()
   const [isSending, setIsSending] = useState(false)
   const [pendingAssistantMessage, setPendingAssistantMessage] = useState<string | null>(null)
+  const pendingUserMessageRef = useRef<RenderedMessage | null>(null)
 
   const sendMessage = useCallback(
     async (conversationId: string, message: string, options?: { attachments?: any[]; webSearch?: boolean; contexts?: any[]; mentions?: any[] }) => {
@@ -70,14 +71,8 @@ export function useChats({ contextType, entityId, activeConversationId }: UseCha
         createdAt: new Date(),
       }
 
-      // Optimistically update the cache to show user message immediately
-      utils.chat.getMessages.setData({ conversationId }, (oldData) => {
-        if (!oldData) return oldData
-        return {
-          ...oldData,
-          messages: [...oldData.messages, optimisticUserMessage],
-        }
-      })
+      // Store in ref so it survives refetch cycles
+      pendingUserMessageRef.current = optimisticUserMessage
 
       try {
         const assistantMessage = await sendChatMessageService(
@@ -100,44 +95,17 @@ export function useChats({ contextType, entityId, activeConversationId }: UseCha
           }
         )
 
-        // Optimistically add the final assistant message to cache
-        const optimisticAssistantMessage: RenderedMessage = {
-          id: `temp-assistant-${Date.now()}`,
-          role: 'ASSISTANT' as MessageRole,
-          content: assistantMessage,
-          createdAt: new Date(),
-        }
-
-        utils.chat.getMessages.setData({ conversationId }, (oldData) => {
-          if (!oldData) return oldData
-          // Remove the temp user message and add both real messages
-          const messagesWithoutTemp = oldData.messages.filter(
-            (msg) => !msg.id.startsWith('temp-')
-          )
-          return {
-            ...oldData,
-            messages: [
-              ...messagesWithoutTemp,
-              optimisticUserMessage,
-              optimisticAssistantMessage,
-            ],
-          }
-        })
-
-        // Clear pending message
+        // Clear pending state — the refetch will bring real data from the DB
+        pendingUserMessageRef.current = null
         setPendingAssistantMessage(null)
 
-        // Use a delay to avoid immediate refetch
-        setTimeout(() => {
-          Promise.all([
-            utils.chat.getMessages.invalidate({ conversationId }),
-            utils.chat.list.invalidate({ contextType, entityId }),
-          ]).catch((error) => {
-            // Silently handle errors in background sync
-            console.error('Background sync error:', error)
-          })
-        }, 1000)
+        // Invalidate so the real messages come in from the DB
+        await Promise.all([
+          utils.chat.getMessages.invalidate({ conversationId }),
+          utils.chat.list.invalidate({ contextType, entityId }),
+        ])
       } catch (error) {
+        pendingUserMessageRef.current = null
         setPendingAssistantMessage(null)
         // On error, refetch to ensure consistency
         await utils.chat.getMessages.invalidate({ conversationId })
@@ -181,9 +149,9 @@ export function useChats({ contextType, entityId, activeConversationId }: UseCha
 
   // Memoize messages with stable reference
   const renderedMessages = useMemo<RenderedMessage[]>(() => {
-    if (!messagesQuery.data?.messages) return []
+    const dbMessages = messagesQuery.data?.messages ?? []
 
-    return messagesQuery.data.messages.map((message: any, index: number) => {
+    const mapped = dbMessages.map((message: any, index: number) => {
       // Extract follow-ups from metadata (only for assistant messages)
       let followups: Array<{ id: string; label: string }> | undefined;
 
@@ -192,8 +160,7 @@ export function useChats({ contextType, entityId, activeConversationId }: UseCha
         const followupsConsumed = metadata.followupsConsumed === true;
 
         // Check if there are user messages after this assistant message
-        const allMessages = messagesQuery.data.messages;
-        const hasUserMessageAfter = allMessages.slice(index + 1).some((m: any) => m.role === 'USER');
+        const hasUserMessageAfter = dbMessages.slice(index + 1).some((m: any) => m.role === 'USER');
 
         // Only show follow-ups if not consumed AND no user message after
         if (!followupsConsumed && !hasUserMessageAfter && metadata.followups && Array.isArray(metadata.followups)) {
@@ -210,7 +177,16 @@ export function useChats({ contextType, entityId, activeConversationId }: UseCha
         followups,
       };
     })
-  }, [messagesQuery.data?.messages])
+
+    // While sending, pin the optimistic user message at the end so it is always
+    // visible even when the polling refetch replaces the cache with DB data.
+    const pending = pendingUserMessageRef.current
+    if (pending && !mapped.some((m) => m.id === pending.id || (m.role === 'USER' && m.content === pending.content && mapped.indexOf(m) === mapped.length - 1))) {
+      return [...mapped, pending]
+    }
+
+    return mapped
+  }, [messagesQuery.data?.messages, isSending])
 
   // Mutation for marking follow-ups as consumed
   const markFollowupsConsumedMutation = trpc.chat.markFollowupsConsumed.useMutation()

@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 export type WorkspaceView = "overview" | "personal" | "spaces" | "projects" | "teams" | "docs" | "chats" | "ai-chat";
 
@@ -57,9 +58,9 @@ export default function NavigationSidebar({
 	return (
 		<aside
 			className={cn(
-			  "relative flex flex-col border-r border-zinc-200 bg-white transition-all duration-300 ease-in-out shadow-lg",
-			  collapsed ? "w-16" : "w-72",
-			  mode === "overlay" ? "h-full fixed inset-y-0 left-0 z-40" : "h-screen sticky top-0"
+				"relative flex flex-col border-r border-zinc-200 bg-white transition-all duration-300 ease-in-out shadow-lg",
+				collapsed ? "w-16" : "w-72",
+				mode === "overlay" ? "h-full fixed inset-y-0 left-0 z-40" : "h-screen sticky top-0"
 			)}
 		>
 			{/* Header */}
@@ -88,48 +89,62 @@ export default function NavigationSidebar({
 			</div>
 
 			{/* Navigation */}
-			<ScrollArea className="flex-1 px-1.5 py-4">
-				<div className="space-y-1">
-					{navigationItems.map((item) => {
-						const Icon = item.icon;
-						const isActive = activeView === item.id;
+			<TooltipProvider delayDuration={0}>
+				<ScrollArea className="flex-1 px-1.5 py-4">
+					<div className="space-y-1">
+						{navigationItems.map((item) => {
+							const Icon = item.icon;
+							const isActive = activeView === item.id;
 
-						const commonClassName = cn(
-							"group flex w-full items-center gap-3 rounded-md px-2 py-2 text-sm font-medium transition-all duration-200 outline-none cursor-pointer",
-							isActive
-								? "bg-primary/10 text-primary"
-								: "text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900",
-							collapsed && "justify-center px-2"
-						);
+							const commonClassName = cn(
+								"group flex w-full items-center gap-3 rounded-md px-2 py-2 text-sm font-medium transition-all duration-200 outline-none cursor-pointer",
+								isActive
+									? "bg-primary/10 text-primary"
+									: "text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900",
+								collapsed && "justify-center px-2"
+							);
 
-						if (item.href) {
-							return (
+							const content = (
+								<>
+									<Icon size={18} className={cn("shrink-0 cursor-pointer", isActive ? "text-primary" : "text-zinc-400 group-hover:text-zinc-900")} />
+									{!collapsed && <span>{item.label}</span>}
+								</>
+							);
+
+							const ItemWrapper = item.href ? (
 								<Link
-									key={item.id}
 									href={item.href}
 									className={commonClassName}
-									title={collapsed ? item.label : undefined}
 								>
-									<Icon size={18} className={cn("shrink-0", isActive ? "text-primary" : "text-zinc-400 group-hover:text-zinc-900")} />
-									{!collapsed && <span>{item.label}</span>}
+									{content}
 								</Link>
+							) : (
+								<button
+									onClick={() => onViewChange(item.id as WorkspaceView)}
+									className={commonClassName}
+								>
+									{content}
+								</button>
 							);
-						}
 
-						return (
-							<button
-								key={item.id}
-								onClick={() => onViewChange(item.id as WorkspaceView)}
-								className={commonClassName}
-								title={collapsed ? item.label : undefined}
-							>
-								<Icon size={18} className={cn("shrink-0 cursor-pointer", isActive ? "text-primary" : "text-zinc-400 group-hover:text-zinc-900")} />
-								{!collapsed && <span>{item.label}</span>}
-							</button>
-						);
-					})}
-				</div>
-			</ScrollArea>
+							if (collapsed) {
+								return (
+									<Tooltip key={item.id}>
+										<TooltipTrigger asChild>
+											{ItemWrapper}
+										</TooltipTrigger>
+										<TooltipContent side="right">
+											{item.label}
+										</TooltipContent>
+									</Tooltip>
+								);
+							}
+
+							return <div key={item.id}>{ItemWrapper}</div>;
+						})}
+					</div>
+				</ScrollArea>
+			</TooltipProvider>
 		</aside>
 	);
 }

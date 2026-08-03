@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { ChevronLeft, ChevronRight, Menu, LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 export interface SidebarItem {
     label: string;
@@ -100,32 +101,41 @@ export function AppSidebar({
                     ? <span className="text-center max-w-[52px] truncate">{item.label}</span>
                     : <span>{item.label}</span>;
 
-                if (item.href) {
-                    return (
-                        <Link
-                            key={item.href || item.label}
-                            href={item.href}
-                            onClick={handleClick}
-                            className={commonClasses}
-                            title={isCollapsed ? item.label : undefined}
-                        >
-                            <Icon size={18} className={cn("shrink-0", isActive ? "text-primary" : "text-zinc-400 group-hover:text-zinc-900")} />
-                            {Label}
-                        </Link>
-                    );
-                }
-
-                return (
+                const ItemWrapper = item.href ? (
+                    <Link
+                        key={item.href || item.label}
+                        href={item.href}
+                        onClick={handleClick}
+                        className={commonClasses}
+                    >
+                        <Icon size={18} className={cn("shrink-0", isActive ? "text-primary" : "text-zinc-400 group-hover:text-zinc-900")} />
+                        {Label}
+                    </Link>
+                ) : (
                     <button
                         key={item.value || item.label}
                         onClick={handleClick}
                         className={commonClasses}
-                        title={isCollapsed ? item.label : undefined}
                     >
                         <Icon size={18} className={cn("shrink-0", isActive ? "text-primary" : "text-zinc-400 group-hover:text-zinc-900")} />
                         {Label}
                     </button>
                 );
+
+                if (isCollapsed) {
+                    return (
+                        <Tooltip key={item.href || item.value || item.label} delayDuration={0}>
+                            <TooltipTrigger asChild>
+                                {ItemWrapper}
+                            </TooltipTrigger>
+                            <TooltipContent side="right">
+                                {item.label}
+                            </TooltipContent>
+                        </Tooltip>
+                    );
+                }
+
+                return <React.Fragment key={item.href || item.value || item.label}>{ItemWrapper}</React.Fragment>;
             })}
         </div>
     );
@@ -169,9 +179,11 @@ export function AppSidebar({
             </div>
 
             <ScrollArea className="flex-1 px-3 py-4">
-                {items.length > 0 && Content}
-                {children}
-                {renderFooter && renderFooter(isCollapsed)}
+                <TooltipProvider delayDuration={0}>
+                    {items.length > 0 && Content}
+                    {children}
+                    {renderFooter && renderFooter(isCollapsed)}
+                </TooltipProvider>
             </ScrollArea>
         </aside>
     );

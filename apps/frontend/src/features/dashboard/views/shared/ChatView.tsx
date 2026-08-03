@@ -223,6 +223,14 @@ export default function ChatView({ workspaceId, spaceId, projectId, teamId, sele
         setIsCreatingConversation(true);
         try {
             const created = await createChannel.mutateAsync({ workspaceId, spaceId, projectId, teamId, name: title, description });
+            
+            // Optimistic update
+            (utils.channel.list.setData as any)({ workspaceId, spaceId, projectId, teamId, withCounts: false }, (old: any) => {
+                const newChannel = { ...created, _count: { aiConversations: 0, members: 0, messages: 0, creator: 0, workspace: 0, space: 0, project: 0, team: 0, tasks: 0 }, members: [] };
+                if (!old) return [newChannel];
+                return [newChannel, ...old];
+            });
+
             setActiveChannelId(created.id);
             setChatTitle(created.name ?? title);
             setChatDescription(created.description ?? description ?? "");
@@ -243,6 +251,13 @@ export default function ChatView({ workspaceId, spaceId, projectId, teamId, sele
 
     const handleDeleteChannel = useCallback(async (id: string) => {
         if (!confirm("Are you sure you want to delete this channel?")) return;
+        
+        // Optimistic update
+        (utils.channel.list.setData as any)({ workspaceId, spaceId, projectId, teamId, withCounts: false }, (old: any) => {
+            if (!old) return old;
+            return old.filter((c: any) => c.id !== id);
+        });
+
         await deleteChannel.mutateAsync({ id });
         await utils.channel.list.invalidate({ workspaceId, spaceId, projectId, teamId, withCounts: false } as any);
         if (activeChannelId === id) {
@@ -453,10 +468,10 @@ export default function ChatView({ workspaceId, spaceId, projectId, teamId, sele
     if (isLoading) return <ChatViewSkeleton />;
 
     return (
-        <div className="flex h-full min-h-0 bg-slate-50">
+        <div className="flex h-full w-full min-h-0 bg-slate-50">
             {/* Left chat list */}
             <aside className={cn(
-                "hidden lg:flex shrink-0 bg-white transition-all duration-300 ease-in-out flex-col h-full overflow-hidden border-r border-slate-200",
+                "hidden lg:flex shrink-0 bg-white transition-all duration-300 ease-in-out flex-col h-full overflow-hidden border-x border-slate-200",
                 isSidebarCollapsed ? "w-0 border-none" : "w-[256px]"
             )}>
                 <div className="flex h-full flex-col overflow-hidden">
@@ -543,7 +558,7 @@ export default function ChatView({ workspaceId, spaceId, projectId, teamId, sele
 
                     {/* Channels List */}
                     {!isSidebarCollapsed && (
-                        <div className="flex-1 overflow-y-auto px-0 py-0">
+                        <div className="flex-1 overflow-y-auto min-h-0 px-0 py-0">
                             {channelsQuery.isLoading ? (
                                 <LoadingContainer
                                     label="Loading chats..."

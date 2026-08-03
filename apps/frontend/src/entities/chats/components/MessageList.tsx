@@ -149,8 +149,25 @@ const MessageItem = memo(function MessageItem({
   if (isUser) {
     return (
       <div className="flex justify-end px-4 sm:px-6 md:px-8">
-        <div className="max-w-[72%] rounded-[20px] bg-slate-100 px-5 py-3 text-[15px] leading-relaxed text-slate-800">
-          {message.content}
+        <div className="max-w-[72%] rounded-[20px] bg-slate-100 px-5 py-3 text-[15px] leading-relaxed text-slate-800 whitespace-pre-wrap break-words">
+          {message.content.split(/(\[(?:@|#)[^\]]+\])/g).map((part, i) => {
+            if (part.startsWith('[@') && part.endsWith(']')) {
+              const name = part.slice(2, -1)
+              return (
+                <span key={i} className="text-purple-700 font-medium">
+                  @{name}
+                </span>
+              )
+            } else if (part.startsWith('[#') && part.endsWith(']')) {
+              const name = part.slice(2, -1)
+              return (
+                <span key={i} className="text-indigo-700 font-medium">
+                  #{name}
+                </span>
+              )
+            }
+            return <span key={i}>{part}</span>
+          })}
         </div>
       </div>
     )

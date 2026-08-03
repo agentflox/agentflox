@@ -259,7 +259,7 @@ export class ChatService {
             const label = contextLabels[contextType] ?? contextType;
             systemPromptParts.push(`${label.charAt(0).toUpperCase() + label.slice(1)} summary:\n${basicContext.summary}`);
         }
-        
+
         if (explicitContextStr) {
             systemPromptParts.push(`Additional Explicit Context:\n${explicitContextStr}`);
         }
@@ -292,7 +292,7 @@ export class ChatService {
         const estimatedInputTokens = Math.ceil(JSON.stringify(inputMessages).length / 4);
 
         const messages: ChatCompletionMessageParam[] = inputMessages;
-        const targetModel = model || conversation.model?.name || 'gpt-4o-mini';
+        const targetModel = convertModelName(model || conversation.model?.name) ?? 'gpt-4o-mini';
 
         // **OPTIMIZATION 5: Save user message and start streaming in parallel**
         const userMessagePromise = db.$transaction([

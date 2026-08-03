@@ -303,6 +303,9 @@ export const taskRouter = router({
       projectId: z.string().optional(),
       teamId: z.string().optional(),
       listId: z.string().optional(),
+      folderId: z.string().optional(),
+      contextId: z.string().optional(),
+      contextType: z.string().optional(),
       assigneeId: z.string().optional(),
       status: z.array(z.string()).optional(),
       visibility: z.enum(["PRIVATE", "ADMINS", "MEMBERS", "EVERYONE", "PUBLIC"]).optional(),
@@ -325,6 +328,18 @@ export const taskRouter = router({
       if (input.projectId) where.projectId = input.projectId;
       if (input.teamId) where.teamId = input.teamId;
       if (input.listId) where.listId = input.listId;
+      if (input.folderId) where.list = { folderId: input.folderId };
+
+      if (input.contextId && input.contextType) {
+        const cType = input.contextType.toUpperCase();
+        if (cType === "WORKSPACE") where.workspaceId = input.contextId;
+        if (cType === "SPACE") where.spaceId = input.contextId;
+        if (cType === "PROJECT") where.projectId = input.contextId;
+        if (cType === "TEAM") where.teamId = input.contextId;
+        if (cType === "LIST") where.listId = input.contextId;
+        if (cType === "FOLDER") where.list = { folderId: input.contextId };
+      }
+
       // Support both legacy single assignee and multi-assignees
       if (input.assigneeId) {
         where.OR = [

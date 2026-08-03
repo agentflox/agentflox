@@ -72,6 +72,10 @@ export const documentRouter = router({
         spaceId: z.string().optional(),
         projectId: z.string().optional(),
         teamId: z.string().optional(),
+        listId: z.string().optional(),
+        folderId: z.string().optional(),
+        contextId: z.string().optional(),
+        contextType: z.string().optional(),
         isArchived: z.boolean().optional().default(false),
         isTemplate: z.boolean().optional(),
         query: z.string().optional(),
@@ -99,6 +103,24 @@ export const documentRouter = router({
       // Filter by viewId
       if (input.viewId) {
         where.viewId = input.viewId;
+      }
+      
+      if (input.listId) {
+        where.listId = input.listId;
+      }
+
+      if (input.folderId) {
+        where.folderId = input.folderId;
+      }
+
+      if (input.contextId && input.contextType) {
+        const cType = input.contextType.toUpperCase();
+        if (cType === "WORKSPACE") where.workspaceId = input.contextId;
+        if (cType === "SPACE") where.spaceId = input.contextId;
+        if (cType === "PROJECT") where.projectId = input.contextId;
+        if (cType === "TEAM") where.teamId = input.contextId;
+        if (cType === "LIST") where.listId = input.contextId;
+        if (cType === "FOLDER") where.folderId = input.contextId;
       }
 
       if (input.spaceId) {

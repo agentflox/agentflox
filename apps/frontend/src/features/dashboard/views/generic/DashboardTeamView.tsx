@@ -215,20 +215,20 @@ export default function DashboardTeamView({ listId, spaceId, projectId, teamId, 
             toast.success("View created from template");
 
             const params = new URLSearchParams(searchParams.toString());
-            params.set("lv", data.id);
+            params.set("nv", data.id);
             router.push(`?${params.toString()}`, { scroll: false });
         },
         onError: (err) => toast.error(`Failed to create view: ${err.message}`)
     });
 
     // Active Tab Logic
-    const urlViewId = searchParams.get("lv");
+    const urlViewId = searchParams.get("nv");
     const activeView = views.find(v => v.id === urlViewId) || views[0];
     const activeTab = activeView?.id;
 
     const handleTabChange = useCallback((viewId: string) => {
         const params = new URLSearchParams(searchParams.toString());
-        params.set("lv", viewId);
+        params.set("nv", viewId);
         router.push(`?${params.toString()}`, { scroll: false });
     }, [searchParams, router]);
 
@@ -280,7 +280,7 @@ export default function DashboardTeamView({ listId, spaceId, projectId, teamId, 
 
         if (lastCreatedViewId) {
             const params = new URLSearchParams(searchParams.toString());
-            params.set("lv", lastCreatedViewId);
+            params.set("nv", lastCreatedViewId);
             router.push(`?${params.toString()}`, { scroll: false });
         }
     };
@@ -305,7 +305,7 @@ export default function DashboardTeamView({ listId, spaceId, projectId, teamId, 
     useEffect(() => {
         if (!urlViewId && views.length > 0) {
             const params = new URLSearchParams(searchParams.toString());
-            params.set("lv", views[0].id);
+            params.set("nv", views[0].id);
             history.replaceState(null, "", `?${params.toString()}`);
         }
     }, [urlViewId, views, searchParams, router]);

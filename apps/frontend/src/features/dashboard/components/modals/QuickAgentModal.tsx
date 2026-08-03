@@ -80,11 +80,12 @@ export function QuickAgentPopover({ contextId, contextType, onOpenChange }: Quic
                         <p className="text-xs text-zinc-500">Create a new intelligent teammate</p>
                     </div>
                 </div>
-                <div className="relative">
-                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
+                <div className="flex items-center gap-2 px-3 h-9 bg-white border border-zinc-200 rounded-md focus-within:border-violet-500 focus-within:ring-2 focus-within:ring-violet-500/20 transition-all overflow-hidden cursor-text">
+                    <Search className="h-4 w-4 text-zinc-400 shrink-0" />
                     <Input
+                        variant="ghost"
+                        className="flex-1 h-full border-0 p-0 shadow-none focus-visible:ring-0 text-sm bg-transparent placeholder:text-zinc-400 focus:outline-none focus:ring-0 focus-visible:ring-0"
                         placeholder="Search agents..."
-                        className="pl-9 h-9 bg-white border-zinc-200 text-sm focus-visible:ring-indigo-500/20"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         autoFocus

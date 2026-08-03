@@ -84,7 +84,7 @@ export function ChannelList({
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button
-                    className="flex h-6 w-6 items-center justify-center rounded-md hover:bg-slate-200/80 text-slate-500 hover:text-slate-700 focus:outline-none"
+                    className="flex h-6 w-6 items-center justify-center rounded-md hover:bg-slate-200/80 text-slate-500 hover:text-slate-700 focus:outline-none cursor-pointer"
                     onClick={(e) => e.stopPropagation()}
                   >
                     <MoreHorizontal className="h-4 w-4" />

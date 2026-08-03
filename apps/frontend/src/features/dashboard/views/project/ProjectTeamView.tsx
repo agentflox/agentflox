@@ -22,6 +22,7 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface ProjectTeamViewProps {
     projectId: string;
@@ -89,6 +90,13 @@ export default function ProjectTeamView({ projectId, workspaceId, selectedTeamId
             onTeamSelect(teamId);
         }
     };
+
+    // Auto-select first team when no selection exists
+    useEffect(() => {
+        if (!activeTeamId && !isManageView && teamsRaw.length > 0) {
+            handleTeamClick(teamsRaw[0].id);
+        }
+    }, [teamsRaw, activeTeamId, isManageView]);
 
     const handleTeamCreated = (teamId: string) => {
         handleTeamClick(teamId);
@@ -166,35 +174,49 @@ export default function ProjectTeamView({ projectId, workspaceId, selectedTeamId
                                             </DropdownMenuContent>
                                         </DropdownMenu>
 
-                                        <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            className="h-7 w-7 text-muted-foreground hover:text-foreground"
-                                            onClick={() => setIsSearchOpen(true)}
-                                            title="Search"
-                                        >
-                                            <Search className="h-4 w-4" />
-                                        </Button>
+                                        <TooltipProvider>
+                                            <Tooltip>
+                                                <TooltipTrigger asChild>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                                                        onClick={() => setIsSearchOpen(true)}
+                                                    >
+                                                        <Search className="h-4 w-4" />
+                                                    </Button>
+                                                </TooltipTrigger>
+                                                <TooltipContent>Search</TooltipContent>
+                                            </Tooltip>
 
-                                        <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            className="h-7 w-7 text-muted-foreground hover:text-foreground"
-                                            onClick={() => setIsSidebarCollapsed(true)}
-                                            title="Collapse Sidebar"
-                                        >
-                                            <ChevronsLeft className="h-4 w-4" />
-                                        </Button>
+                                            <Tooltip>
+                                                <TooltipTrigger asChild>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                                                        onClick={() => setIsSidebarCollapsed(true)}
+                                                    >
+                                                        <ChevronsLeft className="h-4 w-4" />
+                                                    </Button>
+                                                </TooltipTrigger>
+                                                <TooltipContent>Collapse Sidebar</TooltipContent>
+                                            </Tooltip>
 
-                                        <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            className="h-7 w-7 text-muted-foreground hover:text-foreground"
-                                            onClick={() => setCreateModalOpen(true)}
-                                            title="Create"
-                                        >
-                                            <Plus className="h-4 w-4" />
-                                        </Button>
+                                            <Tooltip>
+                                                <TooltipTrigger asChild>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                                                        onClick={() => setCreateModalOpen(true)}
+                                                    >
+                                                        <Plus className="h-4 w-4" />
+                                                    </Button>
+                                                </TooltipTrigger>
+                                                <TooltipContent>Create Team</TooltipContent>
+                                            </Tooltip>
+                                        </TooltipProvider>
                                     </div>
                                 </div>
                             )}

@@ -18,6 +18,7 @@ import { cn } from "@/lib/utils";
 import DashboardProjectView from "@/features/dashboard/views/generic/DashboardProjectView";
 import { ProjectCreationModal } from "@/entities/projects/components/ProjectCreationModal";
 import { ProjectActionsMenu } from "@/features/dashboard/components/sidebar/ProjectActionsMenu";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface TeamProjectViewProps {
     teamId: string;
@@ -77,6 +78,13 @@ export default function TeamProjectView({
         router.push(`?${params.toString()}`, { scroll: false });
         if (onProjectSelect) onProjectSelect(projectId);
     }, [searchParams, router, onProjectSelect]);
+
+    // Auto-select first project when no selection exists
+    useEffect(() => {
+        if (!activeProjectId && projectsRaw.length > 0) {
+            handleProjectClick(projectsRaw[0].id);
+        }
+    }, [projectsRaw, activeProjectId]);
 
     // Render main content
     const renderMainContent = () => {
@@ -155,35 +163,49 @@ export default function TeamProjectView({
                                 <div className="flex items-center justify-between px-4 py-3">
                                     <h2 className="text-sm font-semibold text-foreground">Projects</h2>
                                     <div className="flex items-center gap-1">
-                                        <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            className="h-7 w-7 text-muted-foreground hover:text-foreground"
-                                            onClick={() => setIsSearchOpen(true)}
-                                            title="Search"
-                                        >
-                                            <Search className="h-4 w-4" />
-                                        </Button>
+                                        <TooltipProvider>
+                                          <Tooltip>
+                                            <TooltipTrigger asChild>
+                                              <Button
+                                                  variant="ghost"
+                                                  size="icon"
+                                                  className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                                                  onClick={() => setIsSearchOpen(true)}
+                                              >
+                                                  <Search className="h-4 w-4" />
+                                              </Button>
+                                            </TooltipTrigger>
+                                            <TooltipContent>Search</TooltipContent>
+                                          </Tooltip>
 
-                                        <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            className="h-7 w-7 text-muted-foreground hover:text-foreground"
-                                            onClick={() => setIsSidebarCollapsed(true)}
-                                            title="Collapse Sidebar"
-                                        >
-                                            <ChevronsLeft className="h-4 w-4" />
-                                        </Button>
+                                          <Tooltip>
+                                            <TooltipTrigger asChild>
+                                              <Button
+                                                  variant="ghost"
+                                                  size="icon"
+                                                  className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                                                  onClick={() => setIsSidebarCollapsed(true)}
+                                              >
+                                                  <ChevronsLeft className="h-4 w-4" />
+                                              </Button>
+                                            </TooltipTrigger>
+                                            <TooltipContent>Collapse Sidebar</TooltipContent>
+                                          </Tooltip>
 
-                                        <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            className="h-7 w-7 text-muted-foreground hover:text-foreground"
-                                            onClick={() => setIsProjectModalOpen(true)}
-                                            title="Create Project"
-                                        >
-                                            <Plus className="h-4 w-4" />
-                                        </Button>
+                                          <Tooltip>
+                                            <TooltipTrigger asChild>
+                                              <Button
+                                                  variant="ghost"
+                                                  size="icon"
+                                                  className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                                                  onClick={() => setIsProjectModalOpen(true)}
+                                              >
+                                                  <Plus className="h-4 w-4" />
+                                              </Button>
+                                            </TooltipTrigger>
+                                            <TooltipContent>Create Project</TooltipContent>
+                                          </Tooltip>
+                                        </TooltipProvider>
                                     </div>
                                 </div>
                             )}
