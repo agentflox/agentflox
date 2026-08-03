@@ -2,7 +2,7 @@
 
 import React from "react";
 import { Handle, Position } from "@xyflow/react";
-import { ChevronRight, MoreVertical, Play, Code, Copy, Repeat, Wrench, SkipForward, StickyNote, Trash2, Plus, Pencil, X, RefreshCw, Maximize2, Minimize2, Settings2, FileCode2, ChevronUp, ChevronDown, Info, Code2, Braces } from "lucide-react";
+import { ChevronRight, MoreVertical, Play, Code, Copy, Repeat, Wrench, SkipForward, StickyNote, Trash2, Plus, Pencil, X, RefreshCw, Maximize2, Minimize2, Settings2, FileCode2, ChevronUp, ChevronDown, Info, Code2, Braces, GitBranch } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,6 +13,9 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { IoLogoJavascript, IoLogoPython } from "react-icons/io";
+import { TbApi } from "react-icons/tb";
+import { LuBrain } from "react-icons/lu";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -44,6 +47,19 @@ export function StepNode({ data }: { data: ToolCanvasNodeData }) {
     obs.observe(el);
     return () => obs.disconnect();
   }, [data.onMeasureHeight]);
+
+  const renderStepIcon = (className = "h-4 w-4") => {
+    if (typeof stepType !== "string") return <Wrench className={className} />;
+    const t = stepType.toLowerCase();
+    if (t === "llm" || t.includes("language model")) return <LuBrain className={cn(className, "text-indigo-600")} />;
+    if (t === "api" || t.includes("api request")) return <TbApi className={cn(className, "text-sky-600")} />;
+    if (t === "system_tool" || t.includes("system tool")) return <Wrench className={cn(className, "text-zinc-700")} />;
+    if (t === "branch") return <GitBranch className={cn(className, "text-violet-600")} />;
+    if (t === "loop") return <Repeat className={cn(className, "text-blue-600")} />;
+    if (t === "python" || t.includes("python")) return <IoLogoPython className={cn(className, "text-emerald-600")} />;
+    if (t === "javascript" || t.includes("javascript") || t === "code") return <IoLogoJavascript className={cn(className, "text-amber-600")} />;
+    return <Wrench className={className} />;
+  };
 
   const renderExpandedContent = () => {
     const d = data as any;
@@ -284,7 +300,7 @@ export function StepNode({ data }: { data: ToolCanvasNodeData }) {
         <div className="p-4 flex items-center justify-between">
           <div className="flex items-center gap-3 cursor-pointer group flex-1" onClick={(e) => { e.stopPropagation(); data.onToggleExpand?.(); }}>
             <div className="h-8 w-8 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-600 shrink-0">
-              {isCode ? <FileCode2 className="h-4 w-4 group-hover:hidden" /> : <Wrench className="h-4 w-4 group-hover:hidden" />}
+              {renderStepIcon("h-4 w-4 group-hover:hidden")}
               {isExpanded ? <ChevronUp className="h-4 w-4 hidden group-hover:block" /> : <ChevronDown className="h-4 w-4 hidden group-hover:block" />}
             </div>
             <div className="flex items-center gap-2">
@@ -302,7 +318,10 @@ export function StepNode({ data }: { data: ToolCanvasNodeData }) {
                 </PopoverTrigger>
                 <PopoverContent className="w-64 p-4 nodrag nopan rounded-xl border border-zinc-200 shadow-xl bg-white" align="start" sideOffset={8} onClick={(e) => e.stopPropagation()}>
                   <div className="flex flex-col gap-2">
-                    <label className="text-[11px] font-bold text-zinc-500 uppercase tracking-wider">Rename Step</label>
+                    <div className="flex gap-1 items-center">
+                       <Pencil className="w-3 h-3" />
+                       <label className="text-[11px] font-bold text-zinc-500 uppercase tracking-wider">Rename Step</label>
+                    </div>
                     <Input
                       defaultValue={data.title}
                       className="h-9 text-xs font-medium bg-zinc-50/50 border-zinc-200 hover:border-indigo-300 focus-visible:ring-1 focus-visible:ring-indigo-400 focus-visible:border-indigo-400 transition-all shadow-inner"
@@ -472,7 +491,7 @@ export function StepNode({ data }: { data: ToolCanvasNodeData }) {
               className="h-8 w-8 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-600 shrink-0 relative cursor-pointer"
               onClick={data.onOpenModal ?? data.onOpen}
             >
-              <Wrench className="h-4 w-4" />
+              {renderStepIcon("h-4 w-4")}
               {data.runState?.status === "running" && (
                 <div className="absolute -top-1 -right-1 h-3.5 w-3.5 bg-amber-500 rounded-full flex items-center justify-center border-2 border-white">
                   <RefreshCw className="h-2 w-2 text-white animate-spin" />
@@ -508,7 +527,10 @@ export function StepNode({ data }: { data: ToolCanvasNodeData }) {
                   </PopoverTrigger>
                   <PopoverContent className="w-64 p-4 nodrag nopan rounded-xl border border-zinc-200 shadow-xl bg-white" align="start" sideOffset={8} onClick={(e) => e.stopPropagation()}>
                     <div className="flex flex-col gap-2">
-                      <label className="text-[11px] font-bold text-zinc-500 uppercase tracking-wider">Rename Step</label>
+                      <div className="flex gap-1 items-center">
+                        <Pencil className="w-3 h-3 text-zinc-600" />
+                        <label className="text-[11px] font-bold text-zinc-500 uppercase tracking-wider">Rename Step</label>
+                      </div>
                       <Input
                         defaultValue={data.title}
                         className="h-9 text-xs font-medium bg-zinc-50/50 border-zinc-200 hover:border-indigo-300 focus-visible:ring-1 focus-visible:ring-indigo-400 focus-visible:border-indigo-400 transition-all shadow-inner"

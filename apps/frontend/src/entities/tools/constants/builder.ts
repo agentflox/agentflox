@@ -79,23 +79,26 @@ export const STEP_LIBRARY: Array<{
   },
 ];
 
+import { Type, AlignLeft, Hash, Check, List, Braces, FileUp, Settings2, Table as TableIcon, type LucideIcon } from "lucide-react";
+
 export const INPUT_TYPE_OPTIONS: Array<{
   value: InputUiType;
   label: string;
   baseType: BuilderInputField["type"];
+  icon: LucideIcon;
 }> = [
-  { value: "text", label: "Text input", baseType: "string" },
-  { value: "long_text", label: "Long text input", baseType: "string" },
-  { value: "number", label: "Numeric input", baseType: "number" },
-  { value: "checkbox", label: "Checkbox", baseType: "boolean" },
-  { value: "options", label: "Options dropdown", baseType: "string" },
-  { value: "text_list", label: "Text list", baseType: "array" },
-  { value: "json", label: "JSON", baseType: "object" },
-  { value: "json_list", label: "List of JSONs", baseType: "array" },
-  { value: "file_to_text", label: "File to text", baseType: "string" },
-  { value: "file_to_url", label: "File to URL", baseType: "string" },
-  { value: "files_to_urls", label: "Multiple files to URLs", baseType: "array" },
-  { value: "api_key", label: "API key input", baseType: "string" },
-  { value: "oauth_account", label: "OAuth account", baseType: "string" },
-  { value: "table", label: "Table", baseType: "array" },
+  { value: "text", label: "Text input", baseType: "string", icon: Type },
+  { value: "long_text", label: "Long text input", baseType: "string", icon: AlignLeft },
+  { value: "number", label: "Numeric input", baseType: "number", icon: Hash },
+  { value: "checkbox", label: "Checkbox", baseType: "boolean", icon: Check },
+  { value: "options", label: "Options dropdown", baseType: "string", icon: List },
+  { value: "text_list", label: "Text list", baseType: "array", icon: List },
+  { value: "json", label: "JSON", baseType: "object", icon: Braces },
+  { value: "json_list", label: "List of JSONs", baseType: "array", icon: Braces },
+  { value: "file_to_text", label: "File to text", baseType: "string", icon: FileUp },
+  { value: "file_to_url", label: "File to URL", baseType: "string", icon: FileUp },
+  { value: "files_to_urls", label: "Multiple files to URLs", baseType: "array", icon: FileUp },
+  { value: "api_key", label: "API key input", baseType: "string", icon: Settings2 },
+  { value: "oauth_account", label: "OAuth account", baseType: "string", icon: Settings2 },
+  { value: "table", label: "Table", baseType: "array", icon: TableIcon },
 ];

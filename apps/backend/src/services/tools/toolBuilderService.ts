@@ -31,8 +31,8 @@ export class ToolBuilderService {
       conversationState = await toolBuilderStateService.createConversationState(userId, toolId);
 
       let generatedWelcome = "Hello! I'm the Tool Builder Assistant. Tell me what kind of tool you'd like to build, and I'll help you configure its API requests, Python scripts, or LLM nodes.";
-      let followups: Array<{id: string, label: string}> = [];
-      
+      let followups: Array<{ id: string, label: string }> = [];
+
       if (!skipWelcome) {
         try {
           const aiWelcome = await this.generateWelcomeMessage(userId);
@@ -43,7 +43,7 @@ export class ToolBuilderService {
         } catch (e) {
           console.error("Failed to generate AI welcome message", e);
         }
-        
+
         await toolBuilderStateService.addMessageToHistory(
           conversationState.conversationId,
           'assistant',
@@ -102,7 +102,6 @@ Ask them what they want the tool to accomplish, and suggest one or two follow-up
         type: "json_schema",
         json_schema: {
           name: "welcome_message",
-          strict: true,
           schema: zodToJsonSchema(responseSchema) as any
         }
       },
@@ -146,7 +145,7 @@ Ask them what they want the tool to accomplish, and suggest one or two follow-up
     if (state.userId !== userId) throw new Error('Unauthorized');
 
     await toolBuilderStateService.addMessageToHistory(conversationId, 'user', message);
-    
+
     onThinking?.('Analyzing request...', 'LLM');
 
     // Load SDK documentation
@@ -265,7 +264,17 @@ ${JSON.stringify(state.toolDraft, null, 2)}`;
         id: z.string().describe("Unique snake_case identifier used as varName for cross-step references"),
         name: z.string().describe("Human-readable step name"),
         type: z.enum(['LLM', 'API', 'PYTHON', 'JAVASCRIPT', 'BRANCH', 'LOOP', 'MERGE']),
-        config: z.record(z.any()).describe("Step configuration. For PYTHON/JAVASCRIPT: { code: string }. For LLM: { prompt, model }. For API: { url, method, headers, body }."),
+        config: z.object({
+          code: z.string().optional().describe("The source code for PYTHON or JAVASCRIPT steps. Ensure you write the actual code here."),
+          prompt: z.string().optional().describe("The prompt for LLM steps."),
+          model: z.string().optional().describe("The model for LLM steps."),
+          url: z.string().optional().describe("The URL for API steps."),
+          method: z.string().optional().describe("The HTTP method for API steps."),
+          headers: z.record(z.string()).optional().describe("The HTTP headers for API steps."),
+          body: z.string().optional().describe("The HTTP request body for API steps."),
+          toolId: z.string().optional().describe("The tool ID for SYSTEM_TOOL steps."),
+          input: z.string().optional().describe("The input for SYSTEM_TOOL steps.")
+        }).describe("Step configuration. For PYTHON/JAVASCRIPT: { code: string }. For LLM: { prompt, model }. For API: { url, method, headers, body }."),
       })).optional()
     });
 
@@ -278,7 +287,6 @@ ${JSON.stringify(state.toolDraft, null, 2)}`;
         type: "json_schema",
         json_schema: {
           name: "tool_draft",
-          strict: true,
           schema: zodToJsonSchema(toolSchema) as any
         }
       },
@@ -289,7 +297,7 @@ ${JSON.stringify(state.toolDraft, null, 2)}`;
 
     const result = completion.choices[0].message.content;
     let parsed: z.infer<typeof toolSchema>;
-    
+
     try {
       parsed = JSON.parse(result || '{}');
     } catch {

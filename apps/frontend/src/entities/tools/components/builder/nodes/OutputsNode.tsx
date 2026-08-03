@@ -22,10 +22,10 @@ import {
   ArrowUp,
   ArrowDown,
 } from "lucide-react";
-
 import { cn } from "@/lib/utils";
 import type { ToolCanvasNodeData, VarTreeEntry, VarLeaf } from "../../../types/builder";
 import { NodeHoverToolbar } from "./NodeHoverToolbar";
+import { LuPackageCheck } from "react-icons/lu";
 
 /* ─── type helpers ─────────────────────────────────────────────── */
 export const TYPE_ICONS: Record<string, React.ReactNode> = {
@@ -271,7 +271,9 @@ export function OutputsNode({ data }: { data: ToolCanvasNodeData }) {
               className="flex items-center gap-2 flex-1 min-w-0 cursor-pointer"
               onClick={(e) => { e.stopPropagation(); data.onToggleExpand?.(); }}
             >
-              <span className="text-[18px] leading-none shrink-0">📦</span>
+              <div className="h-8 w-8 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-600 shrink-0">
+                <LuPackageCheck className="h-4 w-4" />
+              </div>
               <span className="text-[14px] font-bold text-zinc-800 truncate">Outputs</span>
             </div>
 
@@ -462,7 +464,9 @@ export function OutputsNode({ data }: { data: ToolCanvasNodeData }) {
         <div className="px-4 pt-4 pb-3">
           <div className="flex items-center gap-2">
             <div className="flex items-center gap-2 flex-1 min-w-0">
-              <span className="text-[18px] leading-none shrink-0">📦</span>
+              <div className="h-8 w-8 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-600 shrink-0">
+                <LuPackageCheck className="h-4 w-4" />
+              </div>
               <span className="text-[14px] font-bold text-zinc-800 truncate">Outputs</span>
             </div>
             {/* right: expand icon + mode pill */}

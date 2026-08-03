@@ -32,7 +32,7 @@ import {
   useSortable,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-
+import { BsInputCursor } from "react-icons/bs";
 import type { InputUiType } from "../../../types/builder";
 
 const INPUT_TYPE_BUTTONS: { label: string; uiType: InputUiType }[] = [
@@ -429,7 +429,7 @@ export function InputsNode({ data }: { data: ToolCanvasNodeData }) {
             onClick={(e) => { e.stopPropagation(); data.onToggleExpand?.(); }}
           >
             <div className="h-8 w-8 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-500 shrink-0">
-              <Bot className="h-4 w-4 group-hover/h:hidden" />
+              <BsInputCursor className="h-4 w-4 group-hover/h:hidden" />
               <ChevronUp className="h-4 w-4 hidden group-hover/h:block" />
             </div>
             <div>
@@ -557,7 +557,7 @@ export function InputsNode({ data }: { data: ToolCanvasNodeData }) {
       >
         <div className="flex items-center gap-3 px-4 py-3 border-b border-zinc-100">
           <div className="h-8 w-8 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-600 shrink-0">
-            <Bot className="h-4 w-4" />
+            <BsInputCursor className="h-4 w-4" />
           </div>
           <div className="flex-1 flex flex-col min-w-0">
             <div className="flex items-center gap-1.5 overflow-hidden">

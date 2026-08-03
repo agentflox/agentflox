@@ -2,6 +2,7 @@
 
 import React from "react";
 import { ReactFlowProvider } from "@xyflow/react";
+import "@xyflow/react/dist/style.css";
 import { ToolEditorAssistantPanel } from "@/entities/tools/components/assistant/ToolEditorAssistantPanel";
 import { ToolFlowCanvas } from "@/entities/tools/components/builder/ToolFlowCanvas";
 import { ToolLogView } from "../ToolLogView";
@@ -10,7 +11,6 @@ import { ToolFlowBuilderHeader } from "./components/ToolFlowBuilderHeader";
 import { ToolFlowBuilderSidebar } from "./components/ToolFlowBuilderSidebar";
 import { ToolFlowBuilderModals } from "./components/ToolFlowBuilderModals";
 import type { ToolFlowBuilderViewProps } from "./types";
-
 export type { ToolFlowBuilderViewProps } from "./types";
 
 export function ToolFlowBuilderView(props: ToolFlowBuilderViewProps) {
@@ -33,7 +33,7 @@ export function ToolFlowBuilderView(props: ToolFlowBuilderViewProps) {
                   className="h-8 w-8 rounded-md hover:bg-zinc-50 text-zinc-500 cursor-pointer"
                   aria-label="Close assistant"
                 >
-                  ×
+                  x
                 </button>
               </div>
               <div className="flex-1 min-h-0">

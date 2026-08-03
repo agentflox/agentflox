@@ -36,18 +36,18 @@ const { api, step, parsed, varTree } = props;
   const { updateStepConfig, setSteps, systemToolsQuery } = api;
 
   return (
-<div className="mt-2">
-                                      <div className="text-[11px] text-zinc-500 mb-1">Step config (JSON)</div>
-                                      <Textarea
-                                        value={step.config}
-                                        onChange={(e) =>
-                                          setSteps((prev) =>
-                                            prev.map((s) => (s.id === step.id ? { ...s, config: e.target.value } : s)),
-                                          )
-                                        }
-                                        className="min-h-[140px] font-mono text-[11px]"
-                                        placeholder='{"prompt":"Use {{inputs.text}}..."}'
-                                      />
-                                    </div>
+  <div className="mt-2">
+      <div className="text-[11px] text-zinc-500 mb-2">Step config (JSON)</div>
+      <Textarea
+        value={step.config}
+        onChange={(e) =>
+          setSteps((prev) =>
+            prev.map((s) => (s.id === step.id ? { ...s, config: e.target.value } : s)),
+          )
+        }
+        className="min-h-[400px] font-mono text-[11px]"
+        placeholder='{"prompt":"Use {{inputs.text}}..."}'
+      />
+    </div>
   );
 }

@@ -292,10 +292,12 @@ function WorkforceDetailContent() {
                         </button>
 
                         <div className="flex items-center gap-2">
-                            <div className="h-8 w-8 flex items-center justify-center rounded-md bg-zinc-100 text-sm font-semibold text-zinc-800">
+                            <div className="h-7 w-7 flex-shrink-0 flex items-center justify-center rounded-md bg-zinc-100 text-base font-semibold text-zinc-800">
                                 {workflowIcon || <Workflow className="h-4 w-4 text-zinc-600" />}
                             </div>
-                            <div className="flex items-center gap-2 group">
+
+                            {/* Inline editable name */}
+                            <div className="flex items-center gap-3 group">
                                 {isEditingName ? (
                                     <input
                                         ref={nameInputRef}
@@ -310,24 +312,26 @@ function WorkforceDetailContent() {
                                             if (e.key === 'Enter') setIsEditingName(false);
                                         }}
                                         autoFocus
-                                        className="text-sm font-semibold text-zinc-900 bg-zinc-100 border-none rounded px-1 outline-none focus:ring-2 ring-indigo-500/20 w-auto min-w-[120px] py-1"
+                                        className="text-sm font-semibold text-zinc-900 bg-zinc-100 border-none rounded px-1.5 outline-none focus:ring-1 ring-indigo-500/50 w-auto min-w-[120px] py-1"
                                     />
                                 ) : (
                                     <h1
                                         onClick={() => setIsEditingName(true)}
-                                        className="text-sm font-semibold text-zinc-900 cursor-pointer hover:bg-zinc-100 px-1 rounded transition-colors py-1"
+                                        className="text-sm font-semibold text-zinc-900 cursor-pointer hover:bg-zinc-100 px-1.5 rounded-sm transition-colors py-1"
                                     >
                                         {name || "New workforce"}
                                     </h1>
                                 )}
                             </div>
+
+                            {/* Status pill */}
                             {!autosaveEnabled && hasChanges ? (
-                                <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full border border-orange-100 bg-orange-50/50 text-[10px] font-medium text-orange-600">
+                                <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-sm border border-orange-100 bg-orange-50/50 text-sm font-medium text-orange-600">
                                     <div className="h-1.5 w-1.5 rounded-full bg-orange-500" />
                                     Unsaved
                                 </div>
                             ) : (
-                                <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full border border-emerald-100 bg-emerald-50/50 text-[10px] font-medium text-emerald-600">
+                                <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full border border-emerald-100 bg-emerald-50/50 text-sm font-medium text-emerald-600">
                                     <div className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
                                     {autosaveEnabled ? "Autosaved" : "Live"}
                                 </div>

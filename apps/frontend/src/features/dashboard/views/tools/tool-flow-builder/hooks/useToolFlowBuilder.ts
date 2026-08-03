@@ -142,6 +142,10 @@ export function useToolFlowBuilder({ workspaceId, initialTool, onClose }: ToolFl
     (initialTool?.functionSchema as any)?.["x-agentPrompt"] ?? ""
   );
   const [linkCopied, setLinkCopied] = React.useState(false);
+  const [hasChanges, setHasChanges] = React.useState(false);
+  const [autosaveEnabled, setAutosaveEnabled] = React.useState(false);
+  const [isEditingName, setIsEditingName] = React.useState(false);
+  const nameInputRef = React.useRef<HTMLInputElement>(null);
 
   const router = useRouter();
 
@@ -312,8 +316,9 @@ export function useToolFlowBuilder({ workspaceId, initialTool, onClose }: ToolFl
   });
 
   const [steps, setSteps] = React.useState<BuilderStep[]>(() => {
-    const rawSteps = (initialTool?.steps as any[]) || (initialTool?.transformations?.steps as any[]) || [];
-    return rawSteps.map((s) => {
+    const stepsData = initialTool?.steps || initialTool?.transformations?.steps;
+    const rawSteps = Array.isArray(stepsData) ? stepsData : [];
+    return rawSteps.map((s: any) => {
       let type: StepType = "SYSTEM_TOOL";
       if (s.type === "LLM" || s.transformation === "prompt_completion") type = "LLM";
       else if (s.type === "API" || s.transformation === "api_call") type = "API";
@@ -487,6 +492,25 @@ export function useToolFlowBuilder({ workspaceId, initialTool, onClose }: ToolFl
       });
     }
   };
+
+  // Mark dirty whenever key fields change
+  const isFirstRender = React.useRef(true);
+  React.useEffect(() => {
+    if (isFirstRender.current) { isFirstRender.current = false; return; }
+    setHasChanges(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [name, steps, inputs, outputs]);
+
+  // Autosave (debounced, 2 s after last change)
+  const upsertRef = React.useRef(upsert);
+  React.useEffect(() => { upsertRef.current = upsert; });
+  React.useEffect(() => {
+    if (!autosaveEnabled || !hasChanges || !isEditing) return;
+    const timer = setTimeout(() => {
+      upsertRef.current().then(() => setHasChanges(false));
+    }, 2000);
+    return () => clearTimeout(timer);
+  }, [autosaveEnabled, hasChanges, isEditing]);
 
   const addInput = (uiType: InputUiType = "text") => {
     const meta = INPUT_TYPE_OPTIONS.find((o) => o.value === uiType) ?? INPUT_TYPE_OPTIONS[0];
@@ -1158,6 +1182,10 @@ export function useToolFlowBuilder({ workspaceId, initialTool, onClose }: ToolFl
           viewMode,
           onAddStep: () => openToolStepSidebar({ insertIndex: 0 }),
           onQuickAdd: (libId: string) => addStepFromLibrary(libId),
+          onOpenSystemToolSidebar: () => {
+            setSidebarOpen(true);
+            setSystemToolsListOpen(true);
+          },
         } as any,
       });
       return nodes;
@@ -2055,6 +2083,13 @@ export function useToolFlowBuilder({ workspaceId, initialTool, onClose }: ToolFl
     setAgentPromptDraft,
     linkCopied,
     setLinkCopied,
+    hasChanges,
+    setHasChanges,
+    autosaveEnabled,
+    setAutosaveEnabled,
+    isEditingName,
+    setIsEditingName,
+    nameInputRef,
     showOutputsSidebarPicker,
     setShowOutputsSidebarPicker,
     isSyncingTools,

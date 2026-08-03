@@ -4,7 +4,8 @@ import React from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Bot } from "lucide-react";
 import { StepDetailModal } from "@/entities/tools/components/builder/StepDetailModal";
 import { OutputsDetailModal } from "@/entities/tools/components/builder/OutputsDetailModal";
 import { LoopDetailModal } from "@/entities/tools/components/builder/LoopDetailModal";
@@ -24,6 +25,8 @@ export function ToolFlowBuilderModals({ api }: { api: ToolFlowBuilderApi }) {
     isGuardOpen, setIsGuardOpen, isPublishModalOpen, setIsPublishModalOpen, initialTool, category,
     inputs, bugReportOpen, setBugReportOpen, supportModalOpen, setSupportModalOpen,
     versionsOpen, setVersionsOpen,
+    agentPromptOpen, setAgentPromptOpen, agentPromptDraft, setAgentPromptDraft,
+    agentPromptMutation, handleSaveAgentPrompt,
   } = api;
 
   return (
@@ -141,6 +144,31 @@ export function ToolFlowBuilderModals({ api }: { api: ToolFlowBuilderApi }) {
       />
       <SupportAssistantModal isOpen={supportModalOpen} onClose={() => setSupportModalOpen(false)} />
       <ToolVersionsSheet toolId={initialTool?.id} isOpen={versionsOpen} onClose={() => setVersionsOpen(false)} />
+
+      <Dialog open={agentPromptOpen} onOpenChange={setAgentPromptOpen}>
+        <DialogContent className="sm:max-w-[560px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Bot className="h-4 w-4" />Edit Agent Prompt
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2 py-2">
+            <p className="text-xs text-zinc-500">This prompt is injected when an AI agent uses this tool to understand its purpose and constraints.</p>
+            <Textarea
+              value={agentPromptDraft}
+              onChange={(e) => setAgentPromptDraft(e.target.value)}
+              placeholder="You are a helpful assistant that…"
+              className="min-h-[180px] text-sm resize-none"
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setAgentPromptOpen(false)}>Cancel</Button>
+            <Button onClick={handleSaveAgentPrompt} disabled={agentPromptMutation.isPending}>
+              {agentPromptMutation.isPending ? "Saving…" : "Save prompt"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

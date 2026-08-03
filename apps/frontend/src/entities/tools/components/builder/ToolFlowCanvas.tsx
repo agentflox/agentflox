@@ -133,11 +133,11 @@ export function ToolFlowCanvas({
         {/* Flow/Notebook toggle and Navigator */}
         <Panel position="top-left" className="m-4">
           <div className="flex items-center gap-2">
-            <div className="rounded-lg border border-zinc-200 bg-white p-1 flex items-center gap-1">
+            <div className="rounded-lg border border-zinc-300 bg-white p-1 flex items-center gap-1">
               <button
                 className={cn(
-                  "px-3 py-1 text-xs font-medium rounded-md",
-                  viewMode === "flow" ? "bg-zinc-900 text-white" : "text-zinc-600 hover:bg-zinc-50"
+                  "px-3 py-1 text-xs font-medium rounded-md cursor-pointer",
+                  viewMode === "flow" ? "bg-zinc-900 text-white" : "text-zinc-600 hover:bg-zinc-100"
                 )}
                 onClick={() => setViewMode("flow")}
               >
@@ -145,8 +145,8 @@ export function ToolFlowCanvas({
               </button>
               <button
                 className={cn(
-                  "px-3 py-1 text-xs font-medium rounded-md",
-                  viewMode === "notebook" ? "bg-zinc-900 text-white" : "text-zinc-600 hover:bg-zinc-50"
+                  "px-3 py-1 text-xs font-medium rounded-md cursor-pointer",
+                  viewMode === "notebook" ? "bg-zinc-900 text-white" : "text-zinc-600 hover:bg-zinc-100"
                 )}
                 onClick={() => setViewMode("notebook")}
               >
@@ -156,7 +156,7 @@ export function ToolFlowCanvas({
 
             <Popover open={navigatorOpen} onOpenChange={setNavigatorOpen}>
               <PopoverTrigger asChild>
-                <button className="rounded-lg border border-zinc-200 bg-white px-3 py-2 text-xs font-medium text-zinc-700 hover:bg-zinc-50">
+                <button className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-xs font-medium text-zinc-700 hover:bg-zinc-100 cursor-pointer">
                   Navigator
                 </button>
               </PopoverTrigger>
@@ -173,7 +173,7 @@ export function ToolFlowCanvas({
                     <button
                       key={i.id}
                       onClick={() => focusNode(i.id)}
-                      className="w-full text-left rounded-md px-2 py-1.5 text-xs text-zinc-700 hover:bg-zinc-50"
+                      className="w-full text-left rounded-md px-2 py-1.5 text-xs text-zinc-700 hover:bg-zinc-100 cursor-pointer"
                     >
                       {i.label}
                     </button>
@@ -186,10 +186,10 @@ export function ToolFlowCanvas({
 
         {/* Zoom controls + fit (bottom-left) */}
         <Panel position="bottom-left" className="m-4">
-          <div className="flex flex-col rounded-lg border border-zinc-200 bg-white shadow-sm overflow-hidden">
+          <div className="flex flex-col rounded-lg border border-zinc-300 bg-white shadow-sm overflow-hidden">
             <button
               type="button"
-              className="h-7 w-7 flex items-center justify-center text-zinc-700 hover:bg-zinc-50 cursor-pointer"
+              className="h-7 w-7 flex items-center justify-center text-zinc-700 hover:bg-zinc-100 cursor-pointer"
               onClick={() => rf.zoomIn({ duration: 200 })}
               aria-label="Zoom in"
             >
@@ -197,7 +197,7 @@ export function ToolFlowCanvas({
             </button>
             <button
               type="button"
-              className="h-7 w-7 flex items-center justify-center border-t border-b border-zinc-200 text-zinc-700 hover:bg-zinc-50 cursor-pointer"
+              className="h-7 w-7 flex items-center justify-center border-t border-b border-zinc-200 text-zinc-700 hover:bg-zinc-100 cursor-pointer"
               onClick={() => rf.zoomOut({ duration: 200 })}
               aria-label="Zoom out"
             >
@@ -205,7 +205,7 @@ export function ToolFlowCanvas({
             </button>
             <button
               type="button"
-              className="h-7 w-7 flex items-center justify-center text-zinc-700 hover:bg-zinc-50 cursor-pointer"
+              className="h-7 w-7 flex items-center justify-center text-zinc-700 hover:bg-zinc-100 cursor-pointer"
               onClick={() => rf.fitView({ padding: 0.4, duration: 250 })}
               aria-label="Fit to screen"
             >

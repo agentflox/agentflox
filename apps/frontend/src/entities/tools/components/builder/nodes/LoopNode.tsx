@@ -101,7 +101,10 @@ export function LoopNode({ data }: { data: ToolCanvasNodeData }) {
                    </PopoverTrigger>
                    <PopoverContent className="w-64 p-4 nodrag nopan rounded-xl border border-zinc-200 shadow-xl bg-white" align="start" sideOffset={8} onClick={(e) => e.stopPropagation()}>
                      <div className="flex flex-col gap-2">
-                       <label className="text-[11px] font-bold text-zinc-500 uppercase tracking-wider">Rename Loop Step</label>
+                        <div className="flex gap-1 items-center">
+                         <Pencil className="w-3 h-3 text-zinc-600" />
+                         <label className="text-[11px] font-bold text-zinc-500 uppercase tracking-wider">Rename Loop Step</label>
+                        </div>
                        <Input
                          defaultValue={data.title}
                          className="h-9 text-xs font-medium bg-zinc-50/50 border-zinc-200 hover:border-indigo-300 focus-visible:ring-1 focus-visible:ring-indigo-400 focus-visible:border-indigo-400 transition-all shadow-inner"

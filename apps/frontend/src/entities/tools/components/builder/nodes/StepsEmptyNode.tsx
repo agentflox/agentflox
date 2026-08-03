@@ -6,6 +6,12 @@ import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { ToolCanvasNodeData } from "../../../types/builder";
+import { Bot, Braces, Code, ExternalLink, GitBranch, Repeat, Wrench } from "lucide-react";
+import { RiNodeTree } from "react-icons/ri";
+import { LuBrain } from "react-icons/lu";
+import { IoLogoJavascript } from "react-icons/io";
+import { IoLogoPython } from "react-icons/io";
+import { TbApi } from "react-icons/tb";
 
 export function StepsEmptyNode({
   data,
@@ -13,6 +19,7 @@ export function StepsEmptyNode({
   data: ToolCanvasNodeData & {
     onAddStep?: () => void;
     onQuickAdd?: (libId: string) => void;
+    onOpenSystemToolSidebar?: () => void;
   };
 }) {
   const isNotebook = data.viewMode === "notebook";
@@ -30,7 +37,7 @@ export function StepsEmptyNode({
         {/* Header */}
         <div className="flex items-center gap-2">
           <div className="h-7 w-7 rounded-md bg-indigo-50 flex items-center justify-center text-base">
-            🧱
+            <RiNodeTree className="h-4.5 w-4.5 text-indigo-600" />
           </div>
           <div className="text-base font-semibold text-zinc-900">{data.title}</div>
         </div>
@@ -57,9 +64,17 @@ export function StepsEmptyNode({
               type="button"
               variant="outline"
               className="h-10 px-5 text-sm font-medium bg-white nodrag nopan"
-              onClick={() => data.onQuickAdd?.("llm")}
+              onClick={(e) => { e.stopPropagation(); data.onQuickAdd?.("llm"); }}
             >
-              <span className="mr-1.5">🧠</span> LLM
+              <LuBrain className="h-4.5 w-4.5 text-indigo-600 mr-1" /> LLM
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="h-10 px-6 text-sm font-medium bg-white nodrag nopan"
+              onClick={(e) => { e.stopPropagation(); data.onQuickAdd?.("api"); }}
+            >
+              <TbApi className="h-4.5 w-4.5 text-sky-600 mr-1" /> API
             </Button>
           </div>
 
@@ -69,17 +84,17 @@ export function StepsEmptyNode({
               type="button"
               variant="outline"
               className="h-10 px-5 text-sm font-medium bg-white nodrag nopan"
-              onClick={(e) => { e.stopPropagation(); data.onAddStep?.(); }}
+              onClick={(e) => { e.stopPropagation(); data.onQuickAdd?.("branch"); }}
             >
-              <span className="mr-1.5">✨</span> AI Generation
+              <GitBranch className="h-4.5 w-4.5 text-violet-600 mr-1" /> Branch
             </Button>
             <Button
               type="button"
               variant="outline"
               className="h-10 px-5 text-sm font-medium bg-white nodrag nopan"
-              onClick={() => data.onQuickAdd?.("branch")}
+              onClick={(e) => { e.stopPropagation(); data.onOpenSystemToolSidebar?.(); }}
             >
-              <span className="mr-1.5">🔀</span> Branch
+              <Wrench className="h-4.5 w-4.5 text-violet-600 mr-1" /> System Tools
             </Button>
           </div>
 
@@ -89,40 +104,27 @@ export function StepsEmptyNode({
               type="button"
               variant="outline"
               className="h-10 px-4 text-sm font-medium bg-white nodrag nopan"
-              onClick={() => data.onQuickAdd?.("loop")}
+              onClick={(e) => { e.stopPropagation(); data.onQuickAdd?.("python"); }}
             >
-              <span className="mr-1.5">🔄</span> Loop
+              <IoLogoPython className="h-4.5 w-4.5 text-emerald-600" /> Python
             </Button>
             <Button
               type="button"
               variant="outline"
               className="h-10 px-4 text-sm font-medium bg-white nodrag nopan"
-              onClick={() => data.onQuickAdd?.("python")}
+              onClick={(e) => { e.stopPropagation(); data.onQuickAdd?.("javascript"); }}
             >
-              <span className="mr-1.5">🐍</span> Python
+              <IoLogoJavascript className="h-4.5 w-4.5 text-amber-600 mr-1" /> JavaScript
             </Button>
             <Button
               type="button"
               variant="outline"
               className="h-10 px-4 text-sm font-medium bg-white nodrag nopan"
-              onClick={() => data.onQuickAdd?.("javascript")}
+              onClick={(e) => { e.stopPropagation(); data.onQuickAdd?.("loop"); }}
             >
-              <span className="mr-1.5">🟨</span> JavaScript
+              <Repeat className="h-4.5 w-4.5 text-blue-600 mr-1" /> Loop
             </Button>
           </div>
-
-          {/* Row 4: API (centered) */}
-          <div className="flex justify-center">
-            <Button
-              type="button"
-              variant="outline"
-              className="h-10 px-6 text-sm font-medium bg-white nodrag nopan"
-              onClick={() => data.onQuickAdd?.("api")}
-            >
-              <span className="mr-1.5 text-xs font-bold text-zinc-400">API</span> API
-            </Button>
-          </div>
-
         </div>
       </div>
     </div>
