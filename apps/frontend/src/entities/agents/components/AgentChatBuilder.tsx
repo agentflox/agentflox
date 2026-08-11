@@ -8,6 +8,7 @@ import {
   MessageAction,
 } from '@/entities/chats/components/MessageList';
 import { ChatComposer } from '@/entities/chats/components/ChatComposer';
+import { AgentChatEmptyState } from '@/entities/chats/components/AgentChatEmptyState';
 import { trpc } from '@/lib/trpc';
 import { agentService } from '@/services/agent.service';
 import { toast } from 'sonner';
@@ -69,8 +70,22 @@ export const AgentChatBuilder: React.FC<AgentChatBuilderProps> = ({
     { enabled: !!agentId }
   );
 
+  const updateAgentModelMutation = trpc.agent.update.useMutation({
+    onSuccess: () => {
+      if (agentId) void refetchAgent();
+    },
+    onError: (err) => toast.error(err.message || 'Failed to update agent model'),
+  });
+
+  const agentModelId =
+    (agentData as any)?.modelId ??
+    (agentData as any)?.aiModel?.id ??
+    null;
+
   // Mutations
   const [isInitializingBuilder, setIsInitializingBuilder] = useState(false);
+  // Prevent duplicate initialize calls (reset on failure so remount/retry can proceed)
+  const hasInitialized = useRef(false);
   const initializeBuilder = async (params: { agentId?: string; conversationId?: string; skipWelcome?: boolean }) => {
     try {
       setIsInitializingBuilder(true);
@@ -114,6 +129,7 @@ export const AgentChatBuilder: React.FC<AgentChatBuilderProps> = ({
 
       setIsInitializing(false);
     } catch (error: any) {
+      hasInitialized.current = false;
       toast.error(error.message || 'Failed to initialize conversation');
       setIsInitializing(false);
     } finally {
@@ -307,44 +323,27 @@ export const AgentChatBuilder: React.FC<AgentChatBuilderProps> = ({
     }
   }, [agentData, showAgentProfile]);
 
-  // Initialize conversation - use ref to prevent multiple calls
-  const hasInitialized = useRef(false);
-
+  // Initialize conversation on mount (hasInitialized ref is declared above initializeBuilder)
   useEffect(() => {
     // Prevent multiple initializations
     if (conversationId || isInitializingBuilder || hasInitialized.current) return;
 
     // If agentId is provided, wait for agent data to load before initializing
+    if (agentId && isLoadingAgent) return;
+
+    hasInitialized.current = true;
+
     if (agentId) {
-      // Still loading agent data, wait
-      if (isLoadingAgent) return;
-
-      // Agent data loaded, check for existing conversation
-      const storedConversationId = agentData?.conversations?.[0]?.id;
-
-      hasInitialized.current = true;
-
-      if (storedConversationId) {
-        // Load existing conversation
-        console.log('[AgentChatBuilder] Loading existing conversation:', storedConversationId);
-        initializeBuilder({
-          conversationId: storedConversationId,
-          agentId: agentId
-        });
-      } else {
-        // No existing conversation, create a new one and link to agent
-        console.log('[AgentChatBuilder] Creating new conversation for agent:', agentId);
-        initializeBuilder({
-          agentId: agentId
-        });
-      }
+      // Pass agentId to the backend — it will find the existing conversation for
+      // this agent (or create a new one on first open). No need to look up
+      // agentData?.conversations here; the backend owns that logic now.
+      initializeBuilder({ agentId });
     } else {
       // No agentId provided, create new conversation
-      hasInitialized.current = true;
       initializeBuilder({});
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [agentId, agentData, isLoadingAgent, conversationId]);
+  }, [agentId, isLoadingAgent, conversationId]);
 
   // Mutation to mark follow-ups as consumed
   const markFollowupsConsumedMutation = trpc.chat.markFollowupsConsumed.useMutation();
@@ -475,6 +474,14 @@ export const AgentChatBuilder: React.FC<AgentChatBuilderProps> = ({
                 }
                 onFollowupClick={handleFollowupClick}
                 onActionClick={handleActionClick}
+                emptyState={
+                  <AgentChatEmptyState
+                    agentName={agentData?.name || agentDraft?.name || 'Agent'}
+                    agentDescription={agentData?.description || agentDraft?.description}
+                    agentAvatar={agentData?.avatar || agentDraft?.avatar}
+                    type="builder"
+                  />
+                }
               />
             </div>
             <div className="border-t bg-white px-4 py-3">
@@ -483,6 +490,11 @@ export const AgentChatBuilder: React.FC<AgentChatBuilderProps> = ({
                 isSending={isSending}
                 disabled={isSending || !conversationId}
                 minHeight={80}
+                modelId={agentModelId}
+                onModelChange={(id) => {
+                  if (!agentId) return;
+                  updateAgentModelMutation.mutate({ id: agentId, modelId: id });
+                }}
               />
             </div>
           </div>

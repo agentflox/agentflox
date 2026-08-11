@@ -12,6 +12,8 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { ModelSelectDropdown } from '@/entities/models/components/ModelSelectDropdown'
+import type { AiModelView } from '@agentflox/types'
 
 export interface ChatComposerRef {
   insertMention: (name: string, type: 'agent' | 'task') => void
@@ -19,7 +21,7 @@ export interface ChatComposerRef {
 }
 
 interface ChatComposerProps {
-  onSend: (message: string, options?: { attachments?: ParsedFile[]; webSearch?: boolean; contexts?: Array<{ type: string; id: string }>; mentions?: Array<{ id: string; name: string; type: 'agent' | 'task' }> }) => Promise<void> | void
+  onSend: (message: string, options?: { attachments?: ParsedFile[]; webSearch?: boolean; contexts?: Array<{ type: string; id: string }>; mentions?: Array<{ id: string; name: string; type: 'agent' | 'task' }>; modelId?: string }) => Promise<void> | void
   onStop?: () => void
   conversationId?: string
   isSending?: boolean
@@ -40,6 +42,9 @@ interface ChatComposerProps {
   hideMentions?: boolean
   hideContext?: boolean
   hideWebSearch?: boolean
+  hideModelSelect?: boolean
+  modelId?: string | null
+  onModelChange?: (modelId: string, model: AiModelView) => void
   minHeight?: number | string
 }
 
@@ -62,6 +67,9 @@ export const ChatComposer = memo(forwardRef<ChatComposerRef, ChatComposerProps>(
   hideMentions,
   hideContext,
   hideWebSearch,
+  hideModelSelect,
+  modelId,
+  onModelChange,
   minHeight,
 }, ref) {
   const [value, setValue] = useState('')
@@ -72,6 +80,7 @@ export const ChatComposer = memo(forwardRef<ChatComposerRef, ChatComposerProps>(
   const [isFocused, setIsFocused] = useState(false)
   const [mentionPopoverOpen, setMentionPopoverOpen] = useState(false)
   const [mentionSearch, setMentionSearch] = useState('')
+  const [internalModelId, setInternalModelId] = useState<string | null>(modelId ?? null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const overlayRef = useRef<HTMLDivElement>(null)
@@ -218,7 +227,13 @@ export const ChatComposer = memo(forwardRef<ChatComposerRef, ChatComposerProps>(
 
     const currentMentions = selectedMentions.length > 0 ? selectedMentions.map(m => ({ id: m.id ?? m.data?.id, name: m.name ?? m.data?.name ?? m.data?.label, type: (m.type ?? 'agent') as 'agent' | 'task' })) : undefined
 
-    await onSend(message, { attachments: currentAttachments, webSearch: currentWebSearch, contexts: currentContexts, mentions: currentMentions })
+    await onSend(message, {
+      attachments: currentAttachments,
+      webSearch: currentWebSearch,
+      contexts: currentContexts,
+      mentions: currentMentions,
+      modelId: (modelId ?? internalModelId) || undefined,
+    })
   }
 
   const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -369,6 +384,17 @@ export const ChatComposer = memo(forwardRef<ChatComposerRef, ChatComposerProps>(
       <div className="flex items-center justify-between px-3 pb-3">
         <div className="flex items-center gap-1">
           <input ref={fileInputRef} type="file" multiple className="hidden" onChange={handleFileSelect} />
+
+          {!hideModelSelect && (
+            <ModelSelectDropdown
+              modelId={modelId ?? internalModelId}
+              disabled={disabled}
+              onModelChange={(id, m) => {
+                setInternalModelId(id)
+                onModelChange?.(id, m)
+              }}
+            />
+          )}
 
           {!hideMentions && (
             <Popover open={mentionPopoverOpen} onOpenChange={setMentionPopoverOpen}>

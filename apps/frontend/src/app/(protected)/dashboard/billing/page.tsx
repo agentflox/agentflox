@@ -1,5 +1,6 @@
 "use client";
 import Shell from "@/components/layout/Shell";
+import BillingLoading from "./loading";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { trpc } from "@/lib/trpc";
 import { useRouter } from "next/navigation";
@@ -59,39 +60,7 @@ const StatusBadge = ({ status }: { status: string }) => {
   );
 };
 
-const BillingSkeleton = () => (
-  <div className="space-y-8 animate-in fade-in duration-500">
-    <div className="space-y-4">
-      <div className="flex gap-2 mb-6">
-        <div className="h-10 w-28 bg-zinc-200 dark:bg-zinc-800 rounded-md animate-pulse"></div>
-        <div className="h-10 w-24 bg-zinc-200 dark:bg-zinc-800 rounded-md animate-pulse"></div>
-        <div className="h-10 w-24 bg-zinc-200 dark:bg-zinc-800 rounded-md animate-pulse"></div>
-      </div>
-      <Card className="p-0 border-zinc-100 dark:border-zinc-800/60 overflow-hidden bg-white/50 dark:bg-zinc-950/50">
-        <div className="h-20 border-b border-zinc-100 dark:border-zinc-800/60 bg-zinc-50/50 dark:bg-zinc-900/20 p-6 flex items-center justify-between">
-          <div className="space-y-2">
-            <div className="h-5 w-48 bg-zinc-200 dark:bg-zinc-800 rounded-md animate-pulse"></div>
-            <div className="h-4 w-64 bg-zinc-200 dark:bg-zinc-800 rounded-md animate-pulse"></div>
-          </div>
-          <div className="h-10 w-32 bg-zinc-200 dark:bg-zinc-800 rounded-md animate-pulse"></div>
-        </div>
-        <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="space-y-4">
-            <div className="h-4 w-32 bg-zinc-200 dark:bg-zinc-800 rounded-md animate-pulse mb-6"></div>
-            <div className="h-10 w-full bg-zinc-100 dark:bg-zinc-900/40 rounded-md animate-pulse"></div>
-            <div className="h-10 w-full bg-zinc-100 dark:bg-zinc-900/40 rounded-md animate-pulse"></div>
-            <div className="h-10 w-full bg-zinc-100 dark:bg-zinc-900/40 rounded-md animate-pulse"></div>
-          </div>
-          <div className="space-y-4">
-            <div className="h-4 w-32 bg-zinc-200 dark:bg-zinc-800 rounded-md animate-pulse mb-6"></div>
-            <div className="h-10 w-full bg-zinc-100 dark:bg-zinc-900/40 rounded-md animate-pulse"></div>
-            <div className="h-10 w-full bg-zinc-100 dark:bg-zinc-900/40 rounded-md animate-pulse"></div>
-          </div>
-        </div>
-      </Card>
-    </div>
-  </div>
-);
+
 
 export default function BillingPage() {
   const router = useRouter();
@@ -162,6 +131,10 @@ export default function BillingPage() {
     );
   }
 
+  if (isLoading) {
+    return <BillingLoading />;
+  }
+
   return (
     <Shell>
       <div className="space-y-8">
@@ -170,241 +143,234 @@ export default function BillingPage() {
           description="Manage your subscription plan, review your payment history, and purchase credits."
         />
 
-        {isLoading ? (
-          <BillingSkeleton />
-        ) : (
-          <>
-            <Tabs defaultValue="subscription" className="animate-in fade-in slide-in-from-bottom-4 duration-700">
-              <TabsList className="bg-zinc-100 dark:bg-zinc-900/60 p-1 rounded-xl h-auto">
-                <TabsTrigger value="subscription" className="cursor-pointer rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-800 data-[state=active]:shadow-sm transition-all py-2 px-4">
-                  <CreditCard className="h-4 w-4 mr-2" />
-                  Subscription
-                </TabsTrigger>
-                <TabsTrigger value="credits" className="cursor-pointer rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-800 data-[state=active]:shadow-sm transition-all py-2 px-4">
-                  <Coins className="h-4 w-4 mr-2" />
-                  Credits
-                </TabsTrigger>
-                <TabsTrigger value="history" className="cursor-pointer rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-800 data-[state=active]:shadow-sm transition-all py-2 px-4">
-                  <Receipt className="h-4 w-4 mr-2" />
-                  History
-                </TabsTrigger>
-              </TabsList>
+        <Tabs defaultValue="subscription" className="animate-in fade-in slide-in-from-bottom-4 duration-700">
+          <TabsList className="bg-zinc-100 dark:bg-zinc-900/60 p-1 rounded-xl h-auto">
+            <TabsTrigger value="subscription" className="cursor-pointer rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-800 data-[state=active]:shadow-sm transition-all py-2 px-4">
+              <CreditCard className="h-4 w-4 mr-2" />
+              Subscription
+            </TabsTrigger>
+            <TabsTrigger value="credits" className="cursor-pointer rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-800 data-[state=active]:shadow-sm transition-all py-2 px-4">
+              <Coins className="h-4 w-4 mr-2" />
+              Credits
+            </TabsTrigger>
+            <TabsTrigger value="history" className="cursor-pointer rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-800 data-[state=active]:shadow-sm transition-all py-2 px-4">
+              <Receipt className="h-4 w-4 mr-2" />
+              History
+            </TabsTrigger>
+          </TabsList>
 
-              <div className="mt-6">
-                <TabsContent value="subscription" className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-500">
-                  <Card className="p-0 overflow-hidden border-zinc-200/80 dark:border-zinc-800/60 shadow-sm bg-white dark:bg-zinc-950/30">
-                    <div className="p-6 border-b border-zinc-100 dark:border-zinc-800/60 bg-zinc-50/50 dark:bg-zinc-900/20 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                      <div>
-                        <h3 className="text-xl font-semibold flex items-center gap-2">
-                          <Zap className="h-5 w-5 text-blue-500" />
-                          Subscription Details
-                        </h3>
-                        <p className="text-sm text-muted-foreground mt-1">Manage your current plan, status, and renewal cycle.</p>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <Button
-                          onClick={handleUpgrade}
-                          className="shadow-sm bg-gradient-to-r from-violet-600 to-blue-600 hover:from-violet-500 hover:to-blue-500 text-white border-0 cursor-pointer gap-2"
-                        >
-                          <Zap className="h-4 w-4" />
-                          Change plan
-                        </Button>
-                        <Button
-                          variant="outline"
-                          className="cursor-pointer text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-500 dark:hover:text-red-400 dark:hover:bg-red-950/30 border-red-200 dark:border-red-900/50 transition-colors"
-                          onClick={() => setShowCancelModal(true)}
-                        >
-                          Cancel
-                        </Button>
+          <div className="mt-6">
+            <TabsContent value="subscription" className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-500">
+              <Card className="p-0 overflow-hidden border-zinc-200/80 dark:border-zinc-800/60 shadow-sm bg-white dark:bg-zinc-950/30">
+                <div className="p-6 border-b border-zinc-100 dark:border-zinc-800/60 bg-zinc-50/50 dark:bg-zinc-900/20 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                  <div>
+                    <h3 className="text-xl font-semibold flex items-center gap-2">
+                      <Zap className="h-5 w-5 text-blue-500" />
+                      Subscription Details
+                    </h3>
+                    <p className="text-sm text-muted-foreground mt-1">Manage your current plan, status, and renewal cycle.</p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Button
+                      onClick={handleUpgrade}
+                      className="shadow-sm bg-gradient-to-r from-violet-600 to-blue-600 hover:from-violet-500 hover:to-blue-500 text-white border-0 cursor-pointer gap-2"
+                    >
+                      <Zap className="h-4 w-4" />
+                      Change plan
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="cursor-pointer text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-500 dark:hover:text-red-400 dark:hover:bg-red-950/30 border-red-200 dark:border-red-900/50 transition-colors"
+                      onClick={() => setShowCancelModal(true)}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+
+                {currentPlan.data ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-zinc-200 dark:divide-zinc-700">
+                    <div className="p-6">
+                      <h4 className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-4">Plan Information</h4>
+                      <div className="space-y-1">
+                        <div className="flex justify-between items-center py-3 border-b border-dashed border-zinc-100 dark:border-zinc-800">
+                          <span className="text-muted-foreground flex items-center gap-2.5 text-sm"><Package className="h-4 w-4" /> Plan</span>
+                          <span className="font-medium text-sm">{currentPlan.data.plan?.displayName || currentPlan.data.plan?.name}</span>
+                        </div>
+                        <div className="flex justify-between items-center py-3 border-b border-dashed border-zinc-100 dark:border-zinc-800">
+                          <span className="text-muted-foreground flex items-center gap-2.5 text-sm"><AlertCircle className="h-4 w-4" /> Status</span>
+                          <StatusBadge status={currentPlan.data.status || 'UNKNOWN'} />
+                        </div>
+                        <div className="flex justify-between items-center py-3 border-b border-dashed border-zinc-100 dark:border-zinc-800">
+                          <span className="text-muted-foreground flex items-center gap-2.5 text-sm"><CreditCard className="h-4 w-4" /> Price</span>
+                          <span className="font-medium text-sm">${currentPlan.data.plan?.price} <span className="text-muted-foreground font-normal">/ {currentPlan.data.plan?.billingPeriod?.toLowerCase()}</span></span>
+                        </div>
                       </div>
                     </div>
 
-                    {currentPlan.data ? (
-                      <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-zinc-200 dark:divide-zinc-700">
-                        <div className="p-6">
-                          <h4 className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-4">Plan Information</h4>
-                          <div className="space-y-1">
-                            <div className="flex justify-between items-center py-3 border-b border-dashed border-zinc-100 dark:border-zinc-800">
-                              <span className="text-muted-foreground flex items-center gap-2.5 text-sm"><Package className="h-4 w-4" /> Plan</span>
-                              <span className="font-medium text-sm">{currentPlan.data.plan?.displayName || currentPlan.data.plan?.name}</span>
-                            </div>
-                            <div className="flex justify-between items-center py-3 border-b border-dashed border-zinc-100 dark:border-zinc-800">
-                              <span className="text-muted-foreground flex items-center gap-2.5 text-sm"><AlertCircle className="h-4 w-4" /> Status</span>
-                              <StatusBadge status={currentPlan.data.status || 'UNKNOWN'} />
-                            </div>
-                            <div className="flex justify-between items-center py-3 border-b border-dashed border-zinc-100 dark:border-zinc-800">
-                              <span className="text-muted-foreground flex items-center gap-2.5 text-sm"><CreditCard className="h-4 w-4" /> Price</span>
-                              <span className="font-medium text-sm">${currentPlan.data.plan?.price} <span className="text-muted-foreground font-normal">/ {currentPlan.data.plan?.billingPeriod?.toLowerCase()}</span></span>
-                            </div>
+                    <div className="p-6 bg-zinc-50/30 dark:bg-zinc-900/10">
+                      <h4 className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-4">Billing Cycle</h4>
+                      <div className="space-y-1">
+                        {currentPlan.data.currentPeriodStart && (
+                          <div className="flex justify-between items-center py-3 border-b border-dashed border-zinc-100 dark:border-zinc-800">
+                            <span className="text-muted-foreground flex items-center gap-2.5 text-sm"><History className="h-4 w-4" /> Started</span>
+                            <span className="font-medium text-sm">{new Date(currentPlan.data.currentPeriodStart).toLocaleDateString()}</span>
                           </div>
-                        </div>
-
-                        <div className="p-6 bg-zinc-50/30 dark:bg-zinc-900/10">
-                          <h4 className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-4">Billing Cycle</h4>
-                          <div className="space-y-1">
-                            {currentPlan.data.currentPeriodStart && (
-                              <div className="flex justify-between items-center py-3 border-b border-dashed border-zinc-100 dark:border-zinc-800">
-                                <span className="text-muted-foreground flex items-center gap-2.5 text-sm"><History className="h-4 w-4" /> Started</span>
-                                <span className="font-medium text-sm">{new Date(currentPlan.data.currentPeriodStart).toLocaleDateString()}</span>
-                              </div>
-                            )}
-                            {currentPlan.data.currentPeriodEnd && (
-                              <div className="flex justify-between items-center py-3 border-b border-dashed border-zinc-100 dark:border-zinc-800">
-                                <span className="text-muted-foreground flex items-center gap-2.5 text-sm"><ArrowRight className="h-4 w-4" /> Next billing</span>
-                                <span className="font-medium text-sm">{new Date(currentPlan.data.currentPeriodEnd).toLocaleDateString()}</span>
-                              </div>
-                            )}
+                        )}
+                        {currentPlan.data.currentPeriodEnd && (
+                          <div className="flex justify-between items-center py-3 border-b border-dashed border-zinc-100 dark:border-zinc-800">
+                            <span className="text-muted-foreground flex items-center gap-2.5 text-sm"><ArrowRight className="h-4 w-4" /> Next billing</span>
+                            <span className="font-medium text-sm">{new Date(currentPlan.data.currentPeriodEnd).toLocaleDateString()}</span>
                           </div>
-                        </div>
+                        )}
                       </div>
-                    ) : (
-                      <div className="p-12 flex flex-col items-center text-center text-muted-foreground">
-                        <div className="h-12 w-12 rounded-full bg-zinc-100 dark:bg-zinc-900 flex items-center justify-center mb-4">
-                          <AlertCircle className="h-6 w-6 opacity-50" />
-                        </div>
-                        <p className="font-medium">No active subscription found.</p>
-                        <p className="text-sm mt-1">Upgrade your account to unlock features.</p>
-                      </div>
-                    )}
-                  </Card>
-                </TabsContent>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-12 flex flex-col items-center text-center text-muted-foreground">
+                    <div className="h-12 w-12 rounded-full bg-zinc-100 dark:bg-zinc-900 flex items-center justify-center mb-4">
+                      <AlertCircle className="h-6 w-6 opacity-50" />
+                    </div>
+                    <p className="font-medium">No active subscription found.</p>
+                    <p className="text-sm mt-1">Upgrade your account to unlock features.</p>
+                  </div>
+                )}
+              </Card>
+            </TabsContent>
 
-                <TabsContent value="credits" className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-500">
-                  <Card className="p-0 overflow-hidden border-zinc-200/80 dark:border-zinc-800/60 shadow-sm bg-white dark:bg-zinc-950/30">
-                    <div className="p-6 border-b border-zinc-100 dark:border-zinc-800/60 flex justify-between items-center bg-zinc-50/50 dark:bg-zinc-900/20">
-                      <div>
-                        <h3 className="text-xl font-semibold flex items-center gap-2">
-                          <Coins className="h-5 w-5 text-yellow-500" />
-                          Credit Purchases
-                        </h3>
-                        <p className="text-sm text-muted-foreground mt-1">History of your credit package purchases.</p>
-                      </div>
-                      <Button
-                        onClick={handleUpgrade}
-                        size="sm"
-                        className="gap-2 shadow-sm bg-gradient-to-r from-violet-600 to-blue-600 hover:from-violet-500 hover:to-blue-500 text-white border-0 cursor-pointer"
-                      >
-                        <Plus className="h-4 w-4" /> Buy Credits
-                      </Button>
-                    </div>
-                    <div className="overflow-x-auto">
-                      <Table>
-                        <TableHeader className="bg-zinc-50/80 dark:bg-zinc-900/50">
-                          <TableRow className="hover:bg-transparent border-zinc-100 dark:border-zinc-800/60">
-                            <TableHead className="font-semibold">Amount</TableHead>
-                            <TableHead className="font-semibold">Credits</TableHead>
-                            <TableHead className="font-semibold">Status</TableHead>
-                            <TableHead className="font-semibold text-right pr-6">Date</TableHead>
+            <TabsContent value="credits" className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-500">
+              <Card className="p-0 overflow-hidden border-zinc-200/80 dark:border-zinc-800/60 shadow-sm bg-white dark:bg-zinc-950/30">
+                <div className="p-6 border-b border-zinc-100 dark:border-zinc-800/60 flex justify-between items-center bg-zinc-50/50 dark:bg-zinc-900/20">
+                  <div>
+                    <h3 className="text-xl font-semibold flex items-center gap-2">
+                      <Coins className="h-5 w-5 text-yellow-500" />
+                      Credit Purchases
+                    </h3>
+                    <p className="text-sm text-muted-foreground mt-1">History of your credit package purchases.</p>
+                  </div>
+                  <Button
+                    onClick={handleUpgrade}
+                    size="sm"
+                    className="gap-2 shadow-sm bg-gradient-to-r from-violet-600 to-blue-600 hover:from-violet-500 hover:to-blue-500 text-white border-0 cursor-pointer"
+                  >
+                    <Plus className="h-4 w-4" /> Buy Credits
+                  </Button>
+                </div>
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader className="bg-zinc-50/80 dark:bg-zinc-900/50">
+                      <TableRow className="hover:bg-transparent border-zinc-100 dark:border-zinc-800/60">
+                        <TableHead className="font-semibold">Amount</TableHead>
+                        <TableHead className="font-semibold">Credits</TableHead>
+                        <TableHead className="font-semibold">Status</TableHead>
+                        <TableHead className="font-semibold text-right pr-6">Date</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {(purchases.data?.items?.length ?? 0) > 0 ? (
+                        purchases.data!.items.map((purchase: any) => (
+                          <TableRow key={purchase.id} className="hover:bg-zinc-50/80 dark:hover:bg-zinc-900/30 transition-colors border-zinc-100 dark:border-zinc-800/60">
+                            <TableCell className="font-medium text-foreground">${purchase.amount}</TableCell>
+                            <TableCell>
+                              <span className="flex items-center gap-1.5 text-yellow-700 dark:text-yellow-500 font-semibold bg-yellow-100/50 dark:bg-yellow-500/10 px-2.5 py-1 rounded-full w-max text-xs border border-yellow-200/50 dark:border-yellow-500/20">
+                                <Coins className="h-3.5 w-3.5" />
+                                +{purchase.credits}
+                              </span>
+                            </TableCell>
+                            <TableCell>
+                              <StatusBadge status={purchase.status} />
+                            </TableCell>
+                            <TableCell className="text-muted-foreground text-sm text-right pr-6">
+                              {new Date(purchase.createdAt).toLocaleDateString()}
+                            </TableCell>
                           </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {(purchases.data?.items?.length ?? 0) > 0 ? (
-                            purchases.data!.items.map((purchase: any) => (
-                              <TableRow key={purchase.id} className="hover:bg-zinc-50/80 dark:hover:bg-zinc-900/30 transition-colors border-zinc-100 dark:border-zinc-800/60">
-                                <TableCell className="font-medium text-foreground">${purchase.amount}</TableCell>
-                                <TableCell>
-                                  <span className="flex items-center gap-1.5 text-yellow-700 dark:text-yellow-500 font-semibold bg-yellow-100/50 dark:bg-yellow-500/10 px-2.5 py-1 rounded-full w-max text-xs border border-yellow-200/50 dark:border-yellow-500/20">
-                                    <Coins className="h-3.5 w-3.5" />
-                                    +{purchase.credits}
-                                  </span>
-                                </TableCell>
-                                <TableCell>
-                                  <StatusBadge status={purchase.status} />
-                                </TableCell>
-                                <TableCell className="text-muted-foreground text-sm text-right pr-6">
-                                  {new Date(purchase.createdAt).toLocaleDateString()}
-                                </TableCell>
-                              </TableRow>
-                            ))
-                          ) : (
-                            <TableRow>
-                              <TableCell colSpan={4} className="h-40 text-center">
-                                <div className="flex flex-col items-center justify-center text-muted-foreground">
-                                  <div className="h-12 w-12 rounded-full bg-zinc-100 dark:bg-zinc-900 flex items-center justify-center mb-3">
-                                    <Coins className="h-6 w-6 opacity-40" />
-                                  </div>
-                                  <p className="font-medium text-foreground">No credit purchases</p>
-                                  <p className="text-sm mt-1">You haven't bought any credit packages yet.</p>
-                                </div>
-                              </TableCell>
-                            </TableRow>
-                          )}
-                        </TableBody>
-                      </Table>
-                    </div>
-                  </Card>
-                </TabsContent>
+                        ))
+                      ) : (
+                        <TableRow>
+                          <TableCell colSpan={4} className="h-40 text-center">
+                            <div className="flex flex-col items-center justify-center text-muted-foreground">
+                              <div className="h-12 w-12 rounded-full bg-zinc-100 dark:bg-zinc-900 flex items-center justify-center mb-3">
+                                <Coins className="h-6 w-6 opacity-40" />
+                              </div>
+                              <p className="font-medium text-foreground">No credit purchases</p>
+                              <p className="text-sm mt-1">You haven't bought any credit packages yet.</p>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              </Card>
+            </TabsContent>
 
-                <TabsContent value="history" className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-500">
-                  <Card className="p-0 overflow-hidden border-zinc-200/80 dark:border-zinc-800/60 shadow-sm bg-white dark:bg-zinc-950/30">
-                    <div className="p-6 border-b border-zinc-100 dark:border-zinc-800/60 flex justify-between items-center bg-zinc-50/50 dark:bg-zinc-900/20">
-                      <div>
-                        <h3 className="text-xl font-semibold flex items-center gap-2">
-                          <Receipt className="h-5 w-5 text-indigo-500" />
-                          Payment History
-                        </h3>
-                        <p className="text-sm text-muted-foreground mt-1">Review your past transactions and invoices.</p>
-                      </div>
-                    </div>
-                    <div className="overflow-x-auto">
-                      <Table>
-                        <TableHeader className="bg-zinc-50/80 dark:bg-zinc-900/50">
-                          <TableRow className="hover:bg-transparent border-zinc-100 dark:border-zinc-800/60">
-                            <TableHead className="font-semibold">Amount</TableHead>
-                            <TableHead className="font-semibold">Type</TableHead>
-                            <TableHead className="font-semibold">Method</TableHead>
-                            <TableHead className="font-semibold">Status</TableHead>
-                            <TableHead className="font-semibold text-right pr-6">Date</TableHead>
+            <TabsContent value="history" className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-500">
+              <Card className="p-0 overflow-hidden border-zinc-200/80 dark:border-zinc-800/60 shadow-sm bg-white dark:bg-zinc-950/30">
+                <div className="p-6 border-b border-zinc-100 dark:border-zinc-800/60 flex justify-between items-center bg-zinc-50/50 dark:bg-zinc-900/20">
+                  <div>
+                    <h3 className="text-xl font-semibold flex items-center gap-2">
+                      <Receipt className="h-5 w-5 text-indigo-500" />
+                      Payment History
+                    </h3>
+                    <p className="text-sm text-muted-foreground mt-1">Review your past transactions and invoices.</p>
+                  </div>
+                </div>
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader className="bg-zinc-50/80 dark:bg-zinc-900/50">
+                      <TableRow className="hover:bg-transparent border-zinc-100 dark:border-zinc-800/60">
+                        <TableHead className="font-semibold">Amount</TableHead>
+                        <TableHead className="font-semibold">Type</TableHead>
+                        <TableHead className="font-semibold">Method</TableHead>
+                        <TableHead className="font-semibold">Status</TableHead>
+                        <TableHead className="font-semibold text-right pr-6">Date</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {(payments.data?.items?.length ?? 0) > 0 ? (
+                        payments.data!.items.map((pay: any) => (
+                          <TableRow key={pay.id} className="hover:bg-zinc-50/80 dark:hover:bg-zinc-900/30 transition-colors border-zinc-100 dark:border-zinc-800/60">
+                            <TableCell className="font-medium text-foreground">
+                              {pay.currency} {pay.amount}
+                            </TableCell>
+                            <TableCell>
+                              <span className="capitalize text-muted-foreground text-sm font-medium">{pay.billingType?.toLowerCase() || 'Subscription'}</span>
+                            </TableCell>
+                            <TableCell>
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-zinc-100 dark:bg-zinc-900/80 text-xs font-semibold text-zinc-700 dark:text-zinc-300 border border-zinc-200/60 dark:border-zinc-800">
+                                <CreditCard className="h-3.5 w-3.5" />
+                                {pay.paymentGateway || pay.paymentMethod || 'Stripe'}
+                              </span>
+                            </TableCell>
+                            <TableCell>
+                              <StatusBadge status={pay.status} />
+                            </TableCell>
+                            <TableCell className="text-muted-foreground text-sm text-right pr-6">
+                              {new Date(pay.createdAt).toLocaleDateString()}
+                            </TableCell>
                           </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {(payments.data?.items?.length ?? 0) > 0 ? (
-                            payments.data!.items.map((pay: any) => (
-                              <TableRow key={pay.id} className="hover:bg-zinc-50/80 dark:hover:bg-zinc-900/30 transition-colors border-zinc-100 dark:border-zinc-800/60">
-                                <TableCell className="font-medium text-foreground">
-                                  {pay.currency} {pay.amount}
-                                </TableCell>
-                                <TableCell>
-                                  <span className="capitalize text-muted-foreground text-sm font-medium">{pay.billingType?.toLowerCase() || 'Subscription'}</span>
-                                </TableCell>
-                                <TableCell>
-                                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-zinc-100 dark:bg-zinc-900/80 text-xs font-semibold text-zinc-700 dark:text-zinc-300 border border-zinc-200/60 dark:border-zinc-800">
-                                    <CreditCard className="h-3.5 w-3.5" />
-                                    {pay.paymentGateway || pay.paymentMethod || 'Stripe'}
-                                  </span>
-                                </TableCell>
-                                <TableCell>
-                                  <StatusBadge status={pay.status} />
-                                </TableCell>
-                                <TableCell className="text-muted-foreground text-sm text-right pr-6">
-                                  {new Date(pay.createdAt).toLocaleDateString()}
-                                </TableCell>
-                              </TableRow>
-                            ))
-                          ) : (
-                            <TableRow>
-                              <TableCell colSpan={5} className="h-40 text-center">
-                                <div className="flex flex-col items-center justify-center text-muted-foreground">
-                                  <div className="h-12 w-12 rounded-full bg-zinc-100 dark:bg-zinc-900 flex items-center justify-center mb-3">
-                                    <Receipt className="h-6 w-6 opacity-40" />
-                                  </div>
-                                  <p className="font-medium text-foreground">No payments found</p>
-                                  <p className="text-sm mt-1">Your payment history will appear here.</p>
-                                </div>
-                              </TableCell>
-                            </TableRow>
-                          )}
-                        </TableBody>
-                      </Table>
-                    </div>
-                  </Card>
-                </TabsContent>
-              </div>
-            </Tabs>
-          </>
-        )}
+                        ))
+                      ) : (
+                        <TableRow>
+                          <TableCell colSpan={5} className="h-40 text-center">
+                            <div className="flex flex-col items-center justify-center text-muted-foreground">
+                              <div className="h-12 w-12 rounded-full bg-zinc-100 dark:bg-zinc-900 flex items-center justify-center mb-3">
+                                <Receipt className="h-6 w-6 opacity-40" />
+                              </div>
+                              <p className="font-medium text-foreground">No payments found</p>
+                              <p className="text-sm mt-1">Your payment history will appear here.</p>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              </Card>
+            </TabsContent>
+          </div>
+        </Tabs>
       </div>
-
       {/* Cancel Subscription Modal */}
       {showCancelModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200 p-4">

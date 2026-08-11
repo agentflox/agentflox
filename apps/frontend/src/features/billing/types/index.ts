@@ -104,7 +104,7 @@ export interface PurchaseDetails {
       proposalsUsed: number;
       remainingProposals: number;
       requestsUsed: number;
-      remainingRequests: number;
+      remainingApplicationRequests: number;
     };
     payment: {
       id: string;

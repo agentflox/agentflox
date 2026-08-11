@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { ModelService } from './model.service';
+import { ModelService, SYSTEM_MODELS } from './model.service';
 import { prisma } from '@/lib/prisma';
 import {
     checkMarketplaceTokenLimit,
@@ -7,6 +7,8 @@ import {
     estimateTokens,
     countMarketplaceTokens
 } from '@/utils/ai/marketplaceUsageTracking';
+
+const LISTING_MODEL = SYSTEM_MODELS.GPT_4O_MINI;
 
 export interface GenerateListingInput {
     entityType: string;
@@ -67,22 +69,27 @@ export class ListingService {
             };
         }
 
-        // 3. Generate Content
-        const detectionResult = await this.modelService.generateText('gpt-4o-mini', messages as any, {
+        // 3. Generate Content (Shared Manager records AiUsageLog + plan debit)
+        const detectionResult = await this.modelService.generateText(LISTING_MODEL, messages as any, {
             temperature: 0.7,
             maxTokens: 1000,
-            responseFormat: { type: "json_object" }
+            responseFormat: { type: "json_object" },
+            userId,
+            usageContext: {
+                action: 'GENERATE',
+                metadata: { source: 'ListingService' },
+            },
         });
 
         // Strip markdown code blocks if present (handles ```json ... ``` wrapper)
         const cleanContent = this.stripMarkdownCodeBlocks(detectionResult.content);
         const generatedContent = JSON.parse(cleanContent) as GenerateListingOutput;
 
-        // 4. Calculate Actual Usage
+        // 4. Marketplace-specific ledger (stub) — keeps prior behavior alongside Shared Manager
         const tokenCount = await countMarketplaceTokens(
             messages as any,
             detectionResult.content,
-            'gpt-4o-mini'
+            LISTING_MODEL.apiModelId
         );
 
         // 5. Update Usage (non-blocking)

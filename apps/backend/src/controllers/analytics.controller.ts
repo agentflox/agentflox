@@ -1,13 +1,11 @@
 import { Controller, Param, Post, Req, Res, UseGuards, HttpException, HttpStatus } from '@nestjs/common';
 import type { Response } from 'express';
 import { prisma } from '@/lib/prisma';
-import { openai } from '@/lib/openai';
 import { OpenAIErrorHandler } from '@/utils/ai/errorHandler';
-import { countTokens } from '@/utils/ai/countTokens';
-import { fetchModel } from '@/utils/ai/fetchModel';
 import { checkRateLimit } from '@/utils/ai/checkRateLimit';
 import { AuthenticatedRequest, JwtAuthGuard } from '@/middleware/httpAuth';
 import { assertProjectAccessForUser } from '@/utils/socket/granularAuth';
+import { completeWithDefaultModel } from '@/services/models';
 
 @Controller('v1/analytics')
 @UseGuards(JwtAuthGuard)
@@ -49,9 +47,6 @@ export class AnalyticsController {
         0.15 * marketSize +
         0.15 * competitivePosition;
 
-      const selectedModel = await fetchModel();
-      const chatModel = selectedModel?.name ?? 'gpt-4o-mini';
-      const temperature = selectedModel?.temperature ?? 0.3;
       const prompt = [
         {
           role: 'system',
@@ -65,21 +60,17 @@ export class AnalyticsController {
         },
       ] as any;
 
-      const start = Date.now();
-      const completion = await openai.chat.completions.create({
-        model: chatModel,
-        messages: prompt,
-        temperature,
+      const { completion } = await completeWithDefaultModel({
+        userId,
+        request: {
+          messages: prompt,
+          temperature: 0.3,
+          stream: false,
+        },
+        usageContext: { action: 'ANALYZE', metadata: { source: 'analytics.controller', projectId } },
+        skipEntitlement: true,
       });
-      const durationMs = Date.now() - start;
       const advice = completion.choices?.[0]?.message?.content ?? '';
-
-      const tokens = await countTokens({ input: prompt, completion: advice, model: chatModel });
-      const estimatedTokens = (tokens.inputTokens ?? 0) + (tokens.outputTokens ?? 0);
-      const fallbackTokens =
-        estimatedTokens > 0 ? estimatedTokens : Math.ceil(JSON.stringify(prompt).length / 4);
-      const usageTokens = completion.usage?.total_tokens;
-      const totalTokens = typeof usageTokens === 'number' ? usageTokens : fallbackTokens;
 
       return res.json({
         fundingReadiness,

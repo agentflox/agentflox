@@ -7,6 +7,7 @@ import { ThemeProvider } from './ThemeProvider';
 import { GoogleAnalyticsProvider } from './GoogleAnalyticsProvider';
 import { SocketProvider } from './SocketProvider';
 import { CollaborationProvider } from './CollaborationProvider';
+import { UsageCapProvider } from '@/features/usage/hooks/useUsageCapModal';
 import { type Session } from "next-auth";
 import '@/lib/i18n';
 
@@ -27,18 +28,20 @@ export default function Providers({
         >
           <ReduxProvider>
             <TRPCProvider>
-              <SocketProvider>
-                {session?.user ? (
-                  <CollaborationProvider
-                    userId={session.user.id}
-                    username={session.user.name || session.user.email || 'User'}
-                  >
-                    {children}
-                  </CollaborationProvider>
-                ) : (
-                  children
-                )}
-              </SocketProvider>
+              <UsageCapProvider>
+                <SocketProvider>
+                  {session?.user ? (
+                    <CollaborationProvider
+                      userId={session.user.id}
+                      username={session.user.name || session.user.email || 'User'}
+                    >
+                      {children}
+                    </CollaborationProvider>
+                  ) : (
+                    children
+                  )}
+                </SocketProvider>
+              </UsageCapProvider>
             </TRPCProvider>
           </ReduxProvider>
         </SessionProvider>

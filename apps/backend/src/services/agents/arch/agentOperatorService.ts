@@ -1,5 +1,4 @@
-import { openai } from '@/lib/openai';
-import { fetchModel } from '@/utils/ai/fetchModel';
+import { resolveModel, createOpenAICompletion, recordUsage, fromOpenAIUsage } from '@/services/models';
 import { prisma } from '@/lib/prisma';
 import { inngest } from '@/lib/inngest';
 import { z } from 'zod';
@@ -10,7 +9,7 @@ import { PromptSandbox } from '../safety/promptSandbox';
 import { auditLogger } from '../audit/auditLogger';
 import { AgentUpdateService, type AgentUpdateRequest } from '../core/agentUpdateService';
 import { AgentBuilderError } from './agentBuilderService';
-import { checkAgentTokenLimit, updateAgentUsage, estimateTokens, countAgentTokens } from '@/utils/ai/agentUsageTracking';
+import { checkAgentTokenLimit, estimateTokens, countAgentTokens } from '@/utils/ai/agentUsageTracking';
 import { TokenBudgetManager } from '../optimization/tokenBudgetManager';
 import { intentInferenceService } from '../inference/intentInferenceService';
 import { ToolInvocationGate } from '../core/toolInvocationGate';
@@ -50,7 +49,7 @@ import {
 } from '../execution/agentEventStore';
 
 interface SuggestedAction {
-  type: 'execute' | 'update' | 'info';
+  type: 'update' | 'info';
   label: string;
   payload?: Record<string, unknown>;
 }
@@ -61,19 +60,34 @@ interface OperatorResponse {
   patch?: Record<string, unknown>;
 }
 
-const OperatorResponseSchema = z.object({
-  response: z.string(),
-  suggestedActions: z
-    .array(
-      z.object({
-        type: z.enum(['execute', 'update', 'info']),
-        label: z.string().max(120),
-        payload: z.record(z.unknown()).optional(),
-      })
-    )
-    .default([]),
-  patch: z.record(z.unknown()).optional(),
-});
+const OperatorResponseSchema = z.preprocess(
+  (raw) => {
+    if (raw && typeof raw === 'object' && Array.isArray((raw as { suggestedActions?: unknown }).suggestedActions)) {
+      const data = raw as { suggestedActions: Array<{ type?: string }> };
+      return {
+        ...data,
+        // Operator never runs agents — drop any execute suggestions the model still emits.
+        suggestedActions: data.suggestedActions.filter(
+          (a) => a?.type === 'update' || a?.type === 'info'
+        ),
+      };
+    }
+    return raw;
+  },
+  z.object({
+    response: z.string(),
+    suggestedActions: z
+      .array(
+        z.object({
+          type: z.enum(['update', 'info']),
+          label: z.string().max(120),
+          payload: z.record(z.unknown()).optional(),
+        })
+      )
+      .default([]),
+    patch: z.record(z.unknown()).optional(),
+  })
+);
 
 const OperatorWelcomeResponseSchema = z.object({
   welcomeMessage: z.string(),
@@ -239,8 +253,23 @@ export class AgentOperatorService {
       return await this.circuitBreaker.execute(() =>
         this.retryHandler.retry(
           async () => {
+            let resolved = (request as any).__resolvedModel;
+            if (!resolved) {
+              resolved = await resolveModel({
+                modelId: null,
+                userId: context.userId,
+                skipEntitlement: true,
+              });
+            }
+            const create = (params: Record<string, unknown>) =>
+              createOpenAICompletion(resolved, params);
+
             if (onChunk) {
-              const stream = await openai.chat.completions.create({ ...request, stream: true, stream_options: { include_usage: true } }) as any;
+              const stream = await create({
+                ...request,
+                stream: true,
+                stream_options: { include_usage: true },
+              }) as any;
               let content = '';
               const tool_calls: any[] = [];
               let completionUsage: any = undefined;
@@ -272,9 +301,9 @@ export class AgentOperatorService {
               if (tool_calls.length > 0) message.tool_calls = tool_calls;
 
               return { choices: [{ message }], usage: completionUsage } as any;
-            } else {
-              return await openai.chat.completions.create({ ...request, stream: false });
             }
+
+            return await create({ ...request, stream: false });
           },
           { maxAttempts: 3, baseDelay: 800 }
         )
@@ -681,7 +710,8 @@ Return strictly JSON with shape: { "welcomeMessage": string }.`,
     ];
 
     // Fetch model
-    const model = await fetchModel();
+    const resolved = await resolveModel({ modelId: agent.modelId, userId });
+    const model = { ...resolved, name: resolved.apiModelId };
 
     const estimatedTokens = estimateTokens(JSON.stringify(messages)) + 500;
 
@@ -698,7 +728,8 @@ Return strictly JSON with shape: { "welcomeMessage": string }.`,
 
     const completion = await this.runCompletion(
       {
-        model: model.name,
+        model: resolved.apiModelId,
+        __resolvedModel: resolved,
         messages,
         temperature: 0.3,
         max_tokens: 300,
@@ -750,13 +781,24 @@ Return strictly JSON with shape: { "welcomeMessage": string }.`,
           where: { id: userId },
           select: { name: true, email: true },
         });
-        await updateAgentUsage(
+        await recordUsage({
+          resolved,
+          usage: {
+            inputTokens: tokenCount.inputTokens,
+            outputTokens: tokenCount.outputTokens,
+            totalTokens: tokenCount.inputTokens + tokenCount.outputTokens,
+            usageEstimated: !completion.usage,
+          },
           userId,
-          user?.name || user?.email || 'User',
-          tokenCount.inputTokens,
-          tokenCount.outputTokens,
-          user?.email || undefined
-        );
+          userName: user?.name || user?.email || 'User',
+          email: user?.email || undefined,
+          context: {
+            agentId: agent.id,
+            action: 'GENERATE',
+            success: true,
+            metadata: { source: 'agentOperatorService.initialize' },
+          },
+        });
       } catch (error) {
         console.error('Failed to update agent usage for operator initialization:', error);
       }
@@ -953,18 +995,13 @@ Return strictly JSON with shape: { "welcomeMessage": string }.`,
       });
 
       // --- NEW: INTELLIGENT INTENT INFERENCE (Injected Service) ---
-      const intentResult = await intentInferenceService.inferOperatorIntent(fullMessageWithContext, refreshedState.conversationHistory);
+      const intentResult = await intentInferenceService.inferOperatorIntent(fullMessageWithContext, refreshedState.conversationHistory, userId);
 
-      // Handle EXECUTE_REQUEST - "Wrong Context" Guardrail
-      // Operators configure; Executors execute.
+      // Handle EXECUTE_REQUEST - Operator configures only; Executor runs the agent.
       if (intentResult.intent === AGENT_CONSTANTS.INTENT.OPERATOR.EXECUTE_REQUEST) {
-        // Check if it's a "test run" request (allowable) vs "production run"
-        // For now, we strictly guide to Executor for clarity, unless explicit "test" keyword?
-        // The prompt says "EXECUTE_REQUEST: User wants to RUN the agent... - Operator can trigger dry runs, but primary execution is Executor."
-        // If confidence is high, suggeset Executor.
-        if (intentResult.confidence > 0.8 && !fullMessageWithContext.toLowerCase().includes('test')) {
+        if (intentResult.confidence > 0.8) {
           return {
-            response: "To run this agent for a production task, please switch to the **Executor** view. The Operator view is for configuring, training, and running test simulations.",
+            response: "To run this agent, please switch to the **Executor** view. The Operator view is for configuring and refining the agent only.",
             conversationState: refreshedState,
             agentDraft: refreshedState.agentDraft,
             quickActions: [],
@@ -1111,7 +1148,8 @@ Return strictly JSON with shape: { "welcomeMessage": string }.`,
       const skillInference = await this.skillInferenceService.inferSkills(
         fullMessageWithContext,
         `Current capabilities: ${agent.capabilities?.join(', ') || 'None'}. Description: ${agent.description || ''}`,
-        BUILT_IN_SKILLS
+        BUILT_IN_SKILLS,
+        userId
       );
       const inferredSkills = skillInference;
 
@@ -1136,13 +1174,14 @@ Return strictly JSON with shape: { "welcomeMessage": string }.`,
       }
 
       // Build operator response
-      const model = await fetchModel();
+      const resolved = await resolveModel({ modelId: agent.modelId, userId });
+      const model = { ...resolved, name: resolved.apiModelId };
       const guardrails = `QUALITY
 - Be concise, factual, and accurate to this agent's stored configuration.
 - Never invent tools, triggers, or capabilities that the agent does not have.
 - When suggesting updates, provide a minimal JSON patch (partial object) under patch.
-- When suggesting an execution, include a suggested input payload under payload.
-- Keep at most 3 suggestedActions; labels < 80 chars.`;
+- Never trigger or suggest running the agent. Direct execution requests to the Executor view.
+- Keep at most 3 suggestedActions; labels < 80 chars. suggestedActions types are only 'update' or 'info'.`;
 
       // ── Semantic memory recall (L2 & L3) ──────────────────────────────────
       let semanticMemoryBlock = '';
@@ -1163,9 +1202,9 @@ Return strictly JSON with shape: { "welcomeMessage": string }.`,
       }
 
       const systemPrompt = `You are an Agent Operator assistant for Agentflox.
-You can: (1) answer questions about the agent, (2) infer and propose safe configuration updates as a minimal JSON patch, (3) suggest running the agent with an input.
+You can: (1) answer questions about the agent, (2) infer and propose safe configuration updates as a minimal JSON patch.
+You cannot run or execute the agent — that belongs in the Executor view. If the user asks to run it, explain and point them there.
 Use the agent data, workspace context, and recent executions exactly as given. When inferring configuration, keep changes minimal and aligned with the existing intent of the agent.
-For executions, suggest clear input payloads that this agent can handle based on its tools and triggers.
 Output must be JSON via the function.
 ${guardrails}${semanticMemoryBlock}`;
 
@@ -1256,6 +1295,9 @@ ${guardrails}${semanticMemoryBlock}`;
       let finalSuggestedActions: any[] = [];
       let finalPatch: any = undefined;
       let loopTokensUsed = 0; // Sliding token budget tracker
+      let recordedInputTokens = 0;
+      let recordedOutputTokens = 0;
+      let hadProviderUsage = false;
       const loopBudget = AGENT_CONSTANTS.LOOP_TOKEN_BUDGET;
       const toolsInvoked: string[] = []; // Phase 5: track for span + metrics
       // Baseline: measure the context size BEFORE the loop so we only track
@@ -1291,6 +1333,7 @@ ${guardrails}${semanticMemoryBlock}`;
 
         const completionParams = {
           model: model.name,
+          __resolvedModel: resolved,
           messages,
           temperature: 0.4,
           max_tokens: 800,
@@ -1309,7 +1352,7 @@ ${guardrails}${semanticMemoryBlock}`;
                       items: {
                         type: 'object',
                         properties: {
-                          type: { type: 'string', enum: ['execute', 'update', 'info'] },
+                          type: { type: 'string', enum: ['update', 'info'] },
                           label: { type: 'string' },
                           payload: { type: 'object' },
                         },
@@ -1349,6 +1392,13 @@ ${guardrails}${semanticMemoryBlock}`;
           );
         }
 
+        const turnUsage = fromOpenAIUsage(completion.usage);
+        if (completion.usage) {
+          hadProviderUsage = true;
+          recordedInputTokens += turnUsage.inputTokens;
+          recordedOutputTokens += turnUsage.outputTokens;
+        }
+
         messages.push(message as any);
 
         // P1-07: Checkpoint the accumulated messages array to Redis after every
@@ -1375,26 +1425,6 @@ ${guardrails}${semanticMemoryBlock}`;
         // Check if it's the operator_response (final answer)
         const operatorResponseCall = toolCalls.find((tc: any) => tc.function.name === 'operator_response');
         if (operatorResponseCall) {
-          Promise.resolve().then(async () => {
-            try {
-              const tokenCount = await countAgentTokens(
-                messages as Array<{ role: string; content: string }>,
-                operatorResponseCall.function.arguments,
-                model.name,
-                completion.usage as any
-              );
-              await updateAgentUsage(
-                userId,
-                'User',
-                tokenCount.inputTokens,
-                tokenCount.outputTokens,
-                undefined
-              );
-            } catch (err) {
-              // non-fatal
-            }
-          });
-
           const parsed = OperatorResponseSchema.safeParse(JSON.parse(operatorResponseCall.function.arguments));
           if (parsed.success) {
             finalResponse = parsed.data.response;
@@ -1447,6 +1477,40 @@ ${guardrails}${semanticMemoryBlock}`;
       if (!isFinalAnswer) {
         finalResponse = 'Max iterations reached. Could not complete the task within the loop limit.';
       }
+
+      this.runInBackground('operator-token-usage-tracking', async () => {
+        let inputTokens = recordedInputTokens;
+        let outputTokens = recordedOutputTokens;
+        let usageEstimated = !hadProviderUsage;
+        if (!hadProviderUsage) {
+          const tokenCount = await countAgentTokens(
+            messages as Array<{ role: string; content: string }>,
+            finalResponse,
+            model.name,
+          );
+          inputTokens = tokenCount.inputTokens;
+          outputTokens = tokenCount.outputTokens;
+          usageEstimated = true;
+        }
+        await recordUsage({
+          resolved,
+          usage: {
+            inputTokens,
+            outputTokens,
+            totalTokens: inputTokens + outputTokens,
+            usageEstimated,
+          },
+          userId,
+          userName: 'User',
+          context: {
+            conversationId,
+            agentId: agent.id,
+            action: 'CHAT',
+            success: isFinalAnswer,
+            metadata: { source: 'agentOperatorService', iterations },
+          },
+        });
+      });
 
       // ── Phase 5: Span enrichment + metrics ───────────────────────────────
       // Emit a rich trace span so execution can be correlated in LangSmith /
@@ -1550,29 +1614,6 @@ ${guardrails}${semanticMemoryBlock}`;
             '[AgentOperator] Atomic config update failed (transaction rolled back):',
             error
           );
-        }
-      }
-
-      // Execute agent with updated configurations (similar to agentBuilderService)
-      const executeActions = suggestedActions.filter((action) => action.type === 'execute');
-      if (executeActions.length > 0) {
-        for (const action of executeActions) {
-          try {
-            await this.triggerExecution(
-              agentId,
-              userId,
-              action.payload || {},
-              {
-                source: 'operator',
-                conversationId,
-                message: sanitizedMessage,
-                label: action.label,
-                appliedUpdates: Object.keys(mergedUpdates).length > 0 ? mergedUpdates : undefined,
-              }
-            );
-          } catch (error) {
-            console.error('[AgentOperator] Failed to trigger execution from operator chat:', error);
-          }
         }
       }
 
@@ -1743,54 +1784,6 @@ ${guardrails}${semanticMemoryBlock}`;
     });
     await auditLogger.logUpdate(agentId, {}, sanitizedPatch, { userId });
     return updateResult;
-  }
-
-  /** Trigger an execution for the agent */
-  async triggerExecution(agentId: string, userId: string, inputData: any = {}, executionContext: any = {}) {
-    const agent = await this.assertAgentAccess(agentId, userId, true);
-    if (!agent.isActive) {
-      throw new AgentBuilderError(
-        'AGENT_OPERATOR_INACTIVE',
-        'Agent is not active',
-        'Activate the agent before running executions.',
-        { agentId }
-      );
-    }
-
-    const execution = await prisma.agentExecution.create({
-      data: {
-        id: randomUUID(),
-        agentId,
-        triggeredBy: 'MANUAL',
-        triggerUserId: userId,
-        inputData,
-        executionContext,
-        status: 'QUEUED',
-        startedAt: new Date(),
-      },
-    });
-
-    try {
-      await inngest.send({
-        name: 'agent/execute',
-        data: { executionId: execution.id, agentId, userId, inputData, executionContext },
-      });
-    } catch (inngestError: any) {
-      console.error('[AgentOperator] Failed to send event to Inngest:', inngestError);
-
-      // Provide more helpful logs in development
-      if (process.env.NODE_ENV === 'development') {
-        if (inngestError.message?.includes('401') || inngestError.message?.includes('key unknown')) {
-          console.warn('[AgentOperator] 💡 TIP: Inngest 401/403 errors are usually caused by a missing or invalid INNGEST_EVENT_KEY in .env. For local development, set INNGEST_EVENT_KEY=local and run the Inngest Dev Server (npx inngest-cli dev).');
-        } else if (inngestError.code === 'ECONNREFUSED') {
-          console.warn('[AgentOperator] 💡 TIP: Connection refused to Inngest. Is the Inngest Dev Server running? Start it with: npx inngest-cli dev');
-        }
-      }
-
-      throw inngestError;
-    }
-
-    return { executionId: execution.id, status: 'QUEUED' };
   }
 
   private async assertAgentAccess(agentId: string, userId: string, requireWrite = false) {

@@ -15,18 +15,20 @@ import { BugReportModal } from "@/entities/tools/components/BugReportModal";
 import { SupportAssistantModal } from "@/components/assistant/SupportAssistantModal";
 import { ToolVersionsSheet } from "@/entities/tools/components/ToolVersionsSheet";
 import type { ToolFlowBuilderApi } from "../hooks/useToolFlowBuilder";
+import { IconColorSelector } from "@/components/ui/icon-color-selector";
+import { EntityIcon } from "@/entities/shared/components/EntityIcon";
 
 export function ToolFlowBuilderModals({ api }: { api: ToolFlowBuilderApi }) {
   const {
     modalStepId, setModalStepId, modalStep, modalStepTool, modalVarTree, updateStepConfig,
     runCompositeTool, isRunningTool, liveRunState, outputsModalOpen, setOutputsModalOpen,
     outputMode, outputs, buildVarTree, steps, addOutputFromSource, removeOutput, setOutputMode,
-    settingsOpen, setSettingsOpen, toolIcon, setToolIcon, name, setName, description, setDescription,
+    settingsOpen, setSettingsOpen, toolIcon, setToolIcon, toolColor, setToolColor, name, setName, description, setDescription,
     isGuardOpen, setIsGuardOpen, isPublishModalOpen, setIsPublishModalOpen, initialTool, category,
     inputs, bugReportOpen, setBugReportOpen, supportModalOpen, setSupportModalOpen,
     versionsOpen, setVersionsOpen,
     agentPromptOpen, setAgentPromptOpen, agentPromptDraft, setAgentPromptDraft,
-    agentPromptMutation, handleSaveAgentPrompt,
+    agentPromptMutation, handleSaveAgentPrompt, updateMutation,
   } = api;
 
   return (
@@ -38,7 +40,7 @@ export function ToolFlowBuilderModals({ api }: { api: ToolFlowBuilderApi }) {
         varTree={modalVarTree}
         onClose={() => setModalStepId(null)}
         onUpdateStepConfig={updateStepConfig}
-        onRunStep={() => { if (modalStepId) runCompositeTool({ startStepId: modalStepId }); }}
+        onRunStep={() => { if (modalStepId) runCompositeTool({ startStepId: modalStepId, endStepId: modalStepId }); }}
         isRunning={isRunningTool}
         runOutput={modalStepId ? liveRunState[modalStepId]?.output : undefined}
       />
@@ -68,45 +70,52 @@ export function ToolFlowBuilderModals({ api }: { api: ToolFlowBuilderApi }) {
           </DialogHeader>
           <div className="space-y-4 pt-1">
             <div className="flex items-center gap-3">
-              <div className="h-9 w-9 flex items-center justify-center rounded-md bg-zinc-100 text-sm font-semibold text-zinc-800">
-                {toolIcon || "T"}
-              </div>
+              <IconColorSelector
+                icon={toolIcon}
+                color={toolColor}
+                onIconChange={(newIcon) => {
+                  setToolIcon(newIcon);
+                  if (initialTool?.id) updateMutation.mutate({ id: initialTool.id, icon: newIcon });
+                }}
+                onColorChange={(newColor) => {
+                  setToolColor(newColor);
+                  if (initialTool?.id) updateMutation.mutate({ id: initialTool.id, color: newColor });
+                }}
+              >
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="h-10 w-10 rounded-lg shrink-0 overflow-hidden"
+                  style={{ backgroundColor: toolIcon ? toolColor : '#f4f4f5', color: toolIcon ? '#ffffff' : '#27272a', border: 'none' }}
+                >
+                  {toolIcon ? <EntityIcon icon={toolIcon} size={20} fallback={Bot} /> : "T"}
+                </Button>
+              </IconColorSelector>
               <div className="flex-1">
-                <label className="block text-xs font-medium text-zinc-700 mb-1">
-                  Icon (emoji or letter)
-                </label>
+                <label className="block text-xs font-medium text-zinc-700 !mb-1.5">Title</label>
                 <Input
-                  value={toolIcon}
-                  onChange={(e) => setToolIcon(e.target.value.slice(0, 2))}
-                  placeholder="e.g. emoji"
-                  className="h-8 text-sm"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="New Workflow Tool"
+                  className="h-8 text-sm transition-colors focus:outline-none focus:ring-1 focus:ring-zinc-400 focus-visible:ring-1 focus-visible:ring-zinc-400"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-zinc-700 mb-1">Title</label>
-              <Input
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="New Workflow Tool"
-                className="h-8 text-sm"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-medium text-zinc-700 mb-1">Description</label>
+              <label className="block text-xs font-medium text-zinc-700 !mb-1.5">Description</label>
               <Textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="Describe what this tool does..."
-                className="min-h-[80px] text-sm"
+                className="min-h-[80px] text-sm transition-colors focus:outline-none focus:ring-1 focus:ring-zinc-400 focus-visible:ring-1 focus-visible:ring-zinc-400 shadow-none"
               />
             </div>
 
             <div className="flex justify-end pt-2">
               <Button type="button" size="sm" className="h-8 px-4 text-xs" onClick={() => setSettingsOpen(false)}>
-                Done
+                Save
               </Button>
             </div>
           </div>
@@ -158,11 +167,11 @@ export function ToolFlowBuilderModals({ api }: { api: ToolFlowBuilderApi }) {
               value={agentPromptDraft}
               onChange={(e) => setAgentPromptDraft(e.target.value)}
               placeholder="You are a helpful assistant that…"
-              className="min-h-[180px] text-sm resize-none"
+              className="min-h-[180px] text-sm resize-none focus-visible:ring-1"
             />
           </div>
           <DialogFooter>
-            <Button variant="ghost" onClick={() => setAgentPromptOpen(false)}>Cancel</Button>
+            <Button variant="ghost" className="border border-zinc-200 hover:border-zinc-300" onClick={() => setAgentPromptOpen(false)}>Cancel</Button>
             <Button onClick={handleSaveAgentPrompt} disabled={agentPromptMutation.isPending}>
               {agentPromptMutation.isPending ? "Saving…" : "Save prompt"}
             </Button>

@@ -6,10 +6,7 @@
  */
 
 import { ExtractedConfiguration } from '../validation/configurationValidator';
-import { openai } from '@/lib/openai';
-import { fetchModel } from '@/utils/ai/fetchModel';
-import { estimateTokens, countAgentTokens, updateAgentUsage } from '@/utils/ai/agentUsageTracking';
-import { prisma } from '@/lib/prisma';
+import { completeWithDefaultModel } from '@/services/models';
 import { z } from 'zod';
 
 const VerificationResultSchema = z.object({
@@ -61,77 +58,55 @@ Review this configuration and identify any issues.`,
     ];
 
     try {
-      const model = await fetchModel();
-      const estimatedTokens = estimateTokens(JSON.stringify(verificationMessages)) + 500;
-
-      const completion = await openai.chat.completions.create({
-        model: model.name,
-        messages: verificationMessages,
-        temperature: 0.3,
-        max_tokens: 500,
-        tools: [
-          {
-            type: 'function',
-            function: {
-              name: 'verify_configuration',
-              description: 'Verify configuration for contradictions and errors',
-              parameters: {
-                type: 'object',
-                properties: {
-                  isValid: { type: 'boolean', description: 'Is configuration valid' },
-                  contradictions: {
-                    type: 'array',
-                    items: { type: 'string' },
-                    description: 'List of contradictions found',
+      const { completion } = await completeWithDefaultModel({
+        userId: userId || 'system',
+        request: {
+          messages: verificationMessages,
+          temperature: 0.3,
+          max_tokens: 500,
+          tools: [
+            {
+              type: 'function',
+              function: {
+                name: 'verify_configuration',
+                description: 'Verify configuration for contradictions and errors',
+                parameters: {
+                  type: 'object',
+                  properties: {
+                    isValid: { type: 'boolean', description: 'Is configuration valid' },
+                    contradictions: {
+                      type: 'array',
+                      items: { type: 'string' },
+                      description: 'List of contradictions found',
+                    },
+                    corrections: {
+                      type: 'object',
+                      description: 'Suggested corrections',
+                    },
+                    confidence: {
+                      type: 'number',
+                      minimum: 0,
+                      maximum: 100,
+                      description: 'Confidence in verification (0-100)',
+                    },
+                    reasoning: { type: 'string', description: 'Reasoning for verification' },
                   },
-                  corrections: {
-                    type: 'object',
-                    description: 'Suggested corrections',
-                  },
-                  confidence: {
-                    type: 'number',
-                    minimum: 0,
-                    maximum: 100,
-                    description: 'Confidence in verification (0-100)',
-                  },
-                  reasoning: { type: 'string', description: 'Reasoning for verification' },
+                  required: ['isValid', 'contradictions', 'confidence', 'reasoning'],
                 },
-                required: ['isValid', 'contradictions', 'confidence', 'reasoning'],
               },
             },
-          },
-        ],
-        tool_choice: { type: 'function', function: { name: 'verify_configuration' } },
+          ],
+          tool_choice: { type: 'function', function: { name: 'verify_configuration' } },
+          stream: false,
+        },
+        usageContext: { action: 'ANALYZE', metadata: { source: 'selfVerification' } },
+        skipEntitlement: true,
       });
 
       const toolCall = completion.choices[0]?.message?.tool_calls?.[0];
       if (toolCall && toolCall.function.name === 'verify_configuration') {
         const parsed = JSON.parse(toolCall.function.arguments);
         const validated = VerificationResultSchema.parse(parsed);
-
-        // Track usage
-        countAgentTokens(
-          verificationMessages as Array<{ role: string; content: string }>,
-          toolCall.function.arguments,
-          model.name
-        ).then(async (tokenCount) => {
-          try {
-            const user = await prisma.user.findUnique({
-              where: { id: userId },
-              select: { name: true, email: true },
-            });
-            await updateAgentUsage(
-              userId,
-              user?.name || user?.email || 'User',
-              tokenCount.inputTokens,
-              tokenCount.outputTokens,
-              user?.email || undefined
-            );
-          } catch (error) {
-            console.error('Failed to update usage for verification:', error);
-          }
-        }).catch(() => {});
-
         return validated;
       }
     } catch (error) {
@@ -179,33 +154,37 @@ Provide corrections for the contradictions listed above.`,
     ];
 
     try {
-      const model = await fetchModel();
-      const completion = await openai.chat.completions.create({
-        model: model.name,
-        messages: correctionMessages,
-        temperature: 0.3,
-        max_tokens: 500,
-        tools: [
-          {
-            type: 'function',
-            function: {
-              name: 'provide_corrections',
-              description: 'Provide corrected configuration values',
-              parameters: {
-                type: 'object',
-                properties: {
-                  corrections: {
-                    type: 'object',
-                    description: 'Corrected configuration fields',
+      const { completion } = await completeWithDefaultModel({
+        userId: userId || 'system',
+        request: {
+          messages: correctionMessages,
+          temperature: 0.3,
+          max_tokens: 500,
+          tools: [
+            {
+              type: 'function',
+              function: {
+                name: 'provide_corrections',
+                description: 'Provide corrected configuration values',
+                parameters: {
+                  type: 'object',
+                  properties: {
+                    corrections: {
+                      type: 'object',
+                      description: 'Corrected configuration fields',
+                    },
+                    reasoning: { type: 'string', description: 'Reasoning for corrections' },
                   },
-                  reasoning: { type: 'string', description: 'Reasoning for corrections' },
+                  required: ['corrections', 'reasoning'],
                 },
-                required: ['corrections', 'reasoning'],
               },
             },
-          },
-        ],
-        tool_choice: { type: 'function', function: { name: 'provide_corrections' } },
+          ],
+          tool_choice: { type: 'function', function: { name: 'provide_corrections' } },
+          stream: false,
+        },
+        usageContext: { action: 'ANALYZE', metadata: { source: 'selfVerification_corrections' } },
+        skipEntitlement: true,
       });
 
       const toolCall = completion.choices[0]?.message?.tool_calls?.[0];
@@ -220,4 +199,3 @@ Provide corrections for the contradictions listed above.`,
     return null;
   }
 }
-

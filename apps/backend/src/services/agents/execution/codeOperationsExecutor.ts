@@ -1,23 +1,20 @@
 /**
  * Code Operations Tool Executor
- * Implements AI-powered code generation and modification using OpenAI
+ * Implements AI-powered code generation and modification via Shared Model Manager
  */
-import { openai } from '@/lib/openai';
-import { fetchModel } from '@/utils/ai/fetchModel';
+import { completeWithDefaultModel } from '@/services/models';
 
 export async function executeCodeOperationTool(toolName: string, params: any, userId: string): Promise<any> {
     try {
-        const model = await fetchModel();
-
         switch (toolName) {
             case 'writeCode':
-                return executeWriteCode(params, model);
+                return executeWriteCode(params, userId);
             case 'reviewCode':
-                return executeReviewCode(params, model);
+                return executeReviewCode(params, userId);
             case 'refactorCode':
-                return executeRefactorCode(params, model);
+                return executeRefactorCode(params, userId);
             case 'debugCode':
-                return executeDebugCode(params, model);
+                return executeDebugCode(params, userId);
             default:
                 throw new Error(`Unknown code operation tool: ${toolName}`);
         }
@@ -26,7 +23,22 @@ export async function executeCodeOperationTool(toolName: string, params: any, us
     }
 }
 
-async function executeWriteCode(params: any, model: any) {
+async function completeJson(userId: string, prompt: string, source: string) {
+    const { completion } = await completeWithDefaultModel({
+        userId: userId || 'system',
+        request: {
+            messages: [{ role: 'user', content: prompt }],
+            response_format: { type: 'json_object' },
+            temperature: 0.2,
+            stream: false,
+        },
+        usageContext: { action: 'GENERATE', metadata: { source } },
+        skipEntitlement: true,
+    });
+    return completion.choices[0].message.content;
+}
+
+async function executeWriteCode(params: any, userId: string) {
     const prompt = `Write TypeScript/JavaScript code for: "${params.description}".
     
     Language: ${params.language || 'TypeScript'}
@@ -44,14 +56,7 @@ async function executeWriteCode(params: any, model: any) {
         "explanation": "Brief explanation of the implementation"
     }`;
 
-    const completion = await openai.chat.completions.create({
-        model: model.name,
-        messages: [{ role: 'user', content: prompt }],
-        response_format: { type: 'json_object' },
-        temperature: 0.2, // Low temperature for code
-    });
-
-    const content = completion.choices[0].message.content;
+    const content = await completeJson(userId, prompt, 'codeOperationsExecutor.writeCode');
     if (!content) throw new Error("No code generated");
 
     try {
@@ -61,7 +66,7 @@ async function executeWriteCode(params: any, model: any) {
     }
 }
 
-async function executeReviewCode(params: any, model: any) {
+async function executeReviewCode(params: any, userId: string) {
     const prompt = `Review the following ${params.language || 'code'}:
     
     \`\`\`
@@ -85,18 +90,11 @@ async function executeReviewCode(params: any, model: any) {
         "suggestions": ["suggestion 1", "suggestion 2"]
     }`;
 
-    const completion = await openai.chat.completions.create({
-        model: model.name,
-        messages: [{ role: 'user', content: prompt }],
-        response_format: { type: 'json_object' },
-        temperature: 0.2,
-    });
-
-    const content = completion.choices[0].message.content;
+    const content = await completeJson(userId, prompt, 'codeOperationsExecutor.reviewCode');
     return JSON.parse(content || '{}');
 }
 
-async function executeRefactorCode(params: any, model: any) {
+async function executeRefactorCode(params: any, userId: string) {
     const prompt = `Refactor the following ${params.language || 'code'}:
     
     \`\`\`
@@ -112,18 +110,11 @@ async function executeRefactorCode(params: any, model: any) {
         "changes": ["List of changes made..."]
     }`;
 
-    const completion = await openai.chat.completions.create({
-        model: model.name,
-        messages: [{ role: 'user', content: prompt }],
-        response_format: { type: 'json_object' },
-        temperature: 0.2,
-    });
-
-    const content = completion.choices[0].message.content;
+    const content = await completeJson(userId, prompt, 'codeOperationsExecutor.refactorCode');
     return JSON.parse(content || '{}');
 }
 
-async function executeDebugCode(params: any, model: any) {
+async function executeDebugCode(params: any, userId: string) {
     const prompt = `Debug the following code:
     
     Code:
@@ -141,13 +132,6 @@ async function executeDebugCode(params: any, model: any) {
         "fixedCode": "The corrected code..."
     }`;
 
-    const completion = await openai.chat.completions.create({
-        model: model.name,
-        messages: [{ role: 'user', content: prompt }],
-        response_format: { type: 'json_object' },
-        temperature: 0.2,
-    });
-
-    const content = completion.choices[0].message.content;
+    const content = await completeJson(userId, prompt, 'codeOperationsExecutor.debugCode');
     return JSON.parse(content || '{}');
 }

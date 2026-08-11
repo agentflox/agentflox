@@ -11,6 +11,8 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/useToast";
+import { useUsageCapModal } from "@/features/usage/hooks/useUsageCapModal";
+import { UsageRemainingHint } from "@/features/usage/components/UsageRemainingHint";
 import { useAppDispatch } from "@/hooks/useReduxStore";
 import { useSession } from "next-auth/react";
 import { skipToken } from "@tanstack/react-query";
@@ -71,6 +73,7 @@ const INITIAL_STATE = {
 export function ProjectCreationModal({ open, onOpenChange, onCreated, defaultSpaceId }: ProjectCreationModalProps) {
 	const dispatch = useAppDispatch();
 	const { toast } = useToast();
+	const { handleError } = useUsageCapModal();
 	const params = useParams();
 	const [form, setForm] = React.useState(INITIAL_STATE);
 	const createMutation = trpc.project.publish.useMutation();
@@ -164,6 +167,7 @@ export function ProjectCreationModal({ open, onOpenChange, onCreated, defaultSpa
 			onOpenChange(false);
 		} catch (error: any) {
 			console.error("Failed to create project:", error);
+			if (handleError(error)) return;
 			toast({
 				title: "Could not create the project",
 				description: error?.message ?? "Please try again.",
@@ -315,6 +319,7 @@ export function ProjectCreationModal({ open, onOpenChange, onCreated, defaultSpa
 					</div>
 
 					<DialogFooter className="gap-3">
+						<UsageRemainingHint kind="PROJECT" className="mr-auto w-full sm:w-auto" />
 						<Button
 							type="button"
 							variant="ghost"

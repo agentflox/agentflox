@@ -224,7 +224,7 @@ function AgentSelector({
             <div className="p-3 border-t border-zinc-100 bg-zinc-50 flex-shrink-0 z-10 shadow-[0_-4px_10px_rgba(0,0,0,0.02)] relative">
                 <button
                     onClick={handleFinish}
-                    className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-colors shadow-sm"
+                    className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-colors shadow-sm cursor-pointer"
                 >
                     Finish ({selectedAgentIds.size} agents)
                 </button>
@@ -442,7 +442,7 @@ function TaskSelector({
             <div className="p-3 border-t border-zinc-100 bg-zinc-50 flex-shrink-0 z-10 shadow-[0_-4px_10px_rgba(0,0,0,0.02)] relative">
                 <button
                     onClick={handleFinish}
-                    className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-colors shadow-sm"
+                    className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-colors shadow-sm cursor-pointer"
                 >
                     Finish ({selectedTaskIds.size} tasks)
                 </button>
@@ -575,7 +575,7 @@ export default function SwarmConfigSidebar() {
             <div className="flex border-b border-zinc-200 bg-white shadow-sm z-10 flex-shrink-0">
                 <button
                     onClick={() => setActiveTab('tasks')}
-                    className={`flex-1 flex items-center justify-center gap-2 py-3.5 text-[11px] font-bold uppercase tracking-widest transition-all border-b-2 ${activeTab === 'tasks'
+                    className={`flex-1 flex items-center justify-center gap-2 py-3.5 text-[11px] font-bold uppercase tracking-widest transition-all border-b-2 cursor-pointer ${activeTab === 'tasks'
                         ? 'border-indigo-600 text-indigo-700 bg-indigo-50/50'
                         : 'border-transparent text-zinc-500 hover:text-zinc-800 hover:bg-zinc-50'
                         }`}
@@ -590,7 +590,7 @@ export default function SwarmConfigSidebar() {
                 </button>
                 <button
                     onClick={() => setActiveTab('agents')}
-                    className={`flex-1 flex items-center justify-center gap-2 py-3.5 text-[11px] font-bold uppercase tracking-widest transition-all border-b-2 ${activeTab === 'agents'
+                    className={`flex-1 flex items-center justify-center gap-2 py-3.5 text-[11px] font-bold uppercase tracking-widest transition-all border-b-2 cursor-pointer ${activeTab === 'agents'
                         ? 'border-blue-600 text-blue-700 bg-blue-50/50'
                         : 'border-transparent text-zinc-500 hover:text-zinc-800 hover:bg-zinc-50'
                         }`}
@@ -615,7 +615,7 @@ export default function SwarmConfigSidebar() {
                                 <span className="text-sm font-semibold text-zinc-500">No tasks selected</span>
                                 <Popover open={taskPopoverOpen} onOpenChange={setTaskPopoverOpen}>
                                     <PopoverTrigger asChild>
-                                        <button className="flex items-center justify-center gap-1.5 w-[130px] py-2 bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-100 transition-colors font-semibold text-xs shadow-sm">
+                                        <button className="flex items-center justify-center gap-1.5 w-[130px] py-2 bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-100 transition-colors font-semibold text-xs shadow-sm cursor-pointer">
                                             <Plus className="h-3.5 w-3.5" /> Select Task
                                         </button>
                                     </PopoverTrigger>
@@ -640,7 +640,7 @@ export default function SwarmConfigSidebar() {
                                         onClick={() => setSelectedTaskIdForModal(node.data.taskId)}
                                         className="cursor-pointer relative group flex items-center gap-4 p-3.5 rounded-2xl bg-white border border-zinc-200 shadow-sm transition-all hover:border-indigo-200"
                                     >
-                                        <button onClick={(e) => { e.stopPropagation(); handleRemoveNode(node.id); }} className="absolute top-2 right-2 p-1.5 rounded-lg text-zinc-300 hover:text-red-500 hover:bg-red-50 transition-colors opacity-0 group-hover:opacity-100 z-10">
+                                        <button onClick={(e) => { e.stopPropagation(); handleRemoveNode(node.id); }} className="absolute top-2 right-2 p-1.5 rounded-lg text-zinc-300 hover:text-red-500 hover:bg-red-50 transition-colors opacity-0 group-hover:opacity-100 z-10 cursor-pointer">
                                             <X className="h-3.5 w-3.5" />
                                         </button>
                                         <div className="h-10 w-10 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shadow-sm shrink-0">
@@ -655,7 +655,7 @@ export default function SwarmConfigSidebar() {
 
                                 <Popover open={taskPopoverOpen} onOpenChange={setTaskPopoverOpen}>
                                     <PopoverTrigger asChild>
-                                        <button className="w-full flex justify-center py-3 border-dashed border-2 border-zinc-200 rounded-2xl text-zinc-400 hover:text-indigo-500 hover:border-indigo-200 hover:bg-indigo-50/50 transition-colors focus:outline-none">
+                                        <button className="w-full flex justify-center py-3 border-dashed border-2 border-zinc-200 rounded-2xl text-zinc-400 hover:text-indigo-500 hover:border-indigo-200 hover:bg-indigo-50/50 transition-colors focus:outline-none cursor-pointer">
                                             <Plus className="h-5 w-5" />
                                         </button>
                                     </PopoverTrigger>
@@ -684,7 +684,7 @@ export default function SwarmConfigSidebar() {
                                 <span className="text-sm font-semibold text-zinc-500">No agents selected</span>
                                 <Popover open={agentPopoverOpen} onOpenChange={setAgentPopoverOpen}>
                                     <PopoverTrigger asChild>
-                                        <button className="flex items-center justify-center gap-1.5 w-[130px] py-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors font-semibold text-xs shadow-sm">
+                                        <button className="flex items-center justify-center gap-1.5 w-[130px] py-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors font-semibold text-xs shadow-sm cursor-pointer">
                                             <Plus className="h-3.5 w-3.5" /> Add Agent
                                         </button>
                                     </PopoverTrigger>
@@ -711,7 +711,7 @@ export default function SwarmConfigSidebar() {
                                         <div key={node.id} className={cn('relative group flex flex-col gap-3 p-3.5 rounded-2xl bg-white border shadow-sm transition-all',
                                             isCoordinator ? 'border-purple-200 hover:border-purple-400 bg-purple-50/10' : 'border-zinc-200 hover:border-blue-200'
                                         )}>
-                                            <button onClick={() => handleRemoveNode(node.id)} className="absolute top-2 right-2 p-1.5 rounded-lg text-zinc-300 hover:text-red-500 hover:bg-red-50 transition-colors opacity-0 group-hover:opacity-100 z-10">
+                                            <button onClick={() => handleRemoveNode(node.id)} className="absolute top-2 right-2 p-1.5 rounded-lg text-zinc-300 hover:text-red-500 hover:bg-red-50 transition-colors opacity-0 group-hover:opacity-100 z-10 cursor-pointer">
                                                 <X className="h-3.5 w-3.5" />
                                             </button>
                                             <div className="flex items-center gap-4">
@@ -735,12 +735,12 @@ export default function SwarmConfigSidebar() {
                                                 <div className="flex items-center gap-3">
                                                     <button
                                                         onClick={() => updateNodeData(node.id, { agentCount: Math.max(1, (node.data.agentCount || 1) - 1) })}
-                                                        className="w-6 h-6 flex items-center justify-center rounded-md bg-zinc-50 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-700 transition-colors"
+                                                        className="w-6 h-6 flex items-center justify-center rounded-md bg-zinc-50 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-700 transition-colors cursor-pointer"
                                                     >-</button>
                                                     <span className="text-xs font-bold w-4 text-center">{node.data.agentCount || 1}</span>
                                                     <button
                                                         onClick={() => updateNodeData(node.id, { agentCount: (node.data.agentCount || 1) + 1 })}
-                                                        className="w-6 h-6 flex items-center justify-center rounded-md bg-zinc-50 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-700 transition-colors"
+                                                        className="w-6 h-6 flex items-center justify-center rounded-md bg-zinc-50 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-700 transition-colors cursor-pointer"
                                                     >+</button>
                                                 </div>
                                             </div>
@@ -750,7 +750,7 @@ export default function SwarmConfigSidebar() {
 
                                 <Popover open={agentPopoverOpen} onOpenChange={setAgentPopoverOpen}>
                                     <PopoverTrigger asChild>
-                                        <button className="w-full flex justify-center py-3 border-dashed border-2 border-zinc-200 rounded-2xl text-zinc-400 hover:text-blue-500 hover:border-blue-200 hover:bg-blue-50/50 transition-colors focus:outline-none">
+                                        <button className="w-full flex justify-center py-3 border-dashed border-2 border-zinc-200 rounded-2xl text-zinc-400 hover:text-blue-500 hover:border-blue-200 hover:bg-blue-50/50 transition-colors focus:outline-none cursor-pointer">
                                             <Plus className="h-5 w-5" />
                                         </button>
                                     </PopoverTrigger>

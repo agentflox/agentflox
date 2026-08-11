@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState, useCallback, useRef } from 'react'
 import { Loader2, Plus, Search, ChevronsLeft, ChevronsRight, X, MoreHorizontal } from 'lucide-react'
 import { ConversationList } from '@/entities/chats/components/ConversationList'
 import { ChatPanel } from '@/entities/chats/components/ChatPanel'
-import { ChatCreationModal } from '@/entities/chats/components/ChatCreationModal'
 import { useChats } from '@/entities/chats/hooks/useChats'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
@@ -46,7 +45,6 @@ export function AIChatView({ contextType = 'PROJECT', contextId = '', contextNam
   const [isSearchOpen, setIsSearchOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
   const [debouncedQuery, setDebouncedQuery] = useState("")
-  const [isCreationModalOpen, setIsCreationModalOpen] = useState(false)
   const [showArchived, setShowArchived] = useState(false)
 
   // Debounce search query
@@ -169,7 +167,7 @@ export function AIChatView({ contextType = 'PROJECT', contextId = '', contextNam
 
   const handleCreateConversation = async (title?: string, description?: string) => {
     const conversation = await createConversation({
-      title: title || `${contextName || contextType} chat ${conversations.length + 1}`,
+      title: title || 'Untitled chat',
       systemPrompt: description,
     })
 
@@ -397,10 +395,11 @@ export function AIChatView({ contextType = 'PROJECT', contextId = '', contextNam
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <Button
-                            onClick={() => setIsCreationModalOpen(true)}
+                            onClick={() => handleCreateConversation()}
                             variant="ghost"
                             size="icon"
                             className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                            disabled={isCreatingConversation}
                           >
                             <Plus className="h-4 w-4" />
                           </Button>
@@ -551,14 +550,6 @@ export function AIChatView({ contextType = 'PROJECT', contextId = '', contextNam
           )}
         </div>
       </div>
-
-      {/* Modals */}
-      <ChatCreationModal
-        open={isCreationModalOpen}
-        onOpenChange={setIsCreationModalOpen}
-        onCreate={handleCreateConversation}
-        isCreating={isCreatingConversation}
-      />
     </div>
   )
 }

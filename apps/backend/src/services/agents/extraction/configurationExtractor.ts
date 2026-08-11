@@ -6,17 +6,13 @@
  * tool response alongside all other config fields — no separate LLM round-trip.
  */
 
-import { openai } from '@/lib/openai';
-import { fetchModel } from '@/utils/ai/fetchModel';
+import { completeWithDefaultModel } from '@/services/models';
 import { ConversationState } from '../state/agentBuilderStateService';
 import { UserContext } from '../state/agentBuilderContextService';
 import {
   checkAgentTokenLimit,
-  updateAgentUsage,
   estimateTokens,
-  countAgentTokens,
 } from '@/utils/ai/agentUsageTracking';
-import { prisma } from '@/lib/prisma';
 import { ExtractedConfiguration } from '../validation/configurationValidator';
 import { CircuitBreaker, RetryHandler, ErrorClassifier } from '@/utils/circuitBreaker';
 import { ResponseCache } from '../cache/responseCache';
@@ -159,8 +155,6 @@ Extract configuration, agent triggers, and required skills.`,
       },
     ];
 
-    // Fetch model
-    const model = await fetchModel();
     const estimatedTokens = estimateTokens(JSON.stringify(extractionMessages)) + 1200;
 
     // Check token limit
@@ -171,136 +165,141 @@ Extract configuration, agent triggers, and required skills.`,
     }
 
     try {
-      const extractionCompletion = await this.retryHandler.retry(
+      const { completion: extractionCompletion } = await this.retryHandler.retry(
         () => this.circuitBreaker.execute(() =>
-          openai.chat.completions.create({
-            model: model.name,
-            messages: extractionMessages,
-            temperature: 0.3,
-            max_tokens: 1200,
-            tools: [
-              {
-                type: 'function',
-                function: {
-                  name: 'extract_agent_configuration',
-                  description: 'Extract agent configuration, triggers, and required skills from user message',
-                  parameters: {
-                    type: 'object',
-                    properties: {
-                      name: { type: 'string', description: 'Agent name' },
-                      description: { type: 'string', description: 'What the agent does' },
-                      avatar: { type: 'string', description: 'Emoji or avatar' },
-                      agentType: {
-                        type: 'string',
-                        enum: Object.values(AgentType),
-                        description: 'Type of agent',
-                      },
-                      systemPrompt: { type: 'string', description: 'Core behavior instructions' },
-                      capabilities: {
-                        type: 'array',
-                        items: { type: 'string' },
-                        description: 'What it can do',
-                      },
-                      constraints: {
-                        type: 'array',
-                        items: { type: 'string' },
-                        description: 'What it cannot do',
-                      },
-                      tools: {
-                        type: 'array',
-                        items: {
-                          type: 'object',
-                          properties: {
-                            id: { type: 'string' },
-                            name: { type: 'string' },
-                            config: { type: 'object' },
-                          },
+          completeWithDefaultModel({
+            userId: userId || 'system',
+            request: {
+              messages: extractionMessages,
+              temperature: 0.3,
+              max_tokens: 1200,
+              tools: [
+                {
+                  type: 'function',
+                  function: {
+                    name: 'extract_agent_configuration',
+                    description: 'Extract agent configuration, triggers, and required skills from user message',
+                    parameters: {
+                      type: 'object',
+                      properties: {
+                        name: { type: 'string', description: 'Agent name' },
+                        description: { type: 'string', description: 'What the agent does' },
+                        avatar: { type: 'string', description: 'Emoji or avatar' },
+                        agentType: {
+                          type: 'string',
+                          enum: Object.values(AgentType),
+                          description: 'Type of agent',
                         },
-                        description: 'Tools the agent needs',
-                      },
-                      // ── Skill inference (returned inline with config) ───────
-                      suggestedSkills: {
-                        type: 'array',
-                        items: { type: 'string' },
-                        description: 'Skill names from the AVAILABLE SKILLS list that this agent needs. Only include skills strongly implied by the request.',
-                      },
-                      skillInferenceConfidence: {
-                        type: 'number',
-                        minimum: 0,
-                        maximum: 1,
-                        description: 'Confidence 0-1 that the suggested skills are correct',
-                      },
-                      skillInferenceReasoning: {
-                        type: 'string',
-                        description: 'Brief explanation of why these skills were chosen',
-                      },
-                      // ─────────────────────────────────────────────────────────
-                      triggers: {
-                        type: 'array',
-                        items: {
-                          type: 'object',
-                          properties: {
-                            triggerType: {
-                              type: 'string',
-                              enum: Object.values(AgentTriggerType),
-                              description: 'ONLY MANUAL (ASSIGN_TASK, DIRECT_MESSAGE, MENTION) or SCHEDULED',
+                        systemPrompt: { type: 'string', description: 'Core behavior instructions' },
+                        capabilities: {
+                          type: 'array',
+                          items: { type: 'string' },
+                          description: 'What it can do',
+                        },
+                        constraints: {
+                          type: 'array',
+                          items: { type: 'string' },
+                          description: 'What it cannot do',
+                        },
+                        tools: {
+                          type: 'array',
+                          items: {
+                            type: 'object',
+                            properties: {
+                              id: { type: 'string' },
+                              name: { type: 'string' },
+                              config: { type: 'object' },
                             },
-                            name: { type: 'string' },
-                            description: { type: 'string' },
-                            config: { type: 'object' },
-                            priority: { type: 'number', default: 0 },
-                            conditions: { type: 'object' },
-                            filters: { type: 'object' },
-                            confidence: { type: 'number', minimum: 0, maximum: 100 },
-                            reasoning: { type: 'string' },
                           },
-                          required: ['triggerType', 'name', 'config', 'confidence', 'reasoning'],
+                          description: 'Tools the agent needs',
                         },
-                        description: 'Agent triggers (MANUAL or SCHEDULED only). Defaults: ASSIGN_TASK for tasks, DIRECT_MESSAGE, MENTION always included',
-                      },
-                      rules: {
-                        type: 'array',
-                        items: {
+                        // ── Skill inference (returned inline with config) ───────
+                        suggestedSkills: {
+                          type: 'array',
+                          items: { type: 'string' },
+                          description: 'Skill names from the AVAILABLE SKILLS list that this agent needs. Only include skills strongly implied by the request.',
+                        },
+                        skillInferenceConfidence: {
+                          type: 'number',
+                          minimum: 0,
+                          maximum: 1,
+                          description: 'Confidence 0-1 that the suggested skills are correct',
+                        },
+                        skillInferenceReasoning: {
+                          type: 'string',
+                          description: 'Brief explanation of why these skills were chosen',
+                        },
+                        // ─────────────────────────────────────────────────────────
+                        triggers: {
+                          type: 'array',
+                          items: {
+                            type: 'object',
+                            properties: {
+                              triggerType: {
+                                type: 'string',
+                                enum: Object.values(AgentTriggerType),
+                                description: 'ONLY MANUAL (ASSIGN_TASK, DIRECT_MESSAGE, MENTION) or SCHEDULED',
+                              },
+                              name: { type: 'string' },
+                              description: { type: 'string' },
+                              config: { type: 'object' },
+                              priority: { type: 'number', default: 0 },
+                              conditions: { type: 'object' },
+                              filters: { type: 'object' },
+                              confidence: { type: 'number', minimum: 0, maximum: 100 },
+                              reasoning: { type: 'string' },
+                            },
+                            required: ['triggerType', 'name', 'config', 'confidence', 'reasoning'],
+                          },
+                          description: 'Agent triggers (MANUAL or SCHEDULED only). Defaults: ASSIGN_TASK for tasks, DIRECT_MESSAGE, MENTION always included',
+                        },
+                        rules: {
+                          type: 'array',
+                          items: {
+                            type: 'object',
+                            properties: {
+                              type: { type: 'string' },
+                              condition: { type: 'string' },
+                              action: { type: 'string' },
+                            },
+                          },
+                          description: 'Business rules',
+                        },
+                        modelConfig: {
                           type: 'object',
                           properties: {
-                            type: { type: 'string' },
-                            condition: { type: 'string' },
-                            action: { type: 'string' },
+                            modelId: { type: 'string' },
+                            temperature: { type: 'number' },
+                            maxTokens: { type: 'number' },
                           },
+                          description: 'AI model configuration',
                         },
-                        description: 'Business rules',
-                      },
-                      modelConfig: {
-                        type: 'object',
-                        properties: {
-                          modelId: { type: 'string' },
-                          temperature: { type: 'number' },
-                          maxTokens: { type: 'number' },
+                        confidenceScore: {
+                          type: 'number',
+                          minimum: 0,
+                          maximum: 100,
+                          description: 'How complete/confident is this extraction (0-100)',
                         },
-                        description: 'AI model configuration',
+                        scopeType: {
+                          type: 'string',
+                          enum: ['workspace', 'space', 'project', 'team', 'portable'],
+                          description: 'The operational scope of the agent',
+                        },
+                        isPortable: {
+                          type: 'boolean',
+                          description: 'Whether this is a portable template/marketplace agent',
+                        },
                       },
-                      confidenceScore: {
-                        type: 'number',
-                        minimum: 0,
-                        maximum: 100,
-                        description: 'How complete/confident is this extraction (0-100)',
-                      },
-                      scopeType: {
-                        type: 'string',
-                        enum: ['workspace', 'space', 'project', 'team', 'portable'],
-                        description: 'The operational scope of the agent',
-                      },
-                      isPortable: {
-                        type: 'boolean',
-                        description: 'Whether this is a portable template/marketplace agent',
-                      },
+                      required: ['confidenceScore'],
                     },
-                    required: ['confidenceScore'],
                   },
                 },
-              },
-            ],
-            tool_choice: { type: 'function', function: { name: 'extract_agent_configuration' } },
+              ],
+              tool_choice: { type: 'function', function: { name: 'extract_agent_configuration' } },
+              stream: false,
+            },
+            usageContext: { action: 'ANALYZE', metadata: { source: 'configurationExtractor' } },
+            skipEntitlement: true,
           })
         ),
         {
@@ -347,29 +346,6 @@ Extract configuration, agent triggers, and required skills.`,
             suggestedSkills: extracted.suggestedSkills,
             skillConfidence: extracted.skillInferenceConfidence,
           });
-
-          // Track usage — fire and forget
-          countAgentTokens(
-            extractionMessages as Array<{ role: string; content: string }>,
-            toolCall.function.arguments,
-            model.name
-          ).then(async (tokenCount) => {
-            try {
-              const user = await prisma.user.findUnique({
-                where: { id: userId },
-                select: { name: true, email: true },
-              });
-              await updateAgentUsage(
-                userId,
-                user?.name || user?.email || 'User',
-                tokenCount.inputTokens,
-                tokenCount.outputTokens,
-                user?.email || undefined
-              );
-            } catch (error) {
-              console.error('Failed to update usage for extraction:', error);
-            }
-          }).catch(() => { });
 
           // Cache result
           await this.responseCache.cacheExtractedConfiguration(cacheKey, extracted);

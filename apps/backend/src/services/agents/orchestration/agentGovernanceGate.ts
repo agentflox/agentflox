@@ -12,6 +12,7 @@
  * execution itself — it only permits or denies transitions.
  */
 
+import { SubscriptionStatus } from '@agentflox/database';
 import { redis } from '@/lib/redis';
 import { prisma } from '@/lib/prisma';
 import type { FSMState } from './agentArchitecture';
@@ -30,6 +31,8 @@ export interface TenantBudgetConfig {
     maxToolInvocations: number;
     /** Max FSM state transitions per run (hard loop guard) */
     maxStateTransitions: number;
+    /** Per-user runs per minute (from Feature.maxRPM when set) */
+    maxRpm: number;
 }
 
 const DEFAULT_BUDGET: TenantBudgetConfig = {
@@ -38,6 +41,7 @@ const DEFAULT_BUDGET: TenantBudgetConfig = {
     maxConcurrentRuns: 10,
     maxToolInvocations: 20,
     maxStateTransitions: 50, // Hard FSM recursion cap — can never be exceeded
+    maxRpm: 50,
 };
 
 // ── Governance Gate ───────────────────────────────────────────────────────────
@@ -86,14 +90,14 @@ export class AgentGovernanceGate {
             };
         }
 
-        // 1c. Per-user rate limit (50 runs/min)
+        // 1c. Per-user rate limit (Feature.maxRPM or default 50/min)
         const userRateKey = `gov:user_rate:${params.userId}`;
         const userRate = await redis.incr(userRateKey).catch(() => 0);
         if (userRate === 1) await redis.expire(userRateKey, 60).catch(() => { });
-        if (userRate > 50) {
+        if (userRate > budget.maxRpm) {
             return {
                 allowed: false,
-                reason: `User rate limit exceeded (${userRate} runs in last 60s)`,
+                reason: `User rate limit exceeded (${userRate} runs in last 60s; limit ${budget.maxRpm})`,
                 category: 'QUOTA',
             };
         }
@@ -214,12 +218,46 @@ export class AgentGovernanceGate {
     }
 
     /**
-     * Load per-tenant budget config. Falls back to defaults if not configured.
-     * In future: load from a TenantConfig table for fine-grained ACLs.
+     * Load per-tenant budget config from the user's active subscription Feature.
+     * tenantId is the userId boundary in single-tenant mode.
      */
-    private async getBudgetConfig(_tenantId: string): Promise<TenantBudgetConfig> {
-        // TODO: Load from database tenant config when available
-        return DEFAULT_BUDGET;
+    private async getBudgetConfig(tenantId: string): Promise<TenantBudgetConfig> {
+        try {
+            const subscription = await prisma.subscription.findFirst({
+                where: {
+                    userId: tenantId,
+                    status: {
+                        in: [SubscriptionStatus.ACTIVE, SubscriptionStatus.ON_HOLD],
+                    },
+                },
+                include: { plan: { include: { feature: true } } },
+            });
+            const feature = subscription?.plan?.feature;
+            if (!feature) return DEFAULT_BUDGET;
+
+            const maxTokens = feature.maxTokens ?? 0;
+            let maxTokensPerRun = DEFAULT_BUDGET.maxTokensPerRun;
+            if (maxTokens === -1) {
+                maxTokensPerRun = DEFAULT_BUDGET.maxTokensPerRun;
+            } else if (maxTokens > 0) {
+                maxTokensPerRun = Math.min(maxTokens, DEFAULT_BUDGET.maxTokensPerRun);
+            }
+
+            return {
+                ...DEFAULT_BUDGET,
+                maxConcurrentRuns:
+                    feature.maxConcurrentRuns && feature.maxConcurrentRuns > 0
+                        ? feature.maxConcurrentRuns
+                        : DEFAULT_BUDGET.maxConcurrentRuns,
+                maxTokensPerRun,
+                maxRpm:
+                    feature.maxRPM && feature.maxRPM > 0
+                        ? feature.maxRPM
+                        : DEFAULT_BUDGET.maxRpm,
+            };
+        } catch {
+            return DEFAULT_BUDGET;
+        }
     }
 }
 

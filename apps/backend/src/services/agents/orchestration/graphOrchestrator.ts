@@ -26,7 +26,6 @@
 
 import { ConversationStage, AgentDraft } from '../state/agentBuilderStateService';
 import { ExtractedConfiguration } from '../validation/configurationValidator';
-import { openai } from '@/lib/openai';
 import { GraphNodeId } from './builderGraph';
 import { IStageOrchestrator } from '../di/interfaces';
 import { StageReadinessAssessment } from './stageOrchestrator';
@@ -34,8 +33,8 @@ import { PromptGenerator } from '../generation/promptGenerator';
 import { CircuitBreaker, CircuitBreakerError, RetryHandler } from '@/utils/circuitBreaker';
 import { redis } from '@/lib/redis';
 import { BUILT_IN_SKILLS } from '../registry/skillRegistry';
-import { countAgentTokens, updateAgentUsage } from '@/utils/ai/agentUsageTracking';
 import { prisma } from '@/lib/prisma';
+import { completeWithDefaultModel } from '@/services/models';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -722,16 +721,37 @@ Return JSON only: { "target": "<NODE>", "reason": "..." }`;
             : new CircuitBreaker({ failureThreshold: 10, resetTimeout: 30_000, halfOpenMaxCalls: 2 });
 
         try {
-            const completion = await cb.execute(() =>
+            let userId: string | undefined;
+            if (conversationId) {
+                const conv = await prisma.aiConversation.findUnique({
+                    where: { id: conversationId },
+                    select: { userId: true },
+                });
+                userId = conv?.userId;
+            }
+            if (!userId) {
+                throw new Error('Missing userId for backward-jump classification');
+            }
+
+            const { completion } = await cb.execute(() =>
                 this.retryHandler.retry(
-                    () => openai.chat.completions.create({
-                        model: 'gpt-4o-mini',
-                        messages: [{ role: 'user', content: prompt }],
-                        response_format: { type: 'json_object' },
-                        temperature: 0,
-                        max_tokens: 60,
-                        stream: false,
-                    }),
+                    () =>
+                        completeWithDefaultModel({
+                            userId,
+                            request: {
+                                messages: [{ role: 'user', content: prompt }],
+                                response_format: { type: 'json_object' },
+                                temperature: 0,
+                                max_tokens: 60,
+                                stream: false,
+                            },
+                            usageContext: {
+                                conversationId,
+                                action: 'ANALYZE',
+                                metadata: { source: 'graph_backward_jump' },
+                            },
+                            skipEntitlement: true,
+                        }),
                     {
                         maxAttempts: 2,
                         baseDelay: 300,
@@ -746,37 +766,6 @@ Return JSON only: { "target": "<NODE>", "reason": "..." }`;
             const raw = completion.choices[0]?.message?.content ?? '{}';
             const parsed = JSON.parse(raw) as { target?: string; reason?: string };
             const target = parsed.target as GraphNodeId | undefined;
-
-            // Track LLM usage for the backward-jump classification call — fire-and-forget.
-            const jumpPrompt = [{ role: 'user', content: prompt }];
-            const jumpOutput = raw;
-            setImmediate(async () => {
-                try {
-                    const tokenCount = await countAgentTokens(
-                        jumpPrompt as Array<{ role: string; content: string }>,
-                        jumpOutput,
-                        'gpt-4o-mini'
-                    );
-                    // No userId available here — use a sentinel so usage is still aggregated.
-                    // The caller (agentBuilderService) owns the userId; we use the conversationId
-                    // as a lookup key if needed by the tracking system.
-                    if (conversationId) {
-                        const conv = await prisma.aiConversation.findUnique({
-                            where: { id: conversationId },
-                            select: { userId: true, user: { select: { name: true, email: true } } },
-                        });
-                        if (conv?.userId) {
-                            await updateAgentUsage(
-                                conv.userId,
-                                (conv.user as any)?.name || (conv.user as any)?.email || 'User',
-                                tokenCount.inputTokens,
-                                tokenCount.outputTokens,
-                                (conv.user as any)?.email || undefined
-                            );
-                        }
-                    }
-                } catch { /* non-fatal */ }
-            });
 
             if (target && allowedTargets.includes(target)) {
                 return { nextNode: target, reasoning: `[BACKWARD JUMP → ${target}] ${parsed.reason ?? ''}` };

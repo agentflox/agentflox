@@ -27,17 +27,21 @@
  */
 
 import { randomUUID } from 'crypto';
-import { openai } from '@/lib/openai';
 import { prisma } from '@/lib/prisma';
 import { TaskPriority } from '@agentflox/database';
 import { swarmOrchestrationService } from './swarmOrchestrationService';
 import { BuilderProgressEmitter } from '@/services/agents/arch/builderProgressEmitter';
 import { inngest } from '@/lib/inngest';
+import { createChatCompletion, resolveModel, recordUsage, fromOpenAIUsage } from '@/services/models';
 
 // ─── Model config ─────────────────────────────────────────────────────────────
 
-const CLASSIFIER_MODEL = process.env.SWARM_CLASSIFIER_MODEL || 'gpt-4o-mini';
-const RESPONSE_MODEL = process.env.SWARM_RESPONSE_MODEL || 'gpt-4o-mini';
+async function resolveSwarmLlm(userId: string, workforceModelId?: string | null) {
+  return resolveModel({
+    modelId: workforceModelId || null,
+    userId,
+  });
+}
 
 /** Retry wrapper for transient OpenAI errors (429 / 5xx). */
 async function withRetry<T>(fn: () => Promise<T>, retries = 2): Promise<T> {
@@ -190,6 +194,8 @@ export async function classifyIntent(
   mentions: { id: string; name: string; type: 'agent' | 'task' }[],
   agents: AgentRecord[],
   tasks: TaskRecord[],
+  userId: string,
+  workforceModelId?: string | null,
 ): Promise<SwarmIntent> {
   const agentMentions = mentions.filter(m => m.type === 'agent');
   const taskMentions = mentions.filter(m => m.type === 'task');
@@ -209,15 +215,28 @@ Respond with ONLY valid JSON matching this schema (no markdown, no explanation):
 ${INTENT_SCHEMA}`;
 
   try {
+    const resolved = await resolveSwarmLlm(userId, workforceModelId);
+    const started = Date.now();
     const response = await withRetry(() =>
-      openai.chat.completions.create({
-        model: CLASSIFIER_MODEL,
+      createChatCompletion(resolved, {
         messages: [{ role: 'user', content: classifierPrompt }],
         temperature: 0,
         response_format: { type: 'json_object' },
-        max_tokens: 512, // raised from 256 — schema + reason can exceed 256 tokens
+        max_tokens: 512,
+        stream: false,
       })
     );
+    await recordUsage({
+      resolved,
+      usage: fromOpenAIUsage(response?.usage),
+      userId,
+      context: {
+        action: 'ANALYZE',
+        requestDurationMs: Date.now() - started,
+        success: true,
+        metadata: { source: 'swarmMessageRouter.classify' },
+      },
+    });
 
     // ── #5: Safe parse — handle partial/malformed JSON gracefully ──
     const raw = (() => {
@@ -840,7 +859,14 @@ export async function routeSwarmMessage(params: {
     );
 
     // 2. Classify intent
-    const intent = await classifyIntent(message, safeMentions, agents, tasks);
+    const intent = await classifyIntent(
+      message,
+      safeMentions,
+      agents,
+      tasks,
+      userId,
+      (session as any)?.config?.modelId || null,
+    );
     console.log(`[SwarmRouter] Intent: ${intent.type} (${(intent.confidence * 100).toFixed(0)}%) — ${intent.reason}`);
 
     // 3. Show thinking indicator
@@ -901,24 +927,50 @@ export async function routeSwarmMessage(params: {
       { role: 'user' as const, content: message },
     ];
 
-    // 7. Stream LLM response
+    // 7. Stream LLM response via Shared Model Manager
     let responseContent = '';
+    const responseModel = await resolveSwarmLlm(
+      userId,
+      (session as any)?.config?.modelId || null,
+    );
+    const started = Date.now();
     const stream = await withRetry(() =>
-      openai.chat.completions.create({
-        model: RESPONSE_MODEL,
+      createChatCompletion(responseModel, {
         messages: messagesForLlm,
         temperature: 0.4,
         stream: true,
+        stream_options: { include_usage: true },
       })
     );
 
+    let streamUsage: any;
     for await (const chunk of stream) {
+      if ((chunk as any).usage) streamUsage = (chunk as any).usage;
       const text = chunk.choices[0]?.delta?.content || '';
       if (text) {
         responseContent += text;
         emitter.token(text);
       }
     }
+
+    await recordUsage({
+      resolved: responseModel,
+      usage: streamUsage
+        ? fromOpenAIUsage(streamUsage)
+        : {
+            inputTokens: 0,
+            outputTokens: Math.ceil(responseContent.length / 4),
+            totalTokens: Math.ceil(responseContent.length / 4),
+            usageEstimated: true,
+          },
+      userId,
+      context: {
+        action: 'CHAT',
+        requestDurationMs: Date.now() - started,
+        success: true,
+        metadata: { source: 'swarmMessageRouter.respond' },
+      },
+    });
 
     // 8. Execute post-stream side effect
     if (handlerResult.postSideEffect) {

@@ -1,6 +1,8 @@
 import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaClient } from '@agentflox/database';
-import { ModelService } from '../ai/model.service';
+import { ModelService, SYSTEM_MODELS } from '../ai/model.service';
+
+const COMMAND_MODEL = SYSTEM_MODELS.GPT_4O_MINI;
 
 export interface CommandContext {
     userId: string;
@@ -145,12 +147,20 @@ Respond ONLY with valid JSON in this exact format:
 }`;
 
             const result = await this.modelService.generateText(
-                'gpt-4o-mini',
+                COMMAND_MODEL,
                 [
                     { role: 'system', content: systemPrompt },
                     { role: 'user', content: input }
                 ],
-                { temperature: 0.3, max_tokens: 300 }
+                {
+                    temperature: 0.3,
+                    maxTokens: 300,
+                    userId: context.userId,
+                    usageContext: {
+                        action: 'GENERATE',
+                        metadata: { source: 'CommandService.parseNaturalLanguage' },
+                    },
+                }
             );
 
             const parsed = JSON.parse(result.content.trim());
@@ -539,12 +549,20 @@ User Context:
 Be helpful, concise, and actionable. Suggest specific next steps when appropriate.`;
 
         const result = await this.modelService.generateText(
-            'gpt-4o-mini',
+            COMMAND_MODEL,
             [
                 { role: 'system', content: systemPrompt },
                 { role: 'user', content: message }
             ],
-            { temperature: 0.7, max_tokens: 500 }
+            {
+                temperature: 0.7,
+                maxTokens: 500,
+                userId: context.userId,
+                usageContext: {
+                    action: 'GENERATE',
+                    metadata: { source: 'CommandService.executeChat' },
+                },
+            }
         );
 
         return {

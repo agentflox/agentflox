@@ -10,6 +10,8 @@ import { trpc } from "@/lib/trpc";
 import { WorkforceChatSkeleton } from "../workflow/WorkforceChatSkeleton";
 import { fetchAuthToken } from "@/utils/backend-request";
 import { toast } from "sonner";
+import { useUsageCapModal } from "@/features/usage/hooks/useUsageCapModal";
+import { UsageRemainingHint } from "@/features/usage/components/UsageRemainingHint";
 import ReactMarkdown from 'react-markdown';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -21,13 +23,14 @@ import { SwarmTaskView, type SwarmTask } from "./components/SwarmTaskView";
 import { SwarmGraphView } from "./components/SwarmGraphView";
 import { SwarmMetricsView } from "./components/SwarmMetricsView";
 import { SwarmTimelineView } from "./components/SwarmTimelineView";
+import { ArtifactViewer, ArtifactsTab, normalizeArtifact, type ExecutionArtifact } from "@/features/artifacts";
 import {
   MessageSquare, FileText, LayoutGrid, GitFork, BarChart3, Timer,
   Play, Square, Loader2, Shield, Check, AlertTriangle, Files, X, Sparkles, ArrowRight
 } from "lucide-react";
 
 // ─── types ───────────────────────────────────────────────────────────────────
-type ViewType = "chat" | "log" | "task" | "graph" | "metrics" | "timeline";
+type ViewType = "chat" | "log" | "task" | "metrics" | "timeline" | "artifacts";
 type SessionStatus = "idle" | "running" | "stopped";
 
 interface AgentMessage {
@@ -108,13 +111,14 @@ export default function SwarmRunView({
   const [swarmSessionId, setSwarmSessionId] = useState<string | null>(null);
   const [workspaceId, setWorkspaceId] = useState<string | null>(null);
   const [isStarting, setIsStarting] = useState(false);
+  const { handleFetchResponse } = useUsageCapModal();
 
   // ── modals state ──────────────────────────────────────────────────────────
   const [contextModalOpen, setContextModalOpen] = useState(false);
   const [mentionModalOpen, setMentionModalOpen] = useState(false);
   const [selectedContexts, setSelectedContexts] = useState<ContextEntity[]>([]);
   const [selectedMentions, setSelectedMentions] = useState<any[]>([]);
-  const [activeArtifact, setActiveArtifact] = useState<{ filename: string; content: string } | null>(null);
+  const [activeArtifact, setActiveArtifact] = useState<ExecutionArtifact | null>(null);
 
   // ── conversation / chat state ─────────────────────────────────────────────
   const [conversationId, setConversationId] = useState<string | null>(initialConversationId);
@@ -444,6 +448,7 @@ export default function SwarmRunView({
         body: JSON.stringify({ workforceId, sessionId: conversationId }),
       });
       if (!res.ok) {
+        if (await handleFetchResponse(res)) return;
         const err = await res.json() as any;
         toast.error(err.error || "Failed to start swarm");
         return;
@@ -458,7 +463,7 @@ export default function SwarmRunView({
       setTimeout(() => refetchMessages(), 2500);
     } catch (e: any) { toast.error(e?.message || "Failed to start swarm"); }
     finally { setIsStarting(false); }
-  }, [conversationId, workforceId, subscribeSSE, refetchMessages]);
+  }, [conversationId, workforceId, subscribeSSE, refetchMessages, handleFetchResponse]);
 
   // ── stop swarm ────────────────────────────────────────────────────────────
   const handleStopSwarm = useCallback(async () => {
@@ -534,6 +539,9 @@ export default function SwarmRunView({
           body: JSON.stringify({ workforceId, sessionId: conversationId }),
         });
         if (!startRes.ok) {
+          if (await handleFetchResponse(startRes)) {
+            throw new Error("Execution limit reached");
+          }
           const err = await startRes.json() as any;
           throw new Error(err.error || "Failed to start swarm");
         }
@@ -573,7 +581,7 @@ export default function SwarmRunView({
         setOptimisticPending(false);
       }
     }
-  }, [selectedContexts, selectedMentions, sessionStatus, swarmSessionId, workspaceId, conversationId, workforceId, subscribeSSE, sendSwarmMessage]);
+  }, [selectedContexts, selectedMentions, sessionStatus, swarmSessionId, workspaceId, conversationId, workforceId, subscribeSSE, sendSwarmMessage, handleFetchResponse]);
 
   // ── Combine messages, tasks, and swarm events BEFORE conditional returns ──
   // ── Combine messages, tasks, and swarm events BEFORE conditional returns ──
@@ -927,6 +935,36 @@ export default function SwarmRunView({
     return { activeSuggestedActions: [], activeSuggestedMessageId: null };
   }, [combinedFeed]);
 
+  const sessionArtifacts = React.useMemo(() => {
+    const out: ExecutionArtifact[] = [];
+    const seen = new Set<string>();
+    const consider = (raw: any, taskId?: string) => {
+      const normalized = normalizeArtifact({
+        filename: raw?.filename || 'artifact.md',
+        content: raw?.content,
+        url: raw?.url,
+        type: raw?.type,
+        detail: raw?.detail,
+        id: raw?.id || `${taskId || 'task'}-${raw?.filename || out.length}`,
+      });
+      if (!normalized) return;
+      const key = normalized.id || `${normalized.filename}:${(normalized.content || normalized.url || '').slice(0, 80)}`;
+      if (seen.has(key)) return;
+      seen.add(key);
+      out.push(normalized);
+    };
+    for (const e of swarmEvents) {
+      if (e.type !== 'TASK_COMPLETED' || !Array.isArray(e.payload?.artifacts)) continue;
+      for (const raw of e.payload.artifacts) consider(raw, e.payload.taskId);
+    }
+    for (const msg of messages) {
+      const arts = (msg as any)?.swarmEvent?.payload?.artifacts;
+      if (!Array.isArray(arts)) continue;
+      for (const raw of arts) consider(raw, (msg as any)?.swarmEvent?.payload?.taskId);
+    }
+    return out;
+  }, [swarmEvents, messages]);
+
   // Metrics derived from events + tasks
   const cycleCount = swarmEvents.filter(e => e.type === "CYCLE_COMPLETED").length;
   const errorCount = swarmEvents.filter(e => e.type === "CYCLE_ERROR").length;
@@ -942,23 +980,13 @@ export default function SwarmRunView({
   }, [tasks]);
 
   // ── skeleton while no conversation ───────────────────────────────────────
-  if (!conversationId) {
-    return (
-      <div className="flex h-full flex-col items-center justify-center gap-4">
-        <WorkforceChatSkeleton />
-        <button onClick={startNewConversation} disabled={createConversation.isPending}
-          className="px-5 py-2 bg-indigo-600 text-white text-sm font-bold rounded-xl hover:bg-indigo-700 transition-colors disabled:opacity-50 cursor-pointer">
-          {createConversation.isPending ? "Creating…" : "Start Session"}
-        </button>
-      </div>
-    );
-  }
+  if (!conversationId) return <WorkforceChatSkeleton />;
 
   const TABS: { id: ViewType; label: string; Icon: any }[] = [
     { id: "chat", label: "Chat", Icon: MessageSquare },
     { id: "log", label: "Log", Icon: FileText },
+    { id: "artifacts", label: "Artifacts", Icon: Files },
     { id: "task", label: "Tasks", Icon: LayoutGrid },
-    { id: "graph", label: "Graph", Icon: GitFork },
     { id: "metrics", label: "Metrics", Icon: BarChart3 },
     { id: "timeline", label: "Timeline", Icon: Timer },
   ];
@@ -980,16 +1008,17 @@ export default function SwarmRunView({
         </div>
         {/* status + controls */}
         <div className="flex items-center gap-2">
+          <UsageRemainingHint kind="EXECUTION" className="hidden sm:block mr-1" />
           <StatusPill status={sessionStatus} />
           {sessionStatus !== "running" ? (
             <button onClick={handleStartSwarm} disabled={isStarting}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-bold rounded-lg transition-colors disabled:opacity-50 shadow-sm cursor-pointer">
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-indigo-500 to-violet-600 hover:from-indigo-600 hover:to-violet-700 text-white text-[11px] font-bold rounded-lg transition-all disabled:opacity-50 shadow-sm cursor-pointer">
               {isStarting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5 fill-current" />}
               {isStarting ? "Starting…" : "Start"}
             </button>
           ) : (
             <button onClick={handleStopSwarm}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-[11px] font-bold rounded-lg transition-colors shadow-sm cursor-pointer">
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-600 hover:to-rose-700 text-white text-[11px] font-bold rounded-lg transition-all shadow-sm cursor-pointer">
               <Square className="h-3.5 w-3.5 fill-current" />Stop
             </button>
           )}
@@ -1029,18 +1058,8 @@ export default function SwarmRunView({
                   completedTaskIds={completedTaskIds}
                   sessionStatus={sessionStatus}
                   onArtifactClick={(filename, rawContent) => {
-                    // Sanitize: unwrap nested JSON wrapper if content was stored as raw tool result
-                    let content = rawContent;
-                    try {
-                      const parsed = JSON.parse(rawContent);
-                      // Handle {status, toolCallId, result: {content}} wrapper
-                      const inner = typeof parsed.result === 'object' && parsed.result !== null ? parsed.result : parsed;
-                      const extracted = inner.content || inner.script || inner.documentation ||
-                        parsed.content || parsed.script ||
-                        (typeof parsed.result === 'string' ? parsed.result : null);
-                      if (extracted && typeof extracted === 'string') content = extracted;
-                    } catch { /* not JSON, use as-is */ }
-                    setActiveArtifact({ filename, content });
+                    const normalized = normalizeArtifact({ filename, content: rawContent });
+                    if (normalized) setActiveArtifact(normalized);
                   }}
                 />
               </div>
@@ -1129,59 +1148,22 @@ export default function SwarmRunView({
               </div>
             </div>
 
-            {/* ── Right-Side Artifact Modal ── */}
+            {/* ── Right-Side Artifact Viewer ── */}
             {activeArtifact && (
-              <div className="w-[480px] border-l border-zinc-200 bg-white flex flex-col shadow-[-10px_0_15px_-5px_rgba(0,0,0,0.05)] transition-all animate-in slide-in-from-right relative z-20">
-                <div className="flex-none h-12 flex items-center justify-between px-4 border-b border-zinc-200 bg-zinc-50">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <Files className="h-4 w-4 text-indigo-500 flex-shrink-0" />
-                    <div className="min-w-0">
-                      <span className="text-xs font-bold text-zinc-800 truncate block">
-                        {activeArtifact.filename.replace(/-/g, ' ').replace(/\.md$/, '').replace(/\b\w/g, c => c.toUpperCase())}
-                      </span>
-                      <span className="text-[10px] text-zinc-400 font-mono">{activeArtifact.filename}</span>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <button
-                      onClick={() => {
-                        navigator.clipboard.writeText(activeArtifact.content);
-                        toast.success("Copied to clipboard");
-                      }}
-                      className="p-1.5 text-zinc-400 hover:text-zinc-600 hover:bg-zinc-200 rounded transition-colors cursor-pointer"
-                      title="Copy content"
-                    >
-                      <Files className="h-3.5 w-3.5" />
-                    </button>
-                    <button
-                      onClick={() => setActiveArtifact(null)}
-                      className="p-1.5 text-zinc-400 hover:text-zinc-600 hover:bg-zinc-200 rounded transition-colors cursor-pointer"
-                    >
-                      <X className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                </div>
-                <div className="flex-1 overflow-y-auto px-6 py-5 bg-white">
-                  <div className="prose prose-sm max-w-none text-zinc-800 prose-headings:text-zinc-900 prose-headings:font-bold prose-p:text-zinc-700 prose-li:text-zinc-700 prose-strong:text-zinc-900 prose-code:text-indigo-600 prose-code:bg-indigo-50 prose-code:px-1 prose-code:rounded prose-pre:bg-zinc-900 prose-pre:text-zinc-100">
-                    <ReactMarkdown>{activeArtifact.content}</ReactMarkdown>
-                  </div>
-                </div>
-              </div>
+              <ArtifactViewer artifact={activeArtifact} onClose={() => setActiveArtifact(null)} />
             )}
           </div>
         )}
 
         {activeView === "log" && <SwarmLogView swarmEvents={swarmEvents} />}
-        {activeView === "task" && <SwarmTaskView tasks={tasks} onApprove={handleApprove} />}
-        {activeView === "graph" && (
-          <SwarmGraphView
-            swarmEvents={swarmEvents}
-            swarmSessionId={swarmSessionId}
-            sessionStatus={sessionStatus}
-            tasks={tasks}
-            cycleCount={cycleCount}
+        {activeView === "artifacts" && (
+          <ArtifactsTab
+            artifacts={sessionArtifacts}
+            onOpen={(a) => setActiveArtifact(a)}
+            emptyLabel="No artifacts from this swarm run yet"
           />
         )}
+        {activeView === "task" && <SwarmTaskView tasks={tasks} onApprove={handleApprove} />}
         {activeView === "metrics" && (
           <SwarmMetricsView
             cycleCount={cycleCount}

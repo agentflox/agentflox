@@ -266,16 +266,23 @@ export class AgentTaskOrchestrator {
         // If assigned to a specific agent, trigger that agent
         if (task.agentId) {
             try {
+                const meta = (task.metadata as Record<string, unknown> | null) ?? {};
+                const sessionRoot =
+                    typeof meta.sessionId === 'string' ? meta.sessionId : undefined;
+                const executionId = randomUUID();
+
                 await inngest.send({
                     name: 'agent/execute',
                     data: {
                         agentId: task.agentId,
                         userId: task.assignedBy || 'system',
-                        executionId: randomUUID(), // New execution for this task
+                        executionId,
                         inputData: {
                             message: `Task Assignment: ${task.title}\nDescription: ${task.description}\nData: ${JSON.stringify(task.inputData)}`,
                             taskId: task.id
-                        }
+                        },
+                        rootRunId: sessionRoot ?? executionId,
+                        billingExempt: Boolean(sessionRoot),
                     }
                 });
 

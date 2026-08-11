@@ -7,7 +7,8 @@ const logger = createContextLogger({ service: 'SwarmMessageBuffer' });
 // How many messages to buffer before forcing a flush
 const MAX_BUFFER_SIZE = 20;
 // How long to wait before flushing a non-full buffer (ms)
-const FLUSH_INTERVAL_MS = 750;
+// Increased from 750ms → 5000ms to reduce idle Redis SCAN commands on Upstash free tier
+const FLUSH_INTERVAL_MS = 5000;
 
 interface BufferedMessage {
     conversationId: string;
@@ -29,6 +30,8 @@ interface BufferedMessage {
  */
 export class SwarmMessageBuffer {
     private flushTimer: NodeJS.Timeout | null = null;
+    /** Track which conversationIds have buffered data — avoids SCAN when idle */
+    private readonly activeConversations = new Set<string>();
 
     /** Start the background flush loop (call once at service startup) */
     start() {
@@ -60,6 +63,9 @@ export class SwarmMessageBuffer {
         // Set TTL on every push so orphaned buffers don't live forever
         await redis.expire(key, 600); // 10 min TTL
 
+        // Track this conversation so flushAll skips SCAN when idle
+        this.activeConversations.add(conversationId);
+
         if (len >= MAX_BUFFER_SIZE) {
             // Flush this session immediately without waiting for the timer
             this.flushConversation(conversationId).catch(err =>
@@ -70,22 +76,12 @@ export class SwarmMessageBuffer {
 
     /** Flush all active buffer lists */
     private async flushAll(): Promise<void> {
-        // Scan for all active buffer keys
-        let cursor = '0';
-        const keys: string[] = [];
-        do {
-            const [next, found] = await redis.scan(cursor, 'MATCH', 'swarm:msgbuf:*', 'COUNT', 100);
-            cursor = next;
-            keys.push(...found);
-        } while (cursor !== '0');
+        // Use in-memory set first — avoids Redis SCAN when there's nothing to flush
+        if (this.activeConversations.size === 0) return;
 
-        if (keys.length === 0) return;
-
+        const conversationIds = [...this.activeConversations];
         await Promise.allSettled(
-            keys.map(key => {
-                const conversationId = key.replace('swarm:msgbuf:', '');
-                return this.flushConversation(conversationId);
-            })
+            conversationIds.map(conversationId => this.flushConversation(conversationId))
         );
     }
 
@@ -100,6 +96,8 @@ export class SwarmMessageBuffer {
         const results = await pipeline.exec();
 
         const rawRows = (results?.[0]?.[1] as string[]) ?? [];
+        // Remove from active set regardless — key is deleted
+        this.activeConversations.delete(conversationId);
         if (rawRows.length === 0) return;
 
         const rows: BufferedMessage[] = rawRows.map(r => JSON.parse(r));

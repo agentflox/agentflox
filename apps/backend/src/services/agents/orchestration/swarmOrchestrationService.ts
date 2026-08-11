@@ -20,6 +20,12 @@ const CIRCUIT_BREAKER_THRESHOLD = 3;
 const CIRCUIT_BREAKER_TTL_MS = 5 * 60 * 1000; // 5 minutes
 /** TTL for a running session in Redis (seconds). Renewed on every cycle. */
 const SESSION_TTL_SECONDS = 24 * 60 * 60; // 24 hours
+/** Max per-task/step watchdog unsticks before hard alert (stops auto-reschedule for that task). */
+const WATCHDOG_MAX_UNSTICKS = 3;
+/** Task with no update older than this is considered stuck (ms). */
+const WATCHDOG_STUCK_MS = 10 * 60 * 1000; // 10 minutes
+/** Failure reschedule backoff delays (ms). */
+const FAILURE_BACKOFF_MS = [1500, 5000, 15000, 60000] as const;
 
 export interface SwarmSession {
     id: string;
@@ -73,13 +79,18 @@ const swarmCycleWorker = new Worker('swarm-cycles', async (job: Job) => {
     await swarmOrchestrationService.executeCycle(sessionId);
 }, {
     connection: redisConnectionOptions,
-    concurrency: 20,       // safe limit — prevents Redis connection storms
-    drainDelay: 10,        // wait 10ms when queue is empty before polling again (reduces idle commands)
-    stalledInterval: 60_000, // check for stalled jobs every 60s (default 30s)
-    maxStalledCount: 2,    // mark job as failed after 2 stall checks (prevent ghost jobs)
+    concurrency: 10,          // reduced from 20 — each idle poll × concurrency = evalsha commands
+    drainDelay: 5000,         // wait 5s when queue is empty (was 10ms — caused Upstash quota exhaustion)
+    stalledInterval: 120_000, // check for stalled jobs every 2min (was 60s)
+    maxStalledCount: 2,       // mark job as failed after 2 stall checks (prevent ghost jobs)
+    skipVersionCheck: true,   // skip HELLO command on each reconnect (saves Redis commands)
 });
 
 swarmCycleWorker.on('error', err => {
+    const message = String((err as any)?.message || err || '');
+    if (message.includes('max requests limit exceeded')) {
+        return;
+    }
     console.error('[SwarmWorker] Error:', err);
 });
 
@@ -88,7 +99,10 @@ swarmCycleWorker.on('failed', async (job, err) => {
     if (!job) return;
     const isExhausted = (job.attemptsMade ?? 0) >= (job.opts?.attempts ?? 1);
     if (isExhausted) {
-        console.error(`[SwarmWorker] Job ${job.id} exhausted retries, moving to DLQ:`, err?.message);
+        const message = String(err?.message || '');
+        if (!message.includes('max requests limit exceeded')) {
+            console.error(`[SwarmWorker] Job ${job.id} exhausted retries, moving to DLQ:`, err?.message);
+        }
         await swarmDLQ.add('dead', { ...job.data, lastError: err?.message, failedAt: new Date().toISOString() });
     }
 });
@@ -406,10 +420,46 @@ export class SwarmOrchestrationService {
     }
 
     /**
-     * Schedule the next coordinator cycle
+     * Schedule the next coordinator cycle.
+     *
+     * Idempotency: uses a stable BullMQ jobId `tick-${sessionId}` so concurrent
+     * scheduleCycle calls for the same session collapse to one delayed tick.
+     * If a delayed tick already exists, we remove it and re-add with
+     * min(existingDelay, newDelay) so a 1.5s handoff is not blocked by a leftover 5s idle tick.
      */
     async scheduleCycle(sessionId: string, delayMs: number = 5000) {
-        await swarmCycleQueue.add('tick', { sessionId }, { delay: delayMs, jobId: `tick-${sessionId}`, removeOnComplete: true });
+        const jobId = `tick-${sessionId}`;
+        let effectiveDelay = delayMs;
+        try {
+            const existing = await swarmCycleQueue.getJob(jobId);
+            if (existing) {
+                const state = await existing.getState();
+                if (state === 'delayed' || state === 'waiting') {
+                    const existingDelay = typeof existing.opts?.delay === 'number' ? existing.opts.delay : delayMs;
+                    effectiveDelay = Math.min(existingDelay, delayMs);
+                    await existing.remove().catch(() => { /* may already be active */ });
+                } else if (state === 'active') {
+                    // Cycle already running — enqueue a follow-up after it finishes
+                    effectiveDelay = Math.max(delayMs, 500);
+                }
+            }
+        } catch (err) {
+            this.logger.warn(`scheduleCycle upsert probe failed for ${sessionId}: ${err}`);
+        }
+        try {
+            await swarmCycleQueue.add('tick', { sessionId }, {
+                delay: effectiveDelay,
+                jobId,
+                removeOnComplete: true,
+            });
+        } catch (err: any) {
+            // BullMQ may throw if jobId still exists mid-race; treat as deduped
+            const msg = String(err?.message || err || '');
+            if (!msg.includes('Job') && !msg.toLowerCase().includes('exist')) {
+                throw err;
+            }
+            this.logger.debug(`scheduleCycle deduped for ${sessionId}: ${msg}`);
+        }
     }
 
     /**
@@ -435,6 +485,9 @@ export class SwarmOrchestrationService {
             // Phase 3: Renew session TTL so long-running sessions don't expire
             await this.saveSession(session);
 
+            // Watchdog: unstick wedged tasks (per-task counter; sibling progress does not reset)
+            await this.runWatchdogForSession(session);
+
             // 1. Get available tasks specifically scoped to this Swarm Session
             console.log(`[SwarmDebug] Fetching available tasks for workspace: ${session.workspaceId}`);
             const allPendingTasks = await agentTaskOrchestrator.getAvailableTasks(undefined, session.workspaceId);
@@ -451,7 +504,10 @@ export class SwarmOrchestrationService {
             });
 
             // Separate unassigned (need assignment) vs already-assigned-but-stuck-pending
-            const unassignedTasks = currentSessionPendingTasks.filter((t: any) => !t.agentId);
+            // Skip tasks the watchdog has permanently abandoned (need human intervention)
+            const unassignedTasks = currentSessionPendingTasks.filter((t: any) =>
+                !t.agentId && !(t.metadata as any)?.watchdogAbandoned
+            );
             const tasks = currentSessionPendingTasks; // full list for inspect
 
             // Update backlog metric
@@ -605,11 +661,28 @@ export class SwarmOrchestrationService {
                 const previousStep = currentStepIndex > 0 ? pipeline[currentStepIndex - 1] : null;
                 const prevArtifact = currentStepIndex > 0 ? artifacts[`step_${currentStepIndex - 1}`] : null;
 
-                let detailText = `Pipeline Active: **${pipeline.map((stepId: string) => getFriendlyStepName(stepId, agentNamesMap)).join(' → ')}**\n\n`;
-                if (currentStepIndex > 0 && previousStep) {
-                    detailText += `📥 **Context Handoff**: Output of step **${getFriendlyStepName(previousStep, agentNamesMap)}** passed as input to **${agentDisplayName}**.\n\n`;
-                }
-                detailText += `👉 Coordinator selected **${agentDisplayName}** to handle step **${getFriendlyStepName(currentAgentType, agentNamesMap)}**.`;
+                const whyAgent = targetAgent
+                    ? `Matched step type **${getFriendlyStepName(currentAgentType, agentNamesMap)}** to agent **${agentDisplayName}**` +
+                      (targetAgent.agentType ? ` (type: ${targetAgent.agentType})` : '') +
+                      (targetAgent.description ? ` — ${String(targetAgent.description).slice(0, 160)}` : '') +
+                      '.'
+                    : `Selected **${agentDisplayName}** for this step.`;
+                const handoffMeta = prevArtifact
+                    ? (() => {
+                        const raw = typeof prevArtifact === 'string' ? prevArtifact : JSON.stringify(prevArtifact);
+                        const preview = raw.length > 600 ? `${raw.slice(0, 600)}\n…[truncated ${raw.length - 600} chars]` : raw;
+                        return `Artifact from step **${getFriendlyStepName(previousStep!, agentNamesMap)}** (${raw.length} chars):\n\`\`\`\n${preview}\n\`\`\``;
+                    })()
+                    : 'Using original task specification as input (first pipeline step).';
+                const expectedOutcome = `Produce the output for step **${getFriendlyStepName(currentAgentType, agentNamesMap)}** ` +
+                    `(${currentStepIndex + 1}/${pipeline.length || 1}` +
+                    (pipelineType ? `, pipeline: ${pipelineType}` : '') +
+                    `) so the coordinator can ${currentStepIndex >= (pipeline.length - 1) ? 'mark the task complete' : 'hand off to the next specialist'}.`;
+
+                let detailText = `**Pipeline:** ${pipeline.map((stepId: string) => getFriendlyStepName(stepId, agentNamesMap)).join(' → ')}\n\n`;
+                detailText += `**Why this agent:** ${whyAgent}\n\n`;
+                detailText += `**Context passed:** ${handoffMeta}\n\n`;
+                detailText += `**Expected outcome:** ${expectedOutcome}`;
 
                 // Emit coordinator thinking / dispatch envelope details
                 await this.persistAndEmit(session, 'COORDINATOR_THINK', {
@@ -624,6 +697,8 @@ export class SwarmOrchestrationService {
                     message_type: currentAgentType.toUpperCase(),
                     to_agent: currentAgentType,
                     status: 'pending',
+                    stepIndex: currentStepIndex,
+                    pipelineType,
                 });
 
                 try {
@@ -807,7 +882,6 @@ export class SwarmOrchestrationService {
                 }
             }
 
-
             metrics.swarmCycleDuration.observe({ coordinator_id: session.coordinatorId }, (Date.now() - startTime) / 1000);
 
             // Slow tick when there is still unassigned or in-flight work; otherwise back off
@@ -936,8 +1010,8 @@ export class SwarmOrchestrationService {
 
             // Advance pipeline and clear agent for assignment in the next cycle!
             const nextStepIndex = currentStepIndex + 1;
-            const artifacts = metadata.artifacts || {};
-            artifacts[`step_${currentStepIndex}`] = resultText;
+            const stepArtifacts = metadata.artifacts || {};
+            stepArtifacts[`step_${currentStepIndex}`] = resultText;
 
             try {
                 await (prisma.agentTask as any).update({
@@ -948,12 +1022,40 @@ export class SwarmOrchestrationService {
                         metadata: {
                             ...metadata,
                             currentStepIndex: nextStepIndex,
-                            artifacts,
+                            artifacts: stepArtifacts,
+                            failureCount: 0, // successful step resets retry counter
                         }
                     }
                 });
             } catch (err) {
                 this.logger.error(`Failed to update intermediate task state: ${err}`);
+            }
+
+            // Deterministic handoff message (not LLM-dependent)
+            const nextStepType = pipeline[nextStepIndex];
+            const handoffSummary = resultText.length > 800
+                ? `${resultText.slice(0, 800)}\n…[truncated]`
+                : resultText;
+            await this.persistAndEmit(session, 'INTER_AGENT_MSG', {
+                label: `💬 Handoff → ${getFriendlyStepName(nextStepType)}`,
+                detail: `${agentName} completed "${getFriendlyStepName(currentAgentType)}" and handed off to the next step.`,
+                from: agentId,
+                to: 'coordinator',
+                fromName: agentName,
+                toName: getFriendlyStepName(nextStepType),
+                content: `Handoff for “${taskTitle}” (step ${currentStepIndex} → ${nextStepIndex}):\n\n${handoffSummary}`,
+                taskId,
+                taskTitle,
+            });
+
+            // Clear per-task watchdog counter on real progress
+            await this.clearWatchdogCounter(session.id, taskId, currentStepIndex);
+
+            // Critical: schedule next cycle so the pipeline does not stall waiting for idle tick
+            try {
+                await this.scheduleCycle(session.id, 1500);
+            } catch (err) {
+                this.logger.warn(`Failed to schedule cycle after intermediate step for ${taskId}: ${err}`);
             }
 
             console.log(`[SwarmOrchestration] Intermediate step ${currentStepIndex} (${currentAgentType}) completed by agent ${agentId} for task ${taskId}. Handing off to step ${nextStepIndex}.`);
@@ -977,6 +1079,7 @@ export class SwarmOrchestrationService {
 
         try {
             await agentTaskOrchestrator.completeTask(taskId, resultText);
+            await this.clearWatchdogCounter(session.id, taskId, currentStepIndex);
         } catch (err) {
             this.logger.error(`Failed to mark AgentTask completed in DB: ${err}`);
         }
@@ -1198,11 +1301,16 @@ export class SwarmOrchestrationService {
     }
 
     /**
-     * Record task failure (called from task worker)
+     * Record task failure (called from task worker).
+     * Schedules a backoff cycle so the swarm does not freeze, but caps retries
+     * via task metadata.failureCount / max_revisions and the agent circuit breaker.
      */
     async recordTaskFailed(sessionId: string, taskId: string, taskTitle: string, agentId: string, error: string): Promise<void> {
         const session = await this.getSession(sessionId);
-        if (!session) return;
+        if (!session) {
+            await this.broadcastTaskFailedForTask(taskId, taskTitle, agentId, error);
+            return;
+        }
 
         // Phase 3: Increment circuit breaker counter for this agent
         await this.recordAgentFailure(agentId, sessionId);
@@ -1211,17 +1319,64 @@ export class SwarmOrchestrationService {
             this.logger.warn(`[CircuitBreaker] Agent ${agentId} circuit TRIPPED after repeated failures in session ${sessionId}`);
         }
 
+        let failureCount = 1;
+        let maxRevisions = 3;
+        let stepIndex = 0;
+        let permanentlyFailed = false;
+        try {
+            const dbTask = await prisma.agentTask.findUnique({
+                where: { id: taskId },
+                select: { metadata: true, status: true },
+            });
+            const metadata = (dbTask?.metadata as any) || {};
+            failureCount = (typeof metadata.failureCount === 'number' ? metadata.failureCount : 0) + 1;
+            maxRevisions = typeof metadata.max_revisions === 'number' ? metadata.max_revisions : 3;
+            stepIndex = metadata.currentStepIndex ?? 0;
+            permanentlyFailed = failureCount > maxRevisions || tripped;
+
+            await (prisma.agentTask as any).update({
+                where: { id: taskId },
+                data: {
+                    agentId: permanentlyFailed ? agentId : null,
+                    status: permanentlyFailed ? AgentTaskStatus.FAILED : AgentTaskStatus.PENDING,
+                    error: error?.slice(0, 2000),
+                    metadata: {
+                        ...metadata,
+                        failureCount,
+                        stepStatus: permanentlyFailed ? 'failed' : 'retry_pending',
+                        lastFailureAt: new Date().toISOString(),
+                        lastFailureError: error?.slice(0, 500),
+                    },
+                },
+            });
+        } catch (err) {
+            this.logger.error(`Failed to update task failure metadata for ${taskId}: ${err}`);
+        }
+
+        const backoffIdx = Math.min(failureCount - 1, FAILURE_BACKOFF_MS.length - 1);
+        const nextDelay = permanentlyFailed ? 5000 : FAILURE_BACKOFF_MS[backoffIdx];
+
         await this.persistAndEmit(session, 'TASK_FAILED', {
-            label: `❌ Task failed${tripped ? ' (agent circuit-broken)' : ''}`,
-            detail: `"${taskTitle}" failed — ${error}${tripped ? `\n⚡ Agent paused for ${CIRCUIT_BREAKER_TTL_MS / 60000} minutes.` : ''}`,
+            label: `❌ Task failed${tripped ? ' (agent circuit-broken)' : ''}${permanentlyFailed ? ' — permanent' : ` (retry ${failureCount}/${maxRevisions})`}`,
+            detail: `"${taskTitle}" failed — ${error}${tripped ? `\n⚡ Agent paused for ${CIRCUIT_BREAKER_TTL_MS / 60000} minutes.` : ''}${permanentlyFailed ? '\n⛔ Max retries reached; will not re-dispatch this step.' : `\n⏱ Next cycle in ${Math.round(nextDelay / 1000)}s.`}`,
             taskId,
             taskTitle,
             agentId,
             error,
             circuitTripped: tripped,
+            failureCount,
+            maxRevisions,
+            permanentlyFailed,
+            nextDelayMs: nextDelay,
             from: agentId,
             to: 'coordinator',
         });
+
+        try {
+            await this.scheduleCycle(session.id, nextDelay);
+        } catch (err) {
+            this.logger.warn(`Failed to schedule cycle after task failure for ${taskId}: ${err}`);
+        }
     }
 
     /**
@@ -1376,6 +1531,149 @@ export class SwarmOrchestrationService {
                 await this.scheduleCycle(session.id, 0);
             }
         }
+    }
+
+    private watchdogKey(sessionId: string, taskId: string, stepIndex: number): string {
+        return `swarm:watchdog:${sessionId}:${taskId}:${stepIndex}`;
+    }
+
+    private async clearWatchdogCounter(sessionId: string, taskId: string, stepIndex: number): Promise<void> {
+        try {
+            await redis.del(this.watchdogKey(sessionId, taskId, stepIndex));
+        } catch { /* non-fatal */ }
+    }
+
+    /**
+     * Per-task/step watchdog: if a task is stuck past WATCHDOG_STUCK_MS, schedule a cycle.
+     * After WATCHDOG_MAX_UNSTICKS with no progress on THAT task/step, emit user-visible
+     * CYCLE_ERROR and stop auto-rescheduling that task (metadata.watchdogAbandoned).
+     */
+    async runWatchdogForSession(session: SwarmSession): Promise<void> {
+        const cutoff = new Date(Date.now() - WATCHDOG_STUCK_MS);
+        let stuckTasks: any[] = [];
+        try {
+            stuckTasks = await prisma.agentTask.findMany({
+                where: {
+                    workspaceId: session.workspaceId,
+                    status: { in: [AgentTaskStatus.PENDING, AgentTaskStatus.QUEUED, AgentTaskStatus.RUNNING] },
+                    updatedAt: { lt: cutoff },
+                    metadata: { path: ['sessionId'], equals: session.id },
+                },
+                select: { id: true, title: true, status: true, updatedAt: true, metadata: true },
+                take: 50,
+            });
+        } catch (err) {
+            this.logger.warn(`Watchdog query failed for ${session.id}: ${err}`);
+            return;
+        }
+
+        for (const task of stuckTasks) {
+            const metadata = (task.metadata as any) || {};
+            if (metadata.watchdogAbandoned) continue;
+
+            const stepIndex = metadata.currentStepIndex ?? 0;
+            const key = this.watchdogKey(session.id, task.id, stepIndex);
+            let count = 0;
+            try {
+                count = await redis.incr(key);
+                if (count === 1) await redis.expire(key, 24 * 60 * 60);
+            } catch {
+                count = 1;
+            }
+
+            if (count > WATCHDOG_MAX_UNSTICKS) {
+                await this.persistAndEmit(session, 'CYCLE_ERROR', {
+                    label: `⚠️ Watchdog: task wedged`,
+                    detail: `Task “${task.title}” (id: ${task.id}, step ${stepIndex}) has not progressed after ${WATCHDOG_MAX_UNSTICKS} automatic unsticks. Auto-reschedule stopped for this task — please review or restart the swarm.`,
+                    taskId: task.id,
+                    taskTitle: task.title,
+                    stepIndex,
+                    watchdogAbandoned: true,
+                });
+                try {
+                    await (prisma.agentTask as any).update({
+                        where: { id: task.id },
+                        data: {
+                            metadata: {
+                                ...metadata,
+                                watchdogAbandoned: true,
+                                watchdogAbandonedAt: new Date().toISOString(),
+                            },
+                        },
+                    });
+                } catch (err) {
+                    this.logger.error(`Failed to mark watchdogAbandoned for ${task.id}: ${err}`);
+                }
+                continue;
+            }
+
+            await this.persistAndEmit(session, 'COORDINATOR_THINK', {
+                label: `🔧 Watchdog unstick (${count}/${WATCHDOG_MAX_UNSTICKS})`,
+                detail: `Task “${task.title}” appears stuck in ${task.status} (step ${stepIndex}). Re-queuing for assignment and scheduling an immediate cycle.`,
+                taskId: task.id,
+                taskTitle: task.title,
+                stepIndex,
+            });
+
+            // If the task is wedged in QUEUED/RUNNING with an agent assigned, clear it so
+            // the next cycle can re-assign. PENDING tasks are already assignable.
+            if (task.status === AgentTaskStatus.QUEUED || task.status === AgentTaskStatus.RUNNING) {
+                try {
+                    await (prisma.agentTask as any).update({
+                        where: { id: task.id },
+                        data: {
+                            agentId: null,
+                            status: AgentTaskStatus.PENDING,
+                            metadata: {
+                                ...metadata,
+                                stepStatus: 'watchdog_requeued',
+                                lastWatchdogUnstickAt: new Date().toISOString(),
+                            },
+                        },
+                    });
+                } catch (err) {
+                    this.logger.error(`Watchdog failed to requeue task ${task.id}: ${err}`);
+                }
+            }
+
+            await this.scheduleCycle(session.id, 0);
+        }
+    }
+
+    /**
+     * One-time / on-demand sweep for sessions wedged before scheduleCycle+watchdog shipped.
+     * Calls scheduleCycle(0) once per running session that has stale in-flight tasks.
+     */
+    async sweepStuckSessions(): Promise<{ sessionsTouched: number; taskCount: number }> {
+        const cutoff = new Date(Date.now() - WATCHDOG_STUCK_MS);
+        const sessionKeys = await redis.hkeys('swarm:sessions');
+        let sessionsTouched = 0;
+        let taskCount = 0;
+
+        for (const sessionId of sessionKeys) {
+            const session = await this.getSession(sessionId);
+            if (!session || session.status !== 'running') continue;
+
+            const stuck = await prisma.agentTask.count({
+                where: {
+                    workspaceId: session.workspaceId,
+                    status: { in: [AgentTaskStatus.PENDING, AgentTaskStatus.QUEUED, AgentTaskStatus.RUNNING] },
+                    updatedAt: { lt: cutoff },
+                    metadata: { path: ['sessionId'], equals: session.id },
+                },
+            });
+            if (stuck === 0) continue;
+
+            taskCount += stuck;
+            sessionsTouched += 1;
+            await this.persistAndEmit(session, 'COORDINATOR_THINK', {
+                label: `🔧 Deploy sweep: rescheduling stuck session`,
+                detail: `Found ${stuck} stale task(s). Scheduling an immediate coordinator cycle.`,
+            });
+            await this.scheduleCycle(session.id, 0);
+        }
+
+        return { sessionsTouched, taskCount };
     }
 
     /**

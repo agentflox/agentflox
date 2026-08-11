@@ -1,5 +1,4 @@
-import { openai } from '@/lib/openai';
-import { fetchModel } from '@/utils/ai/fetchModel';
+import { resolveModel, createOpenAICompletion, recordUsage, fromOpenAIUsage } from '@/services/models';
 import { prisma } from '@/lib/prisma';
 import { inngest } from '@/lib/inngest';
 import { z } from 'zod';
@@ -15,7 +14,6 @@ import { agentBuilderContextService, UserContext } from '../state/agentBuilderCo
 import { ToolInvocationGate } from '../core/toolInvocationGate';
 import { GuardrailService } from '../safety/guardrailService';
 import { PermissionService as CorePermissionService } from '@/services/permissions/permission.service';
-import { AI_EXECUTOR_FLOW_GUIDE } from '../instructions/aiExecutorFlowGuide';
 import { EntityScopeInferrer } from '../context/entityScopeInferrer';
 import { AutomationInferrer } from '../inference/automationInferrer';
 import { InputSanitizer } from '../safety/inputSanitizer';
@@ -37,6 +35,12 @@ import { ToolDiscoveryService } from '../registry/toolDiscoveryService';
 import { memoryManager } from '../core/memoryManager';
 import { sharedMemoryService } from '../core/sharedMemory';
 import { agentMetricsService } from '../monitoring/agentMetricsService';
+import {
+  buildArtifactsFromToolResult,
+  parseSwarmTaskConversationId,
+  pickUpstreamResult,
+  type ExecutionArtifact,
+} from '../artifacts/executionArtifact';
 // FLAW-07 FIX: Event store — emits structured AgentEvents to durable storage
 import {
   emitRunInit,
@@ -59,10 +63,6 @@ const ExecutorResponseSchema = z.object({
       })
     )
     .default([]),
-});
-
-const ExecutorWelcomeResponseSchema = z.object({
-  welcomeMessage: z.string(),
 });
 
 
@@ -263,8 +263,23 @@ export class AgentExecutorService {
       return await cb.execute(() =>
         this.retryHandler.retry(
           async () => {
+            let resolved = (context as any).resolvedModel;
+            if (!resolved) {
+              resolved = await resolveModel({
+                modelId: null,
+                userId: context.userId,
+                skipEntitlement: true,
+              });
+            }
+            const create = (params: Record<string, unknown>) =>
+              createOpenAICompletion(resolved, params);
+
             if (onChunk) {
-              const stream = await openai.chat.completions.create({ ...request, stream: true, stream_options: { include_usage: true } }) as any;
+              const stream = await create({
+                ...request,
+                stream: true,
+                stream_options: { include_usage: true },
+              }) as any;
               let content = '';
               const tool_calls: any[] = [];
               let completionUsage: any = undefined;
@@ -296,9 +311,9 @@ export class AgentExecutorService {
               if (tool_calls.length > 0) message.tool_calls = tool_calls;
 
               return { choices: [{ message }], usage: completionUsage } as any;
-            } else {
-              return await openai.chat.completions.create({ ...request, stream: false });
             }
+
+            return await create({ ...request, stream: false });
           },
           {
             maxAttempts: 2,
@@ -385,11 +400,19 @@ export class AgentExecutorService {
     }
   }
 
+  /**
+   * Load an executor conversation. Never creates conversations and never
+   * generates a welcome message — creation belongs to the chat create API.
+   *
+   * - With conversationId: load that conversation (or throw if missing/unauthorized).
+   * - Without conversationId: load the user's latest AGENT_EXECUTOR chat for this agent,
+   *   or throw if none exists so the client can create one explicitly.
+   */
   async initializeConversation(
     userId: string,
     agentId: string,
     conversationId?: string,
-    skipWelcome?: boolean
+    _skipWelcome?: boolean
   ): Promise<{
     conversationId: string;
     conversationState: ConversationState;
@@ -398,7 +421,6 @@ export class AgentExecutorService {
     quickActions: QuickAction[];
     followups?: Array<{ id: string; label: string }>;
   }> {
-    // Basic rate limit check for conversation initialization
     const rateLimitKey = `init_conv_rate:${userId}`;
     const attempts = await redis.incr(rateLimitKey);
     if (attempts === 1) await redis.expire(rateLimitKey, 60);
@@ -411,41 +433,14 @@ export class AgentExecutorService {
       );
     }
 
-    return this.initializeConversationInternal(userId, agentId, conversationId, skipWelcome);
-  }
-
-  // FLAW-09 FIX: depth guard prevents unbounded recursion when conversation
-  // lookup races cause repeated (re-)delegation with the same ID.
-  private async initializeConversationInternal(
-    userId: string,
-    agentId: string,
-    conversationId?: string,
-    skipWelcome?: boolean,
-    _depth = 0,
-  ): Promise<{
-    conversationId: string;
-    conversationState: ConversationState;
-    userContext: UserContext;
-    welcomeMessage: string;
-    quickActions: QuickAction[];
-    followups?: Array<{ id: string; label: string }>;
-  }> {
-    if (_depth > 2) {
-      throw new AgentBuilderError(
-        'AGENT_EXECUTOR_INIT_RECURSION',
-        `initializeConversation exceeded max recursion depth (depth=${_depth})`,
-        'Failed to initialize conversation. Please try again.',
-        { userId, agentId, conversationId }
-      );
-    }
-    const agent = await this.assertAgentAccess(agentId, userId);
+    await this.assertAgentAccess(agentId, userId);
     let userContext = await agentBuilderContextService.fetchUserContext(userId);
 
-    // Enrich user context with entity scope if available
     try {
+      const agent = await prisma.aiAgent.findUnique({ where: { id: agentId } });
       userContext = await this.entityScopeInferrer.inferAndFetchEntityScope(
         '',
-        agent.systemPrompt
+        agent?.systemPrompt
           ? [{ role: 'system', content: agent.systemPrompt }]
           : [],
         userContext,
@@ -455,430 +450,58 @@ export class AgentExecutorService {
       console.error('[AgentExecutor] Failed to infer entity scope for executor initialization:', error);
     }
 
-    // If conversationId is provided, load existing state
-    let conversationState!: ConversationState;
-    if (conversationId) {
-      // Acquire lock to prevent concurrent initialization
-      const lockKey = `${this.LOCK_KEY_PREFIX}init:${conversationId}`;
-      const lockAcquired = await this.acquireLock(lockKey);
-      if (!lockAcquired) {
-        // If lock not acquired, wait a bit and retry up to 2 times
-        let retries = 0;
-        let retryLock = false;
-        while (retries < 2 && !retryLock) {
-          await new Promise(resolve => setTimeout(resolve, 200));
-          retryLock = await this.acquireLock(lockKey);
-          retries++;
-        }
+    let resolvedConversationId = conversationId;
 
-        if (!retryLock) {
-          // Still locked, load and return existing state.
-          // Another request is likely already generating the welcome message.
-          console.log(`[AgentExecutor] Conversation ${conversationId} is already being initialized, waiting for other request to finish`);
-          // Wait a bit more for the other request to complete its write
-          await new Promise(resolve => setTimeout(resolve, 800));
-
-          const existingState = await agentBuilderStateService.getConversationState(conversationId);
-          if (existingState) {
-            return {
-              conversationId: existingState.conversationId,
-              conversationState: existingState,
-              userContext,
-              welcomeMessage: '',
-              quickActions: [],
-              followups: [],
-            };
-          }
-        }
-      }
-
-      try {
-        console.log(`[AgentExecutor] Loading existing conversation: ${conversationId}`);
-        const existingState = await agentBuilderStateService.getConversationState(conversationId);
-        if (!existingState) {
-          throw new AgentBuilderError(
-            'AGENT_EXECUTOR_CONVERSATION_NOT_FOUND',
-            `Conversation ${conversationId} not found`,
-            'This conversation could not be found. Please start a new conversation.',
-            { conversationId, userId }
-          );
-        }
-        if (existingState.userId !== userId) {
-          throw new AgentBuilderError(
-            'AGENT_EXECUTOR_UNAUTHORIZED',
-            `Unauthorized: Conversation ${conversationId} does not belong to user ${userId}`,
-            'You do not have access to this conversation.',
-            { conversationId, userId }
-          );
-        }
-
-        conversationState = existingState;
-
-        // Check if conversation has any messages
-        const messageCount = await prisma.aiMessage.count({
-          where: { conversationId },
-        });
-
-        const hasMessages = messageCount > 0;
-
-        if (!hasMessages && !skipWelcome) {
-          console.log(`[AgentExecutor] Conversation ${conversationId} is empty, generating welcome message`);
-
-          // Generate welcome message for empty existing conversation
-          const welcomeMessage = await this.generateWelcomeMessage(userContext, agent, userId);
-
-          // Add welcome message to history
-          await agentBuilderStateService.addMessageToHistory(
-            conversationState.conversationId,
-            'assistant',
-            welcomeMessage
-          );
-
-          // Refresh conversation state to get updated history with welcome message
-          const refreshedState = await agentBuilderStateService.getConversationState(conversationId);
-          if (!refreshedState) {
-            throw new AgentBuilderError(
-              'AGENT_EXECUTOR_STATE_REFRESH_FAILED',
-              `Failed to refresh conversation state for ${conversationId}`,
-              'Failed to load conversation state. Please try again.',
-              { conversationId, userId }
-            );
-          }
-
-          return {
-            conversationId: refreshedState.conversationId,
-            conversationState: refreshedState,
-            userContext,
-            welcomeMessage,
-            quickActions: [],
-            followups: [],
-          };
-        }
-
-        // Conversation has messages - load existing conversation without new welcome
-        console.log(`[AgentExecutor] Successfully loaded existing conversation: ${conversationId}, messages: ${conversationState.conversationHistory.length}`);
-        return {
-          conversationId: conversationState.conversationId,
-          conversationState,
-          userContext,
-          welcomeMessage: '', // No welcome message for non-empty conversation
-          quickActions: [],
-          followups: [],
-        };
-      } finally {
-        // Always release lock
-        if (lockAcquired) {
-          await this.releaseLock(lockKey);
-        }
-      }
-    }
-
-    // If agentId provided but no conversationId, check if current user has an existing conversation for this agent
-    if (agentId && !conversationId) {
-      let existingConversation = await prisma.aiConversation.findFirst({
+    if (!resolvedConversationId) {
+      const existingConversation = await prisma.aiConversation.findFirst({
         where: {
           agentId,
           userId,
-          conversationType: 'AGENT_EXECUTOR'
+          conversationType: 'AGENT_EXECUTOR',
+          isArchived: false,
         },
-        orderBy: { createdAt: 'desc' },
+        orderBy: { updatedAt: 'desc' },
+        select: { id: true },
       });
 
-      if (existingConversation) {
-        // FLAW-09 FIX: Use depth-guarded internal call instead of direct recursion.
-        // Without this, a lookup race can cause unbounded recursion until stack overflow.
-        console.log(`[AgentExecutor] Agent ${agentId} has existing conversation ${existingConversation.id} for user ${userId}, loading it`);
-        return this.initializeConversationInternal(userId, agentId, existingConversation.id, skipWelcome, _depth + 1);
-      }
-
-      // No existing conversation found. Acquire lock to prevent duplicate creation from concurrent requests (React StrictMode).
-      const initAgentLockKey = `${this.LOCK_KEY_PREFIX}init_agent:${userId}:${agentId}`;
-      const initAgentLockAcquired = await this.acquireLock(initAgentLockKey);
-
-      try {
-        if (!initAgentLockAcquired) {
-          // Wait and check again to see if the concurrent request created it.
-          await new Promise(resolve => setTimeout(resolve, 800));
-          existingConversation = await prisma.aiConversation.findFirst({
-            where: {
-              agentId,
-              userId,
-              conversationType: 'AGENT_EXECUTOR'
-            },
-            orderBy: { createdAt: 'desc' },
-          });
-
-          if (existingConversation) {
-            console.log(`[AgentExecutor] Agent ${agentId} gained conversation ${existingConversation.id} while waiting, loading it`);
-            return this.initializeConversationInternal(userId, agentId, existingConversation.id, skipWelcome, _depth + 1);
-          }
-        }
-
-        // Still doesn't exist (or we hold the lock), so create it safely.
-        console.log(`[AgentExecutor] Creating new conversation for agent ${agentId}`);
-        conversationState = await agentBuilderStateService.createConversationState(
-          userId,
-          agentId,
-          'AGENT_EXECUTOR'
+      if (!existingConversation) {
+        throw new AgentBuilderError(
+          'AGENT_EXECUTOR_NO_CONVERSATION',
+          `No executor conversation found for agent ${agentId}`,
+          'No chat exists yet. Create a new conversation first.',
+          { agentId, userId }
         );
-      } finally {
-        if (initAgentLockAcquired) {
-          await this.releaseLock(initAgentLockKey);
-        }
       }
-    } else if (!conversationId) {
-      // Fallback if no agentId and no conversationId provided
-      console.log(`[AgentExecutor] Creating new fallback conversation for agent ${agentId}`);
-      conversationState = await agentBuilderStateService.createConversationState(
-        userId,
-        agentId,
-        'AGENT_EXECUTOR'
-      );
+
+      resolvedConversationId = existingConversation.id;
     }
 
-    // Acquire lock for new conversation to prevent duplicate welcome messages
-    const newLockKey = `${this.LOCK_KEY_PREFIX}init:${conversationState.conversationId}`;
-    let newLockAcquired = await this.acquireLock(newLockKey);
-
-    if (!newLockAcquired) {
-      // If we couldn't get the lock for a brand new conversation, it means another 
-      // identical request (e.g. React StrictMode) is already initializing it.
-      let retries = 0;
-      while (retries < 2 && !newLockAcquired) {
-        await new Promise(resolve => setTimeout(resolve, 200));
-        newLockAcquired = await this.acquireLock(newLockKey);
-        retries++;
-      }
-
-      if (!newLockAcquired) {
-        console.log(`[AgentExecutor] New conversation ${conversationState.conversationId} is already being welcome-initialized, waiting...`);
-        await new Promise(resolve => setTimeout(resolve, 800));
-
-        const refreshedState = await agentBuilderStateService.getConversationState(conversationState.conversationId);
-        if (refreshedState && (refreshedState.conversationHistory.length > 0)) {
-          return {
-            conversationId: refreshedState.conversationId,
-            conversationState: refreshedState,
-            userContext,
-            welcomeMessage: '',
-            quickActions: [],
-            followups: [],
-          };
-        }
-      }
-    }
-
-    try {
-      // Double-check: verify no messages were added while we were creating the conversation
-      const messageCount = await prisma.aiMessage.count({
-        where: { conversationId: conversationState.conversationId },
-      });
-
-      if (messageCount > 0) {
-        // Messages already exist, refresh state and return
-        console.log(`[AgentExecutor] Messages already exist for new conversation ${conversationState.conversationId}`);
-        const refreshedState = await agentBuilderStateService.getConversationState(conversationState.conversationId);
-        if (!refreshedState) {
-          throw new AgentBuilderError(
-            'AGENT_EXECUTOR_STATE_REFRESH_FAILED',
-            `Failed to refresh conversation state for ${conversationState.conversationId}`,
-            'Failed to load conversation state. Please try again.',
-            { conversationId: conversationState.conversationId, userId }
-          );
-        }
-        return {
-          conversationId: refreshedState.conversationId,
-          conversationState: refreshedState,
-          userContext,
-          welcomeMessage: '',
-          quickActions: [],
-          followups: [],
-        };
-      }
-
-      if (!skipWelcome) {
-        const welcomeMessage = await this.generateWelcomeMessage(userContext, agent, userId);
-
-        await agentBuilderStateService.addMessageToHistory(
-          conversationState.conversationId,
-          'assistant',
-          welcomeMessage
-        );
-
-        const refreshedState = await agentBuilderStateService.getConversationState(conversationState.conversationId);
-        if (!refreshedState) {
-          throw new AgentBuilderError(
-            'AGENT_EXECUTOR_STATE_REFRESH_FAILED',
-            `Failed to refresh conversation state for ${conversationState.conversationId}`,
-            'Failed to load conversation state. Please try again.',
-            { conversationId: conversationState.conversationId, userId }
-          );
-        }
-
-        return {
-          conversationId: refreshedState.conversationId,
-          conversationState: refreshedState,
-          userContext,
-          welcomeMessage,
-          quickActions: [],
-          followups: [],
-        };
-      }
-
-      return {
-        conversationId: conversationState.conversationId,
-        conversationState,
-        userContext,
-        welcomeMessage: '',
-        quickActions: [],
-        followups: [],
-      };
-    } finally {
-      if (newLockAcquired) {
-        await this.releaseLock(newLockKey);
-      }
-    }
-  }
-
-  /**
-   * Extract welcome message generation to separate method
-   */
-  private async generateWelcomeMessage(
-    userContext: UserContext,
-    agent: any,
-    userId: string
-  ): Promise<string> {
-    const messages = [
-      {
-        role: 'system' as const,
-        content: `You are the Agentflox Agent Executor assistant.
-
-=== AI EXECUTOR FLOW GUIDE (REFERENCE) ===
-${AI_EXECUTOR_FLOW_GUIDE}
-=== END OF FLOW GUIDE ===
-
-Generate a short, friendly welcome message for the executor panel for this agent.
-
-Requirements:
-- Mention the agent by name.
-- Follow the pattern: "Have questions or want to know how to work with [AGENT NAME]? Ask me!"
-- Make it clear the user can ask questions about how the agent works, how to change it, and how to run it.
-- Optionally reference what the agent does based on its configuration, tools, triggers, and recent executions.
-- Keep it to 1-3 sentences, conversational and direct.
-
-Return strictly JSON with shape: { "welcomeMessage": string }.`,
-      },
-      {
-        role: 'user' as const,
-        content: JSON.stringify({
-          agent: {
-            id: agent.id,
-            name: agent.name,
-            type: agent.agentType,
-            status: agent.status,
-            isActive: agent.isActive,
-            description: agent.description,
-            capabilities: agent.capabilities,
-            constraints: agent.constraints,
-            systemPrompt: agent.systemPrompt,
-          },
-          userContext,
-        }),
-      },
-    ];
-
-    // Fetch model
-    const model = await fetchModel();
-
-    const estimatedTokens = estimateTokens(JSON.stringify(messages)) + 500;
-
-    // Check token limit
-    const tokenCheck = await checkAgentTokenLimit(userId, estimatedTokens);
-    if (!tokenCheck.allowed) {
+    const existingState = await agentBuilderStateService.getConversationState(resolvedConversationId);
+    if (!existingState) {
       throw new AgentBuilderError(
-        'AGENT_EXECUTOR_INSUFFICIENT_TOKENS',
-        `Insufficient tokens: ${tokenCheck.remaining} remaining, need ${estimatedTokens}`,
-        `You have ${tokenCheck.remaining} tokens remaining, but need approximately ${estimatedTokens} tokens. Please upgrade your plan or purchase more tokens.`,
-        { userId, remaining: tokenCheck.remaining, required: estimatedTokens }
+        'AGENT_EXECUTOR_CONVERSATION_NOT_FOUND',
+        `Conversation ${resolvedConversationId} not found`,
+        'This conversation could not be found. Please start a new conversation.',
+        { conversationId: resolvedConversationId, userId }
+      );
+    }
+    if (existingState.userId !== userId) {
+      throw new AgentBuilderError(
+        'AGENT_EXECUTOR_UNAUTHORIZED',
+        `Unauthorized: Conversation ${resolvedConversationId} does not belong to user ${userId}`,
+        'You do not have access to this conversation.',
+        { conversationId: resolvedConversationId, userId }
       );
     }
 
-    const completionPromise = this.runCompletion(
-      {
-        model: model.name,
-        messages,
-        temperature: 0.3,
-        max_tokens: 300,
-        response_format: { type: 'json_object' },
-      },
-      { operation: 'executor_initialize', agentId: agent.id, userId }
-    );
-
-    const completion: any = await Promise.race([
-      completionPromise,
-      new Promise((_, reject) => setTimeout(() => reject(new Error('LLM timeout')), 15000))
-    ]).catch(err => {
-      throw new AgentBuilderError(
-        'AGENT_EXECUTOR_WELCOME_FAILED',
-        'Failed to generate executor welcome message',
-        'I could not prepare the executor view in time. Please try again.',
-        { agentId: agent.id, userId, error: err.message }
-      );
-    });
-
-    const content = completion.choices?.[0]?.message?.content;
-    if (!content) {
-      throw new AgentBuilderError(
-        'AGENT_EXECUTOR_WELCOME_FAILED',
-        'Failed to generate executor welcome message',
-        'I could not prepare the executor view. Please try again.',
-        { agentId: agent.id, userId }
-      );
-    }
-
-    let parsed;
-    try {
-      parsed = ExecutorWelcomeResponseSchema.safeParse(extractJson(content));
-    } catch (error) {
-      throw new AgentBuilderError(
-        'AGENT_EXECUTOR_WELCOME_PARSE_FAILED',
-        'Failed to parse executor welcome response',
-        'I could not prepare the executor view. Please try again.',
-        { agentId: agent.id, userId, error: error instanceof Error ? error.message : String(error) }
-      );
-    }
-
-    if (!parsed.success) {
-      throw new AgentBuilderError(
-        'AGENT_EXECUTOR_WELCOME_INVALID',
-        'Executor welcome response did not match schema',
-        'I could not prepare the executor view. Please try again.',
-        { agentId: agent.id, userId, issues: parsed.error.issues }
-      );
-    }
-
-    // Count actual tokens and update usage — fire-and-forget
-    this.runInBackground('token-usage-tracking-welcome', async () => {
-      const tokenCount = await countAgentTokens(
-        messages as Array<{ role: string; content: string }>,
-        content,
-        model.name,
-        completion.usage as any
-      );
-      const user = await prisma.user.findUnique({
-        where: { id: userId },
-        select: { name: true, email: true },
-      });
-      await updateAgentUsage(
-        userId,
-        user?.name || user?.email || 'User',
-        tokenCount.inputTokens,
-        tokenCount.outputTokens,
-        user?.email || undefined
-      );
-    });
-
-    return parsed.data.welcomeMessage;
+    return {
+      conversationId: existingState.conversationId,
+      conversationState: existingState,
+      userContext,
+      welcomeMessage: '',
+      quickActions: [],
+      followups: [],
+    };
   }
 
   /**
@@ -941,10 +564,17 @@ Return strictly JSON with shape: { "welcomeMessage": string }.`,
     followups?: Array<{ id: string; label: string }>;
     patch?: Record<string, any>;
     suggestedActions?: Array<{ type: string; label: string; payload?: any }>;
+    /** Canonical output for handoff / display (additive). */
+    result?: string;
+    artifacts?: ExecutionArtifact[];
+    incomplete?: boolean;
+    completionKind?: 'success' | 'budget' | 'max_iterations' | 'error';
   }> {
     const runKey = `agent_run:${runId}`;
-    const isSwarmTask = conversationId.startsWith('swarm-task-conv-');
-    const swarmTaskId = isSwarmTask ? conversationId.replace('swarm-task-conv-', '') : null;
+    const swarmParsed = parseSwarmTaskConversationId(conversationId);
+    const isSwarmTask = !!swarmParsed;
+    const swarmTaskId = swarmParsed?.taskId ?? null;
+    const isSwarmReview = swarmParsed?.isReview ?? false;
 
     const onProgress = (stepDesc: string, node?: string) => {
       console.log(`[AgentExecutor ReAct] Progress: ${stepDesc}`);
@@ -968,6 +598,7 @@ Return strictly JSON with shape: { "welcomeMessage": string }.`,
       }
     };
     // CRIT-14: Idempotency check — return cached result for retried requests.
+    // For swarm: on cache hit, still repair completion if the task never got the broadcast.
     if (idempotencyKey) {
       const idempKey = `agent_executor:idempotency:${idempotencyKey}`;
       try {
@@ -976,6 +607,45 @@ Return strictly JSON with shape: { "welcomeMessage": string }.`,
           console.log(`[AgentExecutor] Idempotency hit for key=${idempotencyKey} — returning cached result.`);
           const parsed = JSON.parse(cached);
           await redis.setex(runKey, 3600, JSON.stringify({ status: 'completed', payload: parsed }));
+
+          if (isSwarmTask && swarmTaskId && !isSwarmReview) {
+            await step.run('swarm-broadcast-idempotency-repair', async () => {
+              try {
+                const task = await prisma.agentTask.findUnique({
+                  where: { id: swarmTaskId },
+                  select: { id: true, title: true, status: true },
+                });
+                if (!task) return true;
+                const status = String(task.status || '');
+                if (status === 'COMPLETED' || status === 'FAILED' || status === 'FAILED_PERMANENTLY') {
+                  return true;
+                }
+                const { swarmOrchestrationService } = await import('../orchestration/swarmOrchestrationService');
+                if (parsed.incomplete || (parsed.completionKind && parsed.completionKind !== 'success')) {
+                  await swarmOrchestrationService.broadcastTaskFailedForTask(
+                    swarmTaskId,
+                    task.title || 'Task',
+                    agentId,
+                    parsed.response || parsed.completionKind || 'Incomplete prior run'
+                  );
+                } else {
+                  await swarmOrchestrationService.broadcastTaskCompletedForTask(
+                    swarmTaskId,
+                    task.title || 'Task',
+                    agentId,
+                    parsed.result || parsed.response || '',
+                    parsed.suggestedActions || [],
+                    parsed.artifacts || []
+                  );
+                }
+              } catch (e) {
+                console.error('[AgentExecutor] Idempotency swarm repair failed', e);
+                throw e;
+              }
+              return true;
+            });
+          }
+
           return parsed;
         }
       } catch { /* non-fatal */ }
@@ -1173,7 +843,7 @@ Return strictly JSON with shape: { "welcomeMessage": string }.`,
           const prepResult = await step.run('executor-prepare-inferences', async () => {
             let intent = AGENT_CONSTANTS.INTENT.EXECUTOR.EXECUTE;
             if (!isSwarmTask) {
-              const res = await intentInferenceService.inferExecutorIntent(ctxResult.fullMessageWithContext, ctxResult.refreshedState.conversationHistory);
+              const res = await intentInferenceService.inferExecutorIntent(ctxResult.fullMessageWithContext, ctxResult.refreshedState.conversationHistory, userId);
               intent = res.intent;
             }
 
@@ -1192,7 +862,8 @@ Return strictly JSON with shape: { "welcomeMessage": string }.`,
             const skillInference = await this.skillInferenceService.inferSkills(
               ctxResult.fullMessageWithContext,
               `Current capabilities: ${agent.capabilities?.join(', ') || 'None'}. Description: ${agent.description || ''}`,
-              BUILT_IN_SKILLS
+              BUILT_IN_SKILLS,
+              userId
             );
 
             const currentSkillIds = (agent as any).agentSkills?.map((as: any) => as.skill?.name || as.skillId) || [];
@@ -1291,7 +962,14 @@ Return strictly JSON with shape: { "welcomeMessage": string }.`,
           const missingSkillsArray = missingSkills || [];
 
           onProgress?.('Building execution plan...');
-          const model = await fetchModel();
+          const resolved = await resolveModel({
+            modelId: agent.modelId,
+            userId,
+          });
+          const model = {
+            ...resolved,
+            name: resolved.apiModelId,
+          };
           const guardrails = AGENT_CONSTANTS.PROMPTS.QUALITY_GUARDRAILS;
 
           const cacheKey = `executor:${agentId}:${Buffer.from(ctxResult.fullMessageWithContext.slice(0, 80)).toString('base64')}`;
@@ -1414,9 +1092,13 @@ ${guardrails}${semanticMemoryBlock}${swarmPeerBlock}`;
           let iterations = 0;
           let isFinalAnswer = false;
           let finalResponse = '';
-          let lastContentGenerated: string | null = null;
+          let collectedArtifacts: ExecutionArtifact[] = [];
+          let completionKind: 'success' | 'budget' | 'max_iterations' | 'error' = 'success';
           let finalSuggestedActions: any[] = [];
           let loopTokensUsed = 0;
+          let recordedInputTokens = 0;
+          let recordedOutputTokens = 0;
+          let hadProviderUsage = false;
           const loopBudget = AGENT_CONSTANTS.LOOP_TOKEN_BUDGET;
           const toolsInvoked: string[] = []; // track for span + metrics
           // Baseline: measure the context size BEFORE the loop so we only track
@@ -1448,6 +1130,7 @@ ${guardrails}${semanticMemoryBlock}${swarmPeerBlock}`;
               finalResponse =
                 "I've reached the analysis limit for this turn — the task is more complex than expected. " +
                 "Please break it into smaller steps or clarify what you need most urgently.";
+              completionKind = 'budget';
               isFinalAnswer = true;
               break;
             }
@@ -1495,7 +1178,7 @@ ${guardrails}${semanticMemoryBlock}${swarmPeerBlock}`;
             const completion = await step.run(`executor-llm-${runId}-${iterations}`, async () => {
               return await this.runCompletion(
                 { ...completionParams, stream: true },
-                { operation: 'executor_chat', agentId: agent.id, userId },
+                { operation: 'executor_chat', agentId: agent.id, userId, resolvedModel: resolved } as any,
                 (textSoFar, delta) => {
                   if (delta) {
                     redis.publish(runKey, JSON.stringify({ type: 'token', message: delta })).catch(() => { });
@@ -1525,6 +1208,14 @@ ${guardrails}${semanticMemoryBlock}${swarmPeerBlock}`;
               );
             }
 
+            // Accumulate provider usage across React iterations for AiUsageLog
+            const turnUsage = fromOpenAIUsage(completion.usage);
+            if (completion.usage) {
+              hadProviderUsage = true;
+              recordedInputTokens += turnUsage.inputTokens;
+              recordedOutputTokens += turnUsage.outputTokens;
+            }
+
             messages.push(assistantMessage as any);
 
             // ── Thinking stream is emitted real-time, no need for post-hoc emit ──
@@ -1548,22 +1239,6 @@ ${guardrails}${semanticMemoryBlock}${swarmPeerBlock}`;
             // Check if it's the executor_response (final answer)
             const executorResponseCall = toolCalls.find((tc: any) => tc.function.name === 'executor_response');
             if (executorResponseCall) {
-              this.runInBackground('token-usage-tracking-chat', async () => {
-                const tokenCount = await countAgentTokens(
-                  messages as Array<{ role: string; content: string }>,
-                  executorResponseCall.function.arguments,
-                  model.name,
-                  completion.usage as any
-                );
-                await updateAgentUsage(
-                  userId,
-                  'User',
-                  tokenCount.inputTokens,
-                  tokenCount.outputTokens,
-                  undefined
-                );
-              });
-
               try {
                 const raw = JSON.parse(executorResponseCall.function.arguments);
                 const parsed = ExecutorResponseSchema.safeParse(raw);
@@ -1666,22 +1341,15 @@ ${guardrails}${semanticMemoryBlock}${swarmPeerBlock}`;
                 content: toolResultStr,
               } as any);
 
-              if (tc.function.name.startsWith('generate') || tc.function.name.startsWith('write') || tc.function.name.startsWith('create') || toolResultStr.length > 500) {
-                try {
-                  const parsed = JSON.parse(toolResultStr);
-                  // Tool results are wrapped: {status, toolCallId, result: {title, content, ...}}
-                  // Drill into the nested result object first, then fall back to top-level fields
-                  const inner = typeof parsed.result === 'object' && parsed.result !== null ? parsed.result : parsed;
-                  const rawContent = inner.content || inner.script || inner.documentation ||
-                    parsed.content || parsed.script ||
-                    (typeof parsed.result === 'string' ? parsed.result : null) ||
-                    toolResultStr;
-                  // Unescape literal \n sequences that JSON encoding produces inside string fields
-                  lastContentGenerated = typeof rawContent === 'string'
-                    ? rawContent
-                    : JSON.stringify(rawContent, null, 2);
-                } catch {
-                  lastContentGenerated = toolResultStr;
+              if (tc.function.name.startsWith('generate') || tc.function.name.startsWith('write') || tc.function.name.startsWith('create') || toolResultStr.length > 100) {
+                const built = buildArtifactsFromToolResult(tc.function.name, toolResultStr, {
+                  filenameBase: tc.function.name,
+                });
+                if (built.length > 0) {
+                  collectedArtifacts.push(...built.map((a, i) => ({
+                    ...a,
+                    id: a.id || `${tc.id}-${i}`,
+                  })));
                 }
               }
 
@@ -1724,7 +1392,43 @@ ${guardrails}${semanticMemoryBlock}${swarmPeerBlock}`;
 
           if (!isFinalAnswer) {
             finalResponse = 'Max iterations reached. Could not complete the task within the loop limit.';
+            completionKind = 'max_iterations';
           }
+
+          // Always write AiUsageLog (system + BYOK). Prefer provider usage totals from the loop.
+          this.runInBackground('token-usage-tracking-chat', async () => {
+            let inputTokens = recordedInputTokens;
+            let outputTokens = recordedOutputTokens;
+            let usageEstimated = !hadProviderUsage;
+            if (!hadProviderUsage) {
+              const tokenCount = await countAgentTokens(
+                messages as Array<{ role: string; content: string }>,
+                finalResponse,
+                model.name,
+              );
+              inputTokens = tokenCount.inputTokens;
+              outputTokens = tokenCount.outputTokens;
+              usageEstimated = true;
+            }
+            await recordUsage({
+              resolved,
+              usage: {
+                inputTokens,
+                outputTokens,
+                totalTokens: inputTokens + outputTokens,
+                usageEstimated,
+              },
+              userId,
+              userName: 'User',
+              context: {
+                conversationId,
+                agentId: agent.id,
+                action: 'CHAT',
+                success: completionKind === 'success',
+                metadata: { source: 'agentExecutorService', completionKind, iterations },
+              },
+            });
+          });
 
           // ── Phase 5: Span enrichment + metrics ───────────────────────────────
           // Enrich the OTel span with execution details so traces can be
@@ -1753,11 +1457,30 @@ ${guardrails}${semanticMemoryBlock}${swarmPeerBlock}`;
             });
           });
 
+          const upstreamResult = pickUpstreamResult(collectedArtifacts, finalResponse);
+          const incomplete = completionKind !== 'success';
+
+          // If no tool artifacts, still expose the final response as a text artifact when successful
+          if (collectedArtifacts.length === 0 && finalResponse && !incomplete) {
+            collectedArtifacts.push({
+              filename: `response-${(agent.name || 'agent').toLowerCase().replace(/[^a-z0-9]+/g, '-')}.md`,
+              type: 'markdown',
+              content: finalResponse,
+            });
+          }
+
           await agentBuilderStateService.addMessageToHistory(
             conversationId,
             'assistant',
             finalResponse,
-            { suggestedActions: finalSuggestedActions, automationInference }
+            {
+              suggestedActions: finalSuggestedActions,
+              automationInference,
+              artifacts: collectedArtifacts,
+              result: upstreamResult,
+              incomplete: incomplete || undefined,
+              completionKind,
+            }
           );
 
           // ── Semantic memory write-back (fire-and-forget) ──────────────────────
@@ -1781,6 +1504,10 @@ ${guardrails}${semanticMemoryBlock}${swarmPeerBlock}`;
 
           const partialResult = {
             response: finalResponse,
+            result: upstreamResult,
+            artifacts: collectedArtifacts,
+            incomplete: incomplete || undefined,
+            completionKind,
             conversationState: updatedState,
             agentDraft: updatedState.agentDraft,
             quickActions: [],
@@ -1788,46 +1515,45 @@ ${guardrails}${semanticMemoryBlock}${swarmPeerBlock}`;
             suggestedActions: finalSuggestedActions,
           };
 
-          // ── Broadcast task result to Swarm UI ───────────────────────────────
-          if (isSwarmTask && swarmTaskId) {
-            this.runInBackground('swarm-task-completed', async () => {
-              try {
-                const { swarmOrchestrationService } = await import('../orchestration/swarmOrchestrationService');
-                const task = await prisma.agentTask.findUnique({
-                  where: { id: swarmTaskId },
-                  select: { id: true, title: true }
-                }).catch(() => null);
+          // ── Broadcast task result to Swarm UI (durable step — not fire-and-forget) ──
+          // Review conversations must not advance/fail the primary pipeline step.
+          if (isSwarmTask && swarmTaskId && !isSwarmReview) {
+            await step.run('swarm-broadcast-completed', async () => {
+              const { swarmOrchestrationService } = await import('../orchestration/swarmOrchestrationService');
+              const task = await prisma.agentTask.findUnique({
+                where: { id: swarmTaskId },
+                select: { id: true, title: true }
+              }).catch(() => null);
 
-                const artifacts = [];
-                const taskTitleStr = (task as any)?.title || 'Task';
-                if (lastContentGenerated) {
-                  artifacts.push({
-                    filename: `${taskTitleStr.toLowerCase().replace(/[^a-z0-9]+/g, '-')}.md`,
-                    content: typeof lastContentGenerated === 'string' ? lastContentGenerated : JSON.stringify(lastContentGenerated, null, 2)
-                  });
-                } else if (finalResponse) {
-                  artifacts.push({
-                    filename: `report-${agent.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}.md`,
-                    content: typeof finalResponse === 'string' ? finalResponse : JSON.stringify(finalResponse, null, 2)
-                  });
-                }
+              const taskTitleStr = (task as any)?.title || 'Task';
 
-                // Pass the actual generated content as the upstream result so dependent tasks
-                // (e.g. 'Review blog') receive the full article, not just the LLM summary.
-                const upstreamResult = lastContentGenerated || finalResponse;
-
+              if (incomplete) {
+                await swarmOrchestrationService.broadcastTaskFailedForTask(
+                  swarmTaskId,
+                  taskTitleStr,
+                  agent.id,
+                  `${completionKind}: ${finalResponse}`
+                );
+              } else {
                 await swarmOrchestrationService.broadcastTaskCompletedForTask(
                   swarmTaskId,
                   taskTitleStr,
                   agent.id,
                   upstreamResult,
                   finalSuggestedActions,
-                  artifacts
+                  collectedArtifacts
                 );
-              } catch (e) {
-                console.error('[AgentExecutor] Failed to broadcast task completion to swarm', e);
               }
+              return true;
             });
+          }
+
+          // Idempotency: cache only AFTER successful swarm broadcast (correctness over hit rate).
+          if (idempotencyKey) {
+            const idempKey = `agent_executor:idempotency:${idempotencyKey}`;
+            try {
+              await redis.setex(idempKey, 300, JSON.stringify(partialResult));
+            } catch { /* non-fatal */ }
           }
 
           // Cache logic omitted for brevity here
@@ -1848,10 +1574,10 @@ ${guardrails}${semanticMemoryBlock}${swarmPeerBlock}`;
       // FLAW-07 FIX: Emit durable RUN_FAILED event (fire-and-forget).
       this.runInBackground('emit-run-failed', () => emitRunFailed(runId, userId, { error: e.message }));
 
-      // Broadcast failure to swarm UI (skip for transient lock errors as Inngest will retry)
-      if (isSwarmTask && swarmTaskId && e.code !== 'AGENT_EXECUTOR_CONVERSATION_LOCKED') {
-        this.runInBackground('swarm-task-failed', async () => {
-          try {
+      // Broadcast failure to swarm UI (durable). Skip lock errors (Inngest retries) and review convos.
+      if (isSwarmTask && swarmTaskId && !isSwarmReview && e.code !== 'AGENT_EXECUTOR_CONVERSATION_LOCKED') {
+        try {
+          await step.run('swarm-broadcast-failed', async () => {
             const { swarmOrchestrationService } = await import('../orchestration/swarmOrchestrationService');
             const task = await prisma.agentTask.findUnique({
               where: { id: swarmTaskId },
@@ -1863,8 +1589,9 @@ ${guardrails}${semanticMemoryBlock}${swarmPeerBlock}`;
               agentId,
               e.message || 'Unknown error'
             );
-          } catch { /* non-fatal */ }
-        });
+            return true;
+          });
+        } catch { /* non-fatal if step unavailable outside inngest */ }
       }
 
       throw e;
@@ -1904,7 +1631,14 @@ ${guardrails}${semanticMemoryBlock}${swarmPeerBlock}`;
     try {
       await inngest.send({
         name: 'agent/execute',
-        data: { executionId: execution.id, agentId, userId, inputData, executionContext },
+        data: {
+          executionId: execution.id,
+          agentId,
+          userId,
+          inputData,
+          executionContext,
+          rootRunId: execution.id,
+        },
       });
     } catch (inngestError: any) {
       console.error('[AgentExecutor] Failed to send event to Inngest:', inngestError);

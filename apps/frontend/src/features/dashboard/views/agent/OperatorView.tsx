@@ -8,6 +8,7 @@ import {
   MessageAction,
 } from '@/entities/chats/components/MessageList';
 import { ChatComposer } from '@/entities/chats/components/ChatComposer';
+import { AgentChatEmptyState } from '@/entities/chats/components/AgentChatEmptyState';
 import { trpc } from '@/lib/trpc';
 import { agentService } from '@/services/agent.service';
 import { toast } from 'sonner';
@@ -50,6 +51,18 @@ export const OperatorView: React.FC<OperatorViewProps> = ({
     { id: resolvedAgentId!, conversationType: 'AGENT_OPERATOR' },
     { enabled: !!resolvedAgentId, initialData: agent }
   );
+
+  const updateAgentModelMutation = trpc.agent.update.useMutation({
+    onSuccess: () => {
+      if (resolvedAgentId) void refetchAgent();
+    },
+    onError: (err) => toast.error(err.message || 'Failed to update agent model'),
+  });
+
+  const agentModelId =
+    (agentData as any)?.modelId ??
+    (agentData as any)?.aiModel?.id ??
+    null;
 
   const buildDbMessages = useCallback((allMessages: any[]): RenderedMessage[] =>
     allMessages.map((msg, index) => {
@@ -145,6 +158,8 @@ export const OperatorView: React.FC<OperatorViewProps> = ({
   });
 
   const [isInitializingBuilder, setIsInitializingBuilder] = useState(false);
+  // Prevent duplicate initialize calls (reset on failure so remount/retry can proceed)
+  const hasInitialized = useRef(false);
   const initializeBuilder = async (params: { agentId: string; conversationId?: string; skipWelcome?: boolean }) => {
     try {
       setIsInitializingBuilder(true);
@@ -184,6 +199,7 @@ export const OperatorView: React.FC<OperatorViewProps> = ({
 
       setIsInitializing(false);
     } catch (error: any) {
+      hasInitialized.current = false;
       toast.error(error.message || 'Failed to initialize conversation');
       setIsInitializing(false);
     } finally {
@@ -236,25 +252,19 @@ export const OperatorView: React.FC<OperatorViewProps> = ({
     }
   }, [agentData, showAgentProfile]);
 
-  const hasInitialized = useRef(false);
   useEffect(() => {
     if (conversationId || isInitializingBuilder || hasInitialized.current) return;
     if (resolvedAgentId) {
       if (isLoadingAgent) return;
-      const storedConversationId = agentData?.conversations?.[0]?.id;
       hasInitialized.current = true;
-      if (storedConversationId) {
-        initializeBuilder({ conversationId: storedConversationId, agentId: resolvedAgentId });
-      } else {
-        initializeBuilder({ agentId: resolvedAgentId });
-      }
+      initializeBuilder({ agentId: resolvedAgentId });
     } else {
       console.log('[OperatorView] No agent ID available, skipping initialization');
       setIsInitializing(false);
       return;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [resolvedAgentId, agentData, isLoadingAgent, conversationId]);
+  }, [resolvedAgentId, isLoadingAgent, conversationId]);
 
   const markFollowupsConsumedMutation = trpc.chat.markFollowupsConsumed.useMutation();
 
@@ -333,10 +343,27 @@ export const OperatorView: React.FC<OperatorViewProps> = ({
                 }
                 onFollowupClick={handleFollowupClick}
                 onActionClick={handleActionClick}
+                emptyState={
+                  <AgentChatEmptyState
+                    agentName={agentData?.name || agentDraft?.name || 'Agent'}
+                    agentDescription={agentData?.description || agentDraft?.description}
+                    agentAvatar={agentData?.avatar || agentDraft?.avatar}
+                    type="operator"
+                  />
+                }
               />
             </div>
             <div className="border-t bg-white px-4 py-3">
-              <ChatComposer onSend={handleSendMessage} isSending={isSending} disabled={isSending || !conversationId} />
+              <ChatComposer
+                onSend={handleSendMessage}
+                isSending={isSending}
+                disabled={isSending || !conversationId}
+                modelId={agentModelId}
+                onModelChange={(id) => {
+                  if (!resolvedAgentId) return;
+                  updateAgentModelMutation.mutate({ id: resolvedAgentId, modelId: id });
+                }}
+              />
             </div>
           </div>
         }

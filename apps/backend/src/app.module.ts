@@ -14,6 +14,7 @@ import { AiModule } from './modules/ai.module';
 import { SupportModule } from './modules/support.module';
 import { ToolsModule } from './modules/tools.module';
 import { WorkforcesModule } from './modules/workforces.module';
+import { PlatformHelpersModule } from './modules/platformHelpers.module';
 
 @Module({
   imports: [
@@ -31,7 +32,8 @@ import { WorkforcesModule } from './modules/workforces.module';
     AiModule,
     SupportModule,
     ToolsModule,
-    WorkforcesModule
+    WorkforcesModule,
+    PlatformHelpersModule,
   ],
 })
 export class AppModule { }

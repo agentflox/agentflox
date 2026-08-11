@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState } from "react";
 import Shell from "@/components/layout/Shell";
 import { useInterfaceSettings } from "@/hooks/useInterfaceSettings";
 import { DASHBOARD_ROUTES } from "@/constants/routes.config";
@@ -21,7 +21,6 @@ import {
 } from 'lucide-react';
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 
 export default function DashboardPage() {
   const { t } = useInterfaceSettings();
@@ -177,36 +176,103 @@ export default function DashboardPage() {
                 </p>
               </div>
 
-              {/* Quick Stats */}
-              <div className="flex items-center gap-3 sm:gap-4 shrink-0 overflow-x-auto pb-2 md:pb-0 hide-scrollbar w-full md:w-auto">
-                <div className="flex flex-col p-4 rounded-2xl bg-background/60 border border-border/50 backdrop-blur-md min-w-[120px] shadow-sm transition-all hover:-translate-y-1 hover:shadow-md flex-1 md:flex-none">
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className="p-1.5 rounded-md bg-blue-500/10 text-blue-500">
-                      <Box className="w-4 h-4" />
-                    </div>
-                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Workspaces</span>
+              {/* Platform spine — hierarchy, not metrics */}
+              <div className="relative shrink-0 w-full md:w-auto md:max-w-xl lg:max-w-2xl">
+                <div className="absolute -inset-3 rounded-[2rem] bg-gradient-to-r from-blue-500/10 via-violet-500/10 to-emerald-500/10 blur-2xl pointer-events-none" />
+                <div className="relative flex flex-col gap-3">
+                  <div className="flex items-center gap-2">
+                    <span className="relative flex h-2 w-2">
+                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400/70 opacity-75" />
+                      <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+                    </span>
+                    <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+                      Operating layer
+                    </span>
                   </div>
-                  <div className="text-3xl font-bold text-foreground">3</div>
-                </div>
 
-                <div className="flex flex-col p-4 rounded-2xl bg-background/60 border border-border/50 backdrop-blur-md min-w-[120px] shadow-sm transition-all hover:-translate-y-1 hover:shadow-md flex-1 md:flex-none">
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className="p-1.5 rounded-md bg-indigo-500/10 text-indigo-500">
-                      <Layers className="w-4 h-4" />
-                    </div>
-                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Spaces</span>
+                  <div className="flex items-stretch gap-0 w-full">
+                    {[
+                      {
+                        href: DASHBOARD_ROUTES.WORKSPACES,
+                        label: "Workspaces",
+                        hint: "Org fabric",
+                        Icon: Box,
+                        tone: "text-blue-600 dark:text-blue-400",
+                        glow: "from-blue-500/25 to-transparent",
+                        ring: "ring-blue-500/20 group-hover:ring-blue-500/40",
+                      },
+                      {
+                        href: DASHBOARD_ROUTES.SPACES,
+                        label: "Spaces",
+                        hint: "Domains",
+                        Icon: Layers,
+                        tone: "text-indigo-600 dark:text-indigo-400",
+                        glow: "from-indigo-500/25 to-transparent",
+                        ring: "ring-indigo-500/20 group-hover:ring-indigo-500/40",
+                      },
+                      {
+                        href: DASHBOARD_ROUTES.PROJECTS,
+                        label: "Projects",
+                        hint: "Delivery",
+                        Icon: FolderOpen,
+                        tone: "text-violet-600 dark:text-violet-400",
+                        glow: "from-violet-500/25 to-transparent",
+                        ring: "ring-violet-500/20 group-hover:ring-violet-500/40",
+                      },
+                      {
+                        href: DASHBOARD_ROUTES.TEAMS,
+                        label: "Teams",
+                        hint: "People",
+                        Icon: Users,
+                        tone: "text-emerald-600 dark:text-emerald-400",
+                        glow: "from-emerald-500/25 to-transparent",
+                        ring: "ring-emerald-500/20 group-hover:ring-emerald-500/40",
+                      },
+                    ].map((node, i, arr) => (
+                      <React.Fragment key={node.label}>
+                        <Link
+                          href={node.href}
+                          className={cn(
+                            "group relative flex flex-1 min-w-[92px] flex-col items-center gap-2 rounded-2xl px-3 py-3 transition-all duration-300 w-full text-center",
+                            "hover:bg-background/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30",
+                          )}
+                        >
+                          <div
+                            className={cn(
+                              "absolute inset-0 rounded-2xl bg-gradient-to-b opacity-0 transition-opacity duration-300 group-hover:opacity-100 pointer-events-none",
+                              node.glow,
+                            )}
+                          />
+                          <div
+                            className={cn(
+                              "relative flex h-10 w-10 items-center justify-center rounded-xl bg-background/80 ring-1 shadow-sm transition-all duration-300 group-hover:scale-105 group-hover:shadow-md shrink-0",
+                              node.ring,
+                              node.tone,
+                            )}
+                          >
+                            <node.Icon className="h-[18px] w-[18px]" strokeWidth={1.75} />
+                          </div>
+                          <div className="relative min-w-0 w-full flex flex-col items-center">
+                            <div className="text-sm font-semibold tracking-tight text-foreground whitespace-nowrap">
+                              {node.label}
+                            </div>
+                            <div className="text-[11px] text-muted-foreground tracking-wide truncate">
+                              {node.hint}
+                            </div>
+                          </div>
+                        </Link>
+                        {i < arr.length - 1 ? (
+                          <div className="hidden sm:flex w-4 lg:w-6 shrink-0 items-center justify-center self-center -mt-4" aria-hidden>
+                            <div className="h-px w-full bg-gradient-to-r from-border via-primary/30 to-border" />
+                          </div>
+                        ) : null}
+                      </React.Fragment>
+                    ))}
                   </div>
-                  <div className="text-3xl font-bold text-foreground">12</div>
-                </div>
 
-                <div className="flex flex-col p-4 rounded-2xl bg-background/60 border border-border/50 backdrop-blur-md min-w-[120px] shadow-sm transition-all hover:-translate-y-1 hover:shadow-md hidden sm:flex flex-1 md:flex-none">
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className="p-1.5 rounded-md bg-emerald-500/10 text-emerald-500">
-                      <Users className="w-4 h-4" />
-                    </div>
-                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Team</span>
-                  </div>
-                  <div className="text-3xl font-bold text-foreground">24</div>
+                  <p className="text-[11px] leading-relaxed text-muted-foreground/90 max-w-sm pl-0.5">
+                    Your enterprise stack flows from workspaces into spaces, projects, then teams — open any layer to continue.
+                  </p>
                 </div>
               </div>
             </div>
@@ -230,8 +296,8 @@ export default function DashboardPage() {
 
               {/* Search Bar */}
               <div className="relative w-full md:w-auto md:min-w-[320px] lg:min-w-[400px] shrink-0">
-                <div className="group flex h-12 w-full items-center rounded-xl border border-border/80 bg-card/50 backdrop-blur-md px-4 shadow-sm transition-all focus-within:border-primary/50 focus-within:bg-background focus-within:ring-4 focus-within:ring-primary/10 hover:border-border">
-                  <Search className="h-4 w-4 shrink-0 text-muted-foreground transition-colors group-focus-within:text-primary" />
+                <div className="group flex h-12 w-full items-center rounded-xl border border-zinc-200 bg-white px-4 shadow-sm transition-all focus-within:border-transparent focus-within:[background:linear-gradient(#fff,#fff)_padding-box,linear-gradient(to_right,#3b82f6,#a855f7,#ec4899)_border-box]">
+                  <Search className="h-4 w-4 shrink-0 text-zinc-400 transition-colors group-focus-within:text-zinc-600" />
                   <input
                     className="flex-1 h-full w-full bg-transparent pl-3 pr-0 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-0 border-none outline-none"
                     placeholder="Search modules..."

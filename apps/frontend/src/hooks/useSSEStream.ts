@@ -8,6 +8,7 @@
 
 import { useCallback, useRef, useState } from "react";
 import { fetchAuthToken } from "@/utils/backend-request";
+import { openUsageCapFromResponse } from "@/features/usage/hooks/useUsageCapModal";
 
 export const BACKEND_URL =
   typeof window !== "undefined"
@@ -93,6 +94,10 @@ export function useSSEStream(callbacks: StreamCallbacks = {}): UseSSEStreamRetur
       });
 
       if (!response.ok) {
+        const opened = await openUsageCapFromResponse(response);
+        if (opened) {
+          throw new Error("Execution limit reached");
+        }
         let errMsg = `HTTP ${response.status}`;
         try {
           const ct = response.headers.get("content-type") || "";

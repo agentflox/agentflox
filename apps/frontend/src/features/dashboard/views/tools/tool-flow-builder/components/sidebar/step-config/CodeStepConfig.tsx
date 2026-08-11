@@ -28,11 +28,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { StepCodeEditor } from "@/entities/tools/components/builder/StepCodeEditor";
 import type { StepConfigBaseProps } from "../types";
 
 export function CodeStepConfig(props: StepConfigBaseProps) {
 const { api, step, parsed, varTree } = props;
-  const { updateStepConfig, setSteps, systemToolsQuery } = api;
+  const { updateStepConfig, setSteps, systemToolsQuery, runCompositeTool } = api;
 
   return (
     <Tabs defaultValue="configure" className="w-full">
@@ -139,16 +140,16 @@ const { api, step, parsed, varTree } = props;
                 {parsed?.kind === "PYTHON" ? "main.py" : "main.js"}
               </span>
             </div>
-            <textarea
+            <StepCodeEditor
               value={(parsed?.code as string) ?? ""}
-              onChange={(e) =>
+              onChange={(code) =>
                 updateStepConfig(step.id, (cfg) => ({
                   ...cfg,
-                  code: e.target.value,
+                  code,
                 }))
               }
-              spellCheck={false}
-              className={`w-full resize-none font-mono text-[12px] leading-relaxed p-4 focus:outline-none min-h-[240px] ${parsed?.kind === "PYTHON" ? "bg-blue-950 text-blue-100" : "bg-zinc-900 text-green-100"}`}
+              language={parsed?.kind === "PYTHON" ? "PYTHON" : "JAVASCRIPT"}
+              height="260px"
             />
           </div>
         </div>
@@ -217,7 +218,10 @@ const { api, step, parsed, varTree } = props;
 
         {/* Run step button */}
         <div className="pt-4 border-t border-zinc-100">
-          <Button className="w-full bg-indigo-600 hover:bg-indigo-700 text-white gap-2 h-10">
+          <Button
+            className="w-full bg-indigo-600 hover:bg-indigo-700 text-white gap-2 h-10"
+            onClick={() => runCompositeTool({ startStepId: step.id, endStepId: step.id })}
+          >
             <Play className="h-4 w-4" />
             Run step
           </Button>
@@ -263,6 +267,26 @@ const { api, step, parsed, varTree } = props;
           </div>
         ) : (
           <>
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <div className="text-xs font-semibold text-zinc-900">Backend</div>
+                <span className="text-[10px] text-zinc-400">Optional</span>
+              </div>
+              <Select
+                value={(parsed?.backend as string) || "local"}
+                onValueChange={(val) => updateStepConfig(step.id, (cfg) => ({ ...cfg, backend: val }))}
+              >
+                <SelectTrigger className="h-10 text-xs text-zinc-900 bg-white border-zinc-200">
+                  <SelectValue placeholder="Select backend..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="local">local (Docker)</SelectItem>
+                  <SelectItem value="modal">modal</SelectItem>
+                  <SelectItem value="daytona">daytona</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
             <div className="space-y-3">
               <div className="flex items-center gap-2">
                 <div className="text-xs font-semibold text-zinc-900">Runtime Commands</div>

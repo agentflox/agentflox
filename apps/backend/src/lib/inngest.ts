@@ -28,6 +28,9 @@ export type AgentExecuteEvent = {
     userId: string;
     inputData?: any;
     executionContext?: any;
+    rootRunId?: string;
+    billingExempt?: boolean;
+    isResume?: boolean;
   };
 };
 
@@ -62,7 +65,10 @@ export type ToolCompositeExecuteEvent = {
     toolId: string;
     input: any;
     userId: string;
+    runId?: string;
     messageId?: string;
     stepId?: string;
+    rootRunId?: string;
+    billingExempt?: boolean;
   };
 };

@@ -146,6 +146,7 @@ export function ToolEditorAssistantPanel({
       attachments?: Array<{ type: string; filename: string; content?: string }>;
       contexts?: Array<{ type: string; id: string }>;
       mentions?: Array<{ id: string; name: string; type: string }>;
+      modelId?: string;
     }
   ) => {
     setError(null);
@@ -172,6 +173,7 @@ export function ToolEditorAssistantPanel({
         conversationId,
         message,
         context,
+        modelId: options?.modelId,
         attachments: options?.attachments,
         contexts: options?.contexts,
         mentions: options?.mentions,

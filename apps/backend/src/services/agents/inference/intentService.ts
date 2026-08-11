@@ -6,15 +6,12 @@
 
 import { Intent } from '../types/types';
 
-import { openai } from '@/lib/openai';
 import {
   checkAgentTokenLimit,
-  updateAgentUsage,
   estimateTokens,
-  countAgentTokens,
 } from '@/utils/ai/agentUsageTracking';
 import { prisma } from '@/lib/prisma';
-import { fetchModel } from '@/utils/ai/fetchModel';
+import { completeWithDefaultModel } from '@/services/models';
 import { ResponseCache } from '../cache/responseCache';
 import { agentBuilderContextService } from '../state/agentBuilderContextService';
 import { agentBuilderStateService } from '../state/agentBuilderStateService';
@@ -352,45 +349,22 @@ Analyze the user's message and extract the intent with all relevant parameters. 
       }
     }
 
-    const model = await fetchModel();
-
-    const response = await openai.chat.completions.create({
-      model: model.name,
-      messages,
-      response_format: { type: 'json_schema', json_schema: { name: 'intent', schema: INTENT_SCHEMA as any } },
-      temperature: 0.3,
+    const { completion } = await completeWithDefaultModel({
+      userId: userId || 'system',
+      request: {
+        messages,
+        response_format: { type: 'json_schema', json_schema: { name: 'intent', schema: INTENT_SCHEMA as any } },
+        temperature: 0.3,
+        stream: false,
+      },
+      usageContext: { action: 'ANALYZE', metadata: { source: 'intentService' } },
+      skipEntitlement: true,
     });
+    const response = completion;
 
     const content = response.choices[0]?.message?.content;
     if (!content) {
       throw new Error('No response from OpenAI');
-    }
-
-    // Track usage if userId provided
-    if (userId) {
-      countAgentTokens(
-        messages.map(m => ({ role: m.role, content: m.content })),
-        content,
-        model.name
-      ).then(async (tokenCount) => {
-        try {
-          const user = await prisma.user.findUnique({
-            where: { id: userId },
-            select: { name: true, email: true },
-          });
-          await updateAgentUsage(
-            userId,
-            user?.name || user?.email || 'User',
-            tokenCount.inputTokens,
-            tokenCount.outputTokens,
-            user?.email || undefined
-          );
-        } catch (error) {
-          console.error('Failed to update agent usage for intent understanding:', error);
-        }
-      }).catch(() => {
-        // Ignore errors for background tracking
-      });
     }
 
     const intent = JSON.parse(content) as Intent;

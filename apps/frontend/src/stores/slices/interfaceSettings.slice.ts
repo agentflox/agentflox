@@ -9,7 +9,7 @@ export interface InterfaceSettingsState {
 
 const initialState: InterfaceSettingsState = {
     language: 'en',
-    showAgentIcon: true,
+    showAgentIcon: false,
     showMessageIcon: true,
     commandInterfaceOpen: false,
 };

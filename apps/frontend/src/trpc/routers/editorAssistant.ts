@@ -1,11 +1,12 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { protectedProcedure, router } from "@/trpc/init";
-import { initializeOpenAI } from "@/lib/openai";
+import OpenAI from "openai";
 import { prisma } from "@/lib/prisma";
 import { ConversationType } from "@agentflox/database/src/generated/prisma";
 import { ToolOpSchema } from "@/entities/tools/components/assistant/types";
 import { WorkforceOpSchema } from "@/entities/workforce/components/assistant/types";
+import { decryptCredentials } from "@/lib/modelCredentials";
 
 export const EditorAssistantResponseSchema = z.object({
   assistantText: z.string(),
@@ -24,6 +25,7 @@ const messageSchema = z.object({
   conversationId: z.string().min(1),
   message: z.string().min(1),
   context: z.unknown(),
+  modelId: z.string().optional().nullable(),
 });
 
 export const editorAssistantRouter = router({
@@ -38,7 +40,13 @@ export const editorAssistantRouter = router({
     // Resolve a default model if none supplied
     let modelId = input.modelId;
     if (!modelId) {
-      const defaultModel = await db.aiModel.findFirst();
+      const defaultModel =
+        (await db.aiModel.findFirst({
+          where: { isDefault: true, isSystem: true, isActive: true },
+        })) ||
+        (await db.aiModel.findFirst({
+          where: { slug: 'gpt-4o-mini', isSystem: true, isActive: true },
+        }));
       modelId = defaultModel?.id ?? undefined;
     }
 
@@ -105,15 +113,62 @@ export const editorAssistantRouter = router({
   }),
 
   message: protectedProcedure.input(messageSchema).mutation(async ({ ctx, input }) => {
-    const openai = initializeOpenAI();
     const db: any = prisma as any;
     const userId = ctx.session.user.id;
 
     const conv = await db.aiConversation.findFirst({
       where: { id: input.conversationId, userId },
-      select: { id: true },
+      select: { id: true, modelId: true },
     });
     if (!conv) throw new TRPCError({ code: "NOT_FOUND", message: "Conversation not found" });
+
+    const selectedModelId = input.modelId ?? conv.modelId ?? null;
+    if (input.modelId) {
+      await db.aiConversation.update({
+        where: { id: input.conversationId },
+        data: { modelId: input.modelId },
+      }).catch(() => { /* non-fatal */ });
+    }
+
+    // Resolve via Shared Model catalog (system or custom BYOK)
+    let modelRow =
+      (selectedModelId
+        ? await db.aiModel.findFirst({ where: { id: selectedModelId, isActive: true } })
+        : null) ||
+      (await db.aiModel.findFirst({ where: { isDefault: true, isSystem: true, isActive: true } })) ||
+      (await db.aiModel.findFirst({ where: { slug: "gpt-4o-mini", isSystem: true, isActive: true } }));
+
+    if (!modelRow) {
+      throw new TRPCError({ code: "NOT_FOUND", message: "No AI model available" });
+    }
+
+    let apiKey: string | undefined;
+    if (modelRow.isCustom && modelRow.credentialsEncrypted) {
+      try {
+        const creds = decryptCredentials(modelRow.credentialsEncrypted) as any;
+        apiKey = creds?.apiKey || creds?.accessToken;
+      } catch {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Failed to decrypt model credentials" });
+      }
+    } else {
+      const provider = String(modelRow.provider || "OPENAI").toUpperCase();
+      apiKey =
+        provider === "ANTHROPIC"
+          ? process.env.ANTHROPIC_API_KEY
+          : provider === "GOOGLE"
+            ? process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY
+            : process.env.OPENAI_API_KEY;
+    }
+
+    if (!apiKey) {
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: `API key not configured for provider ${modelRow.provider}`,
+      });
+    }
+
+    // v1: OpenAI-compatible path for tRPC fallback (SSE Nest path is preferred)
+    const openai = new OpenAI({ apiKey });
 
     const system = [
       "You are an in-app editor assistant for AgentFlox.",
@@ -162,7 +217,7 @@ export const editorAssistantRouter = router({
       });
 
       const completion = await openai.chat.completions.create({
-        model: process.env.OPENAI_MODEL || "gpt-4o-mini",
+        model: modelRow.apiModelId || process.env.OPENAI_MODEL || "gpt-4o-mini",
         temperature: 0.2,
         messages: [
           { role: "system", content: system },
@@ -173,6 +228,31 @@ export const editorAssistantRouter = router({
           { role: "user", content: user },
         ],
         response_format: { type: "json_object" },
+      });
+
+      const usage = completion.usage;
+      const inputTokens = usage?.prompt_tokens ?? 0;
+      const outputTokens = usage?.completion_tokens ?? 0;
+      await db.aiUsageLog.create({
+        data: {
+          userId,
+          conversationId: input.conversationId,
+          action: "CHAT",
+          model: modelRow.apiModelId,
+          modelId: modelRow.id,
+          inputTokens,
+          outputTokens,
+          tokensUsed: (usage?.total_tokens ?? inputTokens + outputTokens) || 0,
+          isCustom: Boolean(modelRow.isCustom),
+          success: true,
+          metadata: {
+            source: "trpc.editorAssistant.message",
+            provider: modelRow.provider,
+            userKeyUsed: Boolean(modelRow.isCustom),
+          },
+        },
+      }).catch((err: unknown) => {
+        console.error("[editorAssistant] failed to write AiUsageLog", err);
       });
 
       const text = completion.choices[0]?.message?.content ?? "";

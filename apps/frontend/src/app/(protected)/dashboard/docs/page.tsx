@@ -366,13 +366,19 @@ export default function DocsPage() {
           {/* Filter Chips */}
           {query && (
             <div className="flex flex-wrap items-center gap-2">
-              <button
-                onClick={() => setQuery("")}
-                className="group inline-flex items-center gap-2 rounded-lg border-2 border-cyan-200 bg-cyan-50 px-3 py-1.5 text-sm font-medium text-cyan-700 transition-all hover:bg-cyan-100 hover:border-cyan-300 hover:shadow-md"
+              <span
+                className="group inline-flex items-center gap-1.5 rounded-lg border-2 border-cyan-200 bg-cyan-50 px-3 py-1.5 text-sm font-medium text-cyan-700 transition-all hover:border-cyan-300 hover:shadow-md dark:border-cyan-900 dark:bg-cyan-950/50 dark:text-cyan-300"
               >
                 <span>q: {query}</span>
-                <X className="h-3.5 w-3.5 transition-transform group-hover:rotate-90" />
-              </button>
+                <button
+                  type="button"
+                  onClick={() => setQuery("")}
+                  className="rounded-full p-0.5 transition-all hover:bg-cyan-200 dark:hover:bg-cyan-900 cursor-pointer"
+                  aria-label="Remove query filter"
+                >
+                  <X className="h-3.5 w-3.5 text-cyan-500 transition-transform group-hover:rotate-90 group-hover:text-cyan-700 dark:text-cyan-400 dark:group-hover:text-cyan-200" />
+                </button>
+              </span>
               <button
                 onClick={() => setQuery("")}
                 className="inline-flex items-center gap-2 rounded-lg border-2 border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 transition-all hover:bg-gray-50 hover:border-gray-400 hover:shadow-md"

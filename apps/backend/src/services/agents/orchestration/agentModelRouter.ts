@@ -16,7 +16,7 @@
  */
 
 import type { ModelTier } from './agentArchitecture';
-import { fetchModel } from '@/utils/ai/fetchModel';
+import { getDefaultModel } from '@/services/models';
 
 // ── Tier → Model Mapping ──────────────────────────────────────────────────────
 
@@ -68,25 +68,22 @@ const MODEL_TIER_MAP: Record<ModelTier, ModelSpec> = {
 
 export class AgentModelRouter {
     /**
-     * Resolve the concrete model spec for a given tier.
-     * Falls back to the workspace default model fetched via fetchModel()
-     * if the tier's model is unavailable (e.g. during a rollout).
+     * Resolve temperature / max tokens for a tier.
+     * FSM completions use the agent's resolved model for credentials + apiModelId;
+     * this router only supplies tier policy (temp / max tokens / cost estimate).
      */
     async resolve(tier: ModelTier): Promise<ModelSpec & { effectiveId: string }> {
         const spec = MODEL_TIER_MAP[tier];
 
-        // For non-EMBED tiers, verify the model is accessible
-        if (tier !== 'EMBED') {
+        // For PLAN, optionally surface platform default apiModelId as a hint
+        if (tier === 'PLAN') {
             try {
-                // fetchModel returns the workspace-configured primary model for validation
-                const workspaceModel = await fetchModel();
-
-                // If the workspace is configured to use a specific model, respect it for PLAN tier
-                if (tier === 'PLAN' && workspaceModel?.name) {
-                    return { ...spec, effectiveId: workspaceModel.name };
+                const workspaceModel = await getDefaultModel();
+                if (workspaceModel?.apiModelId) {
+                    return { ...spec, effectiveId: workspaceModel.apiModelId };
                 }
             } catch {
-                console.warn(`[ModelRouter] fetchModel failed — using tier default: ${spec.id}`);
+                console.warn(`[ModelRouter] getDefaultModel failed — using tier default: ${spec.id}`);
             }
         }
 

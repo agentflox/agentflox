@@ -33,9 +33,17 @@ export function toVarName(input: string): string {
     .slice(0, 48) || "step";
 }
 
-export function inferUiTypeFromProp(prop: any): InputUiType {
+export function inferUiTypeFromProp(prop: any, propName?: string): InputUiType {
   const hinted = prop?.["x-uiType"] as InputUiType | undefined;
   if (hinted) return hinted;
+  const name = String(propName || prop?.title || "").toLowerCase();
+  if (
+    name === "api_key" ||
+    /_api_key$/.test(name) ||
+    /(^|_)(access_token|secret|password|token)$/.test(name)
+  ) {
+    return "api_key";
+  }
   const t = (prop?.type as string | undefined) ?? "string";
   if (t === "boolean") return "checkbox";
   if (t === "number" || t === "integer") return "number";

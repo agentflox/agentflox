@@ -3,6 +3,7 @@ import { Plus, X } from "lucide-react";
 import Shell from "@/components/layout/Shell";
 import { PageHeader } from "@/entities/shared/components/PageHeader";
 import { SearchSection } from "@/entities/shared/components/SearchSection";
+import { UsageQuotaBanner } from "@/features/usage/components/UsageQuotaBanner";
 import TeamCard from "@/entities/teams/components/TeamCard";
 import { useTeamList } from "@/entities/teams/hooks/useTeamList";
 import { Button } from "@/components/ui/button";
@@ -297,6 +298,8 @@ export default function TeamsPage() {
 						}
 					/>
 
+					<UsageQuotaBanner kind="TEAM" />
+
 					<SearchSection
 						searchValue={query}
 						searchPlaceholder="Search teams..."
@@ -467,14 +470,20 @@ export default function TeamsPage() {
 					{chips.length > 0 && (
 						<div className="flex flex-wrap items-center gap-2">
 							{chips.map((c) => (
-								<button
-									key={c.id}
-									onClick={c.onRemove}
-									className="group inline-flex items-center gap-2 rounded-lg border-2 border-cyan-200 bg-cyan-50 px-3 py-1.5 text-sm font-medium text-cyan-700 transition-all hover:bg-cyan-100 hover:border-cyan-300 hover:shadow-md"
-								>
-									<span>{c.label}</span>
-									<X className="h-3.5 w-3.5 transition-transform group-hover:rotate-90" />
-								</button>
+							  <span
+							    key={c.id}
+							    className="group inline-flex items-center gap-1.5 rounded-lg border-2 border-cyan-200 bg-cyan-50 px-3 py-1.5 text-sm font-medium text-cyan-700 transition-all hover:border-cyan-300 hover:shadow-md dark:border-cyan-900 dark:bg-cyan-950/50 dark:text-cyan-300"
+							  >
+							    <span>{c.label}</span>
+							    <button
+							      type="button"
+							      onClick={c.onRemove}
+							      className="rounded-full p-0.5 transition-all hover:bg-cyan-200 dark:hover:bg-cyan-900 cursor-pointer"
+							      aria-label={`Remove ${c.label} filter`}
+							    >
+							      <X className="h-3.5 w-3.5 text-cyan-500 transition-transform group-hover:rotate-90 group-hover:text-cyan-700 dark:text-cyan-400 dark:group-hover:text-cyan-200" />
+							    </button>
+							  </span>
 							))}
 							<button
 								onClick={clearAll}

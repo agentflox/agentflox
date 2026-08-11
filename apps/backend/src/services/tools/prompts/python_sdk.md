@@ -60,22 +60,45 @@ response = LLM("openai-gpt-4.1").chat.completions.create(
     messages=[
         {"role": "system", "content": "You are a marketing expert."},
         {"role": "user", "content": prompt}
-    ]
+    ],
+    api_key=params["openai_api_key"],
 )
 analysis = response["choices"][0]["message"]["content"]
 tokens = response["usage"]["total_tokens"]
 \`\`\`
 
 ### Global Helpers
-The `Helper` class invokes platform-native utilities like web scrapers or PDF extractors.
-\`\`\`python
-# Example: Extract text from PDF
+The `Helper` class invokes platform-native utilities (PDF extract, search, scrape, temp upload).
+See `docs/PLATFORM_HELPERS.md` and `GET /v1/platform-helpers`.
+
+```python
+# Example: Extract text from PDF / DOCX / TXT
 extraction = Helper("file_to_text_llm_friendly").call(file_url=params['pdf_url'])
 text = extraction["text"]
+tables = extraction.get("tables", [])
 
-# Example: Google Search (Serper)
-search_results = Helper("serper_google_search").call(query="construction trends 2026")
-\`\`\`
+# Example: Google Search (Serper) — pass the user's API key from tool inputs
+search_results = Helper("serper_google_search").call(
+    query="construction trends 2026",
+    api_key=params["serper_api_key"],
+)
+
+# Example: Firecrawl scrape — pass the user's API key from tool inputs
+pages = Helper("firecrawl").call(
+    url=params["website_url"],
+    scrape_only=True,
+    api_key=params["firecrawl_api_key"],
+)
+
+# Example: Temp upload
+uploaded = insert_temp_file(file_path_or_bytes=b"hello", ext="txt")
+url = uploaded["url"]
+```
+
+When using LLM / Serper / Firecrawl (or any third-party API), **always** add a required tool input for the key (`openai_api_key`, `serper_api_key`, `firecrawl_api_key`, …) and pass it into the call from `params`.
+
+**V1 status:** `file_to_text*`, `serper_google_search`, `firecrawl`, `prompt_completion`, `llm`, `insert_temp_file` are live.
+`insert_data` / `retrieve_*` / `Integration` return not-configured errors until those products are enabled.
 
 ### Integration (OAuth & External APIs)
 \`\`\`python

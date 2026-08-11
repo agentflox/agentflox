@@ -14,7 +14,7 @@
  * This ensures continuity of context without ever exceeding the model's token limit.
  */
 
-import { openai } from '@/lib/openai';
+import { completeWithDefaultModel } from '@/services/models';
 import { CircuitBreaker } from '@/utils/circuitBreaker';
 
 export interface ConversationTurn {
@@ -34,9 +34,6 @@ export interface CompressionResult {
 
 /** How many recent turns to always keep verbatim (the working memory window). */
 const VERBATIM_TAIL_TURNS = 6;
-
-/** Model used for summarization — fast, cheap. Summarization failures fall back gracefully. */
-const SUMMARIZATION_MODEL = 'gpt-4o-mini';
 
 /** Circuit breaker to prevent cascading failures if the summarization LLM is degraded. */
 const summaryCircuitBreaker = new CircuitBreaker({
@@ -154,14 +151,15 @@ export class ConversationCompressor {
       ? `\n\nSystem context from the summarized window:\n${systemMessages.map(s => s.content).join('\n')}`
       : '';
 
-    const response = await openai.chat.completions.create({
-      model: SUMMARIZATION_MODEL,
-      temperature: 0,
-      max_tokens: 600,
-      messages: [
-        {
-          role: 'system',
-          content: `You are a conversation summarizer for an AI agent system. 
+    const response = await completeWithDefaultModel({
+      userId: 'system',
+      request: {
+        temperature: 0,
+        max_tokens: 600,
+        messages: [
+          {
+            role: 'system',
+            content: `You are a conversation summarizer for an AI agent system. 
 Your job is to create a compact, structured summary of an earlier section of a conversation.
 The summary will replace those messages in the agent's context window.
 
@@ -173,13 +171,17 @@ Output a structured summary with these sections (only include sections that have
 - **Context Notes**: Critical system or instruction context.
 
 Be extremely concise. Do NOT include conversational filler. Total output must be < 500 words.${systemContext}`,
-        },
-        {
-          role: 'user',
-          content: `Summarize the following conversation segment:\n\n${dialogueText}`,
-        },
-      ],
-    });
+          },
+          {
+            role: 'user',
+            content: `Summarize the following conversation segment:\n\n${dialogueText}`,
+          },
+        ],
+        stream: false,
+      },
+      usageContext: { action: 'ANALYZE', metadata: { source: 'conversationCompressor' } },
+      skipEntitlement: true,
+    }).then(r => r.completion);
 
     return response.choices[0]?.message?.content?.trim()
       ?? 'No summary available for prior context.';

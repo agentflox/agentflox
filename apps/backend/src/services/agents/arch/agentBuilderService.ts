@@ -1,5 +1,4 @@
-import { openai } from '@/lib/openai';
-import { fetchModel } from '@/utils/ai/fetchModel';
+import { resolveModel, createOpenAICompletion, recordUsage } from '@/services/models';
 import { agentBuilderContextService, UserContext } from '../state/agentBuilderContextService';
 import {
   agentBuilderStateService,
@@ -361,7 +360,17 @@ export class AgentBuilderService {
       // CB counts only the final outcome — not each individual retry attempt.
       return await cb.execute(() =>
         this.retryHandler.retry(
-          () => openai.chat.completions.create({ ...request, stream: false }),
+          async () => {
+            let resolved = (request as any).__resolvedModel;
+            if (!resolved) {
+              resolved = await resolveModel({
+                modelId: null,
+                userId: context.userId || 'system',
+                skipEntitlement: true,
+              });
+            }
+            return createOpenAICompletion(resolved, { ...request, stream: false });
+          },
           {
             maxAttempts: 2,
             baseDelay: 500,
@@ -419,6 +428,7 @@ export class AgentBuilderService {
       stage: ConversationStage;
       readiness?: StageReadinessAssessment | null;
       extractedConfig?: ExtractedConfiguration;
+      userId?: string;
     }
   ): Promise<{ response: string; followups: Array<{ id: string; label: string }> }> {
     // Dedicated CB for this operation — isolated from primary builder CB.
@@ -449,10 +459,17 @@ export class AgentBuilderService {
         },
       ];
 
+      const resolved = await resolveModel({
+        modelId: undefined,
+        userId: context.userId || 'system',
+        skipEntitlement: true,
+      }).catch(() => null);
+
       const verification = await cb.execute(() =>
         this.runCompletionWithResilience(
           {
-            model: 'gpt-4o-mini',
+            model: resolved?.apiModelId || 'gpt-4o-mini',
+            __resolvedModel: resolved || undefined,
             messages: verifyMessages,
             temperature: 0,
             max_tokens: 300,
@@ -828,8 +845,9 @@ Follow the flow guide principles: AI-generated messages, numbered options, dynam
       { role: 'user', content: welcomePrompt },
     ];
 
-    // Fetch model for token tracking
-    const model = await fetchModel();
+    // Fetch model for token tracking / completion
+    const resolved = await resolveModel({ modelId: undefined, userId });
+    const model = { ...resolved, name: resolved.apiModelId };
 
     const estimatedTokens = estimateTokens(JSON.stringify(messages)) + 500; // Add buffer for response
 
@@ -847,7 +865,8 @@ Follow the flow guide principles: AI-generated messages, numbered options, dynam
     // Re-use the shared messages array (no duplication)
     const welcomeCompletion = await this.runCompletionWithResilience(
       {
-        model: 'gpt-4o-mini',
+        model: resolved.apiModelId,
+        __resolvedModel: resolved,
         messages,
         temperature: 0.7,
         max_tokens: 5000,
@@ -1177,7 +1196,7 @@ Follow the flow guide principles: AI-generated messages, numbered options, dynam
 
       // ─── Step 2: intent inference ─────────────────────────────────────────────
       emit('Analysing your intent…', undefined);
-      const { intent } = await this.intentInferenceService.inferBuilderIntent(fullMessageWithContext, conversationState.conversationHistory);
+      const { intent } = await this.intentInferenceService.inferBuilderIntent(fullMessageWithContext, conversationState.conversationHistory, userId);
       // Emit again now that we know the intent so the label is specific
       const intentLabel: Record<string, string> = {
         [AGENT_CONSTANTS.INTENT.BUILDER.BUILD_OR_MODIFY]: 'build / modify',
@@ -1563,7 +1582,19 @@ ${enrichedPrompt}`,
         }
       }
 
-      const model = await fetchModel();
+      const conversationAgent = await prisma.aiConversation.findUnique({
+        where: { id: conversationId },
+        select: { agentId: true, aiAgent: { select: { id: true, modelId: true } } },
+      });
+      const resolved = await resolveModel({
+        modelId:
+          (updatedDraft as any)?.modelConfig?.modelId ||
+          conversationAgent?.aiAgent?.modelId ||
+          undefined,
+        userId,
+      });
+      const model = { ...resolved, name: resolved.apiModelId };
+      const resolvedAgentId = conversationAgent?.agentId || conversationAgent?.aiAgent?.id;
 
       // Use token budget manager for more accurate estimation
       const maxOutputTokens = this.tokenBudgetManager.getBudget('response');
@@ -1582,7 +1613,8 @@ ${enrichedPrompt}`,
       }
       // ─── LLM response generation (streaming when onToken is provided) ─────────
       const completionParams = {
-        model: 'gpt-4o-mini' as const,
+        model: resolved.apiModelId as any,
+        __resolvedModel: resolved,
         messages,
         temperature: 0.7,
         max_tokens: maxOutputTokens,
@@ -1654,7 +1686,12 @@ ${enrichedPrompt}`,
 
         const stream = await cb.execute(() =>
           this.retryHandler.retry(
-            () => openai.chat.completions.create({ ...completionParams, stream: true, stream_options: { include_usage: true } }),
+            () =>
+              createOpenAICompletion(resolved, {
+                ...completionParams,
+                stream: true,
+                stream_options: { include_usage: true },
+              }),
             {
               maxAttempts: 2,
               baseDelay: 500,
@@ -1779,8 +1816,6 @@ ${enrichedPrompt}`,
       }
 
       // ── Token usage tracking ──────────────────────────────────────────────────
-      // Count actual tokens used by the main response LLM call — fire-and-forget.
-      // Both streaming and non-streaming paths have populated `response` by this point.
       this.runInBackground('token-usage-tracking-chat', async () => {
         const tokenCount = await countAgentTokens(
           messages as Array<{ role: string; content: string }>,
@@ -1792,13 +1827,24 @@ ${enrichedPrompt}`,
           where: { id: userId },
           select: { name: true, email: true },
         });
-        await updateAgentUsage(
+        await recordUsage({
+          resolved,
+          usage: {
+            inputTokens: tokenCount.inputTokens,
+            outputTokens: tokenCount.outputTokens,
+            totalTokens: tokenCount.inputTokens + tokenCount.outputTokens,
+            usageEstimated: !completionUsage,
+          },
           userId,
-          user?.name || user?.email || 'User',
-          tokenCount.inputTokens,
-          tokenCount.outputTokens,
-          user?.email || undefined
-        );
+          userName: user?.name || user?.email || 'User',
+          email: user?.email || undefined,
+          context: {
+            conversationId,
+            agentId: resolvedAgentId || undefined,
+            action: 'CHAT',
+            success: true,
+          },
+        });
       });
       // ─────────────────────────────────────────────────────────────────────────
 

@@ -4,7 +4,6 @@ export type ModelOption =
   | 'gpt-4o-2024-05-13'
   | 'gpt-4o-mini'
   | 'gpt-4o-mini-2024-07-18'
-  | 'gpt-4'
   | 'gpt-4-32k'
   | 'gpt-4-1106-preview'
   | 'gpt-4-0125-preview'
@@ -29,7 +28,6 @@ export type NormalizedModelOption =
   | 'gpt_4o_2024_05_13'
   | 'gpt_4o_mini'
   | 'gpt_4o_mini_2024_07_18'
-  | 'gpt_4'
   | 'gpt_4_32k'
   | 'gpt_4_1106_preview'
   | 'gpt_4_0125_preview'
@@ -72,5 +70,104 @@ export const modelMapping: Record<NormalizedModelOption, ModelOption> = {
   claude_3_haiku_20240307: 'claude-3-haiku-20240307',
   dall_e_3: 'dall-e-3',
 };
+
+export type AiModelProvider = 'OPENAI' | 'ANTHROPIC' | 'GOOGLE';
+export type AiModelAuthType = 'API_KEY' | 'OAUTH_TOKEN' | 'SERVICE_ACCOUNT';
+export type AiModelCreditTier = 'FREE' | 'LOW' | 'MODERATE' | 'HIGH';
+
+export interface AiModelView {
+  id: string;
+  slug: string;
+  displayName: string;
+  provider: AiModelProvider;
+  apiModelId: string;
+  description?: string | null;
+  icon?: string | null;
+  color?: string | null;
+  isSystem: boolean;
+  isCustom: boolean;
+  isDefault: boolean;
+  isActive: boolean;
+  authType?: AiModelAuthType | null;
+  hasCredentials: boolean;
+  credentialsHint?: string | null;
+  contextWindow?: number | null;
+  maxOutputTokens?: number | null;
+  creditsPer1kInput?: number | null;
+  creditsPer1kOutput?: number | null;
+  creditTier?: string | null;
+  inputFileTypes: string[];
+  supportsThinking: boolean;
+  workspaceId?: string | null;
+  userId?: string | null;
+}
+
+export interface ProviderAuthField {
+  key: string;
+  label: string;
+  inputType: 'password' | 'text';
+  required: boolean;
+}
+
+export interface ProviderAuthConfig {
+  provider: AiModelProvider;
+  label: string;
+  authMethods: AiModelAuthType[];
+  /** Fields per auth method */
+  fields: Partial<Record<AiModelAuthType, ProviderAuthField[]>>;
+  /** Whether OAuth UI is enabled yet */
+  oauthEnabled?: boolean;
+}
+
+export const PROVIDER_AUTH_REGISTRY: ProviderAuthConfig[] = [
+  {
+    provider: 'OPENAI',
+    label: 'OpenAI',
+    authMethods: ['API_KEY'],
+    fields: {
+      API_KEY: [{ key: 'apiKey', label: 'API Key', inputType: 'password', required: true }],
+    },
+  },
+  {
+    provider: 'ANTHROPIC',
+    label: 'Anthropic',
+    authMethods: ['API_KEY'],
+    fields: {
+      API_KEY: [{ key: 'apiKey', label: 'API Key', inputType: 'password', required: true }],
+    },
+  },
+  {
+    provider: 'GOOGLE',
+    label: 'Google',
+    authMethods: ['API_KEY', 'OAUTH_TOKEN'],
+    oauthEnabled: false,
+    fields: {
+      API_KEY: [{ key: 'apiKey', label: 'API Key', inputType: 'password', required: true }],
+      OAUTH_TOKEN: [
+        { key: 'accessToken', label: 'Access Token', inputType: 'password', required: true },
+        { key: 'refreshToken', label: 'Refresh Token', inputType: 'password', required: false },
+      ],
+    },
+  },
+];
+
+export function getProviderAuthConfig(provider: AiModelProvider): ProviderAuthConfig | undefined {
+  return PROVIDER_AUTH_REGISTRY.find((p) => p.provider === provider);
+}
+
+export function creditTierLabel(tier?: string | null): string {
+  switch ((tier || '').toUpperCase()) {
+    case 'FREE':
+      return 'Free';
+    case 'LOW':
+      return 'Low credit consumption';
+    case 'MODERATE':
+      return 'Moderate credit consumption';
+    case 'HIGH':
+      return 'High credit consumption';
+    default:
+      return 'Credit usage varies';
+  }
+}
 
 export type Command = 'REWRITE' | 'SEOMULTIPLE' | 'SEOSINGLE';

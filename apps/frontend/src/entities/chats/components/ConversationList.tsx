@@ -16,7 +16,6 @@ import { memo, useState } from 'react'
 import { RenameConversationModal } from './RenameConversationModal'
 import { ConfirmArchiveConversationModal } from './ConfirmArchiveConversationModal'
 import { ConfirmDeleteConversationModal } from './ConfirmDeleteConversationModal'
-import { ChatCreationModal } from './ChatCreationModal'
 
 export interface ConversationListItem {
   id: string
@@ -95,7 +94,7 @@ const ConversationItem = memo(function ConversationItem({
       <div className="flex flex-1 overflow-hidden text-left">
         <span
           className={cn(
-            'truncate text-[13px] font-medium transition-colors',
+            'truncate text-[13px] font-normal transition-colors',
             isActive
               ? (isClean ? 'text-slate-900' : 'text-white')
               : (isClean ? 'text-slate-700 group-hover:text-slate-900' : 'text-slate-300 group-hover:text-white')
@@ -190,7 +189,6 @@ export const ConversationList = memo(function ConversationList({
 }: ConversationListProps) {
   const isClean = variant === 'clean'
 
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [renameTarget, setRenameTarget] = useState<{ id: string; title: string } | null>(null)
   const [archiveTarget, setArchiveTarget] = useState<{ id: string; title: string } | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; title: string } | null>(null)
@@ -242,7 +240,7 @@ export const ConversationList = memo(function ConversationList({
           )}>Conversations</h2>
           <Button
             variant={isClean ? "outline" : "primary"}
-            onClick={() => setIsCreateModalOpen(true)}
+            onClick={() => onCreate()}
             disabled={isCreating}
             className="h-8 gap-1.5 px-2.5 text-xs sm:h-9 sm:gap-2 sm:px-3 sm:text-sm"
           >
@@ -294,14 +292,6 @@ export const ConversationList = memo(function ConversationList({
       </ScrollArea>
 
       {/* Modals */}
-      <ChatCreationModal
-        open={isCreateModalOpen}
-        onOpenChange={setIsCreateModalOpen}
-        onCreate={async (title, description) => {
-          await onCreate(title, description)
-        }}
-        isCreating={isCreating}
-      />
       {renameTarget && (
         <RenameConversationModal
           open={!!renameTarget}

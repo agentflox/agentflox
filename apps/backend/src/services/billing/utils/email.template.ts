@@ -523,7 +523,7 @@ export class BillingEmailTemplates {
                 Usage: ${Number(service.percentageUsed ?? 0).toFixed(1)}%
               </p>
               <p style="color: ${theme.textColor}; margin: 4px 0;">
-                Remaining: ${service.remainingRequests} requests
+                Remaining: ${service.remainingApplicationRequests} application requests
               </p>
             </div>
           `).join('')}
@@ -572,7 +572,7 @@ export class BillingEmailTemplates {
                 Usage: ${(service.percentageUsed).toFixed(1)}%
             </p>
             <p style="color: ${theme.textColor}; margin: 4px 0;">
-                Remaining: ${service.remainingRequests} requests
+                Remaining: ${service.remainingApplicationRequests} application requests
             </p>
           </div>
         `).join('')}

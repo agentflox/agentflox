@@ -13,6 +13,7 @@ import {
 } from "@/entities/workforce";
 import { PageHeader } from "@/entities/shared/components/PageHeader";
 import { SearchSection } from "@/entities/shared/components/SearchSection";
+import { UsageQuotaBanner } from "@/features/usage/components/UsageQuotaBanner";
 import { DASHBOARD_ROUTES } from "@/constants/routes.config";
 import {
   Select,
@@ -308,6 +309,8 @@ export default function WorkforcePage() {
             }
           />
 
+          <UsageQuotaBanner kind="EXECUTION" />
+
           <SearchSection
             searchValue={query}
             searchPlaceholder="Search workforces..."
@@ -491,14 +494,20 @@ export default function WorkforcePage() {
           {filterChips.length > 0 && (
             <div className="flex flex-wrap items-center gap-2">
               {filterChips.map((chip) => (
-                <button
+                <span
                   key={chip.id}
-                  onClick={chip.onRemove}
-                  className="group inline-flex items-center gap-1.5 rounded-md border border-zinc-200 bg-zinc-50 px-2 py-1 text-xs font-medium text-zinc-700 transition-all hover:border-zinc-300 hover:bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300"
+                  className="group inline-flex items-center gap-1.5 rounded-md border border-zinc-200 bg-zinc-50 px-2 py-1 text-xs font-medium text-zinc-700 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300"
                 >
                   <span>{chip.label}</span>
-                  <X className="h-3 w-3 text-zinc-400 group-hover:text-zinc-600" />
-                </button>
+                  <button
+                    type="button"
+                    onClick={chip.onRemove}
+                    className="rounded-full p-0.5 transition-all hover:bg-zinc-200 dark:hover:bg-zinc-800 cursor-pointer"
+                    aria-label={`Remove ${chip.label} filter`}
+                  >
+                    <X className="h-3 w-3 text-zinc-400 group-hover:text-zinc-600 dark:text-zinc-500 dark:group-hover:text-zinc-300" />
+                  </button>
+                </span>
               ))}
               <Button
                 variant="ghost"

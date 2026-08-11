@@ -5,16 +5,12 @@
  * and fetches detailed context when needed.
  */
 
-import { openai } from '@/lib/openai';
-import { fetchModel } from '@/utils/ai/fetchModel';
+import { completeWithDefaultModel } from '@/services/models';
 import { UserContext, agentBuilderContextService } from '../state/agentBuilderContextService';
 import {
   checkAgentTokenLimit,
-  updateAgentUsage,
   estimateTokens,
-  countAgentTokens,
 } from '@/utils/ai/agentUsageTracking';
-import { prisma } from '@/lib/prisma';
 import { InferredEntityScopeSchema } from '../types/schemas';
 import { extractJson } from '@/utils/ai/jsonParsing';
 
@@ -58,7 +54,6 @@ export class EntityScopeInferrer {
       },
     ];
 
-    const model = await fetchModel();
     const estimatedTokens = estimateTokens(JSON.stringify(scopeInferenceMessages)) + 200;
 
     const tokenCheck = await checkAgentTokenLimit(userId, estimatedTokens);
@@ -68,36 +63,41 @@ export class EntityScopeInferrer {
     }
 
     try {
-      const completion = await openai.chat.completions.create({
-        model: model.name,
-        messages: scopeInferenceMessages,
-        temperature: 0.3,
-        max_tokens: 200,
-        tools: [
-          {
-            type: 'function',
-            function: {
-              name: 'infer_entity_scope',
-              description: 'Infer which entity the user is referring to',
-              parameters: {
-                type: 'object',
-                properties: {
-                  scopeType: {
-                    type: 'string',
-                    enum: ['workspace', 'space', 'project', 'team', 'portable', 'none'],
+      const { completion } = await completeWithDefaultModel({
+        userId: userId || 'system',
+        request: {
+          messages: scopeInferenceMessages,
+          temperature: 0.3,
+          max_tokens: 200,
+          tools: [
+            {
+              type: 'function',
+              function: {
+                name: 'infer_entity_scope',
+                description: 'Infer which entity the user is referring to',
+                parameters: {
+                  type: 'object',
+                  properties: {
+                    scopeType: {
+                      type: 'string',
+                      enum: ['workspace', 'space', 'project', 'team', 'portable', 'none'],
+                    },
+                    entityId: { type: 'string' },
+                    entityName: { type: 'string' },
+                    confidence: { type: 'number', minimum: 0, maximum: 100 },
+                    reasoning: { type: 'string' },
+                    shouldFetchDetails: { type: 'boolean' },
                   },
-                  entityId: { type: 'string' },
-                  entityName: { type: 'string' },
-                  confidence: { type: 'number', minimum: 0, maximum: 100 },
-                  reasoning: { type: 'string' },
-                  shouldFetchDetails: { type: 'boolean' },
+                  required: ['scopeType', 'confidence', 'reasoning', 'shouldFetchDetails'],
                 },
-                required: ['scopeType', 'confidence', 'reasoning', 'shouldFetchDetails'],
               },
             },
-          },
-        ],
-        tool_choice: { type: 'function', function: { name: 'infer_entity_scope' } },
+          ],
+          tool_choice: { type: 'function', function: { name: 'infer_entity_scope' } },
+          stream: false,
+        },
+        usageContext: { action: 'ANALYZE', metadata: { source: 'entityScopeInferrer' } },
+        skipEntitlement: true,
       });
 
       const toolCall = completion.choices[0]?.message?.tool_calls?.[0];
@@ -106,25 +106,6 @@ export class EntityScopeInferrer {
         const validated = InferredEntityScopeSchema.parse(parsed);
 
         console.log('[EntityScopeInferrer] Inferred entity scope:', validated);
-
-        // Track usage
-        countAgentTokens(
-          scopeInferenceMessages as Array<{ role: string; content: string }>,
-          toolCall.function.arguments,
-          model.name
-        ).then(async (tokenCount) => {
-          const user = await prisma.user.findUnique({
-            where: { id: userId },
-            select: { name: true, email: true },
-          });
-          await updateAgentUsage(
-            userId,
-            user?.name || user?.email || 'User',
-            tokenCount.inputTokens,
-            tokenCount.outputTokens,
-            user?.email || undefined
-          );
-        }).catch(() => { });
 
         // Fetch detailed context if needed and confidence is high
         if (validated.shouldFetchDetails && validated.confidence >= 70 && validated.entityId) {
@@ -181,4 +162,3 @@ export class EntityScopeInferrer {
     return userContext;
   }
 }
-

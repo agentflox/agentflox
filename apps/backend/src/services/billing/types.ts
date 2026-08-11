@@ -102,7 +102,7 @@ export interface PurchaseDetails {
       teamsUsed: number;
       remainingTeams: number;
       requestsUsed: number;
-      remainingRequests: number;
+      remainingApplicationRequests: number;
     };
     payment: {
       id: string;

@@ -128,6 +128,20 @@ export async function assertWorkforceAccess(userId: string, workforceId: string)
   if (!workforce) forbidden('Workforce not found or access denied');
 }
 
+export async function assertAgentAccess(userId: string, agentId: string): Promise<void> {
+  const agent = await prisma.aiAgent.findFirst({
+    where: {
+      id: agentId,
+      OR: [
+        { ownerId: userId },
+        { collaborators: { some: { userId } } },
+      ],
+    },
+    select: { id: true },
+  });
+  if (!agent) forbidden('Agent not found or access denied');
+}
+
 export async function assertChatEntityAccess(
   userId: string,
   contextType: ChatContextType,

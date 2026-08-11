@@ -453,9 +453,20 @@ export const agentRouter = router({
         }
       });
 
+      // Prefer Prisma relation connect/disconnect for modelId
+      if ('modelId' in updateData) {
+        delete data.modelId;
+        if (updateData.modelId === null) {
+          data.aiModel = { disconnect: true };
+        } else if (typeof updateData.modelId === 'string') {
+          data.aiModel = { connect: { id: updateData.modelId } };
+        }
+      }
+
       return prisma.aiAgent.update({
         where: { id },
         data,
+        include: { aiModel: true },
       });
     }),
 

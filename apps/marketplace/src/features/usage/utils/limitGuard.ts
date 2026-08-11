@@ -1,23 +1,24 @@
 import { prisma } from '@/lib/prisma';
 import { billingService } from '@/services/billing.service';
 
-type ServiceKey = 'PROJECT' | 'TEAM' | 'PROPOSAL' | 'REQUEST';
+type ServiceKey = 'PROJECT' | 'TEAM' | 'PROPOSAL' | 'REQUEST' | 'WORKSPACE' | 'SPACE';
 
 type ChatContextType = 'project' | 'profile' | 'proposal' | 'team' | 'workspace' | 'space' | 'channel' | 'task' | 'list' | 'folder';
 
 interface PlanLimits {
   maxProjects: number;
   maxTeams: number;
-  maxRequests: number;
-  maxChatsPerProject: number;
-  maxChatsPerProfile: number;
-  maxChatsPerTeam: number;
+  maxApplicationRequests: number;
+  maxSpaces: number;
+  maxWorkspaces: number;
 }
 
 interface ResourceCounts {
   projectsOwned: number;
   teamsOwned: number;
   requestsSent: number;
+  workspacesOwned: number;
+  spacesOwned: number;
 }
 
 export class LimitGuard {
@@ -42,21 +43,32 @@ export class LimitGuard {
     return {
       maxProjects: f?.maxProjects ?? 0,
       maxTeams: f?.maxTeams ?? 0,
-      maxRequests: f?.maxRequests ?? 0,
-      maxChatsPerProject: f?.maxChatsPerProject ?? 0,
-      maxChatsPerProfile: f?.maxChatsPerProfile ?? 0,
-      maxChatsPerTeam: f?.maxChatsPerTeam ?? 0,
+      maxApplicationRequests: f?.maxApplicationRequests ?? 0,
+      maxSpaces: f?.maxSpaces ?? 0,
+      maxWorkspaces: f?.maxWorkspaces ?? 0,
     };
   }
 
   static async getResourceCounts(userId: string): Promise<ResourceCounts> {
-    const [projectsOwned, teamsOwned, requestsSent] = await Promise.all([
+    const [projectsOwned, teamsOwned, requestsSent, workspacesOwned, spacesOwned] = await Promise.all([
       prisma.project?.count({ where: { ownerId: userId } }) ?? Promise.resolve(0),
       prisma.team?.count({ where: { ownerId: userId } }) ?? Promise.resolve(0),
-      (prisma as any).proposal?.count({ where: { userId } }) ?? Promise.resolve(0),
       prisma.request?.count({ where: { senderId: userId } }) ?? Promise.resolve(0),
+      (prisma as any).workspace?.count({ where: { ownerId: userId } }) ?? Promise.resolve(0),
+      (prisma as any).space?.count({ where: { ownerId: userId } }) ?? Promise.resolve(0),
     ]);
-    return { projectsOwned, teamsOwned, requestsSent };
+    return { projectsOwned, teamsOwned, requestsSent, workspacesOwned, spacesOwned };
+  }
+
+  private static isAtOrOverLimit(count: number, limit: number): boolean {
+    // -1 (or any negative) means unlimited
+    if (limit < 0) return false;
+    return count >= limit;
+  }
+
+  private static exceedsLimit(count: number, limit: number): boolean {
+    if (limit < 0) return false;
+    return count > limit;
   }
 
   static async ensureWithinCreateLimit(userId: string, service: ServiceKey): Promise<void> {
@@ -65,11 +77,15 @@ export class LimitGuard {
     const over = (svc: ServiceKey): boolean => {
       switch (svc) {
         case 'PROJECT':
-          return counts.projectsOwned >= limits.maxProjects;
+          return this.isAtOrOverLimit(counts.projectsOwned, limits.maxProjects);
         case 'TEAM':
-          return counts.teamsOwned >= limits.maxTeams;
+          return this.isAtOrOverLimit(counts.teamsOwned, limits.maxTeams);
         case 'REQUEST':
-          return counts.requestsSent >= limits.maxRequests;
+          return this.isAtOrOverLimit(counts.requestsSent, limits.maxApplicationRequests);
+        case 'WORKSPACE':
+          return this.isAtOrOverLimit(counts.workspacesOwned, limits.maxWorkspaces);
+        case 'SPACE':
+          return this.isAtOrOverLimit(counts.spacesOwned, limits.maxSpaces);
         default:
           return false;
       }
@@ -85,11 +101,15 @@ export class LimitGuard {
     const exceeds = (svc: ServiceKey): boolean => {
       switch (svc) {
         case 'PROJECT':
-          return counts.projectsOwned > limits.maxProjects;
+          return this.exceedsLimit(counts.projectsOwned, limits.maxProjects);
         case 'TEAM':
-          return counts.teamsOwned > limits.maxTeams;
+          return this.exceedsLimit(counts.teamsOwned, limits.maxTeams);
         case 'REQUEST':
-          return counts.requestsSent > limits.maxRequests;
+          return this.exceedsLimit(counts.requestsSent, limits.maxApplicationRequests);
+        case 'WORKSPACE':
+          return this.exceedsLimit(counts.workspacesOwned, limits.maxWorkspaces);
+        case 'SPACE':
+          return this.exceedsLimit(counts.spacesOwned, limits.maxSpaces);
         default:
           return false;
       }
@@ -100,68 +120,11 @@ export class LimitGuard {
   }
 
   static async ensureWithinChatLimit(
-    userId: string,
-    contextType: ChatContextType,
-    entityId: string
+    _userId: string,
+    _contextType: ChatContextType,
+    _entityId: string
   ): Promise<void> {
-    const limits = await this.getPlanLimits(userId);
-    const db = prisma as any;
-
-    let currentCount = 0;
-    let limit = 0;
-
-    switch (contextType) {
-      case 'project':
-        currentCount = await db.aiConversation.count({
-          where: { userId, projectId: entityId },
-        });
-        limit = limits.maxChatsPerProject;
-        break;
-      case 'profile':
-        // For profile chats, we check conversations where userId matches (user chatting about their own profile)
-        // Note: If you add a profileId field to AiConversation schema, update this query
-        currentCount = await db.aiConversation.count({
-          where: {
-            userId,
-            projectId: null,
-            proposalId: null,
-            teamId: null,
-          },
-        });
-        limit = limits.maxChatsPerProfile;
-        break;
-      case 'team':
-        currentCount = await db.aiConversation.count({
-          where: { userId, teamId: entityId },
-        });
-        limit = limits.maxChatsPerTeam;
-        break;
-      case 'task':
-        currentCount = await db.aiConversation.count({
-          where: { userId, taskId: entityId },
-        });
-        limit = limits.maxChatsPerProject; // reuse project limit for task chats
-        break;
-      case 'list':
-        currentCount = await db.aiConversation.count({
-          where: { userId, listId: entityId },
-        });
-        limit = limits.maxChatsPerProject;
-        break;
-      case 'folder':
-        currentCount = await db.aiConversation.count({
-          where: { userId, folderId: entityId },
-        });
-        limit = limits.maxChatsPerProject;
-        break;
-    }
-
-    if (limit > 0 && currentCount >= limit) {
-      throw new Error(
-        `You have reached the maximum number of chats for this ${contextType}. Please upgrade your plan to create more chats.`
-      );
-    }
+    // Chat-per-entity limits removed; keep signature for callers (e.g. chat.ts)
+    return;
   }
 }
-
-

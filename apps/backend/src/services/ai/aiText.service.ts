@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { ModelService } from './model.service';
+import { ModelService, SYSTEM_MODELS } from './model.service';
 import { prisma } from '@/lib/prisma';
 import { UsageManager } from '@/services/billing/managers/usage.manager';
 import {
@@ -41,9 +41,8 @@ const SYSTEM_PROMPTS: Record<string, string> = {
         'You are a helpful writing assistant. Apply the user\'s instruction to the given text. Return only the modified text without any additional commentary.',
 };
 
-const MODEL = 'gpt-4o-mini';
+const MODEL = SYSTEM_MODELS.GPT_4O_MINI;
 const ESTIMATE_CHARS_PER_TOKEN = 4;
-const OUTPUT_BUFFER_TOKENS = 500;
 
 export interface AiTextContextEntity {
     type: 'list' | 'project' | 'space';
@@ -75,10 +74,6 @@ export type AiTextOutput = AiTextSuccess | AiTextTokenError;
 
 function estimateInputTokens(text: string, systemPrompt: string): number {
     return Math.ceil((text.length + systemPrompt.length) / ESTIMATE_CHARS_PER_TOKEN);
-}
-
-function estimateOutputTokens(text: string): number {
-    return Math.ceil(text.length / ESTIMATE_CHARS_PER_TOKEN) + OUTPUT_BUFFER_TOKENS;
 }
 
 @Injectable()
@@ -182,35 +177,24 @@ export class AiTextService {
             { role: 'user' as const, content: text },
         ];
 
-        const result = await this.modelService.generateText(MODEL, messages as any, {
-            temperature,
-            maxTokens: 2000,
-        });
-
-        const resultText = (result.content || '').trim();
-        const inputTokens = estimateInputTokens(userContent, systemPrompt);
-        const outputTokens = Math.ceil(resultText.length / ESTIMATE_CHARS_PER_TOKEN);
-
         const user = await prisma.user.findUnique({
             where: { id: userId },
             select: { name: true, email: true },
         });
-        const userName = user?.name || user?.email || 'User';
 
-        try {
-            await UsageManager.updateChatUsage(
-                userId,
-                userName,
-                inputTokens,
-                outputTokens,
-                1,
-                user?.email ?? undefined
-            );
-        } catch (err) {
-            console.error('AiTextService: failed to update chat usage', err);
-            // Don't fail the request; usage tracking is best-effort
-        }
+        const result = await this.modelService.generateText(MODEL, messages as any, {
+            temperature,
+            maxTokens: 2000,
+            userId,
+            userName: user?.name || user?.email || 'User',
+            email: user?.email ?? undefined,
+            usageContext: {
+                action: 'GENERATE',
+                metadata: { source: 'AiTextService' },
+            },
+        });
 
-        return { result: resultText };
+        // Token debit + AiUsageLog handled by ModelService → Shared Manager
+        return { result: (result.content || '').trim() };
     }
 }

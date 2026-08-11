@@ -21,7 +21,7 @@ export class SupportController {
     @Post('message')
     async message(
         @Req() req: AuthenticatedRequest,
-        @Body() body: { conversationId: string; message: string },
+        @Body() body: { conversationId: string; message: string; modelId?: string | null },
     ) {
         const userId = req.userId;
         if (!userId) throw new HttpException('Unauthorized', HttpStatus.UNAUTHORIZED);
@@ -34,7 +34,12 @@ export class SupportController {
             throw new HttpException(`Rate limit exceeded. Try again in ${rl.retryAfter}s`, HttpStatus.TOO_MANY_REQUESTS);
         }
 
-        return this.supportService.sendMessageToSupportAssistant(userId, body.conversationId, body.message);
+        return this.supportService.sendMessageToSupportAssistant(
+            userId,
+            body.conversationId,
+            body.message,
+            body.modelId,
+        );
     }
 
     /**
@@ -45,7 +50,7 @@ export class SupportController {
     async messageStream(
         @Req() req: AuthenticatedRequest,
         @Res() res: ExpressResponse,
-        @Body() body: { conversationId: string; message: string },
+        @Body() body: { conversationId: string; message: string; modelId?: string | null },
     ) {
         const userId = req.userId;
         if (!userId) {
@@ -68,6 +73,7 @@ export class SupportController {
             body.conversationId,
             body.message,
             res,
+            body.modelId,
         );
     }
 }

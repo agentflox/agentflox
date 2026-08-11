@@ -1,9 +1,13 @@
 import { prisma } from '@/lib/prisma';
 import { CodeExecutorService } from './codeExecutor';
 import { executeApiIntegrationTool } from './apiIntegrationExecutor';
-import { openai } from '@/lib/openai';
 import logger from '@/lib/logger';
-import { updateAgentUsage } from '@/utils/ai/agentUsageTracking';
+import { v4 as uuidv4 } from 'uuid';
+import { collectArtifactsFromStepResults } from '../artifacts/executionArtifact';
+import {
+  getModelBySlug,
+  invokeWithModel,
+} from '@/services/models';
 
 /**
  * Step types as produced by both the Flow Builder and AI Builder.
@@ -33,6 +37,7 @@ export interface CompositeExecutionResult {
   output: any;
   steps: Record<string, any>;
   error?: string;
+  artifacts?: any[];
 }
 
 export class CompositeToolExecutionService {
@@ -42,7 +47,8 @@ export class CompositeToolExecutionService {
     toolId: string,
     input: any,
     userId: string,
-    onProgress?: (event: { type: 'thinking' | 'token' | 'complete' | 'error'; content: string; metadata?: any }) => void
+    onProgress?: (event: { type: 'thinking' | 'token' | 'complete' | 'error'; content: string; metadata?: any }) => void,
+    options?: { startStepId?: string; endStepId?: string },
   ): Promise<CompositeExecutionResult> {
     const tool = await prisma.compositeTool.findUnique({
       where: { id: toolId },
@@ -52,7 +58,8 @@ export class CompositeToolExecutionService {
       throw new Error(`Composite tool ${toolId} not found`);
     }
 
-    const steps = (tool.steps as unknown as CompositeToolStep[]) || [];
+    const allSteps = (tool.steps as unknown as CompositeToolStep[]) || [];
+    const steps = sliceSteps(allSteps, options?.startStepId, options?.endStepId);
 
     // stepResults keyed by step id, varName, and name — accessed via context.steps.*
     const stepResults: Record<string, any> = {};
@@ -62,11 +69,15 @@ export class CompositeToolExecutionService {
     const params: Record<string, any> = { ...(input ?? {}) };
 
     // Full execution context
+    const runId = uuidv4();
     const context: Record<string, any> = {
       input,
       inputs: input,
       params,
       steps: stepResults,
+      userId,
+      toolId,
+      runId,
     };
 
     onProgress?.({ type: 'thinking', content: `Starting composite tool execution: ${tool.name}` });
@@ -185,13 +196,15 @@ export class CompositeToolExecutionService {
         finalOutput = stepResults[steps[steps.length - 1]?.id] ?? null;
       }
 
+      const artifacts = collectArtifactsFromStepResults(stepResults, { finalOutput });
+
       onProgress?.({
         type: 'complete',
         content: typeof finalOutput === 'string' ? finalOutput : JSON.stringify(finalOutput, null, 2),
-        metadata: { result: finalOutput },
+        metadata: { result: finalOutput, artifacts },
       });
 
-      return { success: true, output: finalOutput, steps: stepResults };
+      return { success: true, output: finalOutput, steps: stepResults, artifacts };
     } catch (err: any) {
       logger.error(`Composite tool execution failed: ${err.message}`, { toolId, userId });
       onProgress?.({ type: 'error', content: err.message });
@@ -268,7 +281,14 @@ export class CompositeToolExecutionService {
   private async executeLlmStep(step: CompositeToolStep, context: any, userId: string) {
     // Support both our format (config.*) and Relevance AI format (params.*)
     const cfg = step.config || (step as any).params || {};
-    const { prompt, systemPrompt, model = 'gpt-4o-mini', temperature = 0.7, maxTokens = 1000 } = cfg;
+    const {
+      prompt,
+      systemPrompt,
+      model: modelSlugOrId = 'gpt-4o-mini',
+      modelId: explicitModelId,
+      temperature = 0.7,
+      maxTokens = 1000,
+    } = cfg;
     const resolvedPrompt = this.resolveVariables(prompt || '', context);
 
     const messages: any[] = [];
@@ -277,23 +297,27 @@ export class CompositeToolExecutionService {
     }
     messages.push({ role: 'user', content: resolvedPrompt });
 
-    const completion = await openai.chat.completions.create({
-      model,
-      messages,
-      temperature,
-      max_tokens: maxTokens,
-    });
-
-    if (completion.usage) {
-      updateAgentUsage(
-        userId,
-        'System',
-        completion.usage.prompt_tokens,
-        completion.usage.completion_tokens
-      ).catch((err) => logger.error(`Failed to update usage for LLM step: ${err.message}`, { userId }));
+    let modelId: string | undefined = explicitModelId;
+    if (!modelId && typeof modelSlugOrId === 'string') {
+      // Prefer catalog id; fall back to slug lookup for legacy step configs
+      const byId = await prisma.aiModel.findUnique({ where: { id: modelSlugOrId } }).catch(() => null);
+      if (byId) {
+        modelId = byId.id;
+      } else {
+        const bySlug = await getModelBySlug(modelSlugOrId, false);
+        modelId = bySlug?.id;
+      }
     }
 
-    return completion.choices[0].message.content;
+    const result = await invokeWithModel({
+      resolve: { modelId, userId },
+      messages,
+      options: { temperature, maxTokens },
+      usageContext: { action: 'GENERATE', metadata: { stepId: step.id, stepType: 'LLM' } },
+      userName: 'System',
+    });
+
+    return result.content;
   }
 
   /**
@@ -302,7 +326,7 @@ export class CompositeToolExecutionService {
    * The generated code uses:
    *   - params          — dict with all tool inputs + all prior step outputs (by varName)
    *   - steps           — dict keyed by step varName with full result objects
-   *   - Helper("name")  — built-in helper caller (stubbed; extend as needed)
+   *   - Helper("name")  — platform helper (file_to_text, serper, firecrawl, …)
    *   - LLM("model")    — built-in LLM caller
    *   - result = {...}  — the return value (must assign to `result`, not `return`)
    *
@@ -321,28 +345,31 @@ export class CompositeToolExecutionService {
 
     // Rewrite `return <expr>` (top-level) → `result = <expr>` so the wrapper captures it
     const code = rawCode.replace(/^(\s*)return\s+(.+)$/gm, '$1result = $2');
+    const advancedSettings = this.normalizeAdvancedSettings(cfg);
 
     const result = await this.codeExecutor.execute(
-      { kind: 'PYTHON', code, advancedSettings: cfg }, // Passed advanced settings here
+      { kind: 'PYTHON', code, advancedSettings },
       params,              // ← the merged params dict (inputs + prior step outputs)
       context.steps ?? {}, // ← step results keyed by varName
-      { executionDepth: 0, userId, traceId: `composite-${step.id}`, advancedSettings: cfg }, // Passed advanced settings here
+      {
+        executionDepth: 0,
+        userId,
+        toolId: context.toolId,
+        runId: context.runId,
+        traceId: context.runId || `composite-${step.id}`,
+        advancedSettings,
+      },
       {
         runStep: async () => ({}),
         promptCompletion: async (p: string) => {
-          const c = await openai.chat.completions.create({
-            model: 'gpt-4o-mini',
+          const { invokeWithModel } = await import('@/services/models');
+          const result = await invokeWithModel({
+            resolve: { modelId: null, userId },
             messages: [{ role: 'user', content: p }],
+            options: { temperature: 0.2, maxTokens: 2048 },
+            usageContext: { agentId: undefined, action: 'GENERATE', metadata: { source: 'python_step_llm' } },
           });
-          if (c.usage) {
-            updateAgentUsage(
-              userId,
-              'System',
-              c.usage.prompt_tokens,
-              c.usage.completion_tokens
-            ).catch((err) => logger.error(`Failed to update usage for Python LLM helper: ${err.message}`, { userId }));
-          }
-          return c.choices[0].message.content || '';
+          return result.content || '';
         },
       }
     );
@@ -368,28 +395,30 @@ export class CompositeToolExecutionService {
     const cfg = step.config || (step as any).params || {};
     const rawCode: string = cfg.code || '';
     const code = rawCode.replace(/^(\s*)return\s+(.+)$/gm, '$1result = $2');
+    const advancedSettings = this.normalizeAdvancedSettings(cfg);
 
     const result = await this.codeExecutor.execute(
-      { kind: 'JAVASCRIPT', code, advancedSettings: cfg },
+      { kind: 'JAVASCRIPT', code, advancedSettings },
       params,
       context.steps ?? {},
-      { executionDepth: 0, userId, traceId: `composite-${step.id}`, advancedSettings: cfg },
+      {
+        executionDepth: 0,
+        userId,
+        toolId: context.toolId,
+        runId: context.runId,
+        traceId: context.runId || `composite-${step.id}`,
+        advancedSettings,
+      },
       {
         runStep: async () => ({}),
         promptCompletion: async (p: string) => {
-          const c = await openai.chat.completions.create({
-            model: 'gpt-4o-mini',
+          const result = await invokeWithModel({
+            resolve: { modelId: null, userId },
             messages: [{ role: 'user', content: p }],
+            options: { temperature: 0.2, maxTokens: 2048 },
+            usageContext: { action: 'GENERATE', metadata: { source: 'js_step_llm' } },
           });
-          if (c.usage) {
-            updateAgentUsage(
-              userId,
-              'System',
-              c.usage.prompt_tokens,
-              c.usage.completion_tokens
-            ).catch((err) => logger.error(`Failed to update usage for JS LLM helper: ${err.message}`, { userId }));
-          }
-          return c.choices[0].message.content || '';
+          return result.content || '';
         },
       }
     );
@@ -399,6 +428,39 @@ export class CompositeToolExecutionService {
     }
 
     return result.result;
+  }
+
+  /**
+   * Normalize step config into the advancedSettings shape expected by CodeExecutorService.
+   * Accepts both ToolCodeView field names and flow-builder aliases (memory/timeout/fallback).
+   */
+  private normalizeAdvancedSettings(cfg: any): NonNullable<import('./codeExecutor').CodeStepConfig['advancedSettings']> {
+    const backendRaw = String(cfg?.backend || cfg?.runtime || 'local').toLowerCase();
+    const backend: 'modal' | 'daytona' | 'local' =
+      backendRaw === 'modal' || backendRaw.includes('modal')
+        ? 'modal'
+        : backendRaw === 'daytona'
+          ? 'daytona'
+          : 'local';
+
+    return {
+      backend,
+      packages: Array.isArray(cfg?.packages) ? cfg.packages.filter((p: any) => typeof p === 'string' && p.trim()) : [],
+      runtimeCommands: Array.isArray(cfg?.runtimeCommands)
+        ? cfg.runtimeCommands.filter((c: any) => typeof c === 'string' && c.trim())
+        : [],
+      sessionId: typeof cfg?.sessionId === 'string' ? cfg.sessionId : undefined,
+      longOutput: Boolean(cfg?.longOutput),
+      gpus: Number(cfg?.gpus ?? 0) || 0,
+      cpus: Number(cfg?.cpus ?? 1) || 1,
+      memorySize: Number(cfg?.memorySize ?? cfg?.memory ?? 512) || 512,
+      sessionTimeout: Number(cfg?.sessionTimeout ?? cfg?.timeout ?? 600) || 600,
+      raiseError: (['traceback', 'error', 'stderr'].includes(cfg?.raiseError) ? cfg.raiseError : 'traceback') as
+        | 'traceback'
+        | 'error'
+        | 'stderr',
+      enableFallback: cfg?.enableFallback ?? cfg?.fallback ?? true,
+    };
   }
 
   private async executeApiStep(step: CompositeToolStep, context: any, userId: string) {
@@ -476,6 +538,31 @@ export class CompositeToolExecutionService {
     logger.warn(`BRANCH step type is not fully supported. Returning stub.`);
     return { status: 'BRANCH stub' };
   }
+}
+
+/**
+ * Slice the step pipeline for partial runs.
+ * - startStepId: begin at this step (inclusive); steps before are skipped
+ * - endStepId: stop after this step (inclusive)
+ */
+export function sliceSteps<T extends { id: string }>(
+  steps: T[],
+  startStepId?: string,
+  endStepId?: string,
+): T[] {
+  if (!steps.length) return steps;
+  let startIdx = 0;
+  let endIdx = steps.length - 1;
+  if (startStepId) {
+    const i = steps.findIndex((s) => s.id === startStepId);
+    if (i >= 0) startIdx = i;
+  }
+  if (endStepId) {
+    const i = steps.findIndex((s) => s.id === endStepId);
+    if (i >= 0) endIdx = i;
+  }
+  if (startIdx > endIdx) return [];
+  return steps.slice(startIdx, endIdx + 1);
 }
 
 export const compositeToolExecutionService = new CompositeToolExecutionService();

@@ -19,8 +19,8 @@ import { ResizableSplitLayout } from '@/components/layout/ResizableSplitLayout';
 import { ToolChatSkeleton } from '../../../../entities/tools/components/ToolChatSkeleton';
 import type { ToolDraft, UserContext, ConversationState } from '@/entities/tools/types';
 import {
-  ChevronLeft, Hammer, FileText, Share2, Globe, MoreHorizontal,
-  Wrench, Copy, Download, Trash2, HelpCircle, Bot, Check, History, GitBranch,
+  ChevronLeft, Hammer, FileText, Share2, Globe, MoreHorizontal, Home, CopyPlus, Settings2,
+  Wrench, Copy, Download, Trash2, HelpCircle, Bot, Check, History, GitBranch, Flag, Play, X
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -38,12 +38,32 @@ import { PublishEntityModal } from "@/features/marketplace/components/PublishEnt
 import { MarketplaceGuardDialog } from "@/features/marketplace/components/MarketplaceGuardDialog";
 import { SupportAssistantModal } from "@/components/assistant/SupportAssistantModal";
 import { ToolVersionsSheet } from "@/entities/tools/components/ToolVersionsSheet";
+import { IconColorSelector } from "@/components/ui/icon-color-selector";
+import { EntityIcon } from "@/entities/shared/components/EntityIcon";
 import { BugReportModal } from "@/entities/tools/components/BugReportModal";
-import { ToolCodeView } from "./ToolCodeView";
-import { ToolNoCodeView } from "./ToolNoCodeView";
-import { ToolLogView } from "./ToolLogView";
+import dynamic from "next/dynamic";
+import { ToolCodeView, type ToolCodeSavePayload, type ToolCodeViewHandle } from "./ToolCodeView";
 import { useToolRun } from "@/entities/tools/hooks/useToolRun";
+import { useToolRunHistory } from "@/entities/tools/hooks/useToolRunHistory";
 import type { BuilderInputField } from "@/entities/tools/types/builder";
+
+function PanelLoading({ label }: { label: string }) {
+  return (
+    <div className="flex-1 min-h-0 w-full h-full flex items-center justify-center text-sm text-muted-foreground">
+      {label}
+    </div>
+  );
+}
+
+// Lazy-load secondary panels — Code view stays eager (needs imperative ref)
+const ToolNoCodeView = dynamic(() => import("./ToolNoCodeView").then((m) => m.ToolNoCodeView), {
+  ssr: false,
+  loading: () => <PanelLoading label="Loading builder…" />,
+});
+const ToolLogView = dynamic(() => import("./ToolLogView").then((m) => m.ToolLogView), {
+  ssr: false,
+  loading: () => <PanelLoading label="Loading logs…" />,
+});
 
 interface ToolAIBuilderViewProps {
   toolId?: string;
@@ -74,6 +94,7 @@ export const ToolAIBuilderView: React.FC<ToolAIBuilderViewProps> = ({
   const [isInitializing, setIsInitializing] = useState(true);
   const [showToolProfile, setShowToolProfile] = useState(false);
   const [hasStepsForPreview, setHasStepsForPreview] = useState(false);
+  const [toolDescription, setToolDescription] = useState<string>("");
 
   // Track optimistic message IDs to remove them when confirmed
   const optimisticMessageIds = useRef<Set<string>>(new Set());
@@ -84,29 +105,39 @@ export const ToolAIBuilderView: React.FC<ToolAIBuilderViewProps> = ({
     {
       enabled: !!conversationId,
       refetchOnWindowFocus: false,
-      refetchOnMount: true,
-      staleTime: 0,
+      refetchOnMount: false,
+      staleTime: 30_000,
     }
   );
 
-  // Load tool data if toolId provided
+  // Reuses page-level cache when navigating from /tools/build/ai/[id]
   const { data: toolData, isLoading: isLoadingTool, refetch: refetchTool } = trpc.tool.get.useQuery(
     { id: toolId!, conversationType: 'TOOL_BUILDER' },
-    { enabled: !!toolId }
+    {
+      enabled: !!toolId,
+      staleTime: 60_000,
+      refetchOnWindowFocus: false,
+    }
   );
 
   // --- Tool Builder Header State ---
   const router = useRouter();
   const utils = trpc.useUtils();
-  const [activeTab, setActiveTab] = useState<"build" | "logs">("build");
+  const [activeTab, setActiveTab] = useState<"build" | "run">("build");
   const [viewCode, setViewCode] = useState(false);
   const [name, setName] = useState("");
+  const [toolIcon, setToolIcon] = useState("");
+  const [toolColor, setToolColor] = useState("");
+  const [sopOverride, setSopOverride] = useState<string | null>(null);
   const [isEditingName, setIsEditingName] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
   const nameInputRef = useRef<HTMLInputElement>(null);
   useEffect(() => {
     if (toolData?.name) setName(toolData.name);
-  }, [toolData?.name]);
+    if ((toolData as any)?.icon) setToolIcon((toolData as any).icon);
+    if ((toolData as any)?.color) setToolColor((toolData as any).color);
+    setSopOverride(null);
+  }, [toolData?.name, (toolData as any)?.icon, (toolData as any)?.color, toolData?.id, (toolData as any)?.systemPrompt]);
   const [linkCopied, setLinkCopied] = useState(false);
 
   // Modals
@@ -117,6 +148,7 @@ export const ToolAIBuilderView: React.FC<ToolAIBuilderViewProps> = ({
   const [cloneOpen, setCloneOpen] = useState(false);
   const [cloneName, setCloneName] = useState("");
   const [agentPromptOpen, setAgentPromptOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [agentPromptDraft, setAgentPromptDraft] = useState("");
   useEffect(() => {
     const p = (toolData as any)?.functionSchema?.["x-agentPrompt"];
@@ -127,12 +159,19 @@ export const ToolAIBuilderView: React.FC<ToolAIBuilderViewProps> = ({
   const [publishOpen, setPublishOpen] = useState(false);
   const isEditing = !!toolData?.id;
 
+  const codeViewRef = useRef<ToolCodeViewHandle>(null);
+  const codeDraftRef = useRef<ToolCodeSavePayload | null>(null);
   const updateMutation = trpc.compositeTool.update.useMutation({
-    onSuccess: () => {
+    onSuccess: (updated) => {
       toast.success("Changes saved.");
       setHasChanges(false);
       utils.tool.list.invalidate();
-      if (toolData?.id) utils.tool.get.invalidate({ id: toolData.id });
+      if (toolData?.id) {
+        utils.tool.get.setData(
+          { id: toolData.id, conversationType: "TOOL_BUILDER" },
+          (prev: any) => (prev ? { ...prev, ...updated } : updated)
+        );
+      }
     },
     onError: (err) => toast.error(err.message),
   });
@@ -180,12 +219,22 @@ export const ToolAIBuilderView: React.FC<ToolAIBuilderViewProps> = ({
   // Inputs state (must be declared before handleSave)
   const [inputs, setInputs] = React.useState<BuilderInputField[]>([]);
   React.useEffect(() => {
-    if (!toolData) return;
-    const fn = (toolData as any).functionSchema as any;
-    const props = fn?.parameters?.properties || (toolData as any).params_schema?.properties || {};
-    const required: string[] = fn?.parameters?.required || (toolData as any).params_schema?.required || [];
+    const fn =
+      (toolData as any)?.functionSchema ||
+      (toolDraft as any)?.functionSchema ||
+      null;
+    if (!fn && !toolData && !toolDraft) return;
 
-    setInputs(Object.entries(props)
+    const props =
+      fn?.parameters?.properties ||
+      (toolData as any)?.params_schema?.properties ||
+      {};
+    const required: string[] =
+      fn?.parameters?.required ||
+      (toolData as any)?.params_schema?.required ||
+      [];
+
+    const nextInputs = Object.entries(props)
       .sort(([, a]: [string, any], [, b]: [string, any]) => (a?.order ?? 999) - (b?.order ?? 999))
       .map(([propName, schema]: [string, any]) => ({
         name: propName,
@@ -197,13 +246,91 @@ export const ToolAIBuilderView: React.FC<ToolAIBuilderViewProps> = ({
         placeholder: schema.examples?.[0] ?? "",
         uiType: schema.metadata?.content_type ?? undefined,
         fillMode: schema.metadata?.fillMode ?? undefined,
-      })) as BuilderInputField[]);
-  }, [toolData]);
+      })) as BuilderInputField[];
+
+    setInputs((prev) =>
+      JSON.stringify(prev) === JSON.stringify(nextInputs) ? prev : nextInputs
+    );
+  }, [toolData, toolDraft]);
+
+  const handleSetInputs = useCallback<React.Dispatch<React.SetStateAction<BuilderInputField[]>>>((value) => {
+    setHasChanges(true);
+    setInputs(value);
+  }, []);
 
   // Handlers
+  const saveCodeViewPayload = useCallback((data: ToolCodeSavePayload) => {
+    if (!isEditing || !toolData?.id) {
+      toast.error("Save the tool first before updating.");
+      return;
+    }
+
+    const existingSteps: any[] = (toolData as any)?.steps ?? [];
+    const codeStepRaw = existingSteps.find(
+      (s: any) => s.type === "PYTHON" || s.type === "JAVASCRIPT"
+    ) ?? existingSteps[0];
+
+    const normalizedSteps = existingSteps.map((s: any) => {
+      let cfg: any = {};
+      try { cfg = s.config ? (typeof s.config === "string" ? JSON.parse(s.config) : s.config) : {}; } catch { }
+      if (s.id === codeStepRaw?.id) {
+        cfg = {
+          ...cfg,
+          code: data.code,
+          packages: data.packages,
+          runtimeCommands: data.runtimeCommands,
+          ...(data.advancedSettings || {}),
+        };
+      }
+      return {
+        id: s.id,
+        name: s.name,
+        type: data.language === "JAVASCRIPT" && s.id === codeStepRaw?.id ? "JAVASCRIPT" : s.type,
+        config: cfg,
+      };
+    });
+
+    const properties: any = {};
+    const required: string[] = [];
+    data.inputs.forEach((input, index) => {
+      if (!input.name) return;
+      properties[input.name] = {
+        type: input.type,
+        title: input.label || input.name,
+        description: input.description || "",
+        order: index,
+        ...(input.defaultValue !== undefined ? { default: input.defaultValue } : {}),
+        ...(input.placeholder ? { examples: [input.placeholder] } : {}),
+        metadata: {
+          ...(input.uiType ? { content_type: input.uiType } : {}),
+          ...(input.fillMode ? { fillMode: input.fillMode } : {}),
+        },
+      };
+      if (input.required) required.push(input.name);
+    });
+
+    const currentSchema = ((toolData as any)?.functionSchema as any) ?? {};
+    updateMutation.mutate({
+      id: toolData.id,
+      name,
+      systemPrompt: sopOverride ?? (toolData as any)?.systemPrompt ?? (toolDraft as any)?.systemPrompt ?? undefined,
+      functionSchema: {
+        ...currentSchema,
+        parameters: { ...currentSchema?.parameters, type: "object", properties, required },
+      },
+      steps: normalizedSteps,
+    });
+  }, [isEditing, toolData, name, updateMutation, sopOverride, toolDraft]);
+
   const handleSave = useCallback(() => {
     if (!isEditing) { toast.error("Save the tool first before updating."); return; }
     if (!name.trim()) { toast.error("Tool name cannot be empty."); return; }
+
+    const codePayload = codeViewRef.current?.getSavePayload() ?? codeDraftRef.current;
+    if (codePayload) {
+      saveCodeViewPayload({ ...codePayload, inputs });
+      return;
+    }
 
     const properties: any = {};
     const required: string[] = [];
@@ -228,6 +355,7 @@ export const ToolAIBuilderView: React.FC<ToolAIBuilderViewProps> = ({
     updateMutation.mutate({
       id: toolData.id,
       name,
+      systemPrompt: sopOverride ?? (toolData as any)?.systemPrompt ?? (toolDraft as any)?.systemPrompt ?? undefined,
       functionSchema: {
         ...currentSchema,
         parameters: {
@@ -235,64 +363,10 @@ export const ToolAIBuilderView: React.FC<ToolAIBuilderViewProps> = ({
           type: "object",
           properties,
           required,
-        }
-      }
-    });
-  }, [isEditing, name, toolData?.id, updateMutation, inputs, toolData]);
-
-  // Save handler for ToolCodeView (persists code step config + inputs)
-  const handleCodeViewSave = useCallback((data: {
-    code: string;
-    language: string;
-    packages: string[];
-    runtimeCommands: string[];
-    inputs: BuilderInputField[];
-  }) => {
-    if (!isEditing) { toast.error("Save the tool first before updating."); return; }
-
-    const existingSteps: any[] = (toolData as any)?.steps ?? [];
-    const codeStepRaw = existingSteps.find(
-      (s: any) => s.type === "PYTHON" || s.type === "JAVASCRIPT"
-    ) ?? existingSteps[0];
-
-    // Build normalised steps — update the code step config, keep the rest unchanged
-    const normalizedSteps = existingSteps.map((s: any) => {
-      let cfg: any = {};
-      try { cfg = s.config ? (typeof s.config === "string" ? JSON.parse(s.config) : s.config) : {}; } catch { }
-      if (s.id === codeStepRaw?.id) {
-        cfg = { ...cfg, code: data.code, packages: data.packages, runtimeCommands: data.runtimeCommands };
-      }
-      return { id: s.id, name: s.name, type: data.language === "JAVASCRIPT" && s.id === codeStepRaw?.id ? "JAVASCRIPT" : s.type, config: cfg };
-    });
-
-    // Build functionSchema parameters from the updated inputs list
-    const properties: any = {};
-    const required: string[] = [];
-    data.inputs.forEach((input, index) => {
-      if (!input.name) return;
-      properties[input.name] = {
-        type: input.type,
-        title: input.label || input.name,
-        description: input.description,
-        order: index,
-        default: input.defaultValue,
-        examples: input.placeholder ? [input.placeholder] : undefined,
-        metadata: { content_type: input.uiType, fillMode: input.fillMode },
-      };
-      if (input.required) required.push(input.name);
-    });
-
-    const currentSchema = ((toolData as any)?.functionSchema as any) ?? {};
-    updateMutation.mutate({
-      id: toolData.id,
-      name,
-      functionSchema: {
-        ...currentSchema,
-        parameters: { ...currentSchema?.parameters, type: "object", properties, required },
+        },
       },
-      steps: normalizedSteps,
     });
-  }, [isEditing, toolData, name, updateMutation]);
+  }, [isEditing, name, toolData?.id, updateMutation, inputs, toolData, saveCodeViewPayload, sopOverride, toolDraft]);
 
   const handleShare = useCallback(async () => {
     const url = `${window.location.origin}/dashboard/tools/build/flow/${toolData?.id ?? ""}`;
@@ -345,10 +419,36 @@ export const ToolAIBuilderView: React.FC<ToolAIBuilderViewProps> = ({
   }, [router]);
 
   const toolRunState = useToolRun({ initialTool: toolData, inputs });
+  const toolRunHistory = useToolRunHistory(toolData?.id);
+
+  // Merge DB runs into live run history (DB as base, live runs override/prepend)
+  const mergedRunHistory = React.useMemo(() => {
+    const liveIds = new Set<string>();
+    for (const r of toolRunState.runHistory) {
+      liveIds.add(r.id);
+      if (r.serverRunId) liveIds.add(r.serverRunId);
+    }
+    const dbOnly = toolRunHistory.dbRuns.filter(
+      (r) => !liveIds.has(r.id) && !(r.serverRunId && liveIds.has(r.serverRunId)),
+    );
+    return [...toolRunState.runHistory, ...dbOnly];
+  }, [toolRunState.runHistory, toolRunHistory.dbRuns]);
+
+  // Sync completed live runs into DB history cache
+  React.useEffect(() => {
+    for (const run of toolRunState.runHistory) {
+      if (run.status !== "running") {
+        toolRunHistory.mergeLiveRun(run);
+      }
+    }
+  }, [toolRunState.runHistory, toolRunHistory.mergeLiveRun]);
+
   // --- End Tool Builder Header State ---
 
   // Mutations
   const [isInitializingBuilder, setIsInitializingBuilder] = useState(false);
+  // Prevent duplicate initialize calls (also reset on failure so remount/retry can proceed)
+  const hasInitialized = useRef(false);
   const initializeBuilder = async (params: { toolId?: string; conversationId?: string; skipWelcome?: boolean }) => {
     try {
       setIsInitializingBuilder(true);
@@ -392,6 +492,7 @@ export const ToolAIBuilderView: React.FC<ToolAIBuilderViewProps> = ({
 
       setIsInitializing(false);
     } catch (error: any) {
+      hasInitialized.current = false;
       toast.error(error.message || 'Failed to initialize conversation');
       setIsInitializing(false);
     } finally {
@@ -460,7 +561,10 @@ export const ToolAIBuilderView: React.FC<ToolAIBuilderViewProps> = ({
     const hasSteps = data.toolDraft?.steps && Array.isArray(data.toolDraft.steps) && data.toolDraft.steps.length > 0;
     // Trigger the ready animation in ToolPreview; actual profile reveal happens in onReadyComplete after 3s
     if ((isLaunchStage || hasSteps) && !showToolProfile && !hasStepsForPreview) setHasStepsForPreview(true);
-    if (isLaunchStage && toolId) setTimeout(() => refetchTool(), 800);
+    // Pull persisted steps + functionSchema into toolData after AI generation
+    if ((isLaunchStage || hasSteps) && toolId) {
+      void refetchTool();
+    }
 
     onProgressUpdate?.({
       toolName: data.toolDraft.name,
@@ -590,44 +694,24 @@ export const ToolAIBuilderView: React.FC<ToolAIBuilderViewProps> = ({
     }
   }, [toolData, toolDraft, showToolProfile]);
 
-  // Initialize conversation - use ref to prevent multiple calls
-  const hasInitialized = useRef(false);
-
+  // Initialize conversation on mount (hasInitialized ref is declared above initializeBuilder)
   useEffect(() => {
     // Prevent multiple initializations
     if (conversationId || isInitializingBuilder || hasInitialized.current) return;
 
-    // If toolId is provided, wait for tool data to load before initializing
-    if (toolId) {
-      // Still loading tool data, wait
-      if (isLoadingTool) return;
+    // If toolId is provided, wait for tool data to load first
+    if (toolId && isLoadingTool) return;
 
-      // Tool data loaded, check for existing conversation
-      const storedConversationId = toolData?.conversations?.[0]?.id;
+    hasInitialized.current = true;
 
-      hasInitialized.current = true;
+    // Pass toolId to the backend — it will find the existing conversation for
+    // this tool (or create a new one on first open). No need to look up
+    // toolData?.conversations here; the backend owns that logic now.
+    initializeBuilder({ toolId });
 
-      if (storedConversationId) {
-        // Load existing conversation
-        console.log('[ToolAIBuilderView] Loading existing conversation:', storedConversationId);
-        initializeBuilder({
-          conversationId: storedConversationId,
-          toolId: toolId
-        });
-      } else {
-        // No existing conversation, create a new one and link to tool
-        console.log('[ToolAIBuilderView] Creating new conversation for tool:', toolId);
-        initializeBuilder({
-          toolId: toolId
-        });
-      }
-    } else {
-      // No toolId provided, create new conversation
-      hasInitialized.current = true;
-      initializeBuilder({});
-    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [toolId, toolData, isLoadingTool, conversationId]);
+  }, [toolId, isLoadingTool, conversationId]);
+
 
   // Mutation to mark follow-ups as consumed
   const markFollowupsConsumedMutation = trpc.chat.markFollowupsConsumed.useMutation();
@@ -635,7 +719,7 @@ export const ToolAIBuilderView: React.FC<ToolAIBuilderViewProps> = ({
   // ✅ Update handleSendMessage to update UI optimistically before mutation
   const handleSendMessage = useCallback(async (
     message: string,
-    options?: { contexts?: any[]; mentions?: any[]; attachments?: any[] }
+    options?: { contexts?: any[]; mentions?: any[]; attachments?: any[]; modelId?: string }
   ) => {
     if (!message.trim() || isSending || !conversationId) return;
 
@@ -676,6 +760,7 @@ export const ToolAIBuilderView: React.FC<ToolAIBuilderViewProps> = ({
       conversationId,
       message,
       toolId: resolvedToolId,
+      modelId: options?.modelId,
       contexts: options?.contexts,
       mentions: options?.mentions,
       attachments: options?.attachments,
@@ -739,10 +824,32 @@ export const ToolAIBuilderView: React.FC<ToolAIBuilderViewProps> = ({
       <header className="flex items-center justify-between px-4 py-2 bg-white border-b shrink-0 h-14 gap-3">
         {/* Left: back + name */}
         <div className="flex items-center gap-2 min-w-0">
-          <Button variant="ghost" size="icon" className="w-8 h-8 text-gray-500 hover:text-gray-900 shrink-0" onClick={handleBack}>
-            <ChevronLeft className="w-4 h-4" />
-          </Button>
+          <button
+            onClick={() => router.push("/dashboard/tools")}
+            className="h-8 w-8 flex items-center justify-center rounded-md border border-zinc-200 hover:bg-zinc-100 hover:border-zinc-300 transition-colors cursor-pointer"
+          >
+            <Home className="h-4 w-4 text-zinc-600" />
+          </button>
           <div className="flex items-center gap-2 min-w-0">
+            <IconColorSelector
+              icon={toolIcon}
+              color={toolColor}
+              onIconChange={(newIcon) => {
+                setToolIcon(newIcon);
+                if (toolData?.id) updateMutation.mutate({ id: toolData.id, icon: newIcon });
+              }}
+              onColorChange={(newColor) => {
+                setToolColor(newColor);
+                if (toolData?.id) updateMutation.mutate({ id: toolData.id, color: newColor });
+              }}
+            >
+              <div 
+                className="h-8 w-8 flex-shrink-0 flex items-center justify-center rounded-md text-base font-semibold overflow-hidden cursor-pointer hover:opacity-80 transition-opacity"
+                style={{ backgroundColor: toolIcon ? toolColor : '#f4f4f5', color: toolIcon ? '#ffffff' : '#27272a' }}
+              >
+                {toolIcon ? <EntityIcon icon={toolIcon} size={16} fallback={Hammer} /> : "T"}
+              </div>
+            </IconColorSelector>
             {isEditingName ? (
               <input
                 ref={nameInputRef}
@@ -752,12 +859,12 @@ export const ToolAIBuilderView: React.FC<ToolAIBuilderViewProps> = ({
                 onBlur={() => setIsEditingName(false)}
                 onKeyDown={(e) => { if (e.key === "Enter") setIsEditingName(false); }}
                 autoFocus
-                className="text-sm font-semibold text-zinc-900 bg-zinc-100 border-none rounded px-1.5 outline-none focus:ring-1 ring-indigo-500/50 w-auto min-w-[120px] py-1"
+                className="h-8 text-sm font-semibold text-zinc-900 bg-zinc-100 border-none rounded px-1.5 outline-none focus:ring-1 ring-indigo-500/50 w-auto min-w-[120px] py-1"
               />
             ) : (
               <h1
                 onClick={() => setIsEditingName(true)}
-                className="text-sm font-semibold text-zinc-900 cursor-pointer hover:bg-zinc-100 px-1.5 rounded-sm transition-colors py-1 truncate max-w-[200px]"
+                className="h-8 text-sm font-semibold text-zinc-900 cursor-pointer hover:bg-zinc-100 px-1.5 rounded-sm transition-colors py-1.5 truncate max-w-[200px]"
               >
                 {name || "New Tool"}
               </h1>
@@ -771,27 +878,27 @@ export const ToolAIBuilderView: React.FC<ToolAIBuilderViewProps> = ({
               Unsaved
             </div>
           ) : isEditing ? (
-            <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full border border-emerald-100 bg-emerald-50/50 text-sm font-medium text-emerald-600 shrink-0">
+            <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-sm border border-emerald-100 bg-emerald-50/50 text-sm font-medium text-emerald-600 shrink-0">
               <div className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
               Live
             </div>
           ) : (
-            <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full border border-amber-100 bg-amber-50/50 text-sm font-medium text-amber-600 shrink-0">
+            <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-sm border border-amber-100 bg-amber-50/50 text-sm font-medium text-amber-600 shrink-0">
               <div className="h-1.5 w-1.5 rounded-full bg-amber-500" />
               Unsaved
             </div>
           )}
         </div>
 
-        {/* Center: Build / Logs tabs */}
+        {/* Center: Build / Run tabs */}
         <div className="flex items-center justify-center flex-1">
           <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="w-[200px]">
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="build" className="flex items-center gap-1.5 text-xs cursor-pointer">
                 <Hammer className="w-3 h-3" />Build
               </TabsTrigger>
-              <TabsTrigger value="logs" className="flex items-center gap-1.5 text-xs cursor-pointer">
-                <FileText className="w-3 h-3" />Logs
+              <TabsTrigger value="run" className="flex items-center gap-1.5 text-xs cursor-pointer">
+                <Play className="w-3 h-3" />Run
               </TabsTrigger>
             </TabsList>
           </Tabs>
@@ -799,75 +906,96 @@ export const ToolAIBuilderView: React.FC<ToolAIBuilderViewProps> = ({
 
         {/* Right: actions */}
         <div className="flex items-center gap-2 shrink-0">
+          {toolRunState.isRunningTool ? (
+            <Button
+              type="button"
+              variant="outline"
+              className="h-8 px-3 text-xs font-semibold gap-1.5 border-red-200 bg-red-50 text-red-700 hover:bg-red-100 hover:text-red-800"
+              onClick={() => toolRunState.cancelCompositeTool()}
+            >
+              <X className="h-3.5 w-3.5" />
+              Cancel run
+            </Button>
+          ) : showToolProfile && toolData ? (
+            <Button
+              type="button"
+              variant="outline"
+              className="h-8 px-3 text-xs hover:border-zinc-300 hover:bg-zinc-100"
+              onClick={() => {
+                setActiveTab("run");
+                toolRunState.runCompositeTool();
+              }}
+            >
+              <Play className="h-3 w-3 mr-1.5" />
+              Run tool
+            </Button>
+          ) : null}
+
           {showToolProfile && toolData && (
             <Tooltip>
               <TooltipTrigger asChild>
-                <div className={`flex items-center gap-1.5 ${activeTab === "logs" ? "opacity-50 cursor-not-allowed" : ""}`}>
+                <div className={`flex items-center gap-1.5 ${activeTab === "run" ? "opacity-50 cursor-not-allowed" : ""}`}>
                   <Label htmlFor="view-code" className="text-xs text-gray-500 whitespace-nowrap">View code</Label>
                   <Switch
                     id="view-code"
                     checked={viewCode}
                     onCheckedChange={setViewCode}
-                    disabled={activeTab === "logs"}
+                    disabled={activeTab === "run"}
                   />
                 </div>
               </TooltipTrigger>
-              {activeTab === "logs" && (
+              {activeTab === "run" && (
                 <TooltipContent side="bottom">Switch to Build mode to view code</TooltipContent>
               )}
             </Tooltip>
           )}
 
-          <Button variant="ghost" className="h-8 px-3 text-xs text-zinc-600 hover:text-zinc-900" onClick={handleShare} disabled={!isEditing}>
-            {linkCopied ? <Check className="h-3.5 w-3.5 mr-1 text-green-600" /> : <Share2 className="h-3.5 w-3.5 mr-1" />}
-            {linkCopied ? "Copied!" : "Share"}
-          </Button>
-
           <Button className="h-8 px-4 text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 text-white" onClick={handleSave} disabled={updateMutation.isPending || !isEditing}>
             {updateMutation.isPending ? "Saving…" : "Save changes"}
           </Button>
 
-          <Button type="button" className="h-8 px-4 text-xs font-semibold bg-violet-600 hover:bg-violet-700 text-white gap-1.5" onClick={handlePublish} disabled={!isEditing}>
-            <Globe className="h-3.5 w-3.5" />
-            Publish
-          </Button>
-
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="icon" className="h-8 w-8 border-zinc-200 text-zinc-600">
+              <Button variant="outline" size="icon" className="h-8 w-8 border-zinc-200 text-zinc-600 hover:border-zinc-300">
                 <MoreHorizontal className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48">
-              <DropdownMenuItem className="text-xs gap-2" onClick={() => setAgentPromptOpen(true)} disabled={!isEditing}>
-                <Bot className="h-3.5 w-3.5" />Edit agent prompt
+              <DropdownMenuItem
+                className="gap-4"
+                onClick={() => setSettingsOpen(true)}
+              >
+                <Settings2 className="h-4 w-4" /> Settings
               </DropdownMenuItem>
-              <DropdownMenuItem className="text-xs gap-2" onClick={handleConvertToFlowMode} disabled={!isEditing || updateMutation.isPending}>
-                <GitBranch className="h-3.5 w-3.5" />Convert to flow mode
+              <DropdownMenuItem className="gap-4" onClick={() => setAgentPromptOpen(true)} disabled={!isEditing}>
+                <Bot className="h-4 w-4" />Edit agent prompt
               </DropdownMenuItem>
-              <DropdownMenuItem className="text-xs gap-2" onClick={handleCloneOpen} disabled={!isEditing}>
-                <Copy className="h-3.5 w-3.5" />Clone
+              <DropdownMenuItem className="gap-4" onClick={handleConvertToFlowMode} disabled={!isEditing || updateMutation.isPending}>
+                <GitBranch className="h-4 w-4" />Convert to flow mode
               </DropdownMenuItem>
-              <DropdownMenuItem className="text-xs gap-2" onClick={handleCopyLink} disabled={!isEditing}>
-                <Copy className="h-3.5 w-3.5" />Copy link
+              <DropdownMenuItem className="gap-4" onClick={handleCloneOpen} disabled={!isEditing}>
+                <CopyPlus className="h-4 w-4" />Clone
               </DropdownMenuItem>
-              <DropdownMenuItem className="text-xs gap-2" onClick={handleExport} disabled={!isEditing}>
-                <Download className="h-3.5 w-3.5" />Export
+              <DropdownMenuItem className="gap-4" onClick={handleCopyLink} disabled={!isEditing}>
+                <Copy className="h-4 w-4" />Copy link
               </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem className="text-xs gap-2" onClick={() => setVersionsOpen(true)} disabled={!isEditing}>
-                <History className="h-3.5 w-3.5" />Version history
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem className="text-xs gap-2" onClick={() => setBugReportOpen(true)}>
-                <HelpCircle className="h-3.5 w-3.5" />Report bug
-              </DropdownMenuItem>
-              <DropdownMenuItem className="text-xs gap-2" onClick={() => setSupportModalOpen(true)}>
-                <HelpCircle className="h-3.5 w-3.5" />Help
+              <DropdownMenuItem className="gap-4" onClick={handleExport} disabled={!isEditing}>
+                <Download className="h-4 w-4" />Export
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem className="text-xs gap-2 text-red-600 focus:text-red-700" onClick={handleDelete} disabled={!isEditing}>
-                <Trash2 className="h-3.5 w-3.5" />Delete tool
+              <DropdownMenuItem className="gap-4" onClick={() => setVersionsOpen(true)} disabled={!isEditing}>
+                <History className="h-4 w-4" />Version history
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem className="gap-4" onClick={() => setBugReportOpen(true)}>
+                <Flag className="h-4 w-4" />Report bug
+              </DropdownMenuItem>
+              <DropdownMenuItem className="gap-4" onClick={() => setSupportModalOpen(true)}>
+                <HelpCircle className="h-4 w-4" />Help
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem className="gap-4 text-red-600 focus:text-red-700" onClick={handleDelete} disabled={!isEditing}>
+                <Trash2 className="h-4 w-4" />Delete tool
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -918,33 +1046,79 @@ export const ToolAIBuilderView: React.FC<ToolAIBuilderViewProps> = ({
               {showToolProfile && toolData ? (
                 <main className="flex-1 overflow-hidden h-full flex flex-col relative">
                   {activeTab === "build" ? (
-                    viewCode
-                      ? <ToolCodeView
-                        toolData={toolData}
-                        toolDraft={toolDraft}
-                        inputs={inputs}
-                        setInputs={setInputs}
-                        runInput={toolRunState.runInput}
-                        setRunInput={toolRunState.setRunInput}
-                        isRunningTool={toolRunState.isRunningTool}
-                        runCompositeTool={toolRunState.runCompositeTool}
-                        runHistory={toolRunState.runHistory}
-                        liveRunState={toolRunState.liveRunState}
-                        selectedRunId={toolRunState.selectedRunId}
-                        onSave={handleCodeViewSave}
-                        isSaving={updateMutation.isPending}
-                      />
-                      : <ToolNoCodeView
-                        toolData={toolData}
-                        toolDraft={toolDraft}
-                        inputs={inputs}
-                        runInput={toolRunState.runInput}
-                        setRunInput={toolRunState.setRunInput}
-                        isRunningTool={toolRunState.isRunningTool}
-                        runCompositeTool={toolRunState.runCompositeTool}
-                      />
+                    <>
+                      <div className={viewCode ? "h-full flex flex-col" : "hidden"}>
+                        <ToolCodeView
+                          ref={codeViewRef}
+                          toolData={toolData}
+                          toolDraft={toolDraft}
+                          inputs={inputs}
+                          setInputs={handleSetInputs}
+                          runInput={toolRunState.runInput}
+                          setRunInput={toolRunState.setRunInput}
+                          isRunningTool={toolRunState.isRunningTool}
+                          runCompositeTool={toolRunState.runCompositeTool}
+                          runHistory={toolRunState.runHistory}
+                          liveRunState={toolRunState.liveRunState}
+                          selectedRunId={toolRunState.selectedRunId}
+                          onDraftChange={(draft) => { codeDraftRef.current = draft; }}
+                          onDirtyChange={() => setHasChanges(true)}
+                          isSaving={updateMutation.isPending}
+                        />
+                      </div>
+                      <div className={!viewCode ? "flex-1 min-h-0 h-full w-full flex flex-col" : "hidden"}>
+                        <ToolNoCodeView
+                          toolData={{
+                            ...toolData,
+                            systemPrompt:
+                              sopOverride ??
+                              (toolData as any)?.systemPrompt ??
+                              (toolDraft as any)?.systemPrompt,
+                          }}
+                          toolDraft={
+                            toolDraft
+                              ? {
+                                  ...toolDraft,
+                                  systemPrompt:
+                                    sopOverride ??
+                                    (toolDraft as any)?.systemPrompt ??
+                                    (toolData as any)?.systemPrompt,
+                                }
+                              : toolDraft
+                          }
+                          inputs={inputs}
+                          runInput={toolRunState.runInput}
+                          setRunInput={toolRunState.setRunInput}
+                          isRunningTool={toolRunState.isRunningTool}
+                          runCompositeTool={toolRunState.runCompositeTool}
+                          runHistory={toolRunState.runHistory}
+                          selectedRunId={toolRunState.selectedRunId}
+                          onSopChange={(sop) => {
+                            setSopOverride(sop);
+                            setHasChanges(true);
+                            setToolDraft((prev) =>
+                              prev ? ({ ...prev, systemPrompt: sop } as any) : prev
+                            );
+                          }}
+                        />
+                      </div>
+                    </>
                   ) : (
-                    <ToolLogView {...toolRunState} inputs={inputs} />
+                    <div className="flex-1 min-h-0 h-full w-full flex flex-col">
+                      <ToolLogView
+                          {...toolRunState}
+                          runHistory={mergedRunHistory}
+                          setRunHistory={(updater) => {
+                            // Forward local deletes back into the live state
+                            toolRunState.setRunHistory(updater);
+                          }}
+                          inputs={inputs}
+                          onDeleteRun={toolRunHistory.deleteRun}
+                          onLoadMore={toolRunHistory.loadMore}
+                          hasMore={toolRunHistory.hasMore}
+                          loadingMore={toolRunHistory.loadingMore}
+                      />
+                    </div>
                   )}
                 </main>
               ) : (
@@ -1002,12 +1176,78 @@ export const ToolAIBuilderView: React.FC<ToolAIBuilderViewProps> = ({
           <DialogHeader><DialogTitle className="flex items-center gap-2"><Bot className="h-4 w-4" />Edit Agent Prompt</DialogTitle></DialogHeader>
           <div className="space-y-2 py-2">
             <p className="text-xs text-zinc-500">This prompt is injected when an AI agent uses this tool to understand its purpose and constraints.</p>
-            <Textarea value={agentPromptDraft} onChange={(e) => setAgentPromptDraft(e.target.value)} placeholder="You are a helpful assistant that…" className="min-h-[180px] text-sm resize-none" />
+            <Textarea value={agentPromptDraft} onChange={(e) => setAgentPromptDraft(e.target.value)} placeholder="You are a helpful assistant that…" className="min-h-[180px] text-sm resize-none focus-visible:ring-1" />
           </div>
           <DialogFooter>
-            <Button variant="ghost" onClick={() => setAgentPromptOpen(false)}>Cancel</Button>
+            <Button variant="ghost" className="border border-zinc-200 hover:border-zinc-300" onClick={() => setAgentPromptOpen(false)}>Cancel</Button>
             <Button onClick={handleSaveAgentPrompt} disabled={agentPromptMutation.isPending}>{agentPromptMutation.isPending ? "Saving…" : "Save prompt"}</Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Settings modal for workforce icon / title / description */}
+      <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Tool settings</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-1">
+            <div className="flex items-center gap-3">
+              <IconColorSelector
+                icon={toolIcon}
+                color={toolColor}
+                onIconChange={(newIcon) => {
+                  setToolIcon(newIcon);
+                  if (toolData?.id) updateMutation.mutate({ id: toolData.id, icon: newIcon });
+                }}
+                onColorChange={(newColor) => {
+                  setToolColor(newColor);
+                  if (toolData?.id) updateMutation.mutate({ id: toolData.id, color: newColor });
+                }}
+              >
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="h-10 w-10 rounded-lg shrink-0 overflow-hidden"
+                  style={{ backgroundColor: toolIcon ? toolColor : '#f4f4f5', color: toolIcon ? '#ffffff' : '#27272a', border: 'none' }}
+                >
+                  {toolIcon ? <EntityIcon icon={toolIcon} size={20} fallback={Hammer} /> : "T"}
+                </Button>
+              </IconColorSelector>
+              <div className="flex-1">
+                <label className="block text-xs font-medium text-zinc-700 !mb-1.5">
+                  Title
+                </label>
+                <input
+                  value={name}
+                  onChange={(e) => { setName(e.target.value); setHasChanges(true); }}
+                  placeholder="New tool"
+                  className="h-8 text-sm w-full border border-zinc-200 rounded-md px-2 transition-colors focus:outline-none focus:ring-1 focus:ring-zinc-400 focus-visible:ring-1 focus-visible:ring-zinc-400"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-zinc-700 !mb-1.5">
+                Description
+              </label>
+              <Textarea
+                value={toolDescription}
+                onChange={(e) => setToolDescription(e.target.value)}
+                placeholder="Describe what this tool does…"
+                className="min-h-[80px] text-sm transition-colors focus:outline-none focus:ring-1 focus:ring-zinc-400 focus-visible:ring-1 focus-visible:ring-zinc-400 shadow-none"
+              />
+            </div>
+            <div className="flex justify-end pt-2">
+              <button
+                type="button"
+                className="h-8 px-4 text-xs font-semibold rounded-md bg-zinc-900 text-white hover:bg-zinc-800 cursor-pointer"
+                onClick={() => setSettingsOpen(false)}
+              >
+                Save
+              </button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
 

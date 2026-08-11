@@ -36,6 +36,7 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { WorkforceAgentProfile } from './WorkforceAgentProfile';
+import { ModelSelectDropdown } from '@/entities/models/components/ModelSelectDropdown';
 
 // ─── Node type icon helper ─────────────────────────────────────────────────
 function NodeTypeIcon({ nodeType, size = 14 }: { nodeType?: string; size?: number }) {
@@ -546,17 +547,17 @@ export default function WorkforceSidebar({ workspaceId }: { workspaceId?: string
     // ─── TRPC Queries ──────────────────────────────────────────────────────
     const { data: agents, isLoading: isLoadingAgents } = trpc.agent.list.useQuery(
         { query: search || undefined, agentType: agentTypeFilter !== 'all' ? [agentTypeFilter as any] : undefined, includeRelations: true, page: 1, pageSize: 50 },
-        { enabled: isSidebarOpen && sidebarType === 'AGENT' }
+        { enabled: isSidebarOpen && sidebarType === 'AGENT', staleTime: 30_000, refetchOnWindowFocus: false }
     );
     const { data: agentDetails, isLoading: isLoadingAgentDetails } = trpc.agent.get.useQuery(
         { id: activeNode?.data?.agentId || '' },
-        { enabled: isSidebarOpen && sidebarType === 'AGENT' && !!activeNode?.data?.agentId && !showAgentList }
+        { enabled: isSidebarOpen && sidebarType === 'AGENT' && !!activeNode?.data?.agentId && !showAgentList, staleTime: 60_000, refetchOnWindowFocus: false }
     );
 
     // Fetch full tool details when editing to get steps (list strips them)
     const { data: editingToolData } = trpc.compositeTool.get.useQuery(
         { id: editingToolId || '' },
-        { enabled: !!editingToolId }
+        { enabled: !!editingToolId, staleTime: 60_000, refetchOnWindowFocus: false }
     );
 
     // Auto-sync node data with latest agent details from DB
@@ -577,7 +578,7 @@ export default function WorkforceSidebar({ workspaceId }: { workspaceId?: string
 
     const { data: tasks, isLoading: isLoadingTasks } = trpc.task.list.useQuery(
         { query: search || undefined, workspaceId: workspaceId || undefined, scope: 'all', includeRelations: true, page: 1, pageSize: 50 },
-        { enabled: isSidebarOpen && sidebarType === 'TASK' }
+        { enabled: isSidebarOpen && sidebarType === 'TASK', staleTime: 30_000, refetchOnWindowFocus: false }
     );
 
     const { data: compositeToolsData, isLoading: isLoadingTools } = trpc.compositeTool.list.useQuery(
@@ -1437,18 +1438,16 @@ export default function WorkforceSidebar({ workspaceId }: { workspaceId?: string
                                         <p className="text-[13px] text-zinc-600">Connect this to another node to set up your condition.</p>
                                         <div className="space-y-1.5">
                                             <label className="text-[13px] font-semibold text-zinc-700">LLM Model</label>
-                                            <Select value={(activeNode?.data?.llmModel as string) || 'claude-opus-4-6'} onValueChange={val => activeNode && updateNodeData(activeNode.id, { llmModel: val })}>
-                                                <SelectTrigger className="h-10 text-[13px] bg-white border-violet-400 border-2 rounded-lg">
-                                                    <SelectValue />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem value="claude-opus-4-6" className="text-[13px]">Claude Opus 4.6</SelectItem>
-                                                    <SelectItem value="claude-sonnet-3-7" className="text-[13px]">Claude Sonnet 3.7</SelectItem>
-                                                    <SelectItem value="gpt-4o" className="text-[13px]">GPT-4o</SelectItem>
-                                                    <SelectItem value="gpt-4o-mini" className="text-[13px]">GPT-4o mini</SelectItem>
-                                                    <SelectItem value="gemini-2-0-flash" className="text-[13px]">Gemini 2.0 Flash</SelectItem>
-                                                </SelectContent>
-                                            </Select>
+                                            <ModelSelectDropdown
+                                                modelId={(activeNode?.data?.modelId as string) || null}
+                                                onModelChange={(id, m) =>
+                                                    activeNode &&
+                                                    updateNodeData(activeNode.id, {
+                                                        modelId: id,
+                                                        llmModel: m.apiModelId || m.slug,
+                                                    })
+                                                }
+                                            />
                                         </div>
                                     </div>
                                 )}

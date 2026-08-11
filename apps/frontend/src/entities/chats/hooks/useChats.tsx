@@ -54,7 +54,7 @@ export function useChats({ contextType, entityId, activeConversationId }: UseCha
   const pendingUserMessageRef = useRef<RenderedMessage | null>(null)
 
   const sendMessage = useCallback(
-    async (conversationId: string, message: string, options?: { attachments?: any[]; webSearch?: boolean; contexts?: any[]; mentions?: any[] }) => {
+    async (conversationId: string, message: string, options?: { attachments?: any[]; webSearch?: boolean; contexts?: any[]; mentions?: any[]; modelId?: string }) => {
       if (!entityId || !contextType) {
         throw new Error('Entity ID and context type are required to send a message')
       }
@@ -81,6 +81,7 @@ export function useChats({ contextType, entityId, activeConversationId }: UseCha
             contextType,
             entityId,
             message,
+            modelId: options?.modelId,
             attachments: options?.attachments,
             webSearch: options?.webSearch,
             contexts: options?.contexts,

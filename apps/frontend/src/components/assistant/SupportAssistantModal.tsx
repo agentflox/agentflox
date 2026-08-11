@@ -59,7 +59,7 @@ export function SupportAssistantModal({ isOpen, onClose }: SupportAssistantModal
   }, [messages]);
 
   // ── Send with streaming ────────────────────────────────────────────────
-  const handleSend = useCallback(async (content: string) => {
+  const handleSend = useCallback(async (content: string, options?: { modelId?: string }) => {
     if (!conversationId || isSending) return;
     setError(null);
     setIsSending(true);
@@ -95,12 +95,17 @@ export function SupportAssistantModal({ isOpen, onClose }: SupportAssistantModal
         },
         onError: (msg) => {
           setError(msg);
-          setMessages((prev) => prev.filter((m) => m.id !== assistantMsgId));
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === assistantMsgId
+                ? { ...m, content: m.content || "Sorry, something went wrong.", streaming: false }
+                : m
+            )
+          );
         },
-      });
-    } catch (err: any) {
-      setError(err?.message || "Failed to send message.");
-      setMessages((prev) => prev.filter((m) => m.id !== assistantMsgId));
+      }, options?.modelId);
+    } catch (e: any) {
+      setError(e?.message || "Failed to send message");
     } finally {
       setIsSending(false);
     }

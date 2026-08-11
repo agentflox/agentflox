@@ -11,7 +11,7 @@
  */
 
 import { z } from 'zod';
-import { openai } from '@/lib/openai';
+import { completeWithDefaultModel } from '@/services/models';
 import { extractJson } from '@/utils/ai/jsonParsing';
 import { BUILT_IN_SKILLS, SkillDefinition } from '../registry/skillRegistry';
 
@@ -32,7 +32,8 @@ export class SkillInferenceService {
     async inferSkills(
         text: string,
         context: string,
-        availableSkills: SkillDefinition[] = BUILT_IN_SKILLS
+        availableSkills: SkillDefinition[] = BUILT_IN_SKILLS,
+        userId?: string
     ): Promise<InferredSkills> {
         try {
             const skillsDescription = availableSkills
@@ -54,14 +55,19 @@ If no specific skills are strongly indicated, return empty array.
 Prioritize 'content_creation' for writing tasks, 'code_operations' for coding, 'browser_automation' for web tasks.
 `;
 
-            const completion = await openai.chat.completions.create({
-                model: 'gpt-4o-mini',
-                messages: [
-                    { role: 'system', content: systemPrompt },
-                    { role: 'user', content: `Context: ${context}\n\nUser Request: ${text}` }
-                ],
-                temperature: 0,
-                response_format: { type: 'json_object' },
+            const { completion } = await completeWithDefaultModel({
+                userId: userId || 'system',
+                request: {
+                    messages: [
+                        { role: 'system', content: systemPrompt },
+                        { role: 'user', content: `Context: ${context}\n\nUser Request: ${text}` }
+                    ],
+                    temperature: 0,
+                    response_format: { type: 'json_object' },
+                    stream: false,
+                },
+                usageContext: { action: 'ANALYZE', metadata: { source: 'skillInferenceService' } },
+                skipEntitlement: true,
             });
 
             const content = completion.choices[0]?.message?.content;
@@ -91,4 +97,3 @@ Prioritize 'content_creation' for writing tasks, 'code_operations' for coding, '
 
 /** @deprecated Use ConfigurationExtractor.extract() — skill inference is now built in. */
 export const skillInferenceService = new SkillInferenceService();
-

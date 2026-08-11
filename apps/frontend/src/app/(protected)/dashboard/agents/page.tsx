@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/select";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/entities/shared/components/PageHeader";
+import { UsageQuotaBanner } from "@/features/usage/components/UsageQuotaBanner";
 import { DataTableSkeleton } from "@/components/ui/data-table-skeleton";
 import { LazyDataTable as DataTable } from "@/components/ui/lazy-data-table";
 import { SearchSection } from "@/entities/shared/components/SearchSection";
@@ -217,6 +218,8 @@ export default function AgentsPage() {
           }
         />
 
+        <UsageQuotaBanner kind="EXECUTION" />
+
         <SearchSection
           searchValue={searchQuery}
           searchPlaceholder="Search agents..."
@@ -339,22 +342,51 @@ export default function AgentsPage() {
         {hasFilters && (
           <div className="flex flex-wrap items-center gap-2 mt-[-18px] mb-6">
             {searchQuery && (
-              <button onClick={() => handleSearchChange("")} className="group inline-flex items-center gap-2 rounded-md border border-zinc-200 bg-white pl-2.5 pr-2 py-1 text-xs font-medium text-zinc-700 transition-all hover:bg-zinc-50 hover:border-zinc-300 cursor-pointer">
+              <span
+                className="group inline-flex items-center gap-1.5 rounded-md border border-zinc-200 bg-zinc-50 px-2 py-1 text-xs font-medium text-zinc-700 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300"
+              >
                 <span>Search: {searchQuery}</span>
-                <div className="flex items-center justify-center rounded-full p-0.5 transition-colors group-hover:bg-zinc-200/60"><X className="h-3 w-3 text-zinc-400 group-hover:text-zinc-700" /></div>
-              </button>
+                <button
+                  type="button"
+                  onClick={() => handleSearchChange("")}
+                  className="rounded-full p-0.5 transition-all hover:bg-zinc-200 dark:hover:bg-zinc-800 cursor-pointer"
+                  aria-label="Remove search filter"
+                >
+                  <X className="h-3 w-3 text-zinc-400 group-hover:text-zinc-600 dark:text-zinc-500 dark:group-hover:text-zinc-300" />
+                </button>
+              </span>
             )}
+
             {statusFilter !== "all" && (
-              <button onClick={() => handleStatusFilterChange("all")} className="group inline-flex items-center gap-2 rounded-md border border-zinc-200 bg-white pl-2.5 pr-2 py-1 text-xs font-medium text-zinc-700 transition-all hover:bg-zinc-50 hover:border-zinc-300 cursor-pointer">
+              <span
+                className="group inline-flex items-center gap-1.5 rounded-md border border-zinc-200 bg-zinc-50 px-2 py-1 text-xs font-medium text-zinc-700 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300"
+              >
                 <span>Status: {statusFilter}</span>
-                <div className="flex items-center justify-center rounded-full p-0.5 transition-colors group-hover:bg-zinc-200/60"><X className="h-3 w-3 text-zinc-400 group-hover:text-zinc-700" /></div>
-              </button>
+                <button
+                  type="button"
+                  onClick={() => handleStatusFilterChange("all")}
+                  className="rounded-full p-0.5 transition-all hover:bg-zinc-200 dark:hover:bg-zinc-800 cursor-pointer"
+                  aria-label="Remove status filter"
+                >
+                  <X className="h-3 w-3 text-zinc-400 group-hover:text-zinc-600 dark:text-zinc-500 dark:group-hover:text-zinc-300" />
+                </button>
+              </span>
             )}
+
             {typeFilter !== "all" && (
-              <button onClick={() => handleTypeFilterChange("all")} className="group inline-flex items-center gap-2 rounded-md border border-zinc-200 bg-white pl-2.5 pr-2 py-1 text-xs font-medium text-zinc-700 transition-all hover:bg-zinc-50 hover:border-zinc-300 cursor-pointer">
+              <span
+                className="group inline-flex items-center gap-1.5 rounded-md border border-zinc-200 bg-zinc-50 px-2 py-1 text-xs font-medium text-zinc-700 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300"
+              >
                 <span>Type: {typeFilter}</span>
-                <div className="flex items-center justify-center rounded-full p-0.5 transition-colors group-hover:bg-zinc-200/60"><X className="h-3 w-3 text-zinc-400 group-hover:text-zinc-700" /></div>
-              </button>
+                <button
+                  type="button"
+                  onClick={() => handleTypeFilterChange("all")}
+                  className="rounded-full p-0.5 transition-all hover:bg-zinc-200 dark:hover:bg-zinc-800 cursor-pointer"
+                  aria-label="Remove type filter"
+                >
+                  <X className="h-3 w-3 text-zinc-400 group-hover:text-zinc-600 dark:text-zinc-500 dark:group-hover:text-zinc-300" />
+                </button>
+              </span>
             )}
             <Button variant="ghost" onClick={() => { handleSearchChange(""); handleStatusFilterChange("all"); handleTypeFilterChange("all"); }} className="h-7 px-2 text-xs text-zinc-500 hover:text-zinc-900">
               Clear all

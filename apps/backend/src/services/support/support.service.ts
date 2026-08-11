@@ -1,8 +1,14 @@
 import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
 import { prisma } from '@/lib/prisma';
-import { initializeOpenAI } from '@/lib/openai';
 import { ConversationType } from '@agentflox/database';
 import type { Response as ExpressResponse } from 'express';
+import {
+  completeWithDefaultModel,
+  resolveModel,
+  createChatCompletion,
+  recordUsage,
+  fromOpenAIUsage,
+} from '@/services/models';
 
 @Injectable()
 export class SupportService {
@@ -51,17 +57,29 @@ export class SupportService {
         return { conversationId: conv.id, created: true };
     }
 
-    async sendMessageToSupportAssistant(userId: string, conversationId: string, message: string) {
-        const openai = initializeOpenAI();
+    async sendMessageToSupportAssistant(
+        userId: string,
+        conversationId: string,
+        message: string,
+        modelId?: string | null,
+    ) {
         const db: any = prisma as any;
 
         const conv = await db.aiConversation.findFirst({
             where: { id: conversationId, userId },
-            select: { id: true },
+            select: { id: true, modelId: true },
         });
 
         if (!conv) {
             throw new HttpException('Conversation not found', HttpStatus.NOT_FOUND);
+        }
+
+        const resolvedModelId = modelId ?? conv.modelId ?? null;
+        if (modelId) {
+            await db.aiConversation.update({
+                where: { id: conversationId },
+                data: { modelId },
+            }).catch(() => { /* non-fatal */ });
         }
 
         try {
@@ -76,16 +94,26 @@ export class SupportService {
                 select: { role: true, content: true },
             });
 
-            const completion = await openai.chat.completions.create({
-                model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
-                temperature: 0.7,
-                messages: [
-                    { role: 'system', content: this.buildSystemPrompt() },
-                    ...recent.map((m: any) => ({
-                        role: m.role === 'ASSISTANT' ? ('assistant' as const) : ('user' as const),
-                        content: m.content as string,
-                    })),
-                ],
+            const { completion } = await completeWithDefaultModel({
+                userId,
+                modelId: resolvedModelId,
+                request: {
+                    temperature: 0.7,
+                    messages: [
+                        { role: 'system', content: this.buildSystemPrompt() },
+                        ...recent.map((m: any) => ({
+                            role: m.role === 'ASSISTANT' ? ('assistant' as const) : ('user' as const),
+                            content: m.content as string,
+                        })),
+                    ],
+                    stream: false,
+                },
+                usageContext: {
+                    action: 'CHAT',
+                    conversationId,
+                    metadata: { source: 'support.service' },
+                },
+                skipEntitlement: true,
             });
 
             const assistantContent =
@@ -118,12 +146,12 @@ export class SupportService {
         conversationId: string,
         message: string,
         res: ExpressResponse,
+        modelId?: string | null,
     ) {
         const emit = (type: string, data: Record<string, unknown>) => {
             res.write(`data: ${JSON.stringify({ type, ...data })}\n\n`);
         };
 
-        const openai = initializeOpenAI();
         const db: any = prisma as any;
 
         res.setHeader('Content-Type', 'text/event-stream');
@@ -135,13 +163,21 @@ export class SupportService {
         try {
             const conv = await db.aiConversation.findFirst({
                 where: { id: conversationId, userId },
-                select: { id: true },
+                select: { id: true, modelId: true },
             });
 
             if (!conv) {
                 emit('error', { message: 'Conversation not found' });
                 res.end();
                 return;
+            }
+
+            const resolvedModelId = modelId ?? conv.modelId ?? null;
+            if (modelId) {
+                await db.aiConversation.update({
+                    where: { id: conversationId },
+                    data: { modelId },
+                }).catch(() => { /* non-fatal */ });
             }
 
             emit('thinking', { step: 'Processing your message…', node: 'SUPPORT' });
@@ -157,8 +193,14 @@ export class SupportService {
                 select: { role: true, content: true },
             });
 
-            const stream = await openai.chat.completions.create({
-                model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
+            const resolved = await resolveModel({
+                modelId: resolvedModelId,
+                userId,
+                skipEntitlement: true,
+            });
+
+            const started = Date.now();
+            const stream = await createChatCompletion(resolved, {
                 temperature: 0.7,
                 stream: true,
                 messages: [
@@ -171,13 +213,34 @@ export class SupportService {
             });
 
             let fullText = '';
-            for await (const chunk of stream) {
+            let streamUsage: any;
+            for await (const chunk of stream as any) {
+                if (chunk.usage) streamUsage = chunk.usage;
                 const text = chunk.choices[0]?.delta?.content ?? '';
                 if (text) {
                     fullText += text;
                     emit('token', { text });
                 }
             }
+
+            await recordUsage({
+                resolved,
+                usage: streamUsage
+                    ? fromOpenAIUsage(streamUsage)
+                    : {
+                        inputTokens: 0,
+                        outputTokens: Math.ceil(fullText.length / 4),
+                        totalTokens: Math.ceil(fullText.length / 4),
+                        usageEstimated: true,
+                    },
+                userId,
+                context: {
+                    action: 'GENERATE',
+                    metadata: { source: 'support.service.stream' },
+                    requestDurationMs: Date.now() - started,
+                    success: true,
+                },
+            });
 
             await db.aiMessage.create({
                 data: { conversationId, role: 'ASSISTANT', content: fullText },

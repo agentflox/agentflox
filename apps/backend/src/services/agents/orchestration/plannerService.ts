@@ -7,17 +7,11 @@
 
 import { Intent, ExecutionPlan, ExecutionStep, Context } from '../types/types';
 
-import {
-  checkAgentTokenLimit,
-  updateAgentUsage,
-  estimateTokens,
-  countAgentTokens,
-} from '@/utils/ai/agentUsageTracking';
-import { prisma } from '@/lib/prisma';
-import { ModelService } from '../../ai/model.service';
+import { checkAgentTokenLimit, estimateTokens } from '@/utils/ai/agentUsageTracking';
+import { ModelService, SYSTEM_MODELS } from '../../ai/model.service';
 import { extractJson } from '@/utils/ai/jsonParsing';
 
-const PLANNING_MODEL = 'gpt-4o';
+const PLANNING_MODEL = SYSTEM_MODELS.GPT_4O;
 const modelService = new ModelService();
 
 const PLAN_SCHEMA = {
@@ -109,9 +103,6 @@ Generate an execution plan for this intent.`;
       { role: 'user' as const, content: userPrompt },
     ];
 
-    // Use strong reasoning model for Planning phase
-    const planningModel = 'gpt-4o';
-
     // Estimate tokens and check limit if userId provided
     if (userId) {
       const estimatedTokens = estimateTokens(JSON.stringify(messages)) + 2000; // Add buffer for response
@@ -123,13 +114,18 @@ Generate an execution plan for this intent.`;
       }
     }
 
-    // Use ModelService to generate plan
+    // Use ModelService (Shared Manager) to generate plan
     const result = await modelService.generateText(PLANNING_MODEL, messages, {
-      response_format: {
+      responseFormat: {
         type: 'json_schema',
         json_schema: { name: 'execution_plan', schema: PLAN_SCHEMA as any },
       },
       temperature: 0.3,
+      userId: userId || 'system',
+      usageContext: {
+        action: 'GENERATE',
+        metadata: { source: 'plannerService' },
+      },
     });
 
     const content = result.content;
@@ -137,32 +133,7 @@ Generate an execution plan for this intent.`;
       throw new Error('No response from AI Model');
     }
 
-    // Track usage if userId provided
-    if (userId) {
-      countAgentTokens(
-        messages as Array<{ role: string; content: string }>,
-        content,
-        planningModel // Use the model we actually used
-      ).then(async (tokenCount) => {
-        try {
-          const user = await prisma.user.findUnique({
-            where: { id: userId },
-            select: { name: true, email: true },
-          });
-          await updateAgentUsage(
-            userId,
-            user?.name || user?.email || 'User',
-            tokenCount.inputTokens,
-            tokenCount.outputTokens,
-            user?.email || undefined
-          );
-        } catch (error) {
-          console.error('Failed to update agent usage for plan generation:', error);
-        }
-      }).catch(() => {
-        // Ignore errors for background tracking
-      });
-    }
+    // Usage is recorded by ModelService → Shared Manager (recordUsage)
 
     const planData = extractJson(content);
 

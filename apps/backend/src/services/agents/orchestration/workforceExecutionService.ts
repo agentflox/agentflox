@@ -263,10 +263,17 @@ export async function syncWorkflowFromWorkforce(workforceId: string): Promise<st
 export async function runWorkforce(
   workforceId: string,
   input: { task?: string; [k: string]: unknown },
-  userId: string
+  userId: string,
+  opts?: { executionId?: string },
 ): Promise<{ executionId: string; workflowId: string; status: string }> {
   const workflowId = await syncWorkflowFromWorkforce(workforceId);
-  const execution = await workflowOrchestrationService.startWorkflow(workflowId, input, userId);
+  const executionId = opts?.executionId ?? randomUUID();
+  const execution = await workflowOrchestrationService.startWorkflow(
+    workflowId,
+    input,
+    userId,
+    { executionId, rootRunId: executionId },
+  );
   return {
     executionId: execution.id,
     workflowId,

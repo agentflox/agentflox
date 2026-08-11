@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { Pencil, Plus, Square, Loader2, Zap, Files, X } from "lucide-react";
+import { Pencil, Plus, Square, Loader2, Zap, Files, X, MessageSquare, FileText } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { cn } from "@/lib/utils";
 import { ChatComposer } from "@/entities/chats/components/ChatComposer";
@@ -15,8 +15,12 @@ import {
   TriggerWidget,
   WorkforceExecutionTrace,
   StepSummaryBadges,
+  collectArtifacts,
   type ExecutionTrace,
 } from "./WorkforceExecutionTrace";
+import { ArtifactViewer, ArtifactsTab, normalizeArtifact, type ExecutionArtifact } from "@/features/artifacts";
+
+type WorkforceRunTab = "chat" | "log" | "artifacts";
 
 // ─── Poll helper ──────────────────────────────────────────────────────────────
 
@@ -29,6 +33,7 @@ async function pollExecutionStatus(
   summary?: string | null;
   steps?: Record<string, any>;
   output?: any;
+  artifacts?: any[];
 }> {
   const maxAttempts = 120;
   const intervalMs = 1000;
@@ -53,6 +58,7 @@ async function pollExecutionStatus(
         summary?: string | null;
         steps?: Record<string, any>;
         output?: any;
+        artifacts?: any[];
       };
       const status = data?.status ?? "RUNNING";
       if (status !== "RUNNING") {
@@ -62,6 +68,7 @@ async function pollExecutionStatus(
           summary: data?.summary ?? null,
           steps: data?.steps,
           output: data?.output,
+          artifacts: Array.isArray(data?.artifacts) ? data.artifacts : undefined,
         };
       }
     } catch (e: any) {
@@ -111,7 +118,13 @@ export default function WorkforceRunView({
   const [optimisticPending, setOptimisticPending] = useState(false);
   const [isPolling, setIsPolling] = useState(false);
   const [pollingExecutionId, setPollingExecutionId] = useState<string | null>(null);
-  const [activeArtifact, setActiveArtifact] = useState<{ label: string; content: string } | null>(null);
+  const [activeArtifact, setActiveArtifact] = useState<ExecutionArtifact | null>(null);
+  const [activeTab, setActiveTab] = useState<WorkforceRunTab>("chat");
+
+  const openArtifact = useCallback((label: string, content: string) => {
+    const normalized = normalizeArtifact({ filename: label, content });
+    if (normalized) setActiveArtifact(normalized);
+  }, []);
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const lastSentTaskRef = useRef<string>("");
@@ -144,6 +157,41 @@ export default function WorkforceRunView({
     }
     return mapping;
   }, [workforceData]);
+
+  const sessionArtifacts = React.useMemo(() => {
+    const out: ExecutionArtifact[] = [];
+    const seen = new Set<string>();
+    for (const msg of messages) {
+      const typed = Array.isArray(msg.metadata?.artifacts) ? msg.metadata.artifacts : null;
+      if (typed?.length) {
+        for (const raw of typed) {
+          const normalized = normalizeArtifact(raw);
+          if (!normalized) continue;
+          const key = normalized.id || `${normalized.filename}:${normalized.type}`;
+          if (seen.has(key)) continue;
+          seen.add(key);
+          out.push(normalized);
+        }
+        continue;
+      }
+      if (!msg.trace?.steps) continue;
+      const items = collectArtifacts(msg.trace.steps, stepDefs);
+      for (const item of items) {
+        const normalized = normalizeArtifact({
+          id: item.id,
+          filename: item.label || item.stepName || 'artifact.md',
+          content: item.content,
+          type: item.type === 'json' ? 'json' : 'markdown',
+        });
+        if (!normalized) continue;
+        const key = normalized.id || `${normalized.filename}:${normalized.type}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        out.push(normalized);
+      }
+    }
+    return out;
+  }, [messages, stepDefs]);
 
   // ── create / start new conversation ──────────────────────────────────────
   const startNewConversation = useCallback(async () => {
@@ -230,6 +278,7 @@ export default function WorkforceRunView({
       let steps = (payload as any).steps as Record<string, any> | undefined;
       let summary = (payload as any).summary as string | null | undefined;
       let output = (payload as any).output as any | undefined;
+      let artifacts = Array.isArray((payload as any).artifacts) ? (payload as any).artifacts as any[] : undefined;
 
       if (executionId && (!steps || !summary)) {
         // Fallback polling if payload does not have context
@@ -244,6 +293,7 @@ export default function WorkforceRunView({
         if (!summary) summary = pollResult.summary;
         if (!steps) steps = pollResult.steps;
         if (!output) output = pollResult.output;
+        if (!artifacts?.length && pollResult.artifacts?.length) artifacts = pollResult.artifacts;
 
         setIsPolling(false);
         setPollingExecutionId(null);
@@ -285,6 +335,7 @@ export default function WorkforceRunView({
             status,
             trace,
             output,
+            ...(artifacts?.length ? { artifacts } : {}),
           };
           await persistMessages.mutateAsync({
             conversationId: activeConvId,
@@ -366,10 +417,57 @@ export default function WorkforceRunView({
   // ── render ────────────────────────────────────────────────────────────────
   return (
     <div className="flex h-full flex-col bg-[#f8f9fb] min-h-0">
+      {/* ── Top bar tabs ── */}
+      <div className="flex-none flex items-center px-4 py-2 bg-white border-b border-zinc-200 shadow-sm z-10 gap-3">
+        <div className="flex items-center gap-0.5">
+          {([
+            { id: "chat" as const, label: "Chat", Icon: MessageSquare },
+            { id: "log" as const, label: "Log", Icon: FileText },
+            { id: "artifacts" as const, label: "Artifacts", Icon: Files },
+          ]).map(({ id, label, Icon }) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => setActiveTab(id)}
+              className={cn(
+                "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-wider transition-all cursor-pointer",
+                activeTab === id ? "bg-indigo-50 text-indigo-700" : "text-zinc-400 hover:text-zinc-600 hover:bg-zinc-50"
+              )}
+            >
+              <Icon className="h-3.5 w-3.5" />
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
 
       {/* ── Chat feed + composer ─────────────────────────────────────────────── */}
       <div className="flex-1 flex min-h-0 relative bg-[#f8f9fb]">
-        {/* Main Feed */}
+        {activeTab === "artifacts" ? (
+          <ArtifactsTab
+            artifacts={sessionArtifacts}
+            onOpen={(a) => setActiveArtifact(a)}
+            emptyLabel="No artifacts from this workforce run yet"
+            className="flex-1"
+          />
+        ) : activeTab === "log" ? (
+          <div className="flex-1 overflow-y-auto p-4 space-y-2">
+            {messages.length === 0 ? (
+              <p className="text-sm text-zinc-400 text-center py-12">No execution log yet</p>
+            ) : (
+              messages.map((msg, i) => (
+                <div key={i} className="rounded-lg border border-zinc-200 bg-white px-3 py-2 text-xs font-mono text-zinc-600">
+                  <span className="font-bold text-zinc-800 uppercase">{msg.role}</span>
+                  <span className="text-zinc-400 ml-2">{msg.executionId ? `exec ${msg.executionId.slice(0, 8)}` : ""}</span>
+                  <pre className="mt-1 whitespace-pre-wrap text-[11px] text-zinc-500 max-h-40 overflow-auto">
+                    {msg.content?.slice(0, 2000) || (msg.trace ? JSON.stringify(msg.trace, null, 2).slice(0, 2000) : "")}
+                  </pre>
+                </div>
+              ))
+            )}
+          </div>
+        ) : (
+        /* Main Feed */
         <div className="flex-1 flex flex-col min-h-0 min-w-0 overflow-y-auto">
           <div
             className="flex-1 px-4 py-4 space-y-4 max-w-4xl mx-auto w-full"
@@ -477,7 +575,7 @@ export default function WorkforceRunView({
                           <StepSummaryBadges steps={trace.steps} />
                         </div>
                       )}
-                      {trace && <WorkforceExecutionTrace trace={trace} stepDefs={stepDefs} isPolling={false} onOpenArtifact={(label, content) => setActiveArtifact({ label, content })} />}
+                      {trace && <WorkforceExecutionTrace trace={trace} stepDefs={stepDefs} isPolling={false} onOpenArtifact={openArtifact} onViewArtifacts={() => setActiveTab("artifacts")} />}
                       {!trace && msg.content && (
                         <div className="bg-white border border-zinc-200 rounded-xl px-4 py-3 shadow-sm">
                           <p className="text-sm text-zinc-700 whitespace-pre-wrap">{msg.content}</p>
@@ -532,7 +630,8 @@ export default function WorkforceRunView({
                       currentNode={thinkingNode}
                       streamingContent={streamingContent}
                       isStreaming={isStreaming}
-                      onOpenArtifact={(label, content) => setActiveArtifact({ label, content })}
+                      onOpenArtifact={openArtifact}
+                      onViewArtifacts={() => setActiveTab("artifacts")}
                     />
                   ) : (
                     <div className="bg-white border border-blue-200 rounded-2xl px-4 py-3 shadow-sm">
@@ -585,47 +684,16 @@ export default function WorkforceRunView({
             <div ref={bottomRef} />
           </div>
         </div>
+        )}
 
-        {/* ── Right-Side Artifact Modal ── */}
+        {/* ── Right-Side Artifact Viewer ── */}
         {activeArtifact && (
-          <div className="w-[480px] border-l border-zinc-200 bg-white flex flex-col shadow-[-10px_0_15px_-5px_rgba(0,0,0,0.05)] transition-all animate-in slide-in-from-right relative z-20 shrink-0 h-full">
-            <div className="flex-none h-12 flex items-center justify-between px-4 border-b border-zinc-200 bg-zinc-50">
-              <div className="flex items-center gap-2 min-w-0">
-                <Files className="h-4 w-4 text-indigo-500 flex-shrink-0" />
-                <div className="min-w-0 flex-1">
-                  <span className="text-xs font-bold text-zinc-800 truncate block">
-                    {activeArtifact.label}
-                  </span>
-                </div>
-              </div>
-              <div className="flex items-center gap-1 shrink-0">
-                <button
-                  onClick={() => {
-                    navigator.clipboard.writeText(activeArtifact.content);
-                  }}
-                  className="p-1.5 text-zinc-400 hover:text-zinc-600 hover:bg-zinc-200 rounded transition-colors cursor-pointer"
-                  title="Copy content"
-                >
-                  <Files className="h-3.5 w-3.5" />
-                </button>
-                <button
-                  onClick={() => setActiveArtifact(null)}
-                  className="p-1.5 text-zinc-400 hover:text-zinc-600 hover:bg-zinc-200 rounded transition-colors cursor-pointer"
-                >
-                  <X className="h-3.5 w-3.5" />
-                </button>
-              </div>
-            </div>
-            <div className="flex-1 overflow-y-auto px-6 py-5 bg-white">
-              <div className="prose prose-sm max-w-none text-zinc-800 prose-headings:text-zinc-900 prose-headings:font-bold prose-p:text-zinc-700 prose-li:text-zinc-700 prose-strong:text-zinc-900 prose-code:text-indigo-600 prose-code:bg-indigo-50 prose-code:px-1 prose-code:rounded prose-pre:bg-zinc-900 prose-pre:text-zinc-100">
-                <ReactMarkdown>{activeArtifact.content}</ReactMarkdown>
-              </div>
-            </div>
-          </div>
+          <ArtifactViewer artifact={activeArtifact} onClose={() => setActiveArtifact(null)} />
         )}
       </div>
 
       {/* ── Composer bar ─────────────────────────────────────────────────── */}
+      {activeTab === "chat" && (
       <div className="flex-none px-4 py-4 bg-white border-t border-zinc-200">
         <div className="max-w-2xl mx-auto">
           <ChatComposer
@@ -658,6 +726,7 @@ export default function WorkforceRunView({
           </div>
         </div>
       </div>
+      )}
     </div>
   );
 }

@@ -1,7 +1,5 @@
 import { AgentDraft } from '../state/agentBuilderStateService';
-
-import { openai } from '@/lib/openai';
-import { fetchModel } from '@/utils/ai/fetchModel';
+import { completeWithDefaultModel } from '@/services/models';
 
 export interface SimulationResult {
     output: string;
@@ -17,7 +15,8 @@ export class SimulationService {
     async simulateExecution(
         draft: AgentDraft,
         userMessage: string,
-        mockContext: any = {}
+        mockContext: any = {},
+        userId: string = 'system',
     ): Promise<SimulationResult> {
         const logs: string[] = [];
         logs.push("Starting simulation...");
@@ -39,22 +38,26 @@ INSTRUCTIONS:
         logs.push("Context prepared. Invoking AI...");
 
         try {
-            const model = await fetchModel();
-            const completion = await openai.chat.completions.create({
-                model: model.name,
-                messages: [
-                    { role: 'system', content: systemPrompt },
-                    { role: 'user', content: userMessage }
-                ],
-                tools: draft.tools?.map((t: any) => ({ // Mock mapping of internal tool definitions to OpenAI format
-                    type: 'function',
-                    function: {
-                        name: t.name,
-                        description: t.description || "Simulated Tool",
-                        parameters: t.config || {}
-                    }
-                })),
-                temperature: 0.7
+            const { completion } = await completeWithDefaultModel({
+                userId,
+                request: {
+                    messages: [
+                        { role: 'system', content: systemPrompt },
+                        { role: 'user', content: userMessage }
+                    ],
+                    tools: draft.tools?.map((t: any) => ({
+                        type: 'function',
+                        function: {
+                            name: t.name,
+                            description: t.description || "Simulated Tool",
+                            parameters: t.config || {}
+                        }
+                    })),
+                    temperature: 0.7,
+                    stream: false,
+                },
+                usageContext: { action: 'GENERATE', metadata: { source: 'simulationService' } },
+                skipEntitlement: true,
             });
 
             const choice = completion.choices[0];
@@ -64,7 +67,7 @@ INSTRUCTIONS:
 
             return {
                 output: choice.message.content || "",
-                toolCalls: toolCalls.map(tc => ({
+                toolCalls: toolCalls.map((tc: any) => ({
                     toolId: tc.function.name,
                     params: JSON.parse(tc.function.arguments),
                     simulatedResult: { success: true, message: "Simulated success" }

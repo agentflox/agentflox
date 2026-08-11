@@ -1965,12 +1965,9 @@ exports.Prisma.FeatureScalarFieldEnum = {
   description: 'description',
   maxProjects: 'maxProjects',
   maxTeams: 'maxTeams',
-  maxRequests: 'maxRequests',
+  maxApplicationRequests: 'maxApplicationRequests',
   maxSupabaseStorage: 'maxSupabaseStorage',
   maxCredits: 'maxCredits',
-  maxChatsPerProject: 'maxChatsPerProject',
-  maxChatsPerProfile: 'maxChatsPerProfile',
-  maxChatsPerTeam: 'maxChatsPerTeam',
   maxRedisStorage: 'maxRedisStorage',
   maxTokens: 'maxTokens',
   maxRPM: 'maxRPM',
@@ -1982,7 +1979,9 @@ exports.Prisma.FeatureScalarFieldEnum = {
   createdAt: 'createdAt',
   updatedAt: 'updatedAt',
   maxSpaces: 'maxSpaces',
-  maxWorkspaces: 'maxWorkspaces'
+  maxWorkspaces: 'maxWorkspaces',
+  maxExecutions: 'maxExecutions',
+  maxConcurrentRuns: 'maxConcurrentRuns'
 };
 
 exports.Prisma.PaymentScalarFieldEnum = {
@@ -2112,8 +2111,8 @@ exports.Prisma.UsageScalarFieldEnum = {
   remainingProjects: 'remainingProjects',
   maxTeams: 'maxTeams',
   remainingTeams: 'remainingTeams',
-  maxRequests: 'maxRequests',
-  remainingRequests: 'remainingRequests',
+  maxApplicationRequests: 'maxApplicationRequests',
+  remainingApplicationRequests: 'remainingApplicationRequests',
   maxSupabaseStorage: 'maxSupabaseStorage',
   remainingSupabaseStorage: 'remainingSupabaseStorage',
   maxRedisStorage: 'maxRedisStorage',
@@ -2126,16 +2125,12 @@ exports.Prisma.UsageScalarFieldEnum = {
   chatRequestsMade: 'chatRequestsMade',
   maxCredits: 'maxCredits',
   remainingCredits: 'remainingCredits',
-  maxChatsPerProject: 'maxChatsPerProject',
-  remainingChatsPerProject: 'remainingChatsPerProject',
-  maxChatsPerProfile: 'maxChatsPerProfile',
-  remainingChatsPerProfile: 'remainingChatsPerProfile',
-  maxChatsPerTeam: 'maxChatsPerTeam',
-  remainingChatsPerTeam: 'remainingChatsPerTeam',
   maxSpaces: 'maxSpaces',
   maxWorkspaces: 'maxWorkspaces',
   remainingSpaces: 'remainingSpaces',
-  remainingWorkspaces: 'remainingWorkspaces'
+  remainingWorkspaces: 'remainingWorkspaces',
+  maxExecutions: 'maxExecutions',
+  remainingExecutions: 'remainingExecutions'
 };
 
 exports.Prisma.UserQuotaScalarFieldEnum = {
@@ -2144,13 +2139,12 @@ exports.Prisma.UserQuotaScalarFieldEnum = {
   subscriptionId: 'subscriptionId',
   maxProjects: 'maxProjects',
   maxTeams: 'maxTeams',
-  maxRequests: 'maxRequests',
+  maxApplicationRequests: 'maxApplicationRequests',
   maxSupabaseStorage: 'maxSupabaseStorage',
   maxRedisStorage: 'maxRedisStorage',
   maxCredits: 'maxCredits',
-  maxChatsPerProject: 'maxChatsPerProject',
-  maxChatsPerProfile: 'maxChatsPerProfile',
-  maxChatsPerTeam: 'maxChatsPerTeam',
+  maxSpaces: 'maxSpaces',
+  maxWorkspaces: 'maxWorkspaces',
   maxTokens: 'maxTokens',
   maxRPM: 'maxRPM',
   maxRPD: 'maxRPD',
@@ -2161,11 +2155,46 @@ exports.Prisma.UserQuotaScalarFieldEnum = {
   totalRequestsSent: 'totalRequestsSent',
   totalTokensAllTime: 'totalTokensAllTime',
   totalCreditsAllTime: 'totalCreditsAllTime',
+  maxExecutions: 'maxExecutions',
+  totalExecutionsUsed: 'totalExecutionsUsed',
   currentPeriodStart: 'currentPeriodStart',
   currentPeriodEnd: 'currentPeriodEnd',
   lastResetAt: 'lastResetAt',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
+};
+
+exports.Prisma.ExecutionChargeScalarFieldEnum = {
+  id: 'id',
+  billingKey: 'billingKey',
+  userId: 'userId',
+  kind: 'kind',
+  chargedAt: 'chargedAt'
+};
+
+exports.Prisma.ExecutionLogScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  billingKey: 'billingKey',
+  kind: 'kind',
+  status: 'status',
+  runId: 'runId',
+  label: 'label',
+  toolId: 'toolId',
+  toolName: 'toolName',
+  agentId: 'agentId',
+  agentName: 'agentName',
+  workforceId: 'workforceId',
+  workforceName: 'workforceName',
+  conversationId: 'conversationId',
+  workspaceId: 'workspaceId',
+  spaceId: 'spaceId',
+  durationMs: 'durationMs',
+  errorMessage: 'errorMessage',
+  metadata: 'metadata',
+  startedAt: 'startedAt',
+  finishedAt: 'finishedAt',
+  createdAt: 'createdAt'
 };
 
 exports.Prisma.WebhookScalarFieldEnum = {
@@ -2273,14 +2302,39 @@ exports.Prisma.AiMessageScalarFieldEnum = {
 exports.Prisma.AiModelScalarFieldEnum = {
   id: 'id',
   name: 'name',
+  slug: 'slug',
+  displayName: 'displayName',
+  avatar: 'avatar',
+  icon: 'icon',
+  color: 'color',
+  provider: 'provider',
+  apiModelId: 'apiModelId',
   version: 'version',
   description: 'description',
+  isSystem: 'isSystem',
+  isCustom: 'isCustom',
+  isDefault: 'isDefault',
+  isActive: 'isActive',
+  userId: 'userId',
+  workspaceId: 'workspaceId',
+  authType: 'authType',
+  credentialsEncrypted: 'credentialsEncrypted',
+  contextWindow: 'contextWindow',
+  maxOutputTokens: 'maxOutputTokens',
   maxTokens: 'maxTokens',
   temperature: 'temperature',
+  creditsPer1kInput: 'creditsPer1kInput',
+  creditsPer1kOutput: 'creditsPer1kOutput',
+  creditTier: 'creditTier',
+  inputFileTypes: 'inputFileTypes',
+  supportsThinking: 'supportsThinking',
   RPM: 'RPM',
   RPD: 'RPD',
   TPM: 'TPM',
-  TPD: 'TPD'
+  TPD: 'TPD',
+  metadata: 'metadata',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
 };
 
 exports.Prisma.VectorEmbeddingScalarFieldEnum = {
@@ -2362,7 +2416,11 @@ exports.Prisma.AiUsageLogScalarFieldEnum = {
   conversationId: 'conversationId',
   action: 'action',
   model: 'model',
+  modelId: 'modelId',
+  inputTokens: 'inputTokens',
+  outputTokens: 'outputTokens',
   tokensUsed: 'tokensUsed',
+  isCustom: 'isCustom',
   cost: 'cost',
   requestDuration: 'requestDuration',
   success: 'success',
@@ -2689,6 +2747,8 @@ exports.Prisma.AiAgentScalarFieldEnum = {
   name: 'name',
   description: 'description',
   avatar: 'avatar',
+  icon: 'icon',
+  color: 'color',
   version: 'version',
   agentType: 'agentType',
   systemPrompt: 'systemPrompt',
@@ -2777,6 +2837,9 @@ exports.Prisma.CompositeToolScalarFieldEnum = {
   teamId: 'teamId',
   ownerId: 'ownerId',
   name: 'name',
+  avatar: 'avatar',
+  icon: 'icon',
+  color: 'color',
   description: 'description',
   systemPrompt: 'systemPrompt',
   category: 'category',
@@ -2958,6 +3021,9 @@ exports.Prisma.WorkforceScalarFieldEnum = {
   id: 'id',
   name: 'name',
   description: 'description',
+  avatar: 'avatar',
+  icon: 'icon',
+  color: 'color',
   mode: 'mode',
   status: 'status',
   workspaceId: 'workspaceId',
@@ -2965,6 +3031,7 @@ exports.Prisma.WorkforceScalarFieldEnum = {
   projectId: 'projectId',
   teamId: 'teamId',
   ownerId: 'ownerId',
+  modelId: 'modelId',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt',
   visibility: 'visibility',
@@ -3951,29 +4018,16 @@ exports.MessageRole = exports.$Enums.MessageRole = {
   FUNCTION: 'FUNCTION'
 };
 
-exports.ModelName = exports.$Enums.ModelName = {
-  gpt_4: 'gpt_4',
-  gpt_4_32k: 'gpt_4_32k',
-  gpt_4_1106_preview: 'gpt_4_1106_preview',
-  gpt_4_0125_preview: 'gpt_4_0125_preview',
-  gpt_4_turbo: 'gpt_4_turbo',
-  gpt_4_turbo_2024_04_09: 'gpt_4_turbo_2024_04_09',
-  gpt_3_5_turbo: 'gpt_3_5_turbo',
-  gpt_3_5_turbo_16k: 'gpt_3_5_turbo_16k',
-  gpt_3_5_turbo_1106: 'gpt_3_5_turbo_1106',
-  gpt_3_5_turbo_0125: 'gpt_3_5_turbo_0125',
-  gemini_1_0_pro: 'gemini_1_0_pro',
-  gemini_1_5_pro: 'gemini_1_5_pro',
-  gemini_1_5_flash: 'gemini_1_5_flash',
-  dall_e_3: 'dall_e_3',
-  gpt_4o: 'gpt_4o',
-  gpt_4o_2024_05_13: 'gpt_4o_2024_05_13',
-  gpt_4o_mini: 'gpt_4o_mini',
-  gpt_4o_mini_2024_07_18: 'gpt_4o_mini_2024_07_18',
-  claude_3_5_sonnet_20240620: 'claude_3_5_sonnet_20240620',
-  claude_3_opus_20240229: 'claude_3_opus_20240229',
-  claude_3_sonnet_20240229: 'claude_3_sonnet_20240229',
-  claude_3_haiku_20240307: 'claude_3_haiku_20240307'
+exports.AiModelProvider = exports.$Enums.AiModelProvider = {
+  OPENAI: 'OPENAI',
+  ANTHROPIC: 'ANTHROPIC',
+  GOOGLE: 'GOOGLE'
+};
+
+exports.AiModelAuthType = exports.$Enums.AiModelAuthType = {
+  API_KEY: 'API_KEY',
+  OAUTH_TOKEN: 'OAUTH_TOKEN',
+  SERVICE_ACCOUNT: 'SERVICE_ACCOUNT'
 };
 
 exports.VectorSourceType = exports.$Enums.VectorSourceType = {
@@ -4461,6 +4515,8 @@ exports.Prisma.ModelName = {
   PromotionToPackage: 'PromotionToPackage',
   Usage: 'Usage',
   UserQuota: 'UserQuota',
+  ExecutionCharge: 'ExecutionCharge',
+  ExecutionLog: 'ExecutionLog',
   Webhook: 'Webhook',
   WebhookDelivery: 'WebhookDelivery',
   WebhookLog: 'WebhookLog',

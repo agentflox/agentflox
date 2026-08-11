@@ -62,7 +62,7 @@ export function registerToolExecutionHandlers(
     // Verify the run belongs to the authenticated user before subscribing.
     const executionLog = await prisma.compositeToolExecutionLog.findFirst({
       where: { id: runId, userId },
-      select: { id: true, status: true },
+      select: { id: true, status: true, output: true },
     }).catch(() => null);
 
     if (!executionLog) {
@@ -76,7 +76,18 @@ export function registerToolExecutionHandlers(
     // If the run already completed (e.g. user reconnected after a pause),
     // emit a synthetic complete event immediately instead of subscribing.
     if ((executionLog.status as string) === 'SUCCESS' || (executionLog.status as string) === 'FAILED') {
-      socket.emit('tool:complete', { runId, status: executionLog.status });
+      if ((executionLog.status as string) === 'FAILED') {
+        socket.emit('tool:error', {
+          runId,
+          message: 'Run failed',
+        });
+      } else {
+        socket.emit('tool:complete', {
+          runId,
+          status: executionLog.status,
+          result: executionLog.output ?? null,
+        });
+      }
       return;
     }
 
@@ -96,7 +107,11 @@ export function registerToolExecutionHandlers(
       }
 
       if (payload.type === 'complete') {
-        socket.emit('tool:complete', { runId, result: JSON.parse(payload.content ?? 'null') });
+        socket.emit('tool:complete', {
+          runId,
+          result: JSON.parse(payload.content ?? 'null'),
+          ...(payload.artifacts?.length ? { artifacts: payload.artifacts } : {}),
+        });
         cleanup();
       } else if (payload.type === 'error') {
         socket.emit('tool:error', { runId, message: payload.content });

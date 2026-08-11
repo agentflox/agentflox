@@ -73,10 +73,7 @@ export function ChannelList({
             >
               <Hash className={cn("h-4 w-4 shrink-0 transition-colors", activeId === channel.id ? "text-slate-800" : "text-slate-400 group-hover:text-slate-500")} />
               <div className="flex-1 overflow-hidden pr-6">
-                <p className={cn("text-sm truncate transition-colors", activeId === channel.id ? "font-semibold" : "font-medium")}>{channel.name || "Channel"}</p>
-                {channel.description && (
-                  <p className={cn("text-[11px] truncate mt-0.5", activeId === channel.id ? "text-slate-600" : "text-slate-500")}>{channel.description}</p>
-                )}
+                <p className="text-sm font-normal truncate transition-colors">{channel.name || "Channel"}</p>
               </div>
             </button>
 

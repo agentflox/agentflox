@@ -26,6 +26,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import type { BuilderStep, VarTreeEntry } from "../../types/builder";
 import { VariableSelectionModal } from "./VariableSelectionModal";
+import { StepCodeEditor } from "./StepCodeEditor";
 
 export type StepDetailModalProps = {
   open: boolean;
@@ -125,18 +126,13 @@ export function StepDetailModal({
           </div>
 
           {/* Code editor */}
-          <div className="flex-1 min-h-0 rounded-lg border border-zinc-700 bg-zinc-900 overflow-hidden">
-            <Textarea
+          <div className="flex-1 min-h-0 rounded-lg border border-zinc-700 bg-zinc-900 overflow-hidden flex flex-col">
+            <StepCodeEditor
               value={codeValue}
-              onChange={(e) =>
-                updateCfg((cfg) => ({ ...cfg, code: e.target.value }))
-              }
-              className="h-full min-h-[300px] w-full resize-none font-mono text-[12px] text-emerald-300 bg-zinc-900 border-none focus-visible:ring-0 p-4 leading-6"
-              placeholder={
-                isJavaScript
-                  ? '// "params" are all the user inputs values\n// "steps" are all the inputs and outputs from previous steps\n\n// IMPORTANT: Include a "return" statement in your code if you want to use the output of this step in other steps.\nreturn {"params": params, "steps": steps};'
-                  : '# "params" are all the user inputs values\n# "steps" are all the inputs and outputs from previous steps\n\nreturn {"params": params, "steps": steps}'
-              }
+              onChange={(code) => updateCfg((cfg) => ({ ...cfg, code }))}
+              language={isPython ? "PYTHON" : "JAVASCRIPT"}
+              height="360px"
+              className="flex-1 min-h-0"
             />
           </div>
 

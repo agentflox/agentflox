@@ -56,6 +56,7 @@ export async function streamMessageToSupportAssistant(
   conversationId: string,
   message: string,
   callbacks: SupportStreamCallbacks,
+  modelId?: string | null,
 ): Promise<void> {
   const token = await fetchAuthToken();
 
@@ -66,7 +67,7 @@ export async function streamMessageToSupportAssistant(
       Accept: "text/event-stream",
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
-    body: JSON.stringify({ conversationId, message }),
+    body: JSON.stringify({ conversationId, message, ...(modelId ? { modelId } : {}) }),
   });
 
   if (!res.ok || !res.body) {

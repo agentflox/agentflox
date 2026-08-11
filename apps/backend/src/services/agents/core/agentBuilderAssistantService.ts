@@ -5,8 +5,7 @@
  */
 
 import { prisma } from '@/lib/prisma';
-import { openai } from '@/lib/openai';
-import { fetchModel } from '@/utils/ai/fetchModel';
+import { completeWithDefaultModel } from '@/services/models';
 import { agentBuilderContextService, UserContext } from '../state/agentBuilderContextService';
 
 import {
@@ -96,7 +95,6 @@ export class AgentBuilderAssistantService {
       },
     ];
 
-    const model = await fetchModel();
     const estimatedTokens = estimateTokens(JSON.stringify(messages)) + 1000; // Add buffer for response
 
     // Check token limit
@@ -107,27 +105,34 @@ export class AgentBuilderAssistantService {
       );
     }
 
-    // Call LLM
-    const completion = await openai.chat.completions.create({
-      model: model.name,
-      messages,
-      temperature: 0.7,
-      max_tokens: 1000,
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { name: true, email: true },
+    });
+
+    const { resolved, completion } = await completeWithDefaultModel({
+      userId,
+      userName: user?.name || user?.email || 'User',
+      email: user?.email || undefined,
+      request: {
+        messages,
+        temperature: 0.7,
+        max_tokens: 1000,
+        stream: false,
+      },
+      usageContext: { action: 'GENERATE', metadata: { source: 'agentBuilderAssistantService', agentId } },
+      skipEntitlement: true,
     });
 
     const response = completion.choices[0]?.message?.content || 'I apologize, but I encountered an error.';
 
-    // Track usage
+    // Legacy usage tracking (Shared Manager also records via recordUsage)
     countAgentTokens(
       messages as Array<{ role: string; content: string }>,
       response,
-      model.name
+      resolved.apiModelId
     ).then(async (tokenCount) => {
       try {
-        const user = await prisma.user.findUnique({
-          where: { id: userId },
-          select: { name: true, email: true },
-        });
         await updateAgentUsage(
           userId,
           user?.name || user?.email || 'User',

@@ -235,13 +235,13 @@ export default function WorkforceRunSidebar({
                             value={editingTitle}
                             onChange={(e) => setEditingTitle(e.target.value)}
                             onBlur={(e) => handleRenameSubmit(e, item.id)}
-                            className="w-full text-sm font-medium bg-white border border-indigo-200 rounded px-1 py-0.5 outline-none focus:ring-2 focus:ring-indigo-500"
+                            className="w-full text-sm font-normal bg-white border border-indigo-200 rounded px-1 py-0.5 outline-none focus:ring-2 focus:ring-indigo-500"
                             onClick={(e) => e.stopPropagation()}
                           />
                         </form>
                       ) : (
                         <div className="flex items-center gap-1.5 min-w-0 pr-1">
-                          <div className="text-sm font-medium truncate">
+                          <div className="text-sm font-normal truncate">
                             {item.title || workforceName}
                             {isPending && (
                               <span className="ml-1.5 text-[10px] text-zinc-400 font-normal">creating…</span>

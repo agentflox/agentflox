@@ -12,9 +12,11 @@ const SettingsView = dynamic(() => import("./SettingsView").then((mod) => mod.Se
 interface ViewSwitcherProps {
   activeTab: string;
   agent?: any;
+  chatId?: string | null;
+  onChatIdChange?: (chatId: string | null) => void;
 }
 
-export default function ViewSwitcher({ activeTab, agent }: ViewSwitcherProps) {
+export default function ViewSwitcher({ activeTab, agent, chatId, onChatIdChange }: ViewSwitcherProps) {
 
   const renderView = () => {
     switch (activeTab) {
@@ -25,7 +27,14 @@ export default function ViewSwitcher({ activeTab, agent }: ViewSwitcherProps) {
       case 'automation':
         return <AutomationView agent={agent} />;
       case 'chat':
-        return <ChatView agent={agent} />;
+        return (
+          <ChatView
+            agent={agent}
+            conversationType="AGENT_EXECUTOR"
+            chatId={chatId}
+            onChatIdChange={onChatIdChange}
+          />
+        );
       case 'activities':
         return <ActivitiesView agentId={agent?.id} />;
       case 'settings':

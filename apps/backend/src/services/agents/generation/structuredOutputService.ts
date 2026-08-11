@@ -1,9 +1,9 @@
-import { openai } from '@/lib/openai';
 import { z } from 'zod';
+import { completeWithDefaultModel } from '@/services/models';
 
 /**
  * Structured Output Enforcer
- * Wraps OpenAI calls to enforce JSON schema validation
+ * Wraps Shared Model Manager calls to enforce JSON schema validation
  */
 
 export interface StructuredOutputConfig<T extends z.ZodType> {
@@ -15,13 +15,13 @@ export interface StructuredOutputConfig<T extends z.ZodType> {
 
 export class StructuredOutputService {
     /**
-     * Call OpenAI with enforced structured output
+     * Call LLM with enforced structured output
      */
     async generateStructured<T extends z.ZodType>(
         config: StructuredOutputConfig<T>,
         messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>,
         options: {
-            model?: string;
+            userId?: string;
             temperature?: number;
             maxTokens?: number;
         } = {}
@@ -29,25 +29,30 @@ export class StructuredOutputService {
         // Convert Zod schema to JSON Schema
         const jsonSchema = this.zodToJsonSchema(config.schema);
 
-        const completion = await openai.chat.completions.create({
-            model: options.model || 'gpt-4o-mini',
-            messages,
-            temperature: options.temperature ?? 0.3,
-            max_tokens: options.maxTokens,
-            response_format: {
-                type: 'json_schema',
-                json_schema: {
-                    name: config.name,
-                    description: config.description,
-                    schema: jsonSchema,
-                    strict: config.strict ?? true,
+        const { completion } = await completeWithDefaultModel({
+            userId: options.userId || 'system',
+            request: {
+                messages,
+                temperature: options.temperature ?? 0.3,
+                max_tokens: options.maxTokens,
+                response_format: {
+                    type: 'json_schema',
+                    json_schema: {
+                        name: config.name,
+                        description: config.description,
+                        schema: jsonSchema,
+                        strict: config.strict ?? true,
+                    },
                 },
+                stream: false,
             },
+            usageContext: { action: 'GENERATE', metadata: { source: 'structuredOutputService', name: config.name } },
+            skipEntitlement: true,
         });
 
         const content = completion.choices[0]?.message?.content;
         if (!content) {
-            throw new Error('No content returned from OpenAI');
+            throw new Error('No content returned from model');
         }
 
         // Parse and validate

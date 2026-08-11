@@ -1,6 +1,7 @@
 import { initTRPC, TRPCError } from "@trpc/server";
 import superjson from "superjson";
 import { auth } from "@/lib/auth";
+import { isUsageCapPayload } from "@/features/usage/types";
 
 export const createContext = async () => {
 	const session = await auth();
@@ -11,6 +12,16 @@ type Context = Awaited<ReturnType<typeof createContext>>;
 
 const t = initTRPC.context<Context>().create({
 	transformer: superjson,
+	errorFormatter({ shape, error }) {
+		const cause = error.cause;
+		return {
+			...shape,
+			data: {
+				...shape.data,
+				usageCap: isUsageCapPayload(cause) ? cause : undefined,
+			},
+		};
+	},
 });
 
 export const router = t.router;

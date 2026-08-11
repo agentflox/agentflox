@@ -7,10 +7,14 @@ const baseSchema = z.object({
   name: z.string().min(1, "Name is required"),
   description: z.string().optional().nullable(),
   category: z.string().optional().nullable(),
+  systemPrompt: z.string().optional().nullable(),
   functionSchema: z.any(),
   steps: z.any(),
   mode: z.enum(["MANUAL", "AI"]).optional(),
   isPublic: z.boolean().default(true),
+  icon: z.string().optional().nullable(),
+  color: z.string().optional().nullable(),
+  avatar: z.string().optional().nullable(),
 });
 
 export const compositeToolRouter = router({
@@ -59,6 +63,9 @@ export const compositeToolRouter = router({
         name: true,
         description: true,
         category: true,
+        avatar: true,
+        icon: true,
+        color: true,
         workspaceId: true,
         ownerId: true,
         isPublic: true,
@@ -84,6 +91,9 @@ export const compositeToolRouter = router({
           name: t.name,
           description: t.description ?? undefined,
           category: t.category ?? "Custom",
+          avatar: t.avatar,
+          icon: t.icon,
+          color: t.color,
           ...(includeSchema && "functionSchema" in t
             ? { functionSchema: t.functionSchema as any }
             : {}),

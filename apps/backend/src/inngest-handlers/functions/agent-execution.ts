@@ -31,6 +31,12 @@ import { agentFSMOrchestrator } from '../../services/agents/orchestration/agentF
 import { agentGovernanceGate } from '../../services/agents/orchestration/agentGovernanceGate';
 import { appendEvent } from '../../services/agents/orchestration/agentEventStore';
 import { randomUUID } from 'crypto';
+import { ExecutionQuotaService } from '../../services/billing/executionQuota.service';
+import {
+  ConcurrentRunsExceededError,
+  ExecutionQuotaExceededError,
+  NoActiveSubscriptionError,
+} from '../../services/billing/executionQuota.errors';
 
 export const executeAgent = inngest.createFunction(
   {
@@ -51,12 +57,74 @@ export const executeAgent = inngest.createFunction(
     triggers: [{ event: 'agent/execute' }],
   },
   async ({ event, step }) => {
-    const { executionId, agentId, userId, inputData, executionContext } = event.data;
+    const {
+      executionId,
+      agentId,
+      userId,
+      inputData,
+      executionContext,
+      rootRunId,
+      billingExempt,
+      isResume,
+    } = event.data;
 
     // Use executionId as the FSM runId so all events are correlated
     const runId = executionId ?? randomUUID();
     const tenantId = userId; // Single-tenant: userId is the tenant boundary
+    const billingKey = rootRunId ?? runId;
 
+    // Defense-in-depth quota (skip resume / nested exempt; ledger dedupes otherwise)
+    if (userId && !isResume) {
+      const quotaResult = await step.run('consume-execution-quota', async () => {
+        try {
+          await ExecutionQuotaService.consumeExecution(userId, runId, 'agent', {
+            rootRunId: billingKey,
+            billingExempt: Boolean(billingExempt),
+            context: {
+              runId,
+              agentId,
+            },
+          });
+          return { ok: true as const };
+        } catch (err) {
+          if (
+            err instanceof ExecutionQuotaExceededError ||
+            err instanceof NoActiveSubscriptionError ||
+            err instanceof ConcurrentRunsExceededError
+          ) {
+            return {
+              ok: false as const,
+              reason: err.message,
+              category: err.category,
+            };
+          }
+          throw err;
+        }
+      });
+
+      if (!quotaResult.ok) {
+        await step.run('fsm-mark-cancelled-quota', async () => {
+          await Promise.all([
+            prisma.agentExecution.update({
+              where: { id: runId },
+              data: {
+                status: 'FAILED',
+                completedAt: new Date(),
+                error: quotaResult.reason,
+              },
+            }).catch(() => {}),
+            prisma.aiAgent.update({ where: { id: agentId }, data: { status: 'ACTIVE' } }).catch(() => {}),
+          ]);
+        });
+        return {
+          success: false,
+          executionId: runId,
+          error: quotaResult.reason,
+          cancelled: true,
+          category: quotaResult.category,
+        };
+      }
+    }
     // ── Step 1: Validate agent access ─────────────────────────────────────
     const { agent, conversationId, agentSystemPrompt, agentName } = await step.run('fsm-validate-agent', async () => {
       const agent = await prisma.aiAgent.findUnique({
@@ -234,6 +302,12 @@ export const executeAgent = inngest.createFunction(
         });
       }
     });
+
+    if (userId) {
+      await step.run('deregister-active-run', async () => {
+        await ExecutionQuotaService.deregisterActiveRun(userId, billingKey);
+      });
+    }
 
     return {
       success: result.finalState === 'COMPLETE',

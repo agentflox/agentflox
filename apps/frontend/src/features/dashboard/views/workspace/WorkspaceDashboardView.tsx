@@ -995,6 +995,7 @@ export default function WorkspaceDashboardView({ workspaceId }: WorkspaceViewPro
                             }
                             agentOpen={isAgentModalOpen}
                             onAgentOpenChange={setIsAgentModalOpen}
+                            showExit={true}
                         />
                         <div className="flex-1 overflow-hidden relative">
                             {renderMainContent()}

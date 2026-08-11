@@ -13,6 +13,7 @@ export interface UseBuilderStreamReturn extends Omit<UseToolStreamReturn, 'sendM
         toolId: string;
         conversationId: string;
         message: string;
+        modelId?: string | null;
         contexts?: Array<{ type: string; id: string }>;
         mentions?: Array<{ id: string; name: string; type: string }>;
         attachments?: Array<{ type: string; filename: string; content?: string }>;
@@ -30,6 +31,7 @@ export function useBuilderStream(callbacks: BuilderStreamCallbacks = {}): UseBui
         toolId,
         conversationId,
         message,
+        modelId,
         contexts,
         mentions,
         attachments,
@@ -37,6 +39,7 @@ export function useBuilderStream(callbacks: BuilderStreamCallbacks = {}): UseBui
         toolId: string;
         conversationId: string;
         message: string;
+        modelId?: string | null;
         contexts?: Array<{ type: string; id: string }>;
         mentions?: Array<{ id: string; name: string; type: string }>;
         attachments?: Array<{ type: string; filename: string; content?: string }>;
@@ -46,6 +49,7 @@ export function useBuilderStream(callbacks: BuilderStreamCallbacks = {}): UseBui
             body: {
                 conversationId,
                 message,
+                ...(modelId ? { modelId } : {}),
                 ...(contexts?.length ? { contexts } : {}),
                 ...(mentions?.length ? { mentions } : {}),
                 ...(attachments?.length ? { attachments } : {}),

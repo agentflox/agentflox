@@ -197,10 +197,16 @@ export class SubscriptionManager {
           remainingProjects: feature?.maxProjects ?? 0,
           maxTeams: feature?.maxTeams ?? 0,
           remainingTeams: feature?.maxTeams ?? 0,
-          maxRequests: feature?.maxRequests ?? 0,
-          remainingRequests: feature?.maxRequests ?? 0,
+          maxApplicationRequests: feature?.maxApplicationRequests ?? 0,
+          remainingApplicationRequests: feature?.maxApplicationRequests ?? 0,
           maxCredits: feature?.maxCredits ?? 0,
           remainingCredits: feature?.maxCredits ?? 0,
+          maxSpaces: feature?.maxSpaces ?? 0,
+          remainingSpaces: feature?.maxSpaces ?? 0,
+          maxWorkspaces: feature?.maxWorkspaces ?? 0,
+          remainingWorkspaces: feature?.maxWorkspaces ?? 0,
+          maxExecutions: feature?.maxExecutions ?? 0,
+          remainingExecutions: feature?.maxExecutions === -1 ? -1 : (feature?.maxExecutions ?? 0),
         },
       });
       await tx.payment.create({
@@ -270,12 +276,21 @@ export class SubscriptionManager {
         remainingProjects: freePlan.feature?.maxProjects || 0,
         maxTeams: freePlan.feature?.maxTeams || 0,
         remainingTeams: freePlan.feature?.maxTeams || 0,
-        maxRequests: freePlan.feature?.maxRequests || 0,
-        remainingRequests: freePlan.feature?.maxRequests || 0,
+        maxApplicationRequests: freePlan.feature?.maxApplicationRequests || 0,
+        remainingApplicationRequests: freePlan.feature?.maxApplicationRequests || 0,
         maxCredits: freePlan.feature?.maxCredits || 0,
         remainingCredits: freePlan.feature?.maxCredits || 0,
         maxTokens: freePlan.feature?.maxTokens || 0,
         remainingTokens: freePlan.feature?.maxTokens || 0,
+        maxSpaces: freePlan.feature?.maxSpaces || 0,
+        remainingSpaces: freePlan.feature?.maxSpaces || 0,
+        maxWorkspaces: freePlan.feature?.maxWorkspaces || 0,
+        remainingWorkspaces: freePlan.feature?.maxWorkspaces || 0,
+        maxExecutions: freePlan.feature?.maxExecutions || 0,
+        remainingExecutions:
+          freePlan.feature?.maxExecutions === -1
+            ? -1
+            : freePlan.feature?.maxExecutions || 0,
         updatedAt: now,
       }
     });

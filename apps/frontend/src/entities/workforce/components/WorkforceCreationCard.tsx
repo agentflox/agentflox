@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { trpc } from "@/lib/trpc";
 import { useToast } from "@/hooks/useToast";
 import { WORKFORCE_TEMPLATES, WorkforceTemplate } from "@/features/dashboard/views/workforce/templates";
+import { DEFAULT_WORKFORCE_TRIGGER_NODES } from "@/entities/workforce/hooks/useWorkforceStore";
 // WorkforceCreationMode maps to the store's 'FLOW' | 'SWARM' literals
 export type WorkforceCreationMode = "FLOW" | "SWARM";
 
@@ -76,8 +77,8 @@ export function WorkforceCreationCard({ open, onOpenChange, onSelect }: Props) {
                 ? WORKFORCE_TEMPLATES.find((t) => t.id === pendingTemplateId)
                 : undefined;
 
-            if (template) {
-                try {
+            try {
+                if (template) {
                     await updateMutation.mutateAsync({
                         id: data.id,
                         name: variables.name,
@@ -85,15 +86,26 @@ export function WorkforceCreationCard({ open, onOpenChange, onSelect }: Props) {
                         nodes: template.nodes,
                         edges: template.edges,
                     });
-                } catch (error: any) {
-                    toast({
-                        title: "Template apply failed",
-                        description: error?.message ?? "Failed to apply template graph. You can still configure this workforce manually.",
-                        variant: "destructive",
+                } else if (variables.mode === "FLOW") {
+                    // Seed the default "User message received" trigger for blank workflows
+                    await updateMutation.mutateAsync({
+                        id: data.id,
+                        name: variables.name,
+                        nodes: DEFAULT_WORKFORCE_TRIGGER_NODES.map((n) => ({
+                            ...n,
+                            data: { ...n.data },
+                        })),
+                        edges: [],
                     });
-                } finally {
-                    setPendingTemplateId(null);
                 }
+            } catch (error: any) {
+                toast({
+                    title: template ? "Template apply failed" : "Default trigger setup failed",
+                    description: error?.message ?? "You can still configure this workforce manually.",
+                    variant: "destructive",
+                });
+            } finally {
+                setPendingTemplateId(null);
             }
 
             onOpenChange(false);

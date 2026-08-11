@@ -76,6 +76,8 @@ export class ToolBuilderStateService {
         conversationType: 'TOOL_BUILDER',
         title: 'Tool Builder Conversation',
         isActive: true,
+        // Link to the tool so we can look it up on re-open
+        ...(toolId ? { compositeToolId: toolId } : {}),
       },
     });
 

@@ -79,7 +79,6 @@ export interface WorkforceState {
     activeEdgeId: string | null;
     isSidebarOpen: boolean;
     sidebarType: SidebarType;
-    isTestSidebarOpen: boolean;
     mode: 'FLOW' | 'SWARM';
     hasChanges: boolean;
 
@@ -91,9 +90,10 @@ export interface WorkforceState {
     onConnect: OnConnect;
     setNodes: (nodes: WorkforceNode[]) => void;
     setEdges: (edges: Edge[]) => void;
+    /** Load graph from server without marking the canvas dirty */
+    hydrateGraph: (nodes: WorkforceNode[], edges: Edge[]) => void;
     addNode: (node: WorkforceNode) => void;
     setSidebarOpen: (isOpen: boolean, type?: SidebarType) => void;
-    setTestSidebarOpen: (isOpen: boolean) => void;
     setActiveNodeId: (id: string | null) => void;
     setActiveEdgeId: (id: string | null) => void;
     updateNodeData: (id: string, data: Partial<WorkforceNodeData>) => void;
@@ -125,9 +125,11 @@ const initialNodes: WorkforceNode[] = [
         id: 'trigger-1',
         type: 'eventNode',
         position: { x: 250, y: 100 },
-        data: { label: 'Task Created', action: 'ON_TASK_CREATE' },
+        data: { label: 'User message received', action: 'ON_USER_MESSAGE', triggerType: 'user_message' },
     },
 ];
+
+export const DEFAULT_WORKFORCE_TRIGGER_NODES: WorkforceNode[] = initialNodes;
 
 const initialEdges: Edge[] = [];
 
@@ -142,7 +144,6 @@ export const useWorkforceStore = create<WorkforceState>((set, get) => ({
     hasChanges: false,
     editNodeModal: null,
     sidebarKey: 0,
-    isTestSidebarOpen: false,
 
     isAutonomousMode: false,
     swarmSessionId: null,
@@ -207,6 +208,9 @@ export const useWorkforceStore = create<WorkforceState>((set, get) => ({
     setEdges: (edges: Edge[]) => {
         set({ edges, hasChanges: true });
     },
+    hydrateGraph: (nodes: WorkforceNode[], edges: Edge[]) => {
+        set({ nodes, edges, hasChanges: false });
+    },
     addNode: (node: WorkforceNode) => {
         set({ nodes: [...get().nodes, node], hasChanges: true });
     },
@@ -217,7 +221,6 @@ export const useWorkforceStore = create<WorkforceState>((set, get) => ({
             ...(isSidebarOpen && { sidebarKey: (get().sidebarKey || 0) + 1 })
         });
     },
-    setTestSidebarOpen: (isTestSidebarOpen: boolean) => set({ isTestSidebarOpen }),
     setActiveNodeId: (activeNodeId: string | null) => {
         set({ activeNodeId, activeEdgeId: null });
     },

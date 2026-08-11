@@ -25,6 +25,7 @@ import type { ToolCanvasNodeData } from "../../../types/builder";
 import { VariableSelectionModal } from "../VariableSelectionModal";
 import { NodeHoverToolbar } from "./NodeHoverToolbar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { StepCodeEditor } from "../StepCodeEditor";
 
 export function StepNode({ data }: { data: ToolCanvasNodeData }) {
   const isNotebook = data.viewMode === "notebook";
@@ -83,14 +84,12 @@ export function StepNode({ data }: { data: ToolCanvasNodeData }) {
               <Braces className="h-3.5 w-3.5" />
             </div>
           </div>
-          <div className="rounded-lg border border-zinc-200 bg-zinc-50 overflow-hidden nodrag nopan nowheel" onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()}>
-            <Textarea
+          <div className="rounded-lg border border-zinc-200 overflow-hidden nodrag nopan nowheel" onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()}>
+            <StepCodeEditor
               value={codeValue}
-              onChange={(e) => d.onUpdateStepConfig?.({ code: e.target.value })}
-              className="min-h-[220px] w-full resize-none font-mono text-[12px] text-zinc-800 bg-zinc-50 border-none focus-visible:ring-0 p-4 leading-6 shadow-inner"
-              placeholder={isJavaScript
-                ? '// "params" are all the user inputs values\n// "steps" are all the inputs and outputs from previous steps\n\n// IMPORTANT: Include a "return" statement in your code if you want to use the output in following steps.\nreturn {"params": params, "steps": steps};'
-                : '# "params" are all the user inputs values\n# "steps" are all the inputs and outputs from previous steps\n\nreturn {"params": params, "steps": steps}'}
+              onChange={(code) => d.onUpdateStepConfig?.({ code })}
+              language={isJavaScript ? "JAVASCRIPT" : "PYTHON"}
+              height="220px"
             />
           </div>
         </div>

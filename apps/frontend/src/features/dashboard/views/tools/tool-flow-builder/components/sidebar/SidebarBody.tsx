@@ -22,6 +22,7 @@ export function SidebarBody({ api }: SidebarPanelProps) {
     removeOutput,
     addOutputFromSource,
     runCompositeTool,
+    liveRunState,
   } = api;
 
   if (systemToolsListOpen) return <SystemToolsPanel api={api} />;
@@ -38,6 +39,7 @@ export function SidebarBody({ api }: SidebarPanelProps) {
         removeOutput={removeOutput}
         addOutputFromSource={addOutputFromSource}
         runCompositeTool={() => runCompositeTool()}
+        runState={liveRunState["outputs"]}
       />
     );
   }

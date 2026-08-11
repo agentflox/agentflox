@@ -20,6 +20,7 @@ export interface SendChatMessageParams {
   contextType: ChatContextType
   entityId: string
   message: string
+  modelId?: string | null
   attachments?: Array<{
     url: string
     filename: string
@@ -51,7 +52,7 @@ export async function sendChatMessage(
   params: SendChatMessageParams,
   options?: SendChatMessageOptions
 ): Promise<string> {
-  const { conversationId, contextType, entityId, message, attachments, webSearch, contexts, mentions, config } = params
+  const { conversationId, contextType, entityId, message, modelId, attachments, webSearch, contexts, mentions, config } = params
   const { onChunk } = options ?? {}
 
   const { fetchAuthToken } = await import('@/utils/backend-request')
@@ -70,6 +71,7 @@ export async function sendChatMessage(
       contextType,
       entityId,
       message,
+      ...(modelId ? { modelId } : {}),
       attachments,
       webSearch,
       contexts,

@@ -68,7 +68,7 @@ export function ToolCard({ item, onOpen, onManage, onDelete, isSelected, onSelec
 			<div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 absolute top-2 right-2 z-10">
 				<DropdownMenu>
 					<DropdownMenuTrigger asChild>
-						<Button variant="ghost" size="icon" className="h-7 w-7 rounded-full bg-white/50 hover:bg-white backdrop-blur-sm" onClick={(e) => e.stopPropagation()}>
+						<Button variant="ghost" size="icon" className="h-7 w-7 rounded-full bg-white/50 hover:bg-zinc-100 backdrop-blur-sm" onClick={(e) => e.stopPropagation()}>
 							<MoreVertical className="h-4 w-4 text-zinc-500" />
 						</Button>
 					</DropdownMenuTrigger>

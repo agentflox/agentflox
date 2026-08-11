@@ -1,14 +1,15 @@
-import { prisma } from '@/lib/prisma';
-import { convertModelName } from './convertModelName';
+import { getDefaultModel } from '@/services/models/catalog';
+import { convertModelName } from '@/services/models/legacy';
 import type { NormalizedModelOption } from '@agentflox/types';
 
+/**
+ * @deprecated Prefer `resolveModel` / `getDefaultModel` from `@/services/models`.
+ * Kept as a thin compatibility wrapper for existing call sites.
+ */
 export async function fetchModel() {
-  const model = await prisma.aiModel.findFirst();
-  if (!model) {
-    throw new Error('No AI model found in the database');
-  }
+  const model = await getDefaultModel();
   return {
     ...model,
-    name: convertModelName(model.name) as NormalizedModelOption,
+    name: convertModelName(model.name || model.slug || model.apiModelId) as NormalizedModelOption,
   };
 }

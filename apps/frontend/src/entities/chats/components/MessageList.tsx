@@ -46,6 +46,7 @@ interface ChatMessageListProps {
   onFeedbackChange?: (messageId: string, isHelpful: boolean | null) => void
   /** Label shown on all agent response headers (e.g. "Agentflox Agent Builder") */
   label?: string
+  emptyState?: React.ReactNode
 }
 
 /** Colorful multi-petal sparkle SVG matching the brand header style */
@@ -292,6 +293,7 @@ export const ChatMessageList = memo(function ChatMessageList({
   onActionClick,
   onFeedbackChange,
   label,
+  emptyState,
 }: ChatMessageListProps) {
   const scrollAreaRef = useRef<HTMLDivElement | null>(null)
   const prevMessagesLengthRef = useRef(messages.length)
@@ -373,12 +375,18 @@ export const ChatMessageList = memo(function ChatMessageList({
         )}
 
         {renderedMessages.length === 0 && !showPendingReactNode && (
-          <div className="flex flex-col items-center justify-center gap-2 py-16 text-center text-sm text-muted-foreground px-8">
-            <AgentfloxSparkleIcon className="h-10 w-10 mb-2 opacity-30" />
-            <p className="font-medium text-slate-600">How can I help you today?</p>
-            <p className="max-w-md text-xs text-slate-400">
-              Start the conversation by typing a message below.
-            </p>
+          <div className="flex-1 flex flex-col items-center justify-center min-h-[60vh]">
+            {emptyState ? (
+              emptyState
+            ) : (
+              <div className="flex flex-col items-center justify-center gap-2 text-center text-sm text-muted-foreground px-8">
+                <AgentfloxSparkleIcon className="h-10 w-10 mb-2 opacity-30" />
+                <p className="font-medium text-slate-600">How can I help you today?</p>
+                <p className="max-w-md text-xs text-slate-400">
+                  Start the conversation by typing a message below.
+                </p>
+              </div>
+            )}
           </div>
         )}
 

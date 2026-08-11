@@ -3,6 +3,7 @@ import { router, protectedProcedure } from "@/trpc/init";
 import { prisma } from "@/lib/prisma";
 import { ViewType } from "@agentflox/database/src/generated/prisma/client";
 import { cachedQuery, trpcCacheKey, invalidateCacheKey } from "@/lib/trpcCache";
+import { LimitGuard } from "@/features/usage/utils/limitGuard";
 
 const listInputSchema = z.object({
 	query: z.string().optional(),
@@ -292,6 +293,7 @@ export const spaceRouter = router({
 
 	create: protectedProcedure.input(createInputSchema).mutation(async ({ ctx, input }) => {
 		const userId = ctx.session!.user!.id;
+		await LimitGuard.ensureWithinCreateLimit(userId, 'SPACE');
 
 		const targetWorkspaceId = input.workspaceId;
 		if (targetWorkspaceId) {

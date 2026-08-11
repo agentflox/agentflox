@@ -1,5 +1,6 @@
 "use client";
 import Shell from "@/components/layout/Shell";
+import UpgradeLoading from "./loading";
 import { trpc } from "@/lib/trpc";
 import { useState, useCallback } from "react";
 import { Card } from "@/components/ui/card";
@@ -10,25 +11,7 @@ import { useRouter } from "next/navigation";
 import { ArrowRight, Check, Zap, Package, CreditCard, Coins, AlertCircle } from "lucide-react";
 import { PageHeader } from "@/entities/shared/components/PageHeader";
 
-const PlansSkeleton = () => (
-  <div className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-in fade-in duration-500 mt-6">
-    {[1, 2, 3].map((i) => (
-      <Card key={i} className="p-6 border-zinc-100 dark:border-zinc-800/60 overflow-hidden bg-white/50 dark:bg-zinc-950/50">
-        <div className="space-y-4">
-          <div className="h-6 w-32 bg-zinc-200 dark:bg-zinc-800 rounded-md animate-pulse" />
-          <div className="h-4 w-48 bg-zinc-200 dark:bg-zinc-800 rounded-md animate-pulse" />
-          <div className="h-10 w-24 bg-zinc-200 dark:bg-zinc-800 rounded-md animate-pulse mt-6" />
-          <div className="space-y-3 mt-6">
-            <div className="h-4 w-full bg-zinc-200 dark:bg-zinc-800 rounded-md animate-pulse" />
-            <div className="h-4 w-5/6 bg-zinc-200 dark:bg-zinc-800 rounded-md animate-pulse" />
-            <div className="h-4 w-4/6 bg-zinc-200 dark:bg-zinc-800 rounded-md animate-pulse" />
-          </div>
-          <div className="h-10 w-full bg-zinc-200 dark:bg-zinc-800 rounded-md animate-pulse mt-8" />
-        </div>
-      </Card>
-    ))}
-  </div>
-);
+
 
 export default function UpgradePage() {
   const { data: session } = useSession();
@@ -38,6 +21,10 @@ export default function UpgradePage() {
   const plans = trpc.billing.listPlans.useQuery({});
   const packages = trpc.billing.listPackages.useQuery({});
   const currentPlan = trpc.billing.currentPlan.useQuery();
+
+  if (plans.isLoading || packages.isLoading || currentPlan.isLoading) {
+    return <UpgradeLoading />;
+  }
 
   const handleTabChange = useCallback((value: string) => {
     setActiveTab(value);
@@ -73,8 +60,13 @@ export default function UpgradePage() {
 
     if (feature.maxProjects) items.push(`Up to ${feature.maxProjects} projects`);
     if (feature.maxTeams) items.push(`Up to ${feature.maxTeams} teams`);
+    if (feature.maxWorkspaces) items.push(`Up to ${feature.maxWorkspaces} workspaces`);
+    if (feature.maxSpaces) items.push(`Up to ${feature.maxSpaces} spaces`);
     if (feature.maxProposals) items.push(`Up to ${feature.maxProposals} proposals`);
-    if (feature.maxRequests) items.push(`Up to ${feature.maxRequests} requests/month`);
+    if (feature.maxApplicationRequests) items.push(`Up to ${feature.maxApplicationRequests} application requests/month`);
+    if (feature.maxExecutions === -1) items.push(`Unlimited executions/month`);
+    else if (feature.maxExecutions) items.push(`Up to ${feature.maxExecutions} executions/month`);
+    if (feature.maxConcurrentRuns) items.push(`Up to ${feature.maxConcurrentRuns} concurrent runs`);
     if (feature.maxStorageGB) items.push(`${feature.maxStorageGB} GB storage`);
     if (feature.maxCredits) items.push(`${feature.maxCredits} credits`);
 
@@ -88,7 +80,7 @@ export default function UpgradePage() {
     if (!feature) return null;
     const items: string[] = [];
 
-    if (feature.maxRequests) items.push(`Add ${feature.maxRequests.toLocaleString()} requests immediately`);
+    if (feature.maxApplicationRequests) items.push(`Add ${feature.maxApplicationRequests.toLocaleString()} application requests immediately`);
     if (feature.maxCredits) items.push(`Add ${feature.maxCredits.toLocaleString()} credits immediately`);
 
     return (
@@ -126,9 +118,7 @@ export default function UpgradePage() {
           </div>
 
           <TabsContent value="plans" className="mt-0">
-            {plans.isLoading || currentPlan.isLoading ? (
-              <PlansSkeleton />
-            ) : plans.error ? (
+            {plans.error ? (
               <div className="text-center py-12 bg-red-50 dark:bg-red-950/20 rounded-xl border border-red-100 dark:border-red-900/50">
                 <AlertCircle className="h-8 w-8 text-red-500 mx-auto mb-3" />
                 <p className="text-red-700 dark:text-red-400 font-medium">Error loading plans. Please try again.</p>
@@ -229,9 +219,7 @@ export default function UpgradePage() {
           </TabsContent>
 
           <TabsContent value="packages" className="mt-0">
-            {packages.isLoading ? (
-              <PlansSkeleton />
-            ) : packages.error ? (
+            {packages.error ? (
               <div className="text-center py-12 bg-red-50 dark:bg-red-950/20 rounded-xl border border-red-100 dark:border-red-900/50">
                 <AlertCircle className="h-8 w-8 text-red-500 mx-auto mb-3" />
                 <p className="text-red-700 dark:text-red-400 font-medium">Error loading packages. Please try again.</p>

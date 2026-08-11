@@ -5,18 +5,13 @@
  * Focused service for automation inference only.
  */
 
-import { openai } from '@/lib/openai';
-import { fetchModel } from '@/utils/ai/fetchModel';
+import { completeWithDefaultModel } from '@/services/models';
 import { AgentDraft } from '../state/agentBuilderStateService';
 import { UserContext } from '../state/agentBuilderContextService';
 import { AutomationTriggerType, TriggerType } from '../types/types';
 import {
   checkAgentTokenLimit,
-  updateAgentUsage,
-  estimateTokens,
-  countAgentTokens,
 } from '@/utils/ai/agentUsageTracking';
-import { prisma } from '@/lib/prisma';
 import { CircuitBreaker, RetryHandler, ErrorClassifier } from '@/utils/circuitBreaker';
 import { TokenBudgetManager } from '../optimization/tokenBudgetManager';
 import { AutomationInferenceResponseSchema, InferredAutomationSchema, InferredAutomationTriggerSchema } from '../types/schemas';
@@ -135,8 +130,6 @@ Infer automations.`,
       },
     ];
 
-    const model = await fetchModel();
-
     // Use token budget manager for more accurate estimation
     const maxOutputTokens = this.tokenBudgetManager.getBudget('automation');
     const estimatedInputTokens = this.tokenBudgetManager.estimateTokens(JSON.stringify(inferenceMessages));
@@ -158,76 +151,81 @@ Infer automations.`,
     }
 
     try {
-      const completion = await this.retryHandler.retry(
+      const { completion } = await this.retryHandler.retry(
         () => this.circuitBreaker.execute(() =>
-          openai.chat.completions.create({
-            model: model.name,
-            messages: inferenceMessages,
-            temperature: 0.3,
-            max_tokens: maxOutputTokens,
-            tools: [
-              {
-                type: 'function',
-                function: {
-                  name: 'infer_automations',
-                  description: 'Infer automations for the agent from conversation',
-                  parameters: {
-                    type: 'object',
-                    properties: {
-                      automations: {
-                        type: 'array',
-                        items: {
-                          type: 'object',
-                          properties: {
-                            name: { type: 'string' },
-                            description: { type: 'string' },
-                            triggers: {
-                              type: 'array',
-                              items: {
-                                type: 'object',
-                                properties: {
-                                  triggerType: {
-                                    type: 'string',
-                                    'enum': Object.values(AutomationTriggerType),
-                                    description: 'Event-based automation trigger type'
+          completeWithDefaultModel({
+            userId: userId || 'system',
+            request: {
+              messages: inferenceMessages,
+              temperature: 0.3,
+              max_tokens: maxOutputTokens,
+              tools: [
+                {
+                  type: 'function',
+                  function: {
+                    name: 'infer_automations',
+                    description: 'Infer automations for the agent from conversation',
+                    parameters: {
+                      type: 'object',
+                      properties: {
+                        automations: {
+                          type: 'array',
+                          items: {
+                            type: 'object',
+                            properties: {
+                              name: { type: 'string' },
+                              description: { type: 'string' },
+                              triggers: {
+                                type: 'array',
+                                items: {
+                                  type: 'object',
+                                  properties: {
+                                    triggerType: {
+                                      type: 'string',
+                                      'enum': Object.values(AutomationTriggerType),
+                                      description: 'Event-based automation trigger type'
+                                    },
+                                    name: { type: 'string' },
+                                    description: { type: 'string' },
+                                    config: { type: 'object' },
+                                    priority: { type: 'number', default: 0 },
+                                    conditions: { type: 'object' },
+                                    filters: { type: 'object' },
+                                    confidence: { type: 'number', minimum: 0, maximum: 100 },
+                                    reasoning: { type: 'string' },
                                   },
-                                  name: { type: 'string' },
-                                  description: { type: 'string' },
-                                  config: { type: 'object' },
-                                  priority: { type: 'number', default: 0 },
-                                  conditions: { type: 'object' },
-                                  filters: { type: 'object' },
-                                  confidence: { type: 'number', minimum: 0, maximum: 100 },
-                                  reasoning: { type: 'string' },
+                                  required: ['triggerType', 'name', 'config', 'confidence', 'reasoning'],
                                 },
-                                required: ['triggerType', 'name', 'config', 'confidence', 'reasoning'],
                               },
+                              conditions: { type: 'object' },
+                              actions: {
+                                type: 'array',
+                                items: { type: 'object' },
+                              },
+                              isScheduled: { type: 'boolean', default: false },
+                              cronExpression: { type: 'string' },
+                              timezone: { type: 'string', default: 'UTC' },
+                              confidence: { type: 'number', minimum: 0, maximum: 100 },
+                              reasoning: { type: 'string' },
                             },
-                            conditions: { type: 'object' },
-                            actions: {
-                              type: 'array',
-                              items: { type: 'object' },
-                            },
-                            isScheduled: { type: 'boolean', default: false },
-                            cronExpression: { type: 'string' },
-                            timezone: { type: 'string', default: 'UTC' },
-                            confidence: { type: 'number', minimum: 0, maximum: 100 },
-                            reasoning: { type: 'string' },
+                            required: ['name', 'triggers', 'actions', 'confidence', 'reasoning'],
                           },
-                          required: ['name', 'triggers', 'actions', 'confidence', 'reasoning'],
+                        },
+                        reasoning: {
+                          type: 'string',
+                          description: 'Overall reasoning for automation decisions',
                         },
                       },
-                      reasoning: {
-                        type: 'string',
-                        description: 'Overall reasoning for automation decisions',
-                      },
+                      required: ['automations', 'reasoning'],
                     },
-                    required: ['automations', 'reasoning'],
                   },
                 },
-              },
-            ],
-            tool_choice: { type: 'function', function: { name: 'infer_automations' } },
+              ],
+              tool_choice: { type: 'function', function: { name: 'infer_automations' } },
+              stream: false,
+            },
+            usageContext: { action: 'ANALYZE', metadata: { source: 'automationInferrer' } },
+            skipEntitlement: true,
           })
         ),
         {
@@ -248,29 +246,6 @@ Infer automations.`,
             automationsCount: validated.automations.length,
             reasoning: validated.reasoning,
           });
-
-          // Track usage
-          countAgentTokens(
-            inferenceMessages as Array<{ role: string; content: string }>,
-            toolCall.function.arguments,
-            model.name
-          ).then(async (tokenCount) => {
-            try {
-              const user = await prisma.user.findUnique({
-                where: { id: userId },
-                select: { name: true, email: true },
-              });
-              await updateAgentUsage(
-                userId,
-                user?.name || user?.email || 'User',
-                tokenCount.inputTokens,
-                tokenCount.outputTokens,
-                user?.email || undefined
-              );
-            } catch (error) {
-              console.error('Failed to update usage for automation inference:', error);
-            }
-          }).catch(() => { });
 
           return {
             automations: validated.automations as InferredAutomation[],

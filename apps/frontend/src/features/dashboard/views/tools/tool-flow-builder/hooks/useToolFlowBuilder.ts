@@ -100,7 +100,8 @@ export function useToolFlowBuilder({ workspaceId, initialTool, onClose }: ToolFl
   const [activeTopTab, setActiveTopTab] = React.useState<"build" | "run">("build");
   const [settingsOpen, setSettingsOpen] = React.useState(false);
   const [assistantOpen, setAssistantOpen] = React.useState(false);
-  const [toolIcon, setToolIcon] = React.useState<string>("T");
+  const [toolIcon, setToolIcon] = React.useState<string>((initialTool as any)?.icon ?? "T");
+  const [toolColor, setToolColor] = React.useState<string>((initialTool as any)?.color ?? "");
   const [selectedNode, setSelectedNode] = React.useState<"inputs" | "outputs" | "step" | "branch_path">("inputs");
   const [selectedSubBranchId, setSelectedSubBranchId] = React.useState<string | null>(null);
   const [selectedStepId, setSelectedStepId] = React.useState<string | null>(null);
@@ -273,7 +274,7 @@ export function useToolFlowBuilder({ workspaceId, initialTool, onClose }: ToolFl
       type: (props[key].type as any) || "string",
       description: props[key].description as string | undefined,
       required: required.includes(key),
-      uiType: inferUiTypeFromProp(props[key]),
+      uiType: inferUiTypeFromProp(props[key], key),
       fillMode: (props[key]?.["x-fillMode"] as InputFillMode | undefined) ?? "agent",
       defaultValue: props[key]?.default,
       options: Array.isArray(props[key]?.enum) ? (props[key].enum as string[]) : undefined,
@@ -563,6 +564,7 @@ export function useToolFlowBuilder({ workspaceId, initialTool, onClose }: ToolFl
     selectedRun,
     liveRunState,
     runCompositeTool: baseRunCompositeTool,
+    cancelCompositeTool,
   } = useToolRun({ initialTool, inputs });
 
   const runCompositeTool = React.useCallback(
@@ -1299,7 +1301,7 @@ export function useToolFlowBuilder({ workspaceId, initialTool, onClose }: ToolFl
             onToggleSkip: () => toggleStepSkipped(s.id),
             onToggleStickyNote: () => toggleStepStickyNote(s.id),
             onUpdateStickyNote: (content) => updateStepStickyContent(s.id, content),
-            onRunUpToHere: () => runCompositeTool({ startStepId: steps[0]?.id }),
+            onRunUpToHere: () => runCompositeTool({ endStepId: s.id }),
             onCopyRunStepSnippet: () => {
               const snippet = `agent.run_step("${s.varName}")`;
               navigator.clipboard.writeText(snippet);
@@ -1314,7 +1316,7 @@ export function useToolFlowBuilder({ workspaceId, initialTool, onClose }: ToolFl
               navigator.clipboard.writeText(`agent.run_step("${s.varName}")`);
               toast({ title: "Copied Python Snippet", description: "The snippet has been copied to your clipboard." });
             },
-            onRunStep: () => runCompositeTool({ startStepId: s.id }),
+            onRunStep: () => runCompositeTool({ startStepId: s.id, endStepId: s.id }),
             onOpenModal: () => setModalStepId(s.id),
             onUpdateStepName: (newName: string) => updateStepName(s.id, newName),
           },
@@ -1366,7 +1368,7 @@ export function useToolFlowBuilder({ workspaceId, initialTool, onClose }: ToolFl
           (branch.steps ?? []).forEach((inner: any, iIdx: number) => {
             const innerNodeId = `node_branch_${s.id}_${branch.id}_inner_${iIdx}`;
             let innerConfig: any = {};
-            try { innerConfig = inner.config ? JSON.parse(inner.config) : {}; } catch { }
+            try { innerConfig = JSON.parse(inner.config || "{}"); } catch { }
             const toolName = inner.type === "SYSTEM_TOOL"
               ? (systemToolsQuery.data?.find((t: any) => t.id === (inner.config as any)?.toolId)?.name || "System Tool")
               : inner.type === "API" ? "API Request"
@@ -1572,7 +1574,7 @@ export function useToolFlowBuilder({ workspaceId, initialTool, onClose }: ToolFl
               onToggleSkip: () => toggleStepSkipped(s.id),
               onToggleStickyNote: (() => toggleStepStickyNote(s.id)) as any,
               onUpdateStickyNote: ((content) => updateStepStickyContent(s.id, content)) as any,
-              onRunUpToHere: () => runCompositeTool({ startStepId: steps[0]?.id }),
+              onRunUpToHere: () => runCompositeTool({ endStepId: s.id }),
               onCopyRunStepSnippet: () => {
                 const snippet = `agent.run_step("${s.varName}")`;
                 navigator.clipboard.writeText(snippet);
@@ -1769,7 +1771,7 @@ export function useToolFlowBuilder({ workspaceId, initialTool, onClose }: ToolFl
             onMoveDown: canMoveDown ? () => moveStep(s.id, 1) : undefined,
             onDuplicate: () => duplicateStep(s.id),
             onToggleDisabled: () => toggleStepDisabled(s.id),
-            onRunUpToHere: () => runCompositeTool({ startStepId: steps[0]?.id }),
+            onRunUpToHere: () => runCompositeTool({ endStepId: s.id }),
             onDeleteStep: () => deleteStep(s.id),
             onCopyRunStepSnippet: () => {
               const snippet = `agent.run_step("${s.varName}")`;
@@ -1793,7 +1795,7 @@ export function useToolFlowBuilder({ workspaceId, initialTool, onClose }: ToolFl
               setActivePanelTab("configure");
             },
             onAddStep: () => openToolStepSidebar({ insertIndex: idx + 1 }),
-            onRunStep: () => runCompositeTool({ startStepId: s.id }),
+            onRunStep: () => runCompositeTool({ startStepId: s.id, endStepId: s.id }),
             onOpenModal: () => setModalStepId(s.id),
             onMeasureHeight: (h: number) => setNodeMeasurements((prev) => prev[s.id] === h ? prev : { ...prev, [s.id]: h }),
             onUpdateStepName: (newName: string) => updateStepName(s.id, newName),
@@ -1835,11 +1837,12 @@ export function useToolFlowBuilder({ workspaceId, initialTool, onClose }: ToolFl
           setActivePanelTab("configure");
         },
         onOpenModal: () => setOutputsModalOpen(true),
+        onRunStep: () => runCompositeTool(),
       },
     });
 
     return nodes;
-  }, [steps, viewMode, openToolStepSidebar, liveRunState, expandedNodes, inputs, outputs, outputMode, nodeMeasurements, systemToolsQuery.data, buildVarTree, addOutputFromSource, removeOutput, addCustomOutput]);
+  }, [steps, viewMode, openToolStepSidebar, liveRunState, expandedNodes, inputs, outputs, outputMode, nodeMeasurements, systemToolsQuery.data, buildVarTree, addOutputFromSource, removeOutput, addCustomOutput, runCompositeTool]);
 
   const computedEdges = React.useMemo<Edge[]>(() => {
     const edges: Edge[] = [];
@@ -2015,6 +2018,8 @@ export function useToolFlowBuilder({ workspaceId, initialTool, onClose }: ToolFl
     setAssistantOpen,
     toolIcon,
     setToolIcon,
+    toolColor,
+    setToolColor,
     selectedNode,
     setSelectedNode,
     selectedSubBranchId,
@@ -2131,6 +2136,7 @@ export function useToolFlowBuilder({ workspaceId, initialTool, onClose }: ToolFl
     selectedRun,
     liveRunState,
     runCompositeTool,
+    cancelCompositeTool,
     buildVarTree,
     addStepFromLibrary,
     addBranchColumn,

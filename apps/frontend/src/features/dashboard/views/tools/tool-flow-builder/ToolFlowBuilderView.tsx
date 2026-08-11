@@ -6,6 +6,7 @@ import "@xyflow/react/dist/style.css";
 import { ToolEditorAssistantPanel } from "@/entities/tools/components/assistant/ToolEditorAssistantPanel";
 import { ToolFlowCanvas } from "@/entities/tools/components/builder/ToolFlowCanvas";
 import { ToolLogView } from "../ToolLogView";
+import { useToolRunHistory } from "@/entities/tools/hooks/useToolRunHistory";
 import { useToolFlowBuilder } from "./hooks/useToolFlowBuilder";
 import { ToolFlowBuilderHeader } from "./components/ToolFlowBuilderHeader";
 import { ToolFlowBuilderSidebar } from "./components/ToolFlowBuilderSidebar";
@@ -15,6 +16,28 @@ export type { ToolFlowBuilderViewProps } from "./types";
 
 export function ToolFlowBuilderView(props: ToolFlowBuilderViewProps) {
   const api = useToolFlowBuilder(props);
+  const toolId = api.initialTool?.id as string | undefined;
+  const toolRunHistory = useToolRunHistory(toolId);
+
+  const mergedRunHistory = React.useMemo(() => {
+    const liveIds = new Set<string>();
+    for (const r of api.runHistory) {
+      liveIds.add(r.id);
+      if (r.serverRunId) liveIds.add(r.serverRunId);
+    }
+    const dbOnly = toolRunHistory.dbRuns.filter(
+      (r) => !liveIds.has(r.id) && !(r.serverRunId && liveIds.has(r.serverRunId)),
+    );
+    return [...api.runHistory, ...dbOnly];
+  }, [api.runHistory, toolRunHistory.dbRuns]);
+
+  React.useEffect(() => {
+    for (const run of api.runHistory) {
+      if (run.status !== "running") {
+        toolRunHistory.mergeLiveRun(run);
+      }
+    }
+  }, [api.runHistory, toolRunHistory.mergeLiveRun]);
 
   return (
     <>
@@ -70,18 +93,27 @@ export function ToolFlowBuilderView(props: ToolFlowBuilderViewProps) {
             </div>
           ) : null}
           {api.activeTopTab === "run" ? (
-            <ToolLogView
-              inputs={api.inputs}
-              runHistory={api.runHistory}
-              setRunHistory={api.setRunHistory}
-              selectedRunId={api.selectedRunId}
-              setSelectedRunId={api.setSelectedRunId}
-              runInput={api.runInput}
-              setRunInput={api.setRunInput}
-              selectedRun={api.selectedRun}
-              isRunningTool={api.isRunningTool}
-              runCompositeTool={() => api.runCompositeTool()}
-            />
+            <div className="flex-1 min-h-0 h-full w-full flex flex-col">
+              <ToolLogView
+                inputs={api.inputs}
+                runHistory={mergedRunHistory}
+                setRunHistory={(updater) => {
+                  api.setRunHistory(updater);
+                }}
+                selectedRunId={api.selectedRunId}
+                setSelectedRunId={api.setSelectedRunId}
+                runInput={api.runInput}
+                setRunInput={api.setRunInput}
+                selectedRun={api.selectedRun}
+                isRunningTool={api.isRunningTool}
+                runCompositeTool={(opts) => api.runCompositeTool(opts)}
+                cancelCompositeTool={() => api.cancelCompositeTool()}
+                onDeleteRun={toolRunHistory.deleteRun}
+                onLoadMore={toolRunHistory.loadMore}
+                hasMore={toolRunHistory.hasMore}
+                loadingMore={toolRunHistory.loadingMore}
+              />
+            </div>
           ) : (
             <>
               <div className="flex-1 overflow-hidden bg-zinc-50 relative">

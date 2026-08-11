@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import type { StepConfigBaseProps } from "../types";
+import { ModelSelectDropdown } from "@/entities/models/components/ModelSelectDropdown";
 
 export function LlmStepConfig(props: StepConfigBaseProps) {
 const { api, step, parsed, varTree } = props;
@@ -68,24 +69,17 @@ const { api, step, parsed, varTree } = props;
                 <Info className="h-3.5 w-3.5 text-zinc-400" />
                 <span className="bg-zinc-100 text-zinc-500 text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider border border-zinc-200/50">Optional</span>
               </div>
-              <div className="flex items-center gap-1.5">
-                <Braces className="h-3.5 w-3.5 text-zinc-300" />
-                <Code2 className="h-3.5 w-3.5 text-zinc-300" />
-              </div>
             </div>
-            <Select
-              value={parsed?.model || "gpt-4o-mini"}
-              onValueChange={(val) => updateStepConfig(step.id, cfg => ({ ...cfg, model: val }))}
-            >
-              <SelectTrigger className="h-10 text-xs bg-white border-zinc-200 rounded-lg shadow-sm">
-                <SelectValue placeholder="Select model..." />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="gpt-4o-mini">Cost-optimized Model (GPT-4o Mini)</SelectItem>
-                <SelectItem value="gpt-4o">High-performance Model (GPT-4o)</SelectItem>
-                <SelectItem value="claude-3-5-sonnet">Claude 3.5 Sonnet</SelectItem>
-              </SelectContent>
-            </Select>
+            <ModelSelectDropdown
+              modelId={parsed?.modelId || null}
+              onModelChange={(id, m) =>
+                updateStepConfig(step.id, (cfg) => ({
+                  ...cfg,
+                  modelId: id,
+                  model: m.apiModelId || m.slug,
+                }))
+              }
+            />
           </div>
 
           {/* Run step */}

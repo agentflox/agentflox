@@ -23,8 +23,7 @@
  *    attempt immediately throws and counts as a failure).
  */
 
-import { openai } from '@/lib/openai';
-import { fetchModel } from '@/utils/ai/fetchModel';
+import { completeWithDefaultModel } from '@/services/models';
 import { AgentDraft } from '../state/agentBuilderStateService';
 import { CircuitBreaker, CircuitBreakerError, RetryHandler } from '@/utils/circuitBreaker';
 import { TokenBudgetManager } from '../optimization/tokenBudgetManager';
@@ -255,28 +254,36 @@ Generate the complete system prompt following the Agent System Prompt Structure.
     try {
       const maxOutputTokens = this.tokenBudgetManager.getBudget('systemPrompt');
 
-      // ── AbortSignal timeout ──────────────────────────────────────────
-      // The 7-section prompt can be 2000-4000 output tokens. Without a
-      // timeout, a slow OpenAI connection blocks the caller for 40+ seconds.
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), GENERATION_TIMEOUT_MS);
+      // ── Wall-clock timeout via Promise.race ─────────────────────────
+      // createChatCompletion does not accept AbortSignal as a 2nd arg.
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => {
+          const err = new Error('Prompt generation timed out');
+          (err as any).name = 'AbortError';
+          reject(err);
+        }, GENERATION_TIMEOUT_MS);
+      });
 
       // ── Correct nesting: CB wraps RetryHandler ───────────────────────
       // RetryHandler retries transient OpenAI errors (429, 5xx, network).
       // CircuitBreaker counts the final outcome of all retries — not each
       // individual attempt. This is the inverse of the old broken nesting.
-      const completion = await this.circuitBreaker.execute(() =>
+      const { completion } = await this.circuitBreaker.execute(() =>
         this.retryHandler.retry(
-          () => openai.chat.completions.create(
-            {
-              model: 'gpt-4o-mini',
-              messages: systemPromptMessages,
-              temperature: 0.7,
-              max_tokens: maxOutputTokens,
-              stream: false,
-            },
-            { signal: controller.signal as any }
-          ),
+          () => Promise.race([
+            completeWithDefaultModel({
+              userId: 'system',
+              request: {
+                messages: systemPromptMessages,
+                temperature: 0.7,
+                max_tokens: maxOutputTokens,
+                stream: false,
+              },
+              usageContext: { action: 'GENERATE', metadata: { source: 'promptGenerator' } },
+              skipEntitlement: true,
+            }),
+            timeoutPromise,
+          ]),
           {
             maxAttempts: 2,        // reduced from 3 — prompt gen is slow, 2 attempts is enough
             baseDelay: 1000,
@@ -291,8 +298,6 @@ Generate the complete system prompt following the Agent System Prompt Structure.
           }
         )
       );
-
-      clearTimeout(timeoutId);
 
       const generatedPrompt = completion.choices[0]?.message?.content ?? '';
       if (generatedPrompt.length > 100) {

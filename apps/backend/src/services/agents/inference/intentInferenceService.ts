@@ -1,6 +1,5 @@
 import { AGENT_CONSTANTS } from '../constants/agentConstants';
-import { fetchModel } from '@/utils/ai/fetchModel';
-import { openai } from '@/lib/openai';
+import { completeWithDefaultModel } from '@/services/models';
 import { extractJson } from '@/utils/ai/jsonParsing';
 
 export interface IntentInferenceResult {
@@ -68,7 +67,8 @@ export class IntentInferenceService {
      */
     async inferBuilderIntent(
         message: string,
-        history: any[]
+        history: any[],
+        userId?: string
     ): Promise<IntentInferenceResult> {
 
         // ── Layer 1: Fast keyword pre-check ──────────────────────────────────
@@ -83,7 +83,6 @@ export class IntentInferenceService {
 
         // ── Layer 2: LLM-based classification ────────────────────────────────
         const recentHistory = history.slice(-5).map((h: any) => `${h.role}: ${h.content}`).join('\n');
-        const model = await fetchModel();
 
         const systemPrompt = `You are an Intent Classifier for an AI Agent Builder.
 The Builder is where users CREATE, CONFIGURE, and LAUNCH agents. Your job is to classify the user's latest message into exactly one of four categories:
@@ -105,15 +104,21 @@ The Builder is where users CREATE, CONFIGURE, and LAUNCH agents. Your job is to 
 
 Output JSON: { "intent": string, "confidence": number (0-1), "reason": string }`;
 
-        const response = await openai.chat.completions.create({
-            model: model.name,
-            messages: [
-                { role: 'system', content: systemPrompt },
-                { role: 'user', content: `Conversation History:\n${recentHistory}\n\nUser's Latest Message: "${message}"` }
-            ],
-            response_format: { type: 'json_object' },
-            temperature: 0,
+        const { completion } = await completeWithDefaultModel({
+            userId: userId || 'system',
+            request: {
+                messages: [
+                    { role: 'system', content: systemPrompt },
+                    { role: 'user', content: `Conversation History:\n${recentHistory}\n\nUser's Latest Message: "${message}"` }
+                ],
+                response_format: { type: 'json_object' },
+                temperature: 0,
+                stream: false,
+            },
+            usageContext: { action: 'ANALYZE', metadata: { source: 'intentInferenceService_builder' } },
+            skipEntitlement: true,
         });
+        const response = completion;
 
         const content = response.choices[0].message.content;
         let result: IntentInferenceResult;
@@ -158,10 +163,10 @@ Output JSON: { "intent": string, "confidence": number (0-1), "reason": string }`
      */
     async inferOperatorIntent(
         message: string,
-        history: any[]
+        history: any[],
+        userId?: string
     ): Promise<IntentInferenceResult> {
         const recentHistory = history.slice(-5).map((h: any) => `${h.role}: ${h.content}`).join('\n');
-        const model = await fetchModel();
 
         const systemPrompt = `You are an Intent Classifier for an AI Agent Operator.
 Your goal is to classify the user's latest message:
@@ -172,15 +177,21 @@ Your goal is to classify the user's latest message:
 
 Output JSON: { "intent": string, "confidence": number, "reason": string }`;
 
-        const response = await openai.chat.completions.create({
-            model: model.name,
-            messages: [
-                { role: 'system', content: systemPrompt },
-                { role: 'user', content: `History:\n${recentHistory}\n\nUser Message: ${message}` }
-            ],
-            response_format: { type: 'json_object' },
-            temperature: 0,
+        const { completion } = await completeWithDefaultModel({
+            userId: userId || 'system',
+            request: {
+                messages: [
+                    { role: 'system', content: systemPrompt },
+                    { role: 'user', content: `History:\n${recentHistory}\n\nUser Message: ${message}` }
+                ],
+                response_format: { type: 'json_object' },
+                temperature: 0,
+                stream: false,
+            },
+            usageContext: { action: 'ANALYZE', metadata: { source: 'intentInferenceService_operator' } },
+            skipEntitlement: true,
         });
+        const response = completion;
 
         const content = response.choices[0].message.content;
         try {
@@ -195,10 +206,10 @@ Output JSON: { "intent": string, "confidence": number, "reason": string }`;
      */
     async inferExecutorIntent(
         message: string,
-        history: any[]
+        history: any[],
+        userId?: string
     ): Promise<IntentInferenceResult> {
         const recentHistory = history.slice(-5).map((h: any) => `${h.role}: ${h.content}`).join('\n');
-        const model = await fetchModel();
 
         const systemPrompt = `You are an Intent Classifier for an AI Agent Executor.
 Your goal is to classify the user's latest message:
@@ -209,15 +220,21 @@ Your goal is to classify the user's latest message:
 
 Output JSON: { "intent": string, "confidence": number, "reason": string }`;
 
-        const response = await openai.chat.completions.create({
-            model: model.name,
-            messages: [
-                { role: 'system', content: systemPrompt },
-                { role: 'user', content: `History:\n${recentHistory}\n\nUser Message: ${message}` }
-            ],
-            response_format: { type: 'json_object' },
-            temperature: 0,
+        const { completion } = await completeWithDefaultModel({
+            userId: userId || 'system',
+            request: {
+                messages: [
+                    { role: 'system', content: systemPrompt },
+                    { role: 'user', content: `History:\n${recentHistory}\n\nUser Message: ${message}` }
+                ],
+                response_format: { type: 'json_object' },
+                temperature: 0,
+                stream: false,
+            },
+            usageContext: { action: 'ANALYZE', metadata: { source: 'intentInferenceService_executor' } },
+            skipEntitlement: true,
         });
+        const response = completion;
 
         const content = response.choices[0].message.content;
         try {

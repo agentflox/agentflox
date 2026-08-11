@@ -60,22 +60,45 @@ const response = await LLM("openai-gpt-4.1").chat.completions.create({
     messages: [
         {role: "system", content: "You are a marketing expert."},
         {role: "user", content: prompt}
-    ]
+    ],
+    api_key: params.openai_api_key,
 });
 const analysis = response.choices[0].message.content;
 const tokens = response.usage.total_tokens;
 \`\`\`
 
 ### Global Helpers
-The `Helper` class invokes platform-native utilities like web scrapers or PDF extractors.
-\`\`\`javascript
-// Example: Extract text from PDF
+The `Helper` class invokes platform-native utilities (PDF extract, search, scrape, temp upload).
+See `docs/PLATFORM_HELPERS.md` and `GET /v1/platform-helpers`.
+
+```javascript
+// Example: Extract text from PDF / DOCX / TXT
 const extraction = await Helper("file_to_text_llm_friendly").call({file_url: params.pdf_url});
 const text = extraction.text;
+const tables = extraction.tables || [];
 
-// Example: Google Search (Serper)
-const search_results = await Helper("serper_google_search").call({query: "construction trends 2026"});
-\`\`\`
+// Example: Google Search (Serper) — pass the user's API key from tool inputs
+const search_results = await Helper("serper_google_search").call({
+  query: "construction trends 2026",
+  api_key: params.serper_api_key,
+});
+
+// Example: Firecrawl scrape — pass the user's API key from tool inputs
+const pages = await Helper("firecrawl").call({
+  url: params.website_url,
+  scrape_only: true,
+  api_key: params.firecrawl_api_key,
+});
+
+// Example: Temp upload
+const uploaded = await insert_temp_file("hello", "txt");
+const url = uploaded.url;
+```
+
+When using LLM / Serper / Firecrawl (or any third-party API), **always** add a required tool input for the key (`openai_api_key`, `serper_api_key`, `firecrawl_api_key`, …) and pass it into the call from `params`.
+
+**V1 status:** `file_to_text*`, `serper_google_search`, `firecrawl`, `prompt_completion`, `llm`, `insert_temp_file` are live.
+`insert_data` / `retrieve_*` / `Integration` return not-configured errors until those products are enabled.
 
 ### Integration (OAuth & External APIs)
 \`\`\`javascript

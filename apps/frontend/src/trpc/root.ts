@@ -42,6 +42,7 @@ import { editorAssistantRouter } from "@/trpc/routers/editorAssistant";
 import { bugReportRouter } from "@/trpc/routers/bugReport";
 import { proposalRouter } from "@/trpc/routers/proposal";
 import { taskCustomRelationshipsRouter } from "@/trpc/routers/taskCustomRelationships";
+import { modelsRouter } from "@/trpc/routers/models";
 
 export const appRouter = router({
   project: projectRouter,
@@ -86,6 +87,7 @@ export const appRouter = router({
   bugReport: bugReportRouter,
   proposal: proposalRouter,
   taskCustomRelationships: taskCustomRelationshipsRouter,
+  models: modelsRouter,
 });
 
 export type AppRouter = typeof appRouter;

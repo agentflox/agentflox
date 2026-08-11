@@ -7,9 +7,9 @@ import { prisma } from '@/lib/prisma';
 import { openai } from '@/lib/openai';
 import { inngest } from '@/lib/inngest';
 import { checkRateLimit } from '@/utils/ai/checkRateLimit';
-import { agentBuilderRateLimiter, consumeRateLimit } from '@/lib/rateLimiter';
+import { agentBuilderRateLimiter, agentBuilderInitRateLimiter, consumeRateLimit } from '@/lib/rateLimiter';
 import { createAgentGraph, type AgentGraphState } from '@/services/agents/orchestration/agentGraph';
-import { agentBuilderService } from '@/services/agents/arch/agentBuilderService';
+import { agentBuilderService, AgentBuilderError } from '@/services/agents/arch/agentBuilderService';
 import { BuilderProgressEmitter } from '@/services/agents/arch/builderProgressEmitter';
 import { AgentUpdateService } from '@/services/agents/core/agentUpdateService';
 import { agentBuilderContextService } from '@/services/agents/state/agentBuilderContextService';
@@ -29,6 +29,8 @@ import {
   registerAgentRunOwner,
   assertAgentAccess,
 } from '@/utils/http/resourceAccess';
+import { ExecutionQuotaService } from '@/services/billing/executionQuota.service';
+import { sendExecutionQuotaError } from '@/services/billing/executionQuota.http';
 
 @Controller('v1/agents')
 @UseGuards(JwtAuthGuard)
@@ -191,8 +193,11 @@ export class AgentsController {
           aiAgent: {
             select: {
               id: true,
+              name: true,
               isActive: true,
               status: true,
+              workspaceId: true,
+              spaceId: true,
             },
           },
         },
@@ -210,6 +215,17 @@ export class AgentsController {
         return res.status(400).json({ error: 'Agent is not active' });
       }
 
+      await ExecutionQuotaService.consumeExecution(userId, body.executionId, 'agent', {
+        rootRunId: body.executionId,
+        context: {
+          runId: body.executionId,
+          agentId: execution.aiAgent.id,
+          agentName: execution.aiAgent.name,
+          workspaceId: execution.aiAgent.workspaceId,
+          spaceId: execution.aiAgent.spaceId,
+        },
+      });
+
       await inngest.send({
         name: 'agent/execute',
         data: {
@@ -218,6 +234,7 @@ export class AgentsController {
           userId,
           inputData: body.inputData || {},
           executionContext: body.executionContext || {},
+          rootRunId: body.executionId,
         },
       });
 
@@ -228,6 +245,8 @@ export class AgentsController {
       });
     } catch (error) {
       console.error('Error executing agent:', error);
+
+      if (sendExecutionQuotaError(res, error)) return;
 
       if (error instanceof z.ZodError) {
         return res.status(400).json({
@@ -524,6 +543,26 @@ export class AgentsController {
         },
       });
 
+      const billingKey = body.conversationId ?? execution.id;
+      if (!body.conversationId) {
+        console.warn('[AgentsController] metric=execution.chat.legacy_per_message_fallback', {
+          userId,
+          executionId: execution.id,
+        });
+      }
+
+      await ExecutionQuotaService.consumeExecution(userId, billingKey, 'chat', {
+        rootRunId: billingKey,
+        context: {
+          runId: execution.id,
+          agentId: agent.id,
+          agentName: agent.name,
+          conversationId: body.conversationId,
+          workspaceId: body.workspaceId || agent.workspaceId,
+          spaceId: agent.spaceId,
+        },
+      });
+
       const permissionService = new PermissionService();
       const guardrailService = new GuardrailService(permissionService);
       const graph = createAgentGraph(guardrailService);
@@ -576,6 +615,7 @@ export class AgentsController {
       });
     } catch (error) {
       console.error('Error in chat:', error);
+      if (sendExecutionQuotaError(res, error)) return;
       return res.status(500).json({
         error: 'Internal server error',
         message: error instanceof Error ? error.message : 'Unknown error',
@@ -751,41 +791,6 @@ export class AgentsController {
     }
   }
 
-  @Post(':agentId/operator/execute')
-  async operatorExecute(
-    @Param('agentId') agentId: string,
-    @Req() req: AuthenticatedRequest,
-    @Res() res: ExpressResponse
-  ) {
-    try {
-      const schema = z.object({
-        inputData: z.any().optional(),
-        executionContext: z.any().optional(),
-      });
-
-      const body = schema.parse(req.body);
-      const userId = req.userId!;
-
-      const result = await agentOperatorService.triggerExecution(
-        agentId,
-        userId,
-        body.inputData,
-        body.executionContext
-      );
-
-      return res.json(result);
-    } catch (error) {
-      console.error('[AgentOperator] Error triggering execution:', error);
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ error: 'Invalid request', details: error.errors });
-      }
-      return res.status(500).json({
-        error: 'Internal server error',
-        message: error instanceof Error ? error.message : 'Unknown error',
-      });
-    }
-  }
-
   @Post(':agentId/operator/launch')
   async operatorLaunch(
     @Param('agentId') agentId: string,
@@ -838,6 +843,22 @@ export class AgentsController {
       return res.json(result);
     } catch (error) {
       console.error('[AgentExecutor] Error initializing executor:', error);
+      if (error instanceof AgentBuilderError) {
+        const statusCode =
+          error.code === 'AGENT_EXECUTOR_NO_CONVERSATION' ||
+          error.code === 'AGENT_EXECUTOR_CONVERSATION_NOT_FOUND'
+            ? 404
+            : error.code === 'AGENT_EXECUTOR_UNAUTHORIZED' || error.code === 'PERMISSION_DENIED'
+              ? 403
+              : error.code === 'RATE_LIMIT_EXCEEDED'
+                ? 429
+                : 500;
+        return res.status(statusCode).json({
+          error: error.code,
+          message: error.message,
+          userMessage: error.userMessage,
+        });
+      }
       const statusCode = error instanceof Error && error.message.includes('not found') ? 404 :
         error instanceof Error && error.message.includes('Unauthorized') ? 403 : 500;
       return res.status(statusCode).json({
@@ -920,22 +941,23 @@ export class AgentsController {
           userId
         );
         return res.json(result);
-      } else {
-        const initResult = await agentExecutorService.initializeConversation(
-          userId,
-          agentId,
-          undefined,
-          true
-        );
-
-        const result = await agentExecutorService.processMessage(
-          initResult.conversationId,
-          agentId,
-          body.message,
-          userId
-        );
-        return res.json(result);
       }
+
+      // No conversationId — load latest existing chat; do not create here.
+      const initResult = await agentExecutorService.initializeConversation(
+        userId,
+        agentId,
+        undefined,
+        true
+      );
+
+      const result = await agentExecutorService.processMessage(
+        initResult.conversationId,
+        agentId,
+        body.message,
+        userId
+      );
+      return res.json(result);
     } catch (error) {
       console.error('[AgentExecutor] Error in executor chat:', error);
       if (error instanceof z.ZodError) {
@@ -993,7 +1015,7 @@ export class AgentsController {
     try {
       const userId = req.userId!;
 
-      const rl = await consumeRateLimit(agentBuilderRateLimiter, userId, 'agent:builder:initialize');
+      const rl = await consumeRateLimit(agentBuilderInitRateLimiter, userId, 'agent:builder:initialize');
       if (!rl.allowed) {
         return res.status(429).json({ error: rl.error, retryAfter: rl.retryAfter });
       }
@@ -1612,7 +1634,9 @@ export class AgentsController {
           userId,
           inputData: execution.inputData || {},
           executionContext: execution.executionContext || {},
-          isResume: true,  // Flag to indicate this is a resume
+          isResume: true,
+          billingExempt: true,
+          rootRunId: execution.id,
         },
       });
 

@@ -1,9 +1,8 @@
 "use client";
 
-import { useMemo } from "react";
+import { useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
-import PageHeader from '@/entities/shared/components/PageHeader';
 import { useAgentContext } from "./layout";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
@@ -14,25 +13,20 @@ export default function AgentDetailPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const activeTab = searchParams.get('tab') || 'overview';
+  const chatId = searchParams.get('chat');
 
   const {
     agentData: agent,
     isLoading,
-    isPublished,
-    isPublishing,
-    handleTogglePublish,
-    isOwner,
   } = useAgentContext();
 
-  // Memoize header props
-  const headerProps = useMemo(
-    () => ({
-      title: agent?.name || "Untitled agent",
-      subtitle: "Agent Details",
-      description: agent?.description ?? "Make changes to your agent",
-    }),
-    [agent?.name, agent?.description]
-  );
+  const handleChatIdChange = useCallback((id: string | null) => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (id) params.set('chat', id);
+    else params.delete('chat');
+    if (!params.get('tab') && activeTab) params.set('tab', activeTab);
+    router.replace(`?${params.toString()}`, { scroll: false });
+  }, [searchParams, router, activeTab]);
 
   if (isLoading) {
     return (
@@ -60,7 +54,6 @@ export default function AgentDetailPage() {
 
   return (
     <div className="flex flex-col h-full">
-      {/* Top Header Section */}
       <div className="px-6 pt-2 flex-shrink-0 border-b-1 sticky">
         <Button
           variant="ghost"
@@ -77,6 +70,8 @@ export default function AgentDetailPage() {
           <ViewSwitcher
             activeTab={activeTab}
             agent={agent}
+            chatId={chatId}
+            onChatIdChange={handleChatIdChange}
           />
         </div>
       </div>

@@ -52,8 +52,8 @@ export const SearchSection: React.FC<SearchSectionProps> = ({
         {/* Search Bar and Filter Button Row */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
           <div className="w-full md:max-w-md">
-            <div className="flex h-9 items-center rounded-md border border-zinc-200 bg-white px-3 shadow-sm transition-colors">
-              <Search className="h-4 w-4 shrink-0 text-zinc-400" />
+            <div className="flex h-9 items-center rounded-md border border-zinc-200 bg-white px-3 shadow-sm transition-all focus-within:border-transparent focus-within:[background:linear-gradient(#fff,#fff)_padding-box,linear-gradient(to_right,#3b82f6,#a855f7,#ec4899)_border-box]">
+              <Search className="h-4 w-4 shrink-0 text-zinc-400 transition-colors focus-within:text-zinc-600" />
               <Input
                 variant="ghost"
                 value={searchValue}
@@ -103,7 +103,7 @@ export const SearchSection: React.FC<SearchSectionProps> = ({
           {showFilters && onFilterToggle && (
             <button
               onClick={onFilterToggle}
-              className="flex items-center gap-2 rounded-md border border-zinc-200 bg-white px-4 py-2 text-sm font-medium text-zinc-700 shadow-sm transition-all hover:bg-zinc-50 lg:hidden"
+              className="flex items-center gap-2 rounded-md border border-zinc-200 bg-white px-4 py-2 text-sm font-medium text-zinc-700 shadow-sm transition-all hover:bg-zinc-50 lg:hidden cursor-pointer"
             >
               <svg
                 className="h-4 w-4"
@@ -137,7 +137,7 @@ export const SearchSection: React.FC<SearchSectionProps> = ({
             {showFilters && onFilterToggle && (
               <button
                 onClick={onFilterToggle}
-                className="hidden lg:flex items-center gap-2 rounded-md border border-zinc-200 bg-white px-4 py-2 text-sm font-medium text-zinc-700 shadow-sm transition-all hover:bg-zinc-50"
+                className="hidden lg:flex items-center gap-2 rounded-md border border-zinc-200 bg-white px-4 py-2 text-sm font-medium text-zinc-700 shadow-sm transition-all hover:bg-zinc-50 cursor-pointer"
               >
                 <svg
                   className="h-4 w-4"

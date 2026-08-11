@@ -1,14 +1,16 @@
 import { initializeOpenAI } from '@/lib/openai';
-import { ModelService } from '@/services/ai/model.service';
+import { ModelService, SYSTEM_MODELS } from '@/services/ai/model.service';
+import { completeWithDefaultModel } from '@/services/models';
 
 const modelService = new ModelService();
+const ANTHROPIC_DEFAULT = SYSTEM_MODELS.CLAUDE_3_5_SONNET;
 
 type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'HEAD' | 'OPTIONS';
 
 export async function executeApiIntegrationTool(
   toolName: string,
   params: any,
-  _userId: string,
+  userId: string,
   _workspaceId?: string,
 ): Promise<any> {
   switch (toolName) {
@@ -17,7 +19,7 @@ export async function executeApiIntegrationTool(
     case 'webhookSend':
       return executeWebhookSend(params);
     case 'openaiChat':
-      return executeOpenAIChat(params);
+      return executeOpenAIChat(params, userId);
     case 'openaiEmbedding':
       return executeOpenAIEmbedding(params);
     case 'openaiModeration':
@@ -25,7 +27,7 @@ export async function executeApiIntegrationTool(
     case 'openaiImage':
       return executeOpenAIImage(params);
     case 'anthropicChat':
-      return executeAnthropicChat(params);
+      return executeAnthropicChat(params, userId);
     default:
       throw new Error(`Unknown API integration tool: ${toolName}`);
   }
@@ -163,9 +165,8 @@ async function executeWebhookSend(params: any) {
   };
 }
 
-async function executeOpenAIChat(params: any) {
+async function executeOpenAIChat(params: any, userId: string) {
   const {
-    model = 'gpt-4o-mini',
     systemPrompt,
     userMessage,
     temperature = 0.7,
@@ -182,24 +183,27 @@ async function executeOpenAIChat(params: any) {
     throw new Error('openaiChat: userMessage is required');
   }
 
-  const openai = initializeOpenAI();
-
   const messages: Array<{ role: 'system' | 'user'; content: string }> = [];
   if (systemPrompt) {
     messages.push({ role: 'system', content: systemPrompt });
   }
   messages.push({ role: 'user', content: userMessage });
 
-  const completion = await openai.chat.completions.create({
-    model,
-    messages,
-    temperature,
-    max_tokens: maxTokens,
+  const { resolved, completion } = await completeWithDefaultModel({
+    userId: userId || 'system',
+    request: {
+      messages,
+      temperature,
+      max_tokens: maxTokens,
+      stream: false,
+    },
+    usageContext: { action: 'GENERATE', metadata: { source: 'apiIntegrationExecutor.openaiChat' } },
+    skipEntitlement: true,
   });
 
   const choice = completion.choices[0];
   return {
-    model: completion.model,
+    model: completion.model || resolved.apiModelId,
     id: completion.id,
     created: completion.created,
     usage: completion.usage,
@@ -279,9 +283,9 @@ async function executeOpenAIImage(params: any) {
   return result;
 }
 
-async function executeAnthropicChat(params: any) {
+async function executeAnthropicChat(params: any, userId: string) {
   const {
-    model = 'claude-3-5-sonnet-20240620',
+    model = ANTHROPIC_DEFAULT,
     systemPrompt,
     userMessage,
     temperature = 0.7,
@@ -304,9 +308,14 @@ async function executeAnthropicChat(params: any) {
   }
   messages.push({ role: 'user', content: userMessage });
 
-  const result = await modelService.generateText(model, messages, {
+  const result = await modelService.generateText(model || ANTHROPIC_DEFAULT, messages, {
     maxTokens,
     temperature,
+    userId,
+    usageContext: {
+      action: 'GENERATE',
+      metadata: { source: 'apiIntegrationExecutor.anthropicChat' },
+    },
   });
 
   return result;

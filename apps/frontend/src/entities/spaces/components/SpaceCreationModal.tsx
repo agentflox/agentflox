@@ -16,6 +16,8 @@ import {
 } from "@/components/ui/dialog";
 import { trpc } from "@/lib/trpc";
 import { useToast } from "@/hooks/useToast";
+import { useUsageCapModal } from "@/features/usage/hooks/useUsageCapModal";
+import { UsageRemainingHint } from "@/features/usage/components/UsageRemainingHint";
 import { Loader2, Rocket, Layers, Sparkles } from "lucide-react";
 import { SpaceIcon } from "@/entities/spaces/components/SpaceIcon";
 import { cn } from "@/lib/utils";
@@ -63,6 +65,7 @@ export function SpaceCreationModal({ workspaceId, open, onOpenChange, onSuccess,
 	const [focusedField, setFocusedField] = useState<"name" | "description" | null>(null);
 	const router = useRouter();
 	const { toast } = useToast();
+	const { handleError } = useUsageCapModal();
 	const utils = trpc.useUtils();
 	const queryClient = useQueryClient();
 
@@ -150,6 +153,7 @@ export function SpaceCreationModal({ workspaceId, open, onOpenChange, onSuccess,
 			}
 		},
 		onError: (error) => {
+			if (handleError(error)) return;
 			toast({
 				title: "Failed to create space",
 				description: error.message || "Something went wrong. Please try again.",
@@ -328,7 +332,8 @@ export function SpaceCreationModal({ workspaceId, open, onOpenChange, onSuccess,
 					</div>
 
 					{/* Footer */}
-					<div className="px-6 py-4 bg-muted/20 flex items-center justify-end gap-3 border-t border-border/40">
+					<div className="px-6 py-4 bg-muted/20 flex flex-wrap items-center justify-end gap-3 border-t border-border/40">
+						<UsageRemainingHint kind="SPACE" className="mr-auto w-full sm:w-auto" />
 						<Button
 							type="button"
 							variant="ghost"

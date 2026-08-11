@@ -18,9 +18,10 @@ import { storeMemory as storeMemoryService } from '../core/memoryService';
 import { GuardrailService } from '../safety/guardrailService';
 import { getAllTools } from '../registry/toolRegistry';
 import { agentSkillService } from '../core/agentSkillService';
-import { ModelService } from '../../ai/model.service';
+import { ModelService, SYSTEM_MODELS } from '../../ai/model.service';
 
 const modelService = new ModelService();
+const RESPONSE_MODEL = SYSTEM_MODELS.GPT_4O;
 
 /**
  * Agent State Interface
@@ -449,10 +450,16 @@ ${state.executionResults.map(r => `- Step ${r.stepId}: ${r.success ? 'SUCCESS' :
 `;
 
   try {
-    const result = await modelService.generateText('gpt-4o', [
+    const result = await modelService.generateText(RESPONSE_MODEL, [
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userPrompt }
-    ]);
+    ], {
+      userId: state.userId,
+      usageContext: {
+        action: 'GENERATE',
+        metadata: { source: 'agentGraph.generateFinalResponse' },
+      },
+    });
 
     return {
       response: result.content || 'Execution completed successfully.'

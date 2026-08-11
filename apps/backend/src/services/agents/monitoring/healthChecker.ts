@@ -9,11 +9,10 @@
  * - Redis connectivity
  */
 
-import { openai } from '@/lib/openai';
 import { prisma } from '@/lib/prisma';
 import { redis } from '@/lib/redis';
 import { CircuitBreaker } from '@/utils/circuitBreaker';
-import { fetchModel } from '@/utils/ai/fetchModel';
+import { completeWithDefaultModel } from '@/services/models';
 
 export interface HealthStatus {
   status: 'healthy' | 'degraded' | 'unhealthy';
@@ -87,12 +86,16 @@ export class HealthChecker {
    */
   private async checkAIService(): Promise<HealthStatus['checks']['aiService']> {
     try {
-      const model = await fetchModel();
       const startTime = Date.now();
-      const response = await openai.chat.completions.create({
-        model: model.name,
-        messages: [{ role: 'user', content: 'ping' }],
-        max_tokens: 5,
+      const { completion: response } = await completeWithDefaultModel({
+        userId: 'system',
+        request: {
+          messages: [{ role: 'user', content: 'ping' }],
+          max_tokens: 5,
+          stream: false,
+        },
+        usageContext: { action: 'ANALYZE', metadata: { source: 'healthChecker' } },
+        skipEntitlement: true,
       });
       const latency = Date.now() - startTime;
 

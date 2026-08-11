@@ -2,6 +2,7 @@
 
 import { useCallback, useRef, useState } from 'react';
 import { fetchAuthToken } from '@/utils/backend-request';
+import { openUsageCapFromResponse } from '@/features/usage/hooks/useUsageCapModal';
 
 const BACKEND_URL =
     typeof window !== 'undefined'
@@ -107,6 +108,10 @@ export function useAgentStream(callbacks: AgentStreamCallbacks = {}): UseAgentSt
             });
 
             if (!response.ok) {
+                const opened = await openUsageCapFromResponse(response);
+                if (opened) {
+                    throw new Error('Execution limit reached');
+                }
                 let errMsg = `HTTP ${response.status}`;
                 try {
                     // For non-SSE error responses, try reading JSON

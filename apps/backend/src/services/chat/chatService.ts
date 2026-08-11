@@ -6,19 +6,12 @@ import { supabaseAdmin } from '@/lib/supabase';
 import { checkRateLimit, RateLimitConfig, RateLimitResult } from './utils/checkRateLimit';
 import { ensureChatContext, getChatContextKey, CHAT_CONTEXT_TTL_SECONDS, ChatContextType } from './utils/requestContext';
 import { countTokens } from './utils/countTokens';
-import { convertModelName } from './utils/convertModelName';
 import { OpenAIErrorHandler } from './utils/errorHandler';
 import { setJson } from './utils/redis.utils';
 import { enrichChatContext } from './chatContextEnricher';
 import { extractFollowups } from './chatFollowupExtractor';
 import { generateQuickActions } from './chatQuickActionsGenerator';
 import type { EnrichedContext, ChatFollowup, QuickAction } from './types';
-import { ModelService } from '../ai/model.service';
-import { UsageTrackingService } from '../ai/usage.service';
-
-const modelService = new ModelService();
-const usageTrackingService = new UsageTrackingService();
-
 const bodySchema = z.object({
     conversationId: z.string(),
     contextType: z.enum(['project', 'profile', 'proposal', 'team', 'workspace', 'space', 'channel', 'task', 'list', 'folder']),
@@ -39,6 +32,7 @@ const bodySchema = z.object({
     })).optional(),
     webSearch: z.boolean().optional(),
     model: z.string().optional(),
+    modelId: z.string().optional(),
     config: z
         .object({
             RPM: z.number().optional(),
@@ -109,7 +103,7 @@ export class ChatService {
         stream: ReadableStream;
         headers: Record<string, string>;
     }> {
-        const { conversationId, contextType, entityId, message, attachments, webSearch, model, config, contexts, mentions } = bodySchema.parse(payload);
+        const { conversationId, contextType, entityId, message, attachments, webSearch, model, modelId: payloadModelId, config, contexts, mentions } = bodySchema.parse(payload);
 
         const openai = initializeOpenAI();
         const db = prisma as any;
@@ -127,8 +121,6 @@ export class ChatService {
                 },
             }),
         ]);
-
-        const modelName = convertModelName(conversation.model?.name) ?? 'gpt-4o-mini';
 
         if (!conversation) {
             throw new Error('Conversation not found');
@@ -291,8 +283,19 @@ export class ChatService {
         // **OPTIMIZATION 4: Use approximate token count for pre-check (faster)**
         const estimatedInputTokens = Math.ceil(JSON.stringify(inputMessages).length / 4);
 
-        const messages: ChatCompletionMessageParam[] = inputMessages;
-        const targetModel = convertModelName(model || conversation.model?.name) ?? 'gpt-4o-mini';
+        // Prefer Shared Model Manager: conversation.modelId / payload.modelId
+        const { resolveModel, createChatCompletion, recordUsage, fromOpenAIUsage } = await import('@/services/models');
+        let resolvedModel;
+        try {
+          resolvedModel = await resolveModel({
+            modelId: payloadModelId || conversation.modelId,
+            userId,
+          });
+        } catch (err) {
+          console.warn('[ChatService] resolveModel failed, falling back to default', err);
+          resolvedModel = await resolveModel({ modelId: null, userId, skipEntitlement: true });
+        }
+        const resolvedApiModel = resolvedModel.apiModelId;
 
         // **OPTIMIZATION 5: Save user message and start streaming in parallel**
         const userMessagePromise = db.$transaction([
@@ -301,7 +304,7 @@ export class ChatService {
                     conversationId,
                     role: 'USER',
                     content: message,
-                    model: targetModel,
+                    model: resolvedApiModel,
                     tokensUsed: estimatedInputTokens,
                     attachments
                 },
@@ -312,14 +315,17 @@ export class ChatService {
                     messageCount: { increment: 1 },
                     totalTokensUsed: { increment: estimatedInputTokens },
                     lastMessageAt: new Date(),
-                    modelId: model ? undefined : conversation.modelId // Keep existing if not overridden, logic might need adjustment if model table used
+                    ...(payloadModelId ? { modelId: payloadModelId } : {}),
                 },
             }),
         ]);
 
-        const streamResult = await modelService.streamText(targetModel, inputMessages, {
+        const completionStream = await createChatCompletion(resolvedModel, {
+            messages: inputMessages,
             temperature: 0.4,
-            maxTokens: 4000
+            max_tokens: 4000,
+            stream: true,
+            stream_options: { include_usage: true },
         });
 
         const redisKey = getChatContextKey(conversationId);
@@ -330,28 +336,20 @@ export class ChatService {
                 let assistantMessage = '';
                 let followups: ChatFollowup[] = [];
                 let quickActions: QuickAction[] = [];
+                let streamUsage: any;
 
                 try {
                     // Ensure user message is saved before we start processing
                     await userMessagePromise;
 
-                    // Correct approach for consuming ReadableStream from service
-                    const reader = streamResult.getReader();
-                    try {
-                        while (true) {
-                            const { done, value } = await reader.read();
-                            if (done) break;
-                            if (value) {
-                                // value is Uint8Array
-                                const text = new TextDecoder().decode(value);
-                                assistantMessage += text;
-                                controller.enqueue(value);
-                            }
+                    for await (const chunk of completionStream as any) {
+                        if (chunk.usage) streamUsage = chunk.usage;
+                        const text = chunk.choices?.[0]?.delta?.content || '';
+                        if (text) {
+                            assistantMessage += text;
+                            controller.enqueue(textEncoder.encode(text));
                         }
-                    } finally {
-                        reader.releaseLock();
                     }
-
 
                     // **ENHANCEMENT: Extract follow-ups and generate quick actions**
                     try {
@@ -372,28 +370,28 @@ export class ChatService {
                     // **OPTIMIZATION 7: Do token counting and DB updates after streaming completes**
                     const finalizeResponse = async () => {
                         try {
-                            // Count exact tokens after completion
-                            // Use ModelService token counting? Providers have it.
-                            // But UsageTracking needs numbers.
-                            const inputTokenExact = estimatedInputTokens; // Approximation often fine for inputs if counting is expensive
-                            // Or use modelService.countTokens for exact check if needed
-                            // const outputTokenCount = await modelService.countTokens(assistantMessage);
-                            // Let's use estimate for speed if provider doesn't give usage in stream end (some do, some don't)
-                            const outputTokenCount = Math.ceil(assistantMessage.length / 4);
+                            const usage = streamUsage
+                              ? fromOpenAIUsage(streamUsage)
+                              : {
+                                  inputTokens: estimatedInputTokens,
+                                  outputTokens: Math.ceil(assistantMessage.length / 4),
+                                  totalTokens: estimatedInputTokens + Math.ceil(assistantMessage.length / 4),
+                                  usageEstimated: true,
+                                };
 
-                            const totalInputTokens = inputTokenExact;
-                            const totalOutputTokens = outputTokenCount;
-
-                            // Log Usage for Billing
-                            await usageTrackingService.trackUsage({
+                            await recordUsage({
+                                resolved: resolvedModel,
+                                usage,
                                 userId,
-                                modelId: targetModel,
-                                inputTokens: totalInputTokens,
-                                outputTokens: totalOutputTokens,
-                                context: 'CHAT',
-                                conversationId: conversationId
+                                context: {
+                                    conversationId,
+                                    action: 'CHAT',
+                                    success: true,
+                                },
                             });
 
+                            const totalInputTokens = usage.inputTokens;
+                            const totalOutputTokens = usage.outputTokens;
                             // Parallel execution of final DB operations
                             await Promise.all([
                                 db.$transaction([
@@ -402,7 +400,7 @@ export class ChatService {
                                             conversationId,
                                             role: 'ASSISTANT',
                                             content: assistantMessage,
-                                            model: targetModel,
+                                            model: resolvedApiModel,
                                             tokensUsed: totalInputTokens + totalOutputTokens,
                                             metadata: {
                                                 followups: followups.length > 0 ? followups : undefined,

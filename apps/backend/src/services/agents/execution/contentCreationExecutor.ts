@@ -1,21 +1,18 @@
 /**
  * Content Creation Tool Executor
- * Implements AI-powered content generation using OpenAI
+ * Implements AI-powered content generation via Shared Model Manager
  */
-import { openai } from '@/lib/openai';
-import { fetchModel } from '@/utils/ai/fetchModel';
+import { completeWithDefaultModel } from '@/services/models';
 
 export async function executeContentCreationTool(toolName: string, params: any, userId: string, workspaceId?: string): Promise<any> {
     try {
-        const model = await fetchModel();
-
         switch (toolName) {
             case 'generateBlogPost':
-                return executeGenerateBlogPost(params, model);
+                return executeGenerateBlogPost(params, userId);
             case 'writeScript':
-                return executeWriteScript(params, model);
+                return executeWriteScript(params, userId);
             case 'createDocumentation':
-                return executeCreateDocumentation(params, model);
+                return executeCreateDocumentation(params, userId);
             default:
                 throw new Error(`Unknown content creation tool: ${toolName}`);
         }
@@ -24,7 +21,22 @@ export async function executeContentCreationTool(toolName: string, params: any, 
     }
 }
 
-async function executeGenerateBlogPost(params: any, model: any) {
+async function completeJson(userId: string, prompt: string, temperature: number, source: string) {
+    const { completion } = await completeWithDefaultModel({
+        userId: userId || 'system',
+        request: {
+            messages: [{ role: 'user', content: prompt }],
+            response_format: { type: 'json_object' },
+            temperature,
+            stream: false,
+        },
+        usageContext: { action: 'GENERATE', metadata: { source } },
+        skipEntitlement: true,
+    });
+    return completion.choices[0].message.content;
+}
+
+async function executeGenerateBlogPost(params: any, userId: string) {
     const prompt = `Write a comprehensive blog post about "${params.topic}".
     
     Requirements:
@@ -44,14 +56,7 @@ async function executeGenerateBlogPost(params: any, model: any) {
         }
     }`;
 
-    const completion = await openai.chat.completions.create({
-        model: model.name,
-        messages: [{ role: 'user', content: prompt }],
-        response_format: { type: 'json_object' },
-        temperature: 0.7,
-    });
-
-    const content = completion.choices[0].message.content;
+    const content = await completeJson(userId, prompt, 0.7, 'contentCreationExecutor.generateBlogPost');
     if (!content) throw new Error("No content generated");
 
     try {
@@ -61,7 +66,7 @@ async function executeGenerateBlogPost(params: any, model: any) {
     }
 }
 
-async function executeWriteScript(params: any, model: any) {
+async function executeWriteScript(params: any, userId: string) {
     const prompt = `Write a ${params.format || 'VIDEO'} script about "${params.topic}".
     
     Requirements:
@@ -79,20 +84,13 @@ async function executeWriteScript(params: any, model: any) {
         "script": "Full script content..."
     }`;
 
-    const completion = await openai.chat.completions.create({
-        model: model.name,
-        messages: [{ role: 'user', content: prompt }],
-        response_format: { type: 'json_object' },
-        temperature: 0.7,
-    });
-
-    const content = completion.choices[0].message.content;
+    const content = await completeJson(userId, prompt, 0.7, 'contentCreationExecutor.writeScript');
     if (!content) throw new Error("No script generated");
 
     return JSON.parse(content);
 }
 
-async function executeCreateDocumentation(params: any, model: any) {
+async function executeCreateDocumentation(params: any, userId: string) {
     const prompt = `Create ${params.type || 'TECHNICAL'} documentation for: "${params.subject}".
     
     Details/Code to Document:
@@ -109,14 +107,7 @@ async function executeCreateDocumentation(params: any, model: any) {
         "content": "Documentation content in Markdown..."
     }`;
 
-    const completion = await openai.chat.completions.create({
-        model: model.name,
-        messages: [{ role: 'user', content: prompt }],
-        response_format: { type: 'json_object' },
-        temperature: 0.3,
-    });
-
-    const content = completion.choices[0].message.content;
+    const content = await completeJson(userId, prompt, 0.3, 'contentCreationExecutor.createDocumentation');
     if (!content) throw new Error("No documentation generated");
 
     return JSON.parse(content);

@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Plus, X } from "lucide-react";
+import { Plus, RefreshCw, X } from "lucide-react";
 import { InlineVarTree, typeIcon, typeFromLabel } from "@/entities/tools/components/builder/nodes/OutputsNode";
 import type { BuilderOutputField, OutputMode, VarTreeEntry } from "@/entities/tools/types/builder";
 
@@ -13,7 +13,54 @@ export type OutputsSidebarPanelProps = {
   removeOutput: (idx: number) => void;
   addOutputFromSource: (source: string, sourceLabel: string, name: string, type: string) => void;
   runCompositeTool: () => void;
+  runState?: { status: "running" | "success" | "error"; output?: any };
 };
+
+function RunResultFooter({
+  runState,
+  onRun,
+}: {
+  runState?: { status: "running" | "success" | "error"; output?: any };
+  onRun: () => void;
+}) {
+  if (runState?.output != null) {
+    return (
+      <div className="px-4 py-4">
+        <div className="rounded-lg bg-zinc-900 p-3 font-mono text-[11px] text-zinc-300 border border-zinc-800 shadow-inner text-left">
+          <div className="text-[10px] font-bold text-emerald-500 uppercase tracking-wider mb-2 flex items-center justify-between">
+            <span>Final Output</span>
+            <span className="text-[9px] text-zinc-600">JSON</span>
+          </div>
+          <pre className="whitespace-pre-wrap break-all leading-relaxed max-h-60 overflow-y-auto text-emerald-200">
+            {typeof runState.output === "string"
+              ? runState.output
+              : JSON.stringify(runState.output, null, 2)}
+          </pre>
+        </div>
+      </div>
+    );
+  }
+
+  if (runState?.status === "running") {
+    return (
+      <div className="py-10 flex flex-col items-center justify-center gap-2 text-blue-400">
+        <RefreshCw className="h-4 w-4 animate-spin" />
+        <span className="text-[13px] font-medium">Executing workflow…</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="py-10 text-center">
+      <span
+        className="text-[13px] font-medium text-[#7c9fd4] hover:text-[#5b85bd] cursor-pointer transition-colors"
+        onClick={onRun}
+      >
+        Re-run tool to generate results
+      </span>
+    </div>
+  );
+}
 
 export function OutputsSidebarPanel({
   outputMode,
@@ -23,18 +70,19 @@ export function OutputsSidebarPanel({
   removeOutput,
   addOutputFromSource,
   runCompositeTool,
+  runState,
 }: OutputsSidebarPanelProps) {
   const [showPicker, setShowPicker] = React.useState(false);
   const pickerRef = React.useRef<HTMLDivElement>(null);
   const varTree = buildVarTree(stepsLength);
   const selectedSources = React.useMemo(
     () => new Set(outputs.filter((o) => o.source).map((o) => o.source as string)),
-    []
+    [outputs],
   );
 
   React.useEffect(() => {
     if (outputMode !== "manual") setShowPicker(false);
-  }, []);
+  }, [outputMode]);
 
   React.useEffect(() => {
     function onOutside(e: MouseEvent) {
@@ -57,14 +105,7 @@ export function OutputsSidebarPanel({
 
       {/* Body */}
       {outputMode === "last_step" ? (
-        <div className="py-10 text-center">
-          <span
-            className="text-[13px] font-medium text-[#7c9fd4] hover:text-[#5b85bd] cursor-pointer transition-colors"
-            onClick={() => runCompositeTool()}
-          >
-            Re-run tool to generate results
-          </span>
-        </div>
+        <RunResultFooter runState={runState} onRun={() => runCompositeTool()} />
       ) : (
         <div>
           {/* Empty state */}
@@ -140,13 +181,8 @@ export function OutputsSidebarPanel({
           )}
 
           {/* Run footer */}
-          <div className="py-6 text-center border-t border-zinc-100">
-            <span
-              className="text-[13px] font-medium text-[#7c9fd4] hover:text-[#5b85bd] cursor-pointer transition-colors"
-              onClick={() => runCompositeTool()}
-            >
-              Re-run tool to generate results
-            </span>
+          <div className="border-t border-zinc-100">
+            <RunResultFooter runState={runState} onRun={() => runCompositeTool()} />
           </div>
         </div>
       )}

@@ -2,11 +2,11 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { motion } from 'framer-motion';
 import Shell from "@/components/layout/Shell";
 import { ChatComposer } from '@/entities/chats/components/ChatComposer';
 import { AgentSuggestionCard, type AgentSuggestionCardProps } from '@/entities/agents/components/AgentSuggestionCard';
 import { AgentTemplateCard, type AgentTemplateCardProps } from '@/entities/agents/components/AgentTemplateCard';
+import AgentInitModal from '@/entities/agents/components/Agentinitmodal';
 import { trpc } from '@/lib/trpc';
 import { agentService } from '@/services/agent.service';
 import { toast } from 'sonner';
@@ -16,6 +16,16 @@ import { Loader2, Sparkles, HelpCircle, LayoutGrid } from 'lucide-react';
 import { ChatContextModal, type ContextEntity } from '@/features/dashboard/components/modals/ChatContextModal';
 
 type AgentTemplate = Omit<AgentTemplateCardProps, 'onClick' | 'disabled'>;
+
+async function getResponseError(res: Response): Promise<string> {
+  const text = await res.text();
+  try {
+    const body = JSON.parse(text) as { error?: string; message?: string; userMessage?: string };
+    return body.error || body.userMessage || body.message || text || `Request failed (${res.status})`;
+  } catch {
+    return text || `Request failed (${res.status})`;
+  }
+}
 
 const SUGGESTED_AGENTS: Omit<AgentSuggestionCardProps, 'onClick' | 'disabled'>[] = [
   {
@@ -163,7 +173,7 @@ export default function AgentCreatePage() {
         agentId: agent.id,
         skipWelcome: true,  // Skip the welcome message
       });
-      if (!initRes.ok) throw new Error(await initRes.text());
+      if (!initRes.ok) throw new Error(await getResponseError(initRes));
       const builderData = await initRes.json();
 
       // Step 3: Send the first message
@@ -172,7 +182,7 @@ export default function AgentCreatePage() {
         message: card.message,
         agentId: agent.id,
       });
-      if (!msgRes.ok) throw new Error(await msgRes.text());
+      if (!msgRes.ok) throw new Error(await getResponseError(msgRes));
 
       // Step 4: Redirect to the agent builder page
       router.push(`/dashboard/agents/create/${agent.id}`);
@@ -206,7 +216,7 @@ export default function AgentCreatePage() {
         agentId: agent.id,
         skipWelcome: true,  // Skip the welcome message
       });
-      if (!initRes.ok) throw new Error(await initRes.text());
+      if (!initRes.ok) throw new Error(await getResponseError(initRes));
       const builderData = await initRes.json();
 
       // Step 3: Send the user's message
@@ -218,7 +228,7 @@ export default function AgentCreatePage() {
         mentions: options?.mentions,
         attachments: options?.attachments
       });
-      if (!msgRes.ok) throw new Error(await msgRes.text());
+      if (!msgRes.ok) throw new Error(await getResponseError(msgRes));
 
       // Step 4: Redirect to the agent builder page
       router.push(`/dashboard/agents/create/${agent.id}`);
@@ -402,92 +412,7 @@ export default function AgentCreatePage() {
           </Card>
         </div>
 
-        {/* Animated Loading Overlay */}
-        {isCreating && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center">
-            {/* Backdrop Blur & Overlay */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="absolute inset-0 bg-background/80 backdrop-blur-md"
-            />
-
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 10 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              className="relative w-full max-w-md mx-4"
-            >
-              {/* Outer Glow */}
-              <div className="absolute -inset-1 rounded-2xl bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 opacity-30 blur-xl animate-pulse" />
-
-              <Card className="relative overflow-hidden border-0 shadow-2xl bg-card">
-                {/* Embedded Progress Line */}
-                <CardContent className="p-8 pb-10">
-                  <div className="flex flex-col items-center gap-6">
-                    {/* Futuristic Spinner */}
-                    <div className="relative w-20 h-20 flex items-center justify-center">
-                      {/* Outer spinning ring */}
-                      <motion.div
-                        className="absolute inset-0 rounded-full border-2 border-transparent border-t-blue-500 border-r-purple-500"
-                        animate={{ rotate: 360 }}
-                        transition={{ duration: 1.5, repeat: Infinity, ease: "linear" }}
-                      />
-                      {/* Inner spinning ring (opposite) */}
-                      <motion.div
-                        className="absolute inset-2 rounded-full border-2 border-transparent border-b-pink-500 border-l-purple-500"
-                        animate={{ rotate: -360 }}
-                        transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-                      />
-                      {/* Center pulsing icon */}
-                      <motion.div
-                        animate={{ scale: [1, 1.1, 1], opacity: [0.8, 1, 0.8] }}
-                        transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-                        className="relative z-10 p-3 bg-gradient-to-br from-blue-500/10 to-purple-500/10 rounded-full"
-                      >
-                        <Sparkles className="w-6 h-6 text-purple-500" />
-                      </motion.div>
-                    </div>
-
-                    <div className="text-center space-y-2">
-                      <motion.h3
-                        initial={{ opacity: 0, y: 5 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.2 }}
-                        className="text-xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent"
-                      >
-                        Initializing Agent
-                      </motion.h3>
-                      <motion.p
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        transition={{ delay: 0.4 }}
-                        className="text-sm text-muted-foreground"
-                      >
-                        Setting up the foundational architecture...
-                      </motion.p>
-
-                      {/* Bouncing Dots */}
-                      <div className="flex items-center justify-center gap-1.5 mt-4">
-                        {[0, 1, 2].map((i) => (
-                          <motion.div
-                            key={i}
-                            className="w-1.5 h-1.5 rounded-full bg-purple-500/50"
-                            animate={{ y: ["0%", "-50%", "0%"] }}
-                            transition={{
-                              duration: 0.6,
-                              repeat: Infinity,
-                              delay: i * 0.15,
-                            }}
-                          />
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </motion.div>
-          </div>
-        )}
+        <AgentInitModal open={isCreating} />
       </div>
 
       <ChatContextModal

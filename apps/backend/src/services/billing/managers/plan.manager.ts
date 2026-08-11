@@ -37,7 +37,9 @@ export class PlanManager {
                         maxCredits: data.feature.maxCredits,
                         maxProjects: (data.feature as any).maxProjects ?? (data.feature as any).maxProject ?? 0,
                         maxTeams: data.feature.maxTeams,
-                        maxRequests: data.feature.maxRequests,
+                        maxApplicationRequests: data.feature.maxApplicationRequests,
+                        maxSpaces: (data.feature as any).maxSpaces ?? 0,
+                        maxWorkspaces: (data.feature as any).maxWorkspaces ?? 0,
                     },
                     create: {
                         name: `${plan.name}_Feature`,
@@ -45,7 +47,9 @@ export class PlanManager {
                         maxCredits: data.feature.maxCredits,
                         maxProjects: (data.feature as any).maxProjects ?? (data.feature as any).maxProject ?? 0,
                         maxTeams: data.feature.maxTeams,
-                        maxRequests: data.feature.maxRequests,
+                        maxApplicationRequests: data.feature.maxApplicationRequests,
+                        maxSpaces: (data.feature as any).maxSpaces ?? 0,
+                        maxWorkspaces: (data.feature as any).maxWorkspaces ?? 0,
                         planId: plan.id,
                     }
                 });
@@ -136,15 +140,19 @@ export class PlanManager {
                             maxCredits: data.feature.maxCredits,
                             maxProjects: (data.feature as any).maxProjects ?? (data.feature as any).maxProject ?? 0,
                             maxTeams: data.feature.maxTeams,
-                            maxRequests: data.feature.maxRequests,
-                            maxProposals: (data.feature as any).maxProposals ?? 0,
+                            maxApplicationRequests: data.feature.maxApplicationRequests,
+                            maxSpaces: (data.feature as any).maxSpaces ?? 0,
+                            maxWorkspaces: (data.feature as any).maxWorkspaces ?? 0,
                         },
                         create: {
+                            name: `${existingPlan.name}_Feature`,
+                            description: Array.isArray((data.feature as any).description) ? (data.feature as any).description : [],
                             maxCredits: data.feature.maxCredits,
                             maxProjects: (data.feature as any).maxProjects ?? (data.feature as any).maxProject ?? 0,
                             maxTeams: data.feature.maxTeams,
-                            maxRequests: data.feature.maxRequests,
-                            maxProposals: (data.feature as any).maxProposals ?? 0,
+                            maxApplicationRequests: data.feature.maxApplicationRequests,
+                            maxSpaces: (data.feature as any).maxSpaces ?? 0,
+                            maxWorkspaces: (data.feature as any).maxWorkspaces ?? 0,
                         }
                     }
                 };

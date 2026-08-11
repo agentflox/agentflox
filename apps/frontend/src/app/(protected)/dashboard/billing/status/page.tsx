@@ -1,6 +1,7 @@
 "use client";
 
 import Shell from "@/components/layout/Shell";
+import StatusLoading from "./loading";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -146,16 +147,7 @@ export default function BillingStatusPage() {
   }
 
   if (loading) {
-    return (
-      <Shell>
-        <div className="flex items-center justify-center min-h-[400px]">
-          <div className="text-center">
-            <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4" />
-            <p className="text-muted-foreground">Checking payment status...</p>
-          </div>
-        </div>
-      </Shell>
-    );
+    return <StatusLoading />;
   }
 
   if (error) {

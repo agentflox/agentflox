@@ -187,16 +187,6 @@ export const agentService = {
                     method: 'POST',
                     body: JSON.stringify(data),
                 }, session),
-
-            execute: (data: {
-                agentId: string;
-                inputData?: any;
-                executionContext?: any;
-            }, session?: any) =>
-                sendBackendRequest(`/v1/agents/${data.agentId}/operator/execute`, {
-                    method: 'POST',
-                    body: JSON.stringify(data),
-                }, session),
         },
 
         // Executor endpoints

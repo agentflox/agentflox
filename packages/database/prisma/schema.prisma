@@ -89,6 +89,7 @@ model User {
   messageAnnotations             AiMessageAnnotation[]
   aiMessageFeedback              AiMessageFeedback[]
   aiUsageLogs                    AiUsageLog[]
+  customAiModels                 AiModel[]                   @relation("UserCustomAiModels")
   automationsCreated             Automation[]                @relation("AutomationOwner")
   channelMemberships             ChannelMember[]
   channelMessages                ChannelMessage[]
@@ -116,6 +117,7 @@ model User {
   marketplaceApplications        MarketplaceApplication[]    @relation("marketplaceApplications")
   marketplaceListings            MarketplaceListing[]        @relation("marketplaceListings")
   earnings                       Earning[]                   @relation("userEarnings")
+  executionLogs                  ExecutionLog[]
   listingRatings                 ListingRating[]             @relation("listingRatingsGiven")
   listingRatingsModerator        ListingRating[]             @relation("listingRatingsModerator")
   listingRatingVotes             ListingRatingVote[]         @relation("listingRatingVotes")
@@ -379,6 +381,7 @@ model Workspace {
   // link is fine; WorkspaceOwnershipTransfer is the source of truth for history.
   previousOwner User?       @relation("WorkspacePreviousOwner", fields: [previousOwnerId], references: [id], onDelete: SetNull)
   workforces    Workforce[]
+  customAiModels AiModel[]  @relation("WorkspaceCustomAiModels")
 
   // --- soft delete fields ---
   deletedAt   DateTime? @map("deleted_at")
@@ -3449,12 +3452,9 @@ model Feature {
   description        String[]
   maxProjects        Int            @default(0) @map("max_projects")
   maxTeams           Int            @default(0) @map("max_teams")
-  maxRequests        Int            @default(0) @map("max_requests")
+  maxApplicationRequests Int            @default(0) @map("max_application_requests")
   maxSupabaseStorage Float          @default(0) @map("max_sp_storage")
   maxCredits         Int            @default(0) @map("max_credits")
-  maxChatsPerProject Int            @default(0) @map("max_chats_per_project")
-  maxChatsPerProfile Int            @default(0) @map("max_chats_per_profile")
-  maxChatsPerTeam    Int            @default(0) @map("max_chats_per_team")
   maxRedisStorage    Float          @default(0) @map("max_rd_storage")
   maxTokens          Int            @default(0) @map("max_tokens")
   maxRPM             Int?           @default(0) @map("max_rpm")
@@ -3467,6 +3467,8 @@ model Feature {
   updatedAt          DateTime       @updatedAt
   maxSpaces          Int            @default(0) @map("max_spaces")
   maxWorkspaces      Int            @default(0) @map("max_workspaces")
+  maxExecutions      Int            @default(0) @map("max_executions")
+  maxConcurrentRuns  Int            @default(10) @map("max_concurrent_runs")
   package            CreditPackage? @relation("packageFeature", fields: [packageId], references: [id], onDelete: Cascade)
   plan               Plan?          @relation("planFeature", fields: [planId], references: [id], onDelete: Cascade)
 
@@ -3671,8 +3673,8 @@ model Usage {
   remainingProjects        Int             @default(0) @map("remaining_projects")
   maxTeams                 Int             @default(0) @map("max_teams")
   remainingTeams           Int             @default(0) @map("remaining_teams")
-  maxRequests              Int             @default(0) @map("max_requests")
-  remainingRequests        Int             @default(0) @map("remaining_requests")
+  maxApplicationRequests              Int             @default(0) @map("max_application_requests")
+  remainingApplicationRequests        Int             @default(0) @map("remaining_application_requests")
   maxSupabaseStorage       Float           @default(0) @map("max_sp_storage")
   remainingSupabaseStorage Float           @default(0) @map("remaining_sp_storage")
   maxRedisStorage          Float           @default(0) @map("max_rd_storage")
@@ -3685,16 +3687,12 @@ model Usage {
   chatRequestsMade         Int             @default(0) @map("chat_requests_made)")
   maxCredits               Int             @default(0) @map("max_credits")
   remainingCredits         Int             @default(0) @map("remaining_credits")
-  maxChatsPerProject       Int             @default(0) @map("max_chats_per_project")
-  remainingChatsPerProject Int             @default(0) @map("remaining_chats_per_project")
-  maxChatsPerProfile       Int             @default(0) @map("max_chats_per_profile")
-  remainingChatsPerProfile Int             @default(0) @map("remaining_chats_per_profile")
-  maxChatsPerTeam          Int             @default(0) @map("max_chats_per_team")
-  remainingChatsPerTeam    Int             @default(0) @map("remaining_chats_per_team")
   maxSpaces                Int             @default(0) @map("max_spaces")
   maxWorkspaces            Int             @default(0) @map("max_workspaces")
   remainingSpaces          Int             @default(0) @map("remaining_spaces")
   remainingWorkspaces      Int             @default(0) @map("remaining_workspaces")
+  maxExecutions            Int             @default(0) @map("max_executions")
+  remainingExecutions      Int             @default(0) @map("remaining_executions")
   creditPurchase           CreditPurchase? @relation("purchaseUsage", fields: [creditPurchaseId], references: [id], onDelete: Cascade)
   subscription             Subscription?   @relation("subscriptionUsage", fields: [subscriptionId], references: [id], onDelete: Cascade)
   user                     User            @relation("userUsages", fields: [userId], references: [id], onDelete: Cascade)
@@ -3711,13 +3709,12 @@ model UserQuota {
   subscriptionId       String?   @map("subscription_id")
   maxProjects          Int       @default(0) @map("max_projects")
   maxTeams             Int       @default(0) @map("max_teams")
-  maxRequests          Int       @default(0) @map("max_requests")
+  maxApplicationRequests   Int       @default(0) @map("max_application_requests")
   maxSupabaseStorage   Float     @default(0) @map("max_sp_storage")
   maxRedisStorage      Float     @default(0) @map("max_rd_storage")
   maxCredits           Int       @default(0) @map("max_credits")
-  maxChatsPerProject   Int       @default(0) @map("max_chats_per_project")
-  maxChatsPerProfile   Int       @default(0) @map("max_chats_per_profile")
-  maxChatsPerTeam      Int       @default(0) @map("max_chats_per_team")
+  maxSpaces            Int       @default(0) @map("max_spaces")
+  maxWorkspaces        Int       @default(0) @map("max_workspaces")
   maxTokens            Int       @default(0) @map("max_tokens")
   maxRPM               Int?      @default(0) @map("max_rpm")
   maxRPD               Int?      @default(0) @map("max_rpd")
@@ -3728,6 +3725,8 @@ model UserQuota {
   totalRequestsSent    Int       @default(0) @map("total_requests_sent")
   totalTokensAllTime   Int       @default(0) @map("total_tokens_all_time")
   totalCreditsAllTime  Int       @default(0) @map("total_credits_all_time")
+  maxExecutions        Int       @default(0) @map("max_executions")
+  totalExecutionsUsed  Int       @default(0) @map("total_executions_used")
   currentPeriodStart   DateTime? @map("current_period_start")
   currentPeriodEnd     DateTime? @map("current_period_end")
   lastResetAt          DateTime? @map("last_reset_at")
@@ -3738,6 +3737,56 @@ model UserQuota {
   @@index([userId])
   @@index([updatedAt])
   @@map("user_quotas")
+}
+
+model ExecutionCharge {
+  id         String   @id @default(cuid())
+  billingKey String   @unique @map("billing_key")
+  userId     String   @map("user_id")
+  kind       String
+  chargedAt  DateTime @default(now()) @map("charged_at")
+
+  @@index([userId])
+  @@map("execution_charges")
+}
+
+/// Per-billed-run analytics log (tool / agent / workforce / swarm / chat).
+/// One row per successful ExecutionCharge (same billingKey).
+model ExecutionLog {
+  id             String    @id @default(cuid())
+  userId         String    @map("user_id")
+  billingKey     String    @unique @map("billing_key")
+  kind           String // composite_tool | workforce | agent | swarm | chat
+  status         String    @default("STARTED") // STARTED | SUCCEEDED | FAILED | CANCELLED
+  runId          String?   @map("run_id")
+  label          String?
+
+  toolId         String?   @map("tool_id")
+  toolName       String?   @map("tool_name")
+  agentId        String?   @map("agent_id")
+  agentName      String?   @map("agent_name")
+  workforceId    String?   @map("workforce_id")
+  workforceName  String?   @map("workforce_name")
+  conversationId String?   @map("conversation_id")
+  workspaceId    String?   @map("workspace_id")
+  spaceId        String?   @map("space_id")
+
+  durationMs     Int?      @map("duration_ms")
+  errorMessage   String?   @map("error_message") @db.Text
+  metadata       Json?
+
+  startedAt      DateTime  @default(now()) @map("started_at")
+  finishedAt     DateTime? @map("finished_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([userId, kind, createdAt])
+  @@index([toolId])
+  @@index([agentId])
+  @@index([workforceId])
+  @@map("execution_logs")
 }
 
 model Webhook {
@@ -3846,7 +3895,7 @@ model AiConversation {
   channel          Channel?                 @relation("ChannelConversations", fields: [channelId], references: [id])
   folder           Folder?                  @relation(fields: [folderId], references: [id], onDelete: Cascade)
   list             List?                    @relation(fields: [listId], references: [id], onDelete: Cascade)
-  model            AiModel?                 @relation(fields: [modelId], references: [id])
+  model            AiModel?                 @relation(fields: [modelId], references: [id], onDelete: SetNull)
   project          Project?                 @relation(fields: [projectId], references: [id])
   space            Space?                   @relation("SpaceConversations", fields: [spaceId], references: [id])
   task             Task?                    @relation(fields: [taskId], references: [id], onDelete: Cascade)
@@ -3871,6 +3920,7 @@ model AiConversation {
   @@index([workforceId])
   @@index([compositeToolId])
   @@index([conversationType])
+  @@index([modelId])
   @@map("ai_conversations")
 }
 
@@ -3904,19 +3954,54 @@ model AiMessage {
 }
 
 model AiModel {
-  id              String           @id @default(cuid())
-  name            ModelName        @unique
-  version         String
-  description     String?
-  maxTokens       Int?
-  temperature     Float?
-  RPM             Int?
-  RPD             Int?
-  TPM             Int?
-  TPD             Int?
-  aiAgents        AiAgent[]
-  aiConversations AiConversation[]
+  id                   String            @id @default(cuid())
+  /// Legacy enum-style or display slug; kept for backfill compatibility
+  name                 String?
+  slug                 String
+  displayName          String            @map("display_name")
+  avatar               String?
+  icon                 String?
+  color                String?
+  provider             AiModelProvider
+  apiModelId           String            @map("api_model_id")
+  version              String            @default("1.0.0")
+  description          String?
+  isSystem             Boolean           @default(false) @map("is_system")
+  isCustom             Boolean           @default(false) @map("is_custom")
+  isDefault            Boolean           @default(false) @map("is_default")
+  isActive             Boolean           @default(true) @map("is_active")
+  userId               String?           @map("user_id")
+  workspaceId          String?           @map("workspace_id")
+  authType             AiModelAuthType?  @map("auth_type")
+  credentialsEncrypted String?           @map("credentials_encrypted")
+  contextWindow        Int?              @map("context_window")
+  maxOutputTokens      Int?              @map("max_output_tokens")
+  maxTokens            Int?              @map("max_tokens")
+  temperature          Float?
+  creditsPer1kInput    Float?            @map("credits_per_1k_input")
+  creditsPer1kOutput   Float?            @map("credits_per_1k_output")
+  creditTier           String?           @map("credit_tier")
+  inputFileTypes       String[]          @default([]) @map("input_file_types")
+  supportsThinking     Boolean           @default(false) @map("supports_thinking")
+  RPM                  Int?
+  RPD                  Int?
+  TPM                  Int?
+  TPD                  Int?
+  metadata             Json?
+  createdAt            DateTime          @default(now()) @map("created_at")
+  updatedAt            DateTime          @updatedAt @map("updated_at")
+  user                 User?             @relation("UserCustomAiModels", fields: [userId], references: [id], onDelete: Cascade)
+  workspace            Workspace?        @relation("WorkspaceCustomAiModels", fields: [workspaceId], references: [id], onDelete: SetNull)
+  aiAgents             AiAgent[]
+  aiConversations      AiConversation[]
+  workforces           Workforce[]
+  usageLogs            AiUsageLog[]
 
+  @@index([userId])
+  @@index([workspaceId])
+  @@index([provider])
+  @@index([isSystem, isCustom])
+  @@index([isDefault])
   @@map("ai_models")
 }
 
@@ -4029,7 +4114,11 @@ model AiUsageLog {
   conversationId  String?      @map("conversation_id")
   action          AiActionType
   model           String
+  modelId         String?      @map("model_id")
+  inputTokens     Int          @default(0) @map("input_tokens")
+  outputTokens    Int          @default(0) @map("output_tokens")
   tokensUsed      Int          @map("tokens_used")
+  isCustom        Boolean      @default(false) @map("is_custom")
   cost            Float?
   requestDuration Int?         @map("request_duration")
   success         Boolean      @default(true)
@@ -4037,9 +4126,12 @@ model AiUsageLog {
   metadata        Json?
   createdAt       DateTime     @default(now()) @map("created_at")
   user            User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  aiModel         AiModel?     @relation(fields: [modelId], references: [id], onDelete: SetNull)
 
   @@index([userId, createdAt])
   @@index([conversationId])
+  @@index([modelId])
+  @@index([isCustom, userId, createdAt])
   @@map("ai_usage_logs")
 }
 
@@ -4466,6 +4558,8 @@ model AiAgent {
   name              String
   description       String?
   avatar            String?
+  icon              String?
+  color             String?
   version           String               @default("1.0.0")
   agentType         AgentType            @default(TASK_EXECUTOR) @map("agent_type")
   systemPrompt      String?              @map("system_prompt")
@@ -4533,7 +4627,7 @@ model AiAgent {
   triggers          AgentTrigger[]
   versions          AgentVersion[]
   owner             User                 @relation("AiAgentOwner", fields: [ownerId], references: [id], onDelete: Restrict)
-  aiModel           AiModel?             @relation(fields: [modelId], references: [id])
+  aiModel           AiModel?             @relation(fields: [modelId], references: [id], onDelete: SetNull)
   organization      Organization?        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   project           Project?             @relation(fields: [projectId], references: [id], onDelete: Cascade)
   space             Space?               @relation(fields: [spaceId], references: [id], onDelete: Cascade)
@@ -4598,6 +4692,9 @@ model CompositeTool {
   teamId         String?          @map("team_id")
   ownerId        String           @map("owner_id")
   name           String
+  avatar         String?
+  icon           String?
+  color          String?
   description    String?
   systemPrompt   String?          @map("system_prompt")
   category       String?
@@ -4932,6 +5029,9 @@ model Workforce {
   id          String          @id @default(cuid())
   name        String
   description String?
+  avatar      String?
+  icon        String?
+  color       String?
   mode        WorkforceMode
   status      WorkforceStatus @default(DRAFT)
   workspaceId String?         @map("workspace_id")
@@ -4939,6 +5039,7 @@ model Workforce {
   projectId   String?         @map("project_id")
   teamId      String?         @map("team_id")
   ownerId     String          @map("owner_id")
+  modelId     String?         @map("model_id")
   createdAt   DateTime        @default(now()) @map("created_at")
   updatedAt   DateTime        @updatedAt @map("updated_at")
   visibility  Visibility      @default(PRIVATE)
@@ -4950,6 +5051,7 @@ model Workforce {
   project         Project?         @relation(fields: [projectId], references: [id], onDelete: Cascade)
   team            Team?            @relation(fields: [teamId], references: [id], onDelete: Cascade)
   owner           User             @relation("WorkforceOwner", fields: [ownerId], references: [id], onDelete: Restrict)
+  aiModel         AiModel?         @relation(fields: [modelId], references: [id], onDelete: SetNull)
   aiConversations AiConversation[]
 
   // --- soft delete fields ---
@@ -4962,6 +5064,7 @@ model Workforce {
   @@index([teamId])
   @@index([ownerId])
   @@index([status])
+  @@index([modelId])
   @@index([deletedAt])
   @@map("workforces")
 }
@@ -6070,6 +6173,7 @@ enum WidgetType {
   VELOCITY
 }
 
+/// @deprecated Prefer AiModel.slug / apiModelId. Kept for legacy TypeScript bridges.
 enum ModelName {
   gpt_4
   gpt_4_32k
@@ -6093,6 +6197,18 @@ enum ModelName {
   claude_3_opus_20240229
   claude_3_sonnet_20240229
   claude_3_haiku_20240307
+}
+
+enum AiModelProvider {
+  OPENAI
+  ANTHROPIC
+  GOOGLE
+}
+
+enum AiModelAuthType {
+  API_KEY
+  OAUTH_TOKEN
+  SERVICE_ACCOUNT
 }
 
 enum AgentAutonomyLevel {

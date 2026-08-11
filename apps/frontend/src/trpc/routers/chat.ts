@@ -5,7 +5,7 @@ import { initializeOpenAI } from '@/lib/openai'
 import { ensureChatContext, type ChatContextType } from '@/entities/chats/utils'
 import { LimitGuard } from '@/features/usage/utils/limitGuard'
 import { protectedProcedure, router } from '@/trpc/init'
-import { assertChatEntityAccess, assertProjectAccess, assertWorkforceAccess } from '@/lib/resourceAccess'
+import { assertChatEntityAccess, assertProjectAccess, assertWorkforceAccess, assertAgentAccess } from '@/lib/resourceAccess'
 
 export const chatRouter = router({
   list: protectedProcedure
@@ -131,7 +131,13 @@ export const chatRouter = router({
   getModel: protectedProcedure
     .query(async ({ ctx }) => {
       const db = prisma;
-      const model = await db.aiModel.findFirst();
+      const model =
+        (await db.aiModel.findFirst({
+          where: { isDefault: true, isSystem: true, isActive: true },
+        })) ||
+        (await db.aiModel.findFirst({
+          where: { slug: 'gpt-4o-mini', isSystem: true, isActive: true },
+        }));
       return model;
     }),
 
@@ -468,11 +474,12 @@ export const chatRouter = router({
           id: input.conversationId,
         },
         data: {
-          // If you have an archived field: archived: input.archived
-          // For now, we'll just return success
+          isArchived: input.archived,
+          archivedAt: input.archived ? new Date() : null,
         },
         select: {
           id: true,
+          isArchived: true,
         },
       })
 
@@ -651,7 +658,13 @@ export const chatRouter = router({
       // Resolve a default model if none supplied
       let modelId = input.modelId
       if (!modelId) {
-        const defaultModel = await (prisma as any).aiModel.findFirst()
+        const defaultModel =
+          (await (prisma as any).aiModel.findFirst({
+            where: { isDefault: true, isSystem: true, isActive: true },
+          })) ||
+          (await (prisma as any).aiModel.findFirst({
+            where: { slug: 'gpt-4o-mini', isSystem: true, isActive: true },
+          }))
         modelId = defaultModel?.id ?? undefined
       }
 
@@ -668,6 +681,98 @@ export const chatRouter = router({
           metadata: { workforceId: input.workforceId },
         },
         select: { id: true, title: true, conversationType: true },
+      })
+
+      return conversation
+    }),
+
+  // ─── Agent conversations ───────────────────────────────────────────────────
+
+  /** List agent conversations for a given agent + conversation type. */
+  listAgentConversations: protectedProcedure
+    .input(
+      z.object({
+        agentId: z.string(),
+        conversationType: z.nativeEnum(ConversationType).default(ConversationType.AGENT_EXECUTOR),
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      const db = prisma as any
+      const userId = ctx.session.user.id
+
+      await assertAgentAccess(userId, input.agentId)
+
+      const conversations = await db.aiConversation.findMany({
+        where: {
+          userId,
+          agentId: input.agentId,
+          conversationType: input.conversationType,
+        },
+        orderBy: {
+          updatedAt: 'desc',
+        },
+        select: {
+          id: true,
+          title: true,
+          createdAt: true,
+          updatedAt: true,
+          lastMessageAt: true,
+          messageCount: true,
+          isArchived: true,
+          conversationType: true,
+          metadata: true,
+        },
+      })
+
+      return conversations
+    }),
+
+  /** Create a fresh empty agent conversation (no welcome message). */
+  createAgentConversation: protectedProcedure
+    .input(
+      z.object({
+        agentId: z.string(),
+        conversationType: z.nativeEnum(ConversationType).default(ConversationType.AGENT_EXECUTOR),
+        title: z.string().optional(),
+        modelId: z.string().optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const db = prisma as any
+      const userId = ctx.session.user.id
+
+      await assertAgentAccess(userId, input.agentId)
+
+      let modelId = input.modelId
+      if (!modelId) {
+        const defaultModel =
+          (await (prisma as any).aiModel.findFirst({
+            where: { isDefault: true, isSystem: true, isActive: true },
+          })) ||
+          (await (prisma as any).aiModel.findFirst({
+            where: { slug: 'gpt-4o-mini', isSystem: true, isActive: true },
+          }))
+        modelId = defaultModel?.id ?? undefined
+      }
+
+      const conversation = await db.aiConversation.create({
+        data: {
+          userId,
+          agentId: input.agentId,
+          title: input.title?.trim() || 'New chat',
+          conversationType: input.conversationType,
+          modelId: modelId ?? null,
+          isActive: true,
+        },
+        select: {
+          id: true,
+          title: true,
+          createdAt: true,
+          lastMessageAt: true,
+          messageCount: true,
+          isArchived: true,
+          conversationType: true,
+        },
       })
 
       return conversation

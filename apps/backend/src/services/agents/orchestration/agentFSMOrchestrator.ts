@@ -27,9 +27,8 @@
  *   → COMPLETE | FAILED | CANCELLED_BUDGET | CANCELLED_POLICY
  */
 
-import { openai } from '@/lib/openai';
 import { randomUUID } from 'crypto';
-import type { FSMState, ForkFailurePolicy } from './agentArchitecture';
+import type { FSMState, ForkFailurePolicy, ModelTier } from './agentArchitecture';
 import { appendEvent, reconstructRunState } from './agentEventStore';
 import { agentModelRouter } from './agentModelRouter';
 import { agentGovernanceGate } from './agentGovernanceGate';
@@ -38,6 +37,13 @@ import { GuardrailService } from '../safety/guardrailService';
 import { PermissionService } from '../../permissions/permission.service';
 import { agentBuilderContextService } from '../state/agentBuilderContextService';
 import { getToolByName } from '../registry/toolRegistry';
+import {
+  createChatCompletion,
+  recordUsage,
+  resolveAgentModel,
+  fromOpenAIUsage,
+  type ResolvedModel,
+} from '@/services/models';
 import { agentSkillService } from '../core/agentSkillService';
 import { sharedMemoryService } from '../core/sharedMemory';
 import { prisma } from '@/lib/prisma';
@@ -115,11 +121,58 @@ export interface FSMRunResult {
 
 export class AgentFSMOrchestrator {
     private readonly toolGate: ToolInvocationGate;
+    private readonly fsmModelCache = new Map<string, ResolvedModel>();
 
     constructor() {
         const permissionService = new PermissionService();
         const guardrailService = new GuardrailService(permissionService);
         this.toolGate = new ToolInvocationGate(guardrailService);
+    }
+
+    private async getFsmModel(ctx: FSMContext): Promise<ResolvedModel> {
+        const key = `${ctx.userId}:${ctx.agentId}`;
+        const cached = this.fsmModelCache.get(key);
+        if (cached) return cached;
+        const resolved = await resolveAgentModel({
+            userId: ctx.userId,
+            agentId: ctx.agentId,
+        });
+        this.fsmModelCache.set(key, resolved);
+        return resolved;
+    }
+
+    private async fsmChat(
+        ctx: FSMContext,
+        tier: ModelTier,
+        request: Record<string, unknown>,
+    ): Promise<any> {
+        const resolved = await this.getFsmModel(ctx);
+        const spec = await agentModelRouter.resolve(tier);
+        const started = Date.now();
+        const completion = await createChatCompletion(resolved, {
+            ...request,
+            temperature: request.temperature ?? spec.temperature,
+            max_tokens: request.max_tokens ?? spec.maxOutputTokens,
+        });
+
+        // Non-stream: record immediately. Stream: usage may arrive on final chunk — best-effort.
+        if (!request.stream) {
+            await recordUsage({
+                resolved,
+                usage: fromOpenAIUsage(completion?.usage),
+                userId: ctx.userId,
+                context: {
+                    conversationId: ctx.conversationId,
+                    agentId: ctx.agentId,
+                    action: 'GENERATE',
+                    requestDurationMs: Date.now() - started,
+                    success: true,
+                    metadata: { fsmTier: tier },
+                },
+            }).catch(() => {});
+        }
+
+        return completion;
     }
 
     /**
@@ -432,12 +485,7 @@ export class AgentFSMOrchestrator {
         userCtx: any,
         critiqueFeedback?: string
     ): Promise<{ plan: ExecutionPlan; costUsd: number; tokens: number }> {
-        const spec = await agentModelRouter.resolve('PLAN');
-
-        const stream = await openai.chat.completions.create({
-            model: spec.effectiveId,
-            temperature: spec.temperature,
-            max_tokens: spec.maxOutputTokens,
+        const stream = await this.fsmChat(ctx, 'PLAN', {
             response_format: { type: 'json_object' },
             messages: [
                 {
@@ -518,12 +566,7 @@ Rules:
         ctx: FSMContext,
         tools: any[]
     ): Promise<{ result: CritiqueResult; costUsd: number; tokens: number }> {
-        const spec = await agentModelRouter.resolve('CRITIQUE');
-
-        const completion = await openai.chat.completions.create({
-            model: spec.effectiveId,
-            temperature: spec.temperature,
-            max_tokens: spec.maxOutputTokens,
+        const completion = await this.fsmChat(ctx, 'CRITIQUE', {
             response_format: { type: 'json_object' },
             messages: [
                 {
@@ -534,6 +577,7 @@ Fail if plan is unnecessarily destructive or goal doesn't match the user message
 IMPORTANT: Steps without a toolName are completely valid THINK steps. DO NOT fail or escalate just because a step lacks a tool. Only escalate for severe safety violations.`,
                 }, { role: 'user', content: JSON.stringify({ userMessage: ctx.message, plan }) },
             ],
+            stream: false,
         });
 
         const usage = completion.usage ?? { prompt_tokens: 0, completion_tokens: 0 };
@@ -551,11 +595,7 @@ IMPORTANT: Steps without a toolName are completely valid THINK steps. DO NOT fai
         result: unknown,
         ctx: FSMContext
     ): Promise<{ result: CritiqueResult; costUsd: number; tokens: number }> {
-        const spec = await agentModelRouter.resolve('CRITIQUE');
-
-        const stream = await openai.chat.completions.create({
-            model: spec.effectiveId,
-            temperature: spec.temperature,
+        const stream = await this.fsmChat(ctx, 'CRITIQUE', {
             max_tokens: 256,
             response_format: { type: 'json_object' },
             messages: [
@@ -601,10 +641,7 @@ IMPORTANT: Steps without a toolName are completely valid THINK steps. DO NOT fai
         ctx: FSMContext
     ): Promise<{ success: boolean; result?: unknown; error?: string; costUsd?: number; tokens?: number }> {
         if (!planStep.toolName) {
-            const spec = await agentModelRouter.resolve('FORMAT' as any);
-            const stream = await openai.chat.completions.create({
-                model: spec.effectiveId,
-                temperature: spec.temperature,
+            const stream = await this.fsmChat(ctx, 'FORMAT', {
                 max_tokens: 1500,
                 messages: [
                     {
@@ -733,10 +770,8 @@ IMPORTANT: Steps without a toolName are completely valid THINK steps. DO NOT fai
         plan: ExecutionPlan,
         stepResults: Array<{ stepId: string; success: boolean; result?: unknown; error?: string }>
     ): Promise<string> {
-        const spec = await agentModelRouter.resolve('FORMAT');
         try {
-            const stream = await openai.chat.completions.create({
-                model: spec.effectiveId,
+            const stream = await this.fsmChat(ctx, 'FORMAT', {
                 temperature: 0.3,
                 max_tokens: 512,
                 messages: [

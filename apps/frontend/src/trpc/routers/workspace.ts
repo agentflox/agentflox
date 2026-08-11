@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { cachedQuery, trpcCacheKey, invalidateCacheKey } from "@/lib/trpcCache";
 import { WorkspaceRole, Visibility, ViewType } from '@agentflox/database/src/generated/prisma/client';
 import { ensureWorkspaceStatuses } from "@/trpc/routers/taskStatus";
+import { LimitGuard } from "@/features/usage/utils/limitGuard";
 
 type WorkspaceScope = "owned" | "member" | "all" | "editable";
 
@@ -111,6 +112,7 @@ export const workspaceRouter = router({
 		)
 		.mutation(async ({ ctx, input }) => {
 			const userId = ctx.session!.user!.id;
+			await LimitGuard.ensureWithinCreateLimit(userId, 'WORKSPACE');
 
 			return prisma.$transaction(async (tx) => {
 				// Create the workspace

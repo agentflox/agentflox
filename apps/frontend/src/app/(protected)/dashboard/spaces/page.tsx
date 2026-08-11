@@ -8,6 +8,7 @@ import { Pagination } from "@/components/ui/pagination";
 import { SpaceCard, useSpaceList, SpaceCreationModal } from "@/entities/spaces";
 import { PageHeader } from "@/entities/shared/components/PageHeader";
 import { SearchSection } from "@/entities/shared/components/SearchSection";
+import { UsageQuotaBanner } from "@/features/usage/components/UsageQuotaBanner";
 import { useToast } from "@/hooks/useToast";
 import { DASHBOARD_ROUTES } from "@/constants/routes.config";
 import {
@@ -265,6 +266,8 @@ export default function SpacesPage() {
                         }
                     />
 
+                    <UsageQuotaBanner kind="SPACE" />
+
                     <SearchSection
                         searchValue={query}
                         searchPlaceholder="Search spaces..."
@@ -446,16 +449,20 @@ export default function SpacesPage() {
                     {filterChips.length > 0 && (
                         <div className="flex flex-wrap items-center gap-2 mt-[-20px] mb-6">
                             {filterChips.map((chip) => (
-                                <button
+                                <span
                                     key={chip.id}
-                                    onClick={chip.onRemove}
-                                    className="group inline-flex items-center gap-2 rounded-md border border-zinc-200 bg-white pl-2.5 pr-2 py-1 text-xs font-medium text-zinc-700 transition-all hover:bg-zinc-50 hover:border-zinc-300 cursor-pointer"
+                                    className="group inline-flex items-center gap-1.5 rounded-md border border-zinc-200 bg-zinc-50 px-2 py-1 text-xs font-medium text-zinc-700 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300"
                                 >
                                     <span>{chip.label}</span>
-                                    <div className="flex items-center justify-center rounded-full p-0.5 transition-colors group-hover:bg-zinc-200/60">
-                                        <X className="h-3 w-3 text-zinc-400 group-hover:text-zinc-700" />
-                                    </div>
-                                </button>
+                                    <button
+                                        type="button"
+                                        onClick={chip.onRemove}
+                                        className="rounded-full p-0.5 transition-all hover:bg-zinc-200 dark:hover:bg-zinc-800 cursor-pointer"
+                                        aria-label={`Remove ${chip.label} filter`}
+                                    >
+                                        <X className="h-3 w-3 text-zinc-400 group-hover:text-zinc-600 dark:text-zinc-500 dark:group-hover:text-zinc-300" />
+                                    </button>
+                                </span>
                             ))}
                             <Button
                                 variant="ghost"

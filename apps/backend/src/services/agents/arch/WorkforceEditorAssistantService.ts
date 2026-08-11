@@ -10,7 +10,7 @@ import { BaseEditorAssistant, type EditorAssistantMessageInput, type EditorAssis
 export class WorkforceEditorAssistant extends BaseEditorAssistant {
   async processMessage(input: EditorAssistantMessageInput): Promise<EditorAssistantResponse> {
     const { userId, conversationId, message, context, onToken, signal, options } = input;
-    const model = process.env.OPENAI_MODEL || 'gpt-4o-mini';
+    const overrideModelId = input.modelId ?? options?.modelId ?? null;
 
     await prisma.aiMessage.create({
       data: { conversationId, role: 'USER', content: message, attachments: options?.attachments },
@@ -108,13 +108,14 @@ export class WorkforceEditorAssistant extends BaseEditorAssistant {
       operation: onToken ? 'workforce_assistant_stream' : 'workforce_assistant_completion',
       conversationId,
       userId,
+      modelId: overrideModelId,
     };
 
     let rawText = '';
     try {
       if (onToken) {
-        const stream = await this.openStream(
-          { model, temperature: 0.2, messages, response_format: { type: 'json_object' } },
+        const { stream, resolved } = await this.openStream(
+          { temperature: 0.2, messages, response_format: { type: 'json_object' } },
           opContext,
           signal
         );
@@ -122,15 +123,21 @@ export class WorkforceEditorAssistant extends BaseEditorAssistant {
         const textRef = { value: '' };
         const streamUsage = await this.streamResponse(stream, onToken, textRef, signal);
         rawText = textRef.value;
-        this.trackTokenUsage(messages, rawText, model, streamUsage, userId);
+        this.trackTokenUsage(messages, rawText, resolved, streamUsage, userId, {
+          conversationId,
+          source: 'WorkforceEditorAssistant',
+        });
       } else {
-        const completion = await this.runCompletion(
-          { model, temperature: 0.2, messages, response_format: { type: 'json_object' } },
+        const { completion, resolved } = await this.runCompletion(
+          { temperature: 0.2, messages, response_format: { type: 'json_object' } },
           opContext,
           signal
         );
         rawText = completion.choices[0]?.message?.content ?? '';
-        this.trackTokenUsage(messages, rawText, completion.model ?? model, completion.usage, userId);
+        this.trackTokenUsage(messages, rawText, resolved, completion.usage, userId, {
+          conversationId,
+          source: 'WorkforceEditorAssistant',
+        });
       }
     } catch (err: any) {
       if (err?.name === 'AbortError') return { assistantText: 'Request cancelled.', proposedOps: [] };

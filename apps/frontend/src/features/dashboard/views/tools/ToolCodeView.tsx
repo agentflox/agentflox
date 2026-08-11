@@ -1,10 +1,11 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
-import { Play, Settings, Type, MessageSquare, ChevronDown, Plus, Trash2, Code2, ChevronsRight, ChevronsLeft, AlignLeft, Hash, FileUp, Table as TableIcon, MoreHorizontal, Check, List, Braces, Settings2, Terminal, AlertTriangle } from "lucide-react";
+import React, { useState, useMemo, useEffect, useRef, useCallback } from "react";
+import { Play, Type, MessageSquare, ChevronDown, Plus, Trash2, Code2, ChevronsRight, ChevronsLeft, AlignLeft, Hash, FileUp, Table as TableIcon, MoreHorizontal, Check, List, Braces, Terminal, AlertTriangle, CornerDownRight, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import type { BuilderInputField, InputUiType } from "@/entities/tools/types/builder";
@@ -57,23 +58,105 @@ const THEMES: Record<string, { label: string; ext: any; dark: boolean }> = {
   "solarized-light": { label: "Solarized Light", ext: solarizedLight, dark: false },
 };
 
+export type CodeBackend = "modal" | "daytona" | "local";
+export type RaiseErrorMode = "traceback" | "error" | "stderr";
+
+export interface CodeAdvancedSettings {
+  backend: CodeBackend;
+  sessionId: string;
+  longOutput: boolean;
+  gpus: number;
+  cpus: number;
+  memorySize: number;
+  sessionTimeout: number;
+  raiseError: RaiseErrorMode;
+  enableFallback: boolean;
+}
+
+export interface ToolCodeSavePayload {
+  code: string;
+  language: string;
+  packages: string[];
+  runtimeCommands: string[];
+  inputs: BuilderInputField[];
+  advancedSettings: CodeAdvancedSettings;
+}
+
+const DEFAULT_ADVANCED: CodeAdvancedSettings = {
+  backend: "local",
+  sessionId: "",
+  longOutput: false,
+  gpus: 0,
+  cpus: 1,
+  memorySize: 512,
+  sessionTimeout: 600,
+  raiseError: "traceback",
+  enableFallback: true,
+};
+
+function readAdvancedFromConfig(cfg: any): CodeAdvancedSettings {
+  if (!cfg || typeof cfg !== "object") return { ...DEFAULT_ADVANCED };
+  const backendRaw = String(cfg.backend || cfg.runtime || "local").toLowerCase();
+  const backend: CodeBackend =
+    backendRaw === "modal" || backendRaw.includes("modal")
+      ? "modal"
+      : backendRaw === "daytona"
+        ? "daytona"
+        : "local";
+  return {
+    backend,
+    sessionId: typeof cfg.sessionId === "string" ? cfg.sessionId : "",
+    longOutput: Boolean(cfg.longOutput),
+    gpus: Number(cfg.gpus ?? 0) || 0,
+    cpus: Number(cfg.cpus ?? 1) || 1,
+    memorySize: Number(cfg.memorySize ?? cfg.memory ?? 512) || 512,
+    sessionTimeout: Number(cfg.sessionTimeout ?? cfg.timeout ?? 600) || 600,
+    raiseError: (["traceback", "error", "stderr"].includes(cfg.raiseError) ? cfg.raiseError : "traceback") as RaiseErrorMode,
+    enableFallback: cfg.enableFallback ?? cfg.fallback ?? true,
+  };
+}
+
+function AdvancedFieldLabel({ label, hint, className }: { label: string; hint?: string; className?: string }) {
+  return (
+    <div className={`flex items-center gap-1.5 flex-wrap ${className ?? "mb-1.5"}`}>
+      <span className="text-xs font-semibold text-zinc-900">{label}</span>
+      {hint && (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button type="button" className="text-zinc-400 hover:text-zinc-600">
+              <Info className="h-3 w-3" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="top" className="max-w-[220px] text-xs">{hint}</TooltipContent>
+        </Tooltip>
+      )}
+      <span className="text-[10px] text-zinc-400 font-medium">Optional</span>
+    </div>
+  );
+}
+
+export type ToolCodeViewHandle = {
+  getSavePayload: () => ToolCodeSavePayload;
+};
+
 interface ToolCodeViewProps {
   toolData?: any;
   toolDraft?: any;
   inputs: BuilderInputField[];
   setInputs: React.Dispatch<React.SetStateAction<BuilderInputField[]>>;
   runInput: Record<string, string>;
-  setRunInput: (v: Record<string, string>) => void;
+  setRunInput: React.Dispatch<React.SetStateAction<Record<string, string>>>;
   isRunningTool: boolean;
   runCompositeTool: () => void;
   runHistory?: any[];
   liveRunState?: Record<string, any>;
   selectedRunId?: string | null;
-  onSave?: (data: { code: string; language: string; packages: string[]; runtimeCommands: string[]; inputs: BuilderInputField[] }) => void;
+  onDraftChange?: (data: ToolCodeSavePayload) => void;
+  onDirtyChange?: () => void;
   isSaving?: boolean;
 }
 
-export function ToolCodeView({
+export const ToolCodeView = React.forwardRef<ToolCodeViewHandle, ToolCodeViewProps>(function ToolCodeView({
   toolData,
   toolDraft,
   inputs,
@@ -85,19 +168,137 @@ export function ToolCodeView({
   runHistory = [],
   liveRunState = {},
   selectedRunId,
-  onSave,
+  onDraftChange,
+  onDirtyChange,
   isSaving = false,
-}: ToolCodeViewProps) {
-  const steps: any[] = toolData?.steps || (toolDraft?.steps as any[]) || [];
+}, ref) {
+  // Empty persisted steps (`[]`) are truthy — prefer the draft when toolData has no real steps yet
+  const persistedSteps: any[] = Array.isArray(toolData?.steps) ? toolData.steps : [];
+  const draftSteps: any[] = Array.isArray(toolDraft?.steps) ? toolDraft.steps : [];
+  const steps: any[] = persistedSteps.length > 0 ? persistedSteps : draftSteps;
   const codeStep = steps.find(
     (s: any) => s.type === "PYTHON" || s.type === "JAVASCRIPT" || s.stepType === "PYTHON" || s.stepType === "JAVASCRIPT"
   ) || steps[0];
 
-  const [code, setCode] = useState<string>(codeStep?.config?.code || codeStep?.code || "");
+  const sourceCode = codeStep?.config?.code || codeStep?.code || "";
+  const [code, setCode] = useState<string>(sourceCode);
   const [packages, setPackages] = useState<string[]>(Array.isArray(codeStep?.config?.packages) ? codeStep.config.packages : []);
   const [runtimeCommands, setRuntimeCommands] = useState<string[]>(Array.isArray(codeStep?.config?.runtimeCommands) ? codeStep.config.runtimeCommands : []);
+  const [advanced, setAdvanced] = useState<CodeAdvancedSettings>(() => readAdvancedFromConfig(codeStep?.config));
   const [language, setLanguage] = useState(codeStep?.type === "JAVASCRIPT" || codeStep?.stepType === "JAVASCRIPT" ? "JAVASCRIPT" : "PYTHON");
   const [themeKey, setThemeKey] = useState("vscode-dark");
+  const suppressDirty = useRef(true);
+  const lastSyncedServerJson = useRef<string>("");
+  const onDraftChangeRef = useRef(onDraftChange);
+  const onDirtyChangeRef = useRef(onDirtyChange);
+
+  useEffect(() => {
+    onDraftChangeRef.current = onDraftChange;
+  }, [onDraftChange]);
+
+  useEffect(() => {
+    onDirtyChangeRef.current = onDirtyChange;
+  }, [onDirtyChange]);
+
+  const buildSavePayload = useCallback((): ToolCodeSavePayload => ({
+    code,
+    language,
+    packages,
+    runtimeCommands,
+    inputs,
+    advancedSettings: advanced,
+  }), [code, language, packages, runtimeCommands, inputs, advanced]);
+
+  React.useImperativeHandle(ref, () => ({
+    getSavePayload: buildSavePayload,
+  }), [buildSavePayload]);
+
+  // Sync editor when AI builder generates/updates step code
+  useEffect(() => {
+    if (!sourceCode && !codeStep?.config) return;
+    const nextPackages = Array.isArray(codeStep?.config?.packages) ? codeStep.config.packages : [];
+    const nextRuntimeCommands = Array.isArray(codeStep?.config?.runtimeCommands) ? codeStep.config.runtimeCommands : [];
+    const nextAdvanced = readAdvancedFromConfig(codeStep?.config);
+    const nextLanguage = codeStep?.type === "JAVASCRIPT" || codeStep?.stepType === "JAVASCRIPT" ? "JAVASCRIPT" : "PYTHON";
+    const serverFingerprint = JSON.stringify({
+      code: sourceCode,
+      packages: nextPackages,
+      runtimeCommands: nextRuntimeCommands,
+      advanced: nextAdvanced,
+      language: nextLanguage,
+    });
+    if (serverFingerprint === lastSyncedServerJson.current) return;
+    lastSyncedServerJson.current = serverFingerprint;
+
+    suppressDirty.current = true;
+    setCode(sourceCode);
+    setPackages(nextPackages);
+    setRuntimeCommands(nextRuntimeCommands);
+    setAdvanced(nextAdvanced);
+    setLanguage(nextLanguage);
+  }, [
+    sourceCode,
+    codeStep?.type,
+    codeStep?.stepType,
+    codeStep?.config?.packages,
+    codeStep?.config?.runtimeCommands,
+    codeStep?.config?.backend,
+    codeStep?.config?.sessionId,
+    codeStep?.config?.longOutput,
+    codeStep?.config?.gpus,
+    codeStep?.config?.cpus,
+    codeStep?.config?.memorySize,
+    codeStep?.config?.sessionTimeout,
+    codeStep?.config?.raiseError,
+    codeStep?.config?.enableFallback,
+  ]);
+
+  // Keep parent draft in sync for the top Save button
+  useEffect(() => {
+    onDraftChangeRef.current?.(buildSavePayload());
+  }, [buildSavePayload]);
+
+  // Mark dirty only for local editor edits (not server sync / parent input remaps)
+  useEffect(() => {
+    if (suppressDirty.current) {
+      suppressDirty.current = false;
+      return;
+    }
+    onDirtyChangeRef.current?.();
+  }, [code, packages, runtimeCommands, language, advanced]);
+
+  const handleRun = useCallback(() => {
+    runCompositeTool();
+  }, [runCompositeTool]);
+
+  const updateAdvanced = <K extends keyof CodeAdvancedSettings>(key: K, value: CodeAdvancedSettings[K]) => {
+    setAdvanced((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const updateRunValue = (fieldName: string, value: string) => {
+    if (!fieldName) return;
+    setRunInput((prev) => ({ ...prev, [fieldName]: value }));
+  };
+
+  const renameInputField = (index: number, nextName: string) => {
+    setInputs((prev) => {
+      const current = prev[index];
+      if (!current) return prev;
+      const oldName = current.name;
+      if (oldName && oldName !== nextName) {
+        setRunInput((runPrev) => {
+          if (!(oldName in runPrev)) return runPrev;
+          const next = { ...runPrev };
+          if (nextName && !(nextName in next)) {
+            next[nextName] = next[oldName];
+          }
+          delete next[oldName];
+          return next;
+        });
+      }
+      return prev.map((f, i) => (i === index ? { ...f, name: nextName } : f));
+    });
+  };
 
   const [isPanelOpen, setIsPanelOpen] = useState(true);
   const [isPackagesOpen, setIsPackagesOpen] = useState(false);
@@ -484,149 +685,119 @@ export function ToolCodeView({
                         const oldIndex = prev.findIndex((_, i) => `input-${i}` === active.id);
                         const newIndex = prev.findIndex((_, i) => `input-${i}` === over.id);
                         if (oldIndex !== -1 && newIndex !== -1) {
-                          const activeField = prev[oldIndex];
-                          const overField = prev[newIndex];
-                          if ((activeField.fillMode ?? "agent") === (overField.fillMode ?? "agent")) {
-                            return arrayMove(prev, oldIndex, newIndex);
-                          }
+                          return arrayMove(prev, oldIndex, newIndex);
                         }
                         return prev;
                       });
                     }
                   }}
                 >
-                  {(["manual", "agent"] as const).map((group) => {
-                    const groupInputs = inputs.filter((i) => (i.fillMode ?? "agent") === group);
-                    if (groupInputs.length === 0) return null;
+                  <div className="space-y-2 mt-4">
+                    <SortableContext
+                      items={inputs.map((_, i) => `input-${i}`)}
+                      strategy={verticalListSortingStrategy}
+                    >
+                      <div className="space-y-3">
+                        {inputs.map((field, realIdx) => {
+                          const uiType = field.uiType ?? inferUiTypeFromProp({ type: field.type });
 
-                    const title = group === "manual" ? "Should be set manually" : "Agent decides how to fill";
-                    const subtitle = group === "manual"
-                      ? "Values must be provided before the tool can run."
-                      : "The agent can fill these from context (you can still add defaults).";
-
-                    return (
-                      <div key={group} className="space-y-3">
-                        <div>
-                          <div className="text-xs font-semibold text-zinc-900">{title}</div>
-                          <div className="text-[11px] text-zinc-500 mt-0.5">{subtitle}</div>
-                        </div>
-                        <SortableContext
-                          items={groupInputs.map((field) => {
-                            const realIdx = inputs.findIndex((x) => x === field);
-                            return `input-${realIdx}`;
-                          })}
-                          strategy={verticalListSortingStrategy}
-                        >
-                          <div className="space-y-3">
-                            {groupInputs.map((field) => {
-                              const realIdx = inputs.findIndex((x) => x === field);
-                              const uiType = field.uiType ?? inferUiTypeFromProp({ type: field.type });
-
-                              return (
-                                <SortableSidebarInputWrapper key={`input-${realIdx}`} id={`input-${realIdx}`}>
-                                  <div className="rounded-lg border border-zinc-200 bg-white p-3 w-full">
+                          return (
+                            <SortableSidebarInputWrapper key={`input-${realIdx}`} id={`input-${realIdx}`}>
+                              <div className="rounded-lg border border-zinc-200 bg-white p-3 w-full">
+                                <div className="flex items-center gap-2">
+                                  <Input
+                                    value={field.name}
+                                    onChange={(e) => renameInputField(realIdx, e.target.value)}
+                                    placeholder="variable_name"
+                                    className="h-8 text-xs"
+                                  />
+                                  
+                                  <div className="ml-auto flex items-center gap-3">
                                     <div className="flex items-center gap-2">
-                                      <Input
-                                        value={field.name}
-                                        onChange={(e) => setInputs((prev) => prev.map((f, i) => i === realIdx ? { ...f, name: e.target.value } : f))}
-                                        placeholder="variable_name"
-                                        className="h-8 text-xs"
-                                      />
-                                      <Select
-                                        value={uiType}
-                                        onValueChange={(val) => {
-                                          const meta = INPUT_TYPE_OPTIONS.find((o) => o.value === val)!;
-                                          setInputs((prev) => prev.map((f, i) => i === realIdx ? { ...f, uiType: val as any, type: meta.baseType } : f));
-                                        }}
-                                      >
-                                        <SelectTrigger className="h-8 w-40 text-xs">
-                                          <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                          {INPUT_TYPE_OPTIONS.map((o) => (
-                                            <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
-                                          ))}
-                                        </SelectContent>
-                                      </Select>
-                                      <button
-                                        type="button"
-                                        onClick={() => setInputs((prev) => prev.filter((_, i) => i !== realIdx))}
-                                        className="ml-auto text-zinc-400 hover:text-red-500"
-                                      >
-                                        <Trash2 className="h-4 w-4" />
-                                      </button>
-                                    </div>
-
-                                    <div className="mt-2 flex items-center justify-between">
-                                      <div className="text-[11px] text-zinc-500">Required</div>
+                                      <span className="text-xs text-zinc-500">Required</span>
                                       <Switch
                                         checked={!!field.required}
                                         onCheckedChange={(checked) => setInputs((prev) => prev.map((f, i) => i === realIdx ? { ...f, required: checked } : f))}
                                       />
                                     </div>
+                                    <button
+                                      type="button"
+                                      onClick={() => setInputs((prev) => prev.filter((_, i) => i !== realIdx))}
+                                      className="text-zinc-400 hover:text-red-500 cursor-pointer"
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </button>
+                                  </div>
+                                </div>
 
-                                    <div className="mt-2">
-                                      <Textarea
-                                        value={field.description ?? ""}
-                                        onChange={(e) => setInputs((prev) => prev.map((f, i) => i === realIdx ? { ...f, description: e.target.value } : f))}
-                                        placeholder="Description"
-                                        className="min-h-[56px] text-xs"
+                                <div className="mt-3">
+                                  {uiType === "oauth_account" ? (
+                                    <Select
+                                      value={runInput[field.name] ?? (field.defaultValue as string) ?? ""}
+                                      onValueChange={(val) => updateRunValue(field.name, val)}
+                                    >
+                                      <SelectTrigger className="h-9 text-xs font-normal">
+                                        <SelectValue placeholder="Select connected account..." />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        <SelectItem value="demo_oauth_account" className="text-xs font-normal [&_span]:font-normal">
+                                          Demo connected account
+                                        </SelectItem>
+                                      </SelectContent>
+                                    </Select>
+                                  ) : uiType === "checkbox" ? (
+                                    <div className="flex items-center justify-between rounded-md border border-zinc-200 px-3 py-2">
+                                      <div className="text-xs text-zinc-700">Value</div>
+                                      <Switch
+                                        checked={String(runInput[field.name] ?? field.defaultValue ?? "false") === "true"}
+                                        onCheckedChange={(checked) => updateRunValue(field.name, checked ? "true" : "false")}
                                       />
                                     </div>
+                                  ) : uiType === "long_text" ? (
+                                    <Textarea
+                                      value={runInput[field.name] ?? (field.defaultValue as string) ?? ""}
+                                      onChange={(e) => updateRunValue(field.name, e.target.value)}
+                                      placeholder="Type here..."
+                                      className="min-h-[72px] text-xs focus-visible:ring-1 focus-visible:ring-indigo-500 focus-visible:border-indigo-500"
+                                    />
+                                  ) : (
+                                    <Input
+                                      value={runInput[field.name] ?? (field.defaultValue != null ? String(field.defaultValue) : "")}
+                                      onChange={(e) => updateRunValue(field.name, e.target.value)}
+                                      placeholder="Type here..."
+                                      className="h-9 text-xs focus-visible:ring-1 focus-visible:ring-indigo-500 focus-visible:border-indigo-500"
+                                    />
+                                  )}
+                                </div>
 
-                                    <div className="mt-2 flex items-center justify-between">
-                                      <div className="text-[11px] text-zinc-500">Fill mode</div>
-                                      <Select
-                                        value={field.fillMode ?? "agent"}
-                                        onValueChange={(val) => setInputs((prev) => prev.map((f, i) => i === realIdx ? { ...f, fillMode: val as any } : f))}
-                                      >
-                                        <SelectTrigger className="h-8 w-40 text-xs">
-                                          <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                          <SelectItem value="manual">Manual</SelectItem>
-                                          <SelectItem value="agent">Agent</SelectItem>
-                                        </SelectContent>
-                                      </Select>
-                                    </div>
-
-                                    <div className="mt-3">
-                                      <span className="text-[11px] font-medium text-zinc-700 block mb-1">
-                                        Test value / Default
-                                      </span>
-                                      {uiType === "checkbox" ? (
-                                        <div className="flex items-center justify-between rounded-md border border-zinc-200 px-3 py-2">
-                                          <div className="text-xs text-zinc-700">Default</div>
-                                          <Switch
-                                            checked={Boolean(field.defaultValue)}
-                                            onCheckedChange={(checked) => setInputs((prev) => prev.map((f, i) => i === realIdx ? { ...f, defaultValue: checked } : f))}
-                                          />
-                                        </div>
-                                      ) : uiType === "long_text" ? (
-                                        <Textarea
-                                          value={runInput[field.name] ?? (field.defaultValue as string) ?? ""}
-                                          onChange={(e) => setRunInput({ ...runInput, [field.name]: e.target.value })}
-                                          placeholder="Type here..."
-                                          className="min-h-[72px] text-xs"
-                                        />
-                                      ) : (
-                                        <Input
-                                          value={runInput[field.name] ?? (field.defaultValue as any) ?? ""}
-                                          onChange={(e) => setRunInput({ ...runInput, [field.name]: e.target.value })}
-                                          placeholder="Type here..."
-                                          className="h-9 text-xs"
-                                        />
-                                      )}
+                                <div className="mt-4 pt-3 border-t border-zinc-100 flex items-center justify-between">
+                                  <div className="flex items-center gap-1.5">
+                                    <CornerDownRight className="w-3.5 h-3.5 text-slate-400" />
+                                    <span className="text-slate-500 font-mono text-[10px]">params.</span>
+                                    <div className="px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-600 font-mono text-[10px]">
+                                      {field.name || 'unnamed'}
                                     </div>
                                   </div>
-                                </SortableSidebarInputWrapper>
-                              );
-                            })}
-                          </div>
-                        </SortableContext>
+                                  <div className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-slate-100 text-slate-700 text-[11px] font-medium">
+                                    {field.type === 'number' ? (
+                                      <Hash className="w-3 h-3 text-slate-400" />
+                                    ) : field.type === 'boolean' ? (
+                                      <Check className="w-3 h-3 text-slate-400" />
+                                    ) : field.type === 'object' || field.type === 'array' ? (
+                                      <Braces className="w-3 h-3 text-slate-400" />
+                                    ) : (
+                                      <Type className="w-3 h-3 text-slate-400" />
+                                    )}
+                                    <span className="capitalize">{field.type}</span>
+                                  </div>
+                                </div>
+                              </div>
+                            </SortableSidebarInputWrapper>
+                          );
+                        })}
                       </div>
-                    );
-                  })}
+                    </SortableContext>
+                  </div>
                 </DndContext>
               ) : (
                 <div className="text-sm text-gray-400 text-center py-8">
@@ -634,9 +805,189 @@ export function ToolCodeView({
                 </div>
               )}
             </TabsContent>
-            <TabsContent value="advanced" className="m-0 mt-2">
-              <div className="text-sm text-gray-400 text-center py-8">
-                Advanced settings coming soon.
+            <TabsContent value="advanced" className="m-0 mt-2 pb-20 space-y-5">
+              {/* Execution backend */}
+              <div>
+                <AdvancedFieldLabel
+                  label="Backend"
+                  hint="Where Python/JS code runs: Modal cloud, Daytona sandbox, or local Docker."
+                />
+                <Select
+                  value={advanced.backend}
+                  onValueChange={(val) => updateAdvanced("backend", val as CodeBackend)}
+                >
+                  <SelectTrigger className="h-9 text-xs bg-white border-zinc-200">
+                    <SelectValue placeholder="Select backend..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="local" className="text-xs">local (Docker)</SelectItem>
+                    <SelectItem value="modal" className="text-xs">modal</SelectItem>
+                    <SelectItem value="daytona" className="text-xs">daytona</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Runtime Commands */}
+              <div>
+                <AdvancedFieldLabel
+                  label="Runtime Commands"
+                  hint="Shell commands run before your code (e.g. apt-get install -y jq)."
+                />
+                <div className="space-y-2">
+                  {runtimeCommands.map((cmd, idx) => (
+                    <div key={idx} className="flex items-center gap-2">
+                      <Input
+                        value={cmd}
+                        onChange={(e) => {
+                          const n = [...runtimeCommands];
+                          n[idx] = e.target.value;
+                          setRuntimeCommands(n);
+                        }}
+                        className="h-9 text-xs bg-white"
+                        placeholder="e.g. apt-get update && apt-get install -y curl"
+                      />
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-9 w-9 text-gray-400 hover:text-red-500 shrink-0"
+                        onClick={() => setRuntimeCommands(runtimeCommands.filter((_, i) => i !== idx))}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                  <Button
+                    variant="outline"
+                    className="w-full h-9 text-xs gap-2 bg-white"
+                    onClick={() => setRuntimeCommands([...runtimeCommands, ""])}
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    New item
+                  </Button>
+                </div>
+              </div>
+
+              {/* Session ID */}
+              <div>
+                <AdvancedFieldLabel
+                  label="Session ID"
+                  hint="Reuse a warm session across runs when the backend supports it."
+                />
+                <Input
+                  value={advanced.sessionId}
+                  onChange={(e) => updateAdvanced("sessionId", e.target.value)}
+                  placeholder="Type '{{' to select variable"
+                  className="h-9 text-xs bg-white"
+                />
+              </div>
+
+              {/* Long Output */}
+              <div className="flex items-center justify-between gap-3">
+                <AdvancedFieldLabel
+                  className="mb-0"
+                  label="Enable 'Long Output' Mode"
+                  hint="Allow larger stdout/result payloads without truncation."
+                />
+                <Checkbox
+                  checked={advanced.longOutput}
+                  onCheckedChange={(checked) => updateAdvanced("longOutput", checked === true)}
+                />
+              </div>
+
+              {/* GPUs */}
+              <div>
+                <AdvancedFieldLabel label="Number of GPUs" hint="GPU count for Modal/Daytona backends that support accelerators." />
+                <Select
+                  value={String(advanced.gpus)}
+                  onValueChange={(val) => updateAdvanced("gpus", Number(val))}
+                >
+                  <SelectTrigger className="h-9 text-xs bg-white border-zinc-200">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="0" className="text-xs">0</SelectItem>
+                    <SelectItem value="1" className="text-xs">1</SelectItem>
+                    <SelectItem value="2" className="text-xs">2</SelectItem>
+                    <SelectItem value="4" className="text-xs">4</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* CPUs */}
+              <div>
+                <AdvancedFieldLabel label="Number of CPU Cores" hint="CPU cores allocated to the code sandbox." />
+                <Select
+                  value={String(advanced.cpus)}
+                  onValueChange={(val) => updateAdvanced("cpus", Number(val))}
+                >
+                  <SelectTrigger className="h-9 text-xs bg-white border-zinc-200">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="1" className="text-xs">1</SelectItem>
+                    <SelectItem value="2" className="text-xs">2</SelectItem>
+                    <SelectItem value="4" className="text-xs">4</SelectItem>
+                    <SelectItem value="8" className="text-xs">8</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Memory */}
+              <div>
+                <AdvancedFieldLabel label="Memory Size" hint="Memory limit in MB for the sandbox." />
+                <Input
+                  type="number"
+                  min={128}
+                  value={advanced.memorySize}
+                  onChange={(e) => updateAdvanced("memorySize", Number(e.target.value) || 512)}
+                  className="h-9 text-xs bg-white"
+                />
+              </div>
+
+              {/* Session Timeout */}
+              <div>
+                <AdvancedFieldLabel label="Session Timeout" hint="Max execution time in seconds before the sandbox is killed." />
+                <Input
+                  type="number"
+                  min={1}
+                  value={advanced.sessionTimeout}
+                  onChange={(e) => updateAdvanced("sessionTimeout", Number(e.target.value) || 600)}
+                  className="h-9 text-xs bg-white"
+                />
+              </div>
+
+              {/* Raise Error */}
+              <div>
+                <AdvancedFieldLabel
+                  label="Raise Error"
+                  hint="How Python exceptions are reported: full traceback, message only, or stderr."
+                />
+                <Select
+                  value={advanced.raiseError}
+                  onValueChange={(val) => updateAdvanced("raiseError", val as RaiseErrorMode)}
+                >
+                  <SelectTrigger className="h-9 text-xs bg-white border-zinc-200">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="traceback" className="text-xs">Raise Error with Traceback</SelectItem>
+                    <SelectItem value="error" className="text-xs">Raise Error Message Only</SelectItem>
+                    <SelectItem value="stderr" className="text-xs">Print Error to Stderr</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Enable fallback */}
+              <div className="flex items-center justify-between gap-3 pb-2">
+                <AdvancedFieldLabel
+                  className="mb-0"
+                  label="Enable fallback"
+                  hint="If enabled, continue with fallback values when the step fails (when configured)."
+                />
+                <Checkbox
+                  checked={advanced.enableFallback}
+                  onCheckedChange={(checked) => updateAdvanced("enableFallback", checked === true)}
+                />
               </div>
             </TabsContent>
           </ScrollArea>
@@ -645,11 +996,11 @@ export function ToolCodeView({
         <div className="px-4 py-3 bg-white border-t border-gray-200 flex items-center gap-2 shrink-0">
           <Button
             className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white h-9 gap-2 text-sm"
-            onClick={runCompositeTool}
-            disabled={isRunningTool}
+            onClick={handleRun}
+            disabled={isRunningTool || isSaving}
           >
             <Play className="w-3.5 h-3.5" />
-            {isRunningTool ? "Running…" : "Run tool"}
+            {isRunningTool ? "Running…" : isSaving ? "Saving…" : "Run tool"}
           </Button>
           <Button variant="outline" size="icon" className="h-9 w-9 text-gray-500">
             <MessageSquare className="w-4 h-4" />
@@ -667,4 +1018,4 @@ export function ToolCodeView({
       sidePanelDefaultSize={35}
     />
   );
-}
+});

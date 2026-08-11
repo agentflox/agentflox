@@ -7,18 +7,14 @@
 
 import { ConversationStage, AgentDraft } from '../state/agentBuilderStateService';
 import { ExtractedConfiguration } from '../validation/configurationValidator';
-import { openai } from '@/lib/openai';
-import { fetchModel } from '@/utils/ai/fetchModel';
 import {
   checkAgentTokenLimit,
-  updateAgentUsage,
-  countAgentTokens,
 } from '@/utils/ai/agentUsageTracking';
-import { prisma } from '@/lib/prisma';
 import { TokenBudgetManager } from '../optimization/tokenBudgetManager';
 import { CircuitBreaker, RetryHandler, ErrorClassifier } from '@/utils/circuitBreaker';
 import { StageReadinessSchema } from '../types/schemas';
 import { randomBytes } from 'crypto';
+import { completeWithDefaultModel } from '@/services/models';
 
 export interface StageReadinessAssessment {
   isReady: boolean;
@@ -124,8 +120,6 @@ ${compressedHistory.history.slice(-3).map(m => `${m.role}: ${m.content.substring
 Should we stay in "${currentStage}" or progress?`,
       },
     ];
-    const model = await fetchModel();
-
     // Use token budget manager for more accurate estimation
     const maxOutputTokens = this.tokenBudgetManager.getBudget('stageProgression');
     const estimatedInputTokens = this.tokenBudgetManager.estimateTokens(JSON.stringify(progressionMessages));
@@ -144,69 +138,50 @@ Should we stay in "${currentStage}" or progress?`,
     }
 
     try {
-      const completion = await openai.chat.completions.create({
-        model: 'gpt-5.1',
-        messages: progressionMessages,
-        temperature: 0.3,
-        max_completion_tokens: maxOutputTokens,
-        tools: [
-          {
-            type: 'function',
-            function: {
-              name: 'determine_stage',
-              description: 'Determine the appropriate conversation stage',
-              parameters: {
-                type: 'object',
-                properties: {
-                  stage: {
-                    type: 'string',
-                    enum: stageOrder,
-                    description: 'The stage to move to (or stay in)',
+      const { completion } = await completeWithDefaultModel({
+        userId,
+        request: {
+          messages: progressionMessages,
+          temperature: 0.3,
+          max_tokens: maxOutputTokens,
+          tools: [
+            {
+              type: 'function',
+              function: {
+                name: 'determine_stage',
+                description: 'Determine the appropriate conversation stage',
+                parameters: {
+                  type: 'object',
+                  properties: {
+                    stage: {
+                      type: 'string',
+                      enum: stageOrder,
+                      description: 'The stage to move to (or stay in)',
+                    },
+                    reasoning: {
+                      type: 'string',
+                      description: 'Brief explanation for the stage decision',
+                    },
+                    shouldStay: {
+                      type: 'boolean',
+                      description: 'True if we should stay in current stage, false if we should progress',
+                    },
                   },
-                  reasoning: {
-                    type: 'string',
-                    description: 'Brief explanation for the stage decision',
-                  },
-                  shouldStay: {
-                    type: 'boolean',
-                    description: 'True if we should stay in current stage, false if we should progress',
-                  },
+                  required: ['stage', 'reasoning', 'shouldStay'],
                 },
-                required: ['stage', 'reasoning', 'shouldStay'],
               },
             },
-          },
-        ],
-        tool_choice: { type: 'function', function: { name: 'determine_stage' } },
+          ],
+          tool_choice: { type: 'function', function: { name: 'determine_stage' } },
+          stream: false,
+        },
+        usageContext: { action: 'ANALYZE', metadata: { source: 'stage_progression' } },
+        skipEntitlement: true,
       });
 
       const toolCall = completion.choices[0]?.message?.tool_calls?.[0];
       if (toolCall && toolCall.function.name === 'determine_stage') {
         const result = JSON.parse(toolCall.function.arguments);
-
-        // Track usage
-        countAgentTokens(
-          progressionMessages as Array<{ role: string; content: string }>,
-          toolCall.function.arguments,
-          model.name
-        ).then(async (tokenCount) => {
-          try {
-            const user = await prisma.user.findUnique({
-              where: { id: userId },
-              select: { name: true, email: true },
-            });
-            await updateAgentUsage(
-              userId,
-              user?.name || user?.email || 'User',
-              tokenCount.inputTokens,
-              tokenCount.outputTokens,
-              user?.email || undefined
-            );
-          } catch (error) {
-            console.error('Failed to update usage for stage progression:', error);
-          }
-        }).catch(() => { });
-
         console.log(`[StageOrchestrator] Stage progression decision: ${currentStage} -> ${result.stage} (${result.reasoning})`);
 
         // ENFORCEMENT: Strictly validate that target stage requirements are met
@@ -294,7 +269,6 @@ Provide: missingFields, completionPercentage, criticalIssues, recommendations, c
       },
     ];
 
-    const model = await fetchModel();
     // Use token budget manager for more accurate estimation
     const estimatedTokens = this.tokenBudgetManager.estimateTokens(JSON.stringify(assessmentMessages)) + 400;
     const budgetCheck = await this.tokenBudgetManager.checkBudget('readiness', estimatedTokens);
@@ -309,60 +283,45 @@ Provide: missingFields, completionPercentage, criticalIssues, recommendations, c
     }
 
     try {
-      const completion = await openai.chat.completions.create({
-        model: 'gpt-5.1',
-        messages: assessmentMessages,
-        temperature: 0.3,
-        max_completion_tokens: 400,
-        tools: [
-          {
-            type: 'function',
-            function: {
-              name: 'assess_stage_readiness',
-              description: 'Assess if configuration is ready for target stage',
-              parameters: {
-                type: 'object',
-                properties: {
-                  isReady: { type: 'boolean', description: 'Is fully ready for stage' },
-                  missingFields: { type: 'array', items: { type: 'string' } },
-                  completionPercentage: { type: 'number', minimum: 0, maximum: 100 },
-                  criticalIssues: { type: 'array', items: { type: 'string' } },
-                  recommendations: { type: 'array', items: { type: 'string' } },
-                  canProceed: { type: 'boolean', description: 'Can proceed despite issues' },
-                  userFriendlyMessage: { type: 'string', description: 'Professional message to user' },
+      const { completion } = await completeWithDefaultModel({
+        userId,
+        request: {
+          messages: assessmentMessages,
+          temperature: 0.3,
+          max_tokens: 400,
+          tools: [
+            {
+              type: 'function',
+              function: {
+                name: 'assess_stage_readiness',
+                description: 'Assess if configuration is ready for target stage',
+                parameters: {
+                  type: 'object',
+                  properties: {
+                    isReady: { type: 'boolean', description: 'Is fully ready for stage' },
+                    missingFields: { type: 'array', items: { type: 'string' } },
+                    completionPercentage: { type: 'number', minimum: 0, maximum: 100 },
+                    criticalIssues: { type: 'array', items: { type: 'string' } },
+                    recommendations: { type: 'array', items: { type: 'string' } },
+                    canProceed: { type: 'boolean', description: 'Can proceed despite issues' },
+                    userFriendlyMessage: { type: 'string', description: 'Professional message to user' },
+                  },
+                  required: ['isReady', 'missingFields', 'completionPercentage', 'criticalIssues', 'recommendations', 'canProceed', 'userFriendlyMessage'],
                 },
-                required: ['isReady', 'missingFields', 'completionPercentage', 'criticalIssues', 'recommendations', 'canProceed', 'userFriendlyMessage'],
               },
             },
-          },
-        ],
-        tool_choice: { type: 'function', function: { name: 'assess_stage_readiness' } },
+          ],
+          tool_choice: { type: 'function', function: { name: 'assess_stage_readiness' } },
+          stream: false,
+        },
+        usageContext: { action: 'ANALYZE', metadata: { source: 'stage_readiness' } },
+        skipEntitlement: true,
       });
 
       const toolCall = completion.choices[0]?.message?.tool_calls?.[0];
       if (toolCall && toolCall.function.name === 'assess_stage_readiness') {
         const parsed = JSON.parse(toolCall.function.arguments);
         const validated = StageReadinessSchema.parse(parsed);
-
-        // Track usage
-        countAgentTokens(
-          assessmentMessages as Array<{ role: string; content: string }>,
-          toolCall.function.arguments,
-          model.name
-        ).then(async (tokenCount) => {
-          const user = await prisma.user.findUnique({
-            where: { id: userId },
-            select: { name: true, email: true },
-          });
-          await updateAgentUsage(
-            userId,
-            user?.name || user?.email || 'User',
-            tokenCount.inputTokens,
-            tokenCount.outputTokens,
-            user?.email || undefined
-          );
-        }).catch(() => { });
-
         return validated;
       }
     } catch (error) {

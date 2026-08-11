@@ -62,7 +62,7 @@ export default function ProjectCard({
       <div className="opacity-0 group-hover:opacity-100 transition-opacity absolute top-2 right-2 z-20">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => e.stopPropagation()}>
+            <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full bg-white/50 hover:bg-zinc-100 backdrop-blur-sm" onClick={(e) => e.stopPropagation()}>
               <MoreVertical className="h-4 w-4 text-zinc-400" />
             </Button>
           </DropdownMenuTrigger>

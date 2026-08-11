@@ -10,7 +10,9 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { trpc } from '@/lib/trpc'
 import { useSession } from 'next-auth/react'
-import { renderCommentText } from "@/utils/textRendering"
+import { ModelSelectDropdown } from '@/entities/models/components/ModelSelectDropdown'
+import type { AiModelView } from '@agentflox/types'
+import { renderCommentText } from '@/lib/commentText'
 
 export interface ChatComposerRef {
   insertMention: (name: string, type: 'agent' | 'task') => void
@@ -18,7 +20,7 @@ export interface ChatComposerRef {
 }
 
 interface ChatComposerProps {
-  onSend: (message: string, options?: { attachments?: ParsedFile[]; webSearch?: boolean; mentions?: Array<{ id: string; name: string; type: 'agent' | 'task' | 'doc' | 'user' }> }) => Promise<void> | void
+  onSend: (message: string, options?: { attachments?: ParsedFile[]; webSearch?: boolean; mentions?: Array<{ id: string; name: string; type: 'agent' | 'task' | 'doc' | 'user' }>; modelId?: string }) => Promise<void> | void
   onStop?: () => void
   conversationId?: string
   isSending?: boolean
@@ -31,6 +33,8 @@ interface ChatComposerProps {
   hideMentions?: boolean
   hideWebSearch?: boolean
   minHeight?: number | string
+  modelId?: string | null
+  onModelChange?: (modelId: string, model: AiModelView) => void
 }
 
 export const ChatComposer = memo(forwardRef<ChatComposerRef, ChatComposerProps>(function ChatComposer({
@@ -46,7 +50,9 @@ export const ChatComposer = memo(forwardRef<ChatComposerRef, ChatComposerProps>(
   hideWebSearch,
   minHeight,
   contextType,
-  contextId
+  contextId,
+  modelId,
+  onModelChange,
 }, ref) {
   const [value, setValue] = useState('')
   const [attachments, setAttachments] = useState<ParsedFile[]>([])
@@ -57,6 +63,7 @@ export const ChatComposer = memo(forwardRef<ChatComposerRef, ChatComposerProps>(
   const [mentionPopoverOpen, setMentionPopoverOpen] = useState(false)
   const [mentionSearch, setMentionSearch] = useState('')
   const [mentionTab, setMentionTab] = useState('people')
+  const [internalModelId, setInternalModelId] = useState<string | null>(modelId ?? null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const overlayRef = useRef<HTMLDivElement>(null)
@@ -235,7 +242,12 @@ export const ChatComposer = memo(forwardRef<ChatComposerRef, ChatComposerProps>(
 
     setSelectedMentions([])
 
-    await onSend(message, { attachments: currentAttachments, webSearch: currentWebSearch, mentions: currentMentions })
+    await onSend(message, {
+      attachments: currentAttachments,
+      webSearch: currentWebSearch,
+      mentions: currentMentions,
+      modelId: (modelId ?? internalModelId) || undefined,
+    })
   }
 
   const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -537,6 +549,16 @@ export const ChatComposer = memo(forwardRef<ChatComposerRef, ChatComposerProps>(
               <Search className="h-4 w-4" />
             </ToolbarButton>
           )}
+
+          <div className="ml-1">
+            <ModelSelectDropdown
+              modelId={modelId ?? internalModelId}
+              onModelChange={(id, m) => {
+                setInternalModelId(id)
+                onModelChange?.(id, m)
+              }}
+            />
+          </div>
 
           <div className="ml-2 hidden items-center gap-2 px-2.5 py-1.5 text-[10px] font-bold text-zinc-400 sm:flex opacity-60">
             <kbd className="flex h-5 min-w-[20px] items-center justify-center rounded border border-zinc-200 bg-white px-1 shadow-sm">Shift</kbd>

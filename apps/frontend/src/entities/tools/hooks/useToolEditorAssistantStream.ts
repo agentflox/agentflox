@@ -7,6 +7,7 @@ export interface UseToolEditorAssistantStreamParams {
   conversationId: string;
   message: string;
   context: unknown;
+  modelId?: string | null;
   attachments?: Array<{ type: string; filename: string; content?: string }>;
   contexts?: Array<{ type: string; id: string }>;
   mentions?: Array<{ id: string; name: string; type: string }>;
@@ -20,13 +21,14 @@ export function useToolEditorAssistantStream(callbacks: StreamCallbacks = {}) {
   const { stream, ...rest } = useSSEStream(callbacks);
 
   const sendMessage = useCallback(
-    async ({ conversationId, message, context, attachments, contexts, mentions }: UseToolEditorAssistantStreamParams) => {
+    async ({ conversationId, message, context, modelId, attachments, contexts, mentions }: UseToolEditorAssistantStreamParams) => {
       await stream({
         url: `${BACKEND_URL}/v1/tools/editor-assistant/message-stream`,
         body: {
           conversationId,
           message,
           context,
+          ...(modelId ? { modelId } : {}),
           ...(attachments?.length ? { attachments } : {}),
           ...(contexts?.length ? { contexts } : {}),
           ...(mentions?.length ? { mentions } : {}),

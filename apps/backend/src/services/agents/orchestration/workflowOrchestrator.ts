@@ -9,7 +9,7 @@ import { agentCommunicationService } from './agentCommunication';
 import { executeTool } from '../core/toolExecutor';
 import { getAllToolsSync } from '../registry/toolRegistry';
 import { agentExecutorService } from '../arch/agentExecutorService';
-import { openai } from '@/lib/openai';
+import { completeWithDefaultModel } from '@/services/models';
 
 /**
  * Workflow Orchestration Service
@@ -58,7 +58,12 @@ export class WorkflowOrchestrationService {
     /**
      * Map arbitrary workflow context to tool input schema using AI
      */
-    private async mapContextToSchemaWithAI(context: any, schema: any, toolName: string): Promise<any> {
+    private async mapContextToSchemaWithAI(
+        context: any,
+        schema: any,
+        toolName: string,
+        userId: string,
+    ): Promise<any> {
         if (!schema || !schema.parameters) return context;
 
         try {
@@ -74,17 +79,25 @@ ${JSON.stringify(schema.parameters, null, 2)}
 Available Context Data:
 ${typeof context === 'object' ? JSON.stringify(context, null, 2) : context}
 `;
-            const completion = await openai.chat.completions.create({
-                model: 'gpt-4o-mini',
-                messages: [{ role: 'user', content: prompt }],
-                response_format: { type: 'json_object' }
+            const { completion } = await completeWithDefaultModel({
+                userId,
+                request: {
+                    messages: [{ role: 'user', content: prompt }],
+                    response_format: { type: 'json_object' },
+                    temperature: 0,
+                    max_tokens: 1024,
+                    stream: false,
+                },
+                usageContext: {
+                    action: 'GENERATE',
+                    metadata: { source: 'workflow_schema_map', toolName },
+                },
+                skipEntitlement: true,
             });
 
             const content = completion.choices[0]?.message?.content;
             if (content) {
                 const mapped = JSON.parse(content);
-                // Return mapped object merged with any raw context the tool might need natively 
-                // but prioritizing the AI mapped fields.
                 return { ...context, ...mapped };
             }
         } catch (error) {
@@ -96,7 +109,12 @@ ${typeof context === 'object' ? JSON.stringify(context, null, 2) : context}
     /**
      * Start a workflow execution
      */
-    async startWorkflow(workflowId: string, input: any, userId: string): Promise<any> {
+    async startWorkflow(
+        workflowId: string,
+        input: any,
+        userId: string,
+        opts?: { executionId?: string; rootRunId?: string },
+    ): Promise<any> {
         // 1. Get and Validate workflow
         const workflow = await prisma.agentWorkflow.findUnique({
             where: { id: workflowId }
@@ -107,13 +125,16 @@ ${typeof context === 'object' ? JSON.stringify(context, null, 2) : context}
         const definition = workflow.definition as any;
         this.validateWorkflow(definition);
 
+        const executionId = opts?.executionId ?? randomUUID();
+        const rootRunId = opts?.rootRunId ?? executionId;
+
         // 2. Create execution record
         const execution = await prisma.agentWorkflowExecution.create({
             data: {
-                id: randomUUID(),
+                id: executionId,
                 workflowId,
                 status: 'RUNNING',
-                context: { input },
+                context: { input, rootRunId },
                 startTime: new Date(),
             }
         });
@@ -126,7 +147,8 @@ ${typeof context === 'object' ? JSON.stringify(context, null, 2) : context}
                     executionId: execution.id,
                     workflowId,
                     userId,
-                    input
+                    input,
+                    rootRunId,
                 }
             });
         } catch (err) {
@@ -154,6 +176,9 @@ ${typeof context === 'object' ? JSON.stringify(context, null, 2) : context}
         if (!execution || !execution.workflow) {
             throw new Error(`Workflow execution ${executionId} not found`);
         }
+
+        const rootRunId =
+            ((execution.context as any)?.rootRunId as string | undefined) ?? executionId;
 
         const workflowDefinition = execution.workflow.definition as any;
         const step = workflowDefinition.steps?.find((s: any) => s.id === stepId);
@@ -318,7 +343,7 @@ ${typeof context === 'object' ? JSON.stringify(context, null, 2) : context}
                 });
 
                 // Use AI to map upstream data into exactly what the tool needs
-                const mappedParameters = await this.mapContextToSchemaWithAI(parameters, toolDef.functionSchema, toolDef.name);
+                const mappedParameters = await this.mapContextToSchemaWithAI(parameters, toolDef.functionSchema, toolDef.name, userId);
 
                 const result = await executeTool(
                     { toolName: toolDef.name, parameters: mappedParameters },
@@ -354,7 +379,7 @@ ${typeof context === 'object' ? JSON.stringify(context, null, 2) : context}
                 });
 
                 // Use AI to map upstream data into what the composite tool needs
-                const mappedParameters = await this.mapContextToSchemaWithAI(parameters, compositeTool.functionSchema, compositeTool.name);
+                const mappedParameters = await this.mapContextToSchemaWithAI(parameters, compositeTool.functionSchema, compositeTool.name, userId);
 
                 await inngest.send({
                     name: 'tool/composite.execute',
@@ -364,6 +389,8 @@ ${typeof context === 'object' ? JSON.stringify(context, null, 2) : context}
                         userId,
                         messageId: syntheticMessageId,
                         stepId,
+                        rootRunId,
+                        billingExempt: true,
                     }
                 });
 

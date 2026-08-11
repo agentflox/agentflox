@@ -29,6 +29,8 @@ const edgeTypes = {
     flowEdge: FlowEdge,
 };
 
+const FIT_VIEW_OPTIONS = { padding: 0.55, maxZoom: 0.75, minZoom: 0.25 } as const;
+
 // ── Canvas skeleton shown on initial load ──────────────────────────────────
 function SwarmCanvasSkeleton() {
     return (
@@ -78,6 +80,7 @@ function SwarmFlow() {
         setSwarmActiveTab,
         isAutonomousMode,
     } = useWorkforceStore();
+    const didInitialFit = React.useRef(false);
 
     // ── Layout: coordinator top, workers middle, pool task bottom ──────────
     const arrangedNodes = useMemo(() => {
@@ -138,6 +141,16 @@ function SwarmFlow() {
 
         return [coordinator, ...agentsArranged, poolTask, ...hiddenTasks];
     }, [nodes]);
+
+    // Fit once after layout so nodes don't appear oversized
+    React.useEffect(() => {
+        if (didInitialFit.current || arrangedNodes.length === 0) return;
+        didInitialFit.current = true;
+        const id = requestAnimationFrame(() => {
+            fitView(FIT_VIEW_OPTIONS);
+        });
+        return () => cancelAnimationFrame(id);
+    }, [arrangedNodes.length, fitView]);
 
     // ── Edges ───────────────────────────────────────────────────────────────
     const generatedEdges = useMemo(() => {
@@ -242,7 +255,9 @@ function SwarmFlow() {
                 nodesConnectable={false}
                 elementsSelectable={true}
                 fitView
-                fitViewOptions={{ padding: 0.4 }}
+                fitViewOptions={FIT_VIEW_OPTIONS}
+                minZoom={0.25}
+                maxZoom={1.5}
                 colorMode="light"
                 className="bg-[#fafafa]"
             >
@@ -275,7 +290,7 @@ function SwarmFlow() {
                         {[
                             { icon: Plus, label: 'Zoom In', action: () => zoomIn() },
                             { icon: Minus, label: 'Zoom Out', action: () => zoomOut() },
-                            { icon: Maximize2, label: 'Fit View', action: () => fitView({ padding: 0.4 }) },
+                            { icon: Maximize2, label: 'Fit View', action: () => fitView(FIT_VIEW_OPTIONS) },
                             { icon: Undo2, label: 'Undo', action: () => { } },
                             { icon: Redo2, label: 'Redo', action: () => { } },
                             { icon: MousePointer2, label: 'Select', action: () => { } },
@@ -284,7 +299,7 @@ function SwarmFlow() {
                                 key={i}
                                 title={btn.label}
                                 onClick={btn.action}
-                                className="h-8 w-8 flex items-center justify-center rounded-md text-zinc-400 hover:bg-zinc-50 hover:text-zinc-600 transition-colors"
+                                className="h-8 w-8 flex items-center justify-center rounded-md text-zinc-400 hover:bg-zinc-50 hover:text-zinc-600 transition-colors cursor-pointer"
                             >
                                 <btn.icon className="h-4 w-4" />
                             </button>

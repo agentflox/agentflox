@@ -1,7 +1,5 @@
-import { initializeOpenAI } from '@/lib/openai';
 import { prisma } from '@/lib/prisma';
 import {
-  updateAgentUsage,
   countAgentTokens,
 } from '@/utils/ai/agentUsageTracking';
 import { EditorAssistantResponseSchema } from './editorOps';
@@ -12,6 +10,7 @@ import {
   RetryHandler,
   ErrorClassifier,
 } from '@/utils/circuitBreaker';
+import { createChatCompletion, resolveModel, recordUsage, type ResolvedModel } from '@/services/models';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -22,7 +21,8 @@ export interface EditorAssistantMessageInput {
   context: unknown;
   onToken?: (text: string) => void;
   signal?: AbortSignal;
-  options?: { attachments?: any[]; contexts?: any[]; mentions?: any[] };
+  modelId?: string | null;
+  options?: { attachments?: any[]; contexts?: any[]; mentions?: any[]; modelId?: string | null };
 }
 
 export type EditorAssistantResponse = z.infer<typeof EditorAssistantResponseSchema>;
@@ -48,9 +48,9 @@ export class EditorAssistantError extends Error {
  * Handles circuit breaking, retries, background tracking, and stream parsing.
  */
 export abstract class BaseEditorAssistant {
-  protected readonly openai = initializeOpenAI();
   private readonly retryHandler = new RetryHandler();
   private readonly errorClassifier = new ErrorClassifier();
+  private resolvedModelCache = new Map<string, ResolvedModel>();
 
   private readonly operationCircuitBreakers = (() => {
     const MAX = 20;
@@ -95,31 +95,81 @@ export abstract class BaseEditorAssistant {
   protected trackTokenUsage(
     messages: Array<{ role: string; content: string }>,
     rawText: string,
-    model: string,
+    resolved: ResolvedModel,
     usage: any,
-    userId: string
+    userId: string,
+    context?: { conversationId?: string; source?: string },
   ): void {
     this.runInBackground('token-usage-tracking', async () => {
-      const tokenCount = await countAgentTokens(messages, rawText, model, usage);
+      const tokenCount = await countAgentTokens(
+        messages,
+        rawText,
+        resolved.apiModelId,
+        usage,
+      );
       const user = await prisma.user.findUnique({
         where: { id: userId },
         select: { name: true, email: true },
       });
-      await updateAgentUsage(
+      await recordUsage({
+        resolved,
+        usage: {
+          inputTokens: tokenCount.inputTokens,
+          outputTokens: tokenCount.outputTokens,
+          totalTokens: tokenCount.inputTokens + tokenCount.outputTokens,
+          usageEstimated: !usage,
+        },
         userId,
-        user?.name || user?.email || 'User',
-        tokenCount.inputTokens,
-        tokenCount.outputTokens,
-        user?.email || undefined
-      );
+        userName: user?.name || user?.email || 'User',
+        email: user?.email || undefined,
+        context: {
+          conversationId: context?.conversationId,
+          action: 'CHAT',
+          success: true,
+          metadata: { source: context?.source || 'BaseEditorAssistant' },
+        },
+      });
     });
+  }
+
+  protected async resolveEditorModel(
+    userId: string,
+    conversationId?: string,
+    overrideModelId?: string | null,
+  ): Promise<ResolvedModel> {
+    let modelId = overrideModelId;
+
+    if (conversationId) {
+      if (modelId) {
+        // Persist selection so subsequent turns honor the chosen model
+        await prisma.aiConversation.update({
+          where: { id: conversationId },
+          data: { modelId },
+        }).catch(() => { /* non-fatal */ });
+        this.resolvedModelCache.delete(`${userId}:${conversationId}`);
+      } else {
+        const conversation = await prisma.aiConversation.findUnique({
+          where: { id: conversationId },
+          select: { modelId: true },
+        });
+        modelId = conversation?.modelId;
+      }
+    }
+
+    const cacheKey = `${userId}:${conversationId || 'default'}:${modelId || 'default'}`;
+    const cached = this.resolvedModelCache.get(cacheKey);
+    if (cached) return cached;
+
+    const resolved = await resolveModel({ modelId, userId });
+    this.resolvedModelCache.set(cacheKey, resolved);
+    return resolved;
   }
 
   protected async runCompletion(
     request: object,
-    context: { operation: string; conversationId?: string; userId?: string },
-    signal?: AbortSignal
-  ): Promise<any> {
+    context: { operation: string; conversationId?: string; userId?: string; modelId?: string | null },
+    _signal?: AbortSignal
+  ): Promise<{ completion: any; resolved: ResolvedModel }> {
     const cb = this.getCircuitBreaker(context.operation);
     if (cb.isOpen()) {
       throw new EditorAssistantError(
@@ -131,9 +181,14 @@ export abstract class BaseEditorAssistant {
     }
 
     try {
-      return await cb.execute(() =>
+      const resolved = await this.resolveEditorModel(
+        context.userId || 'system',
+        context.conversationId,
+        context.modelId,
+      );
+      const completion = await cb.execute(() =>
         this.retryHandler.retry(
-          () => this.openai.chat.completions.create({ ...request, stream: false } as any, { signal }),
+          () => createChatCompletion(resolved, { ...request, stream: false } as any),
           {
             maxAttempts: 2,
             baseDelay: 500,
@@ -150,6 +205,7 @@ export abstract class BaseEditorAssistant {
           }
         )
       );
+      return { completion, resolved };
     } catch (error) {
       const isCircuitOpen = error instanceof CircuitBreakerError;
       const classification = this.errorClassifier.classify(error as Error);
@@ -173,9 +229,9 @@ export abstract class BaseEditorAssistant {
 
   protected async openStream(
     request: object,
-    context: { operation: string; conversationId?: string; userId?: string },
-    signal?: AbortSignal
-  ): Promise<any> {
+    context: { operation: string; conversationId?: string; userId?: string; modelId?: string | null },
+    _signal?: AbortSignal
+  ): Promise<{ stream: any; resolved: ResolvedModel }> {
     const cb = this.getCircuitBreaker(context.operation);
     if (cb.isOpen()) {
       throw new EditorAssistantError(
@@ -187,9 +243,18 @@ export abstract class BaseEditorAssistant {
     }
 
     try {
-      return await cb.execute(() =>
+      const resolved = await this.resolveEditorModel(
+        context.userId || 'system',
+        context.conversationId,
+        context.modelId,
+      );
+      const stream = await cb.execute(() =>
         this.retryHandler.retry(
-          () => this.openai.chat.completions.create({ ...request, stream: true, stream_options: { include_usage: true } } as any, { signal }),
+          () => createChatCompletion(resolved, {
+            ...request,
+            stream: true,
+            stream_options: { include_usage: true },
+          } as any),
           {
             maxAttempts: 2,
             baseDelay: 500,
@@ -206,6 +271,7 @@ export abstract class BaseEditorAssistant {
           }
         )
       );
+      return { stream, resolved };
     } catch (error) {
       const classification = this.errorClassifier.classify(error as Error);
       throw new EditorAssistantError(

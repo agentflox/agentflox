@@ -10,6 +10,8 @@
  */
 
 import type { CodeExecutionResult } from '../services/agents/execution/codeExecutor';
+import { callPlatformHelper } from '../services/platformHelpers';
+import { buildJsSdkPreamble } from '../services/platformHelpers/sandbox/jsSdkTemplate';
 
 export interface JsWorkerTask {
   code: string;
@@ -21,44 +23,18 @@ export interface JsWorkerTask {
     cpus?: number;
     memorySize?: number;
   };
+  helperContext?: {
+    userId?: string;
+    runId?: string;
+    toolId?: string;
+  };
 }
-
-// ── Inject the platform SDK stubs ────────────────────────────────────────────
-const SDK_STUBS = `
-  function Helper(name) {
-    return { call: (kwargs) => ({ __helper: name, __input: kwargs }) };
-  }
-  class _LLMCompletions {
-    constructor(model) { this._model = model; }
-    create({ messages = [] } = {}) {
-      const userMsg = (messages.find(m => m.role === 'user') || {}).content || '';
-      return {
-        choices: [{ message: { content: \`[LLM stub for \${this._model}: \${String(userMsg).slice(0, 80)}]\` } }],
-        usage: { total_tokens: 0 }
-      };
-    }
-  }
-  class _LLMChat { constructor(m) { this.completions = new _LLMCompletions(m); } }
-  function LLM(model = 'gpt-4o-mini') { return { chat: new _LLMChat(model) }; }
-
-  const insert_data       = async (id, data)           => ({ success: true, dataset: id, inserted: Array.isArray(data) ? data.length : 1 });
-  const retrieve_data     = async (id, ps, fields)     => ({ success: true, dataset: id, data: [] });
-  const retrieve_all      = async (id, ps, fields)     => ([]);
-  const insert_temp_file  = async (path, ext)          => ({ url: 'https://tmp.relevance.ai/stub' });
-  const prompt_completion = async (prompt)             => \`[AI Completion for: \${prompt}]\`;
-  const run_step          = async (stepId, input)      => ({ success: true, result: {} });
-
-  class Integration {
-    constructor(provider, account) { this.provider = provider; this.account = account; }
-    async api_call(method, url, body, headers, params) {
-      return { __integration: this.provider, status: 'stub_success' };
-    }
-  }
-`;
 
 // ── Main worker function (called by Piscina) ─────────────────────────────────
 export default async function executeJs(task: JsWorkerTask): Promise<CodeExecutionResult> {
   const logs: string[] = [];
+  const helperCtx = task.helperContext || {};
+  const sdkPreamble = buildJsSdkPreamble({ asyncAwait: true });
 
   // Lazy-load isolated-vm inside the worker thread
   let ivm: any;
@@ -78,7 +54,7 @@ export default async function executeJs(task: JsWorkerTask): Promise<CodeExecuti
 
   if (!ivm) {
     // Fallback: node:vm (reduced isolation, dev/test only)
-    const { runInNewContext } = await import('node:vm');
+    const { Script } = await import('node:vm');
     const ctx: any = {
       params: task.params,
       steps: task.steps,
@@ -88,10 +64,13 @@ export default async function executeJs(task: JsWorkerTask): Promise<CodeExecuti
         warn: (...args: any[]) => logs.push('[warn] ' + args.join(' ')),
         error: (...args: any[]) => logs.push('[error] ' + args.join(' ')),
       },
+      _platformHelperCall: async (name: string, args: any) =>
+        callPlatformHelper(name, args || {}, helperCtx),
     };
     try {
-      runInNewContext(`${SDK_STUBS}\n${normalizedCode}`, ctx, { timeout: timeoutMs });
-      return { success: true, result: ctx.result, logs };
+      const script = new Script(`(async () => { ${sdkPreamble}\nlet result;\n${normalizedCode}\nreturn result; })()`);
+      const result = await script.runInNewContext(ctx, { timeout: timeoutMs });
+      return { success: true, result, logs };
     } catch (err: any) {
       return { success: false, logs, error: { type: 'RUNTIME', message: err.message } };
     }
@@ -108,6 +87,9 @@ export default async function executeJs(task: JsWorkerTask): Promise<CodeExecuti
     await jail.set('_logLine', new ivm.Reference((line: string) => {
       logs.push(line);
     }));
+    await jail.set('_platformHelperCall', new ivm.Reference(async (name: string, args: any) => {
+      return await callPlatformHelper(name, args || {}, helperCtx);
+    }));
     await ctx.eval(`
       const console = {
         log:   (...a) => _logLine.applySync(undefined, a.map(x => typeof x === 'object' ? JSON.stringify(x) : String(x)).join(' ')),
@@ -119,7 +101,7 @@ export default async function executeJs(task: JsWorkerTask): Promise<CodeExecuti
     const fullCode = `(async () => {
       const params = ${JSON.stringify(task.params)};
       const steps  = ${JSON.stringify(task.steps)};
-      ${SDK_STUBS}
+      ${sdkPreamble}
       let result;
       ${normalizedCode}
       return result;

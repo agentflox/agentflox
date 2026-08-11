@@ -11,6 +11,9 @@ import { routeSwarmMessage } from '@/services/agents/orchestration/swarmMessageR
 import { assertSwarmSessionAccess } from '@/utils/http/resourceAccess';
 import { workforceEditorAssistant } from '@/services/agents/arch/WorkforceEditorAssistantService';
 import { workforceRateLimiter, consumeRateLimit } from '@/lib/rateLimiter';
+import { ExecutionQuotaService } from '@/services/billing/executionQuota.service';
+import { sendExecutionQuotaError } from '@/services/billing/executionQuota.http';
+import { collectArtifactsFromStepResults } from '@/services/agents/artifacts/executionArtifact';
 
 // ─── Shared helpers ────────────────────────────────────────────────────────────
 
@@ -18,6 +21,7 @@ const editorMessageSchema = z.object({
   conversationId: z.string().min(1),
   message: z.string().min(1),
   context: z.unknown(),
+  modelId: z.string().optional().nullable(),
   attachments: z.array(z.any()).optional(),
   contexts: z.array(z.any()).optional(),
   mentions: z.array(z.any()).optional(),
@@ -67,11 +71,25 @@ export class WorkforcesController {
         return res.status(404).json({ error: 'Workforce not found' });
       }
 
+      const executionId = randomUUID();
+      await ExecutionQuotaService.consumeExecution(userId, executionId, 'workforce', {
+        rootRunId: executionId,
+        context: {
+          runId: executionId,
+          workforceId: workforce.id,
+          workforceName: workforce.name,
+          workspaceId: workforce.workspaceId,
+          spaceId: workforce.spaceId,
+          conversationId: undefined,
+        },
+      });
+
       const input = { task: parsed.task, ...parsed.input };
-      const result = await runWorkforce(workforceId, input, userId);
+      const result = await runWorkforce(workforceId, input, userId, { executionId });
       return res.json(result);
     } catch (error) {
       console.error('[WorkforcesController] Error running workforce:', error);
+      if (sendExecutionQuotaError(res, error)) return;
       if (error instanceof z.ZodError) {
         return res.status(400).json({ error: 'Invalid request', details: error.errors });
       }
@@ -124,17 +142,45 @@ export class WorkforcesController {
         return;
       }
 
+      const executionId = randomUUID();
+      try {
+        await ExecutionQuotaService.consumeExecution(userId, executionId, 'workforce', {
+          rootRunId: executionId,
+          context: {
+            runId: executionId,
+            workforceId: workforce.id,
+            workforceName: workforce.name,
+            workspaceId: workforce.workspaceId,
+            spaceId: workforce.spaceId,
+            conversationId: parsed.conversationId,
+          },
+        });
+      } catch (quotaErr) {
+        if (quotaErr instanceof Error && 'category' in quotaErr) {
+          const cat = (quotaErr as { category: string }).category;
+          if (cat === 'QUOTA') {
+            emitter.error('Execution limit reached — upgrade for more runs');
+            return;
+          }
+          if (cat === 'SUBSCRIPTION') {
+            emitter.error('No active subscription — reactivate or upgrade your plan');
+            return;
+          }
+        }
+        throw quotaErr;
+      }
+
       const input = {
         task: parsed.task,
         conversationId: parsed.conversationId,
         messages: parsed.messages,
         ...parsed.input,
       };
-      const result = await runWorkforce(workforceId, input, userId);
-      const executionId = result.executionId;
+      const result = await runWorkforce(workforceId, input, userId, { executionId });
+      const runExecutionId = result.executionId;
 
       const { redisSub } = await import('@/lib/redis');
-      const channel = `workforce:run:${executionId}`;
+      const channel = `workforce:run:${runExecutionId}`;
 
       const listener = (channelName: string, message: string) => {
         if (channelName !== channel) return;
@@ -171,6 +217,7 @@ export class WorkforcesController {
               steps,
               output,
               summary: naturalSummary || 'Execution completed.',
+              artifacts: collectArtifactsFromStepResults(steps, { finalOutput: output }),
             });
           }
         } catch (e) {
@@ -264,6 +311,7 @@ export class WorkforcesController {
         summary: naturalSummary ?? null,
         steps,
         output: ctx.output ?? null,
+        artifacts: collectArtifactsFromStepResults(steps, { finalOutput: ctx.output }),
       });
     } catch (error) {
       console.error('[WorkforcesController] Error fetching execution status:', error);
@@ -313,8 +361,14 @@ export class WorkforcesController {
         conversationId: body.conversationId,
         message: body.message,
         context: body.context,
+        modelId: body.modelId,
         onToken: (t) => emitter.token(t),
-        options: { attachments: body.attachments, contexts: body.contexts, mentions: body.mentions },
+        options: {
+          attachments: body.attachments,
+          contexts: body.contexts,
+          mentions: body.mentions,
+          modelId: body.modelId,
+        },
       });
 
       const followups = buildWorkforceFollowups();
@@ -373,7 +427,13 @@ export class WorkforcesController {
         conversationId: body.conversationId,
         message: body.message,
         context: body.context,
-        options: { attachments: body.attachments, contexts: body.contexts, mentions: body.mentions },
+        modelId: body.modelId,
+        options: {
+          attachments: body.attachments,
+          contexts: body.contexts,
+          mentions: body.mentions,
+          modelId: body.modelId,
+        },
       });
 
       const followups = buildWorkforceFollowups();
@@ -417,11 +477,23 @@ export class WorkforcesController {
 
       const workforce = await prisma.workforce.findFirst({
         where: { id: workforceId, ownerId: userId },
-        select: { id: true, workspaceId: true, graph: true, data: true },
+        select: { id: true, name: true, workspaceId: true, spaceId: true, graph: true, data: true },
       });
       if (!workforce) {
         return res.status(404).json({ error: 'Workforce not found or access denied' });
       }
+
+      await ExecutionQuotaService.consumeExecution(userId, sessionId, 'swarm', {
+        rootRunId: sessionId,
+        context: {
+          runId: sessionId,
+          workforceId: workforce.id,
+          workforceName: workforce.name,
+          workspaceId: workforce.workspaceId,
+          spaceId: workforce.spaceId,
+          conversationId: sessionId,
+        },
+      });
 
       const data = (workforce.data as any) || {};
       const nodes: any[] = data.react_flow_graph?.nodes || data.workforce_graph?.nodes || (workforce.graph as any)?.nodes || [];
@@ -525,6 +597,7 @@ export class WorkforcesController {
       return res.json({ sessionId: sid, workspaceId: workforce.workspaceId });
     } catch (error) {
       console.error('[SwarmStart] Error:', error);
+      if (sendExecutionQuotaError(res, error)) return;
       if (error instanceof z.ZodError) return res.status(400).json({ error: 'Invalid request', details: error.errors });
       return res.status(500).json({ error: 'Internal server error', message: error instanceof Error ? error.message : 'Unknown' });
     }
@@ -543,6 +616,27 @@ export class WorkforcesController {
       return res.json({ ok: true });
     } catch (error) {
       console.error('[SwarmStop] Error:', error);
+      return res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+
+  /**
+   * One-time / ops: reschedule running swarm sessions with stale tasks (pre-fix wedged sessions).
+   * POST /v1/workforces/swarm/sweep-stuck
+   */
+  @Post('swarm/sweep-stuck')
+  async sweepStuckSwarmSessions(
+    @Req() req: AuthenticatedRequest,
+    @Res() res: ExpressResponse,
+  ) {
+    try {
+      const userId = req.userId!;
+      // Reuse any authenticated user for now; tighten to admin if needed.
+      if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+      const result = await swarmOrchestrationService.sweepStuckSessions();
+      return res.json({ ok: true, ...result });
+    } catch (error) {
+      console.error('[SwarmSweepStuck] Error:', error);
       return res.status(500).json({ error: 'Internal server error' });
     }
   }

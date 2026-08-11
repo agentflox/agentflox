@@ -10,6 +10,8 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/useToast";
+import { useUsageCapModal } from "@/features/usage/hooks/useUsageCapModal";
+import { UsageRemainingHint } from "@/features/usage/components/UsageRemainingHint";
 import { trpc } from "@/lib/trpc";
 import { cn } from "@/lib/utils";
 import { IconColorSelector } from "@/components/ui/icon-color-selector";
@@ -56,6 +58,7 @@ const visibilityOptions = [
 
 export function WorkspaceCreationModal({ open, onOpenChange, onCreated }: WorkspaceCreationModalProps) {
   const { toast } = useToast();
+  const { handleError } = useUsageCapModal();
   const [form, setForm] = React.useState(INITIAL_STATE);
   const createMutation = trpc.workspace.create.useMutation();
   const utils = trpc.useUtils();
@@ -114,6 +117,7 @@ export function WorkspaceCreationModal({ open, onOpenChange, onCreated }: Worksp
       onOpenChange(false);
     } catch (error: any) {
       console.error("Failed to create workspace:", error);
+      if (handleError(error)) return;
       toast({
         title: "Could not create the workspace",
         description: error?.message ?? "Please try again in a moment.",
@@ -238,7 +242,8 @@ export function WorkspaceCreationModal({ open, onOpenChange, onCreated }: Worksp
             )}
           </div>
 
-          <DialogFooter className="px-6 py-4 bg-muted/20 flex items-center justify-end gap-3 border-t border-border/40">
+          <DialogFooter className="px-6 py-4 bg-muted/20 flex flex-wrap items-center justify-end gap-3 border-t border-border/40">
+            <UsageRemainingHint kind="WORKSPACE" className="mr-auto w-full sm:w-auto" />
             <Button
               type="button"
               variant="ghost"

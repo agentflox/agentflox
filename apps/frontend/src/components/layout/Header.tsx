@@ -64,17 +64,6 @@ export default function Header() {
                   </TooltipTrigger>
                   <TooltipContent>Notifications</TooltipContent>
                 </Tooltip>
-
-                {showAgentIcon && (
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <span className="cursor-pointer">
-                        <CommandTrigger className="h-8 w-8 border border-zinc-200 bg-zinc-50 text-zinc-500 hover:bg-zinc-100 cursor-pointer" />
-                      </span>
-                    </TooltipTrigger>
-                    <TooltipContent>AI Command (Ctrl+K)</TooltipContent>
-                  </Tooltip>
-                )}
               </div>
 
               <div className="relative border-l border-zinc-200 pl-4">

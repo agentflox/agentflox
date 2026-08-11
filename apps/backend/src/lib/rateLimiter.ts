@@ -66,9 +66,23 @@ export const socketRateLimiters = {
 };
 
 /**
+ * Agent Builder init rate limiter (per userId).
+ * Covers only the /agents/:id/builder/initialize endpoint — a cheap DB lookup
+ * triggered on every page mount. No LLM involved.
+ * Default: 120 requests per minute. Override via AGENT_BUILDER_INIT_RL_POINTS / _DURATION.
+ */
+export const agentBuilderInitRateLimiter = createRateLimiter({
+    points: parseInt(process.env.AGENT_BUILDER_INIT_RL_POINTS ?? '120', 10),
+    duration: parseInt(process.env.AGENT_BUILDER_INIT_RL_DURATION ?? '60', 10),
+    blockDuration: 10,
+    keyPrefix: 'rl:agent:builder:init',
+});
+
+/**
  * Agent Builder rate limiter (per userId).
  *
  * Each builder message triggers an LLM call — limit to 20 per minute per user.
+ * Covers builder/message and builder/message-stream only (not initialize).
  * Override via env vars AGENT_BUILDER_RL_POINTS / AGENT_BUILDER_RL_DURATION.
  */
 export const agentBuilderRateLimiter = createRateLimiter({
@@ -79,8 +93,23 @@ export const agentBuilderRateLimiter = createRateLimiter({
 });
 
 /**
+ * Tool Builder init rate limiter (per userId).
+ * Covers only the /tools/:id/builder/initialize endpoint, which is a cheap
+ * DB lookup triggered on every page mount — no LLM involved.
+ * Default: 120 requests per minute. Override via TOOL_BUILDER_INIT_RL_POINTS / _DURATION.
+ */
+export const toolBuilderInitRateLimiter = createRateLimiter({
+    points: parseInt(process.env.TOOL_BUILDER_INIT_RL_POINTS ?? '120', 10),
+    duration: parseInt(process.env.TOOL_BUILDER_INIT_RL_DURATION ?? '60', 10),
+    blockDuration: 10,
+    keyPrefix: 'rl:tool:builder:init',
+});
+
+/**
  * Tool Builder rate limiter (per userId).
- * Covers /tools/:id/builder/* and /tools/editor-assistant/* endpoints.
+ * Covers LLM-backed endpoints: builder/message, builder/message-stream,
+ * editor-assistant/message-stream, editor-assistant/message.
+ * Default: 20 requests per minute. Override via TOOL_BUILDER_RL_POINTS / _DURATION.
  */
 export const toolBuilderRateLimiter = createRateLimiter({
     points: parseInt(process.env.TOOL_BUILDER_RL_POINTS ?? '20', 10),
@@ -152,7 +181,11 @@ export const toolExecutionRateLimiter = createRateLimiter({
 
 
 /**
- * Helper to consume rate limit and handle errors
+ * Helper to consume rate limit and handle errors.
+ *
+ * rate-limiter-flexible rejects with RateLimiterRes on a real limit hit, but
+ * with a plain Error when Redis is unavailable. Treat store failures as
+ * fail-open so outages don't masquerade as 429s with a bogus retryAfter.
  */
 export async function consumeRateLimit(
     limiter: RateLimiterRedis,
@@ -162,8 +195,19 @@ export async function consumeRateLimit(
     try {
         await limiter.consume(userId);
         return { allowed: true };
-    } catch (rejRes: any) {
-        const msBeforeNext = Number(rejRes?.msBeforeNext);
+    } catch (rejRes: unknown) {
+        // Redis / store failure — not a quota hit
+        if (rejRes instanceof Error) {
+            const msg = String(rejRes?.message || '');
+            if (msg.includes('max requests limit exceeded')) {
+                // Upstash monthly quota exhausted — avoid log spam; fail open.
+                return { allowed: true };
+            }
+            console.warn(`[rateLimiter] Store error for ${eventName}, failing open:`, rejRes.message);
+            return { allowed: true };
+        }
+
+        const msBeforeNext = Number((rejRes as { msBeforeNext?: number })?.msBeforeNext);
         const retryAfter = Number.isFinite(msBeforeNext) && msBeforeNext > 0
             ? Math.ceil(msBeforeNext / 1000)
             : 60;

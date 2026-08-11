@@ -4,7 +4,7 @@ import React from "react";
 
 export function WorkforceChatSkeleton() {
   return (
-    <div className="flex h-full flex-col bg-[#fafafa] min-h-0">
+    <div className="flex w-full h-full flex-col bg-[#fafafa] min-h-0">
       {/* Message area skeleton */}
       <div className="flex-1 min-h-0 overflow-auto px-4 py-6">
         <div className="max-w-2xl mx-auto space-y-4">
@@ -26,11 +26,6 @@ export function WorkforceChatSkeleton() {
           <div className="flex items-center justify-between mt-2 px-1">
             <div className="h-3 w-8 bg-zinc-200 rounded animate-pulse" />
             <div className="h-3 w-20 bg-zinc-200 rounded animate-pulse" />
-          </div>
-          <div className="mt-3 flex items-center gap-2">
-            <div className="h-px flex-1 bg-zinc-200" />
-            <div className="h-8 w-32 rounded-full bg-zinc-200 animate-pulse" />
-            <div className="h-px flex-1 bg-zinc-200" />
           </div>
         </div>
       </div>

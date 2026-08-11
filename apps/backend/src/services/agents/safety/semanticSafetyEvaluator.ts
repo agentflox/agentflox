@@ -1,7 +1,6 @@
 import { ISafetyEvaluator, SafetyResult } from '../di/interfaces';
 import { SAFETY_CONSTITUTION, DANGEROUS_CAPABILITIES_WATCHLIST } from './constitution';
-import { openai } from '@/lib/openai';
-import { fetchModel } from '@/utils/ai/fetchModel';
+import { completeWithDefaultModel } from '@/services/models';
 
 export class SemanticSafetyEvaluator implements ISafetyEvaluator {
 
@@ -54,15 +53,19 @@ Return valid JSON: { "safe": boolean, "violations": string[], "riskLevel": "LOW"
 `;
 
         try {
-            const model = await fetchModel();
-            const completion = await openai.chat.completions.create({
-                model: "gpt-3.5-turbo", // Use specific lightweight model for safety
-                messages: [
-                    { role: 'system', content: systemPrompt },
-                    { role: 'user', content: prompt }
-                ],
-                response_format: { type: 'json_object' },
-                temperature: 0
+            const { completion } = await completeWithDefaultModel({
+                userId: 'system',
+                request: {
+                    messages: [
+                        { role: 'system', content: systemPrompt },
+                        { role: 'user', content: prompt },
+                    ],
+                    response_format: { type: 'json_object' },
+                    temperature: 0,
+                    stream: false,
+                },
+                usageContext: { action: 'ANALYZE', metadata: { source: 'semanticSafetyEvaluator' } },
+                skipEntitlement: true,
             });
 
             const result = JSON.parse(completion.choices[0].message.content || '{}');

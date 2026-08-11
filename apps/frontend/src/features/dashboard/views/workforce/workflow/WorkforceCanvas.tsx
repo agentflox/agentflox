@@ -69,6 +69,8 @@ const edgeTypes: EdgeTypes = {
     flowEdge: FlowEdge,
 };
 
+const FIT_VIEW_OPTIONS = { padding: 0.55, maxZoom: 0.75, minZoom: 0.25 } as const;
+
 function WorkforceFlow({ workforceId, workforceName, workspaceId }: { workforceId: string; workforceName?: string; workspaceId?: string }) {
     const {
         nodes,
@@ -85,9 +87,20 @@ function WorkforceFlow({ workforceId, workforceName, workspaceId }: { workforceI
         editNodeModal,
         setEditNodeModal,
     } = useWorkforceStore();
-    const { screenToFlowPosition } = useReactFlow();
+    const { screenToFlowPosition, zoomIn, zoomOut, fitView } = useReactFlow();
     const { theme } = useTheme();
     const [assistantOpen, setAssistantOpen] = React.useState(false);
+    const didInitialFit = React.useRef(false);
+
+    // Fit once after mount so a single node doesn't dominate the viewport
+    React.useEffect(() => {
+        if (didInitialFit.current || nodes.length === 0) return;
+        didInitialFit.current = true;
+        const id = requestAnimationFrame(() => {
+            fitView(FIT_VIEW_OPTIONS);
+        });
+        return () => cancelAnimationFrame(id);
+    }, [nodes.length, fitView]);
 
     // Derive the active node data for the edit modal
     const editModalNode = React.useMemo(
@@ -294,6 +307,9 @@ function WorkforceFlow({ workforceId, workforceName, workspaceId }: { workforceI
                 edgeTypes={edgeTypes}
                 colorMode={colorMode}
                 fitView
+                fitViewOptions={FIT_VIEW_OPTIONS}
+                minZoom={0.25}
+                maxZoom={1.5}
                 className="bg-[#fafafa]"
             >
                 <Background variant={BackgroundVariant.Dots} gap={24} size={1} color="#64748b" className="opacity-10" />
@@ -321,15 +337,21 @@ function WorkforceFlow({ workforceId, workforceName, workspaceId }: { workforceI
                 <Panel position="bottom-left" className="m-4">
                     <div className="flex flex-col gap-1 bg-white border border-zinc-200 rounded-lg shadow-sm p-1">
                         {[
-                            { icon: Plus, label: 'Zoom In' },
-                            { icon: Minus, label: 'Zoom Out' },
-                            { icon: Maximize2, label: 'Fit View' },
-                            { icon: Lock, label: 'Lock' },
-                            { icon: Undo2, label: 'Undo' },
-                            { icon: Redo2, label: 'Redo' },
-                            { icon: MousePointer2, label: 'Select' },
+                            { icon: Plus, label: 'Zoom In', action: () => zoomIn() },
+                            { icon: Minus, label: 'Zoom Out', action: () => zoomOut() },
+                            { icon: Maximize2, label: 'Fit View', action: () => fitView(FIT_VIEW_OPTIONS) },
+                            { icon: Lock, label: 'Lock', action: () => { } },
+                            { icon: Undo2, label: 'Undo', action: () => { } },
+                            { icon: Redo2, label: 'Redo', action: () => { } },
+                            { icon: MousePointer2, label: 'Select', action: () => { } },
                         ].map((btn, i) => (
-                            <button key={i} className="h-8 w-8 flex items-center justify-center rounded-md text-zinc-400 hover:bg-zinc-50 hover:text-zinc-600 transition-colors">
+                            <button
+                                key={i}
+                                title={btn.label}
+                                type="button"
+                                onClick={btn.action}
+                                className="h-8 w-8 flex items-center justify-center rounded-md text-zinc-400 hover:bg-zinc-50 hover:text-zinc-600 transition-colors"
+                            >
                                 <btn.icon className="h-4 w-4" />
                             </button>
                         ))}

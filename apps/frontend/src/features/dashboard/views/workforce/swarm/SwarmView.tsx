@@ -25,7 +25,15 @@ export default function SwarmView({
 }: SwarmViewProps) {
     // Activate real-time event tracking
     useSwarmEvents();
-    const { isSidebarOpen } = useWorkforceStore();
+    const { isSidebarOpen, setSidebarOpen } = useWorkforceStore();
+
+    // Don't inherit FLOW canvas sidebar state when entering swarm build
+    React.useEffect(() => {
+        setSidebarOpen(false);
+        return () => {
+            setSidebarOpen(false);
+        };
+    }, [workforceId, setSidebarOpen]);
 
     return (
         <div className="flex-1 flex flex-col h-full w-full min-w-0 overflow-hidden bg-background font-sans">

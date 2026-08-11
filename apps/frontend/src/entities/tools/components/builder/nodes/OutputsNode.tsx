@@ -215,7 +215,7 @@ export function OutputsNode({ data }: { data: ToolCanvasNodeData }) {
   /* ── shared run-result / re-run footer ─────────────────────── */
   const RunFooter = () => (
     <div className="py-6 text-center">
-      {data.runState?.output ? (
+      {data.runState?.output != null ? (
         <div className="mx-4 rounded-lg bg-zinc-900 p-3 font-mono text-[11px] text-zinc-300 border border-zinc-800 shadow-inner text-left">
           <div className="text-[10px] font-bold text-emerald-500 uppercase tracking-wider mb-2 flex items-center justify-between">
             <span>Final Output</span>
@@ -235,7 +235,7 @@ export function OutputsNode({ data }: { data: ToolCanvasNodeData }) {
       ) : (
         <span
           className="text-[13px] font-medium text-[#7c9fd4] hover:text-[#5b85bd] cursor-pointer transition-colors"
-          onClick={() => (data as any)?.onRunStep?.()}
+          onClick={() => data.onRunStep?.()}
         >
           Re-run tool to generate results
         </span>
@@ -418,7 +418,24 @@ export function OutputsNode({ data }: { data: ToolCanvasNodeData }) {
             className="cursor-pointer py-5 px-4 text-center"
             onClick={(e) => { e.stopPropagation(); data.onToggleExpand?.(); }}
           >
-            {outputMode === "manual" ? (
+            {data.runState?.output != null ? (
+              <div className="mx-0 rounded-lg bg-zinc-900 p-3 font-mono text-[11px] text-zinc-300 border border-zinc-800 shadow-inner text-left">
+                <div className="text-[10px] font-bold text-emerald-500 uppercase tracking-wider mb-2 flex items-center justify-between">
+                  <span>Final Output</span>
+                  <span className="text-[9px] text-zinc-600">JSON</span>
+                </div>
+                <pre className="whitespace-pre-wrap break-all leading-relaxed max-h-40 overflow-y-auto text-emerald-200">
+                  {typeof data.runState.output === "string"
+                    ? data.runState.output
+                    : JSON.stringify(data.runState.output, null, 2)}
+                </pre>
+              </div>
+            ) : data.runState?.status === "running" ? (
+              <div className="flex flex-col items-center justify-center gap-2 text-blue-400">
+                <RefreshCw className="h-4 w-4 animate-spin" />
+                <span className="text-[13px] font-medium">Executing workflow…</span>
+              </div>
+            ) : outputMode === "manual" ? (
               <span className="text-[13px] text-[#7c9fd4] hover:text-[#5b85bd] transition-colors">
                 {outputs.length === 0
                   ? "No output configured. Click to add."

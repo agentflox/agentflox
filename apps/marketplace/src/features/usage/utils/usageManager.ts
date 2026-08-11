@@ -38,6 +38,18 @@ interface UsageState {
       remaining: number;
       percentageUsed: number;
     };
+    spaces: {
+      used: number;
+      limit: number;
+      remaining: number;
+      percentageUsed: number;
+    };
+    workspaces: {
+      used: number;
+      limit: number;
+      remaining: number;
+      percentageUsed: number;
+    };
     isApproachingLimit: boolean;
   };
 
@@ -60,7 +72,15 @@ interface UsageState {
 
       requestsUsed: number;
       requestLimit: number;
-      remainingRequests: number;
+      remainingApplicationRequests: number;
+
+      spacesUsed: number;
+      spaceLimit: number;
+      remainingSpaces: number;
+
+      workspacesUsed: number;
+      workspaceLimit: number;
+      remainingWorkspaces: number;
 
       isExpiringSoon: boolean;
       expiresAt?: Date;
@@ -88,7 +108,15 @@ interface UsageState {
 
     requestsUsed: number;
     requestLimit: number;
-    remainingRequests: number;
+    remainingApplicationRequests: number;
+
+    spacesUsed: number;
+    spaceLimit: number;
+    remainingSpaces: number;
+
+    workspacesUsed: number;
+    workspaceLimit: number;
+    remainingWorkspaces: number;
 
     isOverLimit: boolean;
     isApproachingLimit: boolean;
@@ -100,6 +128,8 @@ enum Service {
   PROPOSAL = 'PROPOSAL',
   TEAM = 'TEAM',
   REQUEST = 'REQUEST',
+  WORKSPACE = 'WORKSPACE',
+  SPACE = 'SPACE',
   CHAT = 'CHAT'
 }
 
@@ -114,7 +144,9 @@ export class UsageManager {
     [Service.PROJECT]: 10,
     [Service.PROPOSAL]: 5,
     [Service.TEAM]: 15,
-    [Service.REQUEST]: 1
+    [Service.REQUEST]: 1,
+    [Service.WORKSPACE]: 20,
+    [Service.SPACE]: 10
   };
 
   static readonly Errors = {
@@ -265,18 +297,16 @@ export class UsageManager {
           remainingProjects: feature.maxProjects,
           maxTeams: feature.maxTeams,
           remainingTeams: feature.maxTeams,
-          maxRequests: feature.maxRequests,
-          remainingRequests: feature.maxRequests,
+          maxApplicationRequests: feature.maxApplicationRequests,
+          remainingApplicationRequests: feature.maxApplicationRequests,
           maxCredits: feature.maxCredits,
           remainingCredits: feature.maxCredits,
           maxTokens: feature.maxTokens || 0,
           remainingTokens: feature.maxTokens || 0,
-          maxChatsPerProject: feature.maxChatsPerProject || 0,
-          remainingChatsPerProject: feature.maxChatsPerProject || 0,
-          maxChatsPerProfile: feature.maxChatsPerProfile || 0,
-          remainingChatsPerProfile: feature.maxChatsPerProfile || 0,
-          maxChatsPerTeam: feature.maxChatsPerTeam || 0,
-          remainingChatsPerTeam: feature.maxChatsPerTeam || 0,
+          maxSpaces: feature.maxSpaces || 0,
+          remainingSpaces: feature.maxSpaces || 0,
+          maxWorkspaces: feature.maxWorkspaces || 0,
+          remainingWorkspaces: feature.maxWorkspaces || 0,
         }
       });
 
@@ -416,7 +446,9 @@ export class UsageManager {
       [Service.PROJECT]: 'Projects',
       [Service.PROPOSAL]: 'Proposals',
       [Service.TEAM]: 'Teams',
-      [Service.REQUEST]: 'Requests',
+      [Service.REQUEST]: 'ApplicationRequests',
+      [Service.WORKSPACE]: 'Workspaces',
+      [Service.SPACE]: 'Spaces',
       [Service.CHAT]: 'Tokens'
     };
     return fieldMap[service];
@@ -717,8 +749,16 @@ export class UsageManager {
         subUsage?.remainingTeams || 0
       ),
       requests: this.calculateResourceUsage(
-        subUsage?.maxRequests || 0,
-        subUsage?.remainingRequests || 0
+        subUsage?.maxApplicationRequests || 0,
+        subUsage?.remainingApplicationRequests || 0
+      ),
+      spaces: this.calculateResourceUsage(
+        subUsage?.maxSpaces || 0,
+        subUsage?.remainingSpaces || 0
+      ),
+      workspaces: this.calculateResourceUsage(
+        subUsage?.maxWorkspaces || 0,
+        subUsage?.remainingWorkspaces || 0
       ),
       isApproachingLimit: false
     };
@@ -726,7 +766,9 @@ export class UsageManager {
     subscriptionState.isApproachingLimit =
       subscriptionState.projects.percentageUsed >= 80 ||
       subscriptionState.teams.percentageUsed >= 80 ||
-      subscriptionState.requests.percentageUsed >= 80;
+      subscriptionState.requests.percentageUsed >= 80 ||
+      subscriptionState.spaces.percentageUsed >= 80 ||
+      subscriptionState.workspaces.percentageUsed >= 80;
 
     // Build active packages state
     const activePackages = user.creditPurchases.map(purchase => {
@@ -751,9 +793,17 @@ export class UsageManager {
         teamLimit: usage?.maxTeams || 0,
         remainingTeams: usage?.remainingTeams || 0,
 
-        requestsUsed: (usage?.maxRequests || 0) - (usage?.remainingRequests || 0),
-        requestLimit: usage?.maxRequests || 0,
-        remainingRequests: usage?.remainingRequests || 0,
+        requestsUsed: (usage?.maxApplicationRequests || 0) - (usage?.remainingApplicationRequests || 0),
+        requestLimit: usage?.maxApplicationRequests || 0,
+        remainingApplicationRequests: usage?.remainingApplicationRequests || 0,
+
+        spacesUsed: (usage?.maxSpaces || 0) - (usage?.remainingSpaces || 0),
+        spaceLimit: usage?.maxSpaces || 0,
+        remainingSpaces: usage?.remainingSpaces || 0,
+
+        workspacesUsed: (usage?.maxWorkspaces || 0) - (usage?.remainingWorkspaces || 0),
+        workspaceLimit: usage?.maxWorkspaces || 0,
+        remainingWorkspaces: usage?.remainingWorkspaces || 0,
 
         isExpiringSoon: purchase.expiresAt
           ? DateTime.fromJSDate(purchase.expiresAt).diff(DateTime.now(), 'days').days <= 7
@@ -801,7 +851,11 @@ export class UsageManager {
       teamsUsed: 0,
       teamLimit: 0,
       requestsUsed: 0,
-      requestLimit: 0
+      requestLimit: 0,
+      spacesUsed: 0,
+      spaceLimit: 0,
+      workspacesUsed: 0,
+      workspaceLimit: 0
     };
 
     // Add subscription
@@ -811,6 +865,10 @@ export class UsageManager {
     totals.teamLimit += subscription.teams.limit;
     totals.requestsUsed += subscription.requests.used;
     totals.requestLimit += subscription.requests.limit;
+    totals.spacesUsed += subscription.spaces.used;
+    totals.spaceLimit += subscription.spaces.limit;
+    totals.workspacesUsed += subscription.workspaces.used;
+    totals.workspaceLimit += subscription.workspaces.limit;
 
     // Add packages
     packages.forEach(pkg => {
@@ -822,6 +880,10 @@ export class UsageManager {
       totals.teamLimit += pkg.teamLimit;
       totals.requestsUsed += pkg.requestsUsed;
       totals.requestLimit += pkg.requestLimit;
+      totals.spacesUsed += pkg.spacesUsed;
+      totals.spaceLimit += pkg.spaceLimit;
+      totals.workspacesUsed += pkg.workspacesUsed;
+      totals.workspaceLimit += pkg.workspaceLimit;
     });
 
     const remainingCredits = totals.creditLimit - totals.creditsUsed;
@@ -843,7 +905,15 @@ export class UsageManager {
 
       requestsUsed: totals.requestsUsed,
       requestLimit: totals.requestLimit,
-      remainingRequests: totals.requestLimit - totals.requestsUsed,
+      remainingApplicationRequests: totals.requestLimit - totals.requestsUsed,
+
+      spacesUsed: totals.spacesUsed,
+      spaceLimit: totals.spaceLimit,
+      remainingSpaces: totals.spaceLimit - totals.spacesUsed,
+
+      workspacesUsed: totals.workspacesUsed,
+      workspaceLimit: totals.workspaceLimit,
+      remainingWorkspaces: totals.workspaceLimit - totals.workspacesUsed,
 
       isOverLimit: percentageUsed >= 100,
       isApproachingLimit: percentageUsed >= 80
@@ -868,8 +938,8 @@ export class UsageManager {
       data: {
         maxCredits: feature.maxCredits,
         remainingCredits: feature.maxCredits,
-        maxRequests: feature.maxRequests,
-        remainingRequests: feature.maxRequests,
+        maxApplicationRequests: feature.maxApplicationRequests,
+        remainingApplicationRequests: feature.maxApplicationRequests,
         updatedAt: new Date()
       }
     });

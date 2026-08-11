@@ -298,8 +298,15 @@ export class CreditManager {
               remainingProjects: feature?.maxProjects,
               maxTeams: feature?.maxTeams,
               remainingTeams: feature?.maxTeams,
-              maxRequests: feature?.maxRequests,
-              remainingRequests: feature?.maxRequests,
+              maxApplicationRequests: feature?.maxApplicationRequests,
+              remainingApplicationRequests: feature?.maxApplicationRequests,
+              maxSpaces: feature?.maxSpaces ?? 0,
+              remainingSpaces: feature?.maxSpaces ?? 0,
+              maxWorkspaces: feature?.maxWorkspaces ?? 0,
+              remainingWorkspaces: feature?.maxWorkspaces ?? 0,
+              maxExecutions: feature?.maxExecutions ?? 0,
+              remainingExecutions:
+                feature?.maxExecutions === -1 ? -1 : (feature?.maxExecutions ?? 0),
             },
           });
 
@@ -523,7 +530,11 @@ export class CreditManager {
         teamsUsed: 0,
         remainingTeams: 0,
         requestsUsed: 0,
-        remainingRequests: 0
+        remainingApplicationRequests: 0,
+        spacesUsed: 0,
+        remainingSpaces: 0,
+        workspacesUsed: 0,
+        remainingWorkspaces: 0
       };
     }
 
@@ -534,8 +545,12 @@ export class CreditManager {
       remainingProjects: usage.remainingProjects,
       teamsUsed: usage.maxTeams - usage.remainingTeams,
       remainingTeams: usage.remainingTeams,
-      requestsUsed: usage.maxRequests - usage.remainingRequests,
-      remainingRequests: usage.remainingRequests
+      requestsUsed: usage.maxApplicationRequests - usage.remainingApplicationRequests,
+      remainingApplicationRequests: usage.remainingApplicationRequests,
+      spacesUsed: usage.maxSpaces - usage.remainingSpaces,
+      remainingSpaces: usage.remainingSpaces,
+      workspacesUsed: usage.maxWorkspaces - usage.remainingWorkspaces,
+      remainingWorkspaces: usage.remainingWorkspaces
     };
   }
 

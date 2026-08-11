@@ -21,6 +21,8 @@ import { SkillsTab } from "./tabs/SkillsTab";
 import { useMarketplaceGuard } from "@/features/marketplace/hooks/useMarketplaceGuard";
 import { MarketplaceGuardDialog } from "@/features/marketplace/components/MarketplaceGuardDialog";
 import { PublishEntityModal } from "@/features/marketplace/components/PublishEntityModal";
+import { ModelSelectDropdown } from "@/entities/models/components/ModelSelectDropdown";
+import { trpc } from "@/lib/trpc";
 
 interface AgentSettingsModalProps {
     open: boolean;
@@ -36,6 +38,7 @@ export function AgentSettingsModal({
     onUpdate
 }) {
     const [activeSection, setActiveSection] = useState("instructions");
+    const updateAgent = trpc.agent.update.useMutation();
 
     // Marketplace Injection
     const { checkProfileAndProceed, isGuardOpen, setIsGuardOpen } = useMarketplaceGuard();
@@ -205,17 +208,38 @@ export function AgentSettingsModal({
                                         onUpdate={onUpdate}
                                     />
                                 )}
-                                {['advanced', 'help'].includes(activeSection) && (
+                                {activeSection === 'advanced' && (
+                                    <div className="space-y-6">
+                                        <div>
+                                            <h3 className="text-sm font-bold text-zinc-900 mb-1">AI Model</h3>
+                                            <p className="text-xs text-zinc-500 mb-3">
+                                                Choose the system or custom model this agent uses for runs, builder, and operator.
+                                            </p>
+                                            <ModelSelectDropdown
+                                                modelId={agent.modelId || agent.aiModel?.id || null}
+                                                onModelChange={async (id) => {
+                                                    try {
+                                                        await updateAgent.mutateAsync({ id: agent.id, modelId: id } as any);
+                                                        onUpdate();
+                                                    } catch (e) {
+                                                        console.error(e);
+                                                    }
+                                                }}
+                                            />
+                                        </div>
+                                    </div>
+                                )}
+                                {activeSection === 'help' && (
                                     <div className="flex flex-col items-center justify-center py-20 text-center space-y-4">
                                         <div className="h-20 w-20 rounded-3xl bg-zinc-100 dark:bg-zinc-900 flex items-center justify-center">
-                                            {React.createElement(sidebarItems.find(i => i.id === activeSection)?.icon || Settings, { className: "h-10 w-10 text-zinc-400" })}
+                                            {React.createElement(HelpCircle, { className: "h-10 w-10 text-zinc-400" })}
                                         </div>
                                         <div className="space-y-2">
                                             <h3 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">
-                                                {sidebarItems.find(i => i.id === activeSection)?.label} Settings
+                                                Need help?
                                             </h3>
                                             <p className="text-zinc-500 max-w-sm">
-                                                Detailed configuration for {sidebarItems.find(i => i.id === activeSection)?.label.toLowerCase()} is currently being synchronized with your agent profile.
+                                                Guides and support for configuring your agent are available in docs.
                                             </p>
                                         </div>
                                     </div>
