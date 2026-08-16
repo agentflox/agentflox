@@ -67,6 +67,7 @@ const ToolLogView = dynamic(() => import("./ToolLogView").then((m) => m.ToolLogV
 
 interface ToolAIBuilderViewProps {
   toolId?: string;
+  onClose?: () => void;
   onToolCreated?: (toolId: string) => void;
   onProgressUpdate?: (progress: {
     toolName?: string;
@@ -80,6 +81,7 @@ interface ToolAIBuilderViewProps {
 
 export const ToolAIBuilderView: React.FC<ToolAIBuilderViewProps> = ({
   toolId,
+  onClose,
   onToolCreated,
   onProgressUpdate,
 }) => {
@@ -180,7 +182,8 @@ export const ToolAIBuilderView: React.FC<ToolAIBuilderViewProps> = ({
     onSuccess: () => {
       toast.success("Tool deleted.");
       utils.tool.list.invalidate();
-      router.push("/dashboard/tools");
+      if (onClose) onClose();
+      else router.push("/dashboard/tools");
     },
     onError: (err) => toast.error(err.message),
   });
@@ -415,8 +418,9 @@ export const ToolAIBuilderView: React.FC<ToolAIBuilderViewProps> = ({
   }, [isEditing, toolData, agentPromptDraft, agentPromptMutation]);
 
   const handleBack = useCallback(() => {
-    router.push("/dashboard/tools");
-  }, [router]);
+    if (onClose) onClose();
+    else router.push("/dashboard/tools");
+  }, [onClose, router]);
 
   const toolRunState = useToolRun({ initialTool: toolData, inputs });
   const toolRunHistory = useToolRunHistory(toolData?.id);
@@ -825,7 +829,7 @@ export const ToolAIBuilderView: React.FC<ToolAIBuilderViewProps> = ({
         {/* Left: back + name */}
         <div className="flex items-center gap-2 min-w-0">
           <button
-            onClick={() => router.push("/dashboard/tools")}
+            onClick={handleBack}
             className="h-8 w-8 flex items-center justify-center rounded-md border border-zinc-200 hover:bg-zinc-100 hover:border-zinc-300 transition-colors cursor-pointer"
           >
             <Home className="h-4 w-4 text-zinc-600" />
@@ -999,6 +1003,18 @@ export const ToolAIBuilderView: React.FC<ToolAIBuilderViewProps> = ({
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+
+          {onClose && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 ml-1 cursor-pointer"
+              onClick={onClose}
+            >
+              <X className="h-4 w-4" />
+              <span className="sr-only">Close</span>
+            </Button>
+          )}
         </div>
       </header>
 
@@ -1037,6 +1053,7 @@ export const ToolAIBuilderView: React.FC<ToolAIBuilderViewProps> = ({
                   isSending={isSending}
                   disabled={isSending || !conversationId}
                   minHeight={80}
+                  hideModelSelect
                 />
               </div>
             </div>

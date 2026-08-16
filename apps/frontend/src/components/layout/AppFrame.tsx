@@ -19,7 +19,7 @@ export default function AppFrame({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen max-h-screen overflow-hidden grid grid-rows-[auto_1fr_auto]">
       <Header />
-      <main className="w-full h-full overflow-x-hidden overflow-y-auto min-h-0">{children}</main>
+      <main className="w-full h-full min-h-0 overflow-x-hidden overflow-hidden">{children}</main>
 
       <CommandInterface />
 

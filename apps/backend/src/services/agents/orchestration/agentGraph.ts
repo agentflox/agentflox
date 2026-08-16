@@ -490,17 +490,45 @@ async function storeMemory(state: AgentGraphState): Promise<Partial<AgentGraphSt
   }
 
   const agentId = state.agentId || 'global';
-  const memoriesToStore = [];
+  const memoriesToStore: Array<{
+    type: string;
+    category: string;
+    key: string;
+    content: string;
+    importance: number;
+  }> = [];
+
+  const {
+    resolveAgentMemoryConfig,
+    shouldPersistCategory,
+    resolveExpiresAt,
+    isLongTermEnabled,
+    ensureLegacyMemoryMigrated,
+  } = await import('../core/memoryPolicy');
+  const { prisma } = await import('@/lib/prisma');
+
+  let agentRow: any = null;
+  if (agentId !== 'global') {
+    void ensureLegacyMemoryMigrated(agentId);
+    agentRow = await prisma.aiAgent.findUnique({ where: { id: agentId } });
+  }
+  const config = resolveAgentMemoryConfig(agentRow || {});
+  if (!isLongTermEnabled(config)) {
+    return { memoriesToStore, status: 'COMPLETED' };
+  }
+
+  const expiresAt = resolveExpiresAt(config.memoryRetention) ?? undefined;
 
   // Store user preferences if detected
-  if (state.intent.parameters.taskParams?.assigneeId) {
+  if (state.intent.parameters.taskParams?.assigneeId && shouldPersistCategory(config, 'assignment')) {
     await storeMemoryService(
       agentId,
       'USER_PREFERENCE',
       'assignment',
       `user_${state.userId}_preferred_assignee`,
       `User prefers assigning tasks to ${state.intent.parameters.taskParams.assigneeId}`,
-      0.6
+      0.6,
+      expiresAt
     );
     memoriesToStore.push({
       type: 'USER_PREFERENCE',
@@ -512,7 +540,11 @@ async function storeMemory(state: AgentGraphState): Promise<Partial<AgentGraphSt
   }
 
   // Store recent state
-  if (state.executionResults && state.executionResults.length > 0) {
+  if (
+    state.executionResults &&
+    state.executionResults.length > 0 &&
+    shouldPersistCategory(config, 'execution')
+  ) {
     await storeMemoryService(
       agentId,
       'RECENT_STATE',
@@ -520,7 +552,7 @@ async function storeMemory(state: AgentGraphState): Promise<Partial<AgentGraphSt
       `execution_${Date.now()}`,
       `Executed ${state.executionResults.length} actions: ${state.intent.action}`,
       0.5,
-      new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days TTL
+      expiresAt ?? new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
     );
   }
 

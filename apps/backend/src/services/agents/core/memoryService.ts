@@ -74,6 +74,49 @@ export async function storeMemory(
     `;
   }
 
+  try {
+    const agent = await prisma.aiAgent.findUnique({
+      where: { id: agentId },
+      select: { useVectorMemory: true, metadata: true, memoryType: true, memoryRetention: true, contextWindow: true, memoryViewId: true },
+    });
+    const { resolveAgentMemoryConfig, isLongTermEnabled } = await import('./memoryPolicy');
+    const { sharedMemoryService } = await import('./sharedMemory');
+    const config = resolveAgentMemoryConfig(agent || {});
+    if (isLongTermEnabled(config) && config.useVectorMemory) {
+      const sharedType: 'fact' | 'experience' | 'pattern' =
+        category === 'execution' || category === 'goal' || category === 'decision'
+          ? 'experience'
+          : 'fact';
+      await sharedMemoryService.share(
+        agentId,
+        sharedType,
+        content,
+        'global',
+        importance,
+        expiresAt ? { expiresAt } : undefined
+      );
+    }
+
+    if (isLongTermEnabled(config)) {
+      const { dualWriteMemoryDocPage } = await import('./agentMemoryDocWrite');
+      await dualWriteMemoryDocPage({
+        agentId,
+        memoryKey: key,
+        category,
+        content,
+        expiresAt: expiresAt ?? null,
+      });
+    }
+  } catch (err) {
+    console.error(
+      JSON.stringify({
+        metric: 'agent.memory.dual_write_embedding_failed',
+        agentId,
+        error: err instanceof Error ? err.message : String(err),
+      })
+    );
+  }
+
   return {
     id: memory.id,
     agentId: memory.agentId,

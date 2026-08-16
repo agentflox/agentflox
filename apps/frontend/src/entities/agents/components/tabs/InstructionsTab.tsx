@@ -4,6 +4,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { DescriptionEditor } from '@/entities/shared/components/DescriptionEditor';
 import { trpc } from '@/lib/trpc';
 import { toast } from 'sonner';
+import { FileText } from "lucide-react";
 
 interface InstructionsTabProps {
   agentId: string;
@@ -64,7 +65,16 @@ export function InstructionsTab({
   }, [isEditing, handleSave]);
 
   return (
-    <div ref={containerRef} className="pt-2">
+    <div ref={containerRef} className="pt-2 space-y-4">
+      <div>
+        <h3 className="text-base font-semibold text-zinc-900 flex items-center gap-2">
+          <FileText className="w-4 h-4 text-zinc-900" />
+          Instructions
+        </h3>
+        <p className="text-sm text-zinc-500 mt-0.5">
+          What should the Agent do when it runs?
+        </p>
+      </div>
       {isEditing ? (
         <div className="border border-indigo-200 ring-4 ring-indigo-50 rounded-xl shadow-sm overflow-hidden bg-white transition-all -mx-2">
           <div className="p-4">
@@ -80,8 +90,8 @@ export function InstructionsTab({
           className="cursor-text group rounded-xl border border-transparent hover:border-zinc-200 hover:bg-zinc-50/50 p-2 transition-colors relative -mx-2"
           onClick={() => setIsEditing(true)}
         >
-          <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
-              <span className="text-[11px] font-semibold text-zinc-500 bg-white shadow-sm border border-zinc-200 px-2 py-1 rounded-md">Click to edit</span>
+          <div className="absolute top-1/2 right-2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+            <span className="text-[11px] font-semibold text-zinc-500 bg-white border border-zinc-200 px-2 py-1 rounded-md">Click to edit</span>
           </div>
           {!systemPrompt || systemPrompt.trim() === '' ? (
               <p className="text-zinc-400 text-sm italic">Click to write instructions for this agent...</p>

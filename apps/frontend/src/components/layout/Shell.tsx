@@ -16,7 +16,7 @@ export default function Shell({
     const [open, setOpen] = useState(false);
 
     return (
-        <div className="flex flex-col h-full w-full overflow-hidden">
+        <div className="flex flex-col h-full min-h-0 w-full overflow-hidden">
             {/* Mobile top bar */}
             {!hideSidebar && (
                 <div className="flex h-12 items-center gap-2 border-b px-4 md:hidden shrink-0">

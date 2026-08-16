@@ -2,11 +2,32 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { getToken } from "next-auth/jwt";
 import { API_AUTH_PREFIX, AUTH_ROUTES, PROTECTED_ROUTES } from "./constants/routes.config";
+import { INTEGRATION_OAUTH_STATE_PREFIX } from "./lib/integrationOAuth/constants";
 
+function isIntegrationOAuthProviderCallback(request: NextRequest): boolean {
+  const { pathname, searchParams } = request.nextUrl;
+  const isProviderCallback =
+    pathname === "/api/auth/callback/github" ||
+    pathname === "/api/auth/callback/slack" ||
+    pathname === "/api/auth/callback/google";
+  if (!isProviderCallback) return false;
+  const state = searchParams.get("state") ?? "";
+  return state.startsWith(INTEGRATION_OAUTH_STATE_PREFIX);
+}
 
 export async function middleware(request: NextRequest) {
   const url = request.nextUrl;
   const pathname = url.pathname;
+
+  // Integration connect reuses NextAuth callback URLs already registered on
+  // GitHub/Google/Slack. Only rewrite when our signed state prefix is present
+  // so normal login is unchanged.
+  if (isIntegrationOAuthProviderCallback(request)) {
+    const rewriteUrl = request.nextUrl.clone();
+    rewriteUrl.pathname = "/api/integrations/oauth/callback";
+    return NextResponse.rewrite(rewriteUrl);
+  }
+
   const host = (request.headers.get("host") || "").split(":")[0].toLowerCase();
   const formsHost = (process.env.NEXT_PUBLIC_FORMS_HOST || "").toLowerCase();
 
@@ -28,7 +49,9 @@ export async function middleware(request: NextRequest) {
     return NextResponse.rewrite(new URL(targetPath, request.url));
   }
 
-  const isAccessingAuthRoute = AUTH_ROUTES.some(route => pathname.startsWith(route));
+  const isOAuthPopupComplete = pathname.startsWith("/auth/oauth-popup-complete");
+  const isAccessingAuthRoute =
+    !isOAuthPopupComplete && AUTH_ROUTES.some(route => pathname.startsWith(route));
   const isOnboarding = pathname.startsWith("/onboarding");
   const isInviteAccept = pathname.startsWith("/invite/accept");
   const isProtectedRoute = pathname === "/" || PROTECTED_ROUTES.filter(route => route !== "/").some(route => pathname.startsWith(route));
@@ -45,6 +68,12 @@ export async function middleware(request: NextRequest) {
     secureCookie: IS_PRODUCTION,
   });
   const isAuthenticated = !!token;
+
+  // OAuth popup must load so it can postMessage to the opener and close itself.
+  // Do not treat it as a normal auth route (which would redirect to "/").
+  if (isOAuthPopupComplete) {
+    return NextResponse.next();
+  }
 
   // Allow public access to invitation acceptance page
   if (isInviteAccept) {

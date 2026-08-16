@@ -15,6 +15,7 @@ import { PROFILE_MANAGEMENT_TOOLS } from './categories/profileManagement';
 import { PROPOSAL_MANAGEMENT_TOOLS } from './categories/proposalManagement';
 import { MARKETPLACE_TOOLS } from './categories/marketplace';
 import { AGENT_ORCHESTRATION_TOOLS } from './categories/agentOrchestration';
+import { SAAS_INTEGRATION_TOOLS } from './categories/saasIntegration';
 
 // Register all tools to the singleton manager
 toolRegistryManager.registerMany(CONTENT_CREATION_TOOLS);
@@ -32,6 +33,7 @@ toolRegistryManager.registerMany(PROFILE_MANAGEMENT_TOOLS);
 toolRegistryManager.registerMany(PROPOSAL_MANAGEMENT_TOOLS);
 toolRegistryManager.registerMany(MARKETPLACE_TOOLS);
 toolRegistryManager.registerMany(AGENT_ORCHESTRATION_TOOLS);
+toolRegistryManager.registerMany(SAAS_INTEGRATION_TOOLS);
 
 // Export the populated manager for convenience
 export { toolRegistryManager };

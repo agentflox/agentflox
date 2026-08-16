@@ -12,7 +12,7 @@ import { trpc } from '@/lib/trpc'
 import { useSession } from 'next-auth/react'
 import { ModelSelectDropdown } from '@/entities/models/components/ModelSelectDropdown'
 import type { AiModelView } from '@agentflox/types'
-import { renderCommentText } from '@/lib/commentText'
+import { renderCommentText } from '@/utils/textRendering'
 
 export interface ChatComposerRef {
   insertMention: (name: string, type: 'agent' | 'task') => void

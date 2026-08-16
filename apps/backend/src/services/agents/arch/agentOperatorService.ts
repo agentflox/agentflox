@@ -1129,8 +1129,13 @@ Return strictly JSON with shape: { "welcomeMessage": string }.`,
             status: agent.status === 'ACTIVE' ? 'ready' : 'draft',
           };
 
+          const { resolveAgentMemoryConfig, effectiveContextWindow } = await import('../core/memoryPolicy');
+          const ctxWindow = effectiveContextWindow(resolveAgentMemoryConfig(agent));
           automationInference = await this.automationInferrer.infer(
-            refreshedState.conversationHistory.map(h => ({
+            (ctxWindow > 0
+              ? refreshedState.conversationHistory.slice(-ctxWindow)
+              : []
+            ).map(h => ({
               role: h.role,
               content: h.content,
             })),
@@ -1186,16 +1191,25 @@ Return strictly JSON with shape: { "welcomeMessage": string }.`,
       // ── Semantic memory recall (L2 & L3) ──────────────────────────────────
       let semanticMemoryBlock = '';
       try {
-        const memories = await memoryManager.getSemanticContext(
-          agentId,
-          userId,
-          fullMessageWithContext,
-          agent.workspaceId
-        );
-        if (memories.length > 0) {
-          semanticMemoryBlock = `\n\n## Relevant Memory Context\n${memories
-            .map((m, i) => `${i + 1}. ${m.content}`)
-            .join('\n')}`;
+        const {
+          resolveAgentMemoryConfig,
+          isLongTermEnabled,
+          ensureLegacyMemoryMigrated,
+        } = await import('../core/memoryPolicy');
+        void ensureLegacyMemoryMigrated(agentId);
+        const memoryConfig = resolveAgentMemoryConfig(agent);
+        if (isLongTermEnabled(memoryConfig) && memoryConfig.useVectorMemory) {
+          const memories = await memoryManager.getSemanticContext(
+            agentId,
+            userId,
+            fullMessageWithContext,
+            agent.workspaceId
+          );
+          if (memories.length > 0) {
+            semanticMemoryBlock = `\n\n## Relevant Memory Context\n${memories
+              .map((m, i) => `${i + 1}. ${m.content}`)
+              .join('\n')}`;
+          }
         }
       } catch (memErr) {
         console.warn('[AgentOperator] Failed to query memory manager:', memErr);

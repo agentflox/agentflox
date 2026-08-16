@@ -2,6 +2,14 @@ import { z } from "zod";
 import { protectedProcedure, router } from "@/trpc/init";
 import { prisma } from "@/lib/prisma";
 import { randomUUID } from "crypto";
+import { DEFAULT_MEMORY_METADATA } from "@/lib/agentMemory/memoryPolicy";
+import {
+  buildDefaultAgentMetadata,
+  clearAgentMemoryStores,
+  deleteAgentMemoryNotebook,
+  ensureAgentMemoryDoc,
+} from "@/lib/agentMemory/ensureAgentMemoryDoc";
+import { isAgentMemoryDocEnabled } from "@/lib/agentMemory/memoryPolicy";
 
 // Default triggers for new agents
 interface TriggerConfig {
@@ -271,7 +279,35 @@ export const agentRouter = router({
         throw new Error("Agent not found or permission denied");
       }
 
-      return agent;
+      return {
+        ...agent,
+        /** Server-authoritative; do not derive from client useSession().user.id */
+        viewerIsOwner: agent.ownerId === userId,
+      };
+    }),
+
+  /** Lightweight ownership check for Memory tab (avoids fragile client session id). */
+  getMemoryAccess: protectedProcedure
+    .input(z.object({ agentId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      const userId = ctx.session!.user!.id;
+      const agent = await prisma.aiAgent.findFirst({
+        where: {
+          id: input.agentId,
+          OR: [
+            { ownerId: userId },
+            { collaborators: { some: { userId } } },
+          ],
+        },
+        select: { ownerId: true, memoryViewId: true },
+      });
+      if (!agent) {
+        throw new Error("Agent not found or permission denied");
+      }
+      return {
+        isOwner: agent.ownerId === userId,
+        memoryViewId: agent.memoryViewId ?? null,
+      };
     }),
 
   create: protectedProcedure
@@ -366,6 +402,7 @@ export const agentRouter = router({
           visibility: input.visibility || 'PRIVATE',
           tags: input.tags || [],
           status: input.status || 'DRAFT',
+          metadata: { memory: { ...DEFAULT_MEMORY_METADATA } },
           updatedAt: new Date(),
           triggers: {
             create: DEFAULT_TRIGGERS.map(trigger => ({
@@ -396,7 +433,9 @@ export const agentRouter = router({
       workspaceId: z.string().optional(),
       name: z.string().min(1).max(255).optional(),
       description: z.string().optional().nullable(),
-      avatar: z.string().optional(),
+      avatar: z.string().optional().nullable(),
+      icon: z.string().optional().nullable(),
+      color: z.string().optional().nullable(),
       agentType: agentTypeEnum.optional(),
       systemPrompt: z.string().min(1).optional(),
       personality: z.any().optional(),
@@ -486,9 +525,154 @@ export const agentRouter = router({
         throw new Error("Agent not found or permission denied");
       }
 
+      await deleteAgentMemoryNotebook(input.id).catch((err) => {
+        console.error("Failed to cleanup agent memory notebook", err);
+      });
+
       return prisma.aiAgent.delete({
         where: { id: input.id },
       });
+    }),
+
+  clone: protectedProcedure
+    .input(z.object({
+      id: z.string(),
+      name: z.string().min(1).max(255).optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const userId = ctx.session!.user!.id;
+
+      const source = await prisma.aiAgent.findFirst({
+        where: {
+          id: input.id,
+          OR: [
+            { ownerId: userId },
+            { collaborators: { some: { userId } } },
+            { visibility: 'PUBLIC' },
+          ],
+        },
+        include: {
+          tools: true,
+          skills: true,
+          triggers: true,
+        },
+      });
+
+      if (!source) {
+        throw new Error("Agent not found or permission denied");
+      }
+
+      const clonedName = input.name?.trim() || `${source.name} (copy)`;
+
+      const cloned = await prisma.aiAgent.create({
+        data: {
+          id: randomUUID(),
+          ...(source.workspaceId && { workspaceId: source.workspaceId }),
+          ...(source.spaceId && { spaceId: source.spaceId }),
+          ...(source.projectId && { projectId: source.projectId }),
+          ...(source.teamId && { teamId: source.teamId }),
+          owner: { connect: { id: userId } },
+          ...(source.modelId && {
+            aiModel: { connect: { id: source.modelId } },
+          }),
+          name: clonedName,
+          description: source.description,
+          avatar: source.avatar,
+          agentType: source.agentType,
+          systemPrompt: source.systemPrompt || '',
+          personality: source.personality ?? undefined,
+          capabilities: source.capabilities || [],
+          constraints: source.constraints || [],
+          temperature: source.temperature,
+          maxTokens: source.maxTokens,
+          topP: source.topP,
+          frequencyPenalty: source.frequencyPenalty,
+          presencePenalty: source.presencePenalty,
+          maxIterations: source.maxIterations,
+          maxExecutionTime: source.maxExecutionTime,
+          autoRetry: source.autoRetry,
+          maxRetries: source.maxRetries,
+          retryDelay: source.retryDelay,
+          memoryType: source.memoryType,
+          contextWindow: source.contextWindow,
+          useVectorMemory: source.useVectorMemory,
+          memoryRetention: source.memoryRetention ?? undefined,
+          autonomyLevel: source.autonomyLevel,
+          requiresApproval: source.requiresApproval,
+          approvalThreshold: source.approvalThreshold,
+          permissionLevel: source.permissionLevel,
+          schedule: source.schedule ?? undefined,
+          isScheduleActive: false,
+          isActive: false,
+          visibility: 'PRIVATE',
+          tags: source.tags || [],
+          status: 'DRAFT',
+          metadata: source.metadata ?? undefined,
+          updatedAt: new Date(),
+          tools: {
+            create: source.tools.map((tool) => ({
+              id: randomUUID(),
+              name: tool.name,
+              description: tool.description,
+              toolType: tool.toolType,
+              category: tool.category,
+              endpoint: tool.endpoint,
+              method: tool.method,
+              headers: tool.headers ?? undefined,
+              authentication: tool.authentication ?? undefined,
+              functionSchema: tool.functionSchema as any,
+              parameters: tool.parameters as any,
+              returns: tool.returns as any,
+              isEnabled: tool.isEnabled,
+              requiresAuth: tool.requiresAuth,
+              rateLimit: tool.rateLimit,
+              timeout: tool.timeout,
+              retryOnError: tool.retryOnError,
+              costPerCall: tool.costPerCall,
+              monthlyQuota: tool.monthlyQuota,
+              examples: tool.examples as any,
+              documentation: tool.documentation,
+              isActive: tool.isActive,
+              metadata: tool.metadata ?? undefined,
+              tags: tool.tags || [],
+              updatedAt: new Date(),
+            })),
+          },
+          triggers: {
+            create: (source.triggers.length > 0
+              ? source.triggers
+              : DEFAULT_TRIGGERS.map((t) => ({
+                  ...t,
+                  id: '',
+                  triggerConfig: t.triggerConfig as any,
+                }))
+            ).map((trigger: any) => ({
+              id: randomUUID(),
+              triggerType: trigger.triggerType,
+              triggerConfig: trigger.triggerConfig ?? { scope: 'all' },
+              name: trigger.name,
+              description: trigger.description,
+              isActive: trigger.isActive ?? true,
+              priority: trigger.priority ?? 0,
+              tags: trigger.tags || [],
+              updatedAt: new Date(),
+            })),
+          },
+          skills: {
+            create: source.skills.map((skill) => ({
+              id: randomUUID(),
+              skillId: skill.skillId,
+              isEnabled: skill.isEnabled,
+            })),
+          },
+        } as any,
+        include: {
+          tools: true,
+          triggers: true,
+        },
+      });
+
+      return cloned;
     }),
 
   getExecutions: protectedProcedure
@@ -1316,6 +1500,199 @@ export const agentRouter = router({
       });
 
       return { success: true };
+    }),
+
+  /** Upsert manual trigger (mention / DM / assign) instructions + active flag. */
+  updateTrigger: protectedProcedure
+    .input(
+      z.object({
+        agentId: z.string(),
+        triggerType: z.enum(["MENTION", "DIRECT_MESSAGE", "ASSIGN_TASK"]),
+        instructions: z.string().optional(),
+        isActive: z.boolean().optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const userId = ctx.session!.user!.id;
+      const agent = await prisma.aiAgent.findFirst({
+        where: { id: input.agentId, ownerId: userId },
+        select: { id: true },
+      });
+      if (!agent) {
+        throw new Error("Agent not found or permission denied");
+      }
+
+      const defaults: Record<
+        "MENTION" | "DIRECT_MESSAGE" | "ASSIGN_TASK",
+        { name: string; description: string; priority: number; tags: string[] }
+      > = {
+        ASSIGN_TASK: {
+          name: "Task Assignment",
+          description: "Triggers when a task is assigned to a user or agent",
+          priority: 0,
+          tags: ["task", "assignment"],
+        },
+        DIRECT_MESSAGE: {
+          name: "Direct Message",
+          description: "Triggers when a direct message is sent to the agent",
+          priority: 0,
+          tags: ["message", "communication"],
+        },
+        MENTION: {
+          name: "Mention",
+          description: "Triggers when the agent is mentioned in a comment or message",
+          priority: 0,
+          tags: ["mention", "notification"],
+        },
+      };
+
+      const existing = await prisma.agentTrigger.findFirst({
+        where: {
+          agentId: input.agentId,
+          triggerType: input.triggerType,
+        },
+      });
+
+      const prevConfig =
+        existing?.triggerConfig &&
+        typeof existing.triggerConfig === "object" &&
+        !Array.isArray(existing.triggerConfig)
+          ? { ...(existing.triggerConfig as Record<string, unknown>) }
+          : { scope: "all" };
+
+      const nextConfig = {
+        ...prevConfig,
+        ...(input.instructions !== undefined
+          ? { instructions: input.instructions }
+          : {}),
+      };
+
+      if (existing) {
+        return prisma.agentTrigger.update({
+          where: { id: existing.id },
+          data: {
+            ...(input.isActive !== undefined
+              ? {
+                  isActive: input.isActive,
+                  ...(input.isActive
+                    ? { activatedAt: new Date(), deactivatedAt: null }
+                    : { deactivatedAt: new Date() }),
+                }
+              : {}),
+            triggerConfig: nextConfig as any,
+          },
+        });
+      }
+
+      const meta = defaults[input.triggerType];
+      return prisma.agentTrigger.create({
+        data: {
+          id: randomUUID(),
+          agentId: input.agentId,
+          triggerType: input.triggerType,
+          triggerConfig: nextConfig as any,
+          name: meta.name,
+          description: meta.description,
+          isActive: input.isActive ?? true,
+          priority: meta.priority,
+          tags: meta.tags,
+          activatedAt: (input.isActive ?? true) ? new Date() : null,
+        },
+      });
+    }),
+
+  ensureMemoryDoc: protectedProcedure
+    .input(z.object({ agentId: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const userId = ctx.session!.user!.id;
+      return ensureAgentMemoryDoc(input.agentId, { ownerId: userId });
+    }),
+
+  clearMemories: protectedProcedure
+    .input(z.object({ agentId: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const userId = ctx.session!.user!.id;
+      const agent = await prisma.aiAgent.findFirst({
+        where: { id: input.agentId, ownerId: userId },
+      });
+      if (!agent) {
+        throw new Error('Agent not found or permission denied');
+      }
+      return clearAgentMemoryStores(input.agentId);
+    }),
+
+  /** Merge memory settings into metadata.memory; sets legacyMigrated on first save. */
+  updateMemorySettings: protectedProcedure
+    .input(
+      z.object({
+        agentId: z.string(),
+        enabled: z.boolean().optional(),
+        shortTermEnabled: z.boolean().optional(),
+        memoryType: memoryTypeEnum.optional(),
+        contextWindow: z.number().int().min(1).max(50).optional(),
+        useVectorMemory: z.boolean().optional(),
+        memoryRetention: z.number().int().min(1).max(365).nullable().optional(),
+        prefs: z
+          .object({
+            rememberPreferences: z.boolean().optional(),
+            rememberPeopleOrg: z.boolean().optional(),
+            rememberGoals: z.boolean().optional(),
+            rememberTranscripts: z.boolean().optional(),
+          })
+          .optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const userId = ctx.session!.user!.id;
+      const agent = await prisma.aiAgent.findFirst({
+        where: { id: input.agentId, ownerId: userId },
+      });
+      if (!agent) {
+        throw new Error('Agent not found or permission denied');
+      }
+
+      const metadata = buildDefaultAgentMetadata(agent.metadata, {
+        legacyMigrated: true,
+        ...(input.enabled !== undefined ? { enabled: input.enabled } : {}),
+        ...(input.shortTermEnabled !== undefined
+          ? { shortTermEnabled: input.shortTermEnabled }
+          : {}),
+        ...(input.prefs ? { prefs: input.prefs } : {}),
+      });
+
+      const data: Record<string, unknown> = { metadata };
+      if (input.memoryType !== undefined) data.memoryType = input.memoryType;
+      if (input.contextWindow !== undefined) data.contextWindow = input.contextWindow;
+      if (input.useVectorMemory !== undefined) data.useVectorMemory = input.useVectorMemory;
+      if (input.memoryRetention !== undefined) data.memoryRetention = input.memoryRetention;
+
+      // Ensure notebook when enabling long-term
+      const enablingLongTerm =
+        (input.enabled !== false) &&
+        (input.memoryType === 'LONG_TERM' ||
+          (input.memoryType === undefined && agent.memoryType === 'LONG_TERM') ||
+          input.enabled === true);
+
+      const updated = await prisma.aiAgent.update({
+        where: { id: input.agentId },
+        data: data as any,
+      });
+
+      if (enablingLongTerm && input.enabled !== false && isAgentMemoryDocEnabled()) {
+        try {
+          const ensured = await ensureAgentMemoryDoc(input.agentId, { ownerId: userId });
+          if ((updated as any).memoryViewId !== ensured.viewId) {
+            return prisma.aiAgent.update({
+              where: { id: input.agentId },
+              data: { memoryViewId: ensured.viewId },
+            });
+          }
+        } catch (err) {
+          console.error('ensureAgentMemoryDoc on settings save failed', err);
+        }
+      }
+
+      return updated;
     }),
 
 });

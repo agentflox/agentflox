@@ -232,7 +232,7 @@ export function WorkforceEditorAssistantPanel({
       </div>
 
       <div className="border-t border-zinc-200 p-3">
-        <ChatComposer onSend={send} isSending={initMutation.isPending || isSending} disabled={!conversationId} />
+        <ChatComposer onSend={send} isSending={initMutation.isPending || isSending} disabled={!conversationId} hideModelSelect />
       </div>
     </div>
   );

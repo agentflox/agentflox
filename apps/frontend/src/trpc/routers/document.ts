@@ -3,6 +3,13 @@ import { protectedProcedure, router } from "@/trpc/init";
 import { prisma } from "@/lib/prisma";
 import { generateKeyBetween } from "fractional-indexing";
 import { Prisma } from "@agentflox/database/src/generated/prisma";
+import { isPreferencesMemoryDoc, mergeDocumentSettings } from "@/lib/agentMemory/memoryPolicy";
+
+function assertNotPreferencesMemoryDoc(settings: unknown, action: string) {
+  if (isPreferencesMemoryDoc(settings)) {
+    throw new Error(`Cannot ${action} the Agent Preferences memory page`);
+  }
+}
 
 // Recursively fetch document children up to `maxDepth` levels
 async function fetchDocumentChildren(parentId: string, depth = 0, maxDepth = 5): Promise<any[]> {
@@ -18,6 +25,9 @@ async function fetchDocumentChildren(parentId: string, depth = 0, maxDepth = 5):
       content: true,
       position: true,
       parentId: true,
+      settings: true,
+      viewId: true,
+      isArchived: true,
     },
   });
   return Promise.all(
@@ -188,6 +198,7 @@ export const documentRouter = router({
             viewId: true,
             isTemplate: true,
             isArchived: true,
+            settings: true,
             ownerId: true,
             createdAt: true,
             updatedAt: true,
@@ -239,6 +250,7 @@ export const documentRouter = router({
               viewId: true,
               isTemplate: true,
               isArchived: true,
+              settings: true,
               ownerId: true,
               createdAt: true,
               updatedAt: true,
@@ -668,6 +680,21 @@ export const documentRouter = router({
         throw new Error("Document not found or insufficient permissions");
       }
 
+      if (input.parentId !== undefined && isPreferencesMemoryDoc(existing.settings)) {
+        // Preferences must stay under its memory view (including parentId: null root moves)
+        if (input.parentId === null) {
+          // Root of same view is OK
+        } else {
+          const newParent = await prisma.document.findUnique({
+            where: { id: input.parentId },
+            select: { viewId: true },
+          });
+          if (!newParent || newParent.viewId !== existing.viewId) {
+            throw new Error("Cannot move the Agent Preferences memory page out of its memory document");
+          }
+        }
+      }
+
       const updateData: any = {
         updatedAt: new Date(),
       };
@@ -685,7 +712,21 @@ export const documentRouter = router({
       }
       if (input.parentId !== undefined) updateData.parentId = input.parentId;
       if (input.position !== undefined) updateData.position = input.position;
-      if (input.settings !== undefined) updateData.settings = input.settings;
+
+      // Deep-merge settings so agentMemory / pageSettings cannot clobber each other
+      if (input.settings !== undefined) {
+        if (input.settings === null) {
+          if (isPreferencesMemoryDoc(existing.settings)) {
+            throw new Error("Cannot clear settings on the Agent Preferences memory page");
+          }
+          updateData.settings = Prisma.DbNull;
+        } else {
+          updateData.settings = mergeDocumentSettings(
+            existing.settings,
+            input.settings as Record<string, unknown>
+          ) as Prisma.InputJsonValue;
+        }
+      }
 
       // Create version if requested
       if (input.createVersion) {
@@ -750,6 +791,8 @@ export const documentRouter = router({
         throw new Error("Document not found or insufficient permissions");
       }
 
+      assertNotPreferencesMemoryDoc(document.settings, "delete");
+
       const descendantIds = await getAllDescendantIds(input.id);
       const idsToDelete = [input.id, ...descendantIds];
 
@@ -785,6 +828,10 @@ export const documentRouter = router({
 
       if (!document) {
         throw new Error("Document not found or insufficient permissions");
+      }
+
+      if (input.isArchived) {
+        assertNotPreferencesMemoryDoc(document.settings, "archive");
       }
 
       const descendantIds = await getAllDescendantIds(input.id);

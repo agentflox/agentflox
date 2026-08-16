@@ -9,3 +9,4 @@ export {
 } from './types';
 export { ArtifactViewer } from './ArtifactViewer';
 export { ArtifactsTab } from './ArtifactsTab';
+export { MessageArtifactList, coerceArtifacts } from './MessageArtifactList';

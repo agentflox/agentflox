@@ -196,7 +196,7 @@ export function ModelManagerModal({
             <div className="flex items-center justify-between mb-4">
               <span className="text-[13px] font-bold text-zinc-900">Filters</span>
               {activeFilterCount > 0 && (
-                <button type="button" className="text-[11px] text-indigo-600 cursor-pointer font-medium hover:text-indigo-700" onClick={resetAllFilters}>
+                <button type="button" className="text-xs text-zinc-500 cursor-pointer font-medium hover:text-zinc-800 px-2 py-1 hover:bg-zinc-100 rounded-md" onClick={resetAllFilters}>
                   Reset ({activeFilterCount})
                 </button>
               )}
@@ -255,7 +255,7 @@ export function ModelManagerModal({
 
               <Accordion type="multiple" defaultValue={["provider", "capabilities", "files"]} className="w-full">
                 <AccordionItem value="provider" className="border-none">
-                  <AccordionTrigger className="hover:no-underline py-2 cursor-pointer">
+                  <AccordionTrigger className="hover:no-underline py-2 cursor-pointer hover:bg-zinc-100 px-1.5">
                     <div className="flex items-center gap-1.5 text-xs font-semibold text-zinc-700">
                       Model Provider
                       <Tooltip>
@@ -266,7 +266,7 @@ export function ModelManagerModal({
                       </Tooltip>
                     </div>
                   </AccordionTrigger>
-                  <AccordionContent className="pb-4">
+                  <AccordionContent className="pb-4 pl-1.5">
                     <div className="space-y-2 mt-1">
                       {(['OPENAI', 'ANTHROPIC', 'GOOGLE'] as AiModelProvider[]).map((p) => (
                         <label key={p} className="flex items-center gap-2 text-sm">
@@ -295,7 +295,7 @@ export function ModelManagerModal({
                 </AccordionItem>
 
                 <AccordionItem value="capabilities" className="border-none">
-                  <AccordionTrigger className="hover:no-underline py-2 cursor-pointer">
+                  <AccordionTrigger className="hover:no-underline py-2 cursor-pointer hover:bg-zinc-100 px-1.5">
                     <div className="flex items-center gap-1.5 text-xs font-semibold text-zinc-700">
                       Additional Capabilities
                       <Tooltip>
@@ -306,7 +306,7 @@ export function ModelManagerModal({
                       </Tooltip>
                     </div>
                   </AccordionTrigger>
-                  <AccordionContent className="pb-4">
+                  <AccordionContent className="pb-4 pl-1.5">
                     <label className="flex items-center gap-2 text-sm cursor-pointer mt-1">
                       <input
                         type="checkbox"
@@ -321,7 +321,7 @@ export function ModelManagerModal({
                 </AccordionItem>
 
                 <AccordionItem value="files" className="border-none">
-                  <AccordionTrigger className="hover:no-underline py-2 cursor-pointer">
+                  <AccordionTrigger className="hover:no-underline py-2 cursor-pointer hover:bg-zinc-100 px-1.5">
                     <div className="flex items-center gap-1.5 text-xs font-semibold text-zinc-700">
                       Supported File Types
                       <Tooltip>
@@ -332,7 +332,7 @@ export function ModelManagerModal({
                       </Tooltip>
                     </div>
                   </AccordionTrigger>
-                  <AccordionContent className="pb-4">
+                  <AccordionContent className="pb-4 pl-1.5">
                     <div className="space-y-2 mt-1">
                       {[
                         { id: 'pdf', label: 'PDF' },

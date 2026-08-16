@@ -21,15 +21,9 @@ export function GlowHandle({ isConnectable }: { isConnectable?: boolean }) {
                 aria-hidden="true"
             >
                 <div className={cn(
-                    "absolute rounded-full transition-all duration-300 ease-out pointer-events-none",
-                    hovered
-                        ? "-inset-2.5 bg-violet-400/12 ring-[1.5px] ring-violet-400/30"
-                        : "inset-0 bg-transparent"
-                )} />
-                <div className={cn(
                     "w-5 h-5 rounded-full border-2 border-white transition-all duration-300 flex items-center justify-center",
                     hovered
-                        ? "bg-violet-500 shadow-[0_0_0_3px_rgba(139,92,246,0.3),0_0_14px_rgba(139,92,246,0.5)]"
+                        ? "bg-violet-400 shadow-[0_0_0_5px_rgba(139,92,246,0.3),0_0_16px_rgba(139,92,246,0.5)]"
                         : "bg-zinc-200"
                 )}>
                     {hovered && <ArrowDown size={10} className="text-white" />}

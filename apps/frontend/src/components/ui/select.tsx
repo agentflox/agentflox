@@ -121,7 +121,7 @@ function SelectItem({
         </SelectPrimitive.ItemIndicator>
       </span>
       <SelectPrimitive.ItemText>
-        <span className="font-medium">{children}</span>
+        <span className="font-normal">{children}</span>
       </SelectPrimitive.ItemText>
       {description && (
         <span className="text-xs text-muted-foreground">{description}</span>

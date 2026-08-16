@@ -78,6 +78,7 @@ model User {
   embedding                      Unsupported("vector")?
   embeddingUpdatedAt             DateTime?                   @map("embedding_updated_at")
   accounts                       Account[]
+  integrationConnections         IntegrationConnection[]
   activityLogs                   ActivityLog[]
   agentAuditLogs                 AgentAuditLog[]
   agentCollaborators             AgentCollaborator[]
@@ -597,6 +598,30 @@ model Integration {
   @@index([workspaceId])
   @@index([provider])
   @@map("integrations")
+}
+
+/// OAuth connections for integrations (separate from NextAuth login Account rows).
+model IntegrationConnection {
+  id                String   @id @default(cuid())
+  userId            String   @map("user_id")
+  /// Catalog provider id: github, slack, google_mail, google_calendar, google_drive
+  provider          String
+  providerAccountId String   @map("provider_account_id")
+  accessToken       String?  @map("access_token")
+  refreshToken      String?  @map("refresh_token")
+  expiresAt         Int?     @map("expires_at")
+  tokenType         String?  @map("token_type")
+  scope             String?
+  displayName       String?  @map("display_name")
+  email             String?
+  avatarUrl         String?  @map("avatar_url")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, provider, providerAccountId])
+  @@index([userId, provider])
+  @@map("integration_connections")
 }
 
 model AutomationLog {
@@ -4581,6 +4606,7 @@ model AiAgent {
   contextWindow     Int                  @default(5) @map("context_window")
   useVectorMemory   Boolean              @default(false) @map("use_vector_memory")
   memoryRetention   Int?                 @default(7) @map("memory_retention")
+  memoryViewId      String?              @map("memory_view_id")
   autonomyLevel     AgentAutonomyLevel   @default(SEMI_AUTONOMOUS) @map("autonomy_level")
   requiresApproval  Boolean              @default(true) @map("requires_approval")
   approvalThreshold Float?               @default(0.8) @map("approval_threshold")
@@ -4652,6 +4678,7 @@ model AiAgent {
   @@index([projectId])
   @@index([teamId])
   @@index([deletedAt])
+  @@index([memoryViewId])
   @@map("ai_agents")
 }
 

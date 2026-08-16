@@ -5,8 +5,10 @@ import { executeWorkflow, executeWorkflowStep } from './functions/workflow-execu
 import { agentExecutorWorkflow } from './functions/agent-executor';
 import { agentOperatorWorkflow } from './functions/agent-operator';
 import { agentZombieReaper } from './functions/agent-maintenance';
+import { agentMemoryReaper } from './functions/agent-memory-reaper';
 import { agentBackgroundDlq } from './functions/agent-background-dlq';
 import { executeCompositeTool } from './functions/composite-tool-executor';
+import { workforceScheduleTriggers } from './functions/workforce-schedule-triggers';
 
 // Create Inngest serve handler
 export const inngestHandler = serve({
@@ -18,8 +20,10 @@ export const inngestHandler = serve({
     agentExecutorWorkflow,
     agentOperatorWorkflow,
     agentZombieReaper,
+    agentMemoryReaper,
     agentBackgroundDlq,
     executeCompositeTool,
+    workforceScheduleTriggers,
   ],
 });
 

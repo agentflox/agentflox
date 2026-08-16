@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { randomUUID } from 'crypto';
+import { getCatalogActionByToolName } from '@agentflox/types/integrationCatalog';
 import { toolRegistryManager } from './tools';
 import { skillRegistryManager } from './skills';
 
@@ -20,6 +21,17 @@ export async function syncToolsToDatabase(): Promise<void> {
     for (const toolDef of toolDefinitions) {
         const now = new Date();
         const displayName = toolDef.displayName ?? camelToDisplayName(toolDef.name);
+        const catalogAction = toolDef.category === 'SAAS_INTEGRATION'
+            ? getCatalogActionByToolName(toolDef.name)
+            : undefined;
+        const metadata = catalogAction
+            ? {
+                integrationActionId: catalogAction.actionId,
+                integrationProviderId: catalogAction.providerId,
+                catalogSchemaVersion: '1.0.0',
+            }
+            : undefined;
+
         await prisma.systemTool.upsert({
             where: { name: toolDef.name },
             update: {
@@ -36,6 +48,7 @@ export async function syncToolsToDatabase(): Promise<void> {
                 isBuiltIn: true,
                 isActive: true,
                 updatedAt: now,
+                ...(metadata ? { metadata: metadata as any } : {}),
             },
             create: {
                 id: randomUUID(),
@@ -53,6 +66,7 @@ export async function syncToolsToDatabase(): Promise<void> {
                 isBuiltIn: true,
                 isActive: true,
                 updatedAt: now,
+                ...(metadata ? { metadata: metadata as any } : {}),
             },
         });
         syncedCount++;

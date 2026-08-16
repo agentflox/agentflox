@@ -1,6 +1,7 @@
 import { NextAuthConfig } from 'next-auth';
 import GoogleProvider from 'next-auth/providers/google';
 import GitHubProvider from 'next-auth/providers/github';
+import SlackProvider from 'next-auth/providers/slack';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import Nodemailer from "next-auth/providers/nodemailer"
 import { PrismaAdapter } from "@auth/prisma-adapter";
@@ -11,19 +12,35 @@ import { sendVerificationRequest } from '@/features/auth/helpers/sendVerificatio
 export const authConfig: NextAuthConfig = {
   adapter: PrismaAdapter(prisma),
   providers: [
-    // Google OAuth Provider
+    // Login only. Integration OAuth uses /api/integrations/oauth/* and IntegrationConnection.
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID!,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
       allowDangerousEmailAccountLinking: true,
+      authorization: {
+        params: {
+          access_type: 'offline',
+          prompt: 'select_account',
+          scope: 'openid email profile',
+        },
+      },
     }),
 
-    // GitHub OAuth Provider (used both for login and repository integrations)
     GitHubProvider({
       clientId: process.env.GITHUB_CLIENT_ID!,
       clientSecret: process.env.GITHUB_CLIENT_SECRET!,
       allowDangerousEmailAccountLinking: true,
     }),
+
+    ...(process.env.SLACK_CLIENT_ID && process.env.SLACK_CLIENT_SECRET
+      ? [
+          SlackProvider({
+            clientId: process.env.SLACK_CLIENT_ID,
+            clientSecret: process.env.SLACK_CLIENT_SECRET,
+            allowDangerousEmailAccountLinking: true,
+          }),
+        ]
+      : []),
     
     // Email/Password Provider
     CredentialsProvider({

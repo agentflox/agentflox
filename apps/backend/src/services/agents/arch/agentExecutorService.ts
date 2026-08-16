@@ -1,4 +1,10 @@
-import { resolveModel, createOpenAICompletion, recordUsage, fromOpenAIUsage } from '@/services/models';
+import {
+  resolveAgentModel,
+  createOpenAICompletion,
+  recordUsage,
+  fromOpenAIUsage,
+  type ResolvedModel,
+} from '@/services/models';
 import { prisma } from '@/lib/prisma';
 import { inngest } from '@/lib/inngest';
 import { z } from 'zod';
@@ -244,7 +250,14 @@ export class AgentExecutorService {
 
   private async runCompletion(
     request: any,
-    context: { operation: string; agentId: string; userId: string },
+    context: {
+      operation: string;
+      agentId: string;
+      userId: string;
+      /** Agent's selected model — primary for execution; falls back to platform default when null. */
+      modelId?: string | null;
+      resolvedModel?: ResolvedModel;
+    },
     onChunk?: (text: string, delta: string) => void
   ) {
     const cb = this.getOperationCircuitBreaker(context.operation);
@@ -263,10 +276,12 @@ export class AgentExecutorService {
       return await cb.execute(() =>
         this.retryHandler.retry(
           async () => {
-            let resolved = (context as any).resolvedModel;
+            let resolved = context.resolvedModel;
             if (!resolved) {
-              resolved = await resolveModel({
-                modelId: null,
+              // Prefer the agent's selected model; resolveAgentModel falls back to platform default.
+              resolved = await resolveAgentModel({
+                modelId: context.modelId,
+                agentId: context.agentId,
                 userId: context.userId,
                 skipEntitlement: true,
               });
@@ -871,9 +886,24 @@ export class AgentExecutorService {
 
             let semanticMemoryBlock = '';
             try {
-              const memories = await memoryManager.getSemanticContext(agentId, userId, ctxResult.fullMessageWithContext, agent.workspaceId);
-              if (memories.length > 0) {
-                semanticMemoryBlock = `\n\n## Relevant Memory Context\n${memories.map((m, i) => `${i + 1}. ${m.content}`).join('\n')}`;
+              const {
+                resolveAgentMemoryConfig,
+                isLongTermEnabled,
+                ensureLegacyMemoryMigrated,
+              } = await import('../core/memoryPolicy');
+              // Fire-and-forget legacy migrate (absent memory key only)
+              void ensureLegacyMemoryMigrated(agentId);
+              const memoryConfig = resolveAgentMemoryConfig(agent);
+              if (isLongTermEnabled(memoryConfig) && memoryConfig.useVectorMemory) {
+                const memories = await memoryManager.getSemanticContext(
+                  agentId,
+                  userId,
+                  ctxResult.fullMessageWithContext,
+                  agent.workspaceId
+                );
+                if (memories.length > 0) {
+                  semanticMemoryBlock = `\n\n## Relevant Memory Context\n${memories.map((m, i) => `${i + 1}. ${m.content}`).join('\n')}`;
+                }
               }
             } catch (memErr) {
               console.warn('[AgentExecutor] Failed to query memory manager:', memErr);
@@ -962,8 +992,10 @@ export class AgentExecutorService {
           const missingSkillsArray = missingSkills || [];
 
           onProgress?.('Building execution plan...');
-          const resolved = await resolveModel({
+          // Primary model for this run = agent's selected model (else platform default).
+          const resolved = await resolveAgentModel({
             modelId: agent.modelId,
+            agentId: agent.id,
             userId,
           });
           const model = {
@@ -1038,9 +1070,15 @@ ${guardrails}${semanticMemoryBlock}${swarmPeerBlock}`;
 
           const systemMessage = { role: 'system' as const, content: systemPrompt };
           const userMessageObj = { role: 'user' as const, content: userMessageContent };
+          const { resolveAgentMemoryConfig: resolveMemCfg, effectiveContextWindow } = await import('../core/memoryPolicy');
+          const ctxWindow = effectiveContextWindow(resolveMemCfg(agent));
+          const historyForPrompt =
+            ctxWindow > 0
+              ? ctxResult.refreshedState.conversationHistory.slice(-ctxWindow)
+              : [];
           const messages = [
             systemMessage,
-            ...ctxResult.refreshedState.conversationHistory.map(h => ({ role: h.role, content: h.content })),
+            ...historyForPrompt.map(h => ({ role: h.role, content: h.content })),
             userMessageObj
           ];
 
@@ -1140,8 +1178,9 @@ ${guardrails}${semanticMemoryBlock}${swarmPeerBlock}`;
             const completionParams = {
               model: model.name,
               messages,
-              temperature: 0.4,
-              max_tokens: 3000,
+              // Prefer agent config; keep previous defaults when unset.
+              temperature: typeof agent.temperature === 'number' ? agent.temperature : 0.4,
+              max_tokens: typeof agent.maxTokens === 'number' ? agent.maxTokens : 3000,
               tools: [
                 {
                   type: 'function',
@@ -1176,9 +1215,22 @@ ${guardrails}${semanticMemoryBlock}${swarmPeerBlock}`;
 
             // Note: runId is generated once per processMessage and passed in. It is stable across retries of the SAME run, making this key safely idempotent for Inngest.
             const completion = await step.run(`executor-llm-${runId}-${iterations}`, async () => {
+              // Re-resolve inside the step so retries still use the agent's selected model
+              // even if the outer closure is stale after an Inngest replay.
+              const stepResolved = await resolveAgentModel({
+                modelId: agent.modelId,
+                agentId: agent.id,
+                userId,
+              });
               return await this.runCompletion(
                 { ...completionParams, stream: true },
-                { operation: 'executor_chat', agentId: agent.id, userId, resolvedModel: resolved } as any,
+                {
+                  operation: 'executor_chat',
+                  agentId: agent.id,
+                  userId,
+                  modelId: agent.modelId,
+                  resolvedModel: stepResolved,
+                },
                 (textSoFar, delta) => {
                   if (delta) {
                     redis.publish(runKey, JSON.stringify({ type: 'token', message: delta })).catch(() => { });
@@ -1435,6 +1487,9 @@ ${guardrails}${semanticMemoryBlock}${swarmPeerBlock}`;
           // correlated in LangSmith / Langfuse / Datadog / Jaeger.
           span.setAttributes({
             'llm.iterations': iterations,
+            'llm.model_id': resolved.id,
+            'llm.api_model_id': resolved.apiModelId,
+            'llm.agent_model_id': agent.modelId ?? '',
             'llm.loop_tokens_used': loopTokensUsed,
             'llm.loop_budget': loopBudget,
             'llm.budget_exhausted': loopTokensUsed > loopBudget,

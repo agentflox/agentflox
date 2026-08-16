@@ -67,6 +67,22 @@ const envSchema = z.object({
   // Application URLs
   APP_BASE_URL: z.string().default('http://localhost:3000'),
   APP_BRAND_NAME: z.string().default('Agentflox'),
+
+  // Deep integrations — OAuth vault + provider rollout
+  INTEGRATION_CREDENTIALS_ENCRYPTION_KEY: z.string().optional(),
+  GITHUB_CLIENT_ID: z.string().optional(),
+  GITHUB_CLIENT_SECRET: z.string().optional(),
+  SLACK_CLIENT_ID: z.string().optional(),
+  SLACK_CLIENT_SECRET: z.string().optional(),
+  GOOGLE_CLIENT_ID: z.string().optional(),
+  GOOGLE_CLIENT_SECRET: z.string().optional(),
+  GOOGLE_INTEGRATION_PUBLIC: z.string().optional(),
+  GOOGLE_INTEGRATION_TEST_USER_IDS: z.string().optional(),
+  DISABLE_INTEGRATION_STARTUP_SYNC: z.string().optional(),
+
+  // Agent memory document dual-write (ClickUp-style DocView notebook)
+  AGENT_MEMORY_DOC_V1: z.string().optional(),
+  AGENT_MEMORY_REAPER_V1: z.string().optional(),
 });
 
 export const env = envSchema.parse(process.env);

@@ -67,7 +67,7 @@ export default function StepSwitcher({ step, onStepChange, initialData }: StepSw
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 text-black font-sans selection:bg-black selection:text-white flex flex-col">
+    <div className="flex h-full min-h-0 flex-col bg-gray-50 text-black font-sans selection:bg-black selection:text-white overflow-y-auto">
       {/* Header / Progress */}
       <div className="w-full max-w-4xl mx-auto p-6">
         <div className="flex items-center justify-between mb-6">

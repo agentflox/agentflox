@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Check, Search, Settings2, ChevronDown } from 'lucide-react';
+import { Check, Search, Settings2, ChevronUp, ChevronDown } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -55,7 +55,10 @@ export function ModelSelectDropdown({
             <span className="truncate max-w-[160px]">
               {selected?.displayName || 'Model'}
             </span>
-            <ChevronDown className="h-3.5 w-3.5 text-zinc-400" />
+            <span className="ml-auto flex flex-col items-center shrink-0 -space-y-1">
+              <ChevronUp className="h-3 w-3 text-zinc-400" />
+              <ChevronDown className="h-3 w-3 text-zinc-400" />
+            </span>
           </button>
         </PopoverTrigger>
         <PopoverContent align="start" className="w-80 p-0">

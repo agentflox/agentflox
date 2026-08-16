@@ -47,6 +47,8 @@ const nextConfig: NextConfig = {
     return config;
   },
   transpilePackages: ["@agentflox/types"],
+  // Keep Prisma out of Turbopack's bundling graph — CJS star-reexports OOMs the dev server.
+  serverExternalPackages: ["@prisma/client", "@agentflox/database"],
   outputFileTracingIncludes: {
     '/api/**': [
       '../../packages/database/src/generated/prisma/schema.prisma',
@@ -63,7 +65,7 @@ const nextConfig: NextConfig = {
     ignoreBuildErrors: true,
   },
   experimental: {
-    optimizePackageImports: ['lucide-react', '@radix-ui/react-icons', 'date-fns'],
+    optimizePackageImports: ['lucide-react', '@radix-ui/react-icons', 'date-fns', 'react-icons'],
   },
   eslint: {
     ignoreDuringBuilds: true,

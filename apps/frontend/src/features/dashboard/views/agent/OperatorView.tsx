@@ -19,15 +19,20 @@ import { useOperatorStream } from '@/entities/agents/hooks/useOperatorStream';
 import { AgentChatSkeleton } from '@/entities/agents/components/AgentChatSkeleton';
 import type { QuickAction, AgentDraft, UserContext, ConversationState } from '@/entities/agents/types';
 import { ResizableSplitLayout } from '@/components/layout/ResizableSplitLayout';
+import { Button } from '@/components/ui/button';
+import { CircleUser } from 'lucide-react';
 
 interface OperatorViewProps {
   agentId?: string;
   agent?: any;
+  /** When true (default), allow showing/hiding the agent profile side panel. */
+  showProfileToggle?: boolean;
 }
 
 export const OperatorView: React.FC<OperatorViewProps> = ({
   agentId,
   agent,
+  showProfileToggle = true,
 }) => {
   const [messages, setMessages] = useState<RenderedMessage[]>([]);
   const [conversationId, setConversationId] = useState<string | null>(null);
@@ -217,7 +222,7 @@ export const OperatorView: React.FC<OperatorViewProps> = ({
         const error = await res.json().catch(() => ({}));
         throw new Error(error.userMessage || error.message || error.error || 'Failed to launch agent');
       }
-      const data = await res.json();
+      await res.json();
 
       toast.success('Agent launched successfully!');
 
@@ -316,16 +321,31 @@ export const OperatorView: React.FC<OperatorViewProps> = ({
     followups: msg.followups || followupsMap.get(msg.id),
   }));
 
+  const profileOpen = showAgentProfile && !!agentData;
+
   return (
-    <div className="flex h-full w-full">
+    <div className="flex h-full w-full min-h-0">
       <ResizableSplitLayout
         mainPanelDefaultSize={60}
         mainPanelMinSize={50}
         sidePanelDefaultSize={40}
         sidePanelMinSize={40}
         MainContent={
-          <div className="flex flex-col h-full bg-white">
-            <div className="flex-1 overflow-hidden relative">
+          <div className="flex flex-col h-full min-h-0 w-full bg-white">
+            {showProfileToggle && !profileOpen && agentData && (
+              <div className="flex-none flex items-center justify-end px-4 py-2 border-b border-zinc-100 bg-white">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => setShowAgentProfile(true)}
+                  className="h-8 gap-1.5 px-2.5 rounded-lg text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100"
+                >
+                  <CircleUser className="h-4 w-4" />
+                  <span className="text-sm font-medium">Show profile</span>
+                </Button>
+              </div>
+            )}
+            <div className="flex-1 overflow-hidden relative min-h-0">
               <ChatMessageList
                 messages={messagesWithFollowups}
                 label="Agentflox Agent Operator"
@@ -346,7 +366,6 @@ export const OperatorView: React.FC<OperatorViewProps> = ({
                 emptyState={
                   <AgentChatEmptyState
                     agentName={agentData?.name || agentDraft?.name || 'Agent'}
-                    agentDescription={agentData?.description || agentDraft?.description}
                     agentAvatar={agentData?.avatar || agentDraft?.avatar}
                     type="operator"
                   />
@@ -358,6 +377,7 @@ export const OperatorView: React.FC<OperatorViewProps> = ({
                 onSend={handleSendMessage}
                 isSending={isSending}
                 disabled={isSending || !conversationId}
+                hideModelSelect
                 modelId={agentModelId}
                 onModelChange={(id) => {
                   if (!resolvedAgentId) return;
@@ -368,44 +388,50 @@ export const OperatorView: React.FC<OperatorViewProps> = ({
           </div>
         }
         SidePanelContent={
-          <div className="h-full border-l bg-gradient-to-b from-background to-muted/20 overflow-hidden">
-            <AgentProfile
-              agent={{
-                id: agentData.id,
-                name: agentData.name || agentDraft?.name || 'Unnamed Agent',
-                description: agentData.description ?? agentDraft?.description ?? null,
-                avatar: agentData.avatar ?? agentDraft?.avatar ?? null,
-                status: (agentData.status === 'ACTIVE' ? 'ACTIVE' : agentData.status === 'DRAFT' ? 'DRAFT' : agentData.status === 'BUILDING' ? 'BUILDING' : agentData.status === 'RECONFIGURING' ? 'RECONFIGURING' : agentData.status === 'EXECUTING' ? 'EXECUTING' : 'INACTIVE') as "ACTIVE" | "DRAFT" | "INACTIVE" | "BUILDING" | "RECONFIGURING" | "EXECUTING",
-                isActive: agentData.isActive ?? false,
-                agentType: agentData.agentType ?? agentDraft?.agentType ?? null,
-                systemPrompt: agentData.systemPrompt ?? agentDraft?.systemPrompt ?? null,
-                capabilities: agentData.capabilities ?? agentDraft?.capabilities ?? null,
-                constraints: agentData.constraints ?? agentDraft?.constraints ?? null,
-                createdAt: agentData.createdAt ?? new Date(),
-                updatedAt: agentData.updatedAt ?? new Date(),
-                metadata: (agentData.metadata as any) ?? {},
-                triggers: (agentData.triggers || []).map(t => ({
-                  id: t.id, triggerType: t.triggerType, triggerConfig: t.triggerConfig as any,
-                  name: t.name, description: t.description, isActive: t.isActive, priority: t.priority, tags: t.tags,
-                })),
-                tools: (agentData.tools || []).map(t => ({
-                  id: t.id, name: t.name, description: t.description,
-                  category: t.category, toolType: t.toolType, isActive: t.isActive,
-                })),
-                schedules: (agentData.schedules || []).map(s => ({
-                  id: s.id, name: s.name, description: s.description, repeatTime: s.repeatTime,
-                  startTime: s.startTime, endTime: s.endTime, timezone: s.timezone,
-                  instructions: s.instructions, isActive: s.isActive, priority: s.priority,
-                })),
-              }}
-              conversationType="AGENT_OPERATOR"
-              isReconfiguring={agentData.status === 'RECONFIGURING' || (agentData.status === 'ACTIVE' && conversationState?.stage !== undefined && ['review', 'testing'].includes(conversationState.stage))}
-              onEdit={() => toast.info('Edit agent configuration...')}
-              onConfigure={() => setShowAgentProfile(false)}
-            />
-          </div>
+          profileOpen ? (
+            <div className="h-full border-l bg-gradient-to-b from-background to-muted/20 overflow-hidden">
+              <AgentProfile
+                agent={{
+                  id: agentData.id,
+                  name: agentData.name || agentDraft?.name || 'Unnamed Agent',
+                  description: agentData.description ?? agentDraft?.description ?? null,
+                  avatar: agentData.avatar ?? agentDraft?.avatar ?? null,
+                  status: (agentData.status === 'ACTIVE' ? 'ACTIVE' : agentData.status === 'DRAFT' ? 'DRAFT' : agentData.status === 'BUILDING' ? 'BUILDING' : agentData.status === 'RECONFIGURING' ? 'RECONFIGURING' : agentData.status === 'EXECUTING' ? 'EXECUTING' : 'INACTIVE') as "ACTIVE" | "DRAFT" | "INACTIVE" | "BUILDING" | "RECONFIGURING" | "EXECUTING",
+                  isActive: agentData.isActive ?? false,
+                  modelId: (agentData as any).modelId ?? (agentData as any).aiModel?.id ?? null,
+                  aiModel: (agentData as any).aiModel ?? null,
+                  agentType: agentData.agentType ?? agentDraft?.agentType ?? null,
+                  systemPrompt: agentData.systemPrompt ?? agentDraft?.systemPrompt ?? null,
+                  capabilities: agentData.capabilities ?? agentDraft?.capabilities ?? null,
+                  constraints: agentData.constraints ?? agentDraft?.constraints ?? null,
+                  createdAt: agentData.createdAt ?? new Date(),
+                  updatedAt: agentData.updatedAt ?? new Date(),
+                  metadata: (agentData.metadata as any) ?? {},
+                  viewerIsOwner: (agentData as any).viewerIsOwner === true,
+                  ownerId: (agentData as any).ownerId,
+                  triggers: ((agentData as any).triggers || []).map((t: any) => ({
+                    id: t.id, triggerType: t.triggerType, triggerConfig: t.triggerConfig as any,
+                    name: t.name, description: t.description, isActive: t.isActive, priority: t.priority, tags: t.tags,
+                  })),
+                  tools: ((agentData as any).tools || []).map((t: any) => ({
+                    id: t.id, name: t.name, description: t.description,
+                    category: t.category, toolType: t.toolType, isActive: t.isActive,
+                  })),
+                  schedules: ((agentData as any).schedules || []).map((s: any) => ({
+                    id: s.id, name: s.name, description: s.description, repeatTime: s.repeatTime,
+                    startTime: s.startTime, endTime: s.endTime, timezone: s.timezone,
+                    instructions: s.instructions, isActive: s.isActive, priority: s.priority,
+                  })),
+                }}
+                conversationType="AGENT_OPERATOR"
+                isReconfiguring={agentData.status === 'RECONFIGURING' || (agentData.status === 'ACTIVE' && conversationState?.stage !== undefined && ['review', 'testing'].includes(conversationState.stage))}
+                onEdit={() => toast.info('Edit agent configuration...')}
+                onConfigure={() => setShowAgentProfile(false)}
+              />
+            </div>
+          ) : null
         }
-        isPanelOpen={true}
+        isPanelOpen={profileOpen}
       />
     </div>
   );

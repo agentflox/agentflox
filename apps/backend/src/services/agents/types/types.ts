@@ -88,7 +88,18 @@ export interface Tool {
   name: string;
   displayName?: string;
   description: string;
-  category: 'TASK_MANAGEMENT' | 'PROJECT_MANAGEMENT' | 'USER_MANAGEMENT' | 'SEARCH' | 'CONTENT_CREATION' | 'CODE_OPERATIONS' | 'BROWSER_AUTOMATION' | 'MEDIA_GENERATION' | 'FILE_OPERATIONS' | 'API_INTEGRATION';
+  category:
+    | 'TASK_MANAGEMENT'
+    | 'PROJECT_MANAGEMENT'
+    | 'USER_MANAGEMENT'
+    | 'SEARCH'
+    | 'CONTENT_CREATION'
+    | 'CODE_OPERATIONS'
+    | 'BROWSER_AUTOMATION'
+    | 'MEDIA_GENERATION'
+    | 'FILE_OPERATIONS'
+    | 'API_INTEGRATION'
+    | 'SAAS_INTEGRATION';
   isDefault: boolean;
   functionSchema: {
     name: string;

@@ -7,5 +7,5 @@
     "rootDir": ".",
     "outDir": "./dist-jest"
   },
-  "include": ["src/**/*", "__tests__/**/*"]
+  "include": ["src/**/*", "__tests__/**/*", "../../packages/types/integrationCatalog.ts"]
 }

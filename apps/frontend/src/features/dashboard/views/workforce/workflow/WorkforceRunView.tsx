@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { Pencil, Plus, Square, Loader2, Zap, Files, X, MessageSquare, FileText } from "lucide-react";
+import { Pencil, Plus, Square, Loader2, Zap, X, MessageSquare, FileText } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { cn } from "@/lib/utils";
 import { ChatComposer } from "@/entities/chats/components/ChatComposer";
@@ -18,10 +18,35 @@ import {
   collectArtifacts,
   type ExecutionTrace,
 } from "./WorkforceExecutionTrace";
-import { ArtifactViewer, ArtifactsTab, normalizeArtifact, type ExecutionArtifact } from "@/features/artifacts";
+import {
+  ArtifactViewer,
+  MessageArtifactList,
+  coerceArtifacts,
+  normalizeArtifact,
+  type ExecutionArtifact,
+} from "@/features/artifacts";
 
-type WorkforceRunTab = "chat" | "log" | "artifacts";
+type WorkforceRunTab = "chat" | "log";
 
+function artifactsForMessage(
+  msg: { metadata?: any; trace?: ExecutionTrace },
+  stepDefs?: Record<string, any>
+): ExecutionArtifact[] {
+  const fromMeta = coerceArtifacts(msg.metadata?.artifacts);
+  if (fromMeta.length) return fromMeta;
+  if (!msg.trace?.steps) return [];
+  const out: ExecutionArtifact[] = [];
+  for (const item of collectArtifacts(msg.trace.steps, stepDefs)) {
+    const normalized = normalizeArtifact({
+      id: item.id,
+      filename: item.label || item.stepName || "artifact.md",
+      content: item.content,
+      type: item.type === "json" ? "json" : "markdown",
+    });
+    if (normalized) out.push(normalized);
+  }
+  return out;
+}
 // ─── Poll helper ──────────────────────────────────────────────────────────────
 
 async function pollExecutionStatus(
@@ -157,41 +182,6 @@ export default function WorkforceRunView({
     }
     return mapping;
   }, [workforceData]);
-
-  const sessionArtifacts = React.useMemo(() => {
-    const out: ExecutionArtifact[] = [];
-    const seen = new Set<string>();
-    for (const msg of messages) {
-      const typed = Array.isArray(msg.metadata?.artifacts) ? msg.metadata.artifacts : null;
-      if (typed?.length) {
-        for (const raw of typed) {
-          const normalized = normalizeArtifact(raw);
-          if (!normalized) continue;
-          const key = normalized.id || `${normalized.filename}:${normalized.type}`;
-          if (seen.has(key)) continue;
-          seen.add(key);
-          out.push(normalized);
-        }
-        continue;
-      }
-      if (!msg.trace?.steps) continue;
-      const items = collectArtifacts(msg.trace.steps, stepDefs);
-      for (const item of items) {
-        const normalized = normalizeArtifact({
-          id: item.id,
-          filename: item.label || item.stepName || 'artifact.md',
-          content: item.content,
-          type: item.type === 'json' ? 'json' : 'markdown',
-        });
-        if (!normalized) continue;
-        const key = normalized.id || `${normalized.filename}:${normalized.type}`;
-        if (seen.has(key)) continue;
-        seen.add(key);
-        out.push(normalized);
-      }
-    }
-    return out;
-  }, [messages, stepDefs]);
 
   // ── create / start new conversation ──────────────────────────────────────
   const startNewConversation = useCallback(async () => {
@@ -423,7 +413,6 @@ export default function WorkforceRunView({
           {([
             { id: "chat" as const, label: "Chat", Icon: MessageSquare },
             { id: "log" as const, label: "Log", Icon: FileText },
-            { id: "artifacts" as const, label: "Artifacts", Icon: Files },
           ]).map(({ id, label, Icon }) => (
             <button
               key={id}
@@ -443,14 +432,7 @@ export default function WorkforceRunView({
 
       {/* ── Chat feed + composer ─────────────────────────────────────────────── */}
       <div className="flex-1 flex min-h-0 relative bg-[#f8f9fb]">
-        {activeTab === "artifacts" ? (
-          <ArtifactsTab
-            artifacts={sessionArtifacts}
-            onOpen={(a) => setActiveArtifact(a)}
-            emptyLabel="No artifacts from this workforce run yet"
-            className="flex-1"
-          />
-        ) : activeTab === "log" ? (
+        {activeTab === "log" ? (
           <div className="flex-1 overflow-y-auto p-4 space-y-2">
             {messages.length === 0 ? (
               <p className="text-sm text-zinc-400 text-center py-12">No execution log yet</p>
@@ -562,6 +544,10 @@ export default function WorkforceRunView({
                 {msg.role === "assistant" && (() => {
                   const pairedUser = messages.slice(0, index).reverse().find((m) => m.role === "user");
                   const trace = msg.trace;
+                  const msgArts = artifactsForMessage(msg, stepDefs);
+                  const openFirstArtifact = () => {
+                    if (msgArts[0]) setActiveArtifact(msgArts[0]);
+                  };
                   return (
                     <div className="space-y-3">
                       <TriggerWidget
@@ -575,7 +561,23 @@ export default function WorkforceRunView({
                           <StepSummaryBadges steps={trace.steps} />
                         </div>
                       )}
-                      {trace && <WorkforceExecutionTrace trace={trace} stepDefs={stepDefs} isPolling={false} onOpenArtifact={openArtifact} onViewArtifacts={() => setActiveTab("artifacts")} />}
+                      {trace && (
+                        <WorkforceExecutionTrace
+                          trace={trace}
+                          stepDefs={stepDefs}
+                          isPolling={false}
+                          onOpenArtifact={openArtifact}
+                          onViewArtifacts={openFirstArtifact}
+                        />
+                      )}
+                      {msgArts.length > 0 && (
+                        <MessageArtifactList
+                          artifacts={msgArts}
+                          onOpen={setActiveArtifact}
+                          compact
+                          className="max-w-xl"
+                        />
+                      )}
                       {!trace && msg.content && (
                         <div className="bg-white border border-zinc-200 rounded-xl px-4 py-3 shadow-sm">
                           <p className="text-sm text-zinc-700 whitespace-pre-wrap">{msg.content}</p>
@@ -631,7 +633,6 @@ export default function WorkforceRunView({
                       streamingContent={streamingContent}
                       isStreaming={isStreaming}
                       onOpenArtifact={openArtifact}
-                      onViewArtifacts={() => setActiveTab("artifacts")}
                     />
                   ) : (
                     <div className="bg-white border border-blue-200 rounded-2xl px-4 py-3 shadow-sm">
@@ -701,6 +702,7 @@ export default function WorkforceRunView({
             onStop={handleStop}
             isSending={isActive}
             disabled={false}
+            hideModelSelect
           />
 
           <div className="flex items-center justify-between mt-2 px-1">

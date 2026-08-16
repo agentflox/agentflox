@@ -1,6 +1,6 @@
 import type { Node } from "@xyflow/react";
 
-export type StepType = "LLM" | "API" | "SYSTEM_TOOL" | "LOOP" | "BRANCH" | "PYTHON" | "JAVASCRIPT";
+export type StepType = "LLM" | "API" | "SYSTEM_TOOL" | "LOOP" | "BRANCH" | "PYTHON" | "JAVASCRIPT" | "RUN_CHAIN";
 
 export type BuilderStep = {
   id: string;

@@ -116,7 +116,7 @@ export function SupportAssistantModal({ isOpen, onClose }: SupportAssistantModal
   return (
     <Card
       className={cn(
-        "fixed bottom-6 right-6 z-50 flex flex-col shadow-2xl transition-all duration-300 border-slate-200/60 overflow-hidden",
+        "fixed bottom-6 right-6 z-[100] flex flex-col shadow-2xl transition-all duration-300 border-slate-200/60 overflow-hidden",
         isMinimized ? "h-14 w-64" : "h-[600px] w-[440px] rounded-2xl"
       )}
     >
@@ -221,6 +221,7 @@ export function SupportAssistantModal({ isOpen, onClose }: SupportAssistantModal
               hideMentions={true}
               hideContext={true}
               hideWebSearch={true}
+              hideModelSelect={true}
               className="rounded-xl border-slate-200 focus-within:ring-2 focus-within:ring-indigo-500/20 transition-all"
             />
             <div className="mt-2 text-[10px] text-center text-slate-400">

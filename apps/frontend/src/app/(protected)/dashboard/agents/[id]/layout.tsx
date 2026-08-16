@@ -76,8 +76,15 @@ export default function AgentLayout({ children }: AgentLayoutProps) {
   });
 
   const isOwner = useMemo(() => {
-    if (!agent || !session?.user) return false;
-    return (agent as { ownerId?: string }).ownerId === session.user.id;
+    if (!agent) return false;
+    if (typeof (agent as { viewerIsOwner?: boolean }).viewerIsOwner === "boolean") {
+      return (agent as { viewerIsOwner: boolean }).viewerIsOwner;
+    }
+    if (!session?.user?.id) return false;
+    const ownerId =
+      (agent as { ownerId?: string }).ownerId ??
+      (agent as { owner?: { id?: string } }).owner?.id;
+    return Boolean(ownerId && ownerId === session.user.id);
   }, [agent, session]);
 
   const isPublished = agent?.status === 'ACTIVE';
@@ -106,12 +113,13 @@ export default function AgentLayout({ children }: AgentLayoutProps) {
     isOwner,
   };
 
-  const isChatView = activeTab === 'chat' || activeTab === 'ai-builder';
+  const isFillHeightView =
+    activeTab === 'chat' || activeTab === 'ai-builder' || activeTab === 'settings';
 
   return (
     <AgentContext.Provider value={contextValue}>
       <Layout>
-        <div className={`flex-1 ${isChatView ? 'overflow-hidden flex flex-col h-full min-h-0' : 'overflow-auto'}`}>
+        <div className={`flex-1 ${isFillHeightView ? 'overflow-hidden flex flex-col h-full min-h-0' : 'overflow-auto'}`}>
           {children}
         </div>
       </Layout>

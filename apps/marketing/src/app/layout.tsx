@@ -80,7 +80,7 @@ export const metadata: Metadata = {
         canonical: "https://agentflox.com",
     },
     verification: {
-        google: undefined, // Add your Google Search Console verification token here
+        google: "gUN7O0xaXUOAZqU8YrSrCsUIJb2gDusjqKYRBQrDgVA", 
     },
 }
 

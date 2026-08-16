@@ -275,7 +275,12 @@ function WorkforceFlow({ workforceId, workforceName, workspaceId }: { workforceI
                 id,
                 type,
                 position,
-                data: { label: `New ${type.replace('Node', '')}` },
+                data: {
+                    label:
+                        type === 'conditionNode'
+                            ? 'Untitled condition'
+                            : `New ${type.replace('Node', '')}`,
+                },
             };
 
             addNode(newNode);
@@ -374,7 +379,12 @@ function WorkforceFlow({ workforceId, workforceName, workspaceId }: { workforceI
                                     key={i}
                                     draggable
                                     onDragStart={(e) => onDragStart(e, item.type)}
-                                    onClick={() => onAddNode(item.type, `New ${item.label}`)}
+                                    onClick={() =>
+                                        onAddNode(
+                                            item.type,
+                                            item.type === 'conditionNode' ? 'Untitled condition' : `New ${item.label}`,
+                                        )
+                                    }
                                     className="relative flex flex-col items-center group cursor-grab active:cursor-grabbing transition-all duration-500 hover:-translate-y-12 px-2"
                                 >
                                     {/* Stacked background cards effect - Dynamic rotation on hover */}

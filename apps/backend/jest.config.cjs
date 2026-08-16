@@ -6,6 +6,7 @@ module.exports = {
   // Resolve path aliases (@/* -> src/*)
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
+    '^@agentflox/types/integrationCatalog$': '<rootDir>/../../packages/types/integrationCatalog.ts',
   },
 
   // ts-jest options — use a separate tsconfig so Jest stays in CommonJS

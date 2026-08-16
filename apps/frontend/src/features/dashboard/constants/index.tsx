@@ -56,11 +56,7 @@ export const projectMenuItems = [
 export const agentMenuItems = [
   { label: "Overview", value: "overview", icon: LayoutDashboard },
   { label: "AI Builder", value: "ai-builder", icon: Users },
-  { label: "Automation", value: "automation", icon: Users },
   { label: "Chat", value: "chat", icon: Bot },
-  { label: "Activities", value: "activities", icon: Activity },
-  { label: "Tasks", value: "tasks", icon: CheckSquare },
-  { label: "Logs", value: "logs", icon: FileText },
   { label: "Settings", value: "settings", icon: Settings2 },
 ] as const;
 

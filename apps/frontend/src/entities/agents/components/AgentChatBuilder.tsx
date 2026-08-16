@@ -490,6 +490,7 @@ export const AgentChatBuilder: React.FC<AgentChatBuilderProps> = ({
                 isSending={isSending}
                 disabled={isSending || !conversationId}
                 minHeight={80}
+                hideModelSelect
                 modelId={agentModelId}
                 onModelChange={(id) => {
                   if (!agentId) return;
@@ -510,6 +511,8 @@ export const AgentChatBuilder: React.FC<AgentChatBuilderProps> = ({
                   avatar: agentData.avatar ?? agentDraft?.avatar ?? null,
                   status: (agentData.status === 'ACTIVE' ? 'ACTIVE' : agentData.status === 'DRAFT' ? 'DRAFT' : agentData.status === 'BUILDING' ? 'BUILDING' : agentData.status === 'RECONFIGURING' ? 'RECONFIGURING' : agentData.status === 'EXECUTING' ? 'EXECUTING' : 'INACTIVE') as "ACTIVE" | "DRAFT" | "INACTIVE" | "BUILDING" | "RECONFIGURING" | "EXECUTING",
                   isActive: agentData.isActive ?? false,
+                  modelId: (agentData as any).modelId ?? (agentData as any).aiModel?.id ?? null,
+                  aiModel: (agentData as any).aiModel ?? null,
                   agentType: agentData.agentType ?? agentDraft?.agentType ?? null,
                   systemPrompt: agentData.systemPrompt ?? agentDraft?.systemPrompt ?? null,
                   capabilities: agentData.capabilities ?? agentDraft?.capabilities ?? null,

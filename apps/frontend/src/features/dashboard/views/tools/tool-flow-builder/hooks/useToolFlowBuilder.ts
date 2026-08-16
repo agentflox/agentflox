@@ -909,6 +909,55 @@ export function useToolFlowBuilder({ workspaceId, initialTool, onClose }: ToolFl
     setSystemToolsListOpen(false);
   }, [steps.length, doInsertStep, replaceTargetStepId]);
 
+  const addCompositeToolStep = React.useCallback((tool: { id: string; name?: string | null }) => {
+    if (!tool?.id) return;
+    if (initialTool?.id && tool.id === initialTool.id) {
+      toast({
+        title: "Can't nest this tool",
+        description: "A tool cannot include itself as a step.",
+        variant: "destructive",
+      });
+      return;
+    }
+    const nextIndex = steps.length + 1;
+    const stepName = tool.name?.trim() || `Tool ${nextIndex}`;
+    const nextConfig = JSON.stringify(
+      { kind: "RUN_CHAIN", compositeToolId: tool.id, studio_id: tool.id, input: {} },
+      null,
+      2,
+    );
+    if (replaceTargetStepId) {
+      setSteps((prev) =>
+        prev.map((s) =>
+          s.id === replaceTargetStepId
+            ? {
+                ...s,
+                type: "RUN_CHAIN" as StepType,
+                name: stepName,
+                varName: toVarName(stepName),
+                config: nextConfig,
+              }
+            : s,
+        ),
+      );
+      setReplaceTargetStepId(null);
+    } else {
+      const newId = crypto.randomUUID();
+      doInsertStep({
+        id: newId,
+        name: stepName,
+        type: "RUN_CHAIN" as StepType,
+        varName: toVarName(stepName),
+        config: nextConfig,
+      });
+      setSelectedNode("step");
+      setSelectedStepId(newId);
+      setActivePanelTab("configure");
+    }
+    setToolStepSidebarOpen(false);
+    setSystemToolsListOpen(false);
+  }, [steps.length, doInsertStep, replaceTargetStepId, initialTool?.id, toast]);
+
   const updateStepConfig = React.useCallback((stepId: string, updater: (cfg: any) => any) => {
     setSteps((prev) =>
       prev.map((s) => {
@@ -2147,6 +2196,7 @@ export function useToolFlowBuilder({ workspaceId, initialTool, onClose }: ToolFl
     openToolStepSidebar,
     openReplaceSidebar,
     addSystemToolStep,
+    addCompositeToolStep,
     updateStepConfig,
     moveStep,
     duplicateStep,

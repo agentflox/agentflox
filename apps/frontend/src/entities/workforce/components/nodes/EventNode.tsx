@@ -8,6 +8,7 @@ import { GlowHandle } from './AgentNode';
 import { cn } from '@/lib/utils';
 
 const TRIGGER_ICONS: Record<string, React.ElementType> = {
+    github: MessageSquare,
     slack: MessageSquare,
     outlook: Mail,
     gmail: Mail,
@@ -53,7 +54,7 @@ export const EventNode = memo(({ id, data, isConnectable }: NodeProps<WorkforceN
             ) : isDefaultTrigger ? (
                 // User Message Received Variant
                 <div className={cn(
-                    "relative z-10 w-full flex items-center gap-3 px-3.5 h-[52px] bg-white rounded-xl cursor-pointer pointer-events-auto transition-all duration-200 group",
+                    "relative z-10 w-full flex items-center gap-3 px-3.5 h-[72px] bg-white rounded-xl cursor-pointer pointer-events-auto transition-all duration-200 group",
                     "border border-zinc-200 shadow-sm",
                     "hover:border-orange-300 hover:shadow-[0_4px_16px_rgba(249,115,22,0.12)] hover:-translate-y-0.5",
                     data?.skipped && "opacity-40 grayscale pointer-events-none"
@@ -72,7 +73,7 @@ export const EventNode = memo(({ id, data, isConnectable }: NodeProps<WorkforceN
             ) : (
                 // Integration Variant
                 <div className={cn(
-                    "relative z-10 w-full flex items-center gap-3 px-3.5 h-[52px] bg-white rounded-xl cursor-pointer pointer-events-auto transition-all duration-200 group",
+                    "relative z-10 w-full flex items-center gap-3 px-3.5 h-[72px] bg-white rounded-xl cursor-pointer pointer-events-auto transition-all duration-200 group",
                     "border border-emerald-200 shadow-sm",
                     "hover:border-emerald-300 hover:shadow-[0_4px_16px_rgba(16,185,129,0.12)] hover:-translate-y-0.5",
                     data?.skipped && "opacity-40 grayscale pointer-events-none"

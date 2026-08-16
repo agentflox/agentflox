@@ -9,7 +9,6 @@ import {
 } from '@/entities/chats/components/MessageList';
 import { ChatComposer } from '@/entities/chats/components/ChatComposer';
 import { ConversationList } from '@/entities/chats/components/ConversationList';
-import { ChatHeader } from '@/entities/chats/components/ChatHeader';
 import { AgentChatEmptyState } from '@/entities/chats/components/AgentChatEmptyState';
 import { trpc } from '@/lib/trpc';
 import { toast } from 'sonner';
@@ -34,9 +33,9 @@ import {
   MoreHorizontal,
   MessageSquare,
   FileText,
-  Files,
+  CircleUser,
 } from 'lucide-react';
-import { ArtifactViewer, ArtifactsTab, buildArtifactsFromToolResult, type ExecutionArtifact } from '@/features/artifacts';
+import { ArtifactViewer, coerceArtifacts, type ExecutionArtifact } from '@/features/artifacts';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -52,6 +51,8 @@ interface ChatViewProps {
   conversationType?: 'AGENT_EXECUTOR' | 'AGENT_OPERATOR' | 'AGENT_BUILDER';
   chatId?: string | null;
   onChatIdChange?: (chatId: string | null) => void;
+  /** When true (default), show a button to toggle the agent profile side panel. */
+  showProfileToggle?: boolean;
 }
 
 const STORAGE_KEY_PREFIX = 'agentflox_active_agent_chat_';
@@ -62,6 +63,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
   conversationType = 'AGENT_EXECUTOR',
   chatId: controlledChatId,
   onChatIdChange,
+  showProfileToggle = true,
 }) => {
   const resolvedAgentId = agentId ?? agent?.id;
   const storageKey = resolvedAgentId
@@ -100,7 +102,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
   const isSendingRef = useRef(false);
   const [showAgentProfile, setShowAgentProfile] = useState(false);
   const optimisticMessageIds = useRef<Set<string>>(new Set());
-  const [chatPaneTab, setChatPaneTab] = useState<'chat' | 'log' | 'artifacts'>('chat');
+  const [chatPaneTab, setChatPaneTab] = useState<'chat' | 'log'>('chat');
   const [activeArtifact, setActiveArtifact] = useState<ExecutionArtifact | null>(null);
 
   // Sidebar UI state (mirrors AIChatView)
@@ -190,20 +192,25 @@ export const ChatView: React.FC<ChatViewProps> = ({
     allMessages.map((msg, index) => {
       const followupsFromMetadata = (msg as any).followups;
       let followups: MessageFollowup[] | undefined;
+      const metadata = (msg as any).metadata || (msg as any).meta || {};
       if (msg.role === 'ASSISTANT') {
-        const metadata = (msg as any).metadata || {};
         const followupsConsumed = metadata.followupsConsumed === true;
         const hasUserMessageAfter = allMessages.slice(index + 1).some((m: any) => m.role === 'USER');
         if (!followupsConsumed && !hasUserMessageAfter && followupsFromMetadata && Array.isArray(followupsFromMetadata)) {
           followups = followupsFromMetadata;
         }
       }
+      const artifacts =
+        msg.role === 'ASSISTANT'
+          ? coerceArtifacts(metadata.artifacts)
+          : undefined;
       return {
         id: msg.id,
         role: msg.role as MessageRole,
         content: msg.content,
         createdAt: msg.createdAt,
         followups,
+        ...(artifacts?.length ? { artifacts } : {}),
       };
     }), []);
 
@@ -627,29 +634,10 @@ export const ChatView: React.FC<ChatViewProps> = ({
     followups: msg.followups || followupsMap.get(msg.id),
   }));
 
-  // Only explicit metadata.artifacts — do not scrape long assistant text for old messages.
-  const chatArtifacts = useMemo(() => {
-    const out: ExecutionArtifact[] = [];
-    for (const msg of messages) {
-      const metaArts = (msg as any)?.meta?.artifacts || (msg as any)?.metadata?.artifacts;
-      if (!Array.isArray(metaArts)) continue;
-      for (const a of metaArts) {
-        const built = buildArtifactsFromToolResult('agent', a);
-        if (built.length) out.push(...built);
-        else if (a && typeof a === 'object' && (a.filename || a.content || a.url)) {
-          out.push({
-            filename: a.filename || 'artifact.md',
-            type: a.type || 'markdown',
-            content: a.content,
-            url: a.url,
-            detail: a.detail,
-            id: a.id,
-          });
-        }
-      }
-    }
-    return out;
-  }, [messages]);
+  // Clear viewer when conversation changes
+  useEffect(() => {
+    setActiveArtifact(null);
+  }, [activeConversationId]);
 
   const showMessageSkeleton = !!activeConversationId && isLoadingMessages && !isSending && messages.length === 0;
 
@@ -864,35 +852,40 @@ export const ChatView: React.FC<ChatViewProps> = ({
                 </div>
               ) : (
                 <>
-                  <div className="flex-none flex items-center gap-0.5 px-4 py-2 border-b border-zinc-200 bg-white">
-                    {([
-                      { id: 'chat' as const, label: 'Chat', Icon: MessageSquare },
-                      { id: 'log' as const, label: 'Log', Icon: FileText },
-                      { id: 'artifacts' as const, label: 'Artifacts', Icon: Files },
-                    ]).map(({ id, label, Icon }) => (
-                      <button
-                        key={id}
+                  <div className="flex-none flex items-center justify-between gap-2 px-4 py-2 border-b border-zinc-200 bg-white">
+                    <div className="flex items-center gap-0.5">
+                      {([
+                        { id: 'chat' as const, label: 'Chat', Icon: MessageSquare },
+                        { id: 'log' as const, label: 'Log', Icon: FileText },
+                      ]).map(({ id, label, Icon }) => (
+                        <button
+                          key={id}
+                          type="button"
+                          onClick={() => setChatPaneTab(id)}
+                          className={cn(
+                            'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-wider transition-all cursor-pointer',
+                            chatPaneTab === id ? 'bg-indigo-50 text-indigo-700' : 'text-zinc-400 hover:text-zinc-600 hover:bg-zinc-50'
+                          )}
+                        >
+                          <Icon className="h-3.5 w-3.5" />
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                    {showProfileToggle && !showAgentProfile && agentData && (
+                      <Button
                         type="button"
-                        onClick={() => setChatPaneTab(id)}
-                        className={cn(
-                          'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-wider transition-all cursor-pointer',
-                          chatPaneTab === id ? 'bg-indigo-50 text-indigo-700' : 'text-zinc-400 hover:text-zinc-600 hover:bg-zinc-50'
-                        )}
+                        variant="ghost"
+                        onClick={() => setShowAgentProfile(true)}
+                        className="h-8 gap-1.5 px-2.5 rounded-lg text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100"
                       >
-                        <Icon className="h-3.5 w-3.5" />
-                        {label}
-                      </button>
-                    ))}
+                        <CircleUser className="h-4 w-4" />
+                        <span className="text-sm font-medium">Show profile</span>
+                      </Button>
+                    )}
                   </div>
                   <div className="flex-1 overflow-hidden relative min-h-0 flex">
-                    {chatPaneTab === 'artifacts' ? (
-                      <ArtifactsTab
-                        artifacts={chatArtifacts}
-                        onOpen={(a) => setActiveArtifact(a)}
-                        emptyLabel="No artifacts from this conversation yet"
-                        className="flex-1"
-                      />
-                    ) : chatPaneTab === 'log' ? (
+                    {chatPaneTab === 'log' ? (
                       <div className="flex-1 overflow-y-auto p-4 space-y-2">
                         {messages.length === 0 ? (
                           <p className="text-sm text-zinc-400 text-center py-12">No execution log yet</p>
@@ -925,6 +918,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
                         }
                         onFollowupClick={handleFollowupClick}
                         onActionClick={handleActionClick}
+                        onArtifactOpen={(a) => setActiveArtifact(a)}
                         emptyState={
                           <AgentChatEmptyState
                             agentName={agentData?.name || agentDraft?.name || 'Agent'}
@@ -944,6 +938,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
                       onSend={handleSendMessage}
                       isSending={isSending}
                       disabled={isSending || !activeConversationId}
+                      hideModelSelect
                       modelId={agentModelId}
                       onModelChange={(id) => {
                         if (!resolvedAgentId) return;
@@ -957,9 +952,9 @@ export const ChatView: React.FC<ChatViewProps> = ({
             </div>
           }
           SidePanelContent={
+            showAgentProfile && agentData ? (
             <div className="h-full border-l bg-gradient-to-b from-background to-muted/20 overflow-hidden">
-              {agentData ? (
-                <AgentProfile
+              <AgentProfile
                   agent={{
                     id: agentData.id,
                     name: agentData.name || agentDraft?.name || 'Unnamed Agent',
@@ -983,6 +978,8 @@ export const ChatView: React.FC<ChatViewProps> = ({
                       | 'RECONFIGURING'
                       | 'EXECUTING',
                     isActive: agentData.isActive ?? false,
+                    modelId: (agentData as any).modelId ?? (agentData as any).aiModel?.id ?? null,
+                    aiModel: (agentData as any).aiModel ?? null,
                     agentType: agentData.agentType ?? agentDraft?.agentType ?? null,
                     systemPrompt: agentData.systemPrompt ?? agentDraft?.systemPrompt ?? null,
                     capabilities: agentData.capabilities ?? agentDraft?.capabilities ?? null,
@@ -990,7 +987,9 @@ export const ChatView: React.FC<ChatViewProps> = ({
                     createdAt: agentData.createdAt ?? new Date(),
                     updatedAt: agentData.updatedAt ?? new Date(),
                     metadata: (agentData.metadata as any) ?? {},
-                    triggers: (agentData.triggers || []).map((t: any) => ({
+                    viewerIsOwner: (agentData as any).viewerIsOwner === true,
+                    ownerId: (agentData as any).ownerId,
+                    triggers: ((agentData as any).triggers || []).map((t: any) => ({
                       id: t.id,
                       triggerType: t.triggerType,
                       triggerConfig: t.triggerConfig as any,
@@ -1000,7 +999,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
                       priority: t.priority,
                       tags: t.tags,
                     })),
-                    tools: (agentData.tools || []).map((t: any) => ({
+                    tools: ((agentData as any).tools || []).map((t: any) => ({
                       id: t.id,
                       name: t.name,
                       description: t.description,
@@ -1008,7 +1007,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
                       toolType: t.toolType,
                       isActive: t.isActive,
                     })),
-                    schedules: (agentData.schedules || []).map((s: any) => ({
+                    schedules: ((agentData as any).schedules || []).map((s: any) => ({
                       id: s.id,
                       name: s.name,
                       description: s.description,
@@ -1031,10 +1030,10 @@ export const ChatView: React.FC<ChatViewProps> = ({
                   onEdit={() => toast.info('Edit agent configuration...')}
                   onConfigure={() => setShowAgentProfile(false)}
                 />
-              ) : null}
             </div>
+            ) : null
           }
-          isPanelOpen={true}
+          isPanelOpen={showAgentProfile && !!agentData}
         />
       </div>
     </div>

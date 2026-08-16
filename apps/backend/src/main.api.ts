@@ -323,15 +323,14 @@ async function bootstrapApiServer() {
         }
     });
 
-    // Singleton lifecycle hooks
-    //if (!apiSingletonsDisabled) {
-    //    lifecycle.onSingleton('syncTools', async () => {
-    //        const { syncSkillsAndTools } = await import('./services/agents/registry/sync');
-    //        await syncSkillsAndTools();
-    //    }, 10);
-    //} else {
-    //    console.warn('[api-server] API singleton hooks disabled (DISABLE_API_SINGLETON_HOOKS=true)');
-    // }
+    // Singleton lifecycle hooks — sync integration tools on API boot
+    /*if (!apiSingletonsDisabled && String(env.DISABLE_INTEGRATION_STARTUP_SYNC || '').toLowerCase() !== 'true') {
+        lifecycle.onSingleton('syncIntegrationTools', async () => {
+            const { syncToolsToDatabase } = await import('./services/agents/registry/sync');
+            await syncToolsToDatabase();
+            console.log('[api-server] ✓ SAAS_INTEGRATION tools synced to database');
+        }, 10);
+    }*/
 
     lifecycle.registerInterval('cleanStalePresence', async () => {
         const cleaned = await PresenceService.cleanupStaleEntries();

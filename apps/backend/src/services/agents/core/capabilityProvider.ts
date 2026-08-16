@@ -13,7 +13,10 @@ import { executeFileOperationTool } from '../execution/fileOperationsExecutor';
 import { executeAgentOrchestrationTool } from '../execution/agentOrchestrationExecutor';
 import { executeTaskManagementTool } from '../execution/taskManagementExecutor';
 import { executeApiIntegrationTool } from '../execution/apiIntegrationExecutor';
-import { prisma } from '@/lib/prisma';
+import {
+    executeSaasIntegrationTool,
+    isSaasIntegrationTool,
+} from '@/modules/integrations/executor';
 
 export const capabilityProvider = {
     /**
@@ -81,7 +84,12 @@ export const capabilityProvider = {
             return executeApiIntegrationTool(toolName, params, userId, workspaceId);
         }
 
-        // 8. Fallback: surface clear error for unmapped tools
+        // 8. SaaS Integrations (OAuth-backed provider tools)
+        if (isSaasIntegrationTool(toolName)) {
+            return executeSaasIntegrationTool(toolName, params, userId, workspaceId);
+        }
+
+        // 9. Fallback: surface clear error for unmapped tools
         throw new Error(`Capability not found for tool: ${toolName}`);
     }
 };

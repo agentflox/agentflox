@@ -1,25 +1,58 @@
 import { z } from "zod";
 import { protectedProcedure, router } from "@/trpc/init";
 import { prisma } from "@/lib/prisma";
-import { IntegrationProvider } from "@agentflox/database/src/generated/prisma/index.js";
+import { IntegrationProvider } from "@agentflox/database";
+import { INTEGRATION_CATALOG } from "@agentflox/types/integrationCatalog";
 import { TRPCError } from "@trpc/server";
 
-/** Map OAuth account provider string to IntegrationProvider enum */
-const ACCOUNT_PROVIDER_TO_INTEGRATION: Record<string, (typeof IntegrationProvider)[keyof typeof IntegrationProvider]> = {
+async function syncVaultToBackend(session: { user?: { id?: string } } | null | undefined) {
+  try {
+    const { sendBackendRequest } = await import("@/utils/backend-request");
+    const res = await sendBackendRequest(
+      "/v1/integrations/sync-vault",
+      { method: "POST" },
+      session,
+    );
+    if (!res.ok) return { synced: 0 };
+    return (await res.json()) as { synced?: number };
+  } catch {
+    return { synced: 0 };
+  }
+}
+
+const CATALOG_TO_PRISMA: Record<string, (typeof IntegrationProvider)[keyof typeof IntegrationProvider]> = {
   github: IntegrationProvider.GITHUB,
   slack: IntegrationProvider.SLACK,
-  gitlab: IntegrationProvider.GITLAB,
-  jira: IntegrationProvider.JIRA,
-  trello: IntegrationProvider.TRELLO,
-  figma: IntegrationProvider.FIGMA,
-  linear: IntegrationProvider.LINEAR,
-  notion: IntegrationProvider.NOTION,
+  google_mail: IntegrationProvider.GOOGLE_MAIL,
   google_calendar: IntegrationProvider.GOOGLE_CALENDAR,
   google_drive: IntegrationProvider.GOOGLE_DRIVE,
-  dropbox: IntegrationProvider.DROPBOX,
-  zapier: IntegrationProvider.ZAPIER,
-  custom: IntegrationProvider.CUSTOM,
 };
+
+type CatalogAccountView = {
+  id: string;
+  providerAccountId: string;
+  primaryLabel: string;
+  secondaryLabel: string | null;
+  avatarUrl: string | null;
+};
+
+function toCatalogAccountView(connection: {
+  id: string;
+  providerAccountId: string;
+  displayName: string | null;
+  email: string | null;
+  avatarUrl: string | null;
+}): CatalogAccountView {
+  const primaryLabel = connection.displayName || connection.email || connection.providerAccountId;
+  return {
+    id: connection.id,
+    providerAccountId: connection.providerAccountId,
+    primaryLabel,
+    secondaryLabel:
+      connection.email && connection.email !== primaryLabel ? connection.email : null,
+    avatarUrl: connection.avatarUrl,
+  };
+}
 
 const GITHUB_API_BASE = "https://api.github.com";
 
@@ -50,7 +83,7 @@ async function fetchFromGitHub<T>(
 }
 
 async function getGithubAccountForUser(userId: string, accountId: string) {
-  const account = await prisma.account.findFirst({
+  const connection = await prisma.integrationConnection.findFirst({
     where: {
       id: accountId,
       userId,
@@ -58,26 +91,48 @@ async function getGithubAccountForUser(userId: string, accountId: string) {
     },
   });
 
-  if (!account || !account.access_token) {
+  if (!connection?.accessToken) {
     throw new TRPCError({
       code: "NOT_FOUND",
       message: "GitHub account not found for current user",
     });
   }
 
-  return account;
+  return connection;
 }
 
-/** Sync user's connected accounts (Account) into the integrations table for their workspaces */
+async function deleteIntegrationConnection(userId: string, connectionId: string) {
+  const connection = await prisma.integrationConnection.findFirst({
+    where: { id: connectionId, userId },
+  });
+  if (!connection) {
+    throw new TRPCError({ code: "NOT_FOUND", message: "Account not found" });
+  }
+
+  const prismaProvider = CATALOG_TO_PRISMA[connection.provider];
+  if (prismaProvider) {
+    await prisma.integration.updateMany({
+      where: { installedBy: userId, provider: prismaProvider },
+      data: { isActive: false, credentials: null },
+    });
+  }
+
+  await prisma.integrationConnection.delete({ where: { id: connection.id } });
+}
+
+/** Sync IntegrationConnection rows into workspace Integration records. */
 async function syncIntegrationsForUser(userId: string) {
-  const accounts = await prisma.account.findMany({
+  const connections = await prisma.integrationConnection.findMany({
     where: { userId },
     select: { provider: true },
-    distinct: ["provider"],
   });
-  const providers = accounts
-    .map((a) => ACCOUNT_PROVIDER_TO_INTEGRATION[a.provider.toLowerCase()])
-    .filter((p): p is (typeof IntegrationProvider)[keyof typeof IntegrationProvider] => p != null);
+  const providers = Array.from(
+    new Set(
+      connections
+        .map((c) => CATALOG_TO_PRISMA[c.provider])
+        .filter(Boolean),
+    ),
+  ) as IntegrationProvider[];
 
   if (providers.length === 0) return;
 
@@ -117,46 +172,91 @@ async function syncIntegrationsForUser(userId: string) {
 }
 
 export const integrationRouter = router({
+  /** Canonical integration catalog merged with per-user connection status. */
+  listCatalog: protectedProcedure.query(async ({ ctx }) => {
+    const userId = ctx.session!.user!.id;
+
+    const connections = await prisma.integrationConnection.findMany({
+      where: { userId },
+      select: {
+        id: true,
+        provider: true,
+        providerAccountId: true,
+        displayName: true,
+        email: true,
+        avatarUrl: true,
+      },
+    });
+
+    const accountsByCatalogId: Record<string, CatalogAccountView[]> = {};
+    for (const connection of connections) {
+      if (!accountsByCatalogId[connection.provider]) {
+        accountsByCatalogId[connection.provider] = [];
+      }
+      accountsByCatalogId[connection.provider].push(toCatalogAccountView(connection));
+    }
+
+    return {
+      schemaVersion: "1.0.0",
+      platform: {
+        openai: !!process.env.OPENAI_API_KEY,
+        anthropic: !!process.env.ANTHROPIC_API_KEY,
+      },
+      providers: INTEGRATION_CATALOG.map((provider) => {
+        const accountList = accountsByCatalogId[provider.providerId] ?? [];
+        const isConnected =
+          provider.providerId === "webhook" || provider.providerId === "schedule"
+            ? true
+            : accountList.length > 0;
+
+        return {
+          providerId: provider.providerId,
+          displayName: provider.displayName,
+          verified: provider.verified,
+          isConnected,
+          accountsCount: accountList.length,
+          accounts: accountList,
+          actions: provider.actions.map((action) => ({
+            actionId: action.actionId,
+            displayName: action.displayName,
+            description: action.description,
+            verified: action.verified,
+            toolName: action.toolName,
+          })),
+        };
+      }),
+    };
+  }),
+
   // High-level view of which integrations are available & connected (from integrations table)
   listProviders: protectedProcedure.query(async ({ ctx }) => {
     const userId = ctx.session!.user!.id;
 
-    await syncIntegrationsForUser(userId);
-
-    const githubAccounts = await prisma.account.count({
-      where: { userId, provider: "github" },
-    });
-    const integrationsByProvider = await prisma.integration.findMany({
-      where: { installedBy: userId, isActive: true },
+    const connections = await prisma.integrationConnection.findMany({
+      where: { userId },
       select: { provider: true },
-      distinct: ["provider"],
     });
-    const connectedProviders = new Set(integrationsByProvider.map((i) => i.provider));
+    const connectedCatalog = new Set(connections.map((c) => c.provider));
+    const githubAccounts = connections.filter((c) => c.provider === "github").length;
 
     const githubIntegration = await prisma.integration.findFirst({
       where: { installedBy: userId, provider: IntegrationProvider.GITHUB, isActive: true },
       select: { config: true },
     });
 
-    const hasOpenAI = !!process.env.OPENAI_API_KEY;
-    const hasAnthropic = !!process.env.ANTHROPIC_API_KEY;
-
     return {
       github: {
-        isConnected: connectedProviders.has(IntegrationProvider.GITHUB),
+        isConnected: connectedCatalog.has("github"),
         accountsCount: githubAccounts,
         config: (githubIntegration?.config as Record<string, any>) || {},
       },
-      openai: {
-        isConnected: hasOpenAI,
-      },
-      anthropic: {
-        isConnected: hasAnthropic,
-      },
-      http_webhook: {
-        // Generic HTTP/Webhook does not require a specific OAuth account; always available.
-        isConnected: true,
-      },
+      slack: { isConnected: connectedCatalog.has("slack") },
+      gmail: { isConnected: connectedCatalog.has("google_mail") },
+      google_calendar: { isConnected: connectedCatalog.has("google_calendar") },
+      google_drive: { isConnected: connectedCatalog.has("google_drive") },
+      openai: { isConnected: !!process.env.OPENAI_API_KEY },
+      anthropic: { isConnected: !!process.env.ANTHROPIC_API_KEY },
+      http_webhook: { isConnected: true },
     };
   }),
 
@@ -176,81 +276,73 @@ export const integrationRouter = router({
       return { success: true };
     }),
 
-  githubListAccounts: protectedProcedure.query(async ({ ctx }) => {
-    const userId = ctx.session!.user!.id;
+  githubListAccounts: protectedProcedure
+    .input(z.object({ enrichProfiles: z.boolean().optional() }).optional())
+    .query(async ({ ctx, input }) => {
+      const userId = ctx.session!.user!.id;
+      const enrichProfiles = input?.enrichProfiles ?? false;
 
-    // Ensure integrations are synced
-    await syncIntegrationsForUser(userId);
+      const accounts = await prisma.integrationConnection.findMany({
+        where: { userId, provider: "github" },
+        orderBy: { id: "asc" },
+      });
 
-    const accounts = await prisma.account.findMany({
-      where: { userId, provider: "github" },
-      // `Account` model does not include timestamps; order deterministically by id
-      orderBy: { id: "asc" },
-    });
+      if (!enrichProfiles) {
+        return accounts.map((account) => ({
+          id: account.id,
+          providerAccountId: account.providerAccountId,
+          login: account.displayName || account.providerAccountId,
+          avatarUrl: account.avatarUrl,
+          htmlUrl: null as string | null,
+        }));
+      }
 
-    // Enrich with live GitHub profile data for a better UX
-    const enriched = await Promise.all(
-      accounts.map(async (account) => {
-        if (!account.access_token) {
-          return {
-            id: account.id,
-            providerAccountId: account.providerAccountId,
-            login: null as string | null,
-            avatarUrl: null as string | null,
-            htmlUrl: null as string | null,
-          };
-        }
+      const enriched = await Promise.all(
+        accounts.map(async (account) => {
+          if (!account.accessToken) {
+            return {
+              id: account.id,
+              providerAccountId: account.providerAccountId,
+              login: account.displayName,
+              avatarUrl: account.avatarUrl,
+              htmlUrl: null as string | null,
+            };
+          }
 
-        try {
-          const profile = await fetchFromGitHub<{
-            login: string;
-            avatar_url: string;
-            html_url: string;
-          }>(account.access_token, "/user");
+          try {
+            const profile = await fetchFromGitHub<{
+              login: string;
+              avatar_url: string;
+              html_url: string;
+            }>(account.accessToken, "/user");
 
-          return {
-            id: account.id,
-            providerAccountId: account.providerAccountId,
-            login: profile.login,
-            avatarUrl: profile.avatar_url,
-            htmlUrl: profile.html_url,
-          };
-        } catch {
-          return {
-            id: account.id,
-            providerAccountId: account.providerAccountId,
-            login: null,
-            avatarUrl: null,
-            htmlUrl: null,
-          };
-        }
-      })
-    );
+            return {
+              id: account.id,
+              providerAccountId: account.providerAccountId,
+              login: profile.login,
+              avatarUrl: profile.avatar_url,
+              htmlUrl: profile.html_url,
+            };
+          } catch {
+            return {
+              id: account.id,
+              providerAccountId: account.providerAccountId,
+              login: account.displayName,
+              avatarUrl: account.avatarUrl,
+              htmlUrl: null as string | null,
+            };
+          }
+        })
+      );
 
-    return enriched;
-  }),
+      return enriched;
+    }),
 
   githubDisconnect: protectedProcedure
     .input(z.object({ accountId: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.session!.user!.id;
-      const account = await prisma.account.findFirst({
-        where: { id: input.accountId, userId },
-      });
-
-      if (!account) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "Account not found",
-        });
-      }
-
-      await prisma.account.delete({
-        where: { id: input.accountId },
-      });
-
-      // Optionally, we could also remove the integration record if no other accounts exist,
-      // but keeping it might preserve configuration if they re-connect.
+      await deleteIntegrationConnection(userId, input.accountId);
       return { success: true };
     }),
 
@@ -283,7 +375,7 @@ export const integrationRouter = router({
           default_branch: string;
           owner: { login: string; avatar_url: string; html_url: string };
         }>
-      >(account.access_token!, `/user/repos?${searchParams.toString()}`);
+      >(account.accessToken, `/user/repos?${searchParams.toString()}`);
 
       const filtered = input.query
         ? repos.filter((r) =>
@@ -325,7 +417,7 @@ export const integrationRouter = router({
           commit: { sha: string; url: string };
           protected: boolean;
         }>
-      >(account.access_token!, `/repos/${input.owner}/${input.repo}/branches`);
+      >(account.accessToken, `/repos/${input.owner}/${input.repo}/branches`);
 
       return branches.map((b) => ({
         name: b.name,
@@ -353,7 +445,7 @@ export const integrationRouter = router({
         ref: string;
         object: { sha: string };
       }>(
-        account.access_token!,
+        account.accessToken,
         `/repos/${input.owner}/${input.repo}/git/ref/heads/${encodeURIComponent(
           input.fromBranch
         )}`
@@ -363,7 +455,7 @@ export const integrationRouter = router({
       const created = await fetchFromGitHub<{
         ref: string;
         object: { sha: string };
-      }>(account.access_token!, `/repos/${input.owner}/${input.repo}/git/refs`, {
+      }>(account.accessToken, `/repos/${input.owner}/${input.repo}/git/refs`, {
         method: "POST",
         body: JSON.stringify({
           ref: `refs/heads/${input.newBranch}`,
@@ -375,6 +467,21 @@ export const integrationRouter = router({
         name: created.ref.replace("refs/heads/", ""),
         sha: created.object.sha,
       };
+    }),
+
+  syncVault: protectedProcedure.mutation(async ({ ctx }) => {
+    const userId = ctx.session!.user!.id;
+    await syncIntegrationsForUser(userId);
+    const result = await syncVaultToBackend(ctx.session);
+    return { success: true, synced: result.synced ?? 0 };
+  }),
+
+  oauthDisconnect: protectedProcedure
+    .input(z.object({ accountId: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const userId = ctx.session!.user!.id;
+      await deleteIntegrationConnection(userId, input.accountId);
+      return { success: true };
     }),
 });
 

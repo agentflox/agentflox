@@ -68,8 +68,8 @@ export default function AiModelsUsagePage() {
   const canNext = safePage < totalPages && totalPages > 1 && !detail.isFetching;
 
   return (
-    <div className="space-y-8">
-      <div className="sticky top-0 z-20 bg-background border-b">
+    <div className="h-full space-y-8 overflow-y-auto">
+      <div className="bg-background border-b">
         <div className="px-8 pt-2 pb-2">
           <Button
             variant="ghost"

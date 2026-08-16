@@ -340,6 +340,23 @@ exports.Prisma.IntegrationScalarFieldEnum = {
   lastSyncAt: 'lastSyncAt'
 };
 
+exports.Prisma.IntegrationConnectionScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  provider: 'provider',
+  providerAccountId: 'providerAccountId',
+  accessToken: 'accessToken',
+  refreshToken: 'refreshToken',
+  expiresAt: 'expiresAt',
+  tokenType: 'tokenType',
+  scope: 'scope',
+  displayName: 'displayName',
+  email: 'email',
+  avatarUrl: 'avatarUrl',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
 exports.Prisma.AutomationLogScalarFieldEnum = {
   id: 'id',
   automationId: 'automationId',
@@ -2770,6 +2787,7 @@ exports.Prisma.AiAgentScalarFieldEnum = {
   contextWindow: 'contextWindow',
   useVectorMemory: 'useVectorMemory',
   memoryRetention: 'memoryRetention',
+  memoryViewId: 'memoryViewId',
   autonomyLevel: 'autonomyLevel',
   requiresApproval: 'requiresApproval',
   approvalThreshold: 'approvalThreshold',
@@ -4396,6 +4414,7 @@ exports.Prisma.ModelName = {
   Space: 'Space',
   SpaceOwnershipTransfer: 'SpaceOwnershipTransfer',
   Integration: 'Integration',
+  IntegrationConnection: 'IntegrationConnection',
   AutomationLog: 'AutomationLog',
   Task: 'Task',
   TaskType: 'TaskType',

@@ -34,7 +34,8 @@ export class SharedMemoryService {
         memoryType: 'fact' | 'experience' | 'pattern',
         content: string,
         scope: 'workspace' | 'project' | 'global' | string,  // allows user-scoped keys for PII isolation
-        importance: number = 0.5
+        importance: number = 0.5,
+        options?: { expiresAt?: Date }
     ): Promise<string> {
         const id = randomUUID();
         const timestamp = new Date();
@@ -47,9 +48,13 @@ export class SharedMemoryService {
             id,
             agentId,
             type: memoryType,
+            kind: 'agent_long_term_memory',
             scope,
             importance,
-            timestamp: timestamp.toISOString()
+            timestamp: timestamp.toISOString(),
+            ...(options?.expiresAt
+              ? { expiresAt: options.expiresAt.toISOString() }
+              : {}),
         };
 
         await prisma.$executeRaw`
@@ -108,7 +113,17 @@ export class SharedMemoryService {
                 1 - (embedding::text::vector <=> ${Prisma.raw(`'${vectorLiteral}'::vector`)}) as similarity
             FROM vector_embeddings
             WHERE source_type = 'CUSTOM'::"VectorSourceType"
+              AND source_id = ${agentId}
               AND metadata->>'scope' = ANY (${scopes}::text[])
+              AND (
+                metadata->>'kind' = 'agent_long_term_memory'
+                OR metadata->>'type' IN ('fact', 'experience', 'pattern')
+              )
+              AND (
+                NOT (metadata ? 'expiresAt')
+                OR (metadata->>'expiresAt') IS NULL
+                OR (metadata->>'expiresAt')::timestamptz > NOW()
+              )
             ORDER BY embedding::text::vector <=> ${Prisma.raw(`'${vectorLiteral}'::vector`)}
             LIMIT ${topK * 2}
         `;

@@ -23,14 +23,14 @@ import { SwarmTaskView, type SwarmTask } from "./components/SwarmTaskView";
 import { SwarmGraphView } from "./components/SwarmGraphView";
 import { SwarmMetricsView } from "./components/SwarmMetricsView";
 import { SwarmTimelineView } from "./components/SwarmTimelineView";
-import { ArtifactViewer, ArtifactsTab, normalizeArtifact, type ExecutionArtifact } from "@/features/artifacts";
+import { ArtifactViewer, normalizeArtifact, type ExecutionArtifact } from "@/features/artifacts";
 import {
-  MessageSquare, FileText, LayoutGrid, GitFork, BarChart3, Timer,
-  Play, Square, Loader2, Shield, Check, AlertTriangle, Files, X, Sparkles, ArrowRight
+  MessageSquare, FileText, LayoutGrid, BarChart3, Timer,
+  Play, Square, Loader2, Shield, Check, AlertTriangle, X, Sparkles, ArrowRight
 } from "lucide-react";
 
 // ─── types ───────────────────────────────────────────────────────────────────
-type ViewType = "chat" | "log" | "task" | "metrics" | "timeline" | "artifacts";
+type ViewType = "chat" | "log" | "task" | "metrics" | "timeline";
 type SessionStatus = "idle" | "running" | "stopped";
 
 interface AgentMessage {
@@ -935,36 +935,6 @@ export default function SwarmRunView({
     return { activeSuggestedActions: [], activeSuggestedMessageId: null };
   }, [combinedFeed]);
 
-  const sessionArtifacts = React.useMemo(() => {
-    const out: ExecutionArtifact[] = [];
-    const seen = new Set<string>();
-    const consider = (raw: any, taskId?: string) => {
-      const normalized = normalizeArtifact({
-        filename: raw?.filename || 'artifact.md',
-        content: raw?.content,
-        url: raw?.url,
-        type: raw?.type,
-        detail: raw?.detail,
-        id: raw?.id || `${taskId || 'task'}-${raw?.filename || out.length}`,
-      });
-      if (!normalized) return;
-      const key = normalized.id || `${normalized.filename}:${(normalized.content || normalized.url || '').slice(0, 80)}`;
-      if (seen.has(key)) return;
-      seen.add(key);
-      out.push(normalized);
-    };
-    for (const e of swarmEvents) {
-      if (e.type !== 'TASK_COMPLETED' || !Array.isArray(e.payload?.artifacts)) continue;
-      for (const raw of e.payload.artifacts) consider(raw, e.payload.taskId);
-    }
-    for (const msg of messages) {
-      const arts = (msg as any)?.swarmEvent?.payload?.artifacts;
-      if (!Array.isArray(arts)) continue;
-      for (const raw of arts) consider(raw, (msg as any)?.swarmEvent?.payload?.taskId);
-    }
-    return out;
-  }, [swarmEvents, messages]);
-
   // Metrics derived from events + tasks
   const cycleCount = swarmEvents.filter(e => e.type === "CYCLE_COMPLETED").length;
   const errorCount = swarmEvents.filter(e => e.type === "CYCLE_ERROR").length;
@@ -985,7 +955,6 @@ export default function SwarmRunView({
   const TABS: { id: ViewType; label: string; Icon: any }[] = [
     { id: "chat", label: "Chat", Icon: MessageSquare },
     { id: "log", label: "Log", Icon: FileText },
-    { id: "artifacts", label: "Artifacts", Icon: Files },
     { id: "task", label: "Tasks", Icon: LayoutGrid },
     { id: "metrics", label: "Metrics", Icon: BarChart3 },
     { id: "timeline", label: "Timeline", Icon: Timer },
@@ -1026,7 +995,8 @@ export default function SwarmRunView({
       </div>
 
       {/* ── Content ── */}
-      <div className="flex-1 min-h-0 overflow-hidden">
+      <div className="flex-1 min-h-0 overflow-hidden relative flex">
+        <div className="flex-1 min-h-0 overflow-hidden">
         {activeView === "chat" && (
           <div className="flex h-full min-h-0 gap-0">
             {/* ── Left: Chat feed + composer ─────────────── */}
@@ -1133,6 +1103,7 @@ export default function SwarmRunView({
                     onStop={abortSwarmMessage}
                     isSending={isSending}
                     disabled={sessionStatus !== 'running'}
+                    hideModelSelect
                     onContextClick={() => setContextModalOpen(true)}
                     contextCount={selectedContexts.length}
                     onMentionClick={() => setMentionModalOpen(true)}
@@ -1147,22 +1118,10 @@ export default function SwarmRunView({
                 </div>
               </div>
             </div>
-
-            {/* ── Right-Side Artifact Viewer ── */}
-            {activeArtifact && (
-              <ArtifactViewer artifact={activeArtifact} onClose={() => setActiveArtifact(null)} />
-            )}
           </div>
         )}
 
         {activeView === "log" && <SwarmLogView swarmEvents={swarmEvents} />}
-        {activeView === "artifacts" && (
-          <ArtifactsTab
-            artifacts={sessionArtifacts}
-            onOpen={(a) => setActiveArtifact(a)}
-            emptyLabel="No artifacts from this swarm run yet"
-          />
-        )}
         {activeView === "task" && <SwarmTaskView tasks={tasks} onApprove={handleApprove} />}
         {activeView === "metrics" && (
           <SwarmMetricsView
@@ -1175,6 +1134,11 @@ export default function SwarmRunView({
           />
         )}
         {activeView === "timeline" && <SwarmTimelineView tasks={tasks} />}
+        </div>
+
+        {activeArtifact && (
+          <ArtifactViewer artifact={activeArtifact} onClose={() => setActiveArtifact(null)} />
+        )}
       </div>
 
       <ChatContextModal

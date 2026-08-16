@@ -54,6 +54,7 @@ import {
 } from "@/components/ui/tooltip";
 import { useRef } from "react";
 import { DynamicLucideIcon } from "@/lib/lucideIcon";
+import { getAgentMemoryTag, isPreferencesMemoryDoc } from "@/lib/agentMemory/memoryPolicy";
 
 import {
     DndContext,
@@ -128,9 +129,9 @@ interface DocViewProps {
     context?: string;
 }
 
-export function DocView({ listId, spaceId, projectId, viewId, teamId, folderId }: DocViewProps) {
+export function DocView({ listId, spaceId, projectId, viewId, teamId, folderId, workspaceId: workspaceIdProp }: DocViewProps) {
     const params = useParams();
-    const workspaceId = params?.workspaceId as string | undefined;
+    const workspaceId = workspaceIdProp || (params?.workspaceId as string | undefined);
 
     // Derive scope from most-specific context available
     const commentsScope: "team" | "project" | "space" | "workspace" =
@@ -706,6 +707,17 @@ export function DocView({ listId, spaceId, projectId, viewId, teamId, folderId }
             return;
         }
 
+        const dragged = flattenedPages[activeIndex];
+        if (dragged && isPreferencesMemoryDoc(dragged.settings)) {
+            // Preferences page must stay in the memory notebook tree (server also enforces)
+            toast({
+                title: "Can't move Preferences",
+                description: "The Agent Preferences page can't be moved or deleted.",
+                variant: "destructive",
+            });
+            return;
+        }
+
         const newItems = arrayMove(flattenedPages, activeIndex, overIndex);
         const previousItem = newItems[overIndex - 1];
 
@@ -857,8 +869,29 @@ export function DocView({ listId, spaceId, projectId, viewId, teamId, folderId }
                             onDoubleClick={(e) => e.stopPropagation()}
                         />
                     ) : (
-                        <span className={cn("truncate flex-1", isRoot && "font-medium")}>
+                        <span className={cn(
+                            "truncate flex-1",
+                            isRoot && "font-medium",
+                            (() => {
+                                const tag = getAgentMemoryTag(page.settings);
+                                if (tag?.expiresAt && new Date(tag.expiresAt) < new Date()) {
+                                    return "text-zinc-400";
+                                }
+                                return undefined;
+                            })()
+                        )}>
                             {page.id === selectedDocId ? title : page.title}
+                            {(() => {
+                                const tag = getAgentMemoryTag(page.settings);
+                                if (tag?.expiresAt && new Date(tag.expiresAt) < new Date()) {
+                                    return (
+                                        <span className="ml-1.5 text-[10px] font-medium uppercase tracking-wide text-zinc-400">
+                                            Expired
+                                        </span>
+                                    );
+                                }
+                                return null;
+                            })()}
                         </span>
                     )}
 
@@ -883,7 +916,10 @@ export function DocView({ listId, spaceId, projectId, viewId, teamId, folderId }
                         <DocumentActionsMenu
                             documentId={page.id}
                             workspaceId={workspaceId}
-                            disableDelete={actualPages.length <= 1 && page.depth === 0}
+                            disableDelete={
+                                (actualPages.length <= 1 && page.depth === 0) ||
+                                isPreferencesMemoryDoc(page.settings)
+                            }
                             onDelete={() => handleDocumentDelete(page.id)}
                             liveTitle={page.id === selectedDocId ? title : undefined}
                             liveContent={page.id === selectedDocId ? content : undefined}

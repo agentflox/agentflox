@@ -1,28 +1,9 @@
-import {
-    Mail,
-    HardDrive,
-    Code,
-    Video,
-    Users,
-    Calendar,
-    MessageSquare,
-    Cloud,
-    Bot,
-    Globe2,
-    Link,
-} from 'lucide-react';
 import { Integration } from '@agentflox/types';
 
-export const INTEGRATION_CATEGORIES = [
-    { id: 'all', label: 'All Apps' },
-    { id: 'communication', label: 'Communication' },
-    { id: 'development', label: 'Development' },
-    { id: 'design', label: 'Design' },
-    { id: 'storage', label: 'Storage' },
-    { id: 'calendar', label: 'Calendar' },
-    { id: 'marketing', label: 'Marketing' },
-];
+export { INTEGRATION_CATEGORIES } from './integrationCategories';
+export { INTEGRATION_ICONS } from './integrationIcons';
 
+/** @deprecated Legacy static list — grid is built from catalog + integrationUiMeta. */
 export const AVAILABLE_INTEGRATIONS: Omit<Integration, 'id' | 'isConnected' | 'connectedAt' | 'connectedBy'>[] = [
     {
         name: 'Figma',
@@ -60,13 +41,6 @@ export const AVAILABLE_INTEGRATIONS: Omit<Integration, 'id' | 'isConnected' | 'c
         isEnterprise: true,
     },
     {
-        name: 'Zoom',
-        description: 'Start and join Zoom meetings directly from your dashboard.',
-        category: 'communication',
-        provider: 'zoom',
-        isEnterprise: false,
-    },
-    {
         name: 'Microsoft Teams',
         description: 'Collaborate with your team seamlessly via Microsoft Teams.',
         category: 'communication',
@@ -95,13 +69,6 @@ export const AVAILABLE_INTEGRATIONS: Omit<Integration, 'id' | 'isConnected' | 'c
         isEnterprise: false,
     },
     {
-        name: 'Microsoft Online',
-        description: 'Integrate Office 365 apps for document editing and collaboration.',
-        category: 'storage',
-        provider: 'microsoft_online',
-        isEnterprise: true,
-    },
-    {
         name: 'YouTube',
         description: 'Publish and manage video content directly from the platform.',
         category: 'marketing',
@@ -114,45 +81,5 @@ export const AVAILABLE_INTEGRATIONS: Omit<Integration, 'id' | 'isConnected' | 'c
         category: 'marketing',
         provider: 'facebook',
         isEnterprise: false,
-    },
-    {
-        name: 'OpenAI',
-        description: 'Use OpenAI models for chat, embeddings, images, and moderation in your workforces and agents.',
-        category: 'development',
-        provider: 'openai',
-        isEnterprise: false,
-    },
-    {
-        name: 'Anthropic',
-        description: 'Use Anthropic Claude models as an alternative AI provider in workflows.',
-        category: 'development',
-        provider: 'anthropic',
-        isEnterprise: true,
-    },
-    {
-        name: 'HTTP & Webhooks',
-        description: 'Call external APIs and receive inbound webhooks as triggers in your workforces.',
-        category: 'development',
-        provider: 'http_webhook',
-        isEnterprise: false,
-    },
+    }
 ];
-
-export const INTEGRATION_ICONS: Record<string, any> = {
-    figma: Link,
-    github: Code,
-    gmail: Mail,
-    google_drive: HardDrive,
-    codegen: Code,
-    zoom: Video,
-    microsoft_teams: Users,
-    slack: MessageSquare,
-    google_calendar: Calendar,
-    discord: MessageSquare,
-    microsoft_online: Cloud,
-    youtube: Video,
-    facebook: Globe2,
-    openai: Bot,
-    anthropic: Bot,
-    http_webhook: Globe2,
-};

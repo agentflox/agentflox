@@ -66,15 +66,27 @@ export const authOptions: NextAuthConfig = {
   callbacks: {
     // ✅ Attach user & accessToken to JWT
     async jwt({ token, user, account, trigger, session }) {
-      if (account && user) {
+      // Prefer explicit user.id; Auth.js also sets token.sub on sign-in.
+      if (user?.id) {
         token.id = user.id;
+      }
+      if (!token.id && token.sub) {
+        token.id = token.sub;
+      }
+      if (account?.access_token) {
         token.accessToken = account.access_token;
       }
 
       // Handle explicit session updates (e.g. from update() in client)
-      if (trigger === "update" && session) {
-        // Merge session updates into token
-        return { ...token, ...session };
+      if (trigger === "update" && session && typeof session === "object") {
+        const { user: _user, expires: _expires, ...sessionFields } = session as Record<
+          string,
+          unknown
+        >;
+        Object.assign(token, sessionFields);
+        if (!token.id && token.sub) {
+          token.id = token.sub;
+        }
       }
 
       if (token.id) {
@@ -114,7 +126,8 @@ export const authOptions: NextAuthConfig = {
 
     async session({ session, token }) {
       if (token && session.user) {
-        session.user.id = token.id as string;
+        // token.sub is Auth.js default; token.id is our mirror — use either.
+        session.user.id = (token.id ?? token.sub) as string;
         session.user.userType = token.userType as string;
         session.user.onboardingCompleted = token.onboardingCompleted as boolean;
         session.user.onboardingStep = token.onboardingStep as number;
@@ -133,6 +146,7 @@ export const authOptions: NextAuthConfig = {
       } catch (error) {
         console.error("Failed to create default subscription:", error);
       }
+
       return true;
     },
   },

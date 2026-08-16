@@ -15,33 +15,33 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import {
-  Bot,
   Play,
-  Pause,
   Edit,
   Sparkles,
   Wrench,
-  Archive,
   Activity,
   Zap,
   CheckCircle2,
   XCircle,
   Clock,
   TrendingUp,
-  Settings
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
+import { AgentIdentityHeader } from "@/entities/agents/components/AgentIdentityHeader";
+import { useAgentContext } from "@/app/(protected)/dashboard/agents/[id]/layout";
 
 export function OverviewView({ agent }: { agent: any }) {
   const router = useRouter();
+  const { refetch } = useAgentContext();
   // TODO: backend endpoint not yet implemented
   const executions: any = { items: [] };
 
   const updateAgent = trpc.agent.update.useMutation({
     onSuccess: () => {
       toast.success('Agent updated successfully');
+      void refetch();
     },
     onError: (error) => {
       toast.error(error.message || 'Failed to update agent');
@@ -83,21 +83,28 @@ export function OverviewView({ agent }: { agent: any }) {
   return (
     <div className="space-y-6 p-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="text-3xl">{agent.avatar || '🤖'}</div>
-          <div>
-            <div className="flex items-center gap-2.5">
-              <h1 className="text-2xl font-bold">{agent.name}</h1>
-              <Badge variant={agent.status === 'ACTIVE' ? 'default' : agent.status === 'DRAFT' ? 'secondary' : 'destructive'}>
-                {agent.status}
-              </Badge>
-            </div>
-            <p className="text-muted-foreground mt-0.5">{agent.description || 'No description'}</p>
-          </div>
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-3 min-w-0 flex-1">
+          <AgentIdentityHeader
+            agent={agent}
+            onUpdated={() => void refetch()}
+            className="min-w-0 flex-1 max-w-2xl"
+          />
+          <Badge
+            variant={
+              agent.status === 'ACTIVE'
+                ? 'default'
+                : agent.status === 'DRAFT'
+                  ? 'secondary'
+                  : 'destructive'
+            }
+            className="shrink-0"
+          >
+            {agent.status}
+          </Badge>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           {/* Edit Dropdown */}
           <DropdownMenu>
             <Tooltip>

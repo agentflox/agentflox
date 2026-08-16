@@ -20,7 +20,9 @@
     "lint": "eslint src --quiet",
     "test": "jest --config jest.config.cjs",
     "test:watch": "jest --config jest.config.cjs --watch",
-    "test:coverage": "jest --config jest.config.cjs --coverage"
+    "test:coverage": "jest --config jest.config.cjs --coverage",
+    "integrations:sync-tools": "tsx scripts/sync-integration-tools.ts",
+    "integrations:migrate-triggers": "tsx scripts/migrateWorkforceTriggerState.ts"
   },
   "dependencies": {
     "@agentflox/config": "workspace:*",

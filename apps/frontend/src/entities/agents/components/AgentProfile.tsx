@@ -18,7 +18,6 @@ import {
 } from "@/components/ui/tooltip";
 import {
   Bot,
-  Settings,
   CheckCircle2,
   Clock,
   AlertCircle,
@@ -27,7 +26,6 @@ import {
   Zap,
   Calendar,
   MessageSquare,
-  Eye,
   FileText,
   Wrench,
   Brain,
@@ -39,11 +37,20 @@ import { InstructionsTab } from "./tabs/InstructionsTab";
 import { TriggersTab } from "./tabs/TriggersTab";
 import { ToolsTab } from "./tabs/ToolsTab";
 import { KnowledgeTab } from "./tabs/KnowledgeTab";
-import { SkillsTab } from "./tabs/SkillsTab";
+import { MemoryTab } from "./tabs/MemoryTab";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { AgentSettingsModal } from "./AgentSettingsModal";
+import { AgentMoreActions } from "./AgentMoreActions";
+import { AgentModelShareBar } from "./AgentModelShareBar";
+import {
+  AgentSettingsSaveProvider,
+  SaveChangesButton,
+} from "./AgentSettingsSaveContext";
+import { useMarketplaceGuard } from "@/features/marketplace/hooks/useMarketplaceGuard";
+import { MarketplaceGuardDialog } from "@/features/marketplace/components/MarketplaceGuardDialog";
+import { PublishEntityModal } from "@/features/marketplace/components/PublishEntityModal";
 
 interface AgentProfileProps {
   agent: {
@@ -51,6 +58,8 @@ interface AgentProfileProps {
     name: string;
     description?: string | null;
     avatar?: string | null;
+    modelId?: string | null;
+    aiModel?: { id?: string | null } | null;
     status: "ACTIVE" | "DRAFT" | "INACTIVE" | "BUILDING" | "RECONFIGURING" | "EXECUTING";
     isActive: boolean;
     agentType?: string | null;
@@ -101,11 +110,14 @@ export function AgentProfile({
   agent,
   conversationType,
   isReconfiguring = false,
-  onEdit
+  onEdit,
+  onConfigure,
 }: AgentProfileProps) {
   const [activeTab, setActiveTab] = useState("instructions");
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [isPublishModalOpen, setIsPublishModalOpen] = useState(false);
   const router = useRouter();
+  const { checkProfileAndProceed, isGuardOpen, setIsGuardOpen } = useMarketplaceGuard();
 
   // Refetch agent data on update
   const { refetch: refetchAgent } = trpc.agent.get.useQuery(
@@ -136,6 +148,12 @@ export function AgentProfile({
 
   const handleUpdate = async () => {
     await refetchAgent();
+  };
+
+  const handlePublishClick = () => {
+    checkProfileAndProceed(() => {
+      setIsPublishModalOpen(true);
+    });
   };
 
   const handleMessage = () => {
@@ -218,7 +236,23 @@ export function AgentProfile({
   };
 
   return (
-    <div className="space-y-6 h-full flex flex-col">
+    <AgentSettingsSaveProvider
+      activeSection={activeTab}
+      onActiveSectionChange={setActiveTab}
+    >
+    <div className="space-y-0 h-full flex flex-col">
+
+      {/* Model + Share — separate top bar */}
+      <div className="flex items-center justify-end gap-2 px-4 py-2.5 bg-zinc-50/60 dark:border-zinc-900 dark:bg-zinc-950/40">
+        <SaveChangesButton size="sm" />
+        <AgentModelShareBar
+          agentId={agent.id}
+          modelId={agent.modelId ?? agent.aiModel?.id ?? null}
+          onUpdated={handleUpdate}
+          disabled={isActuallyReconfiguring}
+          onClose={onConfigure}
+        />
+      </div>
 
       {/* Agent Header Card */}
       <Card className="rounded-none border-none">
@@ -333,42 +367,24 @@ export function AgentProfile({
                 </DropdownMenu>
               </div>
 
-              {/* More Options — kept visually separate since it's not a "run" action */}
-              <DropdownMenu>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        disabled={isActuallyReconfiguring}
-                        className="h-9 w-9 border-zinc-200 text-zinc-500 hover:bg-zinc-50 hover:text-zinc-700 disabled:opacity-40 dark:border-zinc-800 dark:hover:bg-zinc-900"
-                      >
-                        <MoreVertical className="w-4 h-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>More options</p>
-                  </TooltipContent>
-                </Tooltip>
-                <DropdownMenuContent align="end" className="w-48 p-1.5">
-                  <DropdownMenuItem
-                    onClick={() => toast.info('View feature coming soon!')}
-                    className="gap-2 rounded-md px-2 py-1.5"
+              {/* More Options */}
+              <AgentMoreActions
+                agent={agent}
+                onUpdated={handleUpdate}
+                onDeleted={() => router.push("/dashboard/agents")}
+                onOpenSettings={() => setSettingsOpen(true)}
+                onPublish={handlePublishClick}
+                trigger={
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    disabled={isActuallyReconfiguring}
+                    className="h-9 w-9 border-zinc-200 text-zinc-500 hover:bg-zinc-50 hover:text-zinc-700 disabled:opacity-40 dark:border-zinc-800 dark:hover:bg-zinc-900"
                   >
-                    <Eye className="w-4 h-4 text-zinc-500" />
-                    <span className="text-sm">View details</span>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => setSettingsOpen(true)}
-                    className="gap-2 rounded-md px-2 py-1.5"
-                  >
-                    <Settings className="w-4 h-4 text-zinc-500" />
-                    <span className="text-sm">Settings</span>
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+                    <MoreVertical className="w-4 h-4" />
+                  </Button>
+                }
+              />
 
               <AgentSettingsModal
                 open={settingsOpen}
@@ -388,8 +404,31 @@ export function AgentProfile({
         </CardHeader>
       </Card>
 
+      <MarketplaceGuardDialog isOpen={isGuardOpen} onOpenChange={setIsGuardOpen} />
+      {isPublishModalOpen && (
+        <PublishEntityModal
+          open={isPublishModalOpen}
+          onOpenChange={setIsPublishModalOpen}
+          entityType="agent"
+          entityId={agent.id}
+          initialTitle={agent.name}
+          initialDescription={agent.systemPrompt ?? undefined}
+          entityContext={{
+            avatar: agent.avatar ?? undefined,
+            description: agent.systemPrompt ?? undefined,
+            status: agent.agentType ?? "Agent",
+            metadata: [
+              ...(agent.tools?.length ? [{ label: "Tools", value: agent.tools.length }] : []),
+              ...(agent.triggers?.length ? [{ label: "Triggers", value: agent.triggers.length }] : []),
+              ...(agent.schedules?.length ? [{ label: "Schedules", value: agent.schedules.length }] : []),
+            ],
+            capabilities: agent.tools?.map((t) => t.name ?? t.id) ?? [],
+          }}
+        />
+      )}
+
       {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0 px-1.5">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0 px-1.5 pt-4">
         <div className="overflow-x-auto pb-4 scrollbar-hide">
           <TabsList className="inline-flex w-full min-w-max border-b border-zinc-100/0 rounded-none bg-transparent h-auto p-0 justify-start gap-1.5">
             <TabsTrigger
@@ -398,13 +437,6 @@ export function AgentProfile({
             >
               <FileText className="w-4 h-4" />
               Instructions
-            </TabsTrigger>
-            <TabsTrigger
-              value="skills"
-              className="px-3.5 py-2.5 rounded-xl cursor-pointer outline-none data-[state=active]:bg-indigo-50/80 data-[state=active]:text-indigo-600 hover:bg-zinc-50 hover:text-zinc-700 font-semibold text-zinc-500 transition-colors flex items-center gap-2 whitespace-nowrap"
-            >
-              <Sparkles className="w-4 h-4" />
-              Skills
             </TabsTrigger>
             <TabsTrigger
               value="triggers"
@@ -427,6 +459,13 @@ export function AgentProfile({
               <Brain className="w-4 h-4" />
               Knowledge
             </TabsTrigger>
+            <TabsTrigger
+              value="memory"
+              className="px-3.5 py-2.5 rounded-xl cursor-pointer outline-none data-[state=active]:bg-indigo-50/80 data-[state=active]:text-indigo-600 hover:bg-zinc-50 hover:text-zinc-700 font-semibold text-zinc-500 transition-colors flex items-center gap-2 whitespace-nowrap"
+            >
+              <Sparkles className="w-4 h-4" />
+              Memory
+            </TabsTrigger>
           </TabsList>
         </div>
 
@@ -441,20 +480,6 @@ export function AgentProfile({
             <InstructionsTab
               agentId={agent.id}
               systemPrompt={agent.systemPrompt}
-              isReconfiguring={isActuallyReconfiguring}
-              onUpdate={handleUpdate}
-            />
-          </TabsContent>
-
-          <TabsContent value="skills" className="mt-0 px-4 pb-4">
-            {isActuallyReconfiguring && activeTab === 'skills' && (
-              <div className="mb-4 flex items-center gap-2 text-sm text-amber-600 dark:text-amber-400">
-                <Loader2 className="w-4 h-4 animate-spin" />
-                <span>Updating skills...</span>
-              </div>
-            )}
-            <SkillsTab
-              agentId={agent.id}
               isReconfiguring={isActuallyReconfiguring}
               onUpdate={handleUpdate}
             />
@@ -505,8 +530,18 @@ export function AgentProfile({
               onUpdate={handleUpdate}
             />
           </TabsContent>
+
+          <TabsContent value="memory" className="mt-0 px-4 pb-4">
+            <MemoryTab
+              agentId={agent.id}
+              agent={agent}
+              isReconfiguring={isActuallyReconfiguring}
+              onUpdate={handleUpdate}
+            />
+          </TabsContent>
         </div>
       </Tabs>
     </div>
+    </AgentSettingsSaveProvider>
   );
 }

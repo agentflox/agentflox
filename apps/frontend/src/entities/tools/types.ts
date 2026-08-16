@@ -10,7 +10,7 @@ export type ConversationStage =
   | 'configuration'
   | 'launch';
 
-export type StepType = 'LLM' | 'API' | 'SYSTEM_TOOL' | 'LOOP' | 'BRANCH' | 'PYTHON' | 'JAVASCRIPT';
+export type StepType = 'LLM' | 'API' | 'SYSTEM_TOOL' | 'LOOP' | 'BRANCH' | 'PYTHON' | 'JAVASCRIPT' | 'RUN_CHAIN';
 
 export interface ToolStep {
   id: string;

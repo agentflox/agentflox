@@ -50,10 +50,11 @@ export default function AgentDetailPage() {
     );
   }
 
-  const isChatView = activeTab === 'chat' || activeTab === 'ai-builder';
+  const isFillHeightView =
+    activeTab === 'chat' || activeTab === 'ai-builder' || activeTab === 'settings';
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full min-h-0">
       <div className="px-6 pt-2 flex-shrink-0 border-b-1 sticky">
         <Button
           variant="ghost"
@@ -65,8 +66,8 @@ export default function AgentDetailPage() {
         </Button>
       </div>
 
-      <div className={`flex-1 ${isChatView ? 'overflow-hidden' : 'overflow-auto'}`}>
-        <div className={`w-full mx-auto ${isChatView ? 'h-full' : ''}`}>
+      <div className={`flex-1 min-h-0 ${isFillHeightView ? 'overflow-hidden' : 'overflow-auto'}`}>
+        <div className={`w-full mx-auto ${isFillHeightView ? 'h-full min-h-0' : ''}`}>
           <ViewSwitcher
             activeTab={activeTab}
             agent={agent}

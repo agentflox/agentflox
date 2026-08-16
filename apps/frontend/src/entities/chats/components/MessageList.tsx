@@ -7,9 +7,11 @@ import { cn } from '@/lib/utils'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { MessageDisplay } from './ChatDisplay'
 import { Button } from '@/components/ui/button'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { ThumbsUp, ThumbsDown, Copy, Check, CornerDownRight } from 'lucide-react'
 import { trpc } from '@/lib/trpc'
 import { useToast } from '@/hooks/useToast'
+import { MessageArtifactList, type ExecutionArtifact } from '@/features/artifacts'
 
 export interface MessageFollowup {
   id: string
@@ -36,6 +38,8 @@ export interface RenderedMessage {
   feedback?: {
     isHelpful: boolean | null
   } | null
+  /** Explicit artifacts attached to this message (opened via ArtifactViewer). */
+  artifacts?: ExecutionArtifact[]
 }
 
 interface ChatMessageListProps {
@@ -44,6 +48,7 @@ interface ChatMessageListProps {
   onFollowupClick?: (messageId: string, followup: MessageFollowup) => void
   onActionClick?: (messageId: string, action: MessageAction) => void
   onFeedbackChange?: (messageId: string, isHelpful: boolean | null) => void
+  onArtifactOpen?: (artifact: ExecutionArtifact) => void
   /** Label shown on all agent response headers (e.g. "Agentflox Agent Builder") */
   label?: string
   emptyState?: React.ReactNode
@@ -90,6 +95,7 @@ const MessageItem = memo(function MessageItem({
   onFollowupClick,
   onActionClick,
   onFeedbackChange,
+  onArtifactOpen,
 }: {
   message: RenderedMessage
   isUser: boolean
@@ -98,6 +104,7 @@ const MessageItem = memo(function MessageItem({
   onFollowupClick?: (messageId: string, followup: MessageFollowup) => void
   onActionClick?: (messageId: string, action: MessageAction) => void
   onFeedbackChange?: (messageId: string, isHelpful: boolean | null) => void
+  onArtifactOpen?: (artifact: ExecutionArtifact) => void
 }) {
   const parts = message.parts ?? [{ type: 'text', text: message.content } satisfies MessagePart]
   const { toast } = useToast()
@@ -114,6 +121,7 @@ const MessageItem = memo(function MessageItem({
   const showFollowups = !isUser && message.followups && message.followups.length > 0
   const showActions = !isUser && message.actions && message.actions.length > 0
   const showFeedbackButtons = !isUser && !message.id.startsWith('pending-') && !message.id.startsWith('temp-')
+  const messageArtifacts = !isUser ? message.artifacts ?? [] : []
 
   const currentFeedback = message.feedback?.isHelpful ?? null
   const isLiked = currentFeedback === true
@@ -195,6 +203,12 @@ const MessageItem = memo(function MessageItem({
         />
       </div>
 
+      {messageArtifacts.length > 0 && onArtifactOpen && (
+        <div className="mt-4 max-w-xl">
+          <MessageArtifactList artifacts={messageArtifacts} onOpen={onArtifactOpen} compact />
+        </div>
+      )}
+
       {/* Follow-ups */}
       {showFollowups && (
         <div className="mt-5 flex flex-col gap-2 max-w-2xl">
@@ -238,35 +252,50 @@ const MessageItem = memo(function MessageItem({
       {/* Feedback toolbar — visible on hover */}
       {showFeedbackButtons && (
         <div className="mt-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
-          <button
-            type="button"
-            onClick={handleLike}
-            disabled={feedbackMutation.isPending}
-            className={cn(
-              'inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-medium transition-all hover:bg-slate-100 disabled:opacity-50 cursor-pointer',
-              isLiked ? 'text-blue-600 bg-blue-50 hover:bg-blue-100' : 'text-slate-500'
-            )}
-          >
-            <ThumbsUp className={cn('h-3.5 w-3.5', isLiked && 'fill-current')} />
-          </button>
-          <button
-            type="button"
-            onClick={handleDislike}
-            disabled={feedbackMutation.isPending}
-            className={cn(
-              'inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-medium transition-all hover:bg-slate-100 disabled:opacity-50 cursor-pointer',
-              isDisliked ? 'text-red-600 bg-red-50 hover:bg-red-100' : 'text-slate-500'
-            )}
-          >
-            <ThumbsDown className={cn('h-3.5 w-3.5', isDisliked && 'fill-current')} />
-          </button>
-          <button
-            type="button"
-            onClick={handleCopy}
-            className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-medium text-slate-500 transition-all hover:bg-slate-100 cursor-pointer"
-          >
-            {copied ? <Check className="h-3.5 w-3.5 text-green-600" /> : <Copy className="h-3.5 w-3.5" />}
-          </button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                onClick={handleLike}
+                disabled={feedbackMutation.isPending}
+                className={cn(
+                  'inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-medium transition-all hover:bg-slate-100 disabled:opacity-50 cursor-pointer',
+                  isLiked ? 'text-blue-600 bg-blue-50 hover:bg-blue-100' : 'text-slate-500'
+                )}
+              >
+                <ThumbsUp className={cn('h-3.5 w-3.5', isLiked && 'fill-current')} />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">{isLiked ? 'Remove like' : 'Like'}</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                onClick={handleDislike}
+                disabled={feedbackMutation.isPending}
+                className={cn(
+                  'inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-medium transition-all hover:bg-slate-100 disabled:opacity-50 cursor-pointer',
+                  isDisliked ? 'text-red-600 bg-red-50 hover:bg-red-100' : 'text-slate-500'
+                )}
+              >
+                <ThumbsDown className={cn('h-3.5 w-3.5', isDisliked && 'fill-current')} />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">{isDisliked ? 'Remove dislike' : 'Dislike'}</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                onClick={handleCopy}
+                className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-medium text-slate-500 transition-all hover:bg-slate-100 cursor-pointer"
+              >
+                {copied ? <Check className="h-3.5 w-3.5 text-green-600" /> : <Copy className="h-3.5 w-3.5" />}
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">{copied ? 'Copied' : 'Copy'}</TooltipContent>
+          </Tooltip>
         </div>
       )}
     </div>
@@ -292,6 +321,7 @@ export const ChatMessageList = memo(function ChatMessageList({
   onFollowupClick,
   onActionClick,
   onFeedbackChange,
+  onArtifactOpen,
   label,
   emptyState,
 }: ChatMessageListProps) {
@@ -364,6 +394,7 @@ export const ChatMessageList = memo(function ChatMessageList({
               onFollowupClick={onFollowupClick}
               onActionClick={onActionClick}
               onFeedbackChange={onFeedbackChange}
+              onArtifactOpen={onArtifactOpen}
             />
           )
         })}

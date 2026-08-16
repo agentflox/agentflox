@@ -29,6 +29,10 @@ export async function SignInWithGithub(callbackUrl?: string): Promise<void> {
     await signIn('github', { callbackUrl: callbackUrl || '/' });
 }
 
+export async function SignInWithSlack(callbackUrl?: string): Promise<void> {
+    await signIn('slack', { callbackUrl: callbackUrl || '/' });
+}
+
 /**
  * Sign in with email and password credentials.
  * @throws AuthError on invalid credentials
