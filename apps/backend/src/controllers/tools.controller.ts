@@ -13,6 +13,7 @@ import { toolExecutionRateLimiter, toolBuilderRateLimiter, toolBuilderInitRateLi
 import { publishToolLog, publishToolError } from '@/services/tools/toolExecutionLogService';
 import { ExecutionQuotaService } from '@/services/billing/executionQuota.service';
 import { sendExecutionQuotaError } from '@/services/billing/executionQuota.http';
+import { toUserFacingError } from '@/services/models';
 
 const editorMessageSchema = z.object({
   conversationId: z.string().min(1),
@@ -188,8 +189,8 @@ export class ToolsController {
       emitter.complete(metaPayload as Record<string, unknown>);
     } catch (error) {
       console.error('[ToolBuilder] SSE stream error:', error);
-      const message = error instanceof Error ? error.message : 'Unknown error';
-      emitter.error(message);
+      const facing = toUserFacingError(error);
+      emitter.error(facing.message, { code: facing.code, kind: facing.kind });
     }
   }
 
@@ -319,7 +320,10 @@ export class ToolsController {
     } catch (error: any) {
       console.error('[ToolsController] Editor assistant stream error:', error);
       if (error instanceof z.ZodError) emitter.error('Invalid request.');
-      else emitter.error(error?.message || 'Internal server error');
+      else {
+        const facing = toUserFacingError(error);
+        emitter.error(facing.message, { code: facing.code, kind: facing.kind });
+      }
     }
   }
 

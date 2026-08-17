@@ -31,6 +31,7 @@ import {
 } from '@/utils/http/resourceAccess';
 import { ExecutionQuotaService } from '@/services/billing/executionQuota.service';
 import { sendExecutionQuotaError } from '@/services/billing/executionQuota.http';
+import { toUserFacingError } from '@/services/models';
 
 @Controller('v1/agents')
 @UseGuards(JwtAuthGuard)
@@ -668,6 +669,7 @@ export class AgentsController {
       const schema = z.object({
         conversationId: z.string(),
         message: z.string().min(1),
+        modelId: z.string().optional().nullable(),
         contexts: z.array(z.object({
           type: z.string(),
           id: z.string(),
@@ -692,7 +694,7 @@ export class AgentsController {
         agentId,
         body.message,
         userId,
-        { contexts: body.contexts, mentions: body.mentions, attachments: body.attachments }
+        { contexts: body.contexts, mentions: body.mentions, attachments: body.attachments, modelId: body.modelId }
       );
 
       return res.json(result);
@@ -878,6 +880,7 @@ export class AgentsController {
       const schema = z.object({
         conversationId: z.string(),
         message: z.string().min(1),
+        modelId: z.string().optional().nullable(),
         contexts: z.array(z.object({
           type: z.string(),
           id: z.string(),
@@ -902,7 +905,7 @@ export class AgentsController {
         agentId,
         body.message,
         userId,
-        { contexts: body.contexts, mentions: body.mentions, attachments: body.attachments }
+        { contexts: body.contexts, mentions: body.mentions, attachments: body.attachments, modelId: body.modelId }
       );
 
       return res.json(result);
@@ -1084,6 +1087,7 @@ export class AgentsController {
       const schema = z.object({
         conversationId: z.string(),
         message: z.string().min(1),
+        modelId: z.string().optional().nullable(),
         contexts: z.array(z.object({
           type: z.string(),
           id: z.string(),
@@ -1109,7 +1113,7 @@ export class AgentsController {
         body.message,
         userId,
         agentId,
-        { contexts: body.contexts, mentions: body.mentions, attachments: body.attachments }
+        { contexts: body.contexts, mentions: body.mentions, attachments: body.attachments, modelId: body.modelId }
       );
 
       return res.json({ runId });
@@ -1143,6 +1147,7 @@ export class AgentsController {
     const schema = z.object({
       conversationId: z.string(),
       message: z.string().min(1),
+      modelId: z.string().optional().nullable(),
       contexts: z.array(z.object({
         type: z.string(),
         id: z.string(),
@@ -1188,7 +1193,7 @@ export class AgentsController {
         (step: string, node?: string) => emitter.thinking(step, node),
         // Token callback: each streamed LLM response character
         (text: string) => emitter.token(text),
-        { contexts: body.contexts, mentions: body.mentions }
+        { contexts: body.contexts, mentions: body.mentions, modelId: body.modelId }
       );
 
       // Send the final metadata  Eresponse text was already streamed token-by-token,
@@ -1197,8 +1202,8 @@ export class AgentsController {
       emitter.complete(metaPayload as Record<string, unknown>);
     } catch (error) {
       console.error('[AgentBuilder] SSE stream error:', error);
-      const message = error instanceof Error ? error.message : 'Unknown error';
-      emitter.error(message);
+      const facing = toUserFacingError(error);
+      emitter.error(facing.message, { code: facing.code, kind: facing.kind });
     }
   }
 
@@ -1212,6 +1217,7 @@ export class AgentsController {
     const schema = z.object({
       conversationId: z.string(),
       message: z.string().min(1),
+      modelId: z.string().optional().nullable(),
       contexts: z.array(z.object({
         type: z.string(),
         id: z.string(),
@@ -1252,7 +1258,7 @@ export class AgentsController {
         } else if (data.type === 'error') {
           redisSub.unsubscribe(channel).catch(() => { });
           redisSub.removeListener('message', listener);
-          emitter.error(data.message);
+          emitter.error(data.message, { code: data.code, kind: data.kind });
         } else if (data.type === 'complete') {
           redisSub.unsubscribe(channel).catch(() => { });
           redisSub.removeListener('message', listener);
@@ -1280,12 +1286,13 @@ export class AgentsController {
       agentId,
       message: body.message,
       userId,
-      options: { contexts: body.contexts, mentions: body.mentions },
+      options: { contexts: body.contexts, mentions: body.mentions, modelId: body.modelId },
     }).catch((error: Error) => {
       console.error('[AgentExecutor] Direct workflow error:', error);
       redisSub.unsubscribe(channel).catch(() => { });
       redisSub.removeListener('message', listener);
-      emitter.error(error.message || 'Unknown error');
+      const facing = toUserFacingError(error);
+      emitter.error(facing.message, { code: facing.code, kind: facing.kind });
     });
   }
 
@@ -1299,6 +1306,7 @@ export class AgentsController {
     const schema = z.object({
       conversationId: z.string(),
       message: z.string().min(1),
+      modelId: z.string().optional().nullable(),
       contexts: z.array(z.object({
         type: z.string(),
         id: z.string(),
@@ -1339,7 +1347,7 @@ export class AgentsController {
         } else if (data.type === 'error') {
           redisSub.unsubscribe(channel).catch(() => { });
           redisSub.removeListener('message', listener);
-          emitter.error(data.message);
+          emitter.error(data.message, { code: data.code, kind: data.kind });
         } else if (data.type === 'complete') {
           redisSub.unsubscribe(channel).catch(() => { });
           redisSub.removeListener('message', listener);
@@ -1367,12 +1375,13 @@ export class AgentsController {
       agentId,
       message: body.message,
       userId,
-      options: { contexts: body.contexts, mentions: body.mentions },
+      options: { contexts: body.contexts, mentions: body.mentions, modelId: body.modelId },
     }).catch((error: Error) => {
       console.error('[AgentOperator] Direct workflow error:', error);
       redisSub.unsubscribe(channel).catch(() => { });
       redisSub.removeListener('message', listener);
-      emitter.error(error.message || 'Unknown error');
+      const facing = toUserFacingError(error);
+      emitter.error(facing.message, { code: facing.code, kind: facing.kind });
     });
   }
 

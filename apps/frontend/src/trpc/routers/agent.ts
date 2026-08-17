@@ -3,6 +3,7 @@ import { protectedProcedure, router } from "@/trpc/init";
 import { prisma } from "@/lib/prisma";
 import { randomUUID } from "crypto";
 import { DEFAULT_MEMORY_METADATA } from "@/lib/agentMemory/memoryPolicy";
+import { inScopeWhere, elsewhereWhere, normalizeAgentLocation } from "@/features/automations/scope";
 import {
   buildDefaultAgentMetadata,
   clearAgentMemoryStores,
@@ -126,6 +127,10 @@ export const agentRouter = router({
   list: protectedProcedure
     .input(z.object({
       workspaceId: z.string().optional(),
+      spaceId: z.string().optional(),
+      teamId: z.string().optional(),
+      projectId: z.string().optional(),
+      scopeMode: z.enum(["inScope", "elsewhere", "all"]).optional().default("all"),
       status: z.array(statusEnum).optional(),
       agentType: z.array(agentTypeEnum).optional(),
       query: z.string().optional(),
@@ -135,29 +140,43 @@ export const agentRouter = router({
     }))
     .query(async ({ ctx, input }) => {
       const userId = ctx.session!.user!.id;
-      const where: any = {};
+      const where: any = { deletedAt: null };
 
       if (input.workspaceId) where.workspaceId = input.workspaceId;
       if (input.status?.length) where.status = { in: input.status };
       if (input.agentType?.length) where.agentType = { in: input.agentType };
 
-      // Only show agents user has access to
-      where.OR = [
+      const accessOr = [
         { ownerId: userId },
-        {
-          collaborators: {
-            some: { userId }
-          }
-        }
+        { collaborators: { some: { userId } } },
       ];
+
+      if (input.scopeMode === "inScope") {
+        Object.assign(where, inScopeWhere({
+          workspaceId: input.workspaceId,
+          spaceId: input.spaceId,
+          teamId: input.teamId,
+          projectId: input.projectId,
+        }));
+      } else if (input.scopeMode === "elsewhere") {
+        Object.assign(where, elsewhereWhere({
+          workspaceId: input.workspaceId,
+          spaceId: input.spaceId,
+          teamId: input.teamId,
+          projectId: input.projectId,
+        }));
+      }
+
+      where.AND = [{ OR: accessOr }];
 
       if (input.query) {
         const q = input.query.trim();
-        where.OR = [
-          ...(where.OR || []),
-          { name: { contains: q, mode: "insensitive" } },
-          { description: { contains: q, mode: "insensitive" } },
-        ];
+        where.AND.push({
+          OR: [
+            { name: { contains: q, mode: "insensitive" } },
+            { description: { contains: q, mode: "insensitive" } },
+          ],
+        });
       }
 
       const skip = (input.page - 1) * input.pageSize;
@@ -354,14 +373,20 @@ export const agentRouter = router({
     }))
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.session!.user!.id;
+      const loc = normalizeAgentLocation({
+        workspaceId: input.workspaceId,
+        spaceId: input.spaceId,
+        projectId: input.projectId,
+        teamId: input.teamId,
+      });
       // Create agent
       const agent = await prisma.aiAgent.create({
         data: {
           id: randomUUID(),
-          ...(input.workspaceId && { workspaceId: input.workspaceId }),
-          ...(input.spaceId && { spaceId: input.spaceId }),
-          ...(input.projectId && { projectId: input.projectId }),
-          ...(input.teamId && { teamId: input.teamId }),
+          ...(loc.workspaceId && { workspaceId: loc.workspaceId }),
+          ...(loc.spaceId && { spaceId: loc.spaceId }),
+          ...(loc.projectId && { projectId: loc.projectId }),
+          ...(loc.teamId && { teamId: loc.teamId }),
           owner: {
             connect: { id: userId },
           },

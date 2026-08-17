@@ -71,8 +71,13 @@ import {
 import { SaveTemplateModal } from "@/features/dashboard/components/modals/SaveTemplateModal";
 import { Input } from "@/components/ui/input";
 import { DashboardHeader } from "@/features/dashboard/components/shared/DashboardHeader";
-import { QuickAgentModal } from "@/features/dashboard/components/modals/QuickAgentModal";
 import { ResizableSplitLayout, SidePanelContainer } from "@/components/layout/ResizableSplitLayout";
+import { AgentsPopover } from "@/features/automations/components/AgentsPopover";
+import { AutomationsHubPopover } from "@/features/automations/components/AutomationsHubPopover";
+import { DashboardAutomationOverlays } from "@/features/automations/components/DashboardAutomationOverlays";
+import { AgentTabbedPanel } from "@/entities/agents/components/panels/AgentTabbedPanel";
+import { useDashboardAutomations } from "@/features/automations/hooks/useDashboardAutomations";
+import type { AutomationScope } from "@/features/automations/types";
 import { TaskDetailContent, TaskDetailModal, TaskLayoutMode } from "@/entities/task/components/TaskDetailModal";
 import { SpaceActionsMenu } from "@/features/dashboard/components/sidebar/SpaceActionsMenu";
 import {
@@ -221,7 +226,6 @@ export default function SpaceDashboardView({ spaceId, selectedTaskIdFromParent, 
     const [viewToDelete, setViewToDelete] = useState<{ id: string, name: string } | null>(null);
     const [viewToShare, setViewToShare] = useState<{ id: string, name: string } | null>(null);
     const [viewToTemplate, setViewToTemplate] = useState<any | null>(null);
-    const [isAgentModalOpen, setIsAgentModalOpen] = useState(false);
     const [isAskAIOpen, setIsAskAIOpen] = useState(false);
     const [taskViewMode, setTaskViewMode] = useState<TaskLayoutMode>("modal");
 
@@ -232,6 +236,18 @@ export default function SpaceDashboardView({ spaceId, selectedTaskIdFromParent, 
     );
 
     const resolvedWorkspaceId: string | undefined = space?.workspaceId ?? undefined;
+
+    const automationScope = useMemo<AutomationScope | null>(() => {
+        if (!spaceId || !resolvedWorkspaceId) return null;
+        return {
+            workspaceId: resolvedWorkspaceId,
+            spaceId,
+            contextType: "SPACE",
+            contextId: spaceId,
+            contextName: space?.name || "Space",
+        };
+    }, [spaceId, resolvedWorkspaceId, space?.name]);
+    const automations = useDashboardAutomations(automationScope);
 
     const { data: selectedList } = trpc.list.get.useQuery(
         { id: selectedListId || "" },
@@ -817,18 +833,33 @@ export default function SpaceDashboardView({ spaceId, selectedTaskIdFromParent, 
                             shareUrl={`${window.location.origin}${window.location.pathname}?spaceId=${spaceId}`}
                             showSettings={false}
                             askAIDisabled={currentTab === "ai-chat"}
-                            onAskAIClick={() => setIsAskAIOpen(!isAskAIOpen)}
+                            onAskAIClick={() => {
+                                automations.closeAgentPanel();
+                                setIsAskAIOpen(!isAskAIOpen);
+                            }}
                             onShareClick={() => setIsShareModalOpen(true)}
                             showExit={true}
-                            agentPopoverContent={
-                                <QuickAgentModal
-                                    contextId={spaceId}
-                                    contextType="SPACE"
-                                    onOpenChange={setIsAgentModalOpen}
+                            agentPopoverContent={automationScope ? (
+                                <AgentsPopover
+                                    scope={automationScope}
+                                    onOpenAgentPanel={(req) => {
+                                        setIsAskAIOpen(false);
+                                        automations.openAgentPanel(req);
+                                    }}
+                                    onManageAgents={automations.openManage}
                                 />
-                            }
-                            agentOpen={isAgentModalOpen}
-                            onAgentOpenChange={setIsAgentModalOpen}
+                            ) : undefined}
+                            agentOpen={automations.agentOpen}
+                            onAgentOpenChange={automations.setAgentOpen}
+                            automationsPopoverContent={automationScope ? (
+                                <AutomationsHubPopover
+                                    scope={automationScope}
+                                    onManage={automations.openManage}
+                                    onCreate={(mode) => automations.openBuilder(mode)}
+                                />
+                            ) : undefined}
+                            automationsOpen={automations.hubOpen}
+                            onAutomationsOpenChange={automations.setHubOpen}
                             leftActions={[
                                 {
                                     id: "settings",
@@ -1201,7 +1232,13 @@ export default function SpaceDashboardView({ spaceId, selectedTaskIdFromParent, 
                                                 />
                                             </SidePanelContainer>
                                         )}
-                                        {selectedTaskId && !isAskAIOpen && taskViewMode === 'sidebar' && (
+                                        {automations.agentPanel && !isAskAIOpen && (
+                                            <AgentTabbedPanel
+                                                request={automations.agentPanel}
+                                                onClose={automations.closeAgentPanel}
+                                            />
+                                        )}
+                                        {selectedTaskId && !isAskAIOpen && !automations.agentPanel && taskViewMode === 'sidebar' && (
                                             <div className="h-full border-l border-zinc-200 bg-white">
                                                 <TaskDetailContent
                                                     taskId={selectedTaskId}
@@ -1217,7 +1254,7 @@ export default function SpaceDashboardView({ spaceId, selectedTaskIdFromParent, 
                                         )}
                                     </>
                                 }
-                                isPanelOpen={isAskAIOpen || (!!selectedTaskId && taskViewMode === 'sidebar')}
+                                isPanelOpen={isAskAIOpen || !!automations.agentPanel || (!!selectedTaskId && taskViewMode === 'sidebar' && !automations.agentPanel)}
                                 sidePanelDefaultSize={50}
                                 sidePanelMinSize={40}
                             />
@@ -1258,6 +1295,22 @@ export default function SpaceDashboardView({ spaceId, selectedTaskIdFromParent, 
                     itemId={spaceId}
                     itemName={space.name || "Space"}
                     workspaceId={resolvedWorkspaceId!}
+                />
+
+                <DashboardAutomationOverlays
+                    scope={automationScope}
+                    manageOpen={automations.manageOpen}
+                    onManageOpenChange={automations.setManageOpen}
+                    builderOpen={automations.builderOpen}
+                    onBuilderOpenChange={automations.setBuilderOpen}
+                    builderMode={automations.builderMode}
+                    editingId={automations.editingId}
+                    onCreate={(mode) => automations.openBuilder(mode)}
+                    onEdit={(id, mode) => automations.openBuilder(mode, id)}
+                    onAskBrain={() => {
+                        automations.closeAgentPanel();
+                        setIsAskAIOpen(true);
+                    }}
                 />
 
                 {/* Rename Dialog */}

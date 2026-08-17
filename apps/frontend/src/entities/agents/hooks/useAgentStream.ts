@@ -3,6 +3,7 @@
 import { useCallback, useRef, useState } from 'react';
 import { fetchAuthToken } from '@/utils/backend-request';
 import { openUsageCapFromResponse } from '@/features/usage/hooks/useUsageCapModal';
+import { formatModelErrorMessage } from '@/entities/models/utils/formatModelError';
 
 const BACKEND_URL =
     typeof window !== 'undefined'
@@ -130,7 +131,7 @@ export function useAgentStream(callbacks: AgentStreamCallbacks = {}): UseAgentSt
                         }
                     }
                 } catch { /* ignore parse errors */ }
-                throw new Error(errMsg);
+                throw new Error(formatModelErrorMessage(errMsg));
             }
 
             // ── SSE Stream Reading ────────────────────────────────────────────
@@ -210,7 +211,10 @@ export function useAgentStream(callbacks: AgentStreamCallbacks = {}): UseAgentSt
                             break;
                         }
                         case 'error': {
-                            throw new Error(event.message ?? 'Stream error');
+                            throw Object.assign(new Error(event.message ?? 'Stream error'), {
+                                code: event.code,
+                                kind: event.kind,
+                            });
                         }
                         default:
                             break;
@@ -219,7 +223,7 @@ export function useAgentStream(callbacks: AgentStreamCallbacks = {}): UseAgentSt
             }
         } catch (err: any) {
             if (err?.name === 'AbortError') return;
-            const msg = err instanceof Error ? err.message : String(err);
+            const msg = formatModelErrorMessage(err);
             setIsStreaming(false);
             setThinkingStep(null);
             callbacksRef.current.onError?.(msg);

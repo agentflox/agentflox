@@ -14,6 +14,7 @@ import { workforceRateLimiter, consumeRateLimit } from '@/lib/rateLimiter';
 import { ExecutionQuotaService } from '@/services/billing/executionQuota.service';
 import { sendExecutionQuotaError } from '@/services/billing/executionQuota.http';
 import { collectArtifactsFromStepResults } from '@/services/agents/artifacts/executionArtifact';
+import { toUserFacingError } from '@/services/models';
 
 // ─── Shared helpers ────────────────────────────────────────────────────────────
 
@@ -111,6 +112,7 @@ export class WorkforcesController {
       task: z.string().min(1),
       input: z.record(z.unknown()).optional(),
       conversationId: z.string().optional(),
+      modelId: z.string().optional().nullable(),
       messages: z.array(z.object({ role: z.string(), content: z.string() })).optional(),
     });
 
@@ -140,6 +142,13 @@ export class WorkforcesController {
       if (!workforce) {
         emitter.error('Workforce not found or access denied');
         return;
+      }
+
+      if (parsed.modelId && parsed.conversationId) {
+        await prisma.aiConversation.update({
+          where: { id: parsed.conversationId },
+          data: { modelId: parsed.modelId },
+        }).catch(() => null);
       }
 
       const executionId = randomUUID();
@@ -174,6 +183,7 @@ export class WorkforcesController {
         task: parsed.task,
         conversationId: parsed.conversationId,
         messages: parsed.messages,
+        modelId: parsed.modelId ?? undefined,
         ...parsed.input,
       };
       const result = await runWorkforce(workforceId, input, userId, { executionId });
@@ -191,7 +201,7 @@ export class WorkforcesController {
           } else if (data.type === 'token') {
             emitter.token(data.message);
           } else if (data.type === 'error') {
-            emitter.error(data.message);
+            emitter.error(data.message, { code: data.code, kind: data.kind });
           } else if (data.type === 'complete') {
             redisSub.unsubscribe(channel).catch(() => { });
             redisSub.removeListener('message', listener);
@@ -234,7 +244,8 @@ export class WorkforcesController {
       });
     } catch (error) {
       console.error('[WorkforcesController] Error running workforce (stream):', error);
-      emitter.error(error instanceof Error ? error.message : 'Unknown error');
+      const facing = toUserFacingError(error);
+      emitter.error(facing.message, { code: facing.code, kind: facing.kind });
     }
   }
 
@@ -392,7 +403,10 @@ export class WorkforcesController {
     } catch (error: any) {
       console.error('[WorkforcesController] Editor assistant stream error:', error);
       if (error instanceof z.ZodError) emitter.error('Invalid request.');
-      else emitter.error(error?.message || 'Internal server error');
+      else {
+        const facing = toUserFacingError(error);
+        emitter.error(facing.message, { code: facing.code, kind: facing.kind });
+      }
     }
   }
 
@@ -471,8 +485,9 @@ export class WorkforcesController {
       const schema = z.object({
         workforceId: z.string().min(1),
         sessionId: z.string().min(1),
+        modelId: z.string().optional().nullable(),
       });
-      const { workforceId, sessionId } = schema.parse(req.body);
+      const { workforceId, sessionId, modelId } = schema.parse(req.body);
       const userId = req.userId!;
 
       const workforce = await prisma.workforce.findFirst({
@@ -591,8 +606,15 @@ export class WorkforcesController {
         workforce.workspaceId ?? '',
         coordinatorId,
         sessionId,
-        { agentIds, userId },
+        { agentIds, userId, ...(modelId ? { modelId } : {}) },
       );
+
+      if (modelId) {
+        await prisma.aiConversation.update({
+          where: { id: sessionId },
+          data: { modelId },
+        }).catch(() => null);
+      }
 
       return res.json({ sessionId: sid, workspaceId: workforce.workspaceId });
     } catch (error) {
@@ -717,6 +739,7 @@ export class WorkforcesController {
       const schema = z.object({
         message: z.string().min(1),
         workspaceId: z.string().optional(),
+        modelId: z.string().optional().nullable(),
         mentions: z.array(z.object({
           id: z.string(),
           name: z.string(),
@@ -724,7 +747,7 @@ export class WorkforcesController {
         })).optional(),
         contexts: z.array(z.any()).optional(),
       });
-      const { message, workspaceId, mentions = [], contexts = [] } = schema.parse(req.body ?? {});
+      const { message, workspaceId, modelId, mentions = [], contexts = [] } = schema.parse(req.body ?? {});
       const userId = req.userId!;
 
       const session = await swarmOrchestrationService.getSession(sessionId);
@@ -736,6 +759,17 @@ export class WorkforcesController {
         prisma.workspaceMember.findFirst({ where: { workspaceId: wid, userId }, select: { id: true } }),
       ]);
       if (!isOwner && !isMember) { emitter.error('Access denied'); return; }
+
+      if (modelId) {
+        await prisma.aiConversation.update({
+          where: { id: sessionId },
+          data: { modelId },
+        }).catch(() => null);
+        if (session) {
+          session.config = { ...(session.config || {}), modelId };
+          await swarmOrchestrationService.saveSession(session);
+        }
+      }
 
       const savedUserMessage = await prisma.aiMessage.create({
         data: {
@@ -759,6 +793,7 @@ export class WorkforcesController {
         mentions,
         emitter,
         excludeMessageId: savedUserMessage.id,
+        modelId: modelId ?? null,
       });
 
       await prisma.aiMessage.create({
@@ -779,7 +814,12 @@ export class WorkforcesController {
     } catch (err: any) {
       console.error('[SwarmMessageStream] Error:', err);
       const isAuthError = err?.message?.startsWith('Unauthorized') || err?.code === 'UNAUTHORIZED' || err?.message?.startsWith('Access denied');
-      emitter.error(isAuthError ? 'Access denied' : (err?.message || 'Internal server error'));
+      if (isAuthError) {
+        emitter.error('Access denied', { code: 'UNAUTHORIZED', kind: 'auth' });
+      } else {
+        const facing = toUserFacingError(err);
+        emitter.error(facing.message, { code: facing.code, kind: facing.kind });
+      }
     }
   }
 

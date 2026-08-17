@@ -3,6 +3,7 @@ import {
   createOpenAICompletion,
   recordUsage,
   fromOpenAIUsage,
+  toUserFacingError,
   type ResolvedModel,
 } from '@/services/models';
 import { prisma } from '@/lib/prisma';
@@ -531,7 +532,7 @@ export class AgentExecutorService {
     agentId: string,
     message: string,
     userId: string,
-    options?: { contexts?: any[]; mentions?: any[]; attachments?: any[] },
+    options?: { contexts?: any[]; mentions?: any[]; attachments?: any[]; modelId?: string | null },
     idempotencyKey?: string
   ): Promise<{ runId: string }> {
     const runId = randomUUID();
@@ -568,7 +569,7 @@ export class AgentExecutorService {
       agentId: string;
       message: string;
       userId: string;
-      options?: { contexts?: any[]; mentions?: any[]; attachments?: any[] };
+      options?: { contexts?: any[]; mentions?: any[]; attachments?: any[]; modelId?: string | null };
       idempotencyKey?: string;
     }
   ): Promise<{
@@ -590,6 +591,14 @@ export class AgentExecutorService {
     const isSwarmTask = !!swarmParsed;
     const swarmTaskId = swarmParsed?.taskId ?? null;
     const isSwarmReview = swarmParsed?.isReview ?? false;
+
+    // Persist composer model selection for subsequent turns
+    if (options?.modelId) {
+      await prisma.aiConversation.update({
+        where: { id: conversationId },
+        data: { modelId: options.modelId },
+      }).catch(() => { /* non-fatal */ });
+    }
 
     const onProgress = (stepDesc: string, node?: string) => {
       console.log(`[AgentExecutor ReAct] Progress: ${stepDesc}`);
@@ -992,9 +1001,10 @@ export class AgentExecutorService {
           const missingSkillsArray = missingSkills || [];
 
           onProgress?.('Building execution plan...');
-          // Primary model for this run = agent's selected model (else platform default).
+          // Resolve: dropdown override → agent.modelId → platform default
+          const selectedModelId = options?.modelId || agent.modelId || undefined;
           const resolved = await resolveAgentModel({
-            modelId: agent.modelId,
+            modelId: selectedModelId,
             agentId: agent.id,
             userId,
           });
@@ -1054,7 +1064,7 @@ ${guardrails}${semanticMemoryBlock}${swarmPeerBlock}`;
                 constraints: agent.constraints,
                 systemPrompt: agent.systemPrompt,
                 modelConfig: {
-                  modelId: agent.modelId,
+                  modelId: selectedModelId ?? agent.modelId,
                   temperature: agent.temperature,
                   maxTokens: agent.maxTokens,
                 },
@@ -1215,10 +1225,10 @@ ${guardrails}${semanticMemoryBlock}${swarmPeerBlock}`;
 
             // Note: runId is generated once per processMessage and passed in. It is stable across retries of the SAME run, making this key safely idempotent for Inngest.
             const completion = await step.run(`executor-llm-${runId}-${iterations}`, async () => {
-              // Re-resolve inside the step so retries still use the agent's selected model
+              // Re-resolve inside the step so retries still use the selected model
               // even if the outer closure is stale after an Inngest replay.
               const stepResolved = await resolveAgentModel({
-                modelId: agent.modelId,
+                modelId: selectedModelId,
                 agentId: agent.id,
                 userId,
               });
@@ -1228,7 +1238,7 @@ ${guardrails}${semanticMemoryBlock}${swarmPeerBlock}`;
                   operation: 'executor_chat',
                   agentId: agent.id,
                   userId,
-                  modelId: agent.modelId,
+                  modelId: selectedModelId,
                   resolvedModel: stepResolved,
                 },
                 (textSoFar, delta) => {
@@ -1624,10 +1634,14 @@ ${guardrails}${semanticMemoryBlock}${swarmPeerBlock}`;
       this.runInBackground('emit-run-completed', () => emitRunCompleted(runId, userId));
       return result;
     } catch (e: any) {
-      await redis.setex(runKey, 3600, JSON.stringify({ status: 'error', message: e.message || 'Error occurred' }));
-      redis.publish(runKey, JSON.stringify({ type: 'error', message: e.message || 'Error occurred' })).catch(() => { });
+      const facing = e?.userMessage
+        ? { message: e.userMessage as string, code: String(e.code || 'AGENT_ERROR'), kind: 'execution' as const }
+        : toUserFacingError(e);
+      const facingMessage = facing.message;
+      await redis.setex(runKey, 3600, JSON.stringify({ status: 'error', message: facingMessage, code: facing.code, kind: facing.kind }));
+      redis.publish(runKey, JSON.stringify({ type: 'error', message: facingMessage, code: facing.code, kind: facing.kind })).catch(() => { });
       // FLAW-07 FIX: Emit durable RUN_FAILED event (fire-and-forget).
-      this.runInBackground('emit-run-failed', () => emitRunFailed(runId, userId, { error: e.message }));
+      this.runInBackground('emit-run-failed', () => emitRunFailed(runId, userId, { error: facingMessage }));
 
       // Broadcast failure to swarm UI (durable). Skip lock errors (Inngest retries) and review convos.
       if (isSwarmTask && swarmTaskId && !isSwarmReview && e.code !== 'AGENT_EXECUTOR_CONVERSATION_LOCKED') {
@@ -1642,7 +1656,7 @@ ${guardrails}${semanticMemoryBlock}${swarmPeerBlock}`;
               swarmTaskId,
               (task as any)?.title || 'Task',
               agentId,
-              e.message || 'Unknown error'
+              facingMessage
             );
             return true;
           });

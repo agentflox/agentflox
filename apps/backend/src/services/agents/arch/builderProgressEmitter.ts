@@ -44,6 +44,8 @@ export interface CompleteEvent {
 export interface ErrorEvent {
     type: 'error';
     message: string;
+    code?: string;
+    kind?: string;
     timestamp: number;
 }
 
@@ -99,8 +101,14 @@ export class BuilderProgressEmitter {
         this.end();
     }
 
-    error(message: string): void {
-        this.emit({ type: 'error', message, timestamp: Date.now() });
+    error(message: string, meta?: { code?: string; kind?: string }): void {
+        this.emit({
+            type: 'error',
+            message,
+            code: meta?.code,
+            kind: meta?.kind,
+            timestamp: Date.now(),
+        });
         this.end();
     }
 

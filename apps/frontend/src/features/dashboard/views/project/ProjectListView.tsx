@@ -373,7 +373,7 @@ export default function ProjectListView({ projectId, workspaceId, selectedListId
                                             <div className="flex flex-col sm:flex-row items-center gap-3">
                                                 <Button
                                                     size="sm"
-                                                    className="bg-slate-900 hover:bg-slate-800 text-white rounded-lg w-full sm:w-auto"
+                                                    className="rounded-lg bg-slate-900 hover:bg-slate-800 text-white w-full sm:w-auto"
                                                     onClick={() => {
                                                         setTargetFolderId(activeFolderId || undefined);
                                                         setIsListModalOpen(true);
@@ -750,13 +750,45 @@ export default function ProjectListView({ projectId, workspaceId, selectedListId
                                 />
                             </div>
                         ) : (
-                            <div className="flex h-full items-center justify-center">
-                                <div className="text-center">
-                                    <ListIcon className="mx-auto mb-4 h-16 w-16 text-muted-foreground/30" />
-                                    <p className="text-lg font-medium text-foreground">Select a list or folder</p>
-                                    <p className="mt-1 text-sm text-muted-foreground">
-                                        Choose a list or folder from the sidebar to view its details
+                            <div className="flex h-full items-center justify-center py-12">
+                                <div className="flex flex-col items-center text-center max-w-sm p-6">
+                                    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-50 mb-4">
+                                        <ListIcon className="h-6 w-6 text-indigo-500" strokeWidth={1.5} />
+                                    </div>
+
+                                    <h2 className="text-lg font-semibold text-slate-900 mb-1">
+                                        Organize your Lists
+                                    </h2>
+
+                                    <p className="text-sm text-slate-500 leading-relaxed mb-5">
+                                        Lists help you organize tasks and workflows. Select one or create a new one.
                                     </p>
+
+                                    <div className="flex flex-col sm:flex-row items-center gap-3">
+                                        <Button
+                                            size="sm"
+                                            className="rounded-lg bg-slate-900 hover:bg-slate-800 text-white w-full sm:w-auto"
+                                            onClick={() => {
+                                                setTargetFolderId(activeFolderId || undefined);
+                                                setIsListModalOpen(true);
+                                            }}
+                                        >
+                                            <Plus className="mr-1.5 h-4 w-4" />
+                                            Create a List
+                                        </Button>
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            className="rounded-lg border-[#2D2D2D] text-[#2D2D2D] hover:bg-[#f5f5f5] hover:border-[#1a1a1a] w-full sm:w-auto"
+                                            onClick={() => {
+                                                setTargetFolderId(activeFolderId || undefined);
+                                                setIsFolderModalOpen(true);
+                                            }}
+                                        >
+                                            <Folder className="mr-1.5 h-4 w-4" />
+                                            Create a Folder
+                                        </Button>
+                                    </div>
                                 </div>
                             </div>
                         )

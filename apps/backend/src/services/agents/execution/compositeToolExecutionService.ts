@@ -207,8 +207,10 @@ export class CompositeToolExecutionService {
       return { success: true, output: finalOutput, steps: stepResults, artifacts };
     } catch (err: any) {
       logger.error(`Composite tool execution failed: ${err.message}`, { toolId, userId });
-      onProgress?.({ type: 'error', content: err.message });
-      return { success: false, output: null, steps: stepResults, error: err.message };
+      const { toUserFacingError } = await import('@/services/models');
+      const facing = toUserFacingError(err);
+      onProgress?.({ type: 'error', content: facing.message, metadata: { code: facing.code, kind: facing.kind } });
+      return { success: false, output: null, steps: stepResults, error: facing.message };
     }
   }
 

@@ -23,6 +23,7 @@ export interface UseOperatorStreamReturn extends Omit<UseAgentStreamReturn, 'sen
         agentId: string;
         conversationId: string;
         message: string;
+        modelId?: string | null;
         contexts?: Array<{ type: string; id: string }>;
         mentions?: Array<{ id: string; name: string; type: 'agent' | 'task' }>;
         attachments?: Attachment[];
@@ -40,6 +41,7 @@ export function useOperatorStream(callbacks: OperatorStreamCallbacks = {}): UseO
         agentId,
         conversationId,
         message,
+        modelId,
         contexts,
         mentions,
         attachments,
@@ -47,6 +49,7 @@ export function useOperatorStream(callbacks: OperatorStreamCallbacks = {}): UseO
         agentId: string;
         conversationId: string;
         message: string;
+        modelId?: string | null;
         contexts?: Array<{ type: string; id: string }>;
         mentions?: Array<{ id: string; name: string; type: 'agent' | 'task' }>;
         attachments?: Attachment[];
@@ -56,6 +59,7 @@ export function useOperatorStream(callbacks: OperatorStreamCallbacks = {}): UseO
             body: {
                 conversationId,
                 message,
+                ...(modelId ? { modelId } : {}),
                 ...(contexts?.length ? { contexts } : {}),
                 ...(mentions?.length ? { mentions } : {}),
                 ...(attachments?.length ? { attachments } : {}),

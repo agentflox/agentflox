@@ -11,6 +11,9 @@ import {
   initializeSupportAssistant,
   streamMessageToSupportAssistant,
 } from "@/services/supportAssistant.service";
+import { useDefaultModel } from "@/entities/models/hooks/useModels";
+import { formatModelErrorMessage } from "@/entities/models/utils/formatModelError";
+import { toast } from "sonner";
 
 type Message = { id: string; role: "user" | "assistant"; content: string; streaming?: boolean };
 
@@ -27,6 +30,8 @@ export function SupportAssistantModal({ isOpen, onClose }: SupportAssistantModal
   const [error, setError] = useState<string | null>(null);
   const messagesContainerRef = useRef<HTMLDivElement | null>(null);
   const initialized = useRef(false);
+  const { data: defaultModel } = useDefaultModel();
+  const selectedModelId = defaultModel?.id ?? null;
 
   // ── Initialize on open ─────────────────────────────────────────────────
   useEffect(() => {
@@ -94,22 +99,26 @@ export function SupportAssistantModal({ isOpen, onClose }: SupportAssistantModal
           );
         },
         onError: (msg) => {
-          setError(msg);
+          const friendly = formatModelErrorMessage(msg);
+          setError(friendly);
+          toast.error(friendly);
           setMessages((prev) =>
             prev.map((m) =>
               m.id === assistantMsgId
-                ? { ...m, content: m.content || "Sorry, something went wrong.", streaming: false }
+                ? { ...m, content: m.content || friendly, streaming: false }
                 : m
             )
           );
         },
-      }, options?.modelId);
+      }, options?.modelId ?? selectedModelId);
     } catch (e: any) {
-      setError(e?.message || "Failed to send message");
+      const friendly = formatModelErrorMessage(e, "Failed to send message");
+      setError(friendly);
+      toast.error(friendly);
     } finally {
       setIsSending(false);
     }
-  }, [conversationId, isSending]);
+  }, [conversationId, isSending, selectedModelId]);
 
   if (!isOpen) return null;
 
@@ -217,11 +226,11 @@ export function SupportAssistantModal({ isOpen, onClose }: SupportAssistantModal
               onSend={handleSend}
               isSending={isSending}
               disabled={!conversationId}
+              modelId={selectedModelId}
               placeholder="Ask anything..."
               hideMentions={true}
               hideContext={true}
               hideWebSearch={true}
-              hideModelSelect={true}
               className="rounded-xl border-slate-200 focus-within:ring-2 focus-within:ring-indigo-500/20 transition-all"
             />
             <div className="mt-2 text-[10px] text-center text-slate-400">

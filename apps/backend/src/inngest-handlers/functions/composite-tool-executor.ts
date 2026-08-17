@@ -24,6 +24,23 @@ export const executeCompositeTool = inngest.createFunction(
         name: 'Execute Composite Tool',
         retries: 2,
         triggers: [{ event: 'tool/composite.execute' }],
+        onFailure: async ({ event, error }) => {
+            const data = (event as any)?.data?.event?.data ?? (event as any)?.data ?? {};
+            const runId = data.runId as string | undefined;
+            const userId = data.userId as string | undefined;
+            const rootRunId = data.rootRunId as string | undefined;
+            const { toUserFacingError } = await import('@/services/models');
+            const facing = toUserFacingError(error);
+            if (runId) {
+                await finaliseRun(runId, 'FAILED', null, {}, facing.message).catch(() => {});
+            }
+            if (userId && (runId || rootRunId)) {
+                await ExecutionQuotaService.deregisterActiveRun(
+                    userId,
+                    rootRunId ?? runId ?? '',
+                ).catch(() => {});
+            }
+        },
     },
     async ({ event, step }) => {
         const { toolId, input, userId, runId, messageId, stepId, rootRunId, billingExempt, startStepId, endStepId } = event.data;
@@ -165,6 +182,8 @@ export const executeCompositeTool = inngest.createFunction(
                     }
                 );
             } catch (stepErr: any) {
+                const { toUserFacingError } = await import('@/services/models');
+                const facing = toUserFacingError(stepErr);
                 if (runId) {
                     await step.run(`log-error-${s.id}`, async () => {
                         await publishToolLog(runId, {
@@ -173,9 +192,11 @@ export const executeCompositeTool = inngest.createFunction(
                             stepId: s.id,
                             phase: 'error',
                             payload: {
-                                error: stepErr?.message || String(stepErr),
+                                error: facing.message,
+                                code: facing.code,
+                                kind: facing.kind,
                                 inputs: displayFields,
-                                summary: `${stepTitle} failed: ${stepErr?.message || String(stepErr)}`,
+                                summary: `${stepTitle} failed: ${facing.message}`,
                             },
                         });
                         return true;

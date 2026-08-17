@@ -139,7 +139,7 @@ ${typeof context === 'object' ? JSON.stringify(context, null, 2) : context}
             }
         });
 
-        // 2. Trigger via Inngest for durability (best-effort in local dev)
+        // 2. Trigger via Inngest for durability
         try {
             await inngest.send({
                 name: 'agent/workflow.execute',
@@ -152,8 +152,30 @@ ${typeof context === 'object' ? JSON.stringify(context, null, 2) : context}
                 }
             });
         } catch (err) {
-            // In local development, Inngest may not be running; don't fail the workflow start.
+            const { toUserFacingError } = await import('@/services/models');
+            const facing = toUserFacingError(err);
             console.error('[WorkflowOrchestrator] Failed to send workflow to Inngest', err);
+            await prisma.agentWorkflowExecution.update({
+                where: { id: execution.id },
+                data: {
+                    status: 'FAILED',
+                    endTime: new Date(),
+                    error: facing.message,
+                },
+            }).catch(() => {});
+            await redis.publish(
+                `workforce:run:${execution.id}`,
+                JSON.stringify({
+                    type: 'error',
+                    message: facing.message,
+                    code: facing.code,
+                    kind: facing.kind,
+                }),
+            ).catch(() => {});
+            const e = new Error(facing.message) as Error & { code?: string; userMessage?: string };
+            e.code = facing.code;
+            e.userMessage = facing.message;
+            throw e;
         }
 
         return execution;

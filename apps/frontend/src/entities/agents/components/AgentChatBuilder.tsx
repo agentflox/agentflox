@@ -20,6 +20,8 @@ import { useBuilderStream } from '@/entities/agents/hooks/useBuilderStream';
 import type { QuickAction, AgentDraft, UserContext, ConversationState } from '@/entities/agents/types';
 import { ResizableSplitLayout } from '@/components/layout/ResizableSplitLayout';
 import { AgentChatSkeleton } from './AgentChatSkeleton';
+import { useDefaultModel } from '@/entities/models/hooks/useModels';
+import { formatModelErrorMessage } from '@/entities/models/utils/formatModelError';
 
 interface AgentChatBuilderProps {
   agentId?: string;
@@ -32,12 +34,14 @@ interface AgentChatBuilderProps {
     completedSteps?: string[];
     currentStep?: string;
   }) => void;
+  presentation?: 'split' | 'tabs';
 }
 
 export const AgentChatBuilder: React.FC<AgentChatBuilderProps> = ({
   agentId,
   onAgentCreated,
   onProgressUpdate,
+  presentation = 'split',
 }) => {
   const [messages, setMessages] = useState<RenderedMessage[]>([]);
   const [conversationId, setConversationId] = useState<string | null>(null);
@@ -66,7 +70,11 @@ export const AgentChatBuilder: React.FC<AgentChatBuilderProps> = ({
 
   // Load agent data if agentId provided
   const { data: agentData, isLoading: isLoadingAgent, refetch: refetchAgent } = trpc.agent.get.useQuery(
-    { id: agentId!, conversationType: 'AGENT_BUILDER' },
+    {
+      id: agentId!,
+      conversationType: 'AGENT_BUILDER',
+      includeSections: { tools: true, triggers: true, schedules: true },
+    },
     { enabled: !!agentId }
   );
 
@@ -77,9 +85,11 @@ export const AgentChatBuilder: React.FC<AgentChatBuilderProps> = ({
     onError: (err) => toast.error(err.message || 'Failed to update agent model'),
   });
 
+  const { data: defaultModel } = useDefaultModel();
   const agentModelId =
     (agentData as any)?.modelId ??
     (agentData as any)?.aiModel?.id ??
+    defaultModel?.id ??
     null;
 
   // Mutations
@@ -213,11 +223,12 @@ export const AgentChatBuilder: React.FC<AgentChatBuilderProps> = ({
     setIsSending(false);
     setMessages(prev => prev.filter(msg => !optimisticMessageIds.current.has(msg.id)));
     optimisticMessageIds.current.clear();
-    toast.error(errorMessage || 'Failed to process message');
+    const friendly = formatModelErrorMessage(errorMessage, 'Failed to process message');
+    toast.error(friendly);
     setMessages(prev => [...prev, {
       id: `error_${Date.now()}`,
       role: 'ASSISTANT' as MessageRole,
-      content: `Error: ${errorMessage}. Please try again.`,
+      content: `Error: ${friendly}`,
       createdAt: new Date(),
     }]);
   }, []);
@@ -349,7 +360,7 @@ export const AgentChatBuilder: React.FC<AgentChatBuilderProps> = ({
   const markFollowupsConsumedMutation = trpc.chat.markFollowupsConsumed.useMutation();
 
   // ✅ Update handleSendMessage to update UI optimistically before mutation
-  const handleSendMessage = useCallback(async (message: string, options?: { attachments?: any[]; webSearch?: boolean; contexts?: Array<{ type: string; id: string }>; mentions?: Array<{ id: string; name: string; type: 'agent' | 'task' }> }) => {
+  const handleSendMessage = useCallback(async (message: string, options?: { attachments?: any[]; webSearch?: boolean; contexts?: Array<{ type: string; id: string }>; mentions?: Array<{ id: string; name: string; type: 'agent' | 'task' }>; modelId?: string }) => {
     if (!message.trim() || isSending || !conversationId) return;
 
     const optimisticId = `optimistic_${Date.now()}`;
@@ -389,11 +400,12 @@ export const AgentChatBuilder: React.FC<AgentChatBuilderProps> = ({
       conversationId,
       message,
       agentId: resolvedAgentId,
+      modelId: options?.modelId ?? agentModelId,
       contexts: options?.contexts,
       mentions: options?.mentions,
       attachments: options?.attachments,
     });
-  }, [sendStreamMessage, conversationId, isSending, messages, markFollowupsConsumedMutation, agentId, agentDraft, agentData]);
+  }, [sendStreamMessage, conversationId, isSending, messages, markFollowupsConsumedMutation, agentId, agentDraft, agentData, agentModelId]);
 
   // ✅ Update handleFollowupClick to wait for mutation
   const handleFollowupClick = useCallback(async (messageId: string, followup: MessageFollowup) => {
@@ -447,14 +459,7 @@ export const AgentChatBuilder: React.FC<AgentChatBuilderProps> = ({
     followups: msg.followups || followupsMap.get(msg.id),
   }));
 
-  return (
-    <div className="flex h-full">
-      <ResizableSplitLayout
-        mainPanelDefaultSize={60}
-        mainPanelMinSize={50}
-        sidePanelDefaultSize={40}
-        sidePanelMinSize={40}
-        MainContent={
+  const chatColumn = (
           <div className="flex flex-col h-full bg-white">
             <div className="flex-1 overflow-hidden relative">
               <ChatMessageList
@@ -477,7 +482,6 @@ export const AgentChatBuilder: React.FC<AgentChatBuilderProps> = ({
                 emptyState={
                   <AgentChatEmptyState
                     agentName={agentData?.name || agentDraft?.name || 'Agent'}
-                    agentDescription={agentData?.description || agentDraft?.description}
                     agentAvatar={agentData?.avatar || agentDraft?.avatar}
                     type="builder"
                   />
@@ -490,7 +494,6 @@ export const AgentChatBuilder: React.FC<AgentChatBuilderProps> = ({
                 isSending={isSending}
                 disabled={isSending || !conversationId}
                 minHeight={80}
-                hideModelSelect
                 modelId={agentModelId}
                 onModelChange={(id) => {
                   if (!agentId) return;
@@ -499,7 +502,20 @@ export const AgentChatBuilder: React.FC<AgentChatBuilderProps> = ({
               />
             </div>
           </div>
-        }
+  );
+
+  if (presentation === 'tabs') {
+    return <div className="flex h-full w-full min-h-0">{chatColumn}</div>;
+  }
+
+  return (
+    <div className="flex h-full">
+      <ResizableSplitLayout
+        mainPanelDefaultSize={60}
+        mainPanelMinSize={50}
+        sidePanelDefaultSize={40}
+        sidePanelMinSize={40}
+        MainContent={chatColumn}
         SidePanelContent={
           <div className="h-full border-l bg-gradient-to-b from-background to-muted/20 overflow-hidden">
             {showAgentProfile && agentData ? (
@@ -520,7 +536,9 @@ export const AgentChatBuilder: React.FC<AgentChatBuilderProps> = ({
                   createdAt: agentData.createdAt ?? new Date(),
                   updatedAt: agentData.updatedAt ?? new Date(),
                   metadata: (agentData.metadata as any) ?? {},
-                  triggers: (agentData.triggers || []).map(t => ({
+                  viewerIsOwner: (agentData as any).viewerIsOwner === true,
+                  ownerId: (agentData as any).ownerId,
+                  triggers: ((agentData as any).triggers || []).map((t: any) => ({
                     id: t.id,
                     triggerType: t.triggerType,
                     triggerConfig: t.triggerConfig as any,
@@ -530,7 +548,7 @@ export const AgentChatBuilder: React.FC<AgentChatBuilderProps> = ({
                     priority: t.priority,
                     tags: t.tags,
                   })),
-                  tools: (agentData.tools || []).map(t => ({
+                  tools: ((agentData as any).tools || []).map((t: any) => ({
                     id: t.id,
                     name: t.name,
                     description: t.description,
@@ -538,7 +556,7 @@ export const AgentChatBuilder: React.FC<AgentChatBuilderProps> = ({
                     toolType: t.toolType,
                     isActive: t.isActive,
                   })),
-                  schedules: (agentData.schedules || []).map(s => ({
+                  schedules: ((agentData as any).schedules || []).map((s: any) => ({
                     id: s.id,
                     name: s.name,
                     description: s.description,

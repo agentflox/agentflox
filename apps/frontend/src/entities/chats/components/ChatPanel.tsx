@@ -11,6 +11,7 @@ import { QuickActionsBar } from './QuickActionsBar'
 import { Sparkles } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import { useDefaultModel } from '@/entities/models/hooks/useModels'
 
 interface QuickAction {
   id: string
@@ -23,7 +24,7 @@ interface QuickAction {
 interface ChatPanelProps {
   title?: string | null
   messages: RenderedMessage[]
-  onSendMessage: (message: string, options?: { attachments?: any[]; webSearch?: boolean }) => Promise<void>
+  onSendMessage: (message: string, options?: { attachments?: any[]; webSearch?: boolean; mentions?: Array<{ id: string; name: string; type: string }>; modelId?: string }) => Promise<void>
   conversationId?: string | null
   isSending: boolean
   disabled?: boolean
@@ -67,6 +68,8 @@ export function ChatPanel({
   contextId
 }: ChatPanelProps) {
   const hasConversation = messages.length > 0 || pendingAssistantMessage
+  const { data: defaultModel } = useDefaultModel()
+  const selectedModelId = defaultModel?.id ?? null
 
   return (
     <div className="relative flex h-full w-full overflow-hidden bg-gradient-to-br from-slate-50 to-slate-100">
@@ -151,6 +154,7 @@ export function ChatPanel({
               conversationId={conversationId ?? undefined}
               isSending={isSending}
               disabled={disabled}
+              modelId={selectedModelId}
               hideMentions={hideMentions}
               hideWebSearch={hideWebSearch}
               contextType={contextType}

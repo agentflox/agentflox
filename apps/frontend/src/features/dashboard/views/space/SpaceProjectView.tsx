@@ -231,15 +231,6 @@ export default function SpaceProjectView({
                     {/* Projects List */}
                     {!isSidebarCollapsed && (
                         <div className="flex-1 overflow-y-auto px-2 py-2">
-                            {/* Manage entry */}
-                            <div
-                                className={cn("group/item flex w-full items-center gap-2 rounded-lg px-2 py-2 text-sm font-medium transition-colors hover:bg-slate-50 cursor-pointer mb-1", isManageView && "bg-indigo-50 text-indigo-700")}
-                                onClick={() => setIsManageView(true)}
-                            >
-                                <LayoutGrid className={cn("h-4 w-4 shrink-0 ml-1", isManageView ? "text-indigo-600" : "text-muted-foreground")} />
-                                <span className="flex-1 truncate">Manage Projects</span>
-                            </div>
-                            <div className="my-1.5 border-t border-slate-100" />
                             {isLoadingProjects ? (
                                 <LoadingContainer label="Loading projects..." spinnerSize="md" padding="md" />
                             ) : projects.length === 0 ? (
@@ -249,7 +240,17 @@ export default function SpaceProjectView({
                                     {searchQuery ? (
                                         <p className="mt-1 text-xs text-muted-foreground">Try adjusting your search</p>
                                     ) : (
-                                        <p className="mt-1 text-xs text-muted-foreground">Create your first project to get started</p>
+                                        <div className="flex flex-col items-center">
+                                            <p className="mt-1 text-xs text-muted-foreground mb-4">Create your first project to get started</p>
+                                            <Button
+                                                size="sm"
+                                                variant="outline"
+                                                onClick={() => setIsProjectModalOpen(true)}
+                                            >
+                                                <Plus className="mr-1.5 h-3.5 w-3.5" />
+                                                Create Project
+                                            </Button>
+                                        </div>
                                     )}
                                 </div>
                             ) : (

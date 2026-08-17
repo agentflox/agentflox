@@ -7,6 +7,8 @@ import { sendChatMessage as sendChatMessageService } from '@/services/chat.servi
 import type { RenderedMessage } from '../components/MessageList'
 import type { ChatContextType } from '../utils/context'
 import { MessageRole } from '@agentflox/database/src/generated/prisma/client'
+import { toast } from 'sonner'
+import { formatModelErrorMessage } from '@/entities/models/utils/formatModelError'
 
 interface UseChatsParams {
   contextType?: ChatContextType
@@ -110,7 +112,9 @@ export function useChats({ contextType, entityId, activeConversationId }: UseCha
         setPendingAssistantMessage(null)
         // On error, refetch to ensure consistency
         await utils.chat.getMessages.invalidate({ conversationId })
-        throw error
+        const msg = formatModelErrorMessage(error, 'Failed to send chat message')
+        toast.error(msg)
+        throw new Error(msg)
       } finally {
         setIsSending(false)
       }

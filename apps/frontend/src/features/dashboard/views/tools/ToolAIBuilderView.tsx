@@ -38,6 +38,8 @@ import { PublishEntityModal } from "@/features/marketplace/components/PublishEnt
 import { MarketplaceGuardDialog } from "@/features/marketplace/components/MarketplaceGuardDialog";
 import { SupportAssistantModal } from "@/components/assistant/SupportAssistantModal";
 import { ToolVersionsSheet } from "@/entities/tools/components/ToolVersionsSheet";
+import { useDefaultModel } from "@/entities/models/hooks/useModels";
+import { formatModelErrorMessage } from "@/entities/models/utils/formatModelError";
 import { IconColorSelector } from "@/components/ui/icon-color-selector";
 import { EntityIcon } from "@/entities/shared/components/EntityIcon";
 import { BugReportModal } from "@/entities/tools/components/BugReportModal";
@@ -584,11 +586,12 @@ export const ToolAIBuilderView: React.FC<ToolAIBuilderViewProps> = ({
     setIsSending(false);
     setMessages(prev => prev.filter(msg => !optimisticMessageIds.current.has(msg.id)));
     optimisticMessageIds.current.clear();
-    toast.error(errorMessage || 'Failed to process message');
+    const friendly = formatModelErrorMessage(errorMessage, 'Failed to process message');
+    toast.error(friendly);
     setMessages(prev => [...prev, {
       id: `error_${Date.now()}`,
       role: 'ASSISTANT' as MessageRole,
-      content: `Error: ${errorMessage}. Please try again.`,
+      content: `Error: ${friendly}`,
       createdAt: new Date(),
     }]);
   }, []);
@@ -719,6 +722,8 @@ export const ToolAIBuilderView: React.FC<ToolAIBuilderViewProps> = ({
 
   // Mutation to mark follow-ups as consumed
   const markFollowupsConsumedMutation = trpc.chat.markFollowupsConsumed.useMutation();
+  const { data: defaultModel } = useDefaultModel();
+  const selectedModelId = defaultModel?.id ?? null;
 
   // ✅ Update handleSendMessage to update UI optimistically before mutation
   const handleSendMessage = useCallback(async (
@@ -764,12 +769,12 @@ export const ToolAIBuilderView: React.FC<ToolAIBuilderViewProps> = ({
       conversationId,
       message,
       toolId: resolvedToolId,
-      modelId: options?.modelId,
+      modelId: options?.modelId ?? selectedModelId,
       contexts: options?.contexts,
       mentions: options?.mentions,
       attachments: options?.attachments,
     });
-  }, [sendStreamMessage, conversationId, isSending, messages, markFollowupsConsumedMutation, toolId, toolDraft, toolData]);
+  }, [sendStreamMessage, conversationId, isSending, messages, markFollowupsConsumedMutation, toolId, toolDraft, toolData, selectedModelId]);
 
   // ✅ Update handleFollowupClick to wait for mutation
   const handleFollowupClick = useCallback(async (messageId: string, followup: MessageFollowup) => {
@@ -1052,8 +1057,8 @@ export const ToolAIBuilderView: React.FC<ToolAIBuilderViewProps> = ({
                   onSend={handleSendMessage}
                   isSending={isSending}
                   disabled={isSending || !conversationId}
+                  modelId={selectedModelId}
                   minHeight={80}
-                  hideModelSelect
                 />
               </div>
             </div>

@@ -8,6 +8,8 @@ import {
   createChatCompletion,
   recordUsage,
   fromOpenAIUsage,
+  getUserFacingModelErrorMessage,
+  toUserFacingModelError,
 } from '@/services/models';
 
 @Injectable()
@@ -130,9 +132,10 @@ export class SupportService {
 
             return { content: assistantContent };
         } catch (err: any) {
+            const facing = toUserFacingModelError(err);
             throw new HttpException(
-                err?.message || 'Failed to generate assistant response.',
-                HttpStatus.INTERNAL_SERVER_ERROR,
+                { error: facing.code, message: facing.message },
+                facing.httpStatus || HttpStatus.INTERNAL_SERVER_ERROR,
             );
         }
     }
@@ -254,7 +257,8 @@ export class SupportService {
             emit('complete', { payload: { content: fullText } });
         } catch (err: any) {
             console.error('[SupportService] Stream error:', err);
-            emit('error', { message: err?.message || 'Failed to generate response.' });
+            const facing = toUserFacingModelError(err);
+            emit('error', { message: facing.message, code: facing.code });
         } finally {
             res.end();
         }

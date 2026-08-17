@@ -250,7 +250,7 @@ export class AgentBuilderService {
     message: string,
     userId: string,
     idempotencyKey?: string,
-    options?: { contexts?: any[]; mentions?: any[]; attachments?: any[] }
+    options?: { contexts?: any[]; mentions?: any[]; attachments?: any[]; modelId?: string | null }
   ): Promise<{ runId: string }> {
     const runId = this.generateId();
 
@@ -1028,7 +1028,7 @@ Follow the flow guide principles: AI-generated messages, numbered options, dynam
     userId: string,
     onProgress?: (step: string, node?: string) => void,
     onToken?: (text: string) => void,
-    options?: { contexts?: any[]; mentions?: any[]; attachments?: any[] },
+    options?: { contexts?: any[]; mentions?: any[]; attachments?: any[]; modelId?: string | null },
     idempotencyKey?: string
   ): Promise<{
     response: string;
@@ -1086,7 +1086,7 @@ Follow the flow guide principles: AI-generated messages, numbered options, dynam
     span: any,
     onProgress?: (step: string, node?: string) => void,
     onToken?: (text: string) => void,
-    options?: { contexts?: any[]; mentions?: any[]; attachments?: any[] }
+    options?: { contexts?: any[]; mentions?: any[]; attachments?: any[]; modelId?: string | null }
   ): Promise<{
     response: string;
     conversationState: ConversationState;
@@ -1096,6 +1096,15 @@ Follow the flow guide principles: AI-generated messages, numbered options, dynam
     actions?: Array<{ id: string; label: string; variant: string }>;
   }> {
     const emit = (step: string, node?: string) => onProgress?.(step, node);
+
+    // Persist composer model selection on the conversation for subsequent turns
+    if (options?.modelId) {
+      await prisma.aiConversation.update({
+        where: { id: conversationId },
+        data: { modelId: options.modelId },
+      }).catch(() => { /* non-fatal */ });
+    }
+
     // Pre-validation (deterministic, before AI processing)
     const preValidation = this.validator.preValidate(message);
     if (!preValidation.valid) {
@@ -1584,10 +1593,17 @@ ${enrichedPrompt}`,
 
       const conversationAgent = await prisma.aiConversation.findUnique({
         where: { id: conversationId },
-        select: { agentId: true, aiAgent: { select: { id: true, modelId: true } } },
+        select: {
+          agentId: true,
+          modelId: true,
+          aiAgent: { select: { id: true, modelId: true } },
+        },
       });
+      // Resolve: request override → conversation → draft → agent → platform default
       const resolved = await resolveModel({
         modelId:
+          options?.modelId ||
+          conversationAgent?.modelId ||
           (updatedDraft as any)?.modelConfig?.modelId ||
           conversationAgent?.aiAgent?.modelId ||
           undefined,

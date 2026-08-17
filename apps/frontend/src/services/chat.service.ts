@@ -85,7 +85,18 @@ export async function sendChatMessage(
 
   if (!response.ok || !response.body) {
     const errorText = await response.text()
-    throw new Error(errorText || 'Failed to send chat message')
+    let parsed: any = null
+    try {
+      parsed = JSON.parse(errorText)
+    } catch {
+      /* ignore */
+    }
+    const { formatModelErrorMessage } = await import('@/entities/models/utils/formatModelError')
+    throw new Error(
+      formatModelErrorMessage(
+        parsed?.message || parsed?.error || errorText || 'Failed to send chat message',
+      ),
+    )
   }
 
   const reader = response.body.getReader()

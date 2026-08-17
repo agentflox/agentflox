@@ -9,6 +9,7 @@ export interface UseSwarmMessageStreamReturn extends Omit<UseAgentStreamReturn, 
         sessionId: string;
         message: string;
         workspaceId?: string;
+        modelId?: string | null;
         mentions?: any[];
         contexts?: any[];
     }) => Promise<void>;
@@ -21,18 +22,26 @@ export function useSwarmMessageStream(callbacks: AgentStreamCallbacks = {}): Use
         sessionId,
         message,
         workspaceId,
+        modelId,
         mentions,
         contexts,
     }: {
         sessionId: string;
         message: string;
         workspaceId?: string;
+        modelId?: string | null;
         mentions?: any[];
         contexts?: any[];
     }) => {
         await genericSend({
             url: `${BACKEND_URL}/v1/workforces/swarm/${sessionId}/message-stream`,
-            body: { message, workspaceId, mentions, contexts },
+            body: {
+                message,
+                workspaceId,
+                mentions,
+                contexts,
+                ...(modelId ? { modelId } : {}),
+            },
         });
     }, [genericSend]);
 

@@ -9,6 +9,7 @@ import { agentMemoryReaper } from './functions/agent-memory-reaper';
 import { agentBackgroundDlq } from './functions/agent-background-dlq';
 import { executeCompositeTool } from './functions/composite-tool-executor';
 import { workforceScheduleTriggers } from './functions/workforce-schedule-triggers';
+import { runAutomationTaskEvent, automationScheduleTick } from './functions/automation-runtime';
 
 // Create Inngest serve handler
 export const inngestHandler = serve({
@@ -24,6 +25,8 @@ export const inngestHandler = serve({
     agentBackgroundDlq,
     executeCompositeTool,
     workforceScheduleTriggers,
+    runAutomationTaskEvent,
+    automationScheduleTick,
   ],
 });
 

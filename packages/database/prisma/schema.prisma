@@ -1146,6 +1146,7 @@ model Folder {
   views                   View[]
   documents               Document[]
   taskCustomRelationships TaskCustomRelationship[]
+  automations             Automation[]
 
   // --- soft delete fields ---
   deletedAt   DateTime? @map("deleted_at")
@@ -1258,6 +1259,7 @@ model List {
   deletedById String?   @map("deleted_by_id")
 
   sharedTasks Task[] @relation("TaskSharedLists")
+  automations Automation[]
 
   @@index([workspaceId])
   @@index([spaceId])
@@ -1899,6 +1901,7 @@ model Automation {
   name           String
   description    String?
   status         AutomationEntityStatus @default(ACTIVE)
+  kind           AutomationKind         @default(CLASSIC)
   conditions     Json?
   actions        Json
   isActive       Boolean                @default(true) @map("is_active")
@@ -1912,25 +1915,52 @@ model Automation {
   projectId      String?                @map("project_id")
   spaceId        String?                @map("space_id")
   teamId         String?                @map("team_id")
+  listId         String?                @map("list_id")
+  folderId       String?                @map("folder_id")
   timezone       String?                @default("UTC")
+  webhookSecret  String?                @map("webhook_secret")
   logs           AutomationLog[]
   triggers       AutomationTrigger[]
-  aiAgent        AiAgent?               @relation(fields: [agentId], references: [id])
+  aiAgent        AiAgent?               @relation(fields: [agentId], references: [id], onDelete: SetNull)
   projects       Project?               @relation(fields: [projectId], references: [id], onDelete: Cascade)
   spaces         Space?                 @relation(fields: [spaceId], references: [id], onDelete: Cascade)
   teams          Team?                  @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  list           List?                  @relation(fields: [listId], references: [id], onDelete: Cascade)
+  folder         Folder?                @relation(fields: [folderId], references: [id], onDelete: Cascade)
   workspace      Workspace?             @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   owner          User                   @relation("AutomationOwner", fields: [ownerId], references: [id], onDelete: Restrict)
 
   @@index([workspaceId])
   @@index([isActive])
   @@index([status])
+  @@index([kind])
+  @@index([workspaceId, isActive, kind])
   @@index([ownerId])
   @@index([agentId])
   @@index([projectId])
   @@index([spaceId])
   @@index([teamId])
+  @@index([listId])
+  @@index([folderId])
   @@map("automations")
+}
+
+enum AutomationIdempotencyStatus {
+  PENDING
+  COMPLETED
+  FAILED
+}
+
+model AutomationIdempotencyKey {
+  id        String                       @id @default(cuid())
+  key       String                       @unique
+  status    AutomationIdempotencyStatus  @default(PENDING)
+  result    Json?
+  createdAt DateTime                     @default(now()) @map("created_at")
+  updatedAt DateTime                     @updatedAt @map("updated_at")
+
+  @@index([status, createdAt])
+  @@map("automation_idempotency_keys")
 }
 
 model AutomationTrigger {
@@ -6072,6 +6102,7 @@ enum DocumentPermission {
 
 enum AutomationTriggerType {
   TASK_OR_SUBTASK_CREATED
+  TASK_OR_SUBTASK_UPDATED
   TASK_STATUS_CHANGED
   TASK_ASSIGNEE_ADDED
   TASK_ASSIGNEE_REMOVED
@@ -6086,6 +6117,7 @@ enum AutomationTriggerType {
   TASK_TIME_TRACKED
   TASK_UNBLOCKED
   CUSTOM_FIELD_CHANGED
+  DATE_CUSTOM_FIELD_ARRIVES
   TAG_ADDED
   TAG_REMOVED
   CHECKLISTS_RESOLVED
@@ -6097,6 +6129,7 @@ enum AutomationTriggerType {
   CHAT_MESSAGE_POSTED
   WEBHOOK
   TASK_ASSIGNEE_CHANGED
+  TASK_COMMENT_ADDED
 }
 
 enum AutomationStatus {
@@ -6109,6 +6142,11 @@ enum AutomationEntityStatus {
   DRAFT
   ACTIVE
   ARCHIVED
+}
+
+enum AutomationKind {
+  CLASSIC
+  AGENT
 }
 
 enum IntegrationProvider {

@@ -17,6 +17,7 @@ export interface UseWorkforceStreamReturn {
     workforceId: string;
     task: string;
     conversationId?: string;
+    modelId?: string | null;
     messages?: Array<{ role: string; content: string }>;
     contexts?: Array<{ type: string; id: string }>;
     mentions?: Array<{ id: string; name: string; type: string }>;
@@ -32,10 +33,11 @@ export function useWorkforceStream(callbacks: StreamCallbacks = {}): UseWorkforc
   const { stream, ...rest } = useSSEStream(callbacks);
 
   const sendMessage = useCallback(
-    async ({ workforceId, task, conversationId, messages, contexts, mentions, attachments }: {
+    async ({ workforceId, task, conversationId, modelId, messages, contexts, mentions, attachments }: {
       workforceId: string;
       task: string;
       conversationId?: string;
+      modelId?: string | null;
       messages?: Array<{ role: string; content: string }>;
       contexts?: Array<{ type: string; id: string }>;
       mentions?: Array<{ id: string; name: string; type: string }>;
@@ -46,6 +48,7 @@ export function useWorkforceStream(callbacks: StreamCallbacks = {}): UseWorkforc
         body: {
           task,
           ...(conversationId ? { conversationId } : {}),
+          ...(modelId ? { modelId } : {}),
           ...(messages?.length ? { messages } : {}),
           ...(contexts?.length ? { contexts } : {}),
           ...(mentions?.length ? { mentions } : {}),

@@ -19,8 +19,8 @@ import {
 import {
     Link2,
     Settings,
-    Bot,
-    Sparkles,
+    Zap,
+    Brain,
     Share2,
     Star,
     Copy,
@@ -31,6 +31,17 @@ import {
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+
+function AgentIcon({ className }: { className?: string }) {
+    return (
+        <img
+            src="/images/ai-agent-removebg-preview.png"
+            alt=""
+            aria-hidden
+            className={cn("h-5 w-5 shrink-0", className)}
+        />
+    );
+}
 
 /**
  * Configuration for a header action item
@@ -112,6 +123,7 @@ export interface DashboardHeaderProps {
     showCopyLink?: boolean;
     showSettings?: boolean;
     showAgent?: boolean;
+    showAutomations?: boolean;
     showAskAI?: boolean;
     askAIDisabled?: boolean;
     showShare?: boolean;
@@ -134,6 +146,10 @@ export interface DashboardHeaderProps {
     askAIPopoverContent?: React.ReactNode;
     askAIOpen?: boolean;
     onAskAIOpenChange?: (open: boolean) => void;
+
+    automationsPopoverContent?: React.ReactNode;
+    automationsOpen?: boolean;
+    onAutomationsOpenChange?: (open: boolean) => void;
 }
 
 /**
@@ -178,6 +194,7 @@ export function DashboardHeader({
     showCopyLink = true,
     showSettings = true,
     showAgent = true,
+    showAutomations = true,
     showAskAI = true,
     askAIDisabled = false,
     showShare = true,
@@ -194,6 +211,9 @@ export function DashboardHeader({
     askAIPopoverContent,
     askAIOpen,
     onAskAIOpenChange,
+    automationsPopoverContent,
+    automationsOpen,
+    onAutomationsOpenChange,
 }: DashboardHeaderProps) {
     const router = useRouter();
 
@@ -423,28 +443,35 @@ export function DashboardHeader({
                 {rightActions.map(renderAction)}
 
                 {/* Agent */}
-                {/* {showAgent && (
+                {showAgent && (
                     agentPopoverContent ? (
                         <Popover open={agentOpen} onOpenChange={onAgentOpenChange}>
-                            <PopoverTrigger asChild>
-                                <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={onAgentClick}
-                                    className="h-8 relative group transition-all duration-200 ease-in-out w-8 hover:w-auto px-0 hover:px-3 justify-center hover:justify-start"
-                                >
-                                    <div className="flex items-center justify-center w-8 h-8 shrink-0">
-                                        <Bot className="h-4 w-4" />
-                                    </div>
-                                    <span className="hidden group-hover:inline overflow-hidden whitespace-nowrap">Agent</span>
-                                </Button>
-                            </PopoverTrigger>
-                            <PopoverContent align="end" className="p-0 w-auto">
-                                {agentPopoverContent}
-                            </PopoverContent>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <PopoverTrigger asChild>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={onAgentClick}
+                                      className="h-8 relative group transition-all duration-200 ease-in-out w-8 hover:w-auto px-0 hover:px-3 justify-center hover:justify-start"
+                                    >
+                                      <div className="flex items-center justify-center w-8 h-8 shrink-0">
+                                        <AgentIcon />
+                                      </div>
+                                      <span className="hidden group-hover:inline overflow-hidden whitespace-nowrap">Agent</span>
+                                    </Button>
+                                  </PopoverTrigger>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>AI Agents</p>
+                                </TooltipContent>
+                            </Tooltip>
+                          <PopoverContent align="end" className="p-0 w-auto" collisionPadding={8}>
+                            {agentPopoverContent}
+                          </PopoverContent>
                         </Popover>
                     ) : (
-                        onAgentClick && (
+                        onAgentClick ? (
                             <TooltipProvider>
                                 <Tooltip>
                                     <TooltipTrigger asChild>
@@ -455,41 +482,96 @@ export function DashboardHeader({
                                             className="h-8 relative group transition-all duration-200 ease-in-out w-8 hover:w-auto px-0 hover:px-3 justify-center hover:justify-start"
                                         >
                                             <div className="flex items-center justify-center w-8 h-8 shrink-0">
-                                                <Bot className="h-4 w-4" />
+                                                <AgentIcon />
                                             </div>
                                             <span className="hidden group-hover:inline overflow-hidden whitespace-nowrap">Agent</span>
                                         </Button>
                                     </TooltipTrigger>
                                     <TooltipContent>
-                                        <p>Open AI Agents</p>
+                                        <p>AI Agents</p>
+                                    </TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
+                        ) : (
+                            <TooltipProvider>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <span tabIndex={0} className="cursor-not-allowed">
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                disabled
+                                                className="h-8 relative group transition-all opacity-50 duration-200 ease-in-out w-8 hover:w-auto px-0 hover:px-3 justify-center hover:justify-start pointer-events-none"
+                                            >
+                                                <div className="flex items-center justify-center w-8 h-8 shrink-0">
+                                                    <AgentIcon />
+                                                </div>
+                                                <span className="hidden group-hover:inline overflow-hidden whitespace-nowrap">Agent</span>
+                                            </Button>
+                                        </span>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                        <p>AI Agents</p>
                                     </TooltipContent>
                                 </Tooltip>
                             </TooltipProvider>
                         )
                     )
-                )} */}
-                <TooltipProvider>
-                    <Tooltip>
-                        <TooltipTrigger asChild>
-                            <span tabIndex={0} className="cursor-not-allowed">
-                                <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    disabled
-                                    className="h-8 relative group transition-all opacity-50 duration-200 ease-in-out w-8 hover:w-auto px-0 hover:px-3 justify-center hover:justify-start pointer-events-none"
-                                >
-                                    <div className="flex items-center justify-center w-8 h-8 shrink-0">
-                                        <Bot className="h-4 w-4" />
-                                    </div>
-                                    <span className="hidden group-hover:inline overflow-hidden whitespace-nowrap">Agent</span>
-                                </Button>
-                            </span>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                            <p>This feature is under development</p>
-                        </TooltipContent>
-                    </Tooltip>
-                </TooltipProvider>
+                )}
+
+                {/* Automations */}
+                {showAutomations && (
+                    automationsPopoverContent ? (
+                        <Popover open={automationsOpen} onOpenChange={onAutomationsOpenChange}>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <PopoverTrigger asChild>
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className="h-8 relative group transition-all duration-200 ease-in-out w-8 hover:w-auto px-0 hover:px-3 justify-center hover:justify-start"
+                                        >
+                                            <div className="flex items-center justify-center w-8 h-8 shrink-0">
+                                                <Zap className="h-4 w-4 fill-amber-500 text-amber-500" />
+                                            </div>
+                                            <span className="hidden group-hover:inline overflow-hidden whitespace-nowrap">Automations</span>
+                                        </Button>
+                                    </PopoverTrigger>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                    <p>Automations</p>
+                                </TooltipContent>
+                            </Tooltip>
+
+                            <PopoverContent align="end" className="p-0 w-auto" collisionPadding={8}>
+                                {automationsPopoverContent}
+                            </PopoverContent>
+                        </Popover>
+                    ) : (
+                        <TooltipProvider>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <span tabIndex={0} className="cursor-not-allowed">
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            disabled
+                                            className="h-8 relative group transition-all opacity-50 duration-200 ease-in-out w-8 hover:w-auto px-0 hover:px-3 justify-center hover:justify-start pointer-events-none"
+                                        >
+                                            <div className="flex items-center justify-center w-8 h-8 shrink-0">
+                                                <Zap className="h-4 w-4 fill-amber-500 text-amber-500" />
+                                            </div>
+                                            <span className="hidden group-hover:inline overflow-hidden whitespace-nowrap">Automations</span>
+                                        </Button>
+                                    </span>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                    <p>Automations unavailable in this context</p>
+                                </TooltipContent>
+                            </Tooltip>
+                        </TooltipProvider>
+                    )
+                )}
 
                 {/* Ask AI */}
                 {showAskAI && (
@@ -515,7 +597,7 @@ export function DashboardHeader({
                                         )}
                                       >
                                         <div className="flex items-center justify-center w-8 h-8 shrink-0">
-                                          <Sparkles className="h-4 w-4" />
+                                          <Brain className="h-4 w-4" />
                                         </div>
                                         <span className="hidden group-hover:inline overflow-hidden whitespace-nowrap">
                                           Ask AI
@@ -553,7 +635,7 @@ export function DashboardHeader({
                                     )}
                                   >
                                     <div className="flex items-center justify-center w-8 h-8 shrink-0">
-                                      <Sparkles className="h-4 w-4" />
+                                      <Brain className="h-4 w-4" />
                                     </div>
                                     <span className="hidden group-hover:inline overflow-hidden whitespace-nowrap">
                                       Ask AI
@@ -658,6 +740,7 @@ export const DashboardHeaderPresets = {
         showCopyLink: false,
         showSettings: false,
         showAgent: false,
+        showAutomations: false,
         showAskAI: false,
         showShare: false,
         showExit: false,
@@ -670,6 +753,7 @@ export const DashboardHeaderPresets = {
         showCopyLink: true,
         showSettings: true,
         showAgent: true,
+        showAutomations: true,
         showAskAI: true,
         showShare: true,
         showExit: false,
@@ -682,6 +766,7 @@ export const DashboardHeaderPresets = {
         showCopyLink: true,
         showSettings: false,
         showAgent: false,
+        showAutomations: false,
         showAskAI: true,
         showShare: false,
         showExit: false,

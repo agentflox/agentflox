@@ -224,7 +224,17 @@ export default function TeamProjectView({
                                     {searchQuery ? (
                                         <p className="mt-1 text-xs text-muted-foreground">Try adjusting your search</p>
                                     ) : (
-                                        <p className="mt-1 text-xs text-muted-foreground">Create your first project to get started</p>
+                                        <div className="flex flex-col items-center">
+                                            <p className="mt-1 text-xs text-muted-foreground mb-4">Create your first project to get started</p>
+                                            <Button
+                                                size="sm"
+                                                variant="outline"
+                                                onClick={() => setIsProjectModalOpen(true)}
+                                            >
+                                                <Plus className="mr-1.5 h-3.5 w-3.5" />
+                                                Create Project
+                                            </Button>
+                                        </div>
                                     )}
                                 </div>
                             ) : (

@@ -10,7 +10,7 @@ import {
   RetryHandler,
   ErrorClassifier,
 } from '@/utils/circuitBreaker';
-import { createChatCompletion, resolveModel, recordUsage, type ResolvedModel } from '@/services/models';
+import { createChatCompletion, resolveModel, recordUsage, toUserFacingError, type ResolvedModel } from '@/services/models';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -221,7 +221,7 @@ export abstract class BaseEditorAssistant {
       throw new EditorAssistantError(
         'EDITOR_ASSISTANT_COMPLETION_FAILED',
         `LLM call failed for ${context.operation}: ${classification.type}`,
-        'I had trouble processing this step. Please try again in a moment.',
+        toUserFacingError(error).message,
         { ...context, classification }
       );
     }
@@ -277,7 +277,7 @@ export abstract class BaseEditorAssistant {
       throw new EditorAssistantError(
         'EDITOR_ASSISTANT_STREAM_FAILED',
         `Stream failed for ${context.operation}: ${classification.type}`,
-        'I had trouble processing this step. Please try again in a moment.',
+        toUserFacingError(error).message,
         { ...context, classification }
       );
     }

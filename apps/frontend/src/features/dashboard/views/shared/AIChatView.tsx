@@ -182,7 +182,7 @@ export function AIChatView({ contextType = 'PROJECT', contextId = '', contextNam
 
   const handleSendMessage = async (
     message: string,
-    options?: { attachments?: any[]; webSearch?: boolean; mentions?: Array<{ id: string; name: string; type: string }> }
+    options?: { attachments?: any[]; webSearch?: boolean; mentions?: Array<{ id: string; name: string; type: string }>; modelId?: string }
   ) => {
     const convId = activeConversationId || (await createConversation({
       title: `${contextName || contextType} chat ${conversations.length + 1}`,
@@ -341,7 +341,7 @@ export function AIChatView({ contextType = 'PROJECT', contextId = '', contextNam
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-52">
-                          <DropdownMenuItem onClick={() => setIsCreationModalOpen(true)}>
+                          <DropdownMenuItem onClick={() => handleCreateConversation()}>
                             <Plus className="mr-2 h-4 w-4" />
                             Create Chat
                           </DropdownMenuItem>

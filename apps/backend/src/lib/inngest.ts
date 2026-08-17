@@ -10,6 +10,7 @@ type Events = {
   'agent/operator.cancel': AgentOperatorCancelEvent;
   'agent/message.processed': AgentMessageProcessedEvent;
   'tool/composite.execute': ToolCompositeExecuteEvent;
+  'automation/task.event': AutomationTaskEvent;
 };
 
 // Initialize Inngest client
@@ -70,5 +71,13 @@ export type ToolCompositeExecuteEvent = {
     stepId?: string;
     rootRunId?: string;
     billingExempt?: boolean;
+  };
+};
+
+export type AutomationTaskEvent = {
+  name: 'automation/task.event';
+  data: {
+    event: Record<string, unknown>;
+    cascade: Record<string, unknown>;
   };
 };

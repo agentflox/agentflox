@@ -70,7 +70,12 @@ export const executeWorkflowStep = inngest.createFunction(
                         error: `Workflow recursion depth exceeded (max ${MAX_DEPTH} steps)`
                     }
                 });
-                await redisPub.publish(`workforce:run:${executionId}`, JSON.stringify({ type: 'error', message: `Workflow recursion depth exceeded (max ${MAX_DEPTH} steps)` }));
+                await redisPub.publish(`workforce:run:${executionId}`, JSON.stringify({
+                    type: 'error',
+                    message: `Workflow recursion depth exceeded (max ${MAX_DEPTH} steps)`,
+                    code: 'WORKFLOW_DEPTH',
+                    kind: 'timeout',
+                }));
             });
             // Graceful termination instead of throwing (to avoid retry storms)
             return { stepId, status: 'TERMINATED_MAX_DEPTH' };
@@ -122,7 +127,12 @@ export const executeWorkflowStep = inngest.createFunction(
                         error: `Step ${stepId} timed out waiting for agent response`
                     }
                 });
-                await redisPub.publish(`workforce:run:${executionId}`, JSON.stringify({ type: 'error', message: `Step ${stepId} timed out waiting for agent response` }));
+                await redisPub.publish(`workforce:run:${executionId}`, JSON.stringify({
+                    type: 'error',
+                    message: `Step ${stepId} timed out waiting for agent response`,
+                    code: 'WORKFLOW_TIMEOUT',
+                    kind: 'timeout',
+                }));
             });
             return { stepId, status: 'TIMEOUT', messageId: dispatch.messageId };
         }

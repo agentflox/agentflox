@@ -17,6 +17,8 @@ import { AgentProfile } from '@/entities/agents/components/AgentProfile';
 import { StreamingMessage } from '@/entities/agents/components/StreamingMessage';
 import { useExecutorStream } from '@/entities/agents/hooks/useExecutorStream';
 import type { AgentDraft, ConversationState } from '@/entities/agents/types';
+import { useDefaultModel } from '@/entities/models/hooks/useModels';
+import { formatModelErrorMessage } from '@/entities/models/utils/formatModelError';
 import { ResizableSplitLayout } from '@/components/layout/ResizableSplitLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -53,6 +55,7 @@ interface ChatViewProps {
   onChatIdChange?: (chatId: string | null) => void;
   /** When true (default), show a button to toggle the agent profile side panel. */
   showProfileToggle?: boolean;
+  presentation?: 'split' | 'tabs';
 }
 
 const STORAGE_KEY_PREFIX = 'agentflox_active_agent_chat_';
@@ -64,6 +67,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
   chatId: controlledChatId,
   onChatIdChange,
   showProfileToggle = true,
+  presentation = 'split',
 }) => {
   const resolvedAgentId = agentId ?? agent?.id;
   const storageKey = resolvedAgentId
@@ -100,7 +104,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
   const [agentDraft, setAgentDraft] = useState<AgentDraft | null>(null);
   const [isSending, setIsSending] = useState(false);
   const isSendingRef = useRef(false);
-  const [showAgentProfile, setShowAgentProfile] = useState(false);
+  const [showAgentProfile, setShowAgentProfile] = useState(true);
   const optimisticMessageIds = useRef<Set<string>>(new Set());
   const [chatPaneTab, setChatPaneTab] = useState<'chat' | 'log'>('chat');
   const [activeArtifact, setActiveArtifact] = useState<ExecutionArtifact | null>(null);
@@ -183,9 +187,12 @@ export const ChatView: React.FC<ChatViewProps> = ({
     onError: (err) => toast.error(err.message || 'Failed to update agent model'),
   });
 
+  const { data: defaultModel } = useDefaultModel();
+  // Dropdown selection is sent per-message; display falls back agent → platform default
   const agentModelId =
     (agentData as any)?.modelId ??
     (agentData as any)?.aiModel?.id ??
+    defaultModel?.id ??
     null;
 
   const buildDbMessages = useCallback((allMessages: any[]): RenderedMessage[] =>
@@ -270,11 +277,12 @@ export const ChatView: React.FC<ChatViewProps> = ({
     setIsSending(false);
     setMessages((prev) => prev.filter((msg) => !optimisticMessageIds.current.has(msg.id)));
     optimisticMessageIds.current.clear();
-    toast.error(errorMessage || 'Failed to process message');
+    const friendly = formatModelErrorMessage(errorMessage, 'Failed to process message');
+    toast.error(friendly);
     setMessages((prev) => [...prev, {
       id: `error_${Date.now()}`,
       role: 'ASSISTANT' as MessageRole,
-      content: `Error: ${errorMessage}. Please try again.`,
+      content: `Error: ${friendly}`,
       createdAt: new Date(),
     }]);
   }, []);
@@ -541,6 +549,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
       webSearch?: boolean;
       contexts?: Array<{ type: string; id: string }>;
       mentions?: Array<{ id: string; name: string; type: 'agent' | 'task' }>;
+      modelId?: string;
     }
   ) => {
     if (!message.trim() || isSending || !resolvedAgentId) return;
@@ -584,6 +593,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
       agentId: resolvedAgentId,
       conversationId,
       message,
+      modelId: options?.modelId ?? agentModelId,
       contexts: options?.contexts,
       mentions: options?.mentions,
       attachments: options?.attachments,
@@ -600,6 +610,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
     createConversationMutation,
     utils,
     setActiveConversationId,
+    agentModelId,
   ]);
 
   const handleFollowupClick = useCallback(async (messageId: string, followup: MessageFollowup) => {
@@ -640,10 +651,12 @@ export const ChatView: React.FC<ChatViewProps> = ({
   }, [activeConversationId]);
 
   const showMessageSkeleton = !!activeConversationId && isLoadingMessages && !isSending && messages.length === 0;
+  const isTabs = presentation === 'tabs';
 
   return (
     <div className="flex h-full w-full min-h-0 gap-0 bg-background transition-all">
       {/* Conversation sidebar — same pattern as AIChatView */}
+      {!isTabs && (
       <aside
         className={cn(
           'shrink-0 bg-white transition-all duration-300 ease-in-out flex flex-col h-full overflow-hidden',
@@ -793,9 +806,10 @@ export const ChatView: React.FC<ChatViewProps> = ({
           </div>
         </div>
       </aside>
+      )}
 
       <div className="flex-1 overflow-hidden relative min-h-0 flex flex-col">
-        {isSidebarCollapsed && (
+        {!isTabs && isSidebarCollapsed && (
           <div className="absolute left-0 top-3 z-30">
             <Button
               variant="outline"
@@ -872,7 +886,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
                         </button>
                       ))}
                     </div>
-                    {showProfileToggle && !showAgentProfile && agentData && (
+                    {showProfileToggle && !isTabs && !showAgentProfile && agentData && (
                       <Button
                         type="button"
                         variant="ghost"
@@ -938,7 +952,6 @@ export const ChatView: React.FC<ChatViewProps> = ({
                       onSend={handleSendMessage}
                       isSending={isSending}
                       disabled={isSending || !activeConversationId}
-                      hideModelSelect
                       modelId={agentModelId}
                       onModelChange={(id) => {
                         if (!resolvedAgentId) return;
@@ -1033,7 +1046,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
             </div>
             ) : null
           }
-          isPanelOpen={showAgentProfile && !!agentData}
+          isPanelOpen={!isTabs && showAgentProfile && !!agentData}
         />
       </div>
     </div>

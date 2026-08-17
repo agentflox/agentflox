@@ -805,8 +805,10 @@ export async function routeSwarmMessage(params: {
   mentions: { id: string; name: string; type: 'agent' | 'task' }[];
   emitter: BuilderProgressEmitter;
   excludeMessageId?: string;
+  /** Dropdown override → session/conversation → platform default */
+  modelId?: string | null;
 }): Promise<{ responderName: string; responseContent: string; intent: SwarmIntent }> {
-  const { sessionId, workspaceId, userId, message, mentions, emitter, excludeMessageId } = params;
+  const { sessionId, workspaceId, userId, message, mentions, emitter, excludeMessageId, modelId: overrideModelId } = params;
   const routeStart = Date.now();
 
   // ── #3: Defense-in-depth authorization inside the router ──
@@ -858,6 +860,22 @@ export async function routeSwarmMessage(params: {
       (m.type === 'task' && validTaskIds.has(m.id))
     );
 
+    // Resolve: request override → session config → conversation → platform default
+    let selectedModelId =
+      overrideModelId ||
+      (session as any)?.config?.modelId ||
+      null;
+    if (!selectedModelId) {
+      const conv = await prisma.aiConversation.findUnique({
+        where: { id: sessionId },
+        select: { modelId: true },
+      });
+      selectedModelId = conv?.modelId ?? null;
+    }
+    if (overrideModelId && session) {
+      (session as any).config = { ...((session as any).config || {}), modelId: overrideModelId };
+    }
+
     // 2. Classify intent
     const intent = await classifyIntent(
       message,
@@ -865,7 +883,7 @@ export async function routeSwarmMessage(params: {
       agents,
       tasks,
       userId,
-      (session as any)?.config?.modelId || null,
+      selectedModelId,
     );
     console.log(`[SwarmRouter] Intent: ${intent.type} (${(intent.confidence * 100).toFixed(0)}%) — ${intent.reason}`);
 
@@ -931,7 +949,7 @@ export async function routeSwarmMessage(params: {
     let responseContent = '';
     const responseModel = await resolveSwarmLlm(
       userId,
-      (session as any)?.config?.modelId || null,
+      selectedModelId,
     );
     const started = Date.now();
     const stream = await withRetry(() =>

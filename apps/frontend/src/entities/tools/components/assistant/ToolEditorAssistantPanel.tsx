@@ -14,6 +14,9 @@ import {
 import { MessageRole } from "@agentflox/database/src/generated/prisma/client";
 import { useToolEditorAssistantStream } from "@/entities/tools/hooks/useToolEditorAssistantStream";
 import { ToolOp } from "@/entities/tools/components/assistant/types";
+import { useDefaultModel } from "@/entities/models/hooks/useModels";
+import { formatModelErrorMessage } from "@/entities/models/utils/formatModelError";
+import { toast } from "sonner";
 
 function formatOp(op: ToolOp): string {
   const anyOp: any = op as any;
@@ -60,6 +63,8 @@ export function ToolEditorAssistantPanel({
 
   const messagesContainerRef = React.useRef<HTMLDivElement | null>(null);
   const initMutation = trpc.editorAssistant.initialize.useMutation();
+  const { data: defaultModel } = useDefaultModel();
+  const selectedModelId = defaultModel?.id ?? null;
 
   const {
     thinkingSteps,
@@ -99,7 +104,11 @@ export function ToolEditorAssistantPanel({
       if (payload?.proposedOps) setProposedOps(payload.proposedOps as ToolOp[]);
       if (payload?.assistantText) setProposalText(String(payload.assistantText));
     },
-    onError: (msg: string) => setError(msg || "Failed to process assistant request."),
+    onError: (msg: string) => {
+      const friendly = formatModelErrorMessage(msg, "Failed to process assistant request.");
+      setError(friendly);
+      toast.error(friendly);
+    },
   });
 
   const { data: messagesData, refetch: refetchMessages } = trpc.chat.getMessages.useQuery(
@@ -173,7 +182,7 @@ export function ToolEditorAssistantPanel({
         conversationId,
         message,
         context,
-        modelId: options?.modelId,
+        modelId: options?.modelId ?? selectedModelId,
         attachments: options?.attachments,
         contexts: options?.contexts,
         mentions: options?.mentions,
@@ -230,7 +239,12 @@ export function ToolEditorAssistantPanel({
       </div>
 
       <div className="border-t border-zinc-200 p-3">
-        <ChatComposer onSend={send} isSending={initMutation.isPending || isSending} disabled={!conversationId} hideModelSelect />
+        <ChatComposer
+          onSend={send}
+          isSending={initMutation.isPending || isSending}
+          disabled={!conversationId}
+          modelId={selectedModelId}
+        />
       </div>
     </div>
   );

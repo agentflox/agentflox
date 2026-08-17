@@ -16,6 +16,7 @@ import { ToolsModule } from './modules/tools.module';
 import { WorkforcesModule } from './modules/workforces.module';
 import { PlatformHelpersModule } from './modules/platformHelpers.module';
 import { IntegrationsModule } from './modules/integrations.module';
+import { AutomationsModule } from './modules/automations.module';
 
 @Module({
   imports: [
@@ -36,6 +37,7 @@ import { IntegrationsModule } from './modules/integrations.module';
     WorkforcesModule,
     PlatformHelpersModule,
     IntegrationsModule,
+    AutomationsModule,
   ],
 })
 export class AppModule { }

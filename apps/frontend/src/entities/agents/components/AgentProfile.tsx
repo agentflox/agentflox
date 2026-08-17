@@ -69,6 +69,8 @@ interface AgentProfileProps {
     createdAt?: Date | string;
     updatedAt?: Date | string;
     metadata?: any;
+    viewerIsOwner?: boolean;
+    ownerId?: string;
     triggers?: Array<{
       id: string;
       triggerType: string;

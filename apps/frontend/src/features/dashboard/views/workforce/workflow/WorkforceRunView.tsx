@@ -11,6 +11,8 @@ import { useWorkforceStream } from "../../../../../entities/workforce/hooks/useW
 import { trpc } from "@/lib/trpc";
 import { WorkforceChatSkeleton } from "./WorkforceChatSkeleton";
 import { fetchAuthToken } from "@/utils/backend-request";
+import { toast } from "sonner";
+import { formatModelErrorMessage } from "@/entities/models/utils/formatModelError";
 import {
   TriggerWidget,
   WorkforceExecutionTrace,
@@ -25,6 +27,7 @@ import {
   normalizeArtifact,
   type ExecutionArtifact,
 } from "@/features/artifacts";
+import { useDefaultModel } from "@/entities/models/hooks/useModels";
 
 type WorkforceRunTab = "chat" | "log";
 
@@ -162,6 +165,8 @@ export default function WorkforceRunView({
   const createConversation = trpc.chat.createWorkforceConversation.useMutation();
   const appendUserMessage = trpc.chat.appendUserMessage.useMutation();
   const persistMessages = trpc.chat.persistWorkforceMessages.useMutation();
+  const { data: defaultModel } = useDefaultModel();
+  const selectedModelId = defaultModel?.id ?? null;
 
   const { data: messagesData, refetch: refetchMessages } = trpc.chat.getMessages.useQuery(
     { conversationId: conversationId || "" },
@@ -190,6 +195,7 @@ export default function WorkforceRunView({
         workforceId,
         workforceName,
         mode: "FLOW",
+        ...(selectedModelId ? { modelId: selectedModelId } : {}),
       });
       utils.chat.listWorkforceConversations.setData(
         { workforceId, mode: "FLOW" },
@@ -215,7 +221,7 @@ export default function WorkforceRunView({
     } catch (err) {
       console.error("[WorkforceRunView] Failed to create conversation", err);
     }
-  }, [workforceId, workforceName, createConversation, onConversationReady, utils]);
+  }, [workforceId, workforceName, createConversation, onConversationReady, utils, selectedModelId]);
 
   // ── sync conversation id from parent ──────────────────────────────────────
   useEffect(() => {
@@ -252,7 +258,9 @@ export default function WorkforceRunView({
     abort: abortStream,
   } = useWorkforceStream({
     onError: (message) => {
-      setError(message);
+      const friendly = formatModelErrorMessage(message);
+      setError(friendly);
+      toast.error(friendly);
       setMessages((prev) => prev.slice(0, -1));
       setOptimisticPending(false);
       setIsPolling(false);
@@ -369,7 +377,7 @@ export default function WorkforceRunView({
   }, [abortStream]);
 
   // ── send ──────────────────────────────────────────────────────────────────
-  const handleSend = async (message: string, options?: { contexts?: any[]; mentions?: any[]; attachments?: any[] }) => {
+  const handleSend = async (message: string, options?: { contexts?: any[]; mentions?: any[]; attachments?: any[]; modelId?: string }) => {
     if (isSending || isPolling) return;
     const trimmed = message.trim();
     if (!trimmed) return;
@@ -389,6 +397,7 @@ export default function WorkforceRunView({
       workforceId,
       task: trimmed,
       conversationId: conversationIdRef.current ?? undefined,
+      modelId: options?.modelId ?? selectedModelId,
       messages: [...messages, { role: "user", content: trimmed }].map((m) => ({
         role: m.role,
         content: m.content,
@@ -702,7 +711,7 @@ export default function WorkforceRunView({
             onStop={handleStop}
             isSending={isActive}
             disabled={false}
-            hideModelSelect
+            modelId={selectedModelId}
           />
 
           <div className="flex items-center justify-between mt-2 px-1">

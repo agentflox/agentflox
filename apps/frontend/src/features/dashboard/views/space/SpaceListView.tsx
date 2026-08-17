@@ -729,7 +729,7 @@ export default function SpaceListView({ spaceId, workspaceId, selectedListId, on
                                     <div className="flex items-center gap-3">
                                         <Button
                                             size="sm"
-                                            className="bg-slate-900 hover:bg-slate-800 text-white rounded-lg"
+                                            className="rounded-lg bg-slate-900 hover:bg-slate-800 text-white"
                                             onClick={() => setIsListModalOpen(true)}
                                         >
                                             <Plus className="mr-1.5 h-4 w-4" />

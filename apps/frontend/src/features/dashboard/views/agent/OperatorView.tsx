@@ -21,18 +21,22 @@ import type { QuickAction, AgentDraft, UserContext, ConversationState } from '@/
 import { ResizableSplitLayout } from '@/components/layout/ResizableSplitLayout';
 import { Button } from '@/components/ui/button';
 import { CircleUser } from 'lucide-react';
+import { useDefaultModel } from '@/entities/models/hooks/useModels';
+import { formatModelErrorMessage } from '@/entities/models/utils/formatModelError';
 
 interface OperatorViewProps {
   agentId?: string;
   agent?: any;
   /** When true (default), allow showing/hiding the agent profile side panel. */
   showProfileToggle?: boolean;
+  presentation?: 'split' | 'tabs';
 }
 
 export const OperatorView: React.FC<OperatorViewProps> = ({
   agentId,
   agent,
   showProfileToggle = true,
+  presentation = 'split',
 }) => {
   const [messages, setMessages] = useState<RenderedMessage[]>([]);
   const [conversationId, setConversationId] = useState<string | null>(null);
@@ -43,7 +47,7 @@ export const OperatorView: React.FC<OperatorViewProps> = ({
   const [isSending, setIsSending] = useState(false);
   const isSendingRef = useRef(false);
   const [isInitializing, setIsInitializing] = useState(true);
-  const [showAgentProfile, setShowAgentProfile] = useState(false);
+  const [showAgentProfile, setShowAgentProfile] = useState(true);
   const resolvedAgentId = agentId ?? agent?.id;
   const optimisticMessageIds = useRef<Set<string>>(new Set());
 
@@ -64,9 +68,11 @@ export const OperatorView: React.FC<OperatorViewProps> = ({
     onError: (err) => toast.error(err.message || 'Failed to update agent model'),
   });
 
+  const { data: defaultModel } = useDefaultModel();
   const agentModelId =
     (agentData as any)?.modelId ??
     (agentData as any)?.aiModel?.id ??
+    defaultModel?.id ??
     null;
 
   const buildDbMessages = useCallback((allMessages: any[]): RenderedMessage[] =>
@@ -140,11 +146,12 @@ export const OperatorView: React.FC<OperatorViewProps> = ({
     setIsSending(false);
     setMessages(prev => prev.filter(msg => !optimisticMessageIds.current.has(msg.id)));
     optimisticMessageIds.current.clear();
-    toast.error(errorMessage || 'Failed to process message');
+    const friendly = formatModelErrorMessage(errorMessage, 'Failed to process message');
+    toast.error(friendly);
     setMessages(prev => [...prev, {
       id: `error_${Date.now()}`,
       role: 'ASSISTANT' as MessageRole,
-      content: `Error: ${errorMessage}. Please try again.`,
+      content: `Error: ${friendly}`,
       createdAt: new Date(),
     }]);
   }, []);
@@ -273,7 +280,7 @@ export const OperatorView: React.FC<OperatorViewProps> = ({
 
   const markFollowupsConsumedMutation = trpc.chat.markFollowupsConsumed.useMutation();
 
-  const handleSendMessage = useCallback(async (message: string, options?: { attachments?: any[]; webSearch?: boolean; contexts?: Array<{ type: string; id: string }>; mentions?: Array<{ id: string; name: string; type: 'agent' | 'task' }> }) => {
+  const handleSendMessage = useCallback(async (message: string, options?: { attachments?: any[]; webSearch?: boolean; contexts?: Array<{ type: string; id: string }>; mentions?: Array<{ id: string; name: string; type: 'agent' | 'task' }>; modelId?: string }) => {
     if (!message.trim() || isSending || !conversationId || !resolvedAgentId) return;
 
     const optimisticId = `optimistic_${Date.now()}`;
@@ -294,8 +301,16 @@ export const OperatorView: React.FC<OperatorViewProps> = ({
 
     Promise.all(consumePromises).catch(() => { });
 
-    await sendStreamMessage({ agentId: resolvedAgentId, conversationId, message, contexts: options?.contexts, mentions: options?.mentions, attachments: options?.attachments });
-  }, [sendStreamMessage, conversationId, resolvedAgentId, isSending, messages, markFollowupsConsumedMutation]);
+    await sendStreamMessage({
+      agentId: resolvedAgentId,
+      conversationId,
+      message,
+      modelId: options?.modelId ?? agentModelId,
+      contexts: options?.contexts,
+      mentions: options?.mentions,
+      attachments: options?.attachments,
+    });
+  }, [sendStreamMessage, conversationId, resolvedAgentId, isSending, messages, markFollowupsConsumedMutation, agentModelId]);
 
   const handleFollowupClick = useCallback(async (messageId: string, followup: MessageFollowup) => {
     setMessages(prev => prev.map(msg => msg.id === messageId ? { ...msg, followups: undefined } : msg));
@@ -321,18 +336,11 @@ export const OperatorView: React.FC<OperatorViewProps> = ({
     followups: msg.followups || followupsMap.get(msg.id),
   }));
 
-  const profileOpen = showAgentProfile && !!agentData;
+  const profileOpen = showAgentProfile && !!agentData && presentation !== 'tabs';
 
-  return (
-    <div className="flex h-full w-full min-h-0">
-      <ResizableSplitLayout
-        mainPanelDefaultSize={60}
-        mainPanelMinSize={50}
-        sidePanelDefaultSize={40}
-        sidePanelMinSize={40}
-        MainContent={
+  const chatColumn = (
           <div className="flex flex-col h-full min-h-0 w-full bg-white">
-            {showProfileToggle && !profileOpen && agentData && (
+            {presentation !== 'tabs' && showProfileToggle && !profileOpen && agentData && (
               <div className="flex-none flex items-center justify-end px-4 py-2 border-b border-zinc-100 bg-white">
                 <Button
                   type="button"
@@ -377,7 +385,6 @@ export const OperatorView: React.FC<OperatorViewProps> = ({
                 onSend={handleSendMessage}
                 isSending={isSending}
                 disabled={isSending || !conversationId}
-                hideModelSelect
                 modelId={agentModelId}
                 onModelChange={(id) => {
                   if (!resolvedAgentId) return;
@@ -386,7 +393,20 @@ export const OperatorView: React.FC<OperatorViewProps> = ({
               />
             </div>
           </div>
-        }
+  );
+
+  if (presentation === 'tabs') {
+    return <div className="flex h-full w-full min-h-0">{chatColumn}</div>;
+  }
+
+  return (
+    <div className="flex h-full w-full min-h-0">
+      <ResizableSplitLayout
+        mainPanelDefaultSize={60}
+        mainPanelMinSize={50}
+        sidePanelDefaultSize={40}
+        sidePanelMinSize={40}
+        MainContent={chatColumn}
         SidePanelContent={
           profileOpen ? (
             <div className="h-full border-l bg-gradient-to-b from-background to-muted/20 overflow-hidden">

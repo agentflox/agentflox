@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { PermissionLevel } from "@agentflox/database/src/generated/prisma";
 import { permissionsService } from "@/services/permissions.service";
 import { generateKeyBetween } from "fractional-indexing";
+import { emitAutomationTaskEvent } from "@/features/automations/emitClient";
 type Tx = Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
 
 async function recordTaskActivity(
@@ -739,7 +740,7 @@ export const taskRouter = router({
         data.position = generateKeyBetween(lastTask?.position ?? null, null);
       }
 
-      return prisma.$transaction(async (tx) => {
+      const created = await prisma.$transaction(async (tx) => {
         const task = await tx.task.create({ data });
         await recordTaskActivity(tx, { taskId: task.id, userId, action: "CREATED" });
 
@@ -769,6 +770,25 @@ export const taskRouter = router({
 
         return task;
       });
+
+      void emitAutomationTaskEvent({
+        type: "TASK_OR_SUBTASK_CREATED",
+        taskId: created.id,
+        workspaceId: created.workspaceId,
+        spaceId: created.spaceId,
+        projectId: created.projectId,
+        teamId: created.teamId,
+        listId: created.listId,
+        title: created.title,
+        description: created.description,
+        statusId: created.statusId,
+        priority: created.priority,
+        assigneeId: created.assigneeId,
+        tags: created.tags,
+        createdVia: "users",
+      }, ctx.session);
+
+      return created;
     }),
 
   publish: protectedProcedure
@@ -861,8 +881,25 @@ export const taskRouter = router({
         if (found) data.taskTypeId = found.id;
       }
 
-      return prisma.$transaction(async (tx) => {
-        const before = await tx.task.findUnique({ where: { id }, select: { title: true, statusId: true, priority: true, dueDate: true, assigneeId: true, listId: true, taskTypeId: true } });
+      const { updated, before } = await prisma.$transaction(async (tx) => {
+        const before = await tx.task.findUnique({
+          where: { id },
+          select: {
+            title: true,
+            statusId: true,
+            priority: true,
+            dueDate: true,
+            startDate: true,
+            assigneeId: true,
+            listId: true,
+            taskTypeId: true,
+            tags: true,
+            workspaceId: true,
+            spaceId: true,
+            projectId: true,
+            teamId: true,
+          },
+        });
         // Replace multi-assignees when provided
         if (updateData.assigneeIds !== undefined) {
           const ids = Array.from(new Set(updateData.assigneeIds ?? [])).filter(Boolean);
@@ -967,8 +1004,128 @@ export const taskRouter = router({
           }
         }
 
-        return updated;
+        return { updated, before };
       });
+
+      if (before) {
+        const loc = {
+          taskId: updated.id,
+          workspaceId: updated.workspaceId,
+          spaceId: updated.spaceId,
+          projectId: updated.projectId,
+          teamId: updated.teamId,
+          listId: updated.listId,
+          title: updated.title,
+          createdVia: "users" as const,
+        };
+        let changed = false;
+        if (String(before.statusId ?? "") !== String(updated.statusId ?? "")) {
+          changed = true;
+          void emitAutomationTaskEvent({
+            ...loc,
+            type: "TASK_STATUS_CHANGED",
+            statusId: updated.statusId,
+            previousStatusId: before.statusId,
+          }, ctx.session);
+        }
+        if (String(before.assigneeId ?? "") !== String(updated.assigneeId ?? "")) {
+          changed = true;
+          if (updated.assigneeId) {
+            void emitAutomationTaskEvent({
+              ...loc,
+              type: "TASK_ASSIGNEE_ADDED",
+              assigneeId: updated.assigneeId,
+              previousAssigneeId: before.assigneeId,
+            }, ctx.session);
+          }
+          if (before.assigneeId) {
+            void emitAutomationTaskEvent({
+              ...loc,
+              type: "TASK_ASSIGNEE_REMOVED",
+              assigneeId: updated.assigneeId,
+              previousAssigneeId: before.assigneeId,
+            }, ctx.session);
+          }
+          if (before.assigneeId && updated.assigneeId) {
+            void emitAutomationTaskEvent({
+              ...loc,
+              type: "TASK_ASSIGNEE_CHANGED",
+              assigneeId: updated.assigneeId,
+              previousAssigneeId: before.assigneeId,
+            }, ctx.session);
+          }
+        }
+        if (String(before.dueDate ?? "") !== String(updated.dueDate ?? "")) {
+          changed = true;
+          void emitAutomationTaskEvent({
+            ...loc,
+            type: "TASK_DUE_DATE_CHANGED",
+            dueDate: updated.dueDate,
+          }, ctx.session);
+        }
+        if (String(before.startDate ?? "") !== String(updated.startDate ?? "")) {
+          changed = true;
+          void emitAutomationTaskEvent({
+            ...loc,
+            type: "TASK_START_DATE_CHANGED",
+            startDate: updated.startDate,
+          }, ctx.session);
+        }
+        if (String(before.title ?? "") !== String(updated.title ?? "")) {
+          changed = true;
+          void emitAutomationTaskEvent({ ...loc, type: "TASK_NAME_CHANGED" }, ctx.session);
+        }
+        if (String(before.priority ?? "") !== String(updated.priority ?? "")) {
+          changed = true;
+          void emitAutomationTaskEvent({
+            ...loc,
+            type: "TASK_PRIORITY_CHANGED",
+            priority: updated.priority,
+            previousPriority: before.priority,
+          }, ctx.session);
+        }
+        if (String(before.taskTypeId ?? "") !== String(updated.taskTypeId ?? "")) {
+          changed = true;
+          void emitAutomationTaskEvent({
+            ...loc,
+            type: "TASK_TYPE_CHANGED",
+            taskTypeId: updated.taskTypeId,
+            previousTaskTypeId: before.taskTypeId,
+          }, ctx.session);
+        }
+        if (String(before.listId ?? "") !== String(updated.listId ?? "")) {
+          changed = true;
+          void emitAutomationTaskEvent({
+            ...loc,
+            type: "MOVE_TO_LIST",
+            previousListId: before.listId,
+          }, ctx.session);
+          void emitAutomationTaskEvent({
+            ...loc,
+            type: "EXISTING_TASK_ADDED_TO_LOCATION",
+            previousListId: before.listId,
+          }, ctx.session);
+        }
+        const beforeTags = new Set(before.tags ?? []);
+        const afterTags = new Set(updated.tags ?? []);
+        for (const tag of afterTags) {
+          if (!beforeTags.has(tag)) {
+            changed = true;
+            void emitAutomationTaskEvent({ ...loc, type: "TAG_ADDED", tag, tags: updated.tags }, ctx.session);
+          }
+        }
+        for (const tag of beforeTags) {
+          if (!afterTags.has(tag)) {
+            changed = true;
+            void emitAutomationTaskEvent({ ...loc, type: "TAG_REMOVED", tag, tags: updated.tags }, ctx.session);
+          }
+        }
+        if (changed) {
+          void emitAutomationTaskEvent({ ...loc, type: "TASK_OR_SUBTASK_UPDATED" }, ctx.session);
+        }
+      }
+
+      return updated;
     }),
 
   assign: protectedProcedure
@@ -1230,6 +1387,23 @@ export const taskRouter = router({
             commentId: comment.id,
           },
         });
+        const task = await prisma.task.findUnique({
+          where: { id: input.taskId },
+          select: { id: true, workspaceId: true, spaceId: true, projectId: true, teamId: true, listId: true, title: true },
+        });
+        if (task) {
+          void emitAutomationTaskEvent({
+            type: "TASK_COMMENT_ADDED",
+            taskId: task.id,
+            workspaceId: task.workspaceId,
+            spaceId: task.spaceId,
+            projectId: task.projectId,
+            teamId: task.teamId,
+            listId: task.listId,
+            title: task.title,
+            createdVia: "users",
+          }, ctx.session);
+        }
         return { ...comment, activityId: activity.id };
       }),
 
@@ -1715,7 +1889,7 @@ export const taskRouter = router({
           }
         });
 
-        return prisma.timeEntry.create({
+        const entry = await prisma.timeEntry.create({
           data: {
             taskId: input.taskId,
             userId: targetUserId,
@@ -1728,6 +1902,24 @@ export const taskRouter = router({
             user: { select: { id: true, name: true, image: true } }
           }
         });
+        const task = await prisma.task.findUnique({
+          where: { id: input.taskId },
+          select: { id: true, workspaceId: true, spaceId: true, projectId: true, teamId: true, listId: true, title: true },
+        });
+        if (task) {
+          void emitAutomationTaskEvent({
+            type: "TASK_TIME_TRACKED",
+            taskId: task.id,
+            workspaceId: task.workspaceId,
+            spaceId: task.spaceId,
+            projectId: task.projectId,
+            teamId: task.teamId,
+            listId: task.listId,
+            title: task.title,
+            createdVia: "users",
+          }, ctx.session);
+        }
+        return entry;
       }),
 
     stop: protectedProcedure
@@ -1781,34 +1973,52 @@ export const taskRouter = router({
         customFieldId: z.string(),
         value: z.any(),
       }))
-      .mutation(async ({ input }) => {
+      .mutation(async ({ ctx, input }) => {
         const existing = await prisma.customFieldValue.findFirst({
           where: {
             taskId: input.taskId,
             customFieldId: input.customFieldId,
           }
         });
+        const fromValue = existing?.value == null ? "" : String(existing.value);
+        const toValue = input.value == null ? "" : String(input.value);
 
-        if (existing) {
-          return prisma.customFieldValue.update({
-            where: { id: existing.id },
-            data: { value: input.value },
-            include: {
-              customField: true
-            }
-          });
-        }
+        const saved = existing
+          ? await prisma.customFieldValue.update({
+              where: { id: existing.id },
+              data: { value: input.value },
+              include: { customField: true },
+            })
+          : await prisma.customFieldValue.create({
+              data: {
+                taskId: input.taskId,
+                customFieldId: input.customFieldId,
+                value: input.value,
+              },
+              include: { customField: true },
+            });
 
-        return prisma.customFieldValue.create({
-          data: {
-            taskId: input.taskId,
-            customFieldId: input.customFieldId,
-            value: input.value,
-          },
-          include: {
-            customField: true
-          }
+        const task = await prisma.task.findUnique({
+          where: { id: input.taskId },
+          select: { id: true, workspaceId: true, spaceId: true, projectId: true, teamId: true, listId: true, title: true },
         });
+        if (task && fromValue !== toValue) {
+          void emitAutomationTaskEvent({
+            type: "CUSTOM_FIELD_CHANGED",
+            taskId: task.id,
+            workspaceId: task.workspaceId,
+            spaceId: task.spaceId,
+            projectId: task.projectId,
+            teamId: task.teamId,
+            listId: task.listId,
+            title: task.title,
+            customFieldId: input.customFieldId,
+            fromValue,
+            toValue,
+            createdVia: "users",
+          }, ctx.session);
+        }
+        return saved;
       }),
 
     delete: protectedProcedure

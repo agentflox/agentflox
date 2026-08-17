@@ -1051,6 +1051,7 @@ exports.Prisma.AutomationScalarFieldEnum = {
   name: 'name',
   description: 'description',
   status: 'status',
+  kind: 'kind',
   conditions: 'conditions',
   actions: 'actions',
   isActive: 'isActive',
@@ -1064,7 +1065,19 @@ exports.Prisma.AutomationScalarFieldEnum = {
   projectId: 'projectId',
   spaceId: 'spaceId',
   teamId: 'teamId',
-  timezone: 'timezone'
+  listId: 'listId',
+  folderId: 'folderId',
+  timezone: 'timezone',
+  webhookSecret: 'webhookSecret'
+};
+
+exports.Prisma.AutomationIdempotencyKeyScalarFieldEnum = {
+  id: 'id',
+  key: 'key',
+  status: 'status',
+  result: 'result',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
 };
 
 exports.Prisma.AutomationTriggerScalarFieldEnum = {
@@ -3496,8 +3509,20 @@ exports.AutomationEntityStatus = exports.$Enums.AutomationEntityStatus = {
   ARCHIVED: 'ARCHIVED'
 };
 
+exports.AutomationKind = exports.$Enums.AutomationKind = {
+  CLASSIC: 'CLASSIC',
+  AGENT: 'AGENT'
+};
+
+exports.AutomationIdempotencyStatus = exports.$Enums.AutomationIdempotencyStatus = {
+  PENDING: 'PENDING',
+  COMPLETED: 'COMPLETED',
+  FAILED: 'FAILED'
+};
+
 exports.AutomationTriggerType = exports.$Enums.AutomationTriggerType = {
   TASK_OR_SUBTASK_CREATED: 'TASK_OR_SUBTASK_CREATED',
+  TASK_OR_SUBTASK_UPDATED: 'TASK_OR_SUBTASK_UPDATED',
   TASK_STATUS_CHANGED: 'TASK_STATUS_CHANGED',
   TASK_ASSIGNEE_ADDED: 'TASK_ASSIGNEE_ADDED',
   TASK_ASSIGNEE_REMOVED: 'TASK_ASSIGNEE_REMOVED',
@@ -3512,6 +3537,7 @@ exports.AutomationTriggerType = exports.$Enums.AutomationTriggerType = {
   TASK_TIME_TRACKED: 'TASK_TIME_TRACKED',
   TASK_UNBLOCKED: 'TASK_UNBLOCKED',
   CUSTOM_FIELD_CHANGED: 'CUSTOM_FIELD_CHANGED',
+  DATE_CUSTOM_FIELD_ARRIVES: 'DATE_CUSTOM_FIELD_ARRIVES',
   TAG_ADDED: 'TAG_ADDED',
   TAG_REMOVED: 'TAG_REMOVED',
   CHECKLISTS_RESOLVED: 'CHECKLISTS_RESOLVED',
@@ -3522,7 +3548,8 @@ exports.AutomationTriggerType = exports.$Enums.AutomationTriggerType = {
   EVERY_SCHEDULED_TIME: 'EVERY_SCHEDULED_TIME',
   CHAT_MESSAGE_POSTED: 'CHAT_MESSAGE_POSTED',
   WEBHOOK: 'WEBHOOK',
-  TASK_ASSIGNEE_CHANGED: 'TASK_ASSIGNEE_CHANGED'
+  TASK_ASSIGNEE_CHANGED: 'TASK_ASSIGNEE_CHANGED',
+  TASK_COMMENT_ADDED: 'TASK_COMMENT_ADDED'
 };
 
 exports.ListingType = exports.$Enums.ListingType = {
@@ -4462,6 +4489,7 @@ exports.Prisma.ModelName = {
   TaskActivity: 'TaskActivity',
   WorkspaceAnalytics: 'WorkspaceAnalytics',
   Automation: 'Automation',
+  AutomationIdempotencyKey: 'AutomationIdempotencyKey',
   AutomationTrigger: 'AutomationTrigger',
   UserLike: 'UserLike',
   UserComment: 'UserComment',

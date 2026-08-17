@@ -121,6 +121,98 @@ const contextSchema = baseContextSchema.refine(
 );
 
 export const folderRouter = router({
+    list: protectedProcedure
+        .input(
+            z.object({
+                query: z.string().optional(),
+                scope: z.enum(["owned", "all"]).optional().default("owned"),
+                page: z.number().int().min(1).optional().default(1),
+                pageSize: z.number().int().min(1).max(100).optional().default(20),
+            })
+        )
+        .query(async ({ ctx, input }) => {
+            const userId = ctx.session!.user!.id;
+            const where: any = {
+                isArchived: false,
+                deletedAt: null,
+            };
+
+            if (input.scope === "owned") {
+                where.ownerId = userId;
+            } else {
+                where.OR = [
+                    { ownerId: userId },
+                    { workspace: { OR: [{ ownerId: userId }, { members: { some: { userId } } }] } },
+                    { project: { OR: [{ ownerId: userId }, { members: { some: { userId } } }] } },
+                    { team: { OR: [{ ownerId: userId }, { members: { some: { userId } } }] } },
+                    { space: { OR: [{ ownerId: userId }, { members: { some: { userId } } }] } },
+                ];
+            }
+
+            if (input.query?.trim()) {
+                const q = input.query.trim();
+                where.AND = [
+                    ...(where.AND || []),
+                    {
+                        OR: [
+                            { name: { contains: q, mode: "insensitive" } },
+                            { description: { contains: q, mode: "insensitive" } },
+                        ],
+                    },
+                ];
+            }
+
+            const skip = (input.page - 1) * input.pageSize;
+            const take = input.pageSize;
+
+            let items;
+            let total;
+
+            if (input.page === 1) {
+                items = await prisma.folder.findMany({
+                    where,
+                    orderBy: { updatedAt: "desc" },
+                    skip,
+                    take,
+                    select: {
+                        id: true,
+                        name: true,
+                        description: true,
+                        color: true,
+                        icon: true,
+                        workspaceId: true,
+                        spaceId: true,
+                        projectId: true,
+                        teamId: true,
+                    },
+                });
+                total = items.length < take ? items.length : await prisma.folder.count({ where });
+            } else {
+                [total, items] = await Promise.all([
+                    prisma.folder.count({ where }),
+                    prisma.folder.findMany({
+                        where,
+                        orderBy: { updatedAt: "desc" },
+                        skip,
+                        take,
+                        select: {
+                            id: true,
+                            name: true,
+                            description: true,
+                            color: true,
+                            icon: true,
+                            workspaceId: true,
+                            spaceId: true,
+                            projectId: true,
+                            teamId: true,
+                        },
+                    }),
+                ]);
+            }
+
+            return { items, total, page: input.page, pageSize: input.pageSize };
+        }),
+
     byContext: protectedProcedure
         .input(
             baseContextSchema

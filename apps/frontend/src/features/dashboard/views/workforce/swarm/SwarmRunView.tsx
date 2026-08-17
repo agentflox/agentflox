@@ -24,6 +24,8 @@ import { SwarmGraphView } from "./components/SwarmGraphView";
 import { SwarmMetricsView } from "./components/SwarmMetricsView";
 import { SwarmTimelineView } from "./components/SwarmTimelineView";
 import { ArtifactViewer, normalizeArtifact, type ExecutionArtifact } from "@/features/artifacts";
+import { useDefaultModel } from "@/entities/models/hooks/useModels";
+import { formatModelErrorMessage } from "@/entities/models/utils/formatModelError";
 import {
   MessageSquare, FileText, LayoutGrid, BarChart3, Timer,
   Play, Square, Loader2, Shield, Check, AlertTriangle, X, Sparkles, ArrowRight
@@ -147,6 +149,8 @@ export default function SwarmRunView({
   const createConversation = trpc.chat.createWorkforceConversation.useMutation();
   const persistMessages = trpc.chat.persistWorkforceMessages.useMutation();
   const { data: workforceData } = trpc.workforce.get.useQuery({ id: workforceId }, { staleTime: 60_000, gcTime: 5 * 60_000 });
+  const { data: defaultModel } = useDefaultModel();
+  const selectedModelId = defaultModel?.id ?? null;
 
   // Extract nodes from graph
   const graph = (workforceData as any)?.graph || (workforceData as any)?.data?.react_flow_graph;
@@ -273,7 +277,9 @@ export default function SwarmRunView({
   // ── swarm message stream ──────────────────────────────────────────────────
   const { thinkingSteps, thinkingStep, thinkingNode, streamingContent, isSending, isStreaming, sendMessage: sendSwarmMessage, abort: abortSwarmMessage } = useSwarmMessageStream({
     onError: (msg) => {
-      setError(msg);
+      const friendly = formatModelErrorMessage(msg, "Failed to process message");
+      setError(friendly);
+      toast.error(friendly);
       setOptimisticPending(false);
     },
     onComplete: async (payload) => {
@@ -284,14 +290,19 @@ export default function SwarmRunView({
 
   // ── create conversation ───────────────────────────────────────────────────
   const startNewConversation = useCallback(async () => {
-    const conv = await createConversation.mutateAsync({ workforceId, workforceName, mode: 'SWARM' });
+    const conv = await createConversation.mutateAsync({
+      workforceId,
+      workforceName,
+      mode: 'SWARM',
+      ...(selectedModelId ? { modelId: selectedModelId } : {}),
+    });
     utils.chat.listWorkforceConversations.setData({ workforceId, mode: 'SWARM' }, old =>
       old ? [{ id: conv.id, title: conv.title, createdAt: new Date(), lastMessageAt: null, messageCount: 0 }, ...old] : []
     );
     setConversationId(conv.id); conversationIdRef.current = conv.id;
     setMessages([]); setError(null);
     onConversationReady?.(conv.id);
-  }, [workforceId, workforceName, createConversation, utils, onConversationReady]);
+  }, [workforceId, workforceName, createConversation, utils, onConversationReady, selectedModelId]);
 
   // ── fetch swarm tasks ─────────────────────────────────────────────────────
   const fetchTasks = useCallback(async () => {
@@ -493,13 +504,14 @@ export default function SwarmRunView({
   }, [fetchTasks]);
 
   // ── send chat message ─────────────────────────────────────────────────────
-  const handleSend = useCallback(async (message: string) => {
+  const handleSend = useCallback(async (message: string, options?: { modelId?: string; contexts?: any[]; mentions?: any[] }) => {
     const cleanContent = message.trim();
     if (!cleanContent) return;
     setError(null); setOptimisticPending(true);
 
-    const payloadContexts = [...selectedContexts];
-    const payloadMentions = [...selectedMentions];
+    const modelId = options?.modelId ?? selectedModelId;
+    const payloadContexts = options?.contexts?.length ? options.contexts : [...selectedContexts];
+    const payloadMentions = options?.mentions?.length ? options.mentions : [...selectedMentions];
 
     setSelectedMentions([]);
     setSelectedContexts([]);
@@ -536,7 +548,11 @@ export default function SwarmRunView({
       try {
         const startRes = await backendFetch("/v1/workforces/swarm/start", {
           method: "POST",
-          body: JSON.stringify({ workforceId, sessionId: conversationId }),
+          body: JSON.stringify({
+            workforceId,
+            sessionId: conversationId,
+            ...(modelId ? { modelId } : {}),
+          }),
         });
         if (!startRes.ok) {
           if (await handleFetchResponse(startRes)) {
@@ -557,6 +573,7 @@ export default function SwarmRunView({
           sessionId: startData.sessionId,
           message: backendMessageStr,
           workspaceId: startData.workspaceId,
+          modelId,
           mentions: payloadMentions,
           contexts: payloadContexts,
         });
@@ -573,6 +590,7 @@ export default function SwarmRunView({
           sessionId: swarmSessionId,
           message: backendMessageStr,
           workspaceId,
+          modelId,
           mentions: payloadMentions,
           contexts: payloadContexts,
         });
@@ -581,7 +599,7 @@ export default function SwarmRunView({
         setOptimisticPending(false);
       }
     }
-  }, [selectedContexts, selectedMentions, sessionStatus, swarmSessionId, workspaceId, conversationId, workforceId, subscribeSSE, sendSwarmMessage, handleFetchResponse]);
+  }, [selectedContexts, selectedMentions, sessionStatus, swarmSessionId, workspaceId, conversationId, workforceId, subscribeSSE, sendSwarmMessage, handleFetchResponse, selectedModelId]);
 
   // ── Combine messages, tasks, and swarm events BEFORE conditional returns ──
   // ── Combine messages, tasks, and swarm events BEFORE conditional returns ──
@@ -1103,7 +1121,7 @@ export default function SwarmRunView({
                     onStop={abortSwarmMessage}
                     isSending={isSending}
                     disabled={sessionStatus !== 'running'}
-                    hideModelSelect
+                    modelId={selectedModelId}
                     onContextClick={() => setContextModalOpen(true)}
                     contextCount={selectedContexts.length}
                     onMentionClick={() => setMentionModalOpen(true)}

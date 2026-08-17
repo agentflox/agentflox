@@ -39,6 +39,13 @@ export {
 } from './providers';
 export { fromOpenAIUsage, fromAnthropicUsage, fromGoogleUsage, emptyUsage } from './providers/normalize';
 export { completeWithDefaultModel, resolveAgentModel } from './orchestratorLlm';
+export {
+  toUserFacingError,
+  getUserFacingErrorMessage,
+  toUserFacingModelError,
+  getUserFacingModelErrorMessage,
+} from './errors';
+export type { UserFacingError, UserFacingErrorKind, UserFacingModelError } from './errors';
 
 import { resolveModel } from './resolve';
 import { generateText } from './providers';

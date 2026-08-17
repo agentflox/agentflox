@@ -6,6 +6,7 @@ import { useToast } from "@/hooks/useToast";
 import type { BuilderInputField } from "@/entities/tools/types/builder";
 import { getSocket } from "@/lib/socket";
 import { useUsageCapModal } from "@/features/usage/hooks/useUsageCapModal";
+import { formatUserFacingErrorMessage } from "@/entities/models/utils/formatModelError";
 
 export type RunLogEntry = {
   type: "thinking" | "token" | "complete" | "error";
@@ -300,7 +301,10 @@ export function useToolRun({ initialTool, inputs }: { initialTool: any; inputs: 
         const handleToolError = (ev: any) => {
           if (ev.runId !== serverRunId) return;
           if (isCancelled()) return;
-          const message = ev.message || "Unknown error";
+          const message = formatUserFacingErrorMessage(
+            { message: ev.message, code: ev.code, kind: ev.kind },
+            "Unknown error"
+          );
           const ts = Date.now();
           const cancelled = /cancel/i.test(message);
 

@@ -1,4 +1,4 @@
-import { resolveModel, createOpenAICompletion, recordUsage, fromOpenAIUsage } from '@/services/models';
+import { resolveModel, createOpenAICompletion, recordUsage, fromOpenAIUsage, toUserFacingError } from '@/services/models';
 import { prisma } from '@/lib/prisma';
 import { inngest } from '@/lib/inngest';
 import { z } from 'zod';
@@ -815,7 +815,7 @@ Return strictly JSON with shape: { "welcomeMessage": string }.`,
     agentId: string,
     message: string,
     userId: string,
-    options?: { contexts?: any[]; mentions?: any[]; attachments?: any[] },
+    options?: { contexts?: any[]; mentions?: any[]; attachments?: any[]; modelId?: string | null },
     idempotencyKey?: string
   ): Promise<{ runId: string }> {
     const runId = randomUUID();
@@ -852,7 +852,7 @@ Return strictly JSON with shape: { "welcomeMessage": string }.`,
       agentId: string;
       message: string;
       userId: string;
-      options?: { contexts?: any[]; mentions?: any[]; attachments?: any[] };
+      options?: { contexts?: any[]; mentions?: any[]; attachments?: any[]; modelId?: string | null };
       idempotencyKey?: string;
     }
   ): Promise<{
@@ -865,6 +865,15 @@ Return strictly JSON with shape: { "welcomeMessage": string }.`,
     suggestedActions?: Array<{ type: string; label: string; payload?: any }>;
   }> {
     const runKey = `agent_run:${runId}`;
+
+    // Persist composer model selection for subsequent turns
+    if (options?.modelId) {
+      await prisma.aiConversation.update({
+        where: { id: conversationId },
+        data: { modelId: options.modelId },
+      }).catch(() => { /* non-fatal */ });
+    }
+
     const onProgress = (stepDesc: string, node?: string) => {
       console.log(`[AgentOperator ReAct] Progress: ${stepDesc}`);
       redis.setex(runKey, 3600, JSON.stringify({ status: 'running', step: stepDesc })).catch(() => { });
@@ -1178,8 +1187,9 @@ Return strictly JSON with shape: { "welcomeMessage": string }.`,
         }
       }
 
-      // Build operator response
-      const resolved = await resolveModel({ modelId: agent.modelId, userId });
+      // Build operator response — dropdown override → agent.modelId → platform default
+      const selectedModelId = options?.modelId || agent.modelId || undefined;
+      const resolved = await resolveModel({ modelId: selectedModelId, userId });
       const model = { ...resolved, name: resolved.apiModelId };
       const guardrails = `QUALITY
 - Be concise, factual, and accurate to this agent's stored configuration.
@@ -1239,7 +1249,7 @@ ${guardrails}${semanticMemoryBlock}`;
               constraints: agent.constraints,
               systemPrompt: agent.systemPrompt,
               modelConfig: {
-                modelId: agent.modelId,
+                modelId: selectedModelId ?? agent.modelId,
                 temperature: agent.temperature,
                 maxTokens: agent.maxTokens,
               },
@@ -1688,8 +1698,12 @@ ${guardrails}${semanticMemoryBlock}`;
       return result;
 
     } catch (e: any) {
-      await redis.setex(runKey, 3600, JSON.stringify({ status: 'error', message: e.message || 'Error occurred' }));
-      redis.publish(runKey, JSON.stringify({ type: 'error', message: e.message || 'Error occurred' })).catch(() => { });
+      const facing = e?.userMessage
+        ? { message: e.userMessage as string, code: String(e.code || 'AGENT_ERROR'), kind: 'execution' as const }
+        : toUserFacingError(e);
+      const facingMessage = facing.message;
+      await redis.setex(runKey, 3600, JSON.stringify({ status: 'error', message: facingMessage, code: facing.code, kind: facing.kind }));
+      redis.publish(runKey, JSON.stringify({ type: 'error', message: facingMessage, code: facing.code, kind: facing.kind })).catch(() => { });
       throw e;
     } finally {
       await this.releaseLock(processingLockKey);

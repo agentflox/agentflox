@@ -165,7 +165,7 @@ export default function TeamDocsView({ teamId }: TeamDocsViewProps) {
                                             </p>
                                             <Button
                                                 size="sm"
-                                                className="bg-slate-900 hover:bg-slate-800 text-white rounded-lg w-full"
+                                                className="rounded-lg bg-slate-900 hover:bg-slate-800 text-white w-full"
                                                 onClick={() => setIsCreateModalOpen(true)}
                                             >
                                                 <Plus className="mr-1.5 h-4 w-4" />
@@ -243,11 +243,11 @@ export default function TeamDocsView({ teamId }: TeamDocsViewProps) {
                                 Select a document from the sidebar or create a new one to start writing.
                             </p>
                             <Button
-                                size="default"
+                                size="sm"
                                 onClick={() => setIsCreateModalOpen(true)}
-                                className="shadow-sm hover:shadow-md transition-all group rounded-full px-6"
+                                className="rounded-lg bg-slate-900 hover:bg-slate-800 text-white"
                             >
-                                <Plus className="h-4 w-4 mr-2 transition-transform duration-300 group-hover:rotate-90" />
+                                <Plus className="h-4 w-4 mr-1.5" />
                                 New Document
                             </Button>
                         </div>

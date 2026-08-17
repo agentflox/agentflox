@@ -62,8 +62,13 @@ import {
 import { SaveTemplateModal } from "@/features/dashboard/components/modals/SaveTemplateModal";
 import { Input } from "@/components/ui/input";
 import { DashboardHeader } from "@/features/dashboard/components/shared/DashboardHeader";
-import { QuickAgentModal } from "@/features/dashboard/components/modals/QuickAgentModal";
 import { ResizableSplitLayout, SidePanelContainer } from "@/components/layout/ResizableSplitLayout";
+import { AgentsPopover } from "@/features/automations/components/AgentsPopover";
+import { AutomationsHubPopover } from "@/features/automations/components/AutomationsHubPopover";
+import { DashboardAutomationOverlays } from "@/features/automations/components/DashboardAutomationOverlays";
+import { AgentTabbedPanel } from "@/entities/agents/components/panels/AgentTabbedPanel";
+import { useDashboardAutomations } from "@/features/automations/hooks/useDashboardAutomations";
+import type { AutomationScope } from "@/features/automations/types";
 import type { TaskLayoutMode } from "@/entities/task/components/TaskDetailModal";
 import { TaskDetailModal, TaskDetailContent } from "@/entities/task/components/TaskDetailModal";
 import {
@@ -185,7 +190,6 @@ export default function WorkspaceDashboardView({ workspaceId }: WorkspaceViewPro
 
     // Item selection states
     const [isShareModalOpen, setIsShareModalOpen] = useState(false);
-    const [isAgentModalOpen, setIsAgentModalOpen] = useState(false);
     const [isAskAIOpen, setIsAskAIOpen] = useState(false);
     const [taskViewMode, setTaskViewMode] = useState<TaskLayoutMode>("modal");
 
@@ -211,6 +215,17 @@ export default function WorkspaceDashboardView({ workspaceId }: WorkspaceViewPro
         { id: workspaceId },
         { enabled: !!workspaceId, staleTime: 60_000, gcTime: 5 * 60_000 }
     );
+
+    const automationScope = useMemo<AutomationScope | null>(() => {
+        if (!workspaceId) return null;
+        return {
+            workspaceId,
+            contextType: "WORKSPACE",
+            contextId: workspaceId,
+            contextName: workspace?.name || "Workspace",
+        };
+    }, [workspaceId, workspace?.name]);
+    const automations = useDashboardAutomations(automationScope);
 
     // Derive the most specific AI chat context from active URL params
     const aiChatContext = useMemo(() => {
@@ -933,7 +948,13 @@ export default function WorkspaceDashboardView({ workspaceId }: WorkspaceViewPro
                                 />
                             </SidePanelContainer>
                         )}
-                        {selectedTaskId && !isAskAIOpen && taskViewMode === "sidebar" && (
+                        {automations.agentPanel && !isAskAIOpen && (
+                            <AgentTabbedPanel
+                                request={automations.agentPanel}
+                                onClose={automations.closeAgentPanel}
+                            />
+                        )}
+                        {selectedTaskId && !isAskAIOpen && !automations.agentPanel && taskViewMode === "sidebar" && (
                             <div className="h-full border-l border-zinc-200 bg-white">
                                 <TaskDetailContent
                                     taskId={selectedTaskId}
@@ -949,7 +970,7 @@ export default function WorkspaceDashboardView({ workspaceId }: WorkspaceViewPro
                         )}
                     </>
                 }
-                isPanelOpen={isAskAIOpen || (!!selectedTaskId && taskViewMode === "sidebar")}
+                isPanelOpen={isAskAIOpen || !!automations.agentPanel || (!!selectedTaskId && taskViewMode === "sidebar" && !automations.agentPanel)}
                 sidePanelDefaultSize={50}
                 sidePanelMinSize={40}
             />
@@ -984,17 +1005,32 @@ export default function WorkspaceDashboardView({ workspaceId }: WorkspaceViewPro
                             shareUrl={`${window.location.origin}${window.location.pathname}`}
                             showSettings={false}
                             askAIDisabled={currentTab === "ai-chat"}
-                            onAskAIClick={() => setIsAskAIOpen(!isAskAIOpen)}
+                            onAskAIClick={() => {
+                                automations.closeAgentPanel();
+                                setIsAskAIOpen(!isAskAIOpen);
+                            }}
                             onShareClick={() => setIsShareModalOpen(true)}
-                            agentPopoverContent={
-                                <QuickAgentModal
-                                    contextId={workspaceId}
-                                    contextType="WORKSPACE"
-                                    onOpenChange={setIsAgentModalOpen}
+                            agentPopoverContent={automationScope ? (
+                                <AgentsPopover
+                                    scope={automationScope}
+                                    onOpenAgentPanel={(req) => {
+                                        setIsAskAIOpen(false);
+                                        automations.openAgentPanel(req);
+                                    }}
+                                    onManageAgents={automations.openManage}
                                 />
-                            }
-                            agentOpen={isAgentModalOpen}
-                            onAgentOpenChange={setIsAgentModalOpen}
+                            ) : undefined}
+                            agentOpen={automations.agentOpen}
+                            onAgentOpenChange={automations.setAgentOpen}
+                            automationsPopoverContent={automationScope ? (
+                                <AutomationsHubPopover
+                                    scope={automationScope}
+                                    onManage={automations.openManage}
+                                    onCreate={(mode) => automations.openBuilder(mode)}
+                                />
+                            ) : undefined}
+                            automationsOpen={automations.hubOpen}
+                            onAutomationsOpenChange={automations.setHubOpen}
                             showExit={true}
                         />
                         <div className="flex-1 overflow-hidden relative">
@@ -1036,6 +1072,22 @@ export default function WorkspaceDashboardView({ workspaceId }: WorkspaceViewPro
                     itemId={workspaceId}
                     itemName={workspace?.name || "Workspace"}
                     workspaceId={workspaceId}
+                />
+
+                <DashboardAutomationOverlays
+                    scope={automationScope}
+                    manageOpen={automations.manageOpen}
+                    onManageOpenChange={automations.setManageOpen}
+                    builderOpen={automations.builderOpen}
+                    onBuilderOpenChange={automations.setBuilderOpen}
+                    builderMode={automations.builderMode}
+                    editingId={automations.editingId}
+                    onCreate={(mode) => automations.openBuilder(mode)}
+                    onEdit={(id, mode) => automations.openBuilder(mode, id)}
+                    onAskBrain={() => {
+                        automations.closeAgentPanel();
+                        setIsAskAIOpen(true);
+                    }}
                 />
 
                 {/* Rename View Dialog */}

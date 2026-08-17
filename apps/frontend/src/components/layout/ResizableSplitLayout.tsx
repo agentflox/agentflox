@@ -114,6 +114,7 @@ interface SidePanelContainerProps {
     onClose: () => void;
     title: React.ReactNode;
     icon?: React.ReactNode;
+    actions?: React.ReactNode;
     children: React.ReactNode;
 }
 
@@ -125,18 +126,22 @@ export function SidePanelContainer({
     onClose,
     title,
     icon,
+    actions,
     children
 }: SidePanelContainerProps) {
     return (
         <div className="flex h-full flex-col border-l border-zinc-200 bg-white">
             <div className="flex items-center justify-between border-b border-zinc-100 px-4 py-2 bg-zinc-50/50">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 min-w-0">
                     {icon}
-                    <div className="text-xs font-semibold text-zinc-600 uppercase tracking-wider flex items-center gap-2">{title}</div>
+                    <div className="text-xs font-semibold text-zinc-600 uppercase tracking-wider flex items-center gap-2 truncate">{title}</div>
                 </div>
-                <Button variant="ghost" size="icon" className="h-8 w-8 text-zinc-400 hover:text-zinc-900" onClick={onClose}>
-                    <X className="h-4 w-4" />
-                </Button>
+                <div className="flex items-center gap-1 shrink-0">
+                    {actions}
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-zinc-400 hover:text-zinc-900" onClick={onClose}>
+                        <X className="h-4 w-4" />
+                    </Button>
+                </div>
             </div>
             {/* STOP PROPAGATION: Isolates the editor viewport wrapper from clicking side effects */}
             <div

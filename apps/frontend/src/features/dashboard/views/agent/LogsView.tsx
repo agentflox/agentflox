@@ -1,0 +1,107 @@
+"use client";
+import React, { useState } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import { FileText, Search, Download, AlertCircle, CheckCircle2, Info, AlertTriangle } from 'lucide-react';
+interface LogsViewProps {
+  agentId?: string;
+}
+type LogLevel = 'success' | 'error' | 'warning' | 'info' | 'debug' | 'all';
+export const LogsView = ({ agentId }: LogsViewProps) => {
+  const [logLevel, setLogLevel] = useState<LogLevel>('all');
+  const [searchQuery, setSearchQuery] = useState('');
+  // TODO: Implement agent logs query when backend endpoint is available
+  // For now, show placeholder with filters
+  const logLevels: { value: LogLevel; label: string; icon: any }[] = [
+    { value: 'all', label: 'All Logs', icon: FileText },
+    { value: 'success', label: 'Success', icon: CheckCircle2 },
+    { value: 'error', label: 'Error', icon: AlertCircle },
+    { value: 'warning', label: 'Warning', icon: AlertTriangle },
+    { value: 'info', label: 'Info', icon: Info },
+    { value: 'debug', label: 'Debug', icon: FileText },
+  ];
+  return (
+    <div className="space-y-6 p-6">
+      <div className="flex items-center justify-between">
+      <div>
+          <h1 className="text-2xl font-bold flex items-center gap-2">
+            <FileText className="h-6 w-6" />
+            System Logs
+          </h1>
+        <p className="text-muted-foreground mt-1">
+            View agent execution logs and system events
+        </p>
+      </div>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-9 w-9 border-zinc-200 text-zinc-500 hover:bg-zinc-50 hover:text-zinc-700 dark:border-zinc-800 dark:hover:bg-zinc-900"
+            >
+              <Download className="h-4 w-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>Export logs</p>
+          </TooltipContent>
+        </Tooltip>
+      </div>
+      {/* Filters */}
+      <Card>
+        <CardContent className="pt-6">
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="flex h-9 items-center rounded-md border border-zinc-200 bg-white px-3 shadow-sm transition-colors">
+              <Search className="h-4 w-4 shrink-0 text-zinc-400" />
+              <Input
+                variant="ghost"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search logs..."
+                className="h-full bg-transparent pl-2 pr-0 focus:outline-none focus:ring-0 focus-visible:ring-0"
+              />
+            </div>
+            <Select value={logLevel} onValueChange={(value) => setLogLevel(value as LogLevel)}>
+              <SelectTrigger className="w-[180px] h-10">
+                <SelectValue placeholder="Log Level" />
+              </SelectTrigger>
+              <SelectContent>
+                {logLevels.map((level) => {
+                  const Icon = level.icon;
+                  return (
+                    <SelectItem key={level.value} value={level.value}>
+                      <div className="flex items-center gap-2">
+                        <Icon className="h-4 w-4" />
+                        {level.label}
+                      </div>
+                    </SelectItem>
+                  );
+                })}
+              </SelectContent>
+            </Select>
+          </div>
+        </CardContent>
+      </Card>
+      {/* Logs List */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Logs</CardTitle>
+        </CardHeader>
+        <CardContent>
+            <div className="text-center py-8 text-muted-foreground">
+            <p>Log viewing for agents will be available soon</p>
+            <p className="text-sm mt-2">This will show system logs, execution logs, errors, and performance metrics</p>
+            </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+};

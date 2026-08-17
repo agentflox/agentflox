@@ -358,7 +358,7 @@ export default function TeamListView({ teamId, workspaceId, selectedListId, onLi
                                             <div className="flex flex-col sm:flex-row items-center gap-3">
                                                 <Button
                                                     size="sm"
-                                                    className="bg-slate-900 hover:bg-slate-800 text-white rounded-lg w-full sm:w-auto"
+                                                    className="rounded-lg bg-slate-900 hover:bg-slate-800 text-white w-full sm:w-auto"
                                                     onClick={() => {
                                                         setTargetFolderId(activeFolderId || undefined);
                                                         setIsListModalOpen(true);
@@ -786,7 +786,7 @@ export default function TeamListView({ teamId, workspaceId, selectedListId, onLi
                             <div className="flex flex-col sm:flex-row items-center gap-3">
                                 <Button
                                     size="sm"
-                                    className="bg-slate-900 hover:bg-slate-800 text-white rounded-lg w-full sm:w-auto"
+                                    className="rounded-lg bg-slate-900 hover:bg-slate-800 text-white w-full sm:w-auto"
                                     onClick={() => {
                                         setTargetFolderId(activeFolderId || undefined);
                                         setIsListModalOpen(true);
