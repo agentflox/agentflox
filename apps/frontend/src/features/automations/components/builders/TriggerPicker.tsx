@@ -55,16 +55,20 @@ export function TriggerPicker({
       <PopoverTrigger asChild>
         <button
           type="button"
-          className="w-full h-10 rounded-lg border border-zinc-200 bg-white px-3 flex items-center gap-2 text-sm text-left hover:bg-zinc-50"
+          className="w-full h-10 rounded-lg border border-zinc-200 bg-white px-3 flex items-center gap-2 text-sm text-left hover:bg-zinc-50 cursor-pointer"
         >
           {Icon && <Icon className="h-4 w-4 text-zinc-500 shrink-0" />}
           <span className="flex-1 truncate">{selected?.label ?? "Select a trigger"}</span>
           <ChevronDown className={cn("h-4 w-4 text-zinc-400", open && "rotate-180")} />
         </button>
       </PopoverTrigger>
-      <PopoverContent align="start" className="w-[360px] p-0" side="bottom">
-        <Command className="border-0">
-          <div className="flex items-center gap-2 border-b px-3">
+      <PopoverContent
+        align="start"
+        className="w-[360px] max-h-[420px] p-0 overflow-hidden flex flex-col"
+        side="bottom"
+      >
+        <Command className="flex flex-col border-0">
+          <div className="flex items-center gap-2 border-b px-3 shrink-0">
             <Search className="h-3.5 w-3.5 text-zinc-400" />
             <input
               value={query}
@@ -73,10 +77,18 @@ export function TriggerPicker({
               className="h-9 w-full bg-transparent text-sm outline-none placeholder:text-zinc-400"
             />
           </div>
-          <CommandList className="max-h-[360px] overflow-y-auto">
+          <CommandList
+            className="min-h-0 overflow-y-auto overscroll-contain"
+            style={{ maxHeight: "var(--radix-popover-content-available-height, 360px)" }}
+            onWheel={(e) => e.stopPropagation()}
+          >
             <CommandEmpty className="py-6 text-center text-xs text-zinc-500">No triggers found.</CommandEmpty>
             {grouped.map(({ group, items }) => (
-              <CommandGroup key={group} heading={TRIGGER_GROUP_LABELS[group]} className="[&_[cmdk-group-heading]]:text-[10px] [&_[cmdk-group-heading]]:font-semibold [&_[cmdk-group-heading]]:tracking-wider [&_[cmdk-group-heading]]:text-zinc-400">
+              <CommandGroup
+                key={group}
+                heading={TRIGGER_GROUP_LABELS[group]}
+                className="[&_[cmdk-group-heading]]:text-[10px] [&_[cmdk-group-heading]]:font-semibold [&_[cmdk-group-heading]]:tracking-wider [&_[cmdk-group-heading]]:text-zinc-400"
+              >
                 {items.map((item) => {
                   const ItemIcon = item.icon;
                   return (

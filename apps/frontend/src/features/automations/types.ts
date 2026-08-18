@@ -91,7 +91,9 @@ export type AutomationScope = {
   teamId?: string;
   spaceId?: string;
   projectId?: string;
-  contextType: 'WORKSPACE' | 'TEAM' | 'SPACE' | 'PROJECT';
+  folderId?: string;
+  listId?: string;
+  contextType: 'WORKSPACE' | 'TEAM' | 'SPACE' | 'PROJECT' | 'FOLDER' | 'LIST' | 'PERSONAL';
   contextId: string;
   contextName: string;
 };

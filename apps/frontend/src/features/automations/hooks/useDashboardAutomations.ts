@@ -15,9 +15,10 @@ export function useDashboardAutomations(scope: AutomationScope | null) {
   const [agentOpen, setAgentOpen] = useState(false);
   const [hubOpen, setHubOpen] = useState(false);
   const [manageOpen, setManageOpen] = useState(false);
-  const [builderOpen, setBuilderOpen] = useState(false);
-  const [builderMode, setBuilderMode] = useState<"classic" | "agent">("classic");
-  const [editingId, setEditingId] = useState<string | null>(null);
+  const [builderRequest, setBuilderRequest] = useState<{
+    mode: "classic" | "agent";
+    editingId?: string | null;
+  } | null>(null);
   const [agentPanel, setAgentPanel] = useState<AgentPanelRequest | null>(null);
 
   const openAgentPanel = useCallback((req: AgentPanelRequest) => {
@@ -31,15 +32,21 @@ export function useDashboardAutomations(scope: AutomationScope | null) {
   const openManage = useCallback(() => {
     setAgentOpen(false);
     setHubOpen(false);
+    setBuilderRequest(null);
     setManageOpen(true);
   }, []);
 
   const openBuilder = useCallback((mode: "classic" | "agent", id?: string | null) => {
     setHubOpen(false);
-    setManageOpen(false);
-    setBuilderMode(mode);
-    setEditingId(id ?? null);
-    setBuilderOpen(true);
+    setBuilderRequest({ mode, editingId: id ?? null });
+    setManageOpen(true);
+  }, []);
+
+  const clearBuilderRequest = useCallback(() => setBuilderRequest(null), []);
+
+  const handleManageOpenChange = useCallback((open: boolean) => {
+    setManageOpen(open);
+    if (!open) setBuilderRequest(null);
   }, []);
 
   return {
@@ -49,11 +56,9 @@ export function useDashboardAutomations(scope: AutomationScope | null) {
     hubOpen,
     setHubOpen,
     manageOpen,
-    setManageOpen,
-    builderOpen,
-    setBuilderOpen,
-    builderMode,
-    editingId,
+    setManageOpen: handleManageOpenChange,
+    builderRequest,
+    clearBuilderRequest,
     agentPanel,
     openAgentPanel,
     closeAgentPanel,

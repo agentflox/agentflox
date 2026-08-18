@@ -336,6 +336,9 @@ export default function WorkspaceDashboardView({ workspaceId }: WorkspaceViewPro
         params.delete("aid");
         params.delete("nv");
         params.delete("docView");
+        params.delete("scope");
+        params.delete("status");
+        params.delete("page");
         if (view === "overview") {
             params.set("tab", "overview");
             if (views.length > 0) params.set("v", views[0].id);
@@ -1078,12 +1081,8 @@ export default function WorkspaceDashboardView({ workspaceId }: WorkspaceViewPro
                     scope={automationScope}
                     manageOpen={automations.manageOpen}
                     onManageOpenChange={automations.setManageOpen}
-                    builderOpen={automations.builderOpen}
-                    onBuilderOpenChange={automations.setBuilderOpen}
-                    builderMode={automations.builderMode}
-                    editingId={automations.editingId}
-                    onCreate={(mode) => automations.openBuilder(mode)}
-                    onEdit={(id, mode) => automations.openBuilder(mode, id)}
+                    builderRequest={automations.builderRequest}
+                    onBuilderRequestHandled={automations.clearBuilderRequest}
                     onAskBrain={() => {
                         automations.closeAgentPanel();
                         setIsAskAIOpen(true);

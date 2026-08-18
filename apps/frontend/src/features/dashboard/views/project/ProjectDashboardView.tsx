@@ -685,6 +685,9 @@ export default function ProjectDashboardView({ projectId, selectedTaskIdFromPare
                                 params.delete("docView");
                                 params.delete("nv");
                                 params.delete("aid");
+                                params.delete("scope");
+                                params.delete("status");
+                                params.delete("page");
 
                                 if (viewId === "lists") {
                                     params.set("tab", "lists");
@@ -1174,12 +1177,8 @@ export default function ProjectDashboardView({ projectId, selectedTaskIdFromPare
                     scope={automationScope}
                     manageOpen={automations.manageOpen}
                     onManageOpenChange={automations.setManageOpen}
-                    builderOpen={automations.builderOpen}
-                    onBuilderOpenChange={automations.setBuilderOpen}
-                    builderMode={automations.builderMode}
-                    editingId={automations.editingId}
-                    onCreate={(mode) => automations.openBuilder(mode)}
-                    onEdit={(id, mode) => automations.openBuilder(mode, id)}
+                    builderRequest={automations.builderRequest}
+                    onBuilderRequestHandled={automations.clearBuilderRequest}
                     onAskBrain={() => {
                         automations.closeAgentPanel();
                         setIsAskAIOpen(true);

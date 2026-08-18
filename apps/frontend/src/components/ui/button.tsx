@@ -29,7 +29,7 @@ export function buttonVariants({
   } else if (variant === 'google') {
     variantClass = 'bg-white hover:bg-gray-50 text-gray-700 border border-gray-300 shadow-sm focus-visible:ring-2 focus-visible:ring-gray-200';
   } else if (variant === 'outline') {
-    variantClass = 'bg-transparent border border-zinc-300 text-zinc-700 hover:bg-zinc-100 focus-visible:ring-2 focus-visible:ring-zinc-200';
+    variantClass = 'bg-transparent border border-zinc-300 text-zinc-700 hover:text-zinc-800 hover:bg-zinc-100 focus-visible:ring-2 focus-visible:ring-zinc-200';
   } else if (variant === 'destructive') {
     variantClass = 'bg-red-600 hover:bg-red-700 text-white focus-visible:ring-2 focus-visible:ring-red-300';
   } else if (variant === 'ghost') {

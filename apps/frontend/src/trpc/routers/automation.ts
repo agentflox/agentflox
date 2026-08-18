@@ -91,9 +91,13 @@ export const automationRouter = router({
       kind: z.enum(["CLASSIC", "AGENT"]).optional(),
       isActive: z.boolean().optional(),
       triggerType: triggerTypeEnum.optional(),
+      triggerTypes: z.array(triggerTypeEnum).optional(),
       actionType: z.string().optional(),
+      actionTypes: z.array(z.enum(AUTOMATION_ACTION_TYPES)).optional(),
+      ownerIds: z.array(z.string()).optional(),
       search: z.string().optional(),
       sort: z.enum(["updated", "name", "created"]).optional().default("updated"),
+      sortDesc: z.boolean().optional().default(true),
     }))
     .query(async ({ ctx, input }) => {
       await assertWorkspaceMember(input.workspaceId, ctx.session!.user!.id);
@@ -104,13 +108,26 @@ export const automationRouter = router({
       if (input.teamId) where.teamId = input.teamId;
       if (input.spaceId) where.spaceId = input.spaceId;
       if (input.projectId) where.projectId = input.projectId;
+      if (input.folderId) where.folderId = input.folderId;
+      if (input.listId) where.listId = input.listId;
       if (input.kind) where.kind = input.kind;
       if (input.isActive !== undefined) where.isActive = input.isActive;
+      const triggerTypes =
+        input.triggerTypes && input.triggerTypes.length > 0
+          ? input.triggerTypes
+          : input.triggerType
+            ? [input.triggerType]
+            : null;
       if (input.search?.trim()) {
         where.name = { contains: input.search.trim(), mode: "insensitive" };
       }
-      if (input.triggerType) {
-        where.triggers = { some: { triggerType: input.triggerType } };
+      if (triggerTypes) {
+        where.triggers = { some: { triggerType: { in: triggerTypes } } };
+      }
+      const ownerIds =
+        input.ownerIds && input.ownerIds.length > 0 ? input.ownerIds : null;
+      if (ownerIds) {
+        where.ownerId = { in: ownerIds };
       }
       const items = await prisma.automation.findMany({
         where,
@@ -120,11 +137,19 @@ export const automationRouter = router({
           owner: { select: { id: true, name: true, image: true } },
           logs: { orderBy: { executedAt: "desc" }, take: 1 },
         },
-        orderBy: input.sort === "name" ? { name: "asc" } : input.sort === "created" ? { createdAt: "desc" } : { updatedAt: "desc" },
+        orderBy:
+          input.sort === "name"
+            ? { name: input.sortDesc ? "desc" : "asc" }
+            : input.sort === "created"
+              ? { createdAt: input.sortDesc ? "desc" : "asc" }
+              : { updatedAt: input.sortDesc ? "desc" : "asc" },
       });
-      const filtered = input.actionType
-        ? items.filter((a) => Array.isArray(a.actions) && (a.actions as any[]).some((x) => x.type === input.actionType))
-        : items;
+      const actionTypes = input.actionTypes && input.actionTypes.length > 0 ? input.actionTypes : null;
+      const filtered = actionTypes
+        ? items.filter((a) => Array.isArray(a.actions) && (a.actions as any[]).some((x) => actionTypes.includes(x.type)))
+        : input.actionType
+          ? items.filter((a) => Array.isArray(a.actions) && (a.actions as any[]).some((x) => x.type === input.actionType))
+          : items;
       return { items: filtered, activeCount: filtered.filter((a) => a.isActive).length };
     }),
 
@@ -304,6 +329,48 @@ export const automationRouter = router({
       return prisma.automation.update({
         where: { id: input.id },
         data: { status: "ARCHIVED", isActive: false },
+      });
+    }),
+
+  duplicate: protectedProcedure
+    .input(z.object({ id: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const userId = ctx.session!.user!.id;
+      const existing = await prisma.automation.findUnique({
+        where: { id: input.id },
+        include: { triggers: true },
+      });
+      if (!existing?.workspaceId) throw new TRPCError({ code: "NOT_FOUND" });
+      await assertWorkspaceWriter(existing.workspaceId, userId);
+      return prisma.automation.create({
+        data: {
+          name: `${existing.name} (copy)`,
+          description: existing.description,
+          ownerId: userId,
+          workspaceId: existing.workspaceId,
+          teamId: existing.teamId,
+          spaceId: existing.spaceId,
+          projectId: existing.projectId,
+          listId: existing.listId,
+          folderId: existing.folderId,
+          kind: existing.kind,
+          actions: existing.actions as object,
+          agentId: existing.agentId,
+          isScheduled: existing.isScheduled,
+          cronExpression: existing.cronExpression,
+          isActive: false,
+          status: "DRAFT",
+          triggers: {
+            create: existing.triggers.map((t) => ({
+              triggerType: t.triggerType,
+              triggerConfig: t.triggerConfig ?? {},
+              conditions: t.conditions ?? undefined,
+              name: t.name,
+              isActive: t.isActive,
+            })),
+          },
+        },
+        include: { triggers: true, aiAgent: true },
       });
     }),
 
