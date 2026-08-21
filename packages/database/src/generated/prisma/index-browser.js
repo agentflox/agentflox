@@ -600,6 +600,30 @@ exports.Prisma.CustomFieldLocationScalarFieldEnum = {
   locationType: 'locationType'
 };
 
+exports.Prisma.TagScalarFieldEnum = {
+  id: 'id',
+  workspaceId: 'workspaceId',
+  name: 'name',
+  color: 'color',
+  locationType: 'locationType',
+  createdAt: 'createdAt',
+  createdBy: 'createdBy',
+  updatedAt: 'updatedAt',
+  folderId: 'folderId',
+  listId: 'listId',
+  projectId: 'projectId',
+  spaceId: 'spaceId',
+  teamId: 'teamId',
+  visibility: 'visibility'
+};
+
+exports.Prisma.TaskTagScalarFieldEnum = {
+  id: 'id',
+  taskId: 'taskId',
+  tagId: 'tagId',
+  createdAt: 'createdAt'
+};
+
 exports.Prisma.CustomFieldValueScalarFieldEnum = {
   id: 'id',
   customFieldId: 'customFieldId',
@@ -2229,17 +2253,22 @@ exports.Prisma.ExecutionLogScalarFieldEnum = {
 
 exports.Prisma.WebhookScalarFieldEnum = {
   id: 'id',
-  workspaceId: 'workspaceId',
   createdBy: 'createdBy',
   name: 'name',
+  description: 'description',
+  type: 'type',
+  sourceId: 'sourceId',
   url: 'url',
   secret: 'secret',
+  headers: 'headers',
+  urlParams: 'urlParams',
   events: 'events',
   isActive: 'isActive',
   maxRetries: 'maxRetries',
   retryDelay: 'retryDelay',
   lastTriggeredAt: 'lastTriggeredAt',
-  createdAt: 'createdAt'
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
 };
 
 exports.Prisma.WebhookDeliveryScalarFieldEnum = {
@@ -3327,9 +3356,8 @@ exports.LocationType = exports.$Enums.LocationType = {
 };
 
 exports.StatusType = exports.$Enums.StatusType = {
-  OPEN: 'OPEN',
-  IN_PROGRESS: 'IN_PROGRESS',
-  COMPLETED: 'COMPLETED',
+  NOT_STARTED: 'NOT_STARTED',
+  ACTIVE: 'ACTIVE',
   CLOSED: 'CLOSED',
   CUSTOM: 'CUSTOM'
 };
@@ -4459,6 +4487,8 @@ exports.Prisma.ModelName = {
   TimeEntry: 'TimeEntry',
   CustomField: 'CustomField',
   CustomFieldLocation: 'CustomFieldLocation',
+  Tag: 'Tag',
+  TaskTag: 'TaskTag',
   CustomFieldValue: 'CustomFieldValue',
   SpaceMember: 'SpaceMember',
   Folder: 'Folder',

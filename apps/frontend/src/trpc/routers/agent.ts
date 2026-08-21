@@ -3,7 +3,7 @@ import { protectedProcedure, router } from "@/trpc/init";
 import { prisma } from "@/lib/prisma";
 import { randomUUID } from "crypto";
 import { DEFAULT_MEMORY_METADATA } from "@/lib/agentMemory/memoryPolicy";
-import { inScopeWhere, elsewhereWhere, normalizeAgentLocation } from "@/features/automations/scope";
+import { inScopeWhere, elsewhereWhere, exactScopeWhere, normalizeAgentLocation } from "@/features/automations/scope";
 import {
   buildDefaultAgentMetadata,
   clearAgentMemoryStores,
@@ -55,6 +55,58 @@ const DEFAULT_TRIGGERS: DefaultTrigger[] = [
     isActive: true,
     priority: 0,
     tags: ['mention', 'notification'],
+  },
+];
+
+const DEFAULT_SYSTEM_TOOLS = [
+  {
+    name: "load_assets_and_objects",
+    displayName: "Load assets and objects",
+    description: "Loads assets, attachments, and objects from workspace",
+    category: "WORKSPACE",
+    toolType: "SYSTEM_TOOL" as const,
+  },
+  {
+    name: "load_custom_fields",
+    displayName: "Load Custom Fields",
+    description: "Loads custom field definitions and metadata for tasks",
+    category: "CUSTOM_FIELDS",
+    toolType: "SYSTEM_TOOL" as const,
+  },
+  {
+    name: "retrieve_chat_messages",
+    displayName: "Retrieve Chat messages",
+    description: "Retrieves messages and history from chat channels",
+    category: "COMMUNICATIONS",
+    toolType: "SYSTEM_TOOL" as const,
+  },
+  {
+    name: "retrieve_task_list",
+    displayName: "Retrieve task list",
+    description: "Retrieves list of tasks matching specified criteria",
+    category: "TASKS",
+    toolType: "SYSTEM_TOOL" as const,
+  },
+  {
+    name: "search_activity",
+    displayName: "Search activity",
+    description: "Searches audit logs and activity history across workspace",
+    category: "ACTIVITY",
+    toolType: "SYSTEM_TOOL" as const,
+  },
+  {
+    name: "search_users_and_teams",
+    displayName: "Search users and teams",
+    description: "Searches users, assignees, members, and teams",
+    category: "USERS",
+    toolType: "SYSTEM_TOOL" as const,
+  },
+  {
+    name: "search_workspace",
+    displayName: "Search Workspace",
+    description: "Searches across all workspace tasks, docs, and content",
+    category: "WORKSPACE",
+    toolType: "SYSTEM_TOOL" as const,
   },
 ];
 
@@ -130,13 +182,14 @@ export const agentRouter = router({
       spaceId: z.string().optional(),
       teamId: z.string().optional(),
       projectId: z.string().optional(),
-      scopeMode: z.enum(["inScope", "elsewhere", "all"]).optional().default("all"),
+      scopeMode: z.enum(["inScope", "elsewhere", "exact", "all"]).optional().default("all"),
       status: z.array(statusEnum).optional(),
       agentType: z.array(agentTypeEnum).optional(),
       query: z.string().optional(),
       page: z.number().int().min(1).optional().default(1),
       pageSize: z.number().int().min(1).max(50).optional().default(12),
       includeRelations: z.boolean().optional(),
+      includeAutomationAgents: z.boolean().optional().default(false),
     }))
     .query(async ({ ctx, input }) => {
       const userId = ctx.session!.user!.id;
@@ -165,9 +218,32 @@ export const agentRouter = router({
           teamId: input.teamId,
           projectId: input.projectId,
         }));
+      } else if (input.scopeMode === "exact") {
+        Object.assign(where, exactScopeWhere({
+          workspaceId: input.workspaceId,
+          spaceId: input.spaceId,
+          teamId: input.teamId,
+          projectId: input.projectId,
+        }));
       }
 
       where.AND = [{ OR: accessOr }];
+
+      if (!input.includeAutomationAgents) {
+        where.AND.push({
+          OR: [
+            { metadata: { equals: null } },
+            {
+              NOT: {
+                metadata: {
+                  path: ["createdByAutomation"],
+                  equals: true,
+                },
+              },
+            },
+          ],
+        });
+      }
 
       if (input.query) {
         const q = input.query.trim();
@@ -379,6 +455,39 @@ export const agentRouter = router({
         projectId: input.projectId,
         teamId: input.teamId,
       });
+      // Prepare default system tools
+      const dbSystemTools = await prisma.systemTool.findMany({
+        where: { isActive: true },
+      });
+
+      const defaultToolsToCreate = dbSystemTools.length > 0
+        ? dbSystemTools.map((st) => ({
+            id: randomUUID(),
+            name: st.name,
+            description: st.description,
+            category: st.category,
+            toolType: "SYSTEM_TOOL" as const,
+            functionSchema: (st.functionSchema as any) || { type: "object", properties: {}, required: [] },
+            parameters: {},
+            returns: {},
+            isEnabled: true,
+            isActive: true,
+            tags: st.tags || ["system", "default"],
+          }))
+        : DEFAULT_SYSTEM_TOOLS.map((st) => ({
+            id: randomUUID(),
+            name: st.name,
+            description: st.description,
+            category: st.category,
+            toolType: st.toolType,
+            functionSchema: { type: "object", properties: {}, required: [] },
+            parameters: {},
+            returns: {},
+            isEnabled: true,
+            isActive: true,
+            tags: ["system", "default"],
+          }));
+
       // Create agent
       const agent = await prisma.aiAgent.create({
         data: {
@@ -420,6 +529,7 @@ export const agentRouter = router({
           autonomyLevel: input.autonomyLevel || 'SEMI_AUTONOMOUS',
           requiresApproval: input.requiresApproval ?? true,
           approvalThreshold: input.approvalThreshold ?? 0.8,
+          availableTools: defaultToolsToCreate.map((t) => t.name),
           permissionLevel: input.permissionLevel || 'RESTRICTED',
           schedule: input.schedule || undefined,
           isScheduleActive: input.isScheduleActive ?? false,
@@ -429,6 +539,9 @@ export const agentRouter = router({
           status: input.status || 'DRAFT',
           metadata: { memory: { ...DEFAULT_MEMORY_METADATA } },
           updatedAt: new Date(),
+          tools: {
+            create: defaultToolsToCreate,
+          },
           triggers: {
             create: DEFAULT_TRIGGERS.map(trigger => ({
               id: randomUUID(),

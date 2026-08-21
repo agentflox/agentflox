@@ -138,6 +138,7 @@ model User {
   cancelledPermissionInvitations PermissionInvitation[]      @relation("InvitationCanceller")
   sentPermissionInvitations      PermissionInvitation[]      @relation("InvitationSender")
   receivedPermissionInvitations  PermissionInvitation[]      @relation("InvitationRecipient")
+  createdTags                    Tag[]                       @relation("UserCreatedTags")
   postCommentVotes               PostCommentVote[]
   postComments                   PostComment[]
   postLikes                      PostLike[]
@@ -363,7 +364,6 @@ model Workspace {
   templates               Template[]
   tools                   Tool[]
   views                   View[]
-  webhooks                Webhook[]
   activityLogs            WorkspaceActivity[]
   analytics               WorkspaceAnalytics[]
   permissionGuests        WorkspaceGuest[]             @relation("WorkspaceGuests")
@@ -383,6 +383,8 @@ model Workspace {
   previousOwner  User?       @relation("WorkspacePreviousOwner", fields: [previousOwnerId], references: [id], onDelete: SetNull)
   workforces     Workforce[]
   customAiModels AiModel[]   @relation("WorkspaceCustomAiModels")
+
+  tags Tag[] @relation("WorkspaceTags")
 
   // --- soft delete fields ---
   deletedAt   DateTime? @map("deleted_at")
@@ -533,6 +535,8 @@ model Space {
   documents               Document[]
   taskCustomRelationships TaskCustomRelationship[]
 
+  tags Tag[] @relation("SpaceTags")
+
   // --- soft delete fields ---
   deletedAt   DateTime? @map("deleted_at")
   deletedById String?   @map("deleted_by_id")
@@ -673,6 +677,7 @@ model Task {
   aiConversations     AiConversation[]
   checklists          Checklist[]
   customFieldValues   CustomFieldValue[]
+  taskTags            TaskTag[]
   activities          TaskActivity[]
   assignees           TaskAssignee[]     @relation("TaskAssignees")
   attachments         TaskAttachment[]
@@ -1069,6 +1074,61 @@ model CustomFieldLocation {
   @@map("custom_field_locations")
 }
 
+model Tag {
+  id           String       @id @default(cuid())
+  workspaceId  String?      @map("workspace_id")
+  name         String
+  color        String?
+  locationType LocationType @default(WORKSPACE) @map("location_type")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  createdBy String?  @map("created_by")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  folderId  String? @map("folder_id")
+  listId    String? @map("list_id")
+  projectId String? @map("project_id")
+  spaceId   String? @map("space_id")
+  teamId    String? @map("team_id")
+
+  visibility Visibility @default(ADMINS)
+
+  // Relations
+  creator   User?      @relation("UserCreatedTags", fields: [createdBy], references: [id], onDelete: SetNull)
+  folder    Folder?    @relation("FolderTags", fields: [folderId], references: [id], onDelete: Cascade)
+  list      List?      @relation("ListTags", fields: [listId], references: [id], onDelete: Cascade)
+  project   Project?   @relation("ProjectTags", fields: [projectId], references: [id], onDelete: Cascade)
+  space     Space?     @relation("SpaceTags", fields: [spaceId], references: [id], onDelete: Cascade)
+  team      Team?      @relation("TeamTags", fields: [teamId], references: [id], onDelete: Cascade)
+  workspace Workspace? @relation("WorkspaceTags", fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  taskTags TaskTag[]
+
+  @@index([workspaceId])
+  @@index([spaceId])
+  @@index([projectId])
+  @@index([teamId])
+  @@index([folderId])
+  @@index([listId])
+  @@index([createdBy])
+  @@map("tags")
+}
+
+model TaskTag {
+  id        String   @id @default(cuid())
+  taskId    String   @map("task_id")
+  tagId     String   @map("tag_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  tag  Tag  @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, tagId])
+  @@index([taskId])
+  @@index([tagId])
+  @@map("task_tags")
+}
+
 model CustomFieldValue {
   id            String      @id @default(cuid())
   customFieldId String      @map("custom_field_id")
@@ -1151,6 +1211,7 @@ model Folder {
   // --- soft delete fields ---
   deletedAt   DateTime? @map("deleted_at")
   deletedById String?   @map("deleted_by_id")
+  tags        Tag[]     @relation("FolderTags")
 
   @@index([workspaceId])
   @@index([spaceId])
@@ -1260,6 +1321,7 @@ model List {
 
   sharedTasks Task[]       @relation("TaskSharedLists")
   automations Automation[]
+  tags        Tag[]        @relation("ListTags")
 
   @@index([workspaceId])
   @@index([spaceId])
@@ -2469,6 +2531,7 @@ model Project {
   views                   View[]
   documents               Document[]
   taskCustomRelationships TaskCustomRelationship[]
+  tagEntities             Tag[]                    @relation("ProjectTags")
 
   // --- soft delete fields ---
   deletedAt   DateTime? @map("deleted_at")
@@ -2902,6 +2965,7 @@ model Team {
   customFields        CustomField[]
   folders             Folder[]
   invitations         Invitation[]
+  tags                Tag[]                  @relation("TeamTags")
   lists               List[]
   locationPermissions LocationPermission[]   @relation("TeamLocationPermissions")
   posts               Post[]
@@ -3846,22 +3910,29 @@ model ExecutionLog {
 
 model Webhook {
   id              String            @id @default(cuid())
-  workspaceId     String            @map("workspace_id")
   createdBy       String            @map("created_by")
   name            String
-  url             String
+  description     String?
+  /// automation | integration | agent
+  type            String            @default("automation")
+  sourceId        String?           @map("source_id")
+  url             String            @default("")
   secret          String?
+  headers         Json?             @default("[]")
+  urlParams       Json?             @default("[]") @map("url_params")
   events          WebhookEvent[]
   isActive        Boolean           @default(true) @map("is_active")
   maxRetries      Int               @default(3) @map("max_retries")
   retryDelay      Int               @default(60) @map("retry_delay")
   lastTriggeredAt DateTime?         @map("last_triggered_at")
   createdAt       DateTime          @default(now()) @map("created_at")
+  updatedAt       DateTime          @updatedAt @map("updated_at")
   deliveries      WebhookDelivery[]
   creator         User              @relation(fields: [createdBy], references: [id], onDelete: Cascade)
-  workspace       Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
-  @@index([workspaceId])
+  @@index([type])
+  @@index([createdBy])
+  @@index([sourceId])
   @@map("webhooks")
 }
 
@@ -6062,9 +6133,8 @@ enum TaskPriority {
 }
 
 enum StatusType {
-  OPEN
-  IN_PROGRESS
-  COMPLETED
+  NOT_STARTED
+  ACTIVE
   CLOSED
   CUSTOM
 }

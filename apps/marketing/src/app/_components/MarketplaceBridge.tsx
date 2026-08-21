@@ -26,7 +26,7 @@ export const MarketplaceBridge = () => {
             <div className="absolute -top-[20%] left-1/4 w-[600px] h-[600px] bg-cyan-500/10 rounded-full blur-[150px] pointer-events-none mix-blend-screen" />
             <div className="absolute -bottom-[20%] right-1/4 w-[600px] h-[600px] bg-indigo-500/10 rounded-full blur-[150px] pointer-events-none mix-blend-screen" />
 
-            <div className="container mx-auto px-6 lg:px-12 max-w-[1400px] relative z-10">
+            <div className="container mx-auto px-4 sm:px-10 lg:px-20 relative z-10">
                 <motion.div
                     variants={containerVariants}
                     initial="hidden"

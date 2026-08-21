@@ -1,6 +1,8 @@
 import { initializeOpenAI } from '@/lib/openai';
 import { ModelService, SYSTEM_MODELS } from '@/services/ai/model.service';
 import { completeWithDefaultModel } from '@/services/models';
+import { prisma } from '@/lib/prisma';
+import { WEBHOOK_TYPES } from '@/services/webhooks/types';
 
 const modelService = new ModelService();
 const ANTHROPIC_DEFAULT = SYSTEM_MODELS.CLAUDE_3_5_SONNET;
@@ -136,33 +138,102 @@ async function executeHttpRequest(params: any) {
 }
 
 async function executeWebhookSend(params: any) {
-  const { url, payload, headers = {} } = params as {
-    url: string;
+  const {
+    url,
+    payload,
+    headers = {},
+    query = {},
+    webhookId,
+  } = params as {
+    url?: string;
     payload: Record<string, any>;
     headers?: Record<string, string>;
+    query?: Record<string, string>;
+    webhookId?: string;
   };
 
-  if (!url) {
+  let targetUrl = url;
+  let mergedHeaders: Record<string, string> = { 'content-type': 'application/json', ...headers };
+  let hookId: string | undefined;
+
+  if (webhookId) {
+    const hook = await prisma.webhook.findFirst({
+      where: { id: webhookId, type: WEBHOOK_TYPES.AGENT, isActive: true },
+    });
+    if (!hook) {
+      throw new Error('webhookSend: agent webhook not found');
+    }
+    hookId = hook.id;
+    targetUrl = hook.url || targetUrl;
+    const storedHeaders = Array.isArray(hook.headers) ? hook.headers : [];
+    for (const h of storedHeaders as Array<{ key?: string; value?: string }>) {
+      if (h?.key) mergedHeaders[h.key] = String(h.value ?? '');
+    }
+    const storedParams = Array.isArray(hook.urlParams) ? hook.urlParams : [];
+    if (targetUrl && storedParams.length) {
+      const u = new URL(targetUrl);
+      for (const p of storedParams as Array<{ key?: string; value?: string }>) {
+        if (p?.key) u.searchParams.set(p.key, String(p.value ?? ''));
+      }
+      targetUrl = u.toString();
+    }
+  }
+
+  if (!targetUrl) {
     throw new Error('webhookSend: url is required');
   }
 
-  const baseHeaders: Record<string, string> = {
-    'content-type': 'application/json',
-    ...headers,
-  };
+  const urlObj = new URL(targetUrl);
+  for (const [key, value] of Object.entries(query || {})) {
+    urlObj.searchParams.append(key, value);
+  }
 
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: baseHeaders,
-    body: JSON.stringify(payload ?? {}),
-  } as RequestInit);
+  try {
+    const response = await fetch(urlObj.toString(), {
+      method: 'POST',
+      headers: mergedHeaders,
+      body: JSON.stringify(payload ?? {}),
+    } as RequestInit);
 
-  const text = await response.text();
-  return {
-    status: response.status,
-    statusText: response.statusText,
-    body: text,
-  };
+    const text = await response.text();
+    if (hookId) {
+      await prisma.webhookDelivery.create({
+        data: {
+          webhookId: hookId,
+          event: 'TASK_CREATED',
+          payload: (payload ?? {}) as object,
+          status: response.ok ? 'SUCCESS' : 'FAILED',
+          httpStatus: response.status,
+          response: text.slice(0, 2000),
+          error: response.ok ? null : `HTTP ${response.status}`,
+          deliveredAt: response.ok ? new Date() : null,
+        },
+      });
+      await prisma.webhook.update({
+        where: { id: hookId },
+        data: { lastTriggeredAt: new Date() },
+      });
+    }
+
+    return {
+      status: response.status,
+      statusText: response.statusText,
+      body: text,
+    };
+  } catch (error) {
+    if (hookId) {
+      await prisma.webhookDelivery.create({
+        data: {
+          webhookId: hookId,
+          event: 'TASK_CREATED',
+          payload: (payload ?? {}) as object,
+          status: 'FAILED',
+          error: error instanceof Error ? error.message : 'request_failed',
+        },
+      });
+    }
+    throw error;
+  }
 }
 
 async function executeOpenAIChat(params: any, userId: string) {

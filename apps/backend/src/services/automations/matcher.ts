@@ -102,15 +102,29 @@ export function matchesTriggerConfig(
     if (!matchesBound(triggerConfig.toValue, event.toValue)) return false;
   }
   if (event.type === 'TASK_STATUS_CHANGED') {
-    if (!isAny(triggerConfig.fromStatusId) && triggerConfig.fromStatusId !== event.previousStatusId) {
-      return false;
+    if (!isAny(triggerConfig.fromStatusId)) {
+      if (Array.isArray(triggerConfig.fromStatusId)) {
+        if (!triggerConfig.fromStatusId.includes(event.previousStatusId)) return false;
+      } else if (triggerConfig.fromStatusId !== event.previousStatusId) {
+        return false;
+      }
     }
-    if (!isAny(triggerConfig.toStatusId) && triggerConfig.toStatusId !== event.statusId) {
-      return false;
+    if (!isAny(triggerConfig.toStatusId)) {
+      if (Array.isArray(triggerConfig.toStatusId)) {
+        if (!triggerConfig.toStatusId.includes(event.statusId)) return false;
+      } else if (triggerConfig.toStatusId !== event.statusId) {
+        return false;
+      }
     }
   }
   if ((event.type === 'TAG_ADDED' || event.type === 'TAG_REMOVED') && triggerConfig.tag && event.tag) {
     if (triggerConfig.tag !== event.tag) return false;
+  }
+
+  if (['TASK_ASSIGNEE_ADDED', 'TASK_ASSIGNEE_REMOVED', 'TASK_ASSIGNEE_CHANGED'].includes(event.type) && triggerConfig.assigneeIds) {
+    if (Array.isArray(triggerConfig.assigneeIds) && triggerConfig.assigneeIds.length > 0) {
+      if (!triggerConfig.assigneeIds.includes(event.assigneeId)) return false;
+    }
   }
   const creation = triggerConfig.creationSources as CreationSourceFilters | undefined;
   return matchesSources(creation, event.createdVia, event.type);

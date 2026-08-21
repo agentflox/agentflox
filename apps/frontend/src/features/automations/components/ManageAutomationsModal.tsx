@@ -29,6 +29,11 @@ import { ProjectIcon } from "@/entities/projects/components/ProjectIcon";
 import { AutomationBuilderContent } from "./builders/AutomationBuilderContent";
 import { AutomationListItem } from "./shared/AutomationListItem";
 import { BrowseAutomations } from "./BrowseAutomations";
+import type { BrowseTemplate } from "../browseCatalog";
+import { ActivityAutomations } from "./ActivityAutomations";
+import { RecurringAutomations } from "./RecurringAutomations";
+import { WebhooksTab } from "./WebhooksTab";
+import { CreateWebhookContent } from "./builders/CreateWebhookContent";
 
 function AgentIcon({ className }: { className?: string }) {
   return (
@@ -41,20 +46,9 @@ function AgentIcon({ className }: { className?: string }) {
   );
 }
 
-function lastChip(status?: string) {
-  if (!status) return null;
-  const map: Record<string, string> = {
-    SUCCESS: "bg-emerald-50 text-emerald-700",
-    FAILED: "bg-red-50 text-red-700",
-    PARTIAL: "bg-amber-50 text-amber-700",
-  };
-  return <span className={`text-[10px] px-1.5 py-0.5 rounded ${map[status] || "bg-zinc-100"}`}>{status}</span>;
-}
-
 const TAB_ITEMS = [
   { value: "browse", label: "Browse" },
   { value: "manage", label: "Manage" },
-  { value: "usage", label: "Usage" },
   { value: "activity", label: "Activity" },
   { value: "webhooks", label: "Webhooks" },
   { value: "recurring", label: "Recurring" },
@@ -62,6 +56,10 @@ const TAB_ITEMS = [
 
 type BuilderState = {
   mode: "classic" | "agent";
+  editingId?: string | null;
+};
+
+type WebhookBuilderState = {
   editingId?: string | null;
 };
 
@@ -386,6 +384,7 @@ export function ManageAutomationsModal({
   const [search, setSearch] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
   const [builder, setBuilder] = useState<BuilderState | null>(null);
+  const [webhookBuilder, setWebhookBuilder] = useState<WebhookBuilderState | null>(null);
   const [isActive, setIsActive] = useState<boolean | undefined>(true);
   const [triggerTypes, setTriggerTypes] = useState<string[]>([]);
   const [actionTypes, setActionTypes] = useState<string[]>([]);
@@ -395,6 +394,7 @@ export function ManageAutomationsModal({
   const [sortSearchQuery, setSortSearchQuery] = useState("");
   const [locationSearch, setLocationSearch] = useState("");
   const [selectedScope, setSelectedScope] = useState<AutomationScope>(scope);
+  const [activityLocation, setActivityLocation] = useState<AutomationScope | null>(scope);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   const list = trpc.automation.list.useQuery(
@@ -415,39 +415,30 @@ export function ManageAutomationsModal({
     },
     { enabled: open && !!scope.workspaceId && !builder },
   );
-  const usage = trpc.automation.usageSummary.useQuery(
-    { workspaceId: scope.workspaceId || "" },
-    { enabled: open && tab === "usage" && !builder },
-  );
-  const logs = trpc.automation.listLogs.useQuery(
-    { workspaceId: scope.workspaceId || "" },
-    { enabled: open && tab === "activity" && !builder },
-  );
-  const rotate = trpc.automation.rotateWebhookSecret.useMutation();
-  const createHook = trpc.automation.createWebhookTrigger.useMutation();
+  const locationQueriesEnabled = open && (tab === "manage" || tab === "activity") && !!scope.workspaceId && !builder;
   const workspacesListData = trpc.workspace.list.useQuery(
     { scope: "all", page: 1, pageSize: 50 } as any,
-    { enabled: open && tab === "manage" && !!scope.workspaceId && !builder },
+    { enabled: locationQueriesEnabled },
   );
   const spacesData = trpc.space.list.useQuery(
     { workspaceId: scope.workspaceId, includeCounts: false } as any,
-    { enabled: open && tab === "manage" && !!scope.workspaceId && !builder },
+    { enabled: locationQueriesEnabled },
   );
   const projectsData = trpc.project.list.useQuery(
     { workspaceId: scope.workspaceId } as any,
-    { enabled: open && tab === "manage" && !!scope.workspaceId && !builder },
+    { enabled: locationQueriesEnabled },
   );
   const foldersData = trpc.folder.byContext.useQuery(
     { workspaceId: scope.workspaceId, archived: false } as any,
-    { enabled: open && tab === "manage" && !!scope.workspaceId && !builder },
+    { enabled: locationQueriesEnabled },
   );
   const listsData = trpc.list.byContext.useQuery(
     { workspaceId: scope.workspaceId, archived: false } as any,
-    { enabled: open && tab === "manage" && !!scope.workspaceId && !builder },
+    { enabled: locationQueriesEnabled },
   );
   const teamsData = trpc.team.list.useQuery(
     { workspaceId: scope.workspaceId } as any,
-    { enabled: open && tab === "manage" && !!scope.workspaceId && !builder },
+    { enabled: locationQueriesEnabled },
   );
   const workspaceMembers = trpc.workspace.getMembers.useQuery(
     { id: scope.workspaceId || "" },
@@ -471,11 +462,13 @@ export function ManageAutomationsModal({
   useEffect(() => {
     if (!open) {
       setBuilder(null);
+      setWebhookBuilder(null);
       setTab("browse");
       setSearch("");
       setSearchOpen(false);
       setLocationSearch("");
       setSelectedScope(scope);
+      setActivityLocation(scope);
     }
   }, [open, scope]);
 
@@ -483,12 +476,12 @@ export function ManageAutomationsModal({
     if (searchOpen) searchInputRef.current?.focus();
   }, [searchOpen]);
 
-  const openCreate = (mode: "classic" | "agent") => {
-    setBuilder({ mode, editingId: null });
+  const openCreate = (mode: "classic" | "agent", initialTemplate?: BrowseTemplate | null) => {
+    setBuilder({ mode, editingId: null, initialTemplate: initialTemplate ?? null });
   };
 
   const openEdit = (id: string, mode: "classic" | "agent") => {
-    setBuilder({ mode, editingId: id });
+    setBuilder({ mode, editingId: id, initialTemplate: null });
   };
 
   const closeBuilder = () => {
@@ -496,14 +489,18 @@ export function ManageAutomationsModal({
     list.refetch();
   };
 
-  const recurring = useMemo(
-    () => (list.data?.items ?? []).filter((a: any) => a.isScheduled || a.triggers?.some((t: any) => t.triggerType === "EVERY_SCHEDULED_TIME")),
-    [list.data],
-  );
-  const webhooks = useMemo(
-    () => (list.data?.items ?? []).filter((a: any) => a.triggers?.some((t: any) => t.triggerType === "WEBHOOK")),
-    [list.data],
-  );
+  const openWebhookCreate = () => {
+    setWebhookBuilder({ editingId: null });
+  };
+
+  const openWebhookEdit = (id: string) => {
+    setWebhookBuilder({ editingId: id });
+  };
+
+  const closeWebhookBuilder = () => {
+    setWebhookBuilder(null);
+  };
+
   const allCount = list.data?.items?.length ?? 0;
   const activeCount = (list.data?.items ?? []).filter((a: any) => a.isActive).length;
   const inactiveCount = allCount - activeCount;
@@ -531,7 +528,9 @@ export function ManageAutomationsModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className={cn("p-0 overflow-hidden", "max-w-7xl sm:max-w-7xl")} showCloseButton={false}>
         <VisuallyHidden>
-          <DialogTitle>{builder ? "Automation builder" : "Automations"}</DialogTitle>
+          <DialogTitle>
+            {builder ? "Automation builder" : webhookBuilder ? "Create webhook" : "Automations"}
+          </DialogTitle>
         </VisuallyHidden>
 
         {builder ? (
@@ -539,9 +538,17 @@ export function ManageAutomationsModal({
             scope={selectedScope}
             mode={builder.mode}
             editingId={builder.editingId}
+            initialTemplate={builder.initialTemplate}
             onBack={closeBuilder}
             onSaved={closeBuilder}
             onAskBrain={onAskBrain}
+          />
+        ) : webhookBuilder ? (
+          <CreateWebhookContent
+            scope={scope}
+            editingId={webhookBuilder.editingId}
+            onBack={closeWebhookBuilder}
+            onSaved={closeWebhookBuilder}
           />
         ) : (
           <div className="flex flex-col h-[640px]">
@@ -1046,45 +1053,43 @@ export function ManageAutomationsModal({
                 </div>
               </TabsContent>
 
-              <TabsContent value="usage" className="mt-0 h-full overflow-y-auto px-5 pb-6 pt-4">
-                <div className="grid grid-cols-3 gap-3 py-4">
-                  <div className="rounded-lg border p-4"><p className="text-xs text-zinc-500">Active</p><p className="text-2xl font-semibold">{usage.data?.active ?? 0}</p></div>
-                  <div className="rounded-lg border p-4"><p className="text-xs text-zinc-500">Success</p><p className="text-2xl font-semibold">{usage.data?.success ?? 0}</p></div>
-                  <div className="rounded-lg border p-4"><p className="text-xs text-zinc-500">Failed</p><p className="text-2xl font-semibold">{usage.data?.failed ?? 0}</p></div>
-                </div>
+              <TabsContent value="activity" className="mt-0 h-full overflow-hidden">
+                <ActivityAutomations
+                  workspaceId={scope.workspaceId}
+                  locationScope={activityLocation}
+                  onLocationChange={setActivityLocation}
+                  locationPicker={
+                    <LocationPickerContent
+                      currentWorkspaceId={scope.workspaceId}
+                      selectedScope={activityLocation ?? {
+                        workspaceId: scope.workspaceId,
+                        contextType: "WORKSPACE",
+                        contextId: scope.workspaceId || "",
+                        contextName: "",
+                      }}
+                      workspaces={workspaces}
+                      spaces={spaces}
+                      projects={projects}
+                      folders={folders}
+                      lists={lists}
+                      teams={teams}
+                      search={locationSearch}
+                      onSearch={setLocationSearch}
+                      onSelect={(next) => setActivityLocation(next)}
+                    />
+                  }
+                />
               </TabsContent>
 
-              <TabsContent value="activity" className="mt-0 h-full overflow-y-auto px-5 pb-6 pt-4">
-                {(logs.data?.items ?? []).map((log: any) => (
-                  <div key={log.id} className="flex items-center justify-between py-2 border-b text-sm">
-                    <span>{log.automation?.name}</span>
-                    {lastChip(log.status)}
-                    <span className="text-xs text-zinc-400">{new Date(log.executedAt).toLocaleString()}</span>
-                  </div>
-                ))}
-                {(logs.data?.items ?? []).length === 0 && <p className="py-8 text-center text-sm text-zinc-500">No activity yet</p>}
+              <TabsContent value="webhooks" className="mt-0 h-full overflow-hidden">
+                <WebhooksTab
+                  onCreate={openWebhookCreate}
+                  onEdit={openWebhookEdit}
+                />
               </TabsContent>
 
-              <TabsContent value="webhooks" className="mt-0 h-full overflow-y-auto px-5 pb-6 pt-4">
-                {webhooks.map((rule: any) => (
-                  <div key={rule.id} className="flex items-center justify-between py-2 border-b">
-                    <span className="text-sm">{rule.name}</span>
-                    <Button size="sm" variant="outline" className="cursor-pointer" onClick={() => (rule.webhookSecret ? rotate : createHook).mutate({ id: rule.id })}>
-                      {rule.webhookSecret ? "Rotate secret" : "Create webhook"}
-                    </Button>
-                  </div>
-                ))}
-                {webhooks.length === 0 && <p className="py-8 text-center text-sm text-zinc-500">No webhook automations</p>}
-              </TabsContent>
-
-              <TabsContent value="recurring" className="mt-0 h-full overflow-y-auto px-5 pb-6 pt-4">
-                {recurring.map((rule: any) => (
-                  <div key={rule.id} className="flex items-center justify-between py-2 border-b text-sm">
-                    <span>{rule.name}</span>
-                    <span className="text-xs text-zinc-500">{rule.cronExpression || "Scheduled"}</span>
-                  </div>
-                ))}
-                {recurring.length === 0 && <p className="py-8 text-center text-sm text-zinc-500">No recurring automations</p>}
+              <TabsContent value="recurring" className="mt-0 h-full overflow-hidden">
+                <RecurringAutomations workspaceId={scope.workspaceId} />
               </TabsContent>
             </Tabs>
           </div>

@@ -1097,7 +1097,7 @@ export function CustomFieldsManagerModal({
                                                     setShowLocationSearch((v) => !v);
                                                     if (showLocationSearch) setLocationSearchQuery("");
                                                 }}
-                                                className="text-zinc-400 hover:text-zinc-600 cursor-pointer"
+                                                className="text-zinc-400 hover:text-zinc-600 hover:bg-zinc-200 p-1 rounded-md cursor-pointer"
                                             >
                                                 <Search className="h-3.5 w-3.5" />
                                             </button>

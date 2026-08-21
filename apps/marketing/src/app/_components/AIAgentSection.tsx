@@ -13,15 +13,7 @@ import { AgentBuilderSimulation } from '../product/agents/_components/AgentBuild
 const WorkforcesSplitDemo = () => {
     return (
         <div className="w-full h-[1200px] md:h-[600px] flex flex-col rounded-2xl border border-white/5 bg-[#111] overflow-hidden shadow-2xl relative font-sans">
-            {/* Mac Window Header */}
-            <div className="h-12 bg-white/80 backdrop-blur-md border-b border-gray-200 z-50 flex items-center px-4 justify-between w-full flex-shrink-0">
-                <div className="flex gap-1.5 w-1/3">
-                    <div className="w-2.5 h-2.5 rounded-full bg-red-400" />
-                    <div className="w-2.5 h-2.5 rounded-full bg-yellow-400" />
-                    <div className="w-2.5 h-2.5 rounded-full bg-green-400" />
-                </div>
-                <div className="w-1/3" />
-            </div>
+         
 
             <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
                 {/* Left Panel: Swarm Demo */}

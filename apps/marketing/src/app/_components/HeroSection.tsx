@@ -17,7 +17,7 @@ export const HeroSection = () => {
             ref={containerRef}
             className="relative min-h-[95vh] w-full flex flex-col justify-center overflow-hidden bg-[#030303] text-white pt-24 lg:pt-32 pb-8 lg:pb-16"
         >
-            <div className="container relative z-10 mx-auto px-6 lg:px-12 max-w-[1400px]">
+            <div className="container relative z-10 mx-auto px-4 sm:px-10 lg:px-20">
                 <div className="grid lg:grid-cols-2 gap-6 lg:gap-16 items-center">
 
                     {/* Left: copy */}

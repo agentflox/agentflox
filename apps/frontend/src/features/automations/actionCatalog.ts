@@ -37,15 +37,10 @@ export const AUTOMATION_ACTION_TYPES = [
   "ADD_ASSIGNEE",
   "UPDATE_STATUS",
   "CALL_WEBHOOK",
-  "CALL_WEBHOOK_LEGACY",
   "CREATE_TASK",
-  "UPDATE_CUSTOM_FIELD",
-  "SET_AI_FIELD",
-  "ADD_TO_SPRINT",
   "ADD_TO_LIST",
   "MOVE_TO_LIST",
   "DO_ANYTHING_WITH_AI",
-  "REFRESH_AI_FIELD",
   "ADD_COMMENT",
   "SEND_CHANNEL_MESSAGE",
   "SEND_DIRECT_MESSAGE",
@@ -66,6 +61,7 @@ export const AUTOMATION_ACTION_TYPES = [
   "UPDATE_TAGS",
   "UPDATE_TASK_NAME",
   "UPDATE_TASK_TYPE",
+  "INTEGRATION_ACTION",
 ] as const;
 
 export type AutomationActionTypeV1 = (typeof AUTOMATION_ACTION_TYPES)[number];
@@ -103,7 +99,7 @@ export type ActionMeta = {
   type: AutomationActionTypeV1;
   label: string;
   description: string;
-  icon: LucideIcon;
+  icon: any;
   groups: ActionGroupId[];
   destructive?: boolean;
   submenu?: boolean;
@@ -111,23 +107,19 @@ export type ActionMeta = {
 };
 
 export const ACTION_META: ActionMeta[] = [
-  { type: "LAUNCH_AI_AGENT", label: "AI Agents", description: "Run an AI agent", icon: Bot, groups: ["popular", "ai"], submenu: true },
+  { type: "LAUNCH_AI_AGENT", label: "Ai Agents", description: "Run an AI agent", icon: Bot, groups: ["popular", "ai"], submenu: true },
   { type: "UPDATE_ASSIGNEES", label: "Update assignees", description: "Change task assignees", icon: Users, groups: ["popular", "taskManagement"] },
   { type: "UPDATE_STATUS", label: "Update status", description: "Change the task status", icon: Target, groups: ["popular", "taskManagement"] },
   { type: "CALL_WEBHOOK", label: "Call webhook", description: "POST to an HTTP endpoint", icon: Zap, groups: ["popular", "communication"] },
   { type: "CREATE_TASK", label: "Create task", description: "Create a new task", icon: CirclePlus, groups: ["popular", "createAndDelete"] },
-  { type: "UPDATE_CUSTOM_FIELD", label: "Update custom field", description: "Set a custom field value", icon: SquarePen, groups: ["popular", "taskManagement"] },
-  { type: "ADD_TO_SPRINT", label: "Add to current sprint", description: "Add the task to the current sprint", icon: ArrowRightToLine, groups: ["addOrMove"], comingSoon: true },
   { type: "ADD_TO_LIST", label: "Add to list", description: "Also add the task to a list", icon: List, groups: ["addOrMove"] },
   { type: "MOVE_TO_LIST", label: "Move to list", description: "Move the task to another list", icon: ArrowRightFromLine, groups: ["addOrMove"] },
   { type: "DO_ANYTHING_WITH_AI", label: "Do anything with AI", description: "Run an AI agent with instructions", icon: Sparkles, groups: ["ai"] },
-  { type: "REFRESH_AI_FIELD", label: "Refresh AI field", description: "Regenerate an AI custom field", icon: Sparkles, groups: ["ai"] },
   { type: "ADD_COMMENT", label: "Add comment", description: "Post a comment on the task", icon: MessageSquare, groups: ["communication"] },
-  { type: "CALL_WEBHOOK_LEGACY", label: "Call webhook (Legacy)", description: "Legacy webhook action", icon: Webhook, groups: ["communication"], comingSoon: true },
-  { type: "SEND_CHANNEL_MESSAGE", label: "Send channel message", description: "Post to a channel", icon: Hash, groups: ["communication"], comingSoon: true },
-  { type: "SEND_DIRECT_MESSAGE", label: "Send direct message", description: "Send a direct message", icon: Send, groups: ["communication"], comingSoon: true },
+  { type: "SEND_CHANNEL_MESSAGE", label: "Send channel message", description: "Post to a channel", icon: Hash, groups: ["communication"] },
+  { type: "SEND_DIRECT_MESSAGE", label: "Send direct message", description: "Send a direct message", icon: Send, groups: ["communication"] },
   { type: "UPDATE_FOLLOWERS", label: "Update followers", description: "Add or remove followers", icon: UserPlus, groups: ["communication"] },
-  { type: "APPLY_TEMPLATE", label: "Apply template", description: "Apply a task template", icon: WandSparkles, groups: ["createAndDelete"], comingSoon: true },
+  { type: "APPLY_TEMPLATE", label: "Apply template", description: "Apply a task template", icon: WandSparkles, groups: ["createAndDelete"] },
   { type: "ARCHIVE_TASK", label: "Archive task or subtask", description: "Archive the task", icon: Archive, groups: ["createAndDelete"] },
   { type: "CREATE_LIST", label: "Create list", description: "Create a list", icon: ListPlus, groups: ["createAndDelete"] },
   { type: "CREATE_SUBTASK", label: "Create subtask", description: "Create a subtask", icon: GitFork, groups: ["createAndDelete"] },
@@ -137,7 +129,7 @@ export const ACTION_META: ActionMeta[] = [
   { type: "TRACK_TIME", label: "Track time", description: "Log time on the task", icon: Timer, groups: ["datesAndTime"] },
   { type: "UPDATE_DUE_DATE", label: "Update due date", description: "Change the due date", icon: Calendar, groups: ["datesAndTime"] },
   { type: "UPDATE_START_DATE", label: "Update start date", description: "Change the start date", icon: Calendar, groups: ["datesAndTime"] },
-  { type: "ADD_RELATIONSHIP", label: "Add relationship", description: "Link related tasks", icon: Link2, groups: ["taskManagement"], comingSoon: true },
+  { type: "ADD_RELATIONSHIP", label: "Add relationship", description: "Link related tasks", icon: Link2, groups: ["taskManagement"] },
   { type: "UPDATE_PRIORITY", label: "Update priority", description: "Change priority", icon: Flag, groups: ["taskManagement"] },
   { type: "UPDATE_TAGS", label: "Update tags", description: "Add or replace tags", icon: Tag, groups: ["taskManagement"] },
   { type: "UPDATE_TASK_NAME", label: "Update task name", description: "Rename the task", icon: Type, groups: ["taskManagement"] },
@@ -159,15 +151,7 @@ export const ACTION_CATALOG: Record<AutomationActionTypeV1, { label: string }> =
 ACTION_CATALOG.ADD_ASSIGNEE = { label: "Update assignees" };
 ACTION_CATALOG.ADD_FOLLOWER = { label: "Update followers" };
 
-export const INTEGRATION_ACTIONS = [
-  { id: "bugsnag", label: "Bugsnag" },
-  { id: "email", label: "Email" },
-  { id: "github", label: "GitHub" },
-  { id: "google-calendar", label: "Google Calendar" },
-  { id: "google-drive", label: "Google Drive" },
-  { id: "hubspot", label: "HubSpot" },
-  { id: "slack", label: "Slack" },
-  { id: "twilio", label: "Twilio" },
-] as const;
+/** @deprecated Use INTEGRATION_PROVIDERS from integrationAutomationCatalog instead */
+export const INTEGRATION_ACTIONS = [] as const;
 
 export const AGENT_ACTION_TYPES: AutomationActionTypeV1[] = ["DO_ANYTHING_WITH_AI", "LAUNCH_AI_AGENT"];

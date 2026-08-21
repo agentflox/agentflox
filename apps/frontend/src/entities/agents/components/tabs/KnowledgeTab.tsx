@@ -25,6 +25,11 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
   FileText,
   Globe,
   Loader2,
@@ -495,12 +500,19 @@ export function KnowledgeTab({
         <h4 className="text-sm font-semibold text-zinc-900">External Search</h4>
 
         <div className="space-y-1">
-          <div className="flex items-center justify-between py-2.5 px-1">
+          <div
+            className="flex items-center justify-between py-2.5 px-2.5 hover:bg-zinc-100 rounded-md cursor-pointer"
+            onClick={() => {
+              if (isReconfiguring || updateMutation.isPending) return;
+              markDraft((prev) => ({ ...prev, webSearch: !prev.webSearch }));
+            }}
+          >
             <div className="flex items-center gap-3">
               <Globe className="h-5 w-5 text-zinc-400" />
               <span className="text-sm text-zinc-700">Web Search</span>
             </div>
             <Switch
+              className="pointer-events-none"
               checked={draft.webSearch}
               onCheckedChange={() =>
                 markDraft((prev) => ({ ...prev, webSearch: !prev.webSearch }))
@@ -508,13 +520,16 @@ export function KnowledgeTab({
               disabled={isReconfiguring || updateMutation.isPending}
             />
           </div>
-
           {draft.connections.map((connection) => {
             const brand = CONNECTION_BRAND[connection.kind];
             return (
               <div
                 key={connection.kind}
-                className="flex items-center justify-between py-2.5 px-1 group"
+                className="flex items-center justify-between py-2.5 px-2.5 hover:bg-zinc-100 rounded-md cursor-pointer"
+                onClick={() => {
+                  if (isReconfiguring || updateMutation.isPending) return;
+                  toggleConnection(connection.kind);
+                }}
               >
                 <button
                   type="button"
@@ -536,15 +551,6 @@ export function KnowledgeTab({
                   </span>
                 </button>
                 <div className="flex items-center gap-1">
-                  {connection.kind !== "google_drive" && (
-                    <button
-                      type="button"
-                      onClick={() => removeConnection(connection.kind)}
-                      className="opacity-0 group-hover:opacity-100 h-8 w-8 inline-flex items-center justify-center rounded-md text-zinc-400 hover:text-zinc-700 cursor-pointer"
-                    >
-                      <X className="h-3.5 w-3.5" />
-                    </button>
-                  )}
                   <Switch
                     checked={connection.enabled}
                     onCheckedChange={() => toggleConnection(connection.kind)}
@@ -627,22 +633,27 @@ export function KnowledgeTab({
                     <p className="text-sm font-medium truncate">
                       {item.name || item.title || type}
                     </p>
-                    <p className="text-[11px] text-zinc-400 capitalize">{type}</p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      markDraft((prev) => {
-                        const next = { ...prev.contexts };
-                        next[type] = (next[type] || []).filter((i: any) => i.id !== item.id);
-                        if (next[type].length === 0) delete next[type];
-                        return { ...prev, contexts: next };
-                      })
-                    }
-                    className="h-8 w-8 inline-flex items-center justify-center rounded-md text-zinc-400 hover:text-zinc-700 cursor-pointer"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
+                 <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          markDraft((prev) => {
+                            const next = { ...prev.contexts };
+                            next[type] = (next[type] || []).filter((i: any) => i.id !== item.id);
+                            if (next[type].length === 0) delete next[type];
+                            return { ...prev, contexts: next };
+                          })
+                        }
+                        aria-label="Remove item"
+                        className="h-7 w-7 inline-flex items-center justify-center rounded-full text-zinc-400 hover:text-zinc-700 hover:bg-zinc-200 cursor-pointer"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent>Remove item</TooltipContent>
+                  </Tooltip>
                 </div>
               )),
             )}

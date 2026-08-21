@@ -10,7 +10,10 @@ export function useAutomations(scope: AutomationScope | null, opts?: { kind?: "C
       teamId: scope?.teamId,
       spaceId: scope?.spaceId,
       projectId: scope?.projectId,
+      folderId: scope?.folderId,
+      listId: scope?.listId,
       kind: opts?.kind,
+      exactScope: true,
     },
     { enabled: !!scope?.workspaceId && opts?.enabled !== false },
   );

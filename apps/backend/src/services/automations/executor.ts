@@ -105,11 +105,25 @@ async function runAction(
       return { ok: true, detail: { agentId: agent.id } };
     }
     case 'CALL_WEBHOOK': {
-      if (!input.url) return { ok: false, detail: null, error: 'url_missing' };
-      const res = await fetch(input.url, {
+      const webhookId = typeof input.webhookId === 'string' ? input.webhookId : undefined;
+      let url = input.url as string | undefined;
+      const headers: Record<string, string> = { 'content-type': 'application/json' };
+      if (webhookId) {
+        const hook = await prisma.webhook.findFirst({
+          where: { id: webhookId, type: 'automation', isActive: true },
+        });
+        if (!hook?.url) return { ok: false, detail: null, error: 'webhook_missing' };
+        url = hook.url;
+        const storedHeaders = Array.isArray(hook.headers) ? hook.headers : [];
+        for (const h of storedHeaders as Array<{ key?: string; value?: string }>) {
+          if (h?.key) headers[h.key] = String(h.value ?? '');
+        }
+      }
+      if (!url) return { ok: false, detail: null, error: 'url_missing' };
+      const res = await fetch(url, {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ taskId: ctx.taskId, workspaceId: ctx.workspaceId }),
+        headers,
+        body: JSON.stringify({ taskId: ctx.taskId }),
       });
       if (!res.ok) return { ok: false, detail: { status: res.status }, error: 'webhook_failed' };
       return { ok: true, detail: { status: res.status } };

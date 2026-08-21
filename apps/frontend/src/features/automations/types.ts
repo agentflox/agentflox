@@ -17,6 +17,7 @@ export type CreationSourceFilters = {
   apis: boolean;
   forms: boolean;
   users: boolean;
+  userIds?: string[];
   emails: boolean;
   imports: boolean;
   templates: boolean;
@@ -30,6 +31,7 @@ export const DEFAULT_CLASSIC_SOURCES: CreationSourceFilters = {
   apis: false,
   forms: true,
   users: true,
+  userIds: [],
   emails: true,
   imports: true,
   templates: true,
@@ -43,6 +45,7 @@ export const DEFAULT_AGENT_SOURCES: CreationSourceFilters = {
   apis: true,
   forms: true,
   users: true,
+  userIds: [],
   emails: true,
   imports: true,
   templates: true,

@@ -62,11 +62,18 @@ export async function dispatchWorkforceTrigger(
 }
 
 export async function handleInboundWebhook(params: {
-  workspaceId: string;
+  sourceId?: string;
+  workspaceId?: string;
   secret: string;
   payload: Record<string, unknown>;
 }): Promise<{ dispatched: number; workforceIds: string[] }> {
-  const matches = await findWorkforcesByTriggerType('webhook', params.workspaceId);
+  const scopeId = params.sourceId || params.workspaceId;
+  let matches = scopeId
+    ? await findWorkforcesByTriggerType('webhook', scopeId)
+    : [];
+  if (matches.length === 0) {
+    matches = await findWorkforcesByTriggerType('webhook');
+  }
   const eligible = matches.filter((m) =>
     verifyWebhookSecret(
       params.secret,

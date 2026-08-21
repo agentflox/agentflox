@@ -58,3 +58,59 @@ describe('custom field trigger config', () => {
     ).toBe(false);
   });
 });
+
+describe('task status trigger config', () => {
+  const statusEvent = {
+    type: 'TASK_STATUS_CHANGED' as const,
+    taskId: 't1',
+    workspaceId: 'ws',
+    statusId: 'status-closed',
+    previousStatusId: 'status-open',
+  };
+
+  it('matches status transition correctly', () => {
+    expect(
+      matchesTriggerConfig(
+        { fromStatusId: 'status-open', toStatusId: 'status-closed' },
+        statusEvent,
+      ),
+    ).toBe(true);
+    expect(
+      matchesTriggerConfig(
+        { fromStatusId: 'status-other', toStatusId: 'status-closed' },
+        statusEvent,
+      ),
+    ).toBe(false);
+    expect(
+      matchesTriggerConfig(
+        { fromStatusId: '__any__', toStatusId: 'status-closed' },
+        statusEvent,
+      ),
+    ).toBe(true);
+  });
+});
+
+describe('tag and assignee trigger config', () => {
+  it('matches tag addition and removal', () => {
+    const tagEvent = {
+      type: 'TAG_ADDED' as const,
+      taskId: 't1',
+      workspaceId: 'ws',
+      tag: 'bug',
+    };
+    expect(matchesTriggerConfig({ tag: 'bug' }, tagEvent)).toBe(true);
+    expect(matchesTriggerConfig({ tag: 'feature' }, tagEvent)).toBe(false);
+  });
+
+  it('matches assignee changes', () => {
+    const assigneeEvent = {
+      type: 'TASK_ASSIGNEE_ADDED' as const,
+      taskId: 't1',
+      workspaceId: 'ws',
+      assigneeId: 'user-1',
+    };
+    expect(matchesTriggerConfig({ assigneeIds: ['user-1', 'user-2'] }, assigneeEvent)).toBe(true);
+    expect(matchesTriggerConfig({ assigneeIds: ['user-3'] }, assigneeEvent)).toBe(false);
+  });
+});
+

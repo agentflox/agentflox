@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
-import { Bot, User, Shield, CheckCircle2, ArrowUp, Sparkles, MessageSquare, Play, Calendar, FileText, Zap, Wrench, Brain } from "lucide-react";
+import { Bot, User, Shield, CheckCircle2, ArrowUp, Sparkles, MessageSquare, Play, Calendar, FileText, Zap, Wrench, Brain, Database } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // Types for our simulation
@@ -302,7 +302,7 @@ export function AgentBuilderSimulation({ dark = false }: { dark?: boolean }) {
                                     className="px-2 sm:px-4 py-1 group"
                                 >
                                     <div className="mb-2 flex items-center gap-2">
-                                        <div className="h-8 flex items-center shrink-0">
+                                        <div className="h-8 flex items-center shrink-0 -ml-2">
                                             <img src="/images/logo.png" alt="Agentflox" className="h-full w-auto object-contain" />
                                         </div>
                                         <span className={`text-sm font-semibold tracking-tight ${dark ? 'text-white' : 'text-slate-900'}`}>
@@ -401,7 +401,7 @@ export function AgentBuilderSimulation({ dark = false }: { dark?: boolean }) {
                                 </div>
 
                                 {/* Image Animation Container */}
-                                <div className={`relative w-full flex items-center justify-center overflow-hidden h-[240px] border-b ${dark ? 'bg-[#0D0D0D] border-white/10' : 'bg-gray-50 border-gray-100'}`}>
+                                <div className={`relative w-full flex items-center justify-center overflow-hidden h-[320px] border-b ${dark ? 'bg-[#0D0D0D] border-white/10' : 'bg-gray-50 border-gray-100'}`}>
                                     {/* Ambient Glow */}
                                     <div className="absolute inset-0 bg-gradient-radial from-blue-500/5 via-transparent to-transparent" />
                                     <motion.div
@@ -480,14 +480,14 @@ export function AgentBuilderSimulation({ dark = false }: { dark?: boolean }) {
                                 </div>
 
                                 {/* Stage Information */}
-                                <div className={`py-6 px-6 border-b ${dark ? 'border-white/10' : 'border-gray-100'}`}>
+                                <div className={`pt-4 px-6 border-b ${dark ? 'border-white/10' : 'border-gray-100'}`}>
                                     <motion.div
                                         key={buildStages[currentStageIndex]?.id}
                                         initial={{ opacity: 0, x: -20 }}
                                         animate={{ opacity: 1, x: 0 }}
                                         transition={{ duration: 0.3 }}
                                     >
-                                        <div className="flex items-center gap-3 mb-3">
+                                        <div className="flex items-center gap-3 mb-2">
                                             <div className="relative -ml-2">
                                                 <div className={`w-3 h-3 rounded-full ${showBlueImage ? "bg-blue-500" : "bg-pink-500"}`} />
                                                 {agentState.status === "building" && (
@@ -621,10 +621,6 @@ export function AgentBuilderSimulation({ dark = false }: { dark?: boolean }) {
                                             Instructions
                                         </div>
                                         <div className={`px-3.5 py-2.5 rounded-xl font-semibold flex items-center gap-2 whitespace-nowrap text-sm cursor-default ${dark ? 'text-gray-500' : 'text-gray-500'}`}>
-                                            <Sparkles className="w-4 h-4" />
-                                            Skills
-                                        </div>
-                                        <div className={`px-3.5 py-2.5 rounded-xl font-semibold flex items-center gap-2 whitespace-nowrap text-sm cursor-default ${dark ? 'text-gray-500' : 'text-gray-500'}`}>
                                             <Zap className="w-4 h-4" />
                                             Triggers
                                         </div>
@@ -633,8 +629,12 @@ export function AgentBuilderSimulation({ dark = false }: { dark?: boolean }) {
                                             Tools
                                         </div>
                                         <div className={`px-3.5 py-2.5 rounded-xl font-semibold flex items-center gap-2 whitespace-nowrap text-sm cursor-default ${dark ? 'text-gray-500' : 'text-gray-500'}`}>
-                                            <Brain className="w-4 h-4" />
+                                            <Database className="w-4 h-4" />
                                             Knowledge
+                                        </div>
+                                        <div className={`px-3.5 py-2.5 rounded-xl font-semibold flex items-center gap-2 whitespace-nowrap text-sm cursor-default ${dark ? 'text-gray-500' : 'text-gray-500'}`}>
+                                            <Brain className="w-4 h-4" />
+                                            Memory
                                         </div>
                                     </div>
                                 </div>

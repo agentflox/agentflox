@@ -4,18 +4,16 @@ import { prisma } from "@/lib/prisma";
 
 /** System-level fallback statuses — used when no workspace/list context is available */
 export const SYSTEM_STATUSES = [
-  { id: "system:todo",        name: "To Do",       color: "#94A3B8", position: 0, type: "OPEN"        as const, isSystem: true },
-  { id: "system:inprogress",  name: "In Progress", color: "#3B82F6", position: 1, type: "IN_PROGRESS" as const, isSystem: true },
-  { id: "system:done",        name: "Done",        color: "#10B981", position: 2, type: "COMPLETED"   as const, isSystem: true },
-  { id: "system:cancelled",   name: "Cancelled",   color: "#6B7280", position: 3, type: "CLOSED"      as const, isSystem: true },
+  { id: "system:todo",        name: "To Do",       color: "#94A3B8", position: 0, type: "NOT_STARTED" as const, isSystem: true },
+  { id: "system:inprogress",  name: "In Progress", color: "#3B82F6", position: 1, type: "ACTIVE"      as const, isSystem: true },
+  { id: "system:completed",   name: "Completed",   color: "#10B981", position: 2, type: "CLOSED"      as const, isSystem: true },
 ];
 
 /** Default workspace-level statuses seeded on workspace creation */
 export const DEFAULT_WORKSPACE_STATUSES = [
-  { name: "To Do",       color: "#94A3B8", position: 0, type: "OPEN"        as const },
-  { name: "In Progress", color: "#3B82F6", position: 1, type: "IN_PROGRESS" as const },
-  { name: "Done",        color: "#10B981", position: 2, type: "COMPLETED"   as const },
-  { name: "Cancelled",   color: "#6B7280", position: 3, type: "CLOSED"      as const },
+  { name: "To Do",       color: "#94A3B8", position: 0, type: "NOT_STARTED" as const },
+  { name: "In Progress", color: "#3B82F6", position: 1, type: "ACTIVE"      as const },
+  { name: "Completed",   color: "#10B981", position: 2, type: "CLOSED"      as const },
 ];
 
 /**
@@ -102,6 +100,7 @@ export const taskStatusRouter = router({
       z.object({
         name:        z.string().min(1),
         color:       z.string().optional(),
+        type:        z.enum(["NOT_STARTED", "ACTIVE", "CLOSED", "CUSTOM"]).optional(),
         position:    z.number().int().optional(),
         workspaceId: z.string().optional(),
         listId:      z.string().optional(),
@@ -124,6 +123,7 @@ export const taskStatusRouter = router({
         data: {
           name:        input.name,
           color:       input.color ?? "#94A3B8",
+          type:        input.type ?? "CUSTOM",
           position,
           workspaceId: input.workspaceId,
           listId:      input.listId,

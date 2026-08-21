@@ -78,6 +78,8 @@ type Props = {
 	initialTemplate?: any | null;
 	initialView?: "detail" | "useTemplate";
 	initialEntityType?: string;
+	mode?: "default" | "select";
+	onSelectTemplateOnly?: (template: any) => void;
 };
 
 // ─── Entity type config ───────────────────────────────────────────────────────
@@ -294,6 +296,8 @@ export function TemplateCenterModal({
 	initialTemplate,
 	initialView = "detail",
 	initialEntityType,
+	mode = "default",
+	onSelectTemplateOnly,
 }: Props) {
 	// UI state
 	const [view, setView] = React.useState<"templates" | "auditLog" | "detail" | "useTemplate">("templates");
@@ -1117,6 +1121,10 @@ export function TemplateCenterModal({
 													className="h-8.5 px-5 bg-indigo-600 text-white hover:bg-indigo-500 shadow-sm cursor-pointer"
 													disabled={createDocMutation.isPending || applyDocTemplateMutation.isPending}
 													onClick={() => {
+														if (mode === "select") {
+															onSelectTemplateOnly?.(selectedTemplate);
+															return;
+														}
 														if (selectedTemplate.entityType === "DOC") {
 															const tContent = (selectedTemplate.content || {}) as any;
 															const contentToUse = typeof tContent === "string" ? tContent : (tContent.body ?? tContent.content ?? "");
@@ -1179,10 +1187,10 @@ export function TemplateCenterModal({
 														}
 													}}
 												>
-													{(createDocMutation.isPending || applyDocTemplateMutation.isPending) && selectedTemplate.entityType === "DOC" ? (
+													{(createDocMutation.isPending || applyDocTemplateMutation.isPending) && selectedTemplate.entityType === "DOC" && mode !== "select" ? (
 														<Loader2 className="mr-2 size-3.5 animate-spin" />
 													) : null}
-													Use Template
+													{mode === "select" ? "Select Template" : "Use Template"}
 												</Button>
 											</>
 										)}

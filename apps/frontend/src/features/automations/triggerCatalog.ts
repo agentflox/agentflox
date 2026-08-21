@@ -52,6 +52,7 @@ export const AUTOMATION_TRIGGER_TYPES = [
   "EVERY_SCHEDULED_TIME",
   "CHAT_MESSAGE_POSTED",
   "WEBHOOK",
+  "INTEGRATION_TRIGGER",
 ] as const;
 
 export type AutomationTriggerTypeV1 = (typeof AUTOMATION_TRIGGER_TYPES)[number];
@@ -126,14 +127,6 @@ export const TRIGGER_META: TriggerMeta[] = [
     description: "When a task or subtask is created",
     icon: CircleCheck,
     groups: ["popular", "createAndComplete"],
-  },
-  {
-    type: "TASK_OR_SUBTASK_UPDATED",
-    label: "Task or subtask updated",
-    entity: "Tasks or subtasks",
-    description: "When a task or subtask is updated",
-    icon: Sparkles,
-    groups: ["ai"],
   },
   {
     type: "EXISTING_TASK_ADDED_TO_LOCATION",
@@ -323,12 +316,5 @@ export const TRIGGER_CATALOG: Record<AutomationTriggerTypeV1, { label: string; e
     }),
   ) as Record<AutomationTriggerTypeV1, { label: string; entity: string }>;
 
-export const INTEGRATION_TRIGGERS = [
-  { id: "bugsnag", label: "Bugsnag" },
-  { id: "calendly", label: "Calendly" },
-  { id: "github", label: "GitHub" },
-  { id: "google-calendar", label: "Google Calendar" },
-  { id: "google-drive", label: "Google Drive" },
-  { id: "hubspot", label: "HubSpot" },
-  { id: "slack", label: "Slack" },
-] as const;
+/** @deprecated Use INTEGRATION_PROVIDERS from integrationAutomationCatalog instead */
+export const INTEGRATION_TRIGGERS = [] as const;

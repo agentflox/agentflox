@@ -31,7 +31,8 @@ import {
   Brain,
   MoreVertical,
   Send,
-  Play
+  Play,
+  Database
 } from "lucide-react";
 import { InstructionsTab } from "./tabs/InstructionsTab";
 import { TriggersTab } from "./tabs/TriggersTab";
@@ -458,14 +459,14 @@ export function AgentProfile({
               value="knowledge"
               className="px-3.5 py-2.5 rounded-xl cursor-pointer outline-none data-[state=active]:bg-indigo-50/80 data-[state=active]:text-indigo-600 hover:bg-zinc-50 hover:text-zinc-700 font-semibold text-zinc-500 transition-colors flex items-center gap-2 whitespace-nowrap"
             >
-              <Brain className="w-4 h-4" />
+              <Database className="w-4 h-4" />
               Knowledge
             </TabsTrigger>
             <TabsTrigger
               value="memory"
               className="px-3.5 py-2.5 rounded-xl cursor-pointer outline-none data-[state=active]:bg-indigo-50/80 data-[state=active]:text-indigo-600 hover:bg-zinc-50 hover:text-zinc-700 font-semibold text-zinc-500 transition-colors flex items-center gap-2 whitespace-nowrap"
             >
-              <Sparkles className="w-4 h-4" />
+              <Brain className="w-4 h-4" />
               Memory
             </TabsTrigger>
           </TabsList>

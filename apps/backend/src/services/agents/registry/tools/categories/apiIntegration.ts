@@ -78,6 +78,10 @@ export const API_INTEGRATION_TOOLS: ToolDefinition[] = [
             type: 'string',
             description: 'Webhook URL to send the payload to.',
           },
+          webhookId: {
+            type: 'string',
+            description: 'Optional saved agent webhook id (type=agent).',
+          },
           payload: {
             type: 'object',
             description: 'Arbitrary JSON payload to send.',

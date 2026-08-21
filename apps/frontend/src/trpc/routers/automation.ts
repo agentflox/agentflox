@@ -98,6 +98,7 @@ export const automationRouter = router({
       search: z.string().optional(),
       sort: z.enum(["updated", "name", "created"]).optional().default("updated"),
       sortDesc: z.boolean().optional().default(true),
+      exactScope: z.boolean().optional(),
     }))
     .query(async ({ ctx, input }) => {
       await assertWorkspaceMember(input.workspaceId, ctx.session!.user!.id);
@@ -105,11 +106,41 @@ export const automationRouter = router({
         workspaceId: input.workspaceId,
         status: { not: "ARCHIVED" },
       };
-      if (input.teamId) where.teamId = input.teamId;
-      if (input.spaceId) where.spaceId = input.spaceId;
-      if (input.projectId) where.projectId = input.projectId;
-      if (input.folderId) where.folderId = input.folderId;
-      if (input.listId) where.listId = input.listId;
+      if (input.exactScope) {
+        if (input.listId) {
+          where.listId = input.listId;
+        } else if (input.folderId) {
+          where.folderId = input.folderId;
+          where.listId = null;
+        } else if (input.projectId) {
+          where.projectId = input.projectId;
+          where.folderId = null;
+          where.listId = null;
+        } else if (input.spaceId) {
+          where.spaceId = input.spaceId;
+          where.projectId = null;
+          where.folderId = null;
+          where.listId = null;
+        } else if (input.teamId) {
+          where.teamId = input.teamId;
+          where.spaceId = null;
+          where.projectId = null;
+          where.folderId = null;
+          where.listId = null;
+        } else {
+          where.teamId = null;
+          where.spaceId = null;
+          where.projectId = null;
+          where.folderId = null;
+          where.listId = null;
+        }
+      } else {
+        if (input.teamId) where.teamId = input.teamId;
+        if (input.spaceId) where.spaceId = input.spaceId;
+        if (input.projectId) where.projectId = input.projectId;
+        if (input.folderId) where.folderId = input.folderId;
+        if (input.listId) where.listId = input.listId;
+      }
       if (input.kind) where.kind = input.kind;
       if (input.isActive !== undefined) where.isActive = input.isActive;
       const triggerTypes =
@@ -378,13 +409,82 @@ export const automationRouter = router({
     .input(z.object({
       workspaceId: z.string(),
       automationId: z.string().optional(),
+      teamId: z.string().optional().nullable(),
+      spaceId: z.string().optional().nullable(),
+      projectId: z.string().optional().nullable(),
+      folderId: z.string().optional().nullable(),
+      listId: z.string().optional().nullable(),
+      exactScope: z.boolean().optional(),
+      dateFrom: z.string().optional(),
+      dateTo: z.string().optional(),
+      activityStatuses: z.array(z.enum(["FAILED", "SUCCESS", "SKIPPED", "AI_CONDITION_SKIPPED"])).optional(),
       page: z.number().int().min(1).default(1),
       pageSize: z.number().int().min(1).max(50).default(20),
     }))
     .query(async ({ ctx, input }) => {
       await assertWorkspaceMember(input.workspaceId, ctx.session!.user!.id);
-      const where: any = { automation: { workspaceId: input.workspaceId } };
+      const automationWhere: any = { workspaceId: input.workspaceId };
+      if (input.exactScope) {
+        if (input.listId) {
+          automationWhere.listId = input.listId;
+        } else if (input.folderId) {
+          automationWhere.folderId = input.folderId;
+          automationWhere.listId = null;
+        } else if (input.projectId) {
+          automationWhere.projectId = input.projectId;
+          automationWhere.folderId = null;
+          automationWhere.listId = null;
+        } else if (input.spaceId) {
+          automationWhere.spaceId = input.spaceId;
+          automationWhere.projectId = null;
+          automationWhere.folderId = null;
+          automationWhere.listId = null;
+        } else if (input.teamId) {
+          automationWhere.teamId = input.teamId;
+          automationWhere.spaceId = null;
+          automationWhere.projectId = null;
+          automationWhere.folderId = null;
+          automationWhere.listId = null;
+        } else {
+          automationWhere.teamId = null;
+          automationWhere.spaceId = null;
+          automationWhere.projectId = null;
+          automationWhere.folderId = null;
+          automationWhere.listId = null;
+        }
+      } else {
+        if (input.teamId) automationWhere.teamId = input.teamId;
+        if (input.spaceId) automationWhere.spaceId = input.spaceId;
+        if (input.projectId) automationWhere.projectId = input.projectId;
+        if (input.folderId) automationWhere.folderId = input.folderId;
+        if (input.listId) automationWhere.listId = input.listId;
+      }
+      const where: any = { automation: automationWhere };
       if (input.automationId) where.automationId = input.automationId;
+      if (input.dateFrom || input.dateTo) {
+        where.executedAt = {
+          ...(input.dateFrom ? { gte: new Date(input.dateFrom) } : {}),
+          ...(input.dateTo ? { lte: new Date(input.dateTo) } : {}),
+        };
+      }
+      if (input.activityStatuses && input.activityStatuses.length > 0) {
+        const or: any[] = [];
+        if (input.activityStatuses.includes("SUCCESS")) or.push({ status: "SUCCESS" });
+        if (input.activityStatuses.includes("SKIPPED")) or.push({ status: "PARTIAL" });
+        if (input.activityStatuses.includes("FAILED")) {
+          or.push({
+            status: "FAILED",
+            NOT: { error: { contains: "condition_gate", mode: "insensitive" } },
+          });
+        }
+        if (input.activityStatuses.includes("AI_CONDITION_SKIPPED")) {
+          or.push({
+            status: "FAILED",
+            error: { contains: "condition_gate", mode: "insensitive" },
+          });
+        }
+        where.AND = [...(where.AND || []), { OR: or }];
+      }
       const [total, items] = await Promise.all([
         prisma.automationLog.count({ where }),
         prisma.automationLog.findMany({
@@ -392,10 +492,63 @@ export const automationRouter = router({
           orderBy: { executedAt: "desc" },
           skip: (input.page - 1) * input.pageSize,
           take: input.pageSize,
-          include: { automation: { select: { id: true, name: true, kind: true } } },
+          include: {
+            automation: { select: { id: true, name: true, kind: true, description: true } },
+          },
         }),
       ]);
       return { total, items };
+    }),
+
+  listRecurring: protectedProcedure
+    .input(z.object({
+      workspaceId: z.string(),
+      limit: z.number().int().min(1).max(100).default(100),
+    }))
+    .query(async ({ ctx, input }) => {
+      await assertWorkspaceMember(input.workspaceId, ctx.session!.user!.id);
+      const items = await prisma.automation.findMany({
+        where: {
+          workspaceId: input.workspaceId,
+          isActive: true,
+          status: { not: "ARCHIVED" },
+          OR: [
+            { isScheduled: true },
+            { triggers: { some: { triggerType: "EVERY_SCHEDULED_TIME", isActive: true } } },
+          ],
+        },
+        select: {
+          id: true,
+          name: true,
+          lastRanAt: true,
+          runCount: true,
+          cronExpression: true,
+          triggers: {
+            where: { triggerType: "EVERY_SCHEDULED_TIME" },
+            select: { triggerConfig: true },
+            take: 1,
+          },
+        },
+        orderBy: [{ lastRanAt: "desc" }, { updatedAt: "desc" }],
+        take: input.limit,
+      });
+
+      return {
+        items: items.map((row) => {
+          const triggerConfig = row.triggers[0]?.triggerConfig as Record<string, unknown> | undefined;
+          const cronFromTrigger = triggerConfig?.cronExpression ?? triggerConfig?.cron;
+          const cronExpression =
+            row.cronExpression ||
+            (typeof cronFromTrigger === "string" ? cronFromTrigger : null);
+          return {
+            id: row.id,
+            name: row.name,
+            lastRanAt: row.lastRanAt,
+            runCount: row.runCount,
+            cronExpression,
+          };
+        }),
+      };
     }),
 
   usageSummary: protectedProcedure
@@ -423,23 +576,68 @@ export const automationRouter = router({
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const existing = await prisma.automation.findUnique({ where: { id: input.id } });
-      if (!existing?.workspaceId) throw new TRPCError({ code: "NOT_FOUND" });
-      await assertWorkspaceWriter(existing.workspaceId, ctx.session!.user!.id);
+      if (!existing) throw new TRPCError({ code: "NOT_FOUND" });
+      if (existing.workspaceId) {
+        await assertWorkspaceWriter(existing.workspaceId, ctx.session!.user!.id);
+      } else if (existing.ownerId !== ctx.session!.user!.id) {
+        throw new TRPCError({ code: "FORBIDDEN" });
+      }
       const secret = randomBytes(32).toString("hex");
-      const updated = await prisma.automation.update({
+      const hook = await prisma.webhook.findFirst({
+        where: { type: "automation", sourceId: existing.id },
+      });
+      const saved = hook
+        ? await prisma.webhook.update({
+            where: { id: hook.id },
+            data: { secret, isActive: existing.isActive, name: existing.name },
+          })
+        : await prisma.webhook.create({
+            data: {
+              createdBy: ctx.session!.user!.id,
+              name: existing.name,
+              type: "automation",
+              sourceId: existing.id,
+              url: "",
+              secret,
+              isActive: existing.isActive,
+            },
+          });
+      await prisma.automation.update({
         where: { id: input.id },
         data: { webhookSecret: secret },
       });
-      return { id: updated.id, webhookSecret: secret };
+      return { id: existing.id, webhookId: saved.id, webhookSecret: secret };
     }),
 
   rotateWebhookSecret: protectedProcedure
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const existing = await prisma.automation.findUnique({ where: { id: input.id } });
-      if (!existing?.workspaceId) throw new TRPCError({ code: "NOT_FOUND" });
-      await assertWorkspaceWriter(existing.workspaceId, ctx.session!.user!.id);
+      if (!existing) throw new TRPCError({ code: "NOT_FOUND" });
+      if (existing.workspaceId) {
+        await assertWorkspaceWriter(existing.workspaceId, ctx.session!.user!.id);
+      } else if (existing.ownerId !== ctx.session!.user!.id) {
+        throw new TRPCError({ code: "FORBIDDEN" });
+      }
       const secret = randomBytes(32).toString("hex");
+      const hook = await prisma.webhook.findFirst({
+        where: { type: "automation", sourceId: existing.id },
+      });
+      if (hook) {
+        await prisma.webhook.update({ where: { id: hook.id }, data: { secret } });
+      } else {
+        await prisma.webhook.create({
+          data: {
+            createdBy: ctx.session!.user!.id,
+            name: existing.name,
+            type: "automation",
+            sourceId: existing.id,
+            url: "",
+            secret,
+            isActive: existing.isActive,
+          },
+        });
+      }
       await prisma.automation.update({ where: { id: input.id }, data: { webhookSecret: secret } });
       return { webhookSecret: secret };
     }),

@@ -14,6 +14,8 @@ import { toast } from 'sonner';
 import { IntegrationProviderIcon } from './IntegrationProviderIcon';
 import { IntegrationAccountPicker } from './IntegrationAccountPicker';
 import { IntegrationToolsList, type IntegrationToolItem } from './IntegrationToolsList';
+import { ConnectionSetupContent } from './ConnectionSetupContent';
+import { ConnectionCompleteContent } from './ConnectionCompleteContent';
 import { UI_TO_CATALOG_PROVIDER } from '../catalogMapping';
 import { connectIntegrationProvider } from '../lib/oauthPopup';
 import { trpc } from '@/lib/trpc';
@@ -41,6 +43,8 @@ type IntegrationConnectDialogProps = {
 
 const CONNECTABLE = new Set(['github', 'slack', 'gmail', 'google_calendar', 'google_drive']);
 
+type DialogView = 'manage' | 'setup' | 'complete';
+
 export function IntegrationConnectDialog({
   open,
   onOpenChange,
@@ -55,6 +59,9 @@ export function IntegrationConnectDialog({
 }: IntegrationConnectDialogProps) {
   const [connecting, setConnecting] = useState(false);
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
+  const [view, setView] = useState<DialogView>('manage');
+  const [oauthStatus, setOauthStatus] = useState<'connecting' | 'timeout' | 'idle'>('idle');
+
   const catalogId = useMemo(
     () => (uiProvider ? UI_TO_CATALOG_PROVIDER[uiProvider] ?? uiProvider : null),
     [uiProvider],
@@ -86,76 +93,141 @@ export function IntegrationConnectDialog({
     [accounts],
   );
 
-  const handleConnect = useCallback(async () => {
+  const startOAuth = useCallback(async () => {
     if (!uiProvider || !CONNECTABLE.has(uiProvider)) return;
-    setConnecting(true);
+    setOauthStatus('connecting');
     try {
       const result = await connectIntegrationProvider(uiProvider);
-      if (!result.ok) {
-        toast.error(result.error);
-        return;
+      if (result.ok) {
+        await syncVault.mutateAsync().catch(() => undefined);
+        toast.success(`${displayName ?? 'Integration'} connected`);
+        setView('complete');
+        setOauthStatus('idle');
+        onConnected?.();
+      } else {
+        setOauthStatus('timeout');
       }
-      toast.success(`${displayName ?? 'Integration'} connected`);
-      await syncVault.mutateAsync().catch(() => undefined);
-      onConnected?.();
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to connect');
-    } finally {
-      setConnecting(false);
+    } catch {
+      setOauthStatus('timeout');
     }
   }, [uiProvider, displayName, syncVault, onConnected]);
+
+  const handleConnect = useCallback(() => {
+    setView('setup');
+    startOAuth();
+  }, [startOAuth]);
 
   const canConnect = !!uiProvider && CONNECTABLE.has(uiProvider);
   const title = displayName ?? 'Integration';
 
+  const handleOpenChange = useCallback(
+    (next: boolean) => {
+      if (!next) {
+        setView('manage');
+        setOauthStatus('idle');
+      }
+      onOpenChange(next);
+    },
+    [onOpenChange],
+  );
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[820px] max-w-[820px] max-h-[90vh] overflow-y-auto">
-        <div className="flex items-start gap-4">
-          <div className="flex h-14 w-14 items-center justify-center rounded-xl border bg-white p-2">
-            {catalogId && <IntegrationProviderIcon providerId={catalogId} size={36} />}
-          </div>
-          <div className="flex-1">
-            <DialogHeader className="space-y-1">
-              <DialogTitle>{title}</DialogTitle>
-              <DialogDescription>
-                {description ??
-                  `Connect your account to use ${title} in agents, tools, and workflows.`}
-              </DialogDescription>
-            </DialogHeader>
-          </div>
-        </div>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent
+        className={
+          view === 'manage'
+            ? 'sm:max-w-[820px] max-w-[820px] max-h-[90vh] overflow-y-auto'
+            : 'sm:max-w-[640px] max-w-[640px] p-0 overflow-hidden'
+        }
+        showCloseButton
+      >
+        {view === 'setup' && catalogId && (
+          <>
+            <div className="flex items-center gap-1.5 px-5 pt-4 pb-2 text-xs text-zinc-500 border-b">
+              <span className="text-zinc-400">App Center</span>
+              <span className="text-zinc-300">/</span>
+              <span className="text-zinc-600 font-medium">{title}</span>
+              <span className="text-zinc-300">/</span>
+              <span className="font-semibold text-zinc-800">Setup</span>
+            </div>
+            <ConnectionSetupContent
+              provider={catalogId}
+              displayName={title}
+              status={oauthStatus}
+              onRetry={startOAuth}
+              onCancel={() => setView('manage')}
+              onNext={() => setView('complete')}
+            />
+          </>
+        )}
 
-        <Separator className="my-4" />
+        {view === 'complete' && catalogId && (
+          <>
+            <div className="flex items-center gap-1.5 px-5 pt-4 pb-2 text-xs text-zinc-500 border-b">
+              <span className="text-zinc-400">App Center</span>
+              <span className="text-zinc-300">/</span>
+              <span className="text-zinc-600 font-medium">{title}</span>
+              <span className="text-zinc-300">/</span>
+              <span className="font-semibold text-zinc-800">Done</span>
+            </div>
+            <ConnectionCompleteContent
+              provider={catalogId}
+              displayName={title}
+              onDone={() => setView('manage')}
+              footerNote="Agentflox doesn't allow model providers to train on your data."
+            />
+          </>
+        )}
 
-        <div className="space-y-6">
-          <Card className="border-zinc-200">
-            <CardContent className="p-4 space-y-3">
-              <IntegrationAccountPicker
-                accounts={pickerAccounts}
-                selectedAccountId={selectedAccountId}
-                onSelectAccount={setSelectedAccountId}
-                onConnect={handleConnect}
-                onDisconnect={(accountId) => disconnectOAuth.mutate({ accountId })}
-                isConnecting={connecting}
-                isConnected={pickerAccounts.length > 0}
-                singleAccountOnly={uiProvider === 'github'}
-                providerIcon={
-                  catalogId ? <IntegrationProviderIcon providerId={catalogId} size={16} /> : undefined
-                }
-                emptyLabel={`No ${title} account linked`}
-              />
+        {view === 'manage' && (
+          <>
+            <div className="flex items-start gap-4">
+              <div className="flex h-14 w-14 items-center justify-center rounded-xl border bg-white p-2">
+                {catalogId && <IntegrationProviderIcon providerId={catalogId} size={36} />}
+              </div>
+              <div className="flex-1">
+                <DialogHeader className="space-y-1">
+                  <DialogTitle>{title}</DialogTitle>
+                  <DialogDescription>
+                    {description ??
+                      `Connect your account to use ${title} in agents, tools, and workflows.`}
+                  </DialogDescription>
+                </DialogHeader>
+              </div>
+            </div>
 
-              {!canConnect && (
-                <p className="text-sm text-zinc-500">
-                  OAuth connect for this provider is coming soon.
-                </p>
-              )}
-            </CardContent>
-          </Card>
+            <Separator className="my-4" />
 
-          <IntegrationToolsList tools={tools} />
-        </div>
+            <div className="space-y-6">
+              <Card className="border-zinc-200">
+                <CardContent className="p-4 space-y-3">
+                  <IntegrationAccountPicker
+                    accounts={pickerAccounts}
+                    selectedAccountId={selectedAccountId}
+                    onSelectAccount={setSelectedAccountId}
+                    onConnect={handleConnect}
+                    onDisconnect={(accountId) => disconnectOAuth.mutate({ accountId })}
+                    isConnecting={connecting}
+                    isConnected={pickerAccounts.length > 0}
+                    singleAccountOnly={uiProvider === 'github'}
+                    providerIcon={
+                      catalogId ? <IntegrationProviderIcon providerId={catalogId} size={16} /> : undefined
+                    }
+                    emptyLabel={`No ${title} account linked`}
+                  />
+
+                  {!canConnect && (
+                    <p className="text-sm text-zinc-500">
+                      OAuth connect for this provider is coming soon.
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+
+              <IntegrationToolsList tools={tools} />
+            </div>
+          </>
+        )}
       </DialogContent>
     </Dialog>
   );

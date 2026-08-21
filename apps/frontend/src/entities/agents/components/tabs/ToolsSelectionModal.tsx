@@ -108,12 +108,12 @@ type SearchResultItem =
   | { type: "composite"; key: string; tool: CompositeTool }
   | { type: "system"; key: string; tool: SystemTool }
   | {
-      type: "integration";
-      key: string;
-      tool: SystemTool;
-      provider: CatalogProviderView;
-      action: CatalogProviderView["actions"][number];
-    };
+    type: "integration";
+    key: string;
+    tool: SystemTool;
+    provider: CatalogProviderView;
+    action: CatalogProviderView["actions"][number];
+  };
 
 const USE_CASES = [
   { id: "calendar", label: "Calendar", icon: Calendar, keywords: ["calendar", "schedule", "event"] },
@@ -686,41 +686,41 @@ export function ToolsSelectionModal({
                   </div>
                 ) : centerView === "integrations" ? (
                   <div className="space-y-4">
-                     <div className="flex items-center justify-between gap-3">
-                       <div className="flex items-center gap-1.5 text-md font-semibold text-zinc-900 shrink-0">
-                         <button
-                           type="button"
-                           onClick={() => {
-                             setCenterView("home");
-                             setPreview(null);
-                           }}
-                           className="flex items-center justify-center hover:text-zinc-700 hover:bg-zinc-100 p-2 rounded-md cursor-pointer"
-                         >
-                           <ArrowLeft className="h-4 w-4" />
-                         </button>
-                         <span>Back</span>
-                       </div>
-                       <div className="flex items-center gap-2 px-3 h-8 w-56 bg-white border border-zinc-200 rounded-md focus-within:border-violet-500 focus-within:ring-2 focus-within:ring-violet-500/20 transition-all">
-                         <Search className="h-3.5 w-3.5 text-zinc-400 shrink-0" />
-                         <Input
-                           variant="ghost"
-                           value={refineQuery}
-                           onChange={(e) => setRefineQuery(e.target.value)}
-                           placeholder="Refine integrations..."
-                           className="flex-1 h-full border-0 p-0 shadow-none text-xs bg-transparent placeholder:text-zinc-400 focus:outline-none focus:ring-0 focus-visible:ring-0"
-                           autoComplete="off"
-                         />
-                         {refineQuery.trim() && (
-                           <button
-                             type="button"
-                             onClick={() => setRefineQuery("")}
-                             className="text-zinc-400 hover:text-zinc-700 cursor-pointer shrink-0"
-                           >
-                             <X className="h-3.5 w-3.5" />
-                           </button>
-                         )}
-                       </div>
-                     </div>
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-1.5 text-md font-semibold text-zinc-900 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setCenterView("home");
+                            setPreview(null);
+                          }}
+                          className="flex items-center justify-center hover:text-zinc-700 hover:bg-zinc-100 p-2 rounded-md cursor-pointer"
+                        >
+                          <ArrowLeft className="h-4 w-4" />
+                        </button>
+                        <span>Back</span>
+                      </div>
+                      <div className="flex items-center gap-2 px-3 h-8 w-56 bg-white border border-zinc-200 rounded-md focus-within:border-violet-500 focus-within:ring-2 focus-within:ring-violet-500/20 transition-all">
+                        <Search className="h-3.5 w-3.5 text-zinc-400 shrink-0" />
+                        <Input
+                          variant="ghost"
+                          value={refineQuery}
+                          onChange={(e) => setRefineQuery(e.target.value)}
+                          placeholder="Refine integrations..."
+                          className="flex-1 h-full border-0 p-0 shadow-none text-xs bg-transparent placeholder:text-zinc-400 focus:outline-none focus:ring-0 focus-visible:ring-0"
+                          autoComplete="off"
+                        />
+                        {refineQuery.trim() && (
+                          <button
+                            type="button"
+                            onClick={() => setRefineQuery("")}
+                            className="text-zinc-400 hover:text-zinc-700 cursor-pointer shrink-0"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
                     <h3 className="text-sm font-semibold text-zinc-900">All integrations</h3>
                     <div className="grid grid-cols-2 gap-2">
                       {allProvidersFiltered.map((provider) => {
@@ -998,7 +998,7 @@ export function ToolsSelectionModal({
                             onClick={() => setCenterView("integrations")}
                             className="flex text-xs font-medium text-zinc-600 hover:text-zinc-800 cursor-pointer px-2 py-1.5 rounded-md hover:bg-zinc-100"
                           >
-                            View all 
+                            View all
                             <ChevronRight className="h-4 w-4 text-zinc-500" />
                           </button>
                         </div>

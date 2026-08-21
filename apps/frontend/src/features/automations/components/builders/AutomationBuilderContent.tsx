@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { ArrowRight, ChevronLeft, Sparkles, Zap } from "lucide-react";
+import { ArrowRight, ChevronLeft, MoveRight } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import {
@@ -17,26 +17,40 @@ import {
   type CreationSourceFilters,
 } from "../../types";
 import { TRIGGER_BY_TYPE, type AutomationTriggerTypeV1 } from "../../triggerCatalog";
-import { LogicSummary } from "../shared/LogicSummary";
-import { TriggerPicker } from "./TriggerPicker";
+import type { BrowseTemplate } from "../../browseCatalog";
 import {
-  TriggerConfigFields,
+  INTEGRATION_PROVIDER_BY_ID,
+  getIntegrationTrigger,
+  getIntegrationAction,
+} from "../../integrationAutomationCatalog";
+import { TriggerPanel } from "./TriggerPanel";
+import { ActionPanel } from "./ActionPanel";
+import type { TriggerEntityScope } from "./TriggerEntityScopePicker";
+import type { Condition } from "./TriggerConditionBlock";
+import {
   serializeTriggerConfig,
   triggerConfigIsValid,
   type TriggerConfigState,
 } from "./TriggerConfigFields";
-import { ActionPicker } from "./ActionPicker";
 import {
-  ActionConfigFields,
   actionConfigIsValid,
   serializeAction,
   type ActionConfigState,
 } from "./ActionConfigFields";
+import { type IntegrationConfigValues } from "./IntegrationConfigFields";
+import { ConnectionSetupModal } from "@/features/integrations/components/ConnectionSetupModal";
+
+export type ActionState = {
+  id: string;
+  type: AutomationActionTypeV1;
+  config: ActionConfigState;
+  integration: { provider: string; action: string } | null;
+  integrationConfig: IntegrationConfigValues;
+};
 
 function displayActionType(type: AutomationActionTypeV1): AutomationActionTypeV1 {
   if (type === "ADD_ASSIGNEE") return "UPDATE_ASSIGNEES";
   if (type === "ADD_FOLLOWER") return "UPDATE_FOLLOWERS";
-  if (type === "SET_AI_FIELD") return "UPDATE_CUSTOM_FIELD";
   return type;
 }
 
@@ -44,6 +58,7 @@ export function AutomationBuilderContent({
   scope,
   mode,
   editingId,
+  initialTemplate,
   onBack,
   onSaved,
   onAskBrain,
@@ -51,6 +66,7 @@ export function AutomationBuilderContent({
   scope: AutomationScope;
   mode: "classic" | "agent";
   editingId?: string | null;
+  initialTemplate?: BrowseTemplate | null;
   onBack: () => void;
   onSaved: () => void;
   onAskBrain?: () => void;
@@ -59,15 +75,26 @@ export function AutomationBuilderContent({
   const [description, setDescription] = useState("");
   const [isEditingDescription, setIsEditingDescription] = useState(false);
   const [triggerType, setTriggerType] = useState<AutomationTriggerTypeV1>("TASK_OR_SUBTASK_CREATED");
-  const [actionType, setActionType] = useState<AutomationActionTypeV1>(
-    mode === "agent" ? "DO_ANYTHING_WITH_AI" : "UPDATE_STATUS",
-  );
+  const [actions, setActions] = useState<ActionState[]>([
+    {
+      id: "1",
+      type: mode === "agent" ? "DO_ANYTHING_WITH_AI" : "UPDATE_STATUS",
+      config: {},
+      integration: null,
+      integrationConfig: {},
+    }
+  ]);
   const [agentConditions, setAgentConditions] = useState("");
+  const [classicConditions, setClassicConditions] = useState<Condition[]>([]);
   const [triggerConfig, setTriggerConfig] = useState<TriggerConfigState>({});
-  const [actionConfig, setActionConfig] = useState<ActionConfigState>({});
   const [sources, setSources] = useState<CreationSourceFilters>(
     mode === "agent" ? DEFAULT_AGENT_SOURCES : DEFAULT_CLASSIC_SOURCES,
   );
+
+  const [integrationTrigger, setIntegrationTrigger] = useState<{ provider: string; trigger: string } | null>(null);
+  const [integrationTriggerConfig, setIntegrationTriggerConfig] = useState<IntegrationConfigValues>({});
+  const [triggerOn, setTriggerOn] = useState<TriggerEntityScope>("ALL");
+  const [connectModal, setConnectModal] = useState<{ provider: string; displayName: string } | null>(null);
 
 
 
@@ -80,22 +107,70 @@ export function AutomationBuilderContent({
   const utils = trpc.useUtils();
 
   useEffect(() => {
+    if (editingId) return;
+
+    if (initialTemplate) {
+      setName(initialTemplate.title);
+      setDescription(initialTemplate.description);
+      setIsEditingDescription(false);
+      setTriggerType(initialTemplate.triggerType);
+      if (initialTemplate.triggerConfig) {
+        setTriggerConfig(initialTemplate.triggerConfig);
+      } else {
+        setTriggerConfig({});
+      }
+      setActions([
+        {
+          id: crypto.randomUUID(),
+          type: initialTemplate.actionType,
+          config: initialTemplate.actionConfig || (
+            initialTemplate.actionType === "DO_ANYTHING_WITH_AI"
+              ? { prompt: initialTemplate.description }
+              : {}
+          ),
+          integration: null,
+          integrationConfig: {},
+        },
+      ]);
+      setSources(initialTemplate.mode === "agent" ? DEFAULT_AGENT_SOURCES : DEFAULT_CLASSIC_SOURCES);
+      setAgentConditions("");
+      setClassicConditions([]);
+      setIntegrationTrigger(null);
+      setIntegrationTriggerConfig({});
+      setTriggerOn("ALL");
+      return;
+    }
+
     if (mode === "agent") {
-      setActionType("DO_ANYTHING_WITH_AI");
+      setActions([{
+        id: crypto.randomUUID(),
+        type: "DO_ANYTHING_WITH_AI",
+        config: {},
+        integration: null,
+        integrationConfig: {},
+      }]);
       setSources(DEFAULT_AGENT_SOURCES);
     } else {
-      setActionType("UPDATE_STATUS");
+      setActions([{
+        id: crypto.randomUUID(),
+        type: "UPDATE_STATUS",
+        config: {},
+        integration: null,
+        integrationConfig: {},
+      }]);
       setSources(DEFAULT_CLASSIC_SOURCES);
     }
-    if (!editingId) {
-      setName("");
-      setDescription("");
-      setIsEditingDescription(false);
-      setAgentConditions("");
-      setActionConfig({});
-      setTriggerConfig({});
-    }
-  }, [mode, editingId]);
+
+    setName("");
+    setDescription("");
+    setIsEditingDescription(false);
+    setAgentConditions("");
+    setClassicConditions([]);
+    setTriggerConfig({});
+    setIntegrationTrigger(null);
+    setIntegrationTriggerConfig({});
+    setTriggerOn("ALL");
+  }, [mode, editingId, initialTemplate]);
 
   useEffect(() => {
     const row = existing.data;
@@ -107,6 +182,13 @@ export function AutomationBuilderContent({
       setTriggerType(t.triggerType as AutomationTriggerTypeV1);
       const cfg = (t.triggerConfig || {}) as any;
       if (cfg.creationSources) setSources(cfg.creationSources);
+      if (cfg.triggerOn === "TASK" || cfg.triggerOn === "SUBTASK" || cfg.triggerOn === "ALL") {
+        setTriggerOn(cfg.triggerOn);
+      }
+      if (cfg.integration && cfg.integrationEvent) {
+        setIntegrationTrigger({ provider: String(cfg.integration), trigger: String(cfg.integrationEvent) });
+        setIntegrationTriggerConfig(cfg.integrationConfig ?? {});
+      }
       setTriggerConfig({
         customFieldId: cfg.customFieldId,
         fromValue: cfg.fromValue,
@@ -118,36 +200,50 @@ export function AutomationBuilderContent({
         dateMode: cfg.dateMode,
       });
       if ((t.conditions as any)?.prompt) setAgentConditions((t.conditions as any).prompt);
+      if (Array.isArray((t.conditions as any)?.classic)) setClassicConditions((t.conditions as any).classic);
     }
-    const a = Array.isArray(row.actions) ? (row.actions[0] as ActionSpec) : null;
-    if (a) {
-      setActionType(displayActionType(a.type));
-      setActionConfig({ ...(a.input || {}) });
+    const a = Array.isArray(row.actions) ? (row.actions as ActionSpec[]) : [];
+    if (a.length > 0) {
+      setActions(a.map((act) => ({
+        id: crypto.randomUUID(),
+        type: displayActionType(act.type),
+        config: { ...(act.input || {}) },
+        integration: null, // Note: integration reconstruction for actions requires extra info in spec
+        integrationConfig: {},
+      })));
     }
   }, [existing.data]);
 
   const canSave = useMemo(() => {
     if (!name.trim()) return false;
     if (!triggerConfigIsValid(triggerType, triggerConfig)) return false;
-    if (mode === "agent") return !!actionConfig.prompt?.trim();
-    return actionConfigIsValid(actionType, actionConfig);
-  }, [name, mode, actionConfig, actionType, triggerType, triggerConfig]);
+    if (mode === "agent") return !!actions[0]?.config.prompt?.trim();
+    if (actions.length === 0) return false;
+    return actions.every(a => {
+      if (a.integration) return true; // TODO: validate integration action config
+      return actionConfigIsValid(a.type, a.config);
+    });
+  }, [name, mode, actions, triggerType, triggerConfig]);
 
   const buildActions = (): ActionSpec[] => {
     if (mode === "agent") {
       return [{
         type: "DO_ANYTHING_WITH_AI",
-        input: { prompt: actionConfig.prompt || "", version: "0.5", workspaceKnowledge: emptyKnowledge() },
+        input: { prompt: actions[0]?.config.prompt || "", version: "0.5", workspaceKnowledge: emptyKnowledge() },
       }];
     }
-    const spec = serializeAction(actionType, actionConfig);
-    if (spec.type === "DO_ANYTHING_WITH_AI" || spec.type === "LAUNCH_AI_AGENT") {
-      return [{
-        type: spec.type,
-        input: { ...spec.input, version: "0.5", workspaceKnowledge: emptyKnowledge() },
-      }];
-    }
-    return [{ type: spec.type as AutomationActionTypeV1, input: spec.input }];
+    return actions.map(a => {
+      // If it's an integration, the backend spec would likely need to store provider/action. 
+      // For now we map classic actions:
+      const spec = serializeAction(a.type, a.config);
+      if (spec.type === "DO_ANYTHING_WITH_AI" || spec.type === "LAUNCH_AI_AGENT") {
+        return {
+          type: spec.type,
+          input: { ...spec.input, version: "0.5", workspaceKnowledge: emptyKnowledge() },
+        };
+      }
+      return { type: spec.type as AutomationActionTypeV1, input: spec.input };
+    });
   };
 
   const save = async () => {
@@ -162,17 +258,22 @@ export function AutomationBuilderContent({
       description: description || null,
       cronExpression: triggerConfig.cronExpression || null,
       isScheduled: triggerType === "EVERY_SCHEDULED_TIME",
-      agentId: actionConfig.agentId || null,
+      agentId: actions[0]?.config.agentId || null,
       triggers: [{
-        triggerType,
+        triggerType: integrationTrigger ? "WEBHOOK" : triggerType,
         triggerConfig: {
-          triggerOn: "ALL",
+          triggerOn,
           creationSources: sources,
           ...serializeTriggerConfig(triggerConfig),
+          ...(integrationTrigger && {
+            integration: integrationTrigger.provider,
+            integrationEvent: integrationTrigger.trigger,
+            integrationConfig: integrationTriggerConfig,
+          }),
         },
-        conditions: (mode === "agent" || actionType === "DO_ANYTHING_WITH_AI") && agentConditions.trim()
+        conditions: (mode === "agent" || actions[0]?.type === "DO_ANYTHING_WITH_AI") && agentConditions.trim()
           ? { prompt: agentConditions }
-          : undefined,
+          : classicConditions.length > 0 ? { classic: classicConditions } : undefined,
       }],
       actions: buildActions(),
     };
@@ -187,10 +288,24 @@ export function AutomationBuilderContent({
     }
   };
 
-  const entityLabel = TRIGGER_BY_TYPE[triggerType]?.entity ?? "Tasks or subtasks";
+  const triggerDef = integrationTrigger ? getIntegrationTrigger(integrationTrigger.provider, integrationTrigger.trigger) : null;
+
+  const showSources =
+    !integrationTrigger &&
+    (triggerType === "TASK_OR_SUBTASK_CREATED" || triggerType === "TASK_OR_SUBTASK_UPDATED");
+
+  const whenLabel = integrationTrigger
+    ? triggerDef?.label ?? "Trigger is set"
+    : TRIGGER_BY_TYPE[triggerType]?.label ?? "Trigger is set";
+
+  const utils2 = trpc.useUtils();
+  const openConnect = (providerId: string) => {
+    const prov = INTEGRATION_PROVIDER_BY_ID[providerId];
+    setConnectModal({ provider: prov?.catalogProvider ?? providerId, displayName: prov?.label ?? providerId });
+  };
 
   return (
-    <div className="flex flex-col min-h-0 h-[600px]">
+    <div className="flex flex-col min-h-0 h-[640px]">
       <div className="flex flex-col gap-1.5 px-5 py-3 border-b">
         <div className="flex items-center gap-3">
           <Button type="button" variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={onBack}>
@@ -198,11 +313,6 @@ export function AutomationBuilderContent({
           </Button>
 
           <div className="group relative inline-block align-middle h-8 focus-within:w-[480px] transition-[width] duration-150">
-            {/*
-              Mirror span: paints the resting/truncated display, and — since it's
-              the only in-flow child of the wrapper — sizes the wrapper to its
-              content at rest. Border shows on hover so it reads as clickable.
-            */}
             <span
               className={
                 "block max-w-full overflow-hidden text-ellipsis whitespace-pre px-1 h-8 leading-8 text-sm rounded-md border border-transparent group-hover:border-zinc-300 " +
@@ -212,12 +322,6 @@ export function AutomationBuilderContent({
             >
               {name || "Name this automation rule..."}
             </span>
-
-            {/*
-              Real input: overlays the span, stretched to fill whatever width the
-              wrapper currently has (auto at rest, 480px on focus-within). No
-              per-input width logic needed anymore — the wrapper drives it.
-            */}
             <Input
               variant="ghost"
               value={name}
@@ -262,58 +366,87 @@ export function AutomationBuilderContent({
         </div>
       </div>
 
-      <div className="grid grid-cols-[1fr_auto_1fr] gap-3 p-5 items-start overflow-y-auto flex-1">
-        <div className="rounded-xl border p-4 space-y-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 font-medium text-sm">
-              <Zap className="h-4 w-4" /> Trigger
-            </div>
-            <span className="text-[11px] rounded-md border px-2 py-0.5 text-zinc-500">{entityLabel}</span>
+      <div className="grid grid-cols-[1fr_auto_1fr] gap-3 p-5 pt-3 pb-8 items-start overflow-y-auto flex-1">
+        {/* ── Trigger panel ── */}
+        <TriggerPanel
+          triggerType={triggerType}
+          integrationTrigger={integrationTrigger}
+          triggerDefFields={triggerDef?.fields}
+          integrationTriggerConfig={integrationTriggerConfig}
+          triggerConfig={triggerConfig}
+          triggerOn={triggerOn}
+          sources={sources}
+          scope={scope}
+          mode={mode}
+          agentConditions={agentConditions}
+          description={description}
+          whenLabel={whenLabel}
+          showSources={showSources}
+          onTriggerTypeChange={(next) => {
+            setIntegrationTrigger(null);
+            setIntegrationTriggerConfig({});
+            setTriggerType(next);
+            setTriggerConfig({});
+            const validIds = new Set([
+              "assignee", "current_date_is", "custom_field", "due_date", "follower",
+              "priority", "start_date", "status", "tag", "task_name_contains",
+              "task_type", "tasks_or_subtasks_are", "time_estimate"
+            ]);
+            setClassicConditions((prev) => prev.filter((c) => validIds.has(c.property)));
+          }}
+          onIntegrationTriggerChange={(provider, trigger) => {
+            setIntegrationTrigger({ provider, trigger });
+            setIntegrationTriggerConfig({});
+            const def = getIntegrationTrigger(provider, trigger);
+            const advFields = def?.fields?.filter((f) => f.advanced) || [];
+            const validIds = new Set(advFields.map((f) => f.id));
+            setClassicConditions((prev) => prev.filter((c) => validIds.has(c.property)));
+          }}
+          onIntegrationTriggerConfigChange={setIntegrationTriggerConfig}
+          onTriggerConfigChange={setTriggerConfig}
+          onTriggerOnChange={setTriggerOn}
+          onSourcesChange={setSources}
+          onAgentConditionsChange={setAgentConditions}
+          conditions={classicConditions}
+          onConditionsChange={setClassicConditions}
+          onConnect={() => openConnect(integrationTrigger?.provider || "")}
+        />
+
+        <div className="flex flex-col items-center self-stretch">
+          <div className="flex items-center justify-center h-16 w-16 rounded-md border border-zinc-200 bg-white shadow-sm shrink-0">
+            <MoveRight className="h-7 w-7 text-zinc-500" />
           </div>
-          <TriggerPicker
-            value={triggerType}
-            onChange={(next) => {
-              setTriggerType(next);
-              setTriggerConfig({});
-            }}
-          />
-          <TriggerConfigFields
-            triggerType={triggerType}
-            scope={scope}
-            config={triggerConfig}
-            onChange={setTriggerConfig}
-            mode={mode}
-            agentConditions={agentConditions}
-            onAgentConditionsChange={setAgentConditions}
-          />
+          <div className="w-px flex-1 border-l border-zinc-200" />
         </div>
-        <ArrowRight className="h-5 w-5 text-zinc-400 mt-16" />
-        <div className="rounded-xl border p-4 space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="font-medium text-sm">Action</span>
-          </div>
-          {mode === "classic" && (
-            <ActionPicker
-              value={actionType}
-              onChange={(next) => {
-                setActionType(next);
-                setActionConfig({});
-              }}
-            />
-          )}
-          {mode === "agent" && (
-            <p className="text-sm font-medium flex items-center gap-1">
-              <Sparkles className="h-3.5 w-3.5" /> Do anything with AI
-            </p>
-          )}
-          <ActionConfigFields
-            actionType={mode === "agent" ? "DO_ANYTHING_WITH_AI" : actionType}
-            scope={scope}
-            config={actionConfig}
-            onChange={setActionConfig}
-            onAskBrain={onAskBrain}
-          />
-        </div>
+
+        <ActionPanel
+          mode={mode}
+          actions={actions}
+          scope={scope}
+          onChange={(index, newAction) => {
+            const next = [...actions];
+            next[index] = newAction;
+            setActions(next);
+          }}
+          onAddAction={() => {
+            setActions([...actions, {
+              id: crypto.randomUUID(),
+              type: "UPDATE_STATUS",
+              config: {},
+              integration: null,
+              integrationConfig: {}
+            }]);
+          }}
+          onRemoveAction={(index) => {
+            if (actions.length > 1) {
+              const next = [...actions];
+              next.splice(index, 1);
+              setActions(next);
+            }
+          }}
+          onConnect={(providerId) => openConnect(providerId)}
+          onAskBrain={onAskBrain}
+        />
       </div>
 
       <div className="flex items-center justify-end px-5 py-3 border-t">
@@ -328,6 +461,19 @@ export function AutomationBuilderContent({
           </Button>
         </div>
       </div>
+
+      {connectModal && (
+        <ConnectionSetupModal
+          open
+          onOpenChange={(open) => { if (!open) setConnectModal(null); }}
+          provider={connectModal.provider}
+          displayName={connectModal.displayName}
+          onConnected={() => {
+            utils2.integration.listCatalog.invalidate();
+            setConnectModal(null);
+          }}
+        />
+      )}
     </div>
   );
 }

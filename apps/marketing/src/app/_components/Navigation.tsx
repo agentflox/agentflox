@@ -204,7 +204,7 @@ export const Navigation = () => {
                         <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent -translate-x-[150%] animate-[shimmer_4s_infinite_ease-in-out]" />
                     </div>
 
-                    <div className="relative container mx-auto px-6 lg:px-12 max-w-[1400px] flex justify-center items-center text-[13px] font-light tracking-wide text-gray-400 gap-3 z-10">
+                    <div className="relative container mx-auto px-4 sm:px-10 lg:px-20 flex justify-center items-center text-[13px] font-light tracking-wide text-gray-400 gap-3 z-10">
                         {/* Polished Badge */}
                         <span className="relative flex items-center justify-center px-2.5 py-0.5 rounded-full bg-white/5 border border-white/10 shadow-[0_0_10px_rgba(34,211,238,0.1)]">
                             <span className="bg-clip-text text-transparent bg-gradient-to-r from-teal-400 to-cyan-400 font-bold text-[10px] uppercase tracking-widest">
@@ -227,7 +227,7 @@ export const Navigation = () => {
                     </div>
                 </div>
 
-                <div className="container mx-auto px-6 lg:px-12 max-w-[1400px]">
+                <div className="container mx-auto px-4 sm:px-10 lg:px-20">
                     <div className="flex items-center justify-between h-20">
                         {/* Logo */}
                         <Link href="/" className="flex items-center gap-2 group">

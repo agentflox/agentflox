@@ -317,12 +317,12 @@ export const PlatformFeaturesSection = () => {
         <section className="relative w-full pt-12 pb-4 lg:pb-12 bg-[#000000] overflow-hidden border-b border-white/5 flex flex-col justify-center">
 
             {/* Text Content */}
-            <div className="relative z-20 container mx-auto px-6 lg:px-12 mb-20 shrink-0 max-w-[1400px]">
+            <div className="relative z-20 container mx-auto px-4 sm:px-10 lg:px-20 mb-20 shrink-0">
                 <motion.div
                     initial={{ opacity: 0, y: 10 }}
                     whileInView={{ opacity: 1, y: 0 }}
                     viewport={{ once: true }}
-                    className="max-w-4xl mb-16"
+                    className="max-w-5xl mb-16"
                 >
                     <h2 className="text-3xl md:text-4xl lg:text-[42px] leading-[1.25] tracking-tight font-medium text-transparent bg-clip-text bg-gradient-to-b from-[#8A8F98] to-[#8A8F98]/70">
                         <span className="bg-clip-text text-transparent bg-gradient-to-b from-white to-white/70 font-bold">Unified system.</span> Agentflox provides the complete platform for users to manage their work and build AI Agent and orchestrate their entire AI workforce in one environment.
@@ -362,7 +362,7 @@ export const PlatformFeaturesSection = () => {
             {/* Dense Bento Grid Layout with Interactive Hover */}
             <div className="relative z-10 w-full flex-1 flex items-center justify-center pb-0 lg:pb-8">
                 <div className="[mask-image:radial-gradient(ellipse_95%_95%_at_50%_50%,#000_20%,transparent_90%)] w-full flex justify-center">
-                    <div className="container px-2 sm:px-4 max-w-[1400px]">
+                    <div className="container mx-auto px-4 sm:px-10 lg:px-20">
                         <div className="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-10 gap-2 lg:gap-3 w-full">
 
                             {/* THE 4 BIG CENTER CARDS */}

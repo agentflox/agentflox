@@ -1,7 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { Plus, Settings, UserPlus, Eye, Check, ChevronDown, Bot, Zap } from "lucide-react";
+import { Settings, Check, ChevronDown, Zap } from "lucide-react";
 import { useAutomations } from "../hooks/useAutomations";
 import { ActiveToggle } from "./shared/ActiveToggle";
 import { Badge } from "@/components/ui/badge";
@@ -15,14 +15,14 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 function AgentIcon({ className }: { className?: string }) {
-    return (
-        <img
-            src="/images/ai-agent-removebg-preview.png"
-            alt=""
-            aria-hidden
-            className={cn("h-5 w-5 shrink-0", className)}
-        />
-    );
+  return (
+    <img
+      src="/images/ai-agent-removebg-preview.png"
+      alt=""
+      aria-hidden
+      className={cn("h-5 w-5 shrink-0", className)}
+    />
+  );
 }
 
 export function AutomationsHubPopover({
@@ -84,41 +84,53 @@ export function AutomationsHubPopover({
       <div className="flex items-center justify-between mb-2">
         <span className="text-xs text-violet-600 font-medium">{activeCount} total active</span>
       </div>
-      <div className="grid grid-cols-3 gap-2">
-        <button type="button" onClick={() => onCreate("classic")} className="rounded-xl border border-zinc-200 p-3 text-left hover:bg-zinc-50 min-h-[88px] cursor-pointer">
-          <div className="h-8 w-8 rounded-lg bg-sky-100 flex items-center justify-center mb-2">
-            <Plus className="h-4 w-4 text-sky-700" />
-          </div>
-          <p className="text-xs font-medium">Create Automation</p>
-        </button>
-        <button type="button" onClick={() => onCreate("classic")} className="rounded-xl border border-zinc-200 p-3 text-left hover:bg-zinc-50 min-h-[88px] cursor-pointer">
-          <UserPlus className="h-4 w-4 text-zinc-500 mb-6" />
-          <p className="text-xs font-medium">Auto assign</p>
-        </button>
-        <button type="button" onClick={() => onCreate("classic")} className="rounded-xl border border-zinc-200 p-3 text-left hover:bg-zinc-50 min-h-[88px] cursor-pointer">
-          <Eye className="h-4 w-4 text-zinc-500 mb-6" />
-          <p className="text-xs font-medium">Auto follow</p>
-        </button>
-        {items.slice(0, 6).map((rule: any) => (
-          <div
-            key={rule.id}
-            className={cn(
-              "rounded-xl border p-3 min-h-[88px]",
-              rule.isActive ? "border-violet-300 bg-violet-50" : "border-zinc-200",
-              rule.kind === "AGENT" && rule.isActive && (!rule.aiAgent || !rule.aiAgent.isActive) && "border-amber-300 bg-amber-50",
-            )}
-          >
-            <div className="flex justify-between items-start">
-              {rule.isActive ? <Check className="h-4 w-4 text-violet-600" /> : <div />}
-              <ActiveToggle
-                checked={rule.isActive}
-                onCheckedChange={(v) => setActive.mutate({ id: rule.id, isActive: v })}
-              />
-            </div>
-            <p className="text-xs font-medium mt-4 line-clamp-2">{rule.name}</p>
-          </div>
-        ))}
-      </div>
+      {list.isLoading ? (
+        <p className="text-xs text-zinc-400 py-8 text-center">Loading automations…</p>
+      ) : items.length === 0 ? (
+        <p className="text-xs text-zinc-400 py-8 text-center">No automations in {loc} yet.</p>
+      ) : (
+        <div className="grid grid-cols-3 gap-2">
+          {items.map((rule: any) => {
+            const agentMismatch =
+              rule.kind === "AGENT" && rule.isActive && (!rule.aiAgent || !rule.aiAgent.isActive);
+            return (
+              <div
+                key={rule.id}
+                className={cn(
+                  "rounded-xl border p-3 min-h-[88px]",
+                  rule.isActive ? "border-violet-300 bg-violet-50" : "border-zinc-200",
+                  agentMismatch && "border-amber-300 bg-amber-50",
+                )}
+              >
+                <div className="flex justify-between items-start">
+                  {rule.isActive ? <Check className="h-4 w-4 text-violet-600" /> : <div />}
+                  <ActiveToggle
+                    checked={rule.isActive}
+                    onCheckedChange={(v) => setActive.mutate({ id: rule.id, isActive: v })}
+                  />
+                </div>
+                <div className="mt-3 flex items-start gap-2">
+                  {rule.kind === "AGENT" ? (
+                    rule.aiAgent?.avatar ? (
+                      <img src={rule.aiAgent.avatar} alt="" className="h-5 w-5 rounded object-cover shrink-0 mt-0.5" />
+                    ) : (
+                      <AgentIcon className="h-4 w-4 text-violet-600 shrink-0 mt-0.5" />
+                    )
+                  ) : (
+                    <Zap className="h-4 w-4 text-sky-600 shrink-0 mt-0.5" />
+                  )}
+                  <div className="min-w-0">
+                    <p className="text-xs font-medium line-clamp-2">{rule.name}</p>
+                    {rule.description ? (
+                      <p className="text-[11px] text-zinc-500 line-clamp-2 mt-0.5">{rule.description}</p>
+                    ) : null}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

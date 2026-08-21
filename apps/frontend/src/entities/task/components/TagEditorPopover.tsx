@@ -4,44 +4,44 @@ import React, { useState, useEffect } from "react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
-import { Trash2, Slash, Plus } from "lucide-react";
+import { Trash2, Slash, Plus, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { parseEncodedTag, formatEncodedTag } from "../utils/tags";
+import { TagManagerModal } from "@/entities/tags/components/TagManagerModal";
 
 const TAG_COLOR_PALETTE = [
     "#e5e7eb", // zinc-200
-    "#fee2e2", // red-100
-    "#ffedd5", // orange-100
-    "#fef3c7", // amber-100
-    "#dcfce7", // green-100
-    "#dbeafe", // blue-100
-    "#e0e7ff", // indigo-100
-    "#f5d0fe", // fuchsia-100
-    "#fce7f3", // pink-100
-    "#f3e8ff", // violet-100
-    "#e2f3ff", // custom light blue
-    "#defbf6", // teal-ish
-    "#fef9c3", // yellow-100
-    "#fee2f2", // rose-100
+    "#c4b5fd", // lavender
+    "#93c5fd", // soft blue
+    "#7dd3fc", // sky blue
+    "#6ee7b7", // mint
+    "#fde047", // yellow
+    "#fdba74", // orange
+    "#fca5a1", // soft red
+    "#f9a8d4", // pink
+    "#d8b4fe", // purple
+    "#d4d4d8", // tan/gray
 ];
 
 interface TagEditorPopoverProps {
     tag: string;
     tags: string[];
     onChange: (nextTags: string[]) => void;
+    workspaceId?: string;
     children: React.ReactNode;
 }
 
-export function TagEditorPopover({ tag, tags, onChange, children }: TagEditorPopoverProps) {
+export function TagEditorPopover({ tag, tags, onChange, workspaceId, children }: TagEditorPopoverProps) {
     const [open, setOpen] = useState(false);
     const [name, setName] = useState("");
     const [color, setColor] = useState("");
+    const [isTagManagerOpen, setIsTagManagerOpen] = useState(false);
 
     useEffect(() => {
         if (open) {
             const parsed = parseEncodedTag(tag);
             setName(parsed.label);
-            setColor(parsed.color ?? "#f3e8ff");
+            setColor(parsed.color ?? "#e5e7eb");
         }
     }, [open, tag]);
 
@@ -54,76 +54,110 @@ export function TagEditorPopover({ tag, tags, onChange, children }: TagEditorPop
     };
 
     return (
-        <Popover
-            open={open}
-            onOpenChange={(newOpen) => {
-                if (!newOpen && open) {
-                    handleSave();
-                }
-                setOpen(newOpen);
-            }}
-        >
-            <PopoverTrigger asChild>
-                {children}
-            </PopoverTrigger>
-            <PopoverContent className="w-[200px] p-3" side="right" align="start" sideOffset={8} collisionPadding={12}>
-                <div className="space-y-3">
-                    <Input
-                        value={name}
-                        onChange={(e) => setName(e.target.value)}
-                        placeholder="Name"
-                        className="h-8 text-sm"
-                        autoFocus
-                    />
-                    <div className="grid grid-cols-6 gap-1.5">
-                        {TAG_COLOR_PALETTE.map((c) => (
+        <>
+            <Popover
+                open={open}
+                onOpenChange={(newOpen) => {
+                    if (!newOpen && open) {
+                        handleSave();
+                    }
+                    setOpen(newOpen);
+                }}
+            >
+                <PopoverTrigger asChild>
+                    {children}
+                </PopoverTrigger>
+                <PopoverContent className="w-[230px] p-3 rounded-2xl shadow-xl border-zinc-200 bg-white" side="bottom" align="start" sideOffset={6}>
+                    <div className="space-y-3">
+                        {/* Input Row with Settings Gear Icon on the Right */}
+                        <div className="flex items-center gap-2">
+                            <Input
+                                value={name}
+                                onChange={(e) => setName(e.target.value)}
+                                placeholder="Tag name..."
+                                className="h-8 text-xs flex-1 rounded-lg border-zinc-200 focus-visible:ring-1 focus-visible:ring-purple-400"
+                                autoFocus
+                            />
                             <button
-                                key={c}
+                                type="button"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setOpen(false);
+                                    setIsTagManagerOpen(true);
+                                }}
+                                className="h-8 w-8 shrink-0 rounded-lg border border-zinc-200 bg-white hover:bg-zinc-50 flex items-center justify-center text-zinc-500 hover:text-zinc-800 transition-colors cursor-pointer shadow-2xs"
+                                title="Tag settings"
+                            >
+                                <Settings className="h-4 w-4" />
+                            </button>
+                        </div>
+
+                        {/* Color Selection Palette Grid */}
+                        <div className="grid grid-cols-6 gap-2 pt-1">
+                            {/* Clear/No Color */}
+                            <button
                                 type="button"
                                 className={cn(
-                                    "h-6 w-6 rounded-full border border-transparent flex items-center justify-center cursor-pointer",
-                                    color === c ? "ring-2 ring-violet-500 ring-offset-1" : ""
+                                    "h-6 w-6 rounded-full border border-zinc-200 flex items-center justify-center bg-white cursor-pointer transition-transform hover:scale-105",
+                                    !color && "ring-2 ring-zinc-300 ring-offset-2"
                                 )}
-                                style={{ backgroundColor: c }}
-                                onClick={() => setColor(c)}
+                                onClick={() => setColor("")}
+                                title="No color"
                             >
-                                {color === c && (
-                                    <span className="h-2 w-2 rounded-full bg-white" />
-                                )}
+                                <Slash className="h-3 w-3 text-red-500" />
                             </button>
-                        ))}
+
+                            {TAG_COLOR_PALETTE.map((c) => (
+                                <button
+                                    key={c}
+                                    type="button"
+                                    className={cn(
+                                        "h-6 w-6 rounded-full border border-transparent flex items-center justify-center cursor-pointer transition-transform hover:scale-105",
+                                        color === c ? "ring-2 ring-zinc-300 ring-offset-2" : ""
+                                    )}
+                                    style={{ backgroundColor: c }}
+                                    onClick={() => setColor(c)}
+                                />
+                            ))}
+                        </div>
+
+                        <Separator className="my-2" />
+
+                        {/* Add Color Option */}
                         <button
                             type="button"
-                            className="h-6 w-6 rounded-full border border-dashed border-zinc-300 flex items-center justify-center bg-zinc-100 text-zinc-400 text-xs cursor-pointer"
-                            onClick={() => setColor("")}
-                            title="No color"
+                            className="flex items-center gap-2 text-xs text-zinc-700 hover:bg-zinc-100 rounded-lg px-2 py-1.5 w-full cursor-pointer transition-colors"
+                            onClick={() => setColor("#c4b5fd")}
                         >
-                            <Slash className="h-3 w-3" />
+                            <Plus className="h-3.5 w-3.5 text-zinc-400" />
+                            <span>Add color</span>
                         </button>
+
+                        <Separator className="my-2" />
+
+                        {/* Delete Option */}
                         <button
                             type="button"
-                            className="h-6 w-6 rounded-full border border-dashed border-zinc-300 flex items-center justify-center bg-white text-zinc-400 text-xs cursor-pointer"
-                            onClick={() => setColor("#f3e8ff")}
-                            title="Default color"
+                            className="flex items-center gap-2 text-xs text-zinc-700 hover:text-red-700 hover:bg-red-50 rounded-lg px-2 py-1.5 w-full cursor-pointer transition-colors"
+                            onClick={() => {
+                                const nextTags = tags.filter((t) => t !== tag);
+                                onChange(nextTags);
+                                setOpen(false);
+                            }}
                         >
-                            <Plus className="h-3 w-3" />
+                            <Trash2 className="h-3.5 w-3.5 text-zinc-400 hover:text-red-600" />
+                            <span>Delete</span>
                         </button>
                     </div>
-                    <Separator className="my-4" />
-                    <button
-                        type="button"
-                        className="flex items-center gap-2 text-xs text-zinc-700 hover:text-red-700 hover:bg-red-50 rounded-md px-1.5 py-2 w-full cursor-pointer"
-                        onClick={() => {
-                            const nextTags = tags.filter((t) => t !== tag);
-                            onChange(nextTags);
-                            setOpen(false);
-                        }}
-                    >
-                        <Trash2 className="h-3.5 w-3.5" />
-                        <span>Delete</span>
-                    </button>
-                </div>
-            </PopoverContent>
-        </Popover>
+                </PopoverContent>
+            </Popover>
+
+            {/* Tag Manager Modal */}
+            <TagManagerModal
+                open={isTagManagerOpen}
+                onOpenChange={setIsTagManagerOpen}
+                workspaceId={workspaceId}
+            />
+        </>
     );
 }

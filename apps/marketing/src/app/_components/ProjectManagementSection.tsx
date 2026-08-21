@@ -6,9 +6,39 @@ import {
     Layout, Users, Bot, Zap, Database,
     MessageSquare, FolderKanban, BarChart3,
     Plus, CheckCircle2, Clock, List, Kanban, Calendar, FileText, LayoutDashboard, Settings, MoreHorizontal, MousePointer2,
-    Sparkles, Mail, PenTool, Github, Monitor, Box, Cpu, Figma, Slack, FileSpreadsheet, Cloud
+    Sparkles, Mail, PenTool, Github, Monitor, Box, Cpu, Figma, Slack, FileSpreadsheet, Cloud,
+    Brain, Share2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+// Matches the AgentIcon used in DashboardHeader
+const AgentIcon = ({ className }: { className?: string }) => (
+    <img
+        src="/images/ai-agent-removebg-preview.png"
+        alt=""
+        aria-hidden
+        className={cn("h-4 w-4 shrink-0", className)}
+    />
+);
+
+// --- TAG COLOR LOOKUP ---
+// IMPORTANT: Tailwind scans source files at build time for literal class
+// strings. Building class names dynamically (e.g. `bg-${color}-100`) means
+// Tailwind never sees the real class name and drops it from the generated
+// CSS, so the badge renders with no background/text/border color.
+// Using a static object like this keeps every class name as a complete
+// literal string somewhere in the source, so Tailwind always generates it.
+const tagStyles: Record<string, string> = {
+    indigo: "bg-indigo-100 text-indigo-700 border-indigo-200",
+    orange: "bg-orange-100 text-orange-700 border-orange-200",
+    blue: "bg-blue-100 text-blue-700 border-blue-200",
+    emerald: "bg-emerald-100 text-emerald-700 border-emerald-200",
+    red: "bg-red-100 text-red-700 border-red-200",
+    purple: "bg-purple-100 text-purple-700 border-purple-200",
+};
+
+const getTagClasses = (color?: string) =>
+    (color && tagStyles[color]) || "bg-gray-100 text-gray-700 border-gray-200";
 
 // --- FAKE MOUSE CURSOR ---
 const Cursor = ({ controls }: { controls: any }) => (
@@ -94,7 +124,11 @@ const RealAppDemo = () => {
         <motion.div key={task.id} layout layoutId={`card-${task.id}`} className="p-3 bg-white border border-gray-200 rounded-lg mb-3 shadow-sm hover:shadow-md transition-shadow">
             {task.status !== 'done' && (
                 <div className="flex items-center justify-between mb-2">
-                    {task.tag && <span className={`text-[10px] px-1.5 py-0.5 rounded bg-${task.tagColor}-100 text-${task.tagColor}-700 border border-${task.tagColor}-200`}>{task.tag}</span>}
+                    {task.tag && (
+                        <span className={cn("text-[10px] px-1.5 py-0.5 rounded border", getTagClasses(task.tagColor))}>
+                            {task.tag}
+                        </span>
+                    )}
                     {task.isAgent && (
                         <div className="w-5 h-5 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600">
                             <Bot size={12} />
@@ -123,7 +157,7 @@ const RealAppDemo = () => {
                 {task.title}
             </div>
             {task.tag && (
-                <div className={`text-[10px] px-2 py-0.5 rounded bg-${task.tagColor}-100 text-${task.tagColor}-700 w-24 text-center font-medium`}>
+                <div className={cn("text-[10px] px-2 py-0.5 rounded w-24 text-center font-medium", getTagClasses(task.tagColor))}>
                     {task.tag}
                 </div>
             )}
@@ -172,10 +206,6 @@ const RealAppDemo = () => {
                 {/* Dashboard Header Mock */}
                 <div className="h-14 border-b border-gray-200 bg-white flex items-center justify-between px-4 flex-shrink-0">
                     <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-md hover:bg-gray-100 flex items-center justify-center text-gray-500 cursor-pointer transition-colors">
-                            <Settings size={16} />
-                        </div>
-                        <div className="w-px h-4 bg-gray-200" />
                         <div className="flex items-center gap-2 text-sm font-medium min-w-0">
                             <span className="text-gray-500 hover:text-gray-900 cursor-pointer transition-colors flex items-center gap-1.5 min-w-0">
                                 <Layout size={14} className="shrink-0" />
@@ -188,12 +218,22 @@ const RealAppDemo = () => {
                             </span>
                         </div>
                     </div>
-                    <div className="flex items-center gap-2 hidden sm:flex">
-                        <div className="px-3 py-1.5 rounded-md bg-white hover:bg-gray-50 border border-gray-200 text-xs text-gray-600 font-medium cursor-pointer transition-colors flex items-center gap-2 shadow-sm">
-                            <Sparkles size={14} className="text-indigo-500" /> Ask AI
+                    <div className="items-center gap-1 hidden sm:flex">
+                        <div className="flex items-center gap-2 px-3 py-1.5 rounded-md text-xs text-gray-600 font-medium">
+                            <AgentIcon />
+                            <span>Agent</span>
                         </div>
-                        <div className="px-3 py-1.5 rounded-md bg-indigo-600 hover:bg-indigo-700 text-xs text-white font-medium cursor-pointer transition-colors shadow-sm">
-                            Share
+                        <div className="flex items-center gap-2 px-3 py-1.5 rounded-md text-xs text-gray-600 font-medium">
+                            <Zap size={14} className="fill-amber-500 text-amber-500" />
+                            <span>Automations</span>
+                        </div>
+                        <div className="flex items-center gap-2 px-3 py-1.5 rounded-md text-xs text-gray-600 font-medium">
+                            <Brain size={14} />
+                            <span>Ask AI</span>
+                        </div>
+                        <div className="flex items-center gap-2 px-3 py-1.5 rounded-md text-xs text-gray-600 font-medium">
+                            <Share2 size={14} />
+                            <span>Share</span>
                         </div>
                     </div>
                 </div>

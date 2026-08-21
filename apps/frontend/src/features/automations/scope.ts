@@ -76,3 +76,25 @@ export function elsewhereWhere(location: LocationPin) {
     NOT: notInScope.OR ? { OR: notInScope.OR } : undefined,
   };
 }
+
+/** Agents pinned exactly to this location (no parent/child inheritance). */
+export function exactScopeWhere(location: LocationPin) {
+  if (location.projectId) {
+    return { projectId: location.projectId };
+  }
+  if (location.spaceId) {
+    return { spaceId: location.spaceId, projectId: null };
+  }
+  if (location.teamId) {
+    return { teamId: location.teamId, spaceId: null, projectId: null };
+  }
+  if (location.workspaceId) {
+    return {
+      workspaceId: location.workspaceId,
+      teamId: null,
+      spaceId: null,
+      projectId: null,
+    };
+  }
+  return {};
+}

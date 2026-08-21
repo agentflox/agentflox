@@ -252,9 +252,9 @@ export const listRouter = router({
 
           // Add default statuses
           const defaultStatuses = [
-            { name: "To Do", type: "OPEN" as const, color: "#94A3B8", position: 0 },
-            { name: "In Progress", type: "IN_PROGRESS" as const, color: "#3B82F6", position: 1 },
-            { name: "Done", type: "COMPLETED" as const, color: "#10B981", position: 2 },
+            { name: "To Do", type: "NOT_STARTED" as const, color: "#94A3B8", position: 0 },
+            { name: "In Progress", type: "ACTIVE" as const, color: "#3B82F6", position: 1 },
+            { name: "Completed", type: "CLOSED" as const, color: "#10B981", position: 2 },
           ];
 
           await Promise.all(
@@ -612,9 +612,9 @@ export const listRouter = router({
 
         // Create default statuses for the list
         const defaultStatuses = [
-          { name: "To Do", type: "OPEN" as const, color: "#94A3B8", position: 0 },
-          { name: "In Progress", type: "IN_PROGRESS" as const, color: "#3B82F6", position: 1 },
-          { name: "Done", type: "COMPLETED" as const, color: "#10B981", position: 2 },
+          { name: "To Do", type: "NOT_STARTED" as const, color: "#94A3B8", position: 0 },
+          { name: "In Progress", type: "ACTIVE" as const, color: "#3B82F6", position: 1 },
+          { name: "Completed", type: "CLOSED" as const, color: "#10B981", position: 2 },
         ];
 
         await Promise.all(

@@ -222,6 +222,7 @@ function buildTaskListInclude(relationMode: TaskListRelationMode | undefined, us
           aiAgent: { select: { id: true, name: true, avatar: true } },
         },
       },
+      taskTags: { include: { tag: { select: { id: true, name: true, color: true } } } },
       watchers,
     };
   }
@@ -257,6 +258,7 @@ function buildTaskListInclude(relationMode: TaskListRelationMode | undefined, us
         blockedDependencies: true,
       },
     },
+    taskTags: { include: { tag: { select: { id: true, name: true, color: true } } } },
     watchers,
   } as const;
 }
@@ -540,6 +542,7 @@ export const taskRouter = router({
             },
           },
           activities: { include: { user: { select: { id: true, name: true, image: true } } } },
+          taskTags: { include: { tag: { select: { id: true, name: true, color: true } } } },
           _count: { select: { comments: true, attachments: true, checklists: true, other_tasks: true, dependencies: true, blockedDependencies: true } },
           other_tasks: {
             orderBy: { position: "asc" },
@@ -608,6 +611,7 @@ export const taskRouter = router({
       noStartTime: z.boolean().optional(),
       noEndTime: z.boolean().optional(),
       tags: z.array(z.string()).optional(),
+      tagIds: z.array(z.string()).optional(),
       visibility: z.enum(["PRIVATE", "ADMINS", "MEMBERS", "EVERYONE", "PUBLIC"]).default("PRIVATE"),
       isPublic: z.boolean().default(false),
       position: z.string().optional(),
@@ -649,15 +653,19 @@ export const taskRouter = router({
       if (input.statusId !== undefined) {
         data.statusId = input.statusId?.startsWith('system:') ? undefined : input.statusId;
       } else {
-        // Default to the TODO status for the list (or workspace/space/project scope)
-        const todoStatus = await prisma.taskStatus.findFirst({
+        // Default to the NOT_STARTED / TODO status for the list (or workspace scope)
+        const defaultStatus = await prisma.taskStatus.findFirst({
           where: {
-            ...(input.listId ? { lists: { some: { id: input.listId } } } : {}),
+            ...(input.listId ? { listId: input.listId } : {}),
             ...(input.workspaceId && !input.listId ? { workspaceId: input.workspaceId } : {}),
-            name: { equals: 'TODO', mode: 'insensitive' },
+            OR: [
+              { type: 'NOT_STARTED' },
+              { name: { in: ['TODO', 'To Do', 'Not Started', 'Open'], mode: 'insensitive' } },
+            ],
           },
+          orderBy: { position: 'asc' },
         });
-        if (todoStatus) data.statusId = todoStatus.id;
+        if (defaultStatus) data.statusId = defaultStatus.id;
       }
       if (input.description !== undefined) data.description = input.description;
       // Default priority to LOW when not provided
@@ -768,6 +776,14 @@ export const taskRouter = router({
           });
         }
 
+        // Sync TaskTag records for the new Tag model
+        if (input.tagIds && input.tagIds.length > 0) {
+          await tx.taskTag.createMany({
+            data: input.tagIds.map((tagId) => ({ taskId: task.id, tagId })),
+            skipDuplicates: true,
+          });
+        }
+
         return task;
       });
 
@@ -817,6 +833,7 @@ export const taskRouter = router({
       noEndTime: z.boolean().optional(),
       timeEstimate: z.number().optional().nullable(),
       tags: z.array(z.string()).optional(),
+      tagIds: z.array(z.string()).optional(),
       listId: z.string().optional().nullable(),
       parentId: z.string().optional().nullable(),
       assigneeId: z.string().optional().nullable(),
@@ -836,7 +853,7 @@ export const taskRouter = router({
     }))
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.session!.user!.id;
-      const { id, isStarred, ...updateData } = input;
+      const { id, isStarred, tagIds, ...updateData } = input;
 
       // Check permission via backend API (respects visibility, location permissions, etc.)
       const perm = await permissionsService.permissions.resolvePermission("task", id, ctx.session);
@@ -954,6 +971,17 @@ export const taskRouter = router({
             });
           } else {
             await tx.taskWatcher.deleteMany({ where: { taskId: id, userId } });
+          }
+        }
+
+        // Sync TaskTag records when tagIds provided
+        if (tagIds !== undefined) {
+          await tx.taskTag.deleteMany({ where: { taskId: id } });
+          if (tagIds.length > 0) {
+            await tx.taskTag.createMany({
+              data: tagIds.map((tagId) => ({ taskId: id, tagId })),
+              skipDuplicates: true,
+            });
           }
         }
 
@@ -1985,18 +2013,18 @@ export const taskRouter = router({
 
         const saved = existing
           ? await prisma.customFieldValue.update({
-              where: { id: existing.id },
-              data: { value: input.value },
-              include: { customField: true },
-            })
+            where: { id: existing.id },
+            data: { value: input.value },
+            include: { customField: true },
+          })
           : await prisma.customFieldValue.create({
-              data: {
-                taskId: input.taskId,
-                customFieldId: input.customFieldId,
-                value: input.value,
-              },
-              include: { customField: true },
-            });
+            data: {
+              taskId: input.taskId,
+              customFieldId: input.customFieldId,
+              value: input.value,
+            },
+            include: { customField: true },
+          });
 
         const task = await prisma.task.findUnique({
           where: { id: input.taskId },

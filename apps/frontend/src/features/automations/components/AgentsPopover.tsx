@@ -1,6 +1,5 @@
 "use client";
 
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ChevronDown } from "lucide-react";
 import { trpc } from "@/lib/trpc";
@@ -16,14 +15,14 @@ export type AgentPanelRequest = {
 };
 
 function AgentIcon({ className }: { className?: string }) {
-    return (
-        <img
-            src="/images/ai-agent-removebg-preview.png"
-            alt=""
-            aria-hidden
-            className={cn("h-5 w-5 shrink-0", className)}
-        />
-    );
+  return (
+    <img
+      src="/images/ai-agent-removebg-preview.png"
+      alt=""
+      aria-hidden
+      className={cn("h-5 w-5 shrink-0", className)}
+    />
+  );
 }
 
 export function AgentsPopover({
@@ -38,18 +37,24 @@ export function AgentsPopover({
     spaceId: scope.spaceId,
     teamId: scope.teamId,
     projectId: scope.projectId,
-    scopeMode: "inScope",
-    pageSize: 24,
+    scopeMode: "exact",
+    pageSize: 50,
     includeRelations: true,
   });
-  const recommended = trpc.automation.recommendedAgents.useQuery({ workspaceId: scope.workspaceId || "" }, { enabled: !!scope.workspaceId });
   const activate = trpc.agent.activate.useMutation({ onSuccess: () => agents.refetch() });
   const deactivate = trpc.agent.deactivate.useMutation({ onSuccess: () => agents.refetch() });
   const createAgent = trpc.agent.create.useMutation();
 
   const items = agents.data?.items ?? [];
   const activeCount = items.filter((a: any) => a.isActive).length;
-  const locLabel = scope.contextType === "SPACE" ? "Space" : scope.contextType === "TEAM" ? "Team" : scope.contextType === "PROJECT" ? "Project" : "Workspace";
+  const locLabel =
+    scope.contextType === "SPACE"
+      ? "Space"
+      : scope.contextType === "TEAM"
+        ? "Team"
+        : scope.contextType === "PROJECT"
+          ? "Project"
+          : "Workspace";
 
   const handleAdd = async () => {
     try {
@@ -95,38 +100,42 @@ export function AgentsPopover({
       </div>
       <div className="px-4 pb-3 overflow-y-auto">
         <div className="flex items-center justify-between mb-3">
-          <p className="text-xs font-medium text-zinc-500">Agents in {locLabel}</p>
+          <p className="text-xs font-medium text-zinc-500">Agents in {scope.contextName || locLabel}</p>
           <span className="text-xs text-violet-600 font-medium">{activeCount} total active</span>
         </div>
-        <div className="grid grid-cols-2 gap-2">
-          {items.map((agent: any) => (
-            <AgentCard
-              key={agent.id}
-              title={agent.name}
-              subtitle={agent.owner?.name ? `by ${agent.owner.name}` : "Agent"}
-              active={agent.isActive}
-              onToggle={async (v) => {
-                try {
-                  if (v) await activate.mutateAsync({ agentId: agent.id });
-                  else await deactivate.mutateAsync({ agentId: agent.id });
-                } catch (e: any) {
-                  toast.error(e.message || "Failed to update agent");
+        {agents.isLoading ? (
+          <p className="text-xs text-zinc-400 py-8 text-center">Loading agents…</p>
+        ) : items.length === 0 ? (
+          <p className="text-xs text-zinc-400 py-8 text-center">No agents in this {locLabel.toLowerCase()} yet.</p>
+        ) : (
+          <div className="grid grid-cols-2 gap-2">
+            {items.map((agent: any) => (
+              <AgentCard
+                key={agent.id}
+                title={agent.name}
+                subtitle={
+                  agent.description?.trim()
+                    || (agent.owner?.name ? `by ${agent.owner.name}` : "Agent")
                 }
-              }}
-              onEdit={() => onOpenAgentPanel({ mode: "operator", agentId: agent.id, initialTab: "profile" })}
-              onRun={() => onOpenAgentPanel({ mode: "executor", agentId: agent.id, initialTab: "chat" })}
-            />
-          ))}
-          {(recommended.data?.items ?? []).map((tpl) => (
-            <AgentCard
-              key={tpl.id}
-              title={tpl.title}
-              subtitle="Recommended"
-              recommended
-              onClick={handleAdd}
-            />
-          ))}
-        </div>
+                avatar={agent.avatar}
+                color={agent.color}
+                active={agent.isActive}
+                warning={agent.isActive && agent.isPaused ? "Paused" : undefined}
+                onToggle={async (v) => {
+                  try {
+                    if (v) await activate.mutateAsync({ agentId: agent.id });
+                    else await deactivate.mutateAsync({ agentId: agent.id });
+                  } catch (e: any) {
+                    toast.error(e.message || "Failed to update agent");
+                  }
+                }}
+                onEdit={() => onOpenAgentPanel({ mode: "operator", agentId: agent.id, initialTab: "profile" })}
+                onRun={() => onOpenAgentPanel({ mode: "executor", agentId: agent.id, initialTab: "chat" })}
+                onClick={() => onOpenAgentPanel({ mode: "operator", agentId: agent.id, initialTab: "profile" })}
+              />
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

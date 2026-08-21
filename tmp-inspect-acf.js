@@ -1,0 +1,10 @@
+const fs = require("fs");
+const path = "apps/frontend/src/features/automations/components/builders/ActionConfigFields.tsx";
+const s = fs.readFileSync(path, "utf8");
+const i = s.indexOf("serializeAction");
+console.log(JSON.stringify(s.slice(i, i + 250)));
+console.log("backslash-quote count", (s.match(/\\"/g) || []).length);
+console.log("has Button import", /import[\s\S]*Button/.test(s.slice(0, 40)));
+console.log("has cn utils", s.includes("@/lib/utils"));
+console.log("space before tags like < Button", (s.match(/< Button/g) || []).length);
+console.log("space before tags like < div", (s.match(/< div/g) || []).length);

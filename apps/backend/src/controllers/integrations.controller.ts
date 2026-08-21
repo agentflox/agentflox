@@ -5,6 +5,8 @@ import { AuthenticatedRequest, JwtAuthGuard } from '@/middleware/httpAuth';
 import { syncOAuthAccountsToVault } from '@/modules/integrations/oauth/connectSync';
 import { syncToolsToDatabase } from '@/services/agents/registry/sync';
 import { handleInboundWebhook } from '@/modules/workforce/integrations/triggerDispatcher';
+import { prisma } from '@/lib/prisma';
+import { WEBHOOK_TYPES } from '@/services/webhooks/types';
 
 @Controller('v1/integrations')
 export class IntegrationsController {
@@ -21,9 +23,9 @@ export class IntegrationsController {
     }
   }
 
-  @Post('webhooks/inbound/:workspaceId')
+  @Post('webhooks/inbound/:sourceId')
   async inboundWebhook(
-    @Param('workspaceId') workspaceId: string,
+    @Param('sourceId') sourceId: string,
     @Body() body: unknown,
     @Headers('x-webhook-secret') headerSecret: string | undefined,
     @Res() res: ExpressResponse,
@@ -39,13 +41,30 @@ export class IntegrationsController {
         return res.status(401).json({ error: 'Webhook secret required (body.secret or x-webhook-secret header)' });
       }
 
+      const hook = await prisma.webhook.findFirst({
+        where: {
+          type: WEBHOOK_TYPES.INTEGRATION,
+          isActive: true,
+          secret,
+          OR: [{ id: sourceId }, { sourceId }],
+        },
+      });
+      if (!hook) {
+        return res.status(401).json({ error: 'Invalid webhook secret or webhook not found' });
+      }
+
       const result = await handleInboundWebhook({
-        workspaceId,
+        sourceId: hook.sourceId || sourceId,
         secret,
         payload: parsed.payload,
       });
 
-      return res.json({ success: true, ...result });
+      await prisma.webhook.update({
+        where: { id: hook.id },
+        data: { lastTriggeredAt: new Date() },
+      });
+
+      return res.json({ success: true, webhookId: hook.id, ...result });
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ error: 'Invalid webhook payload', details: error.errors });
